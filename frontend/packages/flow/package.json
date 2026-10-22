@@ -1,0 +1,16 @@
+{
+  "name": "@supportx/flow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "React Flow nodes for workflows, life cycles and CMDB maps (architecture.md §6.7).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

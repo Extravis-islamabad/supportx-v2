@@ -1,0 +1,16 @@
+{
+  "name": "@supportx/forms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Metadata-driven form renderer and form-rule evaluator (architecture.md §6.6).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

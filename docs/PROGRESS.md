@@ -2,10 +2,11 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). Not started.
-- **Last completed:** Project bootstrap (rules, ADRs, plan). No application code yet.
-- **Next work package:** WP-001 (Monorepo skeleton and dev tooling).
-- **Blockers:** None for WP-001. WP-003 needs the CI platform decision; WP-014 needs k3d
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 1 of 15 work packages done.
+- **Last completed:** WP-001 (monorepo skeleton and dev tooling), 2026-10-22.
+- **Next work package:** WP-002 (local dev stack, Docker Compose). WP-004 and WP-009 are also
+  unblocked and could run in parallel.
+- **Blockers:** None for WP-002. WP-003 needs the CI platform decision; WP-014 needs k3d
   installed (D-003; Homebrew is not installed either).
 
 ### Open questions (awaiting product owner)
@@ -26,10 +27,10 @@ outbox and event bus; realtime pipeline; design system; licence core prototype; 
 of console and portal. Each WP is sized for one Claude Code session. Status: `[ ]` todo,
 `[~]` in progress, `[x]` done.
 
-### [ ] WP-001 — Monorepo skeleton and dev tooling
+### [x] WP-001 — Monorepo skeleton and dev tooling (done 2026-10-22)
 - **Goal:** Empty-but-real monorepo matching CLAUDE.md §4, with all quality tools wired.
-- **Scope:** `backend/` uv project (Python 3.12, ruff, mypy strict, pytest, import-linter config
-  with an empty contracts list); `frontend/` pnpm workspace with empty `apps/console`,
+- **Scope:** `backend/` uv project (Python 3.12, ruff, mypy strict, pytest, import-linter with a
+  module-boundary contract, `GET /api/v1/health`); `frontend/` pnpm workspace with empty `apps/console`,
   `apps/portal` and `packages/*` stubs (tsc strict, ESLint, Prettier, Vitest); `deploy/`,
   `licence-core/` placeholders with READMEs; root task runner (Makefile) with `lint`, `typecheck`,
   `test`, `format` targets.
@@ -181,6 +182,22 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   needed.
 
 ## Session log (newest first)
+
+### 2026-10-22 — WP-001 monorepo skeleton and dev tooling
+- Backend: uv project pinned to Python 3.12 (`.python-version`), FastAPI app factory with
+  `GET /api/v1/health`, §6.4 package layout, ruff (`select = ALL`), mypy strict, pytest +
+  pytest-asyncio + coverage (fail-under 90%), import-linter with a custom `module_boundaries`
+  contract (`backend/tooling/import_contracts.py`) plus a layers contract. 8 tests pass, 100% coverage.
+- Frontend: pnpm workspace (`frontend/`), console + portal (Vite 8, React 18.3, TS 5.9 strict,
+  Ant Design 5.29 with light/dark tokens, RTL switch, language picker), packages ui, labels
+  (humanize, label lookup, en/ar/ur resources), plus placeholder api-client, realtime, charts, forms
+  and flow. ESLint 10 flat config (typescript-eslint strict type-checked), Prettier, Vitest 5.
+  18 tests pass. Both production builds succeed (chunk-size warning, ~607 kB / 194 kB gzip).
+- Root: Makefile (setup, lint, typecheck, test, format, check, build), pre-commit (large files,
+  ruff, ruff-format, mypy, eslint, prettier), `tsconfig.base.json`, `.prettierrc.json`, `.nvmrc`
+  (24). Placeholder READMEs in `licence-core/`, `deploy/`, `mobile/`.
+- `make check` green. Follow-ups: route-level code splitting (WP-010/WP-015); copyright-header
+  policy (ruff CPY001 disabled for now).
 
 ### 2026-10-22 — Product owner decisions D-001..D-011
 - Created `docs/DECISIONS.md`; applied decisions to CLAUDE.md (stack, layout, monitoring boundary,

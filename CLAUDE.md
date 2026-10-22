@@ -87,8 +87,9 @@ backend/                     # architecture.md §6.4
   workers/                   # NATS consumers, Temporal workers
   migrations/                # Alembic
   tests/                     # app-level tests (health, wiring); module tests live in modules
+  tooling/                   # dev tooling code (custom import-linter contract), never imported by app
   pyproject.toml             # uv-managed; ruff, mypy strict, pytest, import-linter
-frontend/                    # pnpm workspace, architecture.md §9.2
+frontend/                    # pnpm workspace root (lockfile, eslint.config.js), architecture.md §9.2
   apps/console/  apps/portal/
   packages/ui/ api-client/ realtime/ labels/ charts/ forms/ flow/
   e2e/                       # Playwright
@@ -97,8 +98,12 @@ licence-core/                # Rust licence library (PyO3) — §13.7
 mobile/                      # React Native apps (later, §9.1)
 docs/
   specs/  specs/media/  adr/  DECISIONS.md  PROGRESS.md
-Makefile                     # setup, lint, typecheck, test, format, check
+Makefile                     # setup, lint, typecheck, test, format, check, build
+tsconfig.base.json  .prettierrc.json  .nvmrc  .pre-commit-config.yaml   # shared, repo-wide
 ```
+
+Run `make check` (lint + typecheck + test for backend and frontend) before reporting any task done.
+Python always runs through `uv run` (Python 3.12). Never use the system `python3`, which is 3.9.
 
 Modules (§6.1): identity_access, organization, work_items, service_catalog, knowledge, sla,
 automation, assets, cmdb, procurement, projects, esm, monitoring_integrations, discovery,

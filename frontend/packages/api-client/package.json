@@ -1,0 +1,16 @@
+{
+  "name": "@supportx/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Typed API client and TanStack Query hooks generated from the backend OpenAPI spec (architecture.md §9.2).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "@supportx/charts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "ECharts wrappers and the dashboard widget kit (architecture.md §9.6).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

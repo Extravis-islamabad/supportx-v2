@@ -1,0 +1,16 @@
+{
+  "name": "@supportx/realtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Centrifugo client, channel hooks and TanStack Query cache patching (architecture.md §8.3).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "catalog:"
+  }
+}

@@ -1,0 +1,89 @@
+[project]
+name = "supportx-backend"
+version = "0.1.0"
+description = "SupportX v2 Core API (modular monolith) and workers"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.160.0",
+    "pydantic>=2.14.1",
+]
+
+[tool.uv]
+# Not an installable distribution yet; tests import from the backend/ root (see pytest pythonpath).
+package = false
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "import-linter>=2.15",
+    "mypy>=2.4.0",
+    "pre-commit>=4.7.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+extend-exclude = ["migrations"]
+
+[tool.ruff.lint]
+# Strict: every rule family, minus the few that conflict with each other or with the formatter.
+select = ["ALL"]
+ignore = [
+    "COM812", # conflicts with ruff format
+    "ISC001", # conflicts with ruff format
+    "D203",   # conflicts with D211 (no blank line before class docstring)
+    "D213",   # conflicts with D212 (summary on first line)
+    "D100",   # module docstrings: optional, package layout carries the meaning
+    "D104",   # package docstrings: empty __init__.py files are intentional
+    "CPY001", # copyright headers: not adopted (no licence-header policy yet)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "D", "PLR2004"]
+"**/tests/**" = ["S101", "D", "PLR2004"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+files = ["app", "workers", "tests", "tooling"]
+
+[[tool.mypy.overrides]]
+# import-linter's Contract base class is untyped where we subclass it.
+module = ["tooling.import_contracts"]
+disallow_subclassing_any = false
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "app"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = ["--strict-markers", "--cov=app", "--cov=tooling", "--cov-report=term-missing"]
+
+[tool.coverage.report]
+# Spec (§16.2) puts the threshold on domain and service layers; revisit once modules exist.
+fail_under = 90
+skip_empty = true
+
+[tool.importlinter]
+root_packages = ["app", "workers", "tooling"]
+contract_types = ["module_boundaries: tooling.import_contracts.ModuleBoundariesContract"]
+
+[[tool.importlinter.contracts]]
+name = "Modules import only each other's public surface (package root, events)"
+type = "module_boundaries"
+container = "app.modules"
+public_submodules = ["events"]
+
+[[tool.importlinter.contracts]]
+name = "Platform layers: main > modules > shared > core"
+type = "layers"
+layers = ["app.main", "app.modules", "app.shared", "app.core"]

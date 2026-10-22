@@ -1,0 +1,18 @@
+{
+  "name": "@supportx/labels",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Label dictionary, humanize() and i18n resources (architecture.md §9.5).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

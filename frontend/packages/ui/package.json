@@ -1,0 +1,26 @@
+{
+  "name": "@supportx/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md §9.2).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supportx/labels": "workspace:*"
+  },
+  "peerDependencies": {
+    "antd": "catalog:",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "antd": "catalog:",
+    "react": "catalog:",
+    "typescript": "catalog:"
+  }
+}

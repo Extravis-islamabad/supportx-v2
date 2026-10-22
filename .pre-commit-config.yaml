@@ -1,0 +1,42 @@
+# Installed by `make setup`. Python and frontend hooks run the project's own pinned tools
+# (uv / pnpm lockfiles) instead of separate hook environments, so versions never drift.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ['--maxkb=1024']
+
+  - repo: local
+    hooks:
+      - id: ruff
+        name: ruff (lint)
+        entry: uv run --project backend ruff check --fix
+        language: system
+        types: [python]
+        files: ^backend/
+      - id: ruff-format
+        name: ruff (format)
+        entry: uv run --project backend ruff format
+        language: system
+        types: [python]
+        files: ^backend/
+      - id: mypy
+        name: mypy (strict)
+        entry: bash -c 'cd backend && uv run mypy'
+        language: system
+        types: [python]
+        files: ^backend/
+        pass_filenames: false
+      - id: eslint
+        name: eslint
+        entry: pnpm --dir frontend lint
+        language: system
+        files: ^frontend/.*\.(ts|tsx|js)$
+        pass_filenames: false
+      - id: prettier
+        name: prettier
+        entry: pnpm --dir frontend format:check
+        language: system
+        files: ^(frontend/|\.prettierrc\.json$|tsconfig\.base\.json$)
+        pass_filenames: false
