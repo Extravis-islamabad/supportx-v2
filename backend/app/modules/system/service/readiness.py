@@ -25,19 +25,24 @@ class ReadinessService:
         probes: Sequence[DependencyProbe],
         *,
         not_configured: Sequence[str] = (),
+        informational: Sequence[DependencyProbe] = (),
         timeout: float,
     ) -> None:
         self._probes = tuple(probes)
         self._not_configured = tuple(not_configured)
+        self._informational = tuple(informational)
         self._timeout = timeout
 
     async def check(self) -> ReadinessReport:
         """Run all probes at once; total time is bounded by the timeout, not their sum."""
-        results = await asyncio.gather(*(self._run(probe) for probe in self._probes))
+        results = await asyncio.gather(
+            *(self._run(probe) for probe in self._probes),
+            *(self._run(probe, critical=False) for probe in self._informational),
+        )
         missing = [CheckResult(name, CheckStatus.NOT_CONFIGURED) for name in self._not_configured]
         return ReadinessReport.of([*results, *missing])
 
-    async def _run(self, probe: DependencyProbe) -> CheckResult:
+    async def _run(self, probe: DependencyProbe, *, critical: bool = True) -> CheckResult:
         started = time.perf_counter()
         reason: FailureReason | None = None
         try:
@@ -56,5 +61,5 @@ class ReadinessService:
         latency_ms = round((time.perf_counter() - started) * 1000, 1)
         if reason is not None:
             log.warning("readiness_probe_failed", dependency=probe.name, reason=reason.value)
-            return CheckResult(probe.name, CheckStatus.FAILED, latency_ms, reason)
-        return CheckResult(probe.name, CheckStatus.OK, latency_ms)
+            return CheckResult(probe.name, CheckStatus.FAILED, latency_ms, reason, critical)
+        return CheckResult(probe.name, CheckStatus.OK, latency_ms, critical=critical)

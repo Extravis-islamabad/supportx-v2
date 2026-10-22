@@ -53,7 +53,7 @@ the 2xxxx range to avoid clashing with other projects; each one can be changed i
 
 | Service | Set | Local address | Dev login (password variable in `.env`) |
 |---|---|---|---|
-| PostgreSQL 16 + pgvector | core | `localhost:25432`, databases `supportx`, `keycloak`, `temporal`, `temporal_visibility` | App: `supportx_app` / `SUPPORTX_APP_PASSWORD`. Migrations: `supportx_migrator` / `SUPPORTX_MIGRATOR_PASSWORD`. Admin: `postgres` / `POSTGRES_SUPERUSER_PASSWORD` |
+| PostgreSQL 16 + pgvector | core | `localhost:25432`, databases `supportx`, `keycloak`, `temporal`, `temporal_visibility` | App: `supportx_app` / `SUPPORTX_APP_PASSWORD`. Outbox relay: `supportx_relay` / `SUPPORTX_RELAY_PASSWORD`. Migrations: `supportx_migrator` / `SUPPORTX_MIGRATOR_PASSWORD`. Admin: `postgres` / `POSTGRES_SUPERUSER_PASSWORD` |
 | PgBouncer (transaction mode) | core | `localhost:26432`, database `supportx` | `supportx_app` / `SUPPORTX_APP_PASSWORD` |
 | Valkey | core | `localhost:26379` | password `VALKEY_PASSWORD` (no username) |
 | NATS + JetStream | core | `nats://localhost:24222`, monitoring <http://localhost:28222> | none (dev) |
@@ -76,17 +76,26 @@ valkey-cli -p 26379 -a "$VALKEY_PASSWORD" ping                                  
 curl -u "supportx:$CLICKHOUSE_PASSWORD" 'http://localhost:28123/?query=SELECT%20version()'
 ```
 
-### Database roles (why there are three)
+### Database roles (why there are four)
 
-- `supportx_app` is what the API and workers use. It is **not** a superuser, owns nothing and has
+- `supportx_app` is what the API and the consumer worker use. It is **not** a superuser, owns nothing and has
   **no `BYPASSRLS`**, so PostgreSQL row-level security always applies to it. This is what keeps one
   tenant's data invisible to another (CLAUDE.md rule a). `make dev-check` proves it.
 - `supportx_migrator` owns the `supportx` database and schema; Alembic migrations run as this role.
   Tables it creates are automatically usable (read/write, no DDL) by `supportx_app`.
-- `postgres` is the bootstrap superuser, used only by the init script and `dev-check`.
+- `supportx_relay` is used only by the outbox relay (WP-007). It can read and mark the rows of
+  `outbox_events` for every tenant and has **no access to any other table** (not even `users`).
+  See [docs/architecture/events.md](architecture/events.md#database-roles).
+- `postgres` is the bootstrap superuser, used only by the init script, `db-bootstrap` and
+  `dev-check`.
 
-The app connects through PgBouncer (transaction pooling). Migrations, Keycloak and Temporal connect
-to PostgreSQL directly.
+The app connects through PgBouncer (transaction pooling). Migrations, the outbox relay, Keycloak
+and Temporal connect to PostgreSQL directly.
+
+**Upgrading an existing dev stack to WP-007:** run `make dev-init backend-env` (adds the relay
+password and URL to your `.env` files without touching existing values), then `make db-migrate`.
+`db-migrate` first runs `make db-bootstrap`, which creates any role your data volume does not
+have yet (here `supportx_relay`); it never changes existing passwords or data.
 
 ### Database: migrations and demo data
 
@@ -96,7 +105,25 @@ make db-migrate     # create/upgrade tables (as supportx_migrator, directly to P
 make db-seed        # demo tenant (idempotent, never deletes or changes existing data)
 make db-guard       # check that every table is tenant-isolated (RLS)
 make db-current     # which migration the database is at
+make db-bootstrap   # create missing roles/grants (run automatically by db-migrate)
 ```
+
+### Events: watching them flow (WP-007)
+
+Four terminals (the API, the relay, the consumers, a live view):
+
+```bash
+make backend-dev        # 1: the API (writes events to the outbox)
+make worker-relay       # 2: outbox -> NATS JetStream
+make worker-consumers   # 3: runs module consumers; in dev it logs every event it receives
+make events-tail        # 4: prints every event as it arrives (Ctrl+C to stop)
+```
+
+Sign in and out of the console (<http://localhost:5173>) and you see
+`identity_access.user.logged_in` / `identity_access.user.logged_out` appear within a second in
+terminals 3 and 4. Other commands: `make events-tail since=10m`, `make events-tail
+type=identity_access.>`, `make events-stats`, `make dlq-list`, `make dlq-replay seq=<n>`. Full
+guide: [docs/architecture/events.md](architecture/events.md).
 
 The dev tenants always have the same IDs; they match the Keycloak organizations' `tenant_id`
 attribute:

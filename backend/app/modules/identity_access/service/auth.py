@@ -18,6 +18,7 @@ from datetime import timedelta
 from typing import Any, Literal
 
 from fastapi import Request
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
 from app.core.database import Database
@@ -48,7 +49,7 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore
-from app.modules.identity_access.service.users import provision_user, tenant_name
+from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
 from app.shared.clock import Clock
 
 log = get_logger(__name__)
@@ -60,6 +61,10 @@ CALLBACK_PATH = "/api/v1/auth/callback"
 LOGIN_STATE_TTL = timedelta(minutes=10)
 REFRESH_LOCK_TTL = timedelta(seconds=15)
 TOUCH_INTERVAL = timedelta(seconds=60)
+
+
+def _client_app(session: Session) -> AppName:
+    return "portal" if session.client == "portal" else "console"
 
 
 class LoginFailure(Exception):
@@ -228,7 +233,14 @@ class AuthService:
         if not choices:
             raise PermissionDenied(code="tenant_not_provisioned")
         target = next((c for c in choices if active and c.tenant_id == str(active)), choices[0])
-        user = await provision_user(self.database, uuid.UUID(target.tenant_id), identity, now)
+        user = await provision_user(
+            self.database,
+            uuid.UUID(target.tenant_id),
+            identity,
+            now,
+            client=app,
+            reason="login",
+        )
         return Session(
             subject=identity.subject,
             user_id=str(user.user_id),
@@ -305,7 +317,7 @@ class AuthService:
         """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not."""
         if not await self.store.lock(session_id, REFRESH_LOCK_TTL):
             return session  # another request is refreshing this session right now
-        client = self.client("portal" if session.client == "portal" else "console")
+        client = self.client(_client_app(session))
         try:
             tokens = await self.oidc.refresh(client, session.refresh_token)
             identity = await self._identity(tokens, client, nonce=None)
@@ -338,11 +350,20 @@ class AuthService:
     async def logout(self, session_id: str, session: Session) -> None:
         """End the local session and the Keycloak SSO session (back channel)."""
         await self.store.delete_session(session_id)
-        client = self.client("portal" if session.client == "portal" else "console")
+        client = self.client(_client_app(session))
         try:
             await self._end_keycloak_session(client, session.refresh_token)
         except IdentityProviderUnavailable:
             log.warning("keycloak_logout_failed", subject=session.subject)
+        # Last, and never fatal: the session is already gone, which is what the user asked for.
+        # The session lives in Valkey, so this event cannot share a transaction with it.
+        if self.database is not None:
+            try:
+                await record_logout(
+                    self.database, session.tenant_uuid, session.user_uuid, _client_app(session)
+                )
+            except (SQLAlchemyError, OSError):
+                log.exception("logout_event_not_recorded", subject=session.subject)
 
     async def _end_keycloak_session(self, client: ClientCredentials, refresh_token: str) -> None:
         if not await self.oidc.end_session(client, refresh_token):
@@ -365,7 +386,14 @@ class AuthService:
             memberships=(),
             keycloak_session_id=session.keycloak_session_id,
         )
-        user = await provision_user(self.database, tenant_id, identity, self.clock.now())
+        user = await provision_user(
+            self.database,
+            tenant_id,
+            identity,
+            self.clock.now(),
+            client=_client_app(session),
+            reason="tenant_switch",
+        )
         switched = replace(
             session,
             tenant_id=str(tenant_id),

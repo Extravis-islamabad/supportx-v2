@@ -20,6 +20,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.modules import ModuleRegistry, discover_modules
 from app.core.telemetry import setup_tracing
+from app.shared.events import EventRegistry, install_registry
 
 API_V1_PREFIX = "/api/v1"
 OPENAPI_URL = f"{API_V1_PREFIX}/openapi.json"
@@ -31,7 +32,13 @@ log = get_logger(__name__)
 def create_app(settings: Settings | None = None, registry: ModuleRegistry | None = None) -> FastAPI:
     """Build the Core API. Tests pass their own settings and, if needed, a module registry."""
     settings = settings or get_settings()
+    discovered = registry is None
     registry = registry or ModuleRegistry.from_specs(discover_modules())
+    # Fails at startup if any module breaks the event naming/versioning rules. Only the real module
+    # set becomes the process registry; a test's hand-made registry is validated, not installed.
+    events = EventRegistry.from_modules(registry.modules)
+    if discovered:
+        install_registry(events)
     configure_logging(settings)
     docs = settings.effective_api_docs_enabled
 
@@ -66,7 +73,6 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     )
     app.state.settings = settings
     app.state.modules = registry
-    app.state.event_handlers = registry.event_handlers()
 
     install_error_handlers(app)
     # Last added runs first: security headers wrap everything, including the 500 responses that

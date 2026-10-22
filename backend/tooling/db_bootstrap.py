@@ -4,13 +4,14 @@ The definitions live in tooling/sql/*.sql and are executed by BOTH this module (
 CI) and the dev stack's PostgreSQL init script (with psql), so they cannot drift. This module
 contains a tiny runner for the psql subset those files use (see tooling/sql/README.md).
 
-CLI (CI): python -m tooling.db_bootstrap --database supportx
-  env: SUPPORTX_TEST_ADMIN_URL, SUPPORTX_TEST_APP_PASSWORD, SUPPORTX_TEST_MIGRATOR_PASSWORD
+CLI: python -m tooling.db_bootstrap --database supportx  (CI, and `make db-bootstrap` for the dev
+stack, where it adds roles created after the data volume was first initialised, e.g. supportx_relay)
+  env: SUPPORTX_TEST_ADMIN_URL, SUPPORTX_TEST_APP_PASSWORD, SUPPORTX_TEST_MIGRATOR_PASSWORD,
+  SUPPORTX_TEST_RELAY_PASSWORD; without them the dev stack's deploy/compose/.env is used.
 """
 
 import argparse
 import asyncio
-import os
 import re
 import sys
 from collections.abc import Mapping
@@ -122,9 +123,16 @@ async def drop_test_database(admin: asyncpg.Connection, name: str) -> None:
     await admin.execute(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)")
 
 
-async def bootstrap(
-    admin_url: str, database: str, app_password: str, migrator_password: str
-) -> bool:
+@dataclass(frozen=True)
+class RolePasswords:
+    """Passwords for roles that do not exist yet (existing roles keep theirs)."""
+
+    app: str
+    migrator: str
+    relay: str
+
+
+async def bootstrap(admin_url: str, database: str, passwords: RolePasswords) -> bool:
     """Roles + database + schema. Idempotent; never drops or alters data. True if created."""
     _check_database_name(database)
     admin = await asyncpg.connect(admin_url)
@@ -132,7 +140,11 @@ async def bootstrap(
         await run_script(
             admin,
             "roles.sql",
-            {"app_password": app_password, "migrator_password": migrator_password},
+            {
+                "app_password": passwords.app,
+                "migrator_password": passwords.migrator,
+                "relay_password": passwords.relay,
+            },
         )
         existed = await admin.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", database)
         await run_script(admin, "database.sql", {"database": database})
@@ -147,18 +159,17 @@ async def bootstrap(
 
 
 def main(argv: list[str]) -> int:  # pragma: no cover - thin CLI over tested functions
-    """CLI entry point used by CI."""
+    """CLI entry point used by CI and `make db-bootstrap`."""
+    from tooling import db_testing  # noqa: PLC0415 - db_testing imports this module
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--database", default="supportx")
     args = parser.parse_args(argv)
-    created = asyncio.run(
-        bootstrap(
-            os.environ["SUPPORTX_TEST_ADMIN_URL"],
-            args.database,
-            os.environ["SUPPORTX_TEST_APP_PASSWORD"],
-            os.environ["SUPPORTX_TEST_MIGRATOR_PASSWORD"],
-        )
-    )
+    config = db_testing.load_config()
+    if config is None:
+        sys.stderr.write("no database configured (SUPPORTX_TEST_ADMIN_URL or make dev-init)\n")
+        return 2
+    created = asyncio.run(bootstrap(config.admin_url, args.database, config.passwords))
     sys.stdout.write(f"database {args.database}: {'created' if created else 'already present'}\n")
     return 0
 

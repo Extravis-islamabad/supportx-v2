@@ -21,6 +21,8 @@ class FailureReason(StrEnum):
     UNREACHABLE = "unreachable"
     AUTH_FAILED = "auth_failed"
     UNEXPECTED_RESPONSE = "unexpected_response"
+    NOT_RUNNING = "not_running"  # a worker that should send heartbeats sent none
+    STALE_HEARTBEAT = "stale_heartbeat"  # its last heartbeat is too old
     ERROR = "error"
 
 
@@ -53,27 +55,41 @@ class CheckResult:
     status: CheckStatus
     latency_ms: float | None = None
     reason: FailureReason | None = None
+    # Informational checks (the event workers) are reported but never make the API unready:
+    # taking API pods out of service because the relay is down would turn a delay into an outage.
+    critical: bool = True
 
 
 @dataclass(frozen=True)
 class ReadinessReport:
     """All dependency checks.
 
-    Ready only if every dependency is OK: an unconfigured one counts as not ready, because the
-    process cannot do its job without it.
+    Ready only if every critical dependency is OK: an unconfigured one counts as not ready,
+    because the process cannot do its job without it.
     """
 
     checks: Mapping[str, CheckResult]
 
     @property
     def ready(self) -> bool:
-        """True when every check passed."""
-        return all(result.status is CheckStatus.OK for result in self.checks.values())
+        """True when every critical check passed."""
+        return all(r.status is CheckStatus.OK for r in self.checks.values() if r.critical)
 
     @property
     def failed(self) -> list[str]:
-        """Names of the dependencies that are not OK."""
-        return [name for name, r in self.checks.items() if r.status is not CheckStatus.OK]
+        """Names of the critical dependencies that are not OK."""
+        return [
+            name for name, r in self.checks.items() if r.critical and r.status is not CheckStatus.OK
+        ]
+
+    @property
+    def degraded(self) -> list[str]:
+        """Names of informational checks that are not OK (e.g. the outbox relay is down)."""
+        return [
+            name
+            for name, r in self.checks.items()
+            if not r.critical and r.status is not CheckStatus.OK
+        ]
 
     @classmethod
     def of(cls, results: Iterable[CheckResult]) -> "ReadinessReport":

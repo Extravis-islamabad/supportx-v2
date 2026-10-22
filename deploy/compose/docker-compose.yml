@@ -31,6 +31,7 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --auth-host=scram-sha-256"
       SUPPORTX_MIGRATOR_PASSWORD: ${SUPPORTX_MIGRATOR_PASSWORD:?run make dev-init}
       SUPPORTX_APP_PASSWORD: ${SUPPORTX_APP_PASSWORD:?run make dev-init}
+      SUPPORTX_RELAY_PASSWORD: ${SUPPORTX_RELAY_PASSWORD:?run make dev-init}
       KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?run make dev-init}
       TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:?run make dev-init}
     command:

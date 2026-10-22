@@ -17,6 +17,7 @@ from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.events import EVENTS
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
@@ -64,7 +65,11 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 module = ModuleSpec(
-    name="identity_access", routers=[router], on_startup=[_startup], on_shutdown=[_shutdown]
+    name="identity_access",
+    routers=[router],
+    on_startup=[_startup],
+    on_shutdown=[_shutdown],
+    events=EVENTS,
 )
 
 __all__ = ["UserType", "module"]

@@ -1,5 +1,5 @@
 import sys
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -74,7 +74,7 @@ def test_duplicate_names_are_rejected() -> None:
         ModuleRegistry.from_specs([ModuleSpec(name="a"), ModuleSpec(name="a")])
 
 
-async def test_hooks_routers_and_event_handlers_are_wired(
+async def test_hooks_and_routers_are_wired(
     settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
 ) -> None:
     calls: list[str] = []
@@ -84,9 +84,6 @@ async def test_hooks_routers_and_event_handlers_are_wired(
             calls.append(label)
 
         return run
-
-    async def on_created(_event: Mapping[str, Any]) -> None:
-        return None
 
     first_router = APIRouter(prefix="/first")
 
@@ -101,13 +98,11 @@ async def test_hooks_routers_and_event_handlers_are_wired(
                 routers=[first_router],
                 on_startup=[hook("first.start")],
                 on_shutdown=[hook("first.stop.1"), hook("first.stop.2")],
-                event_handlers={"tickets.created": [on_created]},
             ),
             ModuleSpec(
                 name="second",
                 on_startup=[hook("second.start")],
                 on_shutdown=[hook("second.stop")],
-                event_handlers={"tickets.created": [on_created], "sla.breached": [on_created]},
             ),
         ]
     )
@@ -117,7 +112,3 @@ async def test_hooks_routers_and_event_handlers_are_wired(
         assert (await client.get("/api/v1/first/ping")).json() == {"module": "first"}
 
     assert calls[2:] == ["second.stop", "first.stop.2", "first.stop.1"]
-    assert {k: len(v) for k, v in app.state.event_handlers.items()} == {
-        "tickets.created": 2,
-        "sla.breached": 1,
-    }

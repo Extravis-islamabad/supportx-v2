@@ -1,23 +1,21 @@
 """Module registry (architecture.md §6.1; WP-004). See app/modules/README.md.
 
 Every package under `app/modules/` exposes one `module = ModuleSpec(...)` in its `__init__.py`.
-The app factory discovers them, mounts their routers under /api/v1, runs their startup and
-shutdown hooks in the lifespan, and collects their event handlers for the event bus (WP-007).
-Adding a module therefore never requires editing main.py.
+The app factory discovers them, mounts their routers under /api/v1 and runs their startup and
+shutdown hooks in the lifespan. Their event classes form the event registry and their consumers
+run in the consumer worker (WP-007, app/shared/events). Adding a module therefore never requires
+editing main.py or the workers.
 """
 
 import importlib
 import pkgutil
-from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from collections.abc import Awaitable, Callable, Iterable, Sequence
+from dataclasses import dataclass
 from types import ModuleType
-from typing import Any
 
 from fastapi import APIRouter, FastAPI
 
 LifecycleHook = Callable[[FastAPI], Awaitable[None]]
-# Event payload typing arrives with the event envelope in WP-007.
-EventHandler = Callable[[Mapping[str, Any]], Awaitable[None]]
 
 MODULES_PACKAGE = "app.modules"
 
@@ -34,8 +32,11 @@ class ModuleSpec:
     routers: Sequence[APIRouter] = ()
     on_startup: Sequence[LifecycleHook] = ()
     on_shutdown: Sequence[LifecycleHook] = ()
-    # Event type (e.g. "work_items.created") -> handlers. Consumed by the outbox relay in WP-007.
-    event_handlers: Mapping[str, Sequence[EventHandler]] = field(default_factory=dict)
+    # DomainEvent subclasses this module publishes (app/shared/events; core cannot import shared,
+    # so the types are checked when the event registry is built).
+    events: Sequence[type] = ()
+    # ConsumerSpec instances (app/shared/events/consumers.py), validated by the consumer worker.
+    consumers: Sequence[object] = ()
 
 
 def discover_modules(package: ModuleType | None = None) -> list[ModuleSpec]:
@@ -83,14 +84,6 @@ class ModuleRegistry:
         for spec in reversed(self.modules):
             for hook in reversed(spec.on_shutdown):
                 await hook(app)
-
-    def event_handlers(self) -> dict[str, list[EventHandler]]:
-        """All handlers per event type across modules."""
-        merged: dict[str, list[EventHandler]] = {}
-        for spec in self.modules:
-            for event_type, handlers in spec.event_handlers.items():
-                merged.setdefault(event_type, []).extend(handlers)
-        return merged
 
     @classmethod
     def from_specs(cls, specs: Iterable[ModuleSpec]) -> "ModuleRegistry":

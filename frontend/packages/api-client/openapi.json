@@ -4,6 +4,12 @@
       "CheckResponse": {
         "description": "One dependency's readiness.",
         "properties": {
+          "critical": {
+            "default": true,
+            "description": "False for informational checks (event workers): they never cause a 503.",
+            "title": "Critical",
+            "type": "boolean"
+          },
           "latency_ms": {
             "anyOf": [
               {
@@ -54,6 +60,8 @@
           "unreachable",
           "auth_failed",
           "unexpected_response",
+          "not_running",
+          "stale_heartbeat",
           "error"
         ],
         "title": "FailureReason",
@@ -272,6 +280,14 @@
             },
             "title": "Checks",
             "type": "object"
+          },
+          "degraded": {
+            "description": "Informational checks that are not OK.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Degraded",
+            "type": "array"
           },
           "failed": {
             "items": {
@@ -802,7 +818,7 @@
     },
     "/api/v1/ready": {
       "get": {
-        "description": "Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code.",
+        "description": "Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code. The outbox relay and the\nconsumer worker are reported from their heartbeats (`outbox_relay`, `event_consumers`) but\nare informational: when they are down the response lists them under `degraded`, still 200.",
         "operationId": "get_ready_api_v1_ready_get",
         "responses": {
           "200": {

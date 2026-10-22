@@ -23,6 +23,8 @@ values=(
   "SUPPORTX_DATABASE_URL=postgresql://supportx_app:${SUPPORTX_APP_PASSWORD}@127.0.0.1:${PGBOUNCER_PORT}/supportx"
   # Migrations and dev tooling connect as supportx_migrator straight to PostgreSQL.
   "SUPPORTX_MIGRATION_DATABASE_URL=postgresql://supportx_migrator:${SUPPORTX_MIGRATOR_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/supportx"
+  # The outbox relay connects as supportx_relay straight to PostgreSQL (LISTEN/NOTIFY; WP-007).
+  "SUPPORTX_RELAY_DATABASE_URL=postgresql://supportx_relay:${SUPPORTX_RELAY_PASSWORD}@127.0.0.1:${POSTGRES_PORT}/supportx"
   "SUPPORTX_VALKEY_URL=valkey://:${VALKEY_PASSWORD}@127.0.0.1:${VALKEY_PORT}/0"
   "SUPPORTX_NATS_URL=nats://127.0.0.1:${NATS_PORT}"
   # Login (WP-006): the supportx realm and its confidential console/portal clients.

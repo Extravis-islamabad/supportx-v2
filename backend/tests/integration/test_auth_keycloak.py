@@ -123,7 +123,7 @@ async def users_in(db: ThrowawayDatabase, email: str, tenant: uuid.UUID) -> list
         ("other@other.test", "Other Company", "technician", "en", "Omar Other"),
     ],
 )
-async def test_each_test_user_logs_in_and_is_provisioned(  # noqa: PLR0913, PLR0917 - parametrized expectations
+async def test_each_test_user_logs_in_and_is_provisioned(
     session: Session,
     seeded: ThrowawayDatabase,
     email: str,

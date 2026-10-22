@@ -78,3 +78,21 @@ async def test_unconfigured_dependencies_make_the_process_not_ready() -> None:
 
 def test_empty_report_is_ready() -> None:
     assert ReadinessReport.of([]).ready
+
+
+async def test_informational_checks_are_reported_but_never_block_readiness() -> None:
+    service = ReadinessService(
+        [FakeProbe("postgres")],
+        informational=[FakeProbe("outbox_relay", ProbeFailedError(FailureReason.NOT_RUNNING))],
+        timeout=1.0,
+    )
+    report = await service.check()
+    assert report.ready
+    assert report.failed == []
+    assert report.degraded == ["outbox_relay"]
+    relay = report.checks["outbox_relay"]
+    assert (relay.status, relay.reason, relay.critical) == (
+        CheckStatus.FAILED,
+        FailureReason.NOT_RUNNING,
+        False,
+    )

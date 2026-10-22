@@ -17,6 +17,6 @@ exactly this):
 
 | File | Connected to | Variables |
 |---|---|---|
-| `roles.sql` | any database (superuser) | `app_password`, `migrator_password` |
+| `roles.sql` | any database (superuser) | `app_password`, `migrator_password`, `relay_password` |
 | `database.sql` | `postgres` (superuser) | `database` |
 | `schema.sql` | the new database (superuser) | — |
