@@ -1,12 +1,14 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
+	backend-dev backend-env openapi openapi-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 PIP_AUDIT_VERSION := 2.10.1
+OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
 # Local dev stack (WP-002, docs/dev-setup.md). `--profile full` on down/ps/logs so they cover every
 # service whichever profile started it; it never starts anything by itself.
 DEV_DIR := deploy/compose
@@ -21,7 +23,7 @@ setup: ## Install backend (uv, Python 3.12) and frontend (pnpm) deps, install gi
 	$(FRONTEND) pnpm install --frozen-lockfile
 	uv run --project backend pre-commit install
 
-lint: backend-lint frontend-lint ## Lint everything (ruff, import-linter, ESLint, Prettier check)
+lint: backend-lint frontend-lint ## Lint everything (ruff, import-linter, OpenAPI drift, ESLint, Prettier)
 
 typecheck: backend-typecheck frontend-typecheck ## Type-check everything (mypy strict, tsc strict)
 
@@ -32,6 +34,20 @@ check: lint typecheck test ## lint + typecheck + test for everything
 format: ## Auto-format and auto-fix everything
 	$(BACKEND) uv run ruff format . && uv run ruff check --fix .
 	$(FRONTEND) pnpm format
+
+backend-env: ## Create backend/.env pointing the API at the local dev stack (never overwrites)
+	@bash $(DEV_DIR)/scripts/backend-env.sh
+
+backend-dev: ## Run the API with auto-reload on http://127.0.0.1:8000 (needs backend/.env for /ready)
+	@test -f backend/.env || bash $(DEV_DIR)/scripts/backend-env.sh || true
+	$(BACKEND) uv run uvicorn app.main:create_app --factory --reload --host 127.0.0.1 --port 8000 \
+		--no-access-log --no-server-header
+
+openapi: ## Export the OpenAPI 3.1 contract to frontend/packages/api-client/openapi.json
+	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
+
+openapi-check: ## Fail if the committed OpenAPI contract is out of date (CI)
+	$(BACKEND) uv run python -m tooling.export_openapi --check $(OPENAPI_FILE)
 
 build: ## Production builds of the console and portal
 	$(FRONTEND) pnpm build
@@ -58,6 +74,7 @@ audit-frontend:
 
 backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports
+	$(MAKE) openapi-check
 
 backend-typecheck:
 	$(BACKEND) uv run mypy

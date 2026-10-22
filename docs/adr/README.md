@@ -24,3 +24,4 @@ Owner: the product owner owns all ADRs until a tech lead is appointed (D-007).
 | [ADR-015](ADR-015-discovery-agent-technology.md) | Discovery agent technology | Open | Haider (Product Owner) |
 | [ADR-016](ADR-016-remote-control.md) | Remote control | Open | Haider (Product Owner) |
 | [ADR-017](ADR-017-monitoring-boundary.md) | Monitoring boundary: MonetX owns correlation | Accepted | Haider (Product Owner) |
+| [ADR-018](ADR-018-system-module.md) | `system` platform module for process health | Accepted | Haider (Product Owner) |

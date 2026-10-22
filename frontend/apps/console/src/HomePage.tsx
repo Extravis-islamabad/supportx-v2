@@ -1,6 +1,8 @@
-import { Layout, Typography } from 'antd';
+import { Layout, Space, Typography } from 'antd';
 
 import { AppearanceControls, useLabel } from '@supportx/ui';
+
+import { ApiStatus } from './ApiStatus';
 
 /** Placeholder home page. Real technician console screens start with WP-015. */
 export function HomePage() {
@@ -10,7 +12,10 @@ export function HomePage() {
     <Layout style={{ minHeight: '100vh' }}>
       <Layout.Content style={{ padding: 48 }}>
         <Typography.Title>{t('product.name')}</Typography.Title>
-        <Typography.Paragraph type="secondary">{t('app.console.name')}</Typography.Paragraph>
+        <Space style={{ marginBottom: 16 }}>
+          <Typography.Text type="secondary">{t('app.console.name')}</Typography.Text>
+          <ApiStatus />
+        </Space>
         <AppearanceControls />
       </Layout.Content>
     </Layout>

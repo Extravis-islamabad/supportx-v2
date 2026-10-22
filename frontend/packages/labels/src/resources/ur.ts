@@ -7,4 +7,7 @@ export const ur: Partial<Record<LabelKey, string>> = {
   'locale.en': 'English',
   'locale.ar': 'العربية',
   'locale.ur': 'اردو',
+  'api_status.checking': 'API کی جانچ ہو رہی ہے…',
+  'api_status.online': 'API آن لائن ہے',
+  'api_status.offline': 'API آف لائن ہے',
 };
