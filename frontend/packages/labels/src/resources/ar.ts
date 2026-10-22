@@ -31,4 +31,13 @@ export const ar: Partial<Record<LabelKey, string>> = {
   'errors.not_acceptable': 'التنسيق المطلوب غير مدعوم.',
   'errors.payload_too_large': 'حجم الملف المرفوع كبير جدًا.',
   'errors.unsupported_media_type': 'نوع الملف أو المحتوى غير مدعوم.',
+  'errors.tenant_required': 'يرجى تسجيل الدخول إلى مؤسستك للمتابعة.',
+  'errors.invalid_tenant_id': 'معرّف المؤسسة غير صالح.',
+  'errors.tenant_not_found': 'تعذّر العثور على مؤسستك.',
+  'errors.invalid_cursor': 'رابط هذه الصفحة لم يعد صالحًا. يرجى إعادة تحميل القائمة.',
+  'errors.version_conflict':
+    'قام شخص آخر بحفظ هذا العنصر بعد أن فتحته. أعد التحميل لرؤية تغييراته.',
+  'errors.database_not_configured': 'لم تكتمل تهيئة الخدمة بعد. يرجى التواصل مع المسؤول.',
+  'tenant_status.active': 'نشط',
+  'tenant_status.suspended': 'معلّق',
 };

@@ -61,10 +61,11 @@ services:
         condition: service_healthy
     environment:
       # The application path: supportx_app through a transaction-mode pool (architecture.md §5).
-      # Migrations, Keycloak and Temporal connect to postgres directly.
+      # Migrations, Keycloak and Temporal connect to postgres directly. No DB_NAME: the pool
+      # routes any database name (`*`), so throwaway test databases (supportx_test_*) go through
+      # PgBouncer too; PostgreSQL's CONNECT grants still decide what supportx_app may open.
       DB_HOST: postgres
       DB_PORT: "5432"
-      DB_NAME: supportx
       DB_USER: supportx_app
       DB_PASSWORD: ${SUPPORTX_APP_PASSWORD:?run make dev-init}
       AUTH_TYPE: scram-sha-256

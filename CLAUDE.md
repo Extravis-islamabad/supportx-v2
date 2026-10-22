@@ -110,7 +110,7 @@ deploy/                      # Helm chart + per-profile values, dev docker-compo
 licence-core/                # Rust licence library (PyO3) — §13.7
 mobile/                      # React Native apps (later, §9.1)
 docs/
-  specs/  specs/media/  adr/  DECISIONS.md  PROGRESS.md
+  specs/  specs/media/  adr/  architecture/  DECISIONS.md  PROGRESS.md
 Makefile                     # setup, lint, typecheck, test, format, check, build
 tsconfig.base.json  .prettierrc.json  .nvmrc  .pre-commit-config.yaml   # shared, repo-wide
 ```

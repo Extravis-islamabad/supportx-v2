@@ -253,6 +253,44 @@
         ],
         "title": "ReadinessResponse",
         "type": "object"
+      },
+      "TenantResponse": {
+        "description": "The caller's tenant. `status` is a code; the UI renders it via labels.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TenantStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status"
+        ],
+        "title": "TenantResponse",
+        "type": "object"
+      },
+      "TenantStatus": {
+        "description": "Lifecycle of a tenant. Stored as stable lowercase codes; the UI shows labels.",
+        "enum": [
+          "active",
+          "suspended"
+        ],
+        "title": "TenantStatus",
+        "type": "string"
       }
     }
   },
@@ -291,6 +329,38 @@
         "summary": "Liveness",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/organization/tenant": {
+      "get": {
+        "description": "Return the tenant of the request (401 `tenant_required` when none is established).",
+        "operationId": "read_current_tenant_api_v1_organization_tenant_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Current tenant",
+        "tags": [
+          "organization"
         ]
       }
     },

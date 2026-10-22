@@ -5,6 +5,7 @@ description = "SupportX v2 Core API (modular monolith) and workers"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "alembic>=1.20.1",
     "asyncpg>=0.32.0",
     "fastapi>=0.160.0",
     "nats-py>=2.16.0",
@@ -13,6 +14,7 @@ dependencies = [
     "opentelemetry-sdk>=1.45.1",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
+    "sqlalchemy[asyncio]>=2.1.6",
     "structlog>=26.1.0",
     "uuid-utils>=1.1.0",
     "uvicorn>=0.54.0",
@@ -39,7 +41,6 @@ dev = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["migrations"]
 
 [tool.ruff.lint]
 # Strict: every rule family, minus the few that conflict with each other or with the formatter.
@@ -61,6 +62,8 @@ ignore = [
 "tests/**" = ["S101", "S105", "S106", "D", "PLR2004"]
 "**/tests/**" = ["S101", "S105", "S106", "D", "PLR2004"]
 "conftest.py" = ["D"]
+"migrations/versions/*" = ["D", "INP001", "E501"]  # generated-style scripts; long DDL lines read best unwrapped
+"migrations/*" = ["INP001"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -69,7 +72,7 @@ docstring-code-format = true
 python_version = "3.12"
 strict = true
 warn_unreachable = true
-files = ["app", "workers", "tests", "tooling"]
+files = ["app", "workers", "tests", "tooling", "migrations", "conftest.py"]
 
 [[tool.mypy.overrides]]
 # import-linter's Contract base class is untyped where we subclass it.
@@ -82,11 +85,16 @@ testpaths = ["tests", "app"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = ["--strict-markers", "--cov=app", "--cov=tooling", "--cov-report=term-missing"]
-markers = ["integration: needs the local dev stack (make dev-up); skipped automatically otherwise"]
+markers = [
+    "integration: needs the local dev stack (make dev-up); skipped automatically otherwise",
+    "db: needs PostgreSQL (dev stack or CI service); skipped locally if absent, required in CI",
+]
 
 [tool.coverage.run]
 # Measure the code under test, not the tests themselves.
 omit = ["*/tests/*", "conftest.py"]
+# SQLAlchemy's asyncio layer runs I/O in greenlets; without this, code after an await is missed.
+concurrency = ["thread", "greenlet"]
 
 [tool.coverage.report]
 # Spec (§16.2) puts the threshold on domain and service layers; revisit once modules exist.
