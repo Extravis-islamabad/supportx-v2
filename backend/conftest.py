@@ -25,6 +25,25 @@ def make_settings(**overrides: Any) -> Settings:  # noqa: ANN401 - pydantic vali
     return Settings.load(env_file=None, **values)
 
 
+# Everything the production profile insists on (fake hosts: nothing connects at startup).
+PRODUCTION_REQUIRED: dict[str, Any] = {
+    "profile": "production",
+    "database_url": "postgresql://supportx_app:p@127.0.0.1:1/supportx",
+    "valkey_url": "valkey://:p@127.0.0.1:1/0",
+    "nats_url": "nats://127.0.0.1:1",
+    "oidc_issuer": "http://127.0.0.1:1/realms/supportx",
+    "oidc_console_client_secret": "console-secret",
+    "oidc_portal_client_secret": "portal-secret",
+    "session_secret": "s" * 32,
+}
+
+
+@pytest.fixture
+def production_settings() -> Callable[..., Settings]:
+    """Valid production settings with overrides: `production_settings(dev_tenant_header=True)`."""
+    return lambda **overrides: make_settings(**{**PRODUCTION_REQUIRED, **overrides})
+
+
 @pytest.fixture
 def settings_factory() -> Callable[..., Settings]:
     """Build test settings with overrides: `settings_factory(log_format="json")`."""

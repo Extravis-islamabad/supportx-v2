@@ -61,6 +61,7 @@ async def test_ready_against_the_running_dev_stack(
         ),
         valkey_url=f"valkey://:{stack['VALKEY_PASSWORD']}@127.0.0.1:{stack['VALKEY_PORT']}/0",
         nats_url=f"nats://127.0.0.1:{stack['NATS_PORT']}",
+        oidc_issuer=f"http://localhost:{stack['KEYCLOAK_PORT']}/realms/supportx",
     )
     async with run_app(create_app(settings)) as client:
         response = await client.get("/api/v1/ready")
@@ -68,7 +69,7 @@ async def test_ready_against_the_running_dev_stack(
     assert response.status_code == 200, response.json()
     body = response.json()
     assert body["status"] == "ready"
-    assert set(body["checks"]) == {"postgres", "valkey", "nats"}
+    assert set(body["checks"]) == {"postgres", "valkey", "nats", "keycloak"}
     assert all(check["status"] == "ok" for check in body["checks"].values())
 
 
@@ -82,13 +83,15 @@ async def test_wrong_password_is_reported_as_auth_failed(
         database_url=f"postgresql://supportx_app:wrong@127.0.0.1:{stack['PGBOUNCER_PORT']}/supportx",
         valkey_url=f"valkey://:wrong@127.0.0.1:{stack['VALKEY_PORT']}/0",
         nats_url=f"nats://127.0.0.1:{stack['NATS_PORT']}",
+        oidc_issuer="http://127.0.0.1:1/realms/supportx",  # nothing listens here
     )
     async with run_app(create_app(settings)) as client:
         response = await client.get("/api/v1/ready")
 
     assert response.status_code == 503
     body = response.json()
-    assert body["failed"] == ["postgres", "valkey"]
+    assert body["failed"] == ["postgres", "valkey", "keycloak"]
+    assert body["checks"]["keycloak"]["reason"] == "unreachable"
     assert body["checks"]["postgres"]["reason"] == "auth_failed"
     assert body["checks"]["valkey"]["reason"] == "auth_failed"
     assert body["checks"]["nats"]["status"] == "ok"

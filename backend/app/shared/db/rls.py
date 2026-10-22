@@ -78,3 +78,35 @@ def app_grant_statements(table: str, privileges: tuple[str, ...] = APP_DML_PRIVI
     if privileges:
         statements.append(f"GRANT {', '.join(privileges)} ON {t} TO {APP_ROLE}")
     return statements
+
+
+# Trigger function (created once by migration 0002) that stamps the acting user from the
+# transaction's app.user_id onto created_by/updated_by, and keeps created_by immutable.
+ACTOR_AUDIT_FUNCTION = """
+CREATE OR REPLACE FUNCTION supportx_stamp_actor() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE
+    actor uuid := NULLIF(current_setting('app.user_id', true), '')::uuid;
+BEGIN
+    IF TG_OP = 'INSERT' THEN
+        NEW.created_by := COALESCE(actor, NEW.created_by);
+        NEW.updated_by := COALESCE(actor, NEW.updated_by);
+    ELSE
+        NEW.created_by := OLD.created_by;
+        NEW.updated_by := COALESCE(actor, NEW.updated_by);
+    END IF;
+    RETURN NEW;
+END
+$$
+"""
+
+
+def actor_audit_statements(table: str) -> list[str]:
+    """Attach the actor trigger to `table` (BEFORE INSERT OR UPDATE, per row)."""
+    t = _check(table)
+    return [
+        (
+            f"CREATE TRIGGER {t}_stamp_actor BEFORE INSERT OR UPDATE ON {t} "
+            "FOR EACH ROW EXECUTE FUNCTION supportx_stamp_actor()"
+        )
+    ]

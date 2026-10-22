@@ -1,12 +1,22 @@
-# Starts the local dev stack (core profile) exactly as a developer does and runs `make dev-check`
-# (WP-002/WP-003). The .env is generated per run by `make dev-init` with throwaway random secrets;
-# nothing secret is stored in the repo or in GitHub.
+# Starts the local dev stack (core profile, which includes Keycloak) exactly as a developer does,
+# then proves it end to end: `make dev-check`, migrations + RLS guard, the backend integration
+# tests against the real Keycloak/Valkey/PgBouncer, and the Playwright login journey in a real
+# browser (WP-002, WP-006). The .env is generated per run by `make dev-init` with throwaway random
+# secrets; nothing secret is stored in the repo or in GitHub.
 name: Stack smoke
 
 on:
   pull_request:
     paths:
-      - "deploy/compose/**"
+      - "deploy/**"
+      - "backend/app/core/**"
+      - "backend/app/modules/identity_access/**"
+      - "backend/migrations/**"
+      - "backend/tests/integration/**"
+      - "frontend/apps/**"
+      - "frontend/packages/api-client/**"
+      - "frontend/packages/ui/**"
+      - "frontend/e2e/**"
       - ".github/workflows/stack-smoke.yml"
   schedule:
     - cron: "41 2 * * *" # nightly 02:41 UTC: catches upstream image or registry breakage
@@ -21,9 +31,9 @@ concurrency:
 
 jobs:
   core:
-    name: core profile dev-check
+    name: core profile, integration and e2e
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -34,16 +44,46 @@ jobs:
           # Mask every generated secret so it can never appear in the job log.
           grep -E '^[A-Z_]+=[0-9a-f]{32}$' deploy/compose/.env | cut -d= -f2 |
             while read -r secret; do echo "::add-mask::$secret"; done
-      - name: Start core profile
+      - name: Start core profile (incl. Keycloak with the supportx realm)
         run: make dev-up
       - name: dev-check
         run: make dev-check
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup-frontend
+      - name: Configure, migrate and seed the dev database; RLS guard
+        run: make backend-env db-migrate db-seed db-guard
+      - name: Backend integration tests (real Keycloak, Valkey, PgBouncer)
+        working-directory: backend
+        run: uv run pytest -m integration --no-cov -q
+      - name: Start the API and the console
+        run: |
+          (cd backend && nohup uv run uvicorn app.main:create_app --factory \
+            --host 127.0.0.1 --port 8000 --no-access-log > ../api.log 2>&1 &)
+          (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
+          for _ in $(seq 1 60); do
+            curl -fsS http://localhost:5173/api/v1/ready >/dev/null && break
+            sleep 2
+          done
+          curl -fsS http://localhost:5173/api/v1/ready
+      - name: Playwright (login journey in Chromium)
+        working-directory: frontend
+        run: |
+          pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
+          pnpm --filter @supportx/e2e e2e
       - name: Diagnostics on failure
         if: ${{ failure() }}
         run: |
           make dev-ps
+          tail -n 200 api.log console.log || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
-            --profile full logs --no-color --tail=200
+            --profile full logs --no-color --tail=200 keycloak postgres pgbouncer
+      - name: Upload Playwright report
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: frontend/e2e/playwright-report
+          retention-days: 7
       - name: Tear down
         if: ${{ always() }}
         run: make dev-down

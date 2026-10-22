@@ -10,4 +10,7 @@ export const ur: Partial<Record<LabelKey, string>> = {
   'api_status.checking': 'API کی جانچ ہو رہی ہے…',
   'api_status.online': 'API آن لائن ہے',
   'api_status.offline': 'API آف لائن ہے',
+  'auth.sign_out': 'سائن آؤٹ',
+  'auth.checking_session': 'آپ کا سیشن چیک کیا جا رہا ہے…',
+  'auth.redirecting_to_login': 'سائن اِن کی طرف بھیجا جا رہا ہے…',
 };

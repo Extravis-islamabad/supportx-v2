@@ -29,7 +29,6 @@ export const en = {
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.payload_too_large': 'The upload is too large.',
   'errors.unsupported_media_type': 'This file or content type is not supported.',
-  'errors.tenant_required': 'Please sign in to your organisation to continue.',
   'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
   'errors.tenant_not_found': 'Your organisation could not be found.',
   'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
@@ -39,6 +38,31 @@ export const en = {
     'The service is not fully configured yet. Please contact your administrator.',
   'tenant_status.active': 'Active',
   'tenant_status.suspended': 'Suspended',
+  'errors.session_expired': 'Your session has ended. Please sign in again.',
+  'errors.csrf_failed': 'This request could not be verified. Please reload the page and try again.',
+  'errors.no_organization':
+    'Your account is not linked to any organisation yet. Please contact your administrator.',
+  'errors.not_a_member': 'You are not a member of that organisation.',
+  'errors.tenant_not_provisioned':
+    'Your organisation is not set up in SupportX yet. Please contact your administrator.',
+  'errors.tenant_suspended': 'Your organisation’s access is suspended.',
+  'errors.user_disabled': 'Your account has been disabled. Please contact your administrator.',
+  'errors.identity_provider_unavailable':
+    'Sign-in is temporarily unavailable. Please try again shortly.',
+  'errors.invalid_login_state': 'This sign-in link has expired. Please start again.',
+  'errors.login_failed': 'Sign-in did not complete. Please try again.',
+  'errors.auth_not_configured': 'Sign-in is not configured for this installation.',
+  'errors.user_email_conflict':
+    'Another account in your organisation already uses this email address.',
+  'auth.sign_out': 'Sign out',
+  'auth.checking_session': 'Checking your session…',
+  'auth.redirecting_to_login': 'Redirecting to sign in…',
+  'auth.switch_tenant': 'Switch organisation',
+  'auth.session_error': 'We could not load your session.',
+  'auth.retry': 'Try again',
+  'user_type.technician': 'Technician',
+  'user_type.requester': 'Requester',
+  'auth.sign_in_again': 'Sign in again',
 } as const;
 
 export type LabelKey = keyof typeof en;

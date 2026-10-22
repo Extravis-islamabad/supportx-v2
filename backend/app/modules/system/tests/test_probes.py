@@ -82,5 +82,5 @@ def test_service_probes_only_configured_dependencies(
         settings_factory(nats_url="nats://127.0.0.1:4222", readiness_timeout_seconds=0.7)
     )
     assert [p.name for p in service._probes] == ["nats"]  # noqa: SLF001 - wiring under test
-    assert service._not_configured == ("postgres", "valkey")  # noqa: SLF001
+    assert service._not_configured == ("postgres", "valkey", "keycloak")  # noqa: SLF001
     assert service._timeout == 0.7  # noqa: SLF001

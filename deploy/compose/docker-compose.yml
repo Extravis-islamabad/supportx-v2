@@ -129,8 +129,9 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.8.1
     restart: unless-stopped
-    # Dev mode only; realm import and production settings arrive in WP-006 / WP-014.
-    command: ["start-dev"]
+    # Dev mode only (production settings: WP-014). The supportx realm (clients, organizations, test
+    # users) is imported from ./keycloak on first start; an existing realm is never overwritten.
+    command: ["start-dev", "--import-realm"]
     depends_on:
       postgres:
         condition: service_healthy
@@ -145,6 +146,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run make dev-init}
       JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=25"
+      # Placeholders in keycloak/supportx-realm.json; secrets stay in .env, never in git.
+      SUPPORTX_KC_CONSOLE_SECRET: ${KEYCLOAK_CONSOLE_CLIENT_SECRET:?run make dev-init}
+      SUPPORTX_KC_PORTAL_SECRET: ${KEYCLOAK_PORTAL_CLIENT_SECRET:?run make dev-init}
+    volumes:
+      - ./keycloak:/opt/keycloak/data/import:ro
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-28080}:8080"
       - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-28090}:9000"

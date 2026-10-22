@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from app.core.config import Settings
 from app.core.modules import ModuleSpec
 from app.modules.system.api.routes import router
-from app.modules.system.infra.probes import NatsProbe, PostgresProbe, ValkeyProbe
+from app.modules.system.infra.probes import KeycloakProbe, NatsProbe, PostgresProbe, ValkeyProbe
 from app.modules.system.service.readiness import ReadinessService
 
 if TYPE_CHECKING:
@@ -19,7 +19,10 @@ if TYPE_CHECKING:
 
 
 def build_readiness_service(settings: Settings) -> ReadinessService:
-    """Probe every configured dependency; unconfigured ones are reported, not skipped."""
+    """Probe every configured dependency (PostgreSQL, Valkey, NATS, Keycloak).
+
+    Unconfigured dependencies are reported as such, not skipped.
+    """
     probes: list[DependencyProbe] = []
     not_configured: list[str] = []
     for name, url, probe_type in (
@@ -31,6 +34,10 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
             not_configured.append(name)
         else:
             probes.append(probe_type(url.get_secret_value()))
+    if settings.oidc_issuer is None:
+        not_configured.append("keycloak")
+    else:
+        probes.append(KeycloakProbe(settings.oidc_issuer))
     return ReadinessService(
         probes, not_configured=not_configured, timeout=settings.readiness_timeout_seconds
     )

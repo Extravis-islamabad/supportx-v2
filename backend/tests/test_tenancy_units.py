@@ -23,11 +23,16 @@ TENANT = uuid.UUID("01900000-0000-7000-8000-000000000001")
 def test_header_is_trusted_in_dev_and_test(
     settings_factory: Callable[..., Settings], profile: str
 ) -> None:
-    settings = settings_factory(profile=profile)
+    settings = settings_factory(profile=profile, dev_tenant_header=True)
     assert tenant_from_header(settings, f" {TENANT} ") == TenantContext(TENANT)
     assert tenant_from_header(settings, None) is None
     with pytest.raises(BadRequest):
         tenant_from_header(settings, "acme")
+
+
+@pytest.mark.parametrize("profile", ["dev", "test"])
+def test_header_is_off_by_default(settings_factory: Callable[..., Settings], profile: str) -> None:
+    assert tenant_from_header(settings_factory(profile=profile), str(TENANT)) is None
 
 
 def test_header_is_ignored_in_production(settings_factory: Callable[..., Settings]) -> None:
@@ -36,7 +41,13 @@ def test_header_is_ignored_in_production(settings_factory: Callable[..., Setting
         database_url="postgresql://u:p@db/x",
         valkey_url="valkey://:p@kv:6379/0",
         nats_url="nats://bus:4222",
+        oidc_issuer="https://id.example.com/realms/supportx",
+        oidc_console_client_secret="x",
+        oidc_portal_client_secret="x",
+        session_secret="s" * 32,
+        dev_tenant_header=True,  # even explicitly enabled
     )
+    assert production.tenant_header_enabled is False
     assert tenant_from_header(production, str(TENANT)) is None
     assert tenant_from_header(production, "not-even-a-uuid") is None
 

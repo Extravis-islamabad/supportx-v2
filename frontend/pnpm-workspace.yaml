@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'e2e'
 
 # One version per dependency across the workspace (CLAUDE.md §3 closed stack list).
 catalog:

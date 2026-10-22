@@ -1,20 +1,46 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { App } from './App';
+import { session, stubApi } from './test/api';
 
-describe('portal home page', () => {
-  it('shows the product name and app name from the labels package', () => {
+describe('portal', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    document.documentElement.dir = 'ltr';
+  });
+
+  it('shows the signed-in requester and the portal name', async () => {
+    stubApi(session({ display_name: 'Yusra Requester', user_type: 'requester' }));
     render(<App />);
 
-    expect(screen.getByRole('heading', { name: 'SupportX v2' })).toBeDefined();
+    expect((await screen.findByTestId('user-name')).textContent).toBe('Yusra Requester');
     expect(screen.getByText('Self-Service Portal')).toBeDefined();
   });
 
-  it('switches the document to right-to-left', () => {
+  it('uses the portal login when there is no session', async () => {
+    stubApi(null);
+    const navigate = vi.fn();
+    render(<App navigate={navigate} />);
+
+    await waitFor(() => {
+      expect(navigate).toHaveBeenCalledWith('/api/v1/auth/login?app=portal&returnTo=%2F');
+    });
+  });
+
+  it('renders right-to-left for an Arabic requester', async () => {
+    stubApi(session({ locale: 'ar', user_type: 'requester' }));
     render(<App />);
 
-    fireEvent.click(screen.getByRole('switch', { name: 'Right-to-left' }));
+    expect(await screen.findByRole('button', { name: 'تسجيل الخروج' })).toBeDefined();
+    expect(document.documentElement.dir).toBe('rtl');
+  });
+
+  it('switches the document to right-to-left from the appearance controls', async () => {
+    stubApi(session());
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole('switch', { name: 'Right-to-left' }));
 
     expect(document.documentElement.dir).toBe('rtl');
   });

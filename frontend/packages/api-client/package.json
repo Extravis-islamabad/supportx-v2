@@ -8,9 +8,19 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate": "openapi-typescript ./openapi.json --output ./src/schema.ts",
+    "check:schema": "openapi-typescript ./openapi.json --output ./src/schema.ts --check"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "openapi-typescript": "^7.13.0",
+    "typescript": "catalog:",
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:",
+    "@types/react": "catalog:"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:"
   }
 }
