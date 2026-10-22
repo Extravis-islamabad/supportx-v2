@@ -1,0 +1,228 @@
+# CLAUDE.md — SupportX v2 engineering rulebook
+
+This file is the standing rulebook for every Claude Code session on this repo. Read it fully
+before doing anything. When in doubt, the specs win over memory, and the user (product owner)
+wins over the specs.
+
+## 1. Sources of truth
+
+| Document | Role |
+|---|---|
+| `docs/specs/architecture.md` (v0.2) | **Source of truth.** Wins on any conflict. |
+| `docs/specs/product-plan.md` (v0.1) | Product context, pillars, packaging. Subordinate to architecture.md. |
+| `docs/adr/` | Formal decisions (ADR-001..017 from architecture.md §19). New decisions get a new ADR. |
+| `docs/PROGRESS.md` | Work-package plan, current status and session log. |
+
+Known conflict, already resolved: product-plan.md describes alert correlation, de-duplication and
+an event-ingestion pipeline inside SupportX. **That is wrong for this build.** SupportX does no
+network/infra monitoring and no alert correlation; it only has the MonetX connector plus a generic
+alert webhook (architecture.md §2 intro, §2.14, §6.8, ADR-017). Other conflicts are logged in
+`docs/PROGRESS.md` → "Open questions".
+
+## 2. Product summary
+
+SupportX v2 is a greenfield enterprise ITSM/ESM platform built by Extravis. The functional
+baseline is **full ManageEngine ServiceDesk Plus parity** (Enterprise edition, Cloud and On-Prem
+features combined — architecture.md §2), delivered identically on SaaS, private cloud, on-prem and
+air-gapped from one codebase. It then goes beyond SDP on real-time UX, deployment parity, sovereign
+local AI, MonetX integration and AI agents. Core design levers: a modular monolith (§6.1), one
+unified work-item engine for all ticket-like records (§6.2), metadata-driven customisation (§6.6),
+event-driven everything via a transactional outbox (§6.5), and fingerprint-bound licensing (§13).
+
+**Parity rule (architecture.md §2):** parity means the same *capabilities and outcomes*, never a
+copy. Never reproduce ManageEngine screens, layouts, wording, help text, icons or artwork. All UI is
+original, designed on Ant Design 5. Where SDP relies on another ManageEngine product, SupportX
+delivers natively or via Extravis products (AgentX, PatchX, MonetX).
+
+## 3. Tech stack (architecture.md §5) — closed list
+
+**Backend:** Python 3.12+, FastAPI + Pydantic v2, SQLAlchemy 2.0 (async) + Alembic,
+PostgreSQL 16 (RLS, JSONB, pgvector), NATS JetStream, Temporal (Python SDK), Centrifugo,
+Keycloak, Redis 7 (or Valkey), OpenSearch, MinIO / S3, ClickHouse. Package management: **uv**.
+
+**Frontend:** React 18 + TypeScript (strict) + Vite, Ant Design 5, TanStack Query, Zustand,
+React Hook Form + Zod, Apache ECharts, React Flow (xyflow), Monaco. Package management: **pnpm**
+workspace.
+
+**Platform:** Kubernetes + Helm (k3s for single-node on-prem); Docker Compose for local dev only;
+OpenTelemetry, Prometheus, Grafana, Loki, Tempo. Licence core in Rust (PyO3) — §13.7.
+
+**Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest, import-linter, Testcontainers,
+tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit, Trivy, cosign.
+
+**Dependency rule:** never add a runtime or dev dependency outside this list without asking the
+product owner first. Small standard libraries that a listed tool needs to function (e.g. the
+official client SDK for a listed component, `asyncpg` for SQLAlchemy, `@ant-design/icons`)
+still need to be named in the session report so they can be vetoed. Every dependency must have a
+licence that allows on-prem redistribution (§5 licence box); AGPL / source-available needs explicit
+approval (ADR-012).
+
+## 4. Repository layout (target)
+
+```
+backend/                     # architecture.md §6.4
+  app/
+    main.py                  # app factory, middleware, router registration
+    core/                    # config, db session, RLS context, security, logging, errors
+    shared/                  # base models, pagination, filtering DSL, outbox, events
+    modules/<module>/        # one folder per §6.1 module, same shape for all:
+      api/  service/  domain/  infra/  events.py  tests/
+  workers/                   # NATS consumers, Temporal workers
+  migrations/                # Alembic
+  pyproject.toml             # uv-managed; ruff, mypy strict, pytest
+frontend/                    # pnpm workspace, architecture.md §9.2
+  apps/console/  apps/portal/
+  packages/ui/ api-client/ realtime/ labels/ charts/ forms/ flow/
+  e2e/                       # Playwright
+deploy/                      # Helm chart + per-profile values, dev docker-compose, k3d/kind config
+licence-core/                # Rust licence library (PyO3) — §13.7
+docs/
+  specs/  adr/  PROGRESS.md
+```
+
+Modules (§6.1): identity_access, organization, work_items, service_catalog, knowledge, sla,
+automation, assets, cmdb, procurement, projects, esm, monitoring_integrations, discovery,
+notifications, analytics, ai, integrations, metadata, licensing, audit. Do not invent new modules
+without an ADR.
+
+Layering inside each module (§6.3): `api → service → domain`, `infra` implements ports. Domain is
+pure Python, no I/O. Routers hold no business logic. Services own the transaction, permission
+checks, entitlement checks and event emission.
+
+## 5. NON-NEGOTIABLE RULES
+
+Breaking any of these is a failed task, even if tests pass.
+
+**a) Tenant isolation (§7.2, P4).** Every business table has `tenant_id` (first column of every
+composite index) and a PostgreSQL RLS policy. Each request/job runs `SET LOCAL app.tenant_id`
+inside its transaction. The application DB role must not be a superuser or table owner and must
+not have `BYPASSRLS`. Every new table ships with an RLS test proving tenant A cannot read or write
+tenant B's rows.
+
+**b) Transactional outbox (§6.5, P3).** Every state change writes its domain event to the outbox
+in the *same* transaction as the business row. Never publish to NATS directly from a request.
+Events carry an event ID; consumers are idempotent. Event contracts live in the module's
+`events.py`.
+
+**c) Real-time everywhere (§8).** Any data shown on screen updates live with no page refresh:
+lists, records, dashboards, counters, approvals, portal. Frontend patches the TanStack Query cache
+from realtime events and reconciles by refetch when ambiguous (§8.3). Channel names follow §8.1;
+subscription tokens are permission-checked (§8.2). Payloads carry IDs, changed fields and version
+only — never sensitive data.
+
+**d) Labels, not enums (§9.5, P9).** No raw code, enum key, internal ID, exception name or stack
+trace ever reaches the UI. Everything renders through `frontend/packages/labels`
+(`incident_management` → "Incident Management"). Every backend enum code needs an English label
+(CI-enforced) and an Arabic translation. API errors are RFC 9457 problem details with a machine
+code + params; the UI maps code → human message.
+
+**e) Module boundaries (§6.1).** Modules never import each other's internals and never query each
+other's tables. Cross-module access goes through the other module's public service interface or
+through events. Enforced by import-linter contracts in CI — add the contract when you add a module.
+
+**f) Deployment-neutral features (§1.2, §13.1).** Every feature must work on SaaS and on-prem.
+Features are gated **only** through the entitlement interface (`has_feature`, `check_limit`,
+`remaining`). Never branch on deployment mode (`if saas:` / `if on_prem:`) in domain or service
+code. Never read the licence file outside the licensing module. Entitlement decisions are made on
+the server, never in the browser. Release feature flags (OpenFeature, §16.1) are for hiding
+unfinished work only — never for licensing.
+
+**g) Optimistic concurrency (§6.5, §10).** Every editable record has an integer `version` column.
+Updates require the version read (ETag / If-Match); mismatch → 409 Conflict with what changed.
+Creates accept an `Idempotency-Key` header.
+
+**h) Protect user data when testing.** Never delete, truncate, overwrite or migrate-down existing
+user data or databases when testing or debugging. Create fresh test data (new tenant, new records,
+Testcontainers, throwaway volumes) instead. Never run destructive commands (`DROP`, `docker volume
+rm`, `git reset --hard`, `rm -rf` outside build output) against anything you did not create in the
+current session without asking.
+
+## 6. Data conventions (§7.1)
+
+UUIDv7 primary keys; human display IDs (INC-1042) from a per-tenant sequence table; `timestamptz`
+UTC; `created_at`, `updated_at`, `created_by`, `updated_by` on every table; soft delete via
+`deleted_at` (hard delete only via GDPR erasure jobs); enums stored as stable lowercase codes;
+snake_case, plural table names. Custom field values in typed JSONB with GIN indexes (§6.6).
+Field-level history for every change with source (UI, API, rule, workflow, AI agent) (§7.4).
+Migrations follow expand/contract (§14.3) and must be reversible.
+
+## 7. API conventions (§10)
+
+REST, `/api/v1/...`, resource-oriented. OpenAPI 3.1 generated from code; breaking changes only in a
+new major version (OpenAPI diff in CI). Cursor pagination. Shared JSON filter DSL (§6.5). RFC 9457
+errors. ETag/If-Match. Idempotency-Key on POST. Rate-limit headers. Bulk ≤ 1,000 items as background
+jobs with streamed progress. Every UI action uses the same public API (P2).
+
+## 8. Security baseline (§11)
+
+Keycloak for all authentication; browser uses OIDC Code + PKCE via a backend-for-frontend with an
+HttpOnly Secure SameSite cookie — tokens never in JS (§11.1). One policy layer for API, search,
+realtime and AI (§11.2). Secrets never in code, images or logs. Sanitise rich text. PII redaction in
+logs. Every privileged action is audited (§7.4). Custom functions never run inside the API process
+(§6.7).
+
+## 9. Coding standards
+
+**Python:** ruff (lint + format), mypy `--strict`, pytest (+ Testcontainers for integration),
+import-linter. Type everything; no `Any` without a comment explaining why. Async all the way in
+request paths.
+
+**TypeScript:** `strict: true` (plus `noUncheckedIndexedAccess`), ESLint (incl. the no-raw-enum
+rule), Prettier, Vitest, Playwright for e2e. API types come from the generated `api-client`, never
+hand-written duplicates.
+
+**Tests:** domain layer unit-tested without I/O; services tested with real Postgres via
+Testcontainers; RLS and outbox behaviour always covered by tests; e2e for critical journeys.
+
+**Commits:** Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`,
+`build:`, `ci:`), scope = module or package where useful (`feat(work_items): ...`). One logical
+change per commit. Only commit when the user asks or the task explicitly includes it.
+
+**Comments and docs:** explain *why*, not *what*. Reference spec sections (`# see architecture.md
+§6.5`) where a rule comes from the spec.
+
+## 10. Definition of done (architecture.md §16.3)
+
+A task is done only when all apply (or the session report explains why one does not):
+
+- Works in SaaS and on-prem profiles and respects licensing (entitlement interface only).
+- Updates live in every place the data is shown, with no refresh.
+- All visible text uses labels, translated into English and Arabic (Urdu where in scope).
+- API documented, permissions enforced, events emitted via outbox, audit recorded.
+- Tests at the right layers pass; dashboards/alerts exist for new services; user docs updated.
+- ruff, mypy, tsc, ESLint, Prettier, import-linter and tests are green locally.
+- `docs/PROGRESS.md` updated.
+
+## 11. How Claude works on this repo
+
+1. **Start of session:** read this file, then `docs/PROGRESS.md` (current status + next WP), then
+   the spec sections the WP references. Do not re-read whole specs if the WP is narrow.
+2. **One work package per session.** Do only the WP's scope. If you find needed work outside
+   scope, record it in PROGRESS.md instead of doing it.
+3. **Small steps.** Make a change, run the relevant checks, then continue. Never batch a large
+   untested change.
+4. **Run tests before saying done.** Report actual results; if something fails or was skipped,
+   say so plainly with the output.
+5. **Ask before:** adding a dependency outside §3; changing an ADR's decision; changing a
+   non-negotiable rule; anything destructive or outward-facing (pushing, publishing, deleting).
+6. **New decision → new ADR** in `docs/adr/` (next free number) and a row in `docs/adr/README.md`.
+7. **Never fake it.** No placeholder implementations reported as finished, no skipped tests to get
+   green, no `# type: ignore` / `eslint-disable` without a justification comment.
+8. **End of session:** update `docs/PROGRESS.md` (status, WP checkboxes, newest-first session log
+   entry) and finish with the report below.
+
+### Session report format
+
+Every task ends with exactly these sections (from the bootstrap task). Write "No change" in a
+section that doesn't apply; don't drop it.
+
+```
+## Files created                      — and files modified/deleted, one line each
+## Environment check                  — table: tool | version | status (only tools this task used
+                                         or found missing), plus checks run: command | result
+## ADR summary                        — table: ADR | decision | status (ADRs added or changed)
+## Stage 0 work packages              — table: WP | title | depends on | status (the WP worked on
+                                         and anything it unblocked)
+## Contradictions or gaps found in the specs
+## Questions for the product owner    — include any new dependencies needing approval
+```
