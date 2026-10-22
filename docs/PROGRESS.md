@@ -2,17 +2,33 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 2 of 15 work packages done.
-- **Last completed:** WP-002 (local dev stack, Docker Compose), 2026-10-22.
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 3 of 15 work packages done.
+- **Last completed:** WP-003 (CI pipeline and quality gates), 2026-10-22.
 - **Next work package:** WP-004 (backend application core). WP-009 is also unblocked; WP-005
   becomes unblocked once WP-004 is done.
-- **Blockers:** None for WP-004. WP-003 needs the CI platform decision; WP-014 needs k3d
-  installed (D-003; Homebrew is not installed either).
+- **Blockers:** None for WP-004. WP-014 needs k3d installed (D-003; Homebrew is not installed
+  either).
+- **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
+  the account billing problem is fixed; then set back to private (D-015).
 
 ### Open questions (awaiting product owner)
 
 1. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
    download, or install Homebrew first? Blocks WP-014.
+
+### Open items
+
+1. **GitHub billing (owner action, expected by 2026-10-24):** Actions jobs on the private repo are
+   refused ("recent account payments have failed or your spending limit needs to be increased").
+   Fix billing, then `gh repo edit devhat-pm/supportx-v2 --visibility private
+   --accept-visibility-change-consequences` and re-run CI to confirm it starts (D-018).
+2. **Branch protection on a private repo needs GitHub Pro/Team.** `main` protection (required
+   checks backend, frontend, pre-commit; strict; no force pushes or deletions) is active while the
+   repo is public. GitHub keeps the rule but stops enforcing it once the repo is private on the
+   Free plan. Upgrade to Pro (or move to an Extravis org on Team) to keep it, or accept
+   unprotected `main`.
+3. **Dependabot PR #3 (jsdom 27 → 30, test helper)** awaits review; majors for TypeScript, Ant
+   Design and React are ignored per D-014, ADR-002 and CLAUDE.md §3 (PRs #2, #4, #5, #6 closed).
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -51,7 +67,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   service; ports and credentials documented in `docs/dev-setup.md`.
 - **Depends on:** WP-001
 
-### [ ] WP-003 — CI pipeline and quality gates
+### [x] WP-003 — CI pipeline and quality gates (done 2026-10-22)
 - **Goal:** Every push runs the §16.2 gates that are meaningful at this stage.
 - **Scope:** CI workflow for backend (ruff, mypy, import-linter, pytest) and frontend (tsc, ESLint,
   Prettier check, Vitest); secret scanning; Trivy filesystem scan; caching for uv and pnpm;
@@ -190,6 +206,27 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   needed.
 
 ## Session log (newest first)
+
+### 2026-10-22 — WP-003 CI pipeline and quality gates
+- Recorded D-015..D-017 (private GitHub repo + Actions, S3-only object storage, Temporal without
+  auto-setup); ADR-012 updated with the object-storage direction and the MinIO image situation;
+  WP-014 notes added. Later D-018: the repo is temporarily public because of a billing block.
+- Created https://github.com/devhat-pm/supportx-v2 (private), pushed full history.
+- `.github/workflows/ci.yml` (backend, frontend, pre-commit jobs), `security.yml` (gitleaks over
+  full history, pip-audit + pnpm audit, Trivy fs; weekly), `stack-smoke.yml` (core profile +
+  `make dev-check`; on compose PRs and nightly). Jobs call Makefile targets; composite actions
+  `setup-backend` / `setup-frontend` share the toolchain setup (uv cache, pnpm store cache).
+  Actions pinned to commit SHAs; `permissions: contents: read`; concurrency cancels stale runs.
+- New Makefile targets `precommit`, `audit` (`audit-backend`, `audit-frontend`).
+  `backend/tooling/vuln_gate.py` adds the high/critical gate pip-audit lacks (GHSA severity
+  lookup; unknown severity blocks), with tests; proven to fail on jinja2 2.10 (1 high).
+- Dependabot (actions, uv, npm; weekly; minor/patch grouped), PR template (DoD checklist),
+  CODEOWNERS (`@devhat-pm`).
+- First runs were refused by GitHub billing; after the switch to public: CI, Security and Stack
+  smoke green on main, CI and Security green on PR #1 (README badges), PR #1 merged. Branch
+  protection refused while private (403, needs Pro); applied once public.
+- Follow-ups: Trivy misconfig scanning only covers files Trivy knows (no compose); Dependabot
+  `docker-compose` ecosystem could track the pinned dev images (not requested; suggest later).
 
 ### 2026-10-22 — WP-002 local dev stack (Docker Compose)
 - Recorded D-012..D-014 (helper libraries + dev-helper rule, i18next for labels in WP-010,
