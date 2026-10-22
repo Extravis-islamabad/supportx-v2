@@ -88,6 +88,34 @@ curl -u "supportx:$CLICKHOUSE_PASSWORD" 'http://localhost:28123/?query=SELECT%20
 The app connects through PgBouncer (transaction pooling). Migrations, Keycloak and Temporal connect
 to PostgreSQL directly.
 
+### Database: migrations and demo data
+
+```bash
+make backend-env    # writes/updates backend/.env (adds missing settings, never overwrites)
+make db-migrate     # create/upgrade tables (as supportx_migrator, directly to PostgreSQL)
+make db-seed        # demo tenant (idempotent, never deletes or changes existing data)
+make db-guard       # check that every table is tenant-isolated (RLS)
+make db-current     # which migration the database is at
+```
+
+The demo tenant always has the same ID, so you can use it straight away:
+
+| Tenant | Slug | ID (use as `X-Tenant-ID` in dev) |
+|---|---|---|
+| Demo Company | `demo` | `01900000-0000-7000-8000-00000000de30` |
+
+```bash
+curl -H 'X-Tenant-ID: 01900000-0000-7000-8000-00000000de30' \
+  http://127.0.0.1:8000/api/v1/organization/tenant
+```
+
+The `X-Tenant-ID` header works only in the dev and test profiles; production ignores it. How
+tenant isolation works: `docs/architecture/tenancy.md`.
+
+`make db-downgrade` rolls back one migration and asks you to type `yes` first, because it can drop
+tables and their data. Backend tests never touch the `supportx` database: they create throwaway
+`supportx_test_*` databases and drop them afterwards.
+
 ## 5. Resetting safely
 
 `make dev-down` never deletes data. To wipe **all** local dev data and start fresh:

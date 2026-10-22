@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     nats_url: SecretStr | None = None
     readiness_timeout_seconds: float = Field(default=2.0, gt=0, le=30)
 
+    # Database (WP-005). `database_url` is the application role (supportx_app) through PgBouncer
+    # in transaction mode; `migration_database_url` is supportx_migrator straight to PostgreSQL,
+    # used only by Alembic and dev tooling, never by the running API.
+    migration_database_url: SecretStr | None = None
+    db_pool_size: int = Field(default=10, ge=1, le=200)
+    db_max_overflow: int = Field(default=10, ge=0, le=200)
+    db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"

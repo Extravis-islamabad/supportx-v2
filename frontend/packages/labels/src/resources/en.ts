@@ -29,6 +29,16 @@ export const en = {
   'errors.not_acceptable': 'The requested format is not supported.',
   'errors.payload_too_large': 'The upload is too large.',
   'errors.unsupported_media_type': 'This file or content type is not supported.',
+  'errors.tenant_required': 'Please sign in to your organisation to continue.',
+  'errors.invalid_tenant_id': 'The organisation identifier is not valid.',
+  'errors.tenant_not_found': 'Your organisation could not be found.',
+  'errors.invalid_cursor': 'This page link is no longer valid. Please reload the list.',
+  'errors.version_conflict':
+    'Someone else saved this item after you opened it. Reload to see their changes.',
+  'errors.database_not_configured':
+    'The service is not fully configured yet. Please contact your administrator.',
+  'tenant_status.active': 'Active',
+  'tenant_status.suspended': 'Suspended',
 } as const;
 
 export type LabelKey = keyof typeof en;

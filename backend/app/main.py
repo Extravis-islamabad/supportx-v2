@@ -14,6 +14,7 @@ from fastapi import APIRouter, FastAPI
 
 from app import __version__
 from app.core.config import Settings, get_settings
+from app.core.database import Database
 from app.core.errors import ProblemDetail, install_error_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
@@ -36,6 +37,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        # Created here, not at import, so the pool belongs to the server's event loop.
+        app.state.db = Database.from_settings(settings)
         await registry.start(app)
         log.info(
             "startup_complete",
@@ -47,6 +50,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
             yield
         finally:
             await registry.stop(app)
+            if app.state.db is not None:
+                await app.state.db.dispose()
             if tracer_provider is not None:
                 tracer_provider.shutdown()
             log.info("shutdown_complete")

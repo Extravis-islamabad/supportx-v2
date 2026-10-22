@@ -22,17 +22,58 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
+    # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
+    # Passwords are throwaway values unique to this run; the containers die with the job.
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg16-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-${{ github.run_id }}
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      pgbouncer:
+        image: edoburu/pgbouncer:v1.26.1-p0
+        env:
+          DB_HOST: postgres
+          DB_PORT: "5432"
+          DB_USER: supportx_app
+          DB_PASSWORD: ci-app-${{ github.run_id }}
+          AUTH_TYPE: scram-sha-256
+          POOL_MODE: transaction
+          LISTEN_PORT: "6432"
+          DEFAULT_POOL_SIZE: "5"
+          # 0 = PgBouncer does NOT track prepared statements (like older or third-party poolers),
+          # which proves our asyncpg settings work without that feature (app/core/database.py).
+          MAX_PREPARED_STATEMENTS: "0"
+        ports: ["6432:6432"]
+    env:
+      SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
+      SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
+      SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+      SUPPORTX_TEST_PGBOUNCER: 127.0.0.1:6432
+      SUPPORTX_REQUIRE_DB_TESTS: "1"
+      SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-backend
-      - name: Lint (ruff check, ruff format --check, import-linter)
+      - name: Lint (ruff check, ruff format --check, import-linter, OpenAPI drift)
         run: make backend-lint
       - name: Type-check (mypy --strict)
         run: make backend-typecheck
-      - name: Test (pytest, coverage threshold from pyproject.toml)
+      - name: Create roles and database (same code as the test fixtures)
+        working-directory: backend
+        run: uv run python -m tooling.db_bootstrap --database supportx
+      - name: Migrate to head, then check tenant isolation (RLS guard)
+        run: make db-migrate db-current db-guard
+      - name: Test (pytest incl. database tests, coverage threshold from pyproject.toml)
         run: make backend-test
 
   frontend:

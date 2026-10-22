@@ -15,10 +15,22 @@ RESOURCES = Path(__file__).resolve().parents[2] / "frontend/packages/labels/src/
 _KEY = re.compile(r"^\s*'([^']+)':", re.MULTILINE)
 
 
+APP_DIR = Path(__file__).resolve().parents[1] / "app"
+# Per-raise codes, e.g. `NotFound(code="tenant_not_found")`, anywhere in the application code.
+_RAISE_CODE = re.compile(r"\bcode=\"([a-z][a-z0-9_]*)\"")
+
+
 def error_codes() -> set[str]:
     codes = {cls.code for cls in _subclasses(errors.AppError)} | {errors.AppError.code}
     codes |= set(errors._HTTP_STATUS_CODES.values())  # noqa: SLF001 - the mapping is the contract
+    for source in APP_DIR.rglob("*.py"):
+        if "tests" not in source.parts:
+            codes |= set(_RAISE_CODE.findall(source.read_text(encoding="utf-8")))
     return codes
+
+
+def test_per_raise_codes_are_collected() -> None:
+    assert {"tenant_required", "version_conflict", "tenant_not_found"} <= error_codes()
 
 
 def _subclasses(cls: type[errors.AppError]) -> list[type[errors.AppError]]:
