@@ -1,0 +1,49 @@
+# Starts the local dev stack (core profile) exactly as a developer does and runs `make dev-check`
+# (WP-002/WP-003). The .env is generated per run by `make dev-init` with throwaway random secrets;
+# nothing secret is stored in the repo or in GitHub.
+name: Stack smoke
+
+on:
+  pull_request:
+    paths:
+      - "deploy/compose/**"
+      - ".github/workflows/stack-smoke.yml"
+  schedule:
+    - cron: "41 2 * * *" # nightly 02:41 UTC: catches upstream image or registry breakage
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    name: core profile dev-check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Generate throwaway .env
+        run: |
+          make dev-init
+          # Mask every generated secret so it can never appear in the job log.
+          grep -E '^[A-Z_]+=[0-9a-f]{32}$' deploy/compose/.env | cut -d= -f2 |
+            while read -r secret; do echo "::add-mask::$secret"; done
+      - name: Start core profile
+        run: make dev-up
+      - name: dev-check
+        run: make dev-check
+      - name: Diagnostics on failure
+        if: ${{ failure() }}
+        run: |
+          make dev-ps
+          docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
+            --profile full logs --no-color --tail=200
+      - name: Tear down
+        if: ${{ always() }}
+        run: make dev-down

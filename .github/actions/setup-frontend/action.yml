@@ -1,0 +1,29 @@
+name: Set up frontend
+description: >-
+  Node from .nvmrc, pnpm via corepack (version from frontend/package.json `packageManager`),
+  pnpm store cached on frontend/pnpm-lock.yaml, then `pnpm install --frozen-lockfile`.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .nvmrc
+        # pnpm is not on PATH yet at this point; the store is cached explicitly below.
+        package-manager-cache: false
+    - name: Enable corepack (pnpm)
+      shell: bash
+      run: corepack enable
+    - name: Locate pnpm store
+      id: pnpm-store
+      shell: bash
+      working-directory: frontend
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.pnpm-store.outputs.path }}
+        key: pnpm-store-${{ runner.os }}-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+        restore-keys: pnpm-store-${{ runner.os }}-
+    - name: Install frontend dependencies (lockfile only)
+      shell: bash
+      working-directory: frontend
+      run: pnpm install --frozen-lockfile

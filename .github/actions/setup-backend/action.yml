@@ -1,0 +1,17 @@
+name: Set up backend
+description: >-
+  uv and Python 3.12 with the uv cache keyed on backend/uv.lock, then `uv sync --frozen`.
+  Shared by every workflow so the toolchain is identical everywhere.
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+      with:
+        version: "0.12.19"
+        python-version: "3.12"
+        enable-cache: true
+        cache-dependency-glob: backend/uv.lock
+    - name: Install backend dependencies (lockfile only)
+      shell: bash
+      working-directory: backend
+      run: uv sync --frozen

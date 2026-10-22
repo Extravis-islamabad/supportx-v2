@@ -1,0 +1,78 @@
+# Security gates (architecture.md §11.4, §16.2; WP-003). Each scan reports every finding and fails
+# only on what must block a merge: any leaked secret, or a high/critical vulnerability.
+name: Security
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1" # weekly, Monday 03:17 UTC: catches advisories published after a merge
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1
+  TRIVY_IMAGE: aquasec/trivy:0.76.1
+
+jobs:
+  gitleaks:
+    name: secret scan (gitleaks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # whole history: a secret removed later is still leaked
+          persist-credentials: false
+      # The gitleaks CLI image (MIT) is used directly: gitleaks-action needs a paid licence for
+      # organisation accounts, which would break once the repo moves to an Extravis org (D-015).
+      - name: Scan full git history
+        run: |
+          # safe.directory: the checkout is owned by the runner user, not the container user.
+          docker run --rm -v "$PWD:/repo" \
+            -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo \
+            "$GITLEAKS_IMAGE" \
+            git /repo --no-banner --redact --verbose --exit-code 1
+
+  dependency-audit:
+    name: dependency audit (pip-audit, pnpm audit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup-frontend
+      - name: Backend (pip-audit + severity gate)
+        # The token only raises the GitHub advisory API rate limit for severity lookups.
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: make audit-backend
+      - name: Frontend (pnpm audit)
+        if: ${{ !cancelled() }}
+        run: make audit-frontend
+
+  trivy:
+    name: filesystem scan (Trivy)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Report all findings
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
+            fs --scanners vuln,secret,misconfig --exit-code 0 /repo
+      - name: Fail on high/critical
+        run: |
+          docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
+            fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 /repo

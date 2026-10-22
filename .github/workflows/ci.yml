@@ -1,0 +1,71 @@
+# Quality gates (architecture.md §16.2, WP-003). Every step calls the same Makefile target a
+# developer runs locally (`make check`, `make build`, `make precommit`), so CI and local cannot drift.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Lint (ruff check, ruff format --check, import-linter)
+        run: make backend-lint
+      - name: Type-check (mypy --strict)
+        run: make backend-typecheck
+      - name: Test (pytest, coverage threshold from pyproject.toml)
+        run: make backend-test
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-frontend
+      - name: Lint (ESLint, Prettier check)
+        run: make frontend-lint
+      - name: Type-check (tsc strict)
+        run: make frontend-typecheck
+      - name: Test (Vitest)
+        run: make frontend-test
+      - name: Production builds (console, portal)
+        run: make build
+
+  pre-commit:
+    name: pre-commit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/setup-frontend
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: All pre-commit hooks on all files
+        run: make precommit

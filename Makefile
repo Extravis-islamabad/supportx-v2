@@ -1,11 +1,12 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: help setup lint typecheck test format check build \
+.PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
+PIP_AUDIT_VERSION := 2.10.1
 # Local dev stack (WP-002, docs/dev-setup.md). `--profile full` on down/ps/logs so they cover every
 # service whichever profile started it; it never starts anything by itself.
 DEV_DIR := deploy/compose
@@ -34,6 +35,26 @@ format: ## Auto-format and auto-fix everything
 
 build: ## Production builds of the console and portal
 	$(FRONTEND) pnpm build
+
+precommit: ## Run every pre-commit hook against all files (as CI does)
+	uv run --project backend pre-commit run --all-files --show-diff-on-failure
+
+audit: audit-backend audit-frontend ## Dependency vulnerability scan: lists all, fails on high/critical
+
+# pip-audit has no severity filter; tooling/vuln_gate.py adds it (exits 1 on high/critical/unknown).
+# pip-audit itself exits 1 whenever it finds anything, so only a missing report counts as an error.
+audit-backend:
+	@tmp=$$(mktemp -d) && cd backend && \
+	uv export --frozen --format requirements-txt --all-groups --no-emit-project --quiet \
+		-o $$tmp/requirements.txt && \
+	{ uvx pip-audit@$(PIP_AUDIT_VERSION) -r $$tmp/requirements.txt --disable-pip \
+		--progress-spinner off --format json -o $$tmp/pip-audit.json || test -s $$tmp/pip-audit.json; } && \
+	uv run python -m tooling.vuln_gate $$tmp/pip-audit.json
+
+# First run lists every advisory; the second fails only on high/critical.
+audit-frontend:
+	$(FRONTEND) pnpm audit || true
+	$(FRONTEND) pnpm audit --audit-level high
 
 backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports

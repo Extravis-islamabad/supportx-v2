@@ -1,0 +1,38 @@
+# Weekly dependency updates (WP-003). Minor and patch bumps arrive as one grouped PR per ecosystem;
+# majors stay separate so each can be reviewed on its own. Every PR must pass CI and Security.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+    groups:
+      actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      backend-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      frontend-minor-patch:
+        update-types: [minor, patch]
