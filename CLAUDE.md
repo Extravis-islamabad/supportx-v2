@@ -61,15 +61,21 @@ pydantic-settings, Nuitka, OpenFeature SDK, pgvector, PgBouncer, Jinja2 (sandbox
 only), pre-commit, ClamAV, pgBackRest, React Native (mobile, later), Go (only if ADR-015 chooses a
 new agent).
 
+**Approved additions (D-012..D-014):** test/build helpers httpx, @testing-library/react,
+@testing-library/dom, jsdom, @vitejs/plugin-react, @types/react, @types/react-dom, @eslint/js,
+typescript-eslint, eslint-plugin-react-hooks, eslint-plugin-react-refresh, globals (D-012);
+i18next + react-i18next for `packages/labels`, adopted in WP-010 (D-013); TypeScript pinned to the
+latest version typescript-eslint supports, currently 5.9.x (D-014).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
 
-**Dependency rule:** never add a runtime or dev dependency outside this list without asking the
-product owner first. Small companion libraries that a listed tool needs to function (e.g. the
-official client SDK for a listed component, `@ant-design/icons`, `typescript-eslint`,
-`@vitejs/plugin-react`, `httpx` for FastAPI's test client) still need to be named in the session
-report so they can be vetoed. Every dependency must have a licence that allows on-prem
+**Dependency rule:** never add a runtime dependency outside this list without asking the
+product owner first. Exception (D-012): small MIT/Apache/BSD-licensed dev or test helpers that an
+approved tool needs may be added without asking, but must be listed in the task report. Other
+small companion libraries a listed component needs (e.g. its official client SDK,
+`@ant-design/icons`) still need to be named in the session report so they can be vetoed. Every dependency must have a licence that allows on-prem
 redistribution (§5 licence box); AGPL / source-available needs explicit approval (ADR-012).
 
 ## 4. Repository layout (target)

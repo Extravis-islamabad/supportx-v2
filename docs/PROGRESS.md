@@ -124,7 +124,8 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 ### [ ] WP-010 — Frontend foundation and design system
 - **Goal:** Shared frontend packages that enforce rule (d) from day one.
 - **Scope:** `packages/ui` (AntD 5 theme tokens, light/dark/high-contrast, RTL switch, app shell);
-  `packages/labels` (dictionary, `humanize()` with missing-label warning, en/ar/ur resources);
+  `packages/labels` migrated to i18next + react-i18next (D-013; dictionary, `humanize()` with
+  missing-label warning, plurals, interpolation, en/ar/ur resources);
   custom ESLint no-raw-enum rule; `packages/api-client` generated from the WP-004 OpenAPI export
   with TanStack Query hooks; console and portal apps boot with login redirect to the BFF.
 - **Acceptance:** Both apps build and render in en and ar (RTL); ESLint rule test cases pass;
