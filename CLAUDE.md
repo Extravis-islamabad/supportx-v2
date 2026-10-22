@@ -46,7 +46,8 @@ migration tool (architecture.md §18) remains in scope.
 
 **Backend:** Python 3.12+, FastAPI + Pydantic v2, SQLAlchemy 2.0 (async) + Alembic,
 PostgreSQL 16 (RLS, JSONB, pgvector), NATS JetStream, Temporal (Python SDK), Centrifugo,
-Keycloak, **Valkey** (replaces Redis everywhere — D-004), OpenSearch, MinIO / S3, ClickHouse.
+Keycloak, **Valkey** (replaces Redis everywhere — D-004), OpenSearch, S3-compatible
+object storage (S3 API only; MinIO for local dev only — D-016), ClickHouse.
 Package management: **uv**.
 
 **Frontend:** React 18 + TypeScript (strict) + Vite, Ant Design 5, TanStack Query, Zustand,

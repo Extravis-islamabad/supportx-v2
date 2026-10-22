@@ -12,7 +12,16 @@ On-prem installs redistribute third-party components. MinIO and Grafana are AGPL
 ## Decision
 
 - **Redis — resolved (D-011, via D-004):** Valkey (BSD-3-Clause, Redis-compatible) replaces Redis everywhere.
-- **MinIO and Grafana — open:** legal review before the first on-prem release; alternatives exist if needed.
+- **Object storage — S3 API only (D-016):** application code talks to object storage through the S3
+  API only and uses no MinIO-specific features (admin API, MinIO-only extensions), so the store is
+  swappable per profile.
+  - **Local development:** MinIO from the `pgsty/minio` and `pgsty/mc` community images (see Notes).
+    Dev only; never bundled.
+  - **SaaS:** the cloud provider's S3 service.
+  - **On-prem bundle — open:** evaluate SeaweedFS (Apache-2.0) and other S3-compatible stores
+    (licence, air-gap install, HA, operational fit) before the first on-prem release. MinIO stays a
+    candidate only if legal approves AGPL redistribution.
+- **Grafana — open:** legal review before the first on-prem release; alternatives exist if needed.
 
 ## Consequences
 
@@ -21,4 +30,12 @@ On-prem installs redistribute third-party components. MinIO and Grafana are AGPL
 
 ## Notes
 
-Open in architecture.md §19 for MinIO and Grafana; decision required before the first on-prem release. Redis part resolved 2026-10-22 (D-011).
+Open in architecture.md §19 for the on-prem object store and Grafana; decision required before the
+first on-prem release. Redis part resolved 2026-10-22 (D-011). Object-storage direction set
+2026-10-22 (D-016).
+
+MinIO image situation (found in WP-002, 2026-10-22): MinIO Inc. no longer publishes community
+container images. `minio/minio` and `minio/mc` pulls from Docker Hub are denied and the Quay tags
+are gone. `pgsty/minio` is a maintained community build of the same AGPL source (on UBI 9 micro).
+It is acceptable for local development, but it is a third-party build with no vendor support, so
+it is not a basis for a bundled production component.

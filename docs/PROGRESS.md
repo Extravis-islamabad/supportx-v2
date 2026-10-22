@@ -11,14 +11,14 @@
 
 ### Open questions (awaiting product owner)
 
-1. CI platform (GitHub Actions, GitLab CI, other) and git remote. Blocks WP-003.
-2. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
+1. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
    download, or install Homebrew first? Blocks WP-014.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
 ADR owners (D-007), prototype design input (D-008), BFF location (D-009), Keycloak tenancy (D-010),
-Redis licence (D-011); helper libraries, i18next, TypeScript version (D-012..D-014).
+Redis licence (D-011); helper libraries, i18next, TypeScript version (D-012..D-014); GitHub
+private repo + Actions (D-015), S3-only object storage (D-016), Temporal without auto-setup (D-017).
 
 ## Stage 0: Foundation — work packages
 
@@ -58,7 +58,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   conventional-commit check on PR titles.
 - **Acceptance:** Pipeline green on main; a deliberately failing lint/type/test is shown to fail
   the build (on a throwaway branch).
-- **Depends on:** WP-001; CI platform decision (open question 3)
+- **Depends on:** WP-001; CI platform: GitHub Actions on a private GitHub repo (D-015)
 
 ### [ ] WP-004 — Backend application core
 - **Goal:** Production-shaped FastAPI app with cross-cutting concerns, no business modules yet.
@@ -173,6 +173,11 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   e2e test passes against the cluster.
 - **Depends on:** WP-002, WP-004 (WP-012 for the final acceptance run); k3d installed on the dev
   machine (D-003, open question 2)
+- **Note (D-017):** Temporal is deployed without the `auto-setup` image; schema setup and
+  migrations run as a job using `temporalio/admin-tools` (`temporal-sql-tool`) before the server
+  starts. The dev compose stack keeps `auto-setup` 1.29.7.
+- **Note (D-016):** object storage via S3 API only; the in-cluster dev store and the on-prem
+  bundled store follow ADR-012.
 
 ### [ ] WP-015 — Clickable prototype of console and portal
 - **Goal:** Stage 0 product outcome: navigable prototype to validate journeys with stakeholders.
