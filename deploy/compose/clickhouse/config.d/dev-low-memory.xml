@@ -1,0 +1,23 @@
+<!-- Dev only: shrink ClickHouse caches so it fits a laptop under the compose memory limit.
+     Values follow ClickHouse's low-memory guidance; production sizing is set in the Helm chart. -->
+<clickhouse>
+    <max_server_memory_usage_to_ram_ratio>0.75</max_server_memory_usage_to_ram_ratio>
+    <mark_cache_size>268435456</mark_cache_size>
+    <index_mark_cache_size>67108864</index_mark_cache_size>
+    <uncompressed_cache_size>67108864</uncompressed_cache_size>
+    <concurrent_threads_soft_limit_num>2</concurrent_threads_soft_limit_num>
+    <logger>
+        <level>warning</level>
+        <console>1</console>
+    </logger>
+    <!-- System log tables grow quickly and are not needed for local development. -->
+    <query_thread_log remove="1"/>
+    <query_views_log remove="1"/>
+    <part_log remove="1"/>
+    <trace_log remove="1"/>
+    <metric_log remove="1"/>
+    <asynchronous_metric_log remove="1"/>
+    <text_log remove="1"/>
+    <latency_log remove="1"/>
+    <processors_profile_log remove="1"/>
+</clickhouse>

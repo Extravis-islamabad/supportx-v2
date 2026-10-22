@@ -2,11 +2,11 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 1 of 15 work packages done.
-- **Last completed:** WP-001 (monorepo skeleton and dev tooling), 2026-10-22.
-- **Next work package:** WP-002 (local dev stack, Docker Compose). WP-004 and WP-009 are also
-  unblocked and could run in parallel.
-- **Blockers:** None for WP-002. WP-003 needs the CI platform decision; WP-014 needs k3d
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 2 of 15 work packages done.
+- **Last completed:** WP-002 (local dev stack, Docker Compose), 2026-10-22.
+- **Next work package:** WP-004 (backend application core). WP-009 is also unblocked; WP-005
+  becomes unblocked once WP-004 is done.
+- **Blockers:** None for WP-004. WP-003 needs the CI platform decision; WP-014 needs k3d
   installed (D-003; Homebrew is not installed either).
 
 ### Open questions (awaiting product owner)
@@ -18,7 +18,7 @@
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
 ADR owners (D-007), prototype design input (D-008), BFF location (D-009), Keycloak tenancy (D-010),
-Redis licence (D-011).
+Redis licence (D-011); helper libraries, i18next, TypeScript version (D-012..D-014).
 
 ## Stage 0: Foundation — work packages
 
@@ -39,14 +39,16 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   outside CLAUDE.md §3.
 - **Depends on:** —
 
-### [ ] WP-002 — Local dev stack (Docker Compose)
+### [x] WP-002 — Local dev stack (Docker Compose) (done 2026-10-22)
 - **Goal:** One command brings up every backing service for local development.
-- **Scope:** `deploy/dev/docker-compose.yml` for PostgreSQL 16 (+ pgvector), NATS JetStream,
-  Temporal (+ UI), Centrifugo, Keycloak, Valkey, OpenSearch, MinIO, ClickHouse; named volumes
-  prefixed `supportx_dev_`; health checks; `make dev-up`, `make dev-down` (never removes volumes);
-  `.env.example`.
-- **Acceptance:** `make dev-up` reaches all-healthy on the dev Mac; a smoke script connects to each
-  service; ports and credentials documented in `deploy/dev/README.md`.
+- **Scope:** `deploy/compose/docker-compose.yml` for PostgreSQL 16 (+ pgvector), PgBouncer, NATS
+  JetStream, Temporal (+ UI), Centrifugo, Keycloak, Valkey, OpenSearch, MinIO, Mailpit, ClickHouse,
+  ClamAV; profiles core (default) and full; named volumes prefixed `supportx_dev_`; health checks;
+  `make dev-init/dev-up/dev-up-full/dev-down/dev-ps/dev-logs/dev-check/dev-reset` (`dev-down` never
+  removes volumes; `dev-reset` asks for "yes"); `.env.example`; PostgreSQL roles `supportx_app`
+  (no BYPASSRLS) and `supportx_migrator`.
+- **Acceptance:** `make dev-up` reaches all-healthy on the dev Mac; `make dev-check` connects to each
+  service; ports and credentials documented in `docs/dev-setup.md`.
 - **Depends on:** WP-001
 
 ### [ ] WP-003 — CI pipeline and quality gates
@@ -183,6 +185,26 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   needed.
 
 ## Session log (newest first)
+
+### 2026-10-22 — WP-002 local dev stack (Docker Compose)
+- Recorded D-012..D-014 (helper libraries + dev-helper rule, i18next for labels in WP-010,
+  TypeScript 5.9.x) in `docs/DECISIONS.md` and CLAUDE.md §3.
+- `deploy/compose/`: compose file with 13 services + `minio-init` one-shot, all images pinned and
+  multi-arch (arm64 verified), ports on 127.0.0.1 in a 2xxxx range (5432, 6379, 4222, 8025 are
+  taken by other projects on the dev Mac), memory limits on every service. Postgres init creates
+  `supportx`, `keycloak`, `temporal`, `temporal_visibility`, extensions vector/pgcrypto/citext, and
+  the roles `supportx_migrator` (owner) and `supportx_app` (no superuser/owner/BYPASSRLS, DML-only
+  default privileges). `make dev-init` generates random secrets into git-ignored `.env`.
+- `make dev-check`: 18 core checks + 7 full checks, including a rolled-back functional RLS probe.
+  Results: core 18 PASS / 7 SKIP; full 25/25 PASS; restart from kept volumes 18 PASS. Verified that
+  a stopped service yields FAIL + non-zero exit, and that `dev-reset` deletes nothing without "yes".
+- RAM: core ≈ 0.8 GB, full ≈ 3.3 GB (docker stats). `make check` green.
+- Image deviations: MinIO community images were withdrawn from Docker Hub/Quay, so dev uses
+  `pgsty/minio` + `pgsty/mc` (community build, AGPL; dev only; feeds ADR-012). Temporal
+  `auto-setup` stops at 1.29.7 (server is at 1.32); fine for dev, revisit in WP-014.
+- Follow-ups: WP-005 must create the same two roles in Testcontainers fixtures (the init script
+  only runs in this dev stack); WP-006 realm import; WP-014 must decide Temporal schema setup
+  without `auto-setup`.
 
 ### 2026-10-22 — WP-001 monorepo skeleton and dev tooling
 - Backend: uv project pinned to Python 3.12 (`.python-version`), FastAPI app factory with

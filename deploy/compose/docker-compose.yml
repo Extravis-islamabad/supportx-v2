@@ -1,0 +1,391 @@
+# SupportX v2 local development stack (WP-002). DEV ONLY: never used for any deployed profile;
+# SaaS and on-prem run from the Helm chart (architecture.md §14, WP-014).
+#
+# Profiles:
+#   (default) "core": postgres, pgbouncer, valkey, nats, keycloak, centrifugo, minio, mailpit.
+#                     Services without a `profiles` key are the core set.
+#   "setup":          one-shot jobs (minio-init) that `make dev-up` runs after the stack is healthy.
+#   "full":           core + temporal, temporal-ui, opensearch, clickhouse, clamav.
+#
+# Use the Makefile (`make dev-up`, `make dev-up-full`, `make dev-check` ...) rather than calling
+# compose directly; see docs/dev-setup.md. Every port binds to 127.0.0.1 only. All images are
+# multi-arch (amd64 + arm64) and pinned to an exact version.
+
+name: supportx-dev
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  # ---------------------------------------------------------------------------------- core ----
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:?run make dev-init}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?run make dev-init}
+      POSTGRES_DB: postgres
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8 --auth-host=scram-sha-256"
+      SUPPORTX_MIGRATOR_PASSWORD: ${SUPPORTX_MIGRATOR_PASSWORD:?run make dev-init}
+      SUPPORTX_APP_PASSWORD: ${SUPPORTX_APP_PASSWORD:?run make dev-init}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?run make dev-init}
+      TEMPORAL_DB_PASSWORD: ${TEMPORAL_DB_PASSWORD:?run make dev-init}
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-25432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d supportx"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    mem_limit: 768m
+    logging: *default-logging
+
+  pgbouncer:
+    image: edoburu/pgbouncer:v1.26.1-p0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # The application path: supportx_app through a transaction-mode pool (architecture.md §5).
+      # Migrations, Keycloak and Temporal connect to postgres directly.
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: supportx
+      DB_USER: supportx_app
+      DB_PASSWORD: ${SUPPORTX_APP_PASSWORD:?run make dev-init}
+      AUTH_TYPE: scram-sha-256
+      POOL_MODE: transaction
+      LISTEN_PORT: "6432"
+      MAX_CLIENT_CONN: "500"
+      DEFAULT_POOL_SIZE: "20"
+      # asyncpg prepared statements work in transaction mode with this on (PgBouncer >= 1.21).
+      MAX_PREPARED_STATEMENTS: "200"
+    ports:
+      - "127.0.0.1:${PGBOUNCER_PORT:-26432}:6432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 6432 -U supportx_app -d supportx"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 64m
+    logging: *default-logging
+
+  valkey:
+    image: valkey/valkey:9.1.2-alpine
+    restart: unless-stopped
+    environment:
+      VALKEY_PASSWORD: ${VALKEY_PASSWORD:?run make dev-init}
+    command:
+      - sh
+      - -c
+      - exec valkey-server --requirepass "$$VALKEY_PASSWORD" --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "127.0.0.1:${VALKEY_PORT:-26379}:6379"
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli --no-auth-warning -a \"$$VALKEY_PASSWORD\" ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 320m
+    logging: *default-logging
+
+  nats:
+    image: nats:2.15.1-alpine
+    restart: unless-stopped
+    command: ["-c", "/etc/nats/nats.conf"]
+    volumes:
+      - ./nats/nats.conf:/etc/nats/nats.conf:ro
+      - nats_data:/data
+    ports:
+      - "127.0.0.1:${NATS_PORT:-24222}:4222"
+      - "127.0.0.1:${NATS_MONITOR_PORT:-28222}:8222"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- 'http://127.0.0.1:8222/healthz?js-enabled-only=true' | grep -q ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 512m
+    logging: *default-logging
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    restart: unless-stopped
+    # Dev mode only; realm import and production settings arrive in WP-006 / WP-014.
+    command: ["start-dev"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?run make dev-init}
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
+      KC_HOSTNAME: http://localhost:${KEYCLOAK_PORT:-28080}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USER:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?run make dev-init}
+      JAVA_OPTS_KC_HEAP: "-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=25"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-28080}:8080"
+      - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-28090}:9000"
+    healthcheck:
+      # The image has no curl/wget; talk HTTP over bash's /dev/tcp to the management port.
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          grep -q '"UP"' <&3
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    mem_limit: 1g
+    logging: *default-logging
+
+  centrifugo:
+    image: centrifugo/centrifugo:v6.10.1
+    restart: unless-stopped
+    command: ["centrifugo", "--config", "/centrifugo/config.json"]
+    environment:
+      # Secrets come from .env, never from the committed config file.
+      CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY: ${CENTRIFUGO_TOKEN_HMAC_SECRET:?run make dev-init}
+      CENTRIFUGO_HTTP_API_KEY: ${CENTRIFUGO_API_KEY:?run make dev-init}
+      CENTRIFUGO_ADMIN_PASSWORD: ${CENTRIFUGO_ADMIN_PASSWORD:?run make dev-init}
+      CENTRIFUGO_ADMIN_SECRET: ${CENTRIFUGO_ADMIN_SECRET:?run make dev-init}
+    volumes:
+      - ./centrifugo/config.json:/centrifugo/config.json:ro
+    ports:
+      - "127.0.0.1:${CENTRIFUGO_PORT:-28000}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8000/health | grep -q '{}'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 256m
+    logging: *default-logging
+
+  minio:
+    # MinIO no longer publishes community images (minio/minio is gone from Docker Hub and Quay).
+    # pgsty/minio is a maintained community build of the same AGPL source. Dev only; the
+    # production object store choice stays with ADR-012.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?run make dev-init}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?run make dev-init}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "127.0.0.1:${MINIO_API_PORT:-29000}:9000"
+      - "127.0.0.1:${MINIO_CONSOLE_PORT:-29001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 512m
+    logging: *default-logging
+
+  minio-init:
+    # One-shot: creates the attachments bucket, then exits 0. Safe to re-run (--ignore-existing).
+    # Own profile because `up --wait` treats any exited container as a failure; `make dev-up`
+    # runs it with `compose run` once the stack is healthy.
+    image: pgsty/mc:RELEASE.2026-10-18T00-00-00Z
+    profiles: ["setup"]
+    restart: "no"
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MC_HOST_local: http://${MINIO_ROOT_USER}:${MINIO_ROOT_PASSWORD}@minio:9000
+    command: ["mb", "--ignore-existing", "local/${MINIO_BUCKET:-attachments}"]
+    logging: *default-logging
+
+  mailpit:
+    image: axllent/mailpit:v1.31.6
+    restart: unless-stopped
+    environment:
+      MP_MAX_MESSAGES: "2000"
+      MP_DATABASE: /data/mailpit.db
+      MP_SMTP_AUTH_ACCEPT_ANY: "true"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "true"
+    volumes:
+      - mailpit_data:/data
+    ports:
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-21025}:1025"
+      - "127.0.0.1:${MAILPIT_WEB_PORT:-28025}:8025"
+    healthcheck:
+      test: ["CMD", "/mailpit", "readyz"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 128m
+    logging: *default-logging
+
+  # ---------------------------------------------------------------------------------- full ----
+  temporal:
+    # auto-setup creates the Temporal schema on first start. Its last published version is
+    # 1.29.7 (Temporal stopped publishing auto-setup); fine for dev, production uses the Helm chart.
+    image: temporalio/auto-setup:1.29.7
+    profiles: ["full"]
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB: postgres12
+      DB_PORT: "5432"
+      POSTGRES_SEEDS: postgres
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:?run make dev-init}
+      DBNAME: temporal
+      VISIBILITY_DBNAME: temporal_visibility
+      # The databases are created by postgres/initdb (temporal has no CREATEDB right).
+      SKIP_DB_CREATE: "true"
+      DEFAULT_NAMESPACE: default
+    ports:
+      - "127.0.0.1:${TEMPORAL_PORT:-27233}:7233"
+    healthcheck:
+      test: ["CMD-SHELL", "tctl --address \"$$(hostname -i):7233\" cluster health | grep -q SERVING"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+    mem_limit: 768m
+    logging: *default-logging
+
+  temporal-ui:
+    image: temporalio/ui:2.57.0
+    profiles: ["full"]
+    restart: unless-stopped
+    depends_on:
+      temporal:
+        condition: service_healthy
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CORS_ORIGINS: http://localhost:${TEMPORAL_UI_PORT:-28233}
+    ports:
+      - "127.0.0.1:${TEMPORAL_UI_PORT:-28233}:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || wget -qO- http://127.0.0.1:8080/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    mem_limit: 128m
+    logging: *default-logging
+
+  opensearch:
+    image: opensearchproject/opensearch:3.9.0
+    profiles: ["full"]
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      cluster.name: supportx-dev
+      bootstrap.memory_lock: "false"
+      # DEV ONLY: security plugin off so no TLS/certs are needed locally. Never in a deployed profile.
+      DISABLE_SECURITY_PLUGIN: "true"
+      DISABLE_INSTALL_DEMO_CONFIG: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    ports:
+      - "127.0.0.1:${OPENSEARCH_PORT:-29200}:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS 'http://127.0.0.1:9200/_cluster/health?wait_for_status=yellow&timeout=5s' | grep -qE '\"status\":\"(green|yellow)\"'"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 40s
+    mem_limit: 1280m
+    logging: *default-logging
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8.34.13-alpine
+    profiles: ["full"]
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:?run make dev-init}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?run make dev-init}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-supportx_analytics}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse/config.d/dev-low-memory.xml:/etc/clickhouse-server/config.d/dev-low-memory.xml:ro
+    ports:
+      - "127.0.0.1:${CLICKHOUSE_HTTP_PORT:-28123}:8123"
+      - "127.0.0.1:${CLICKHOUSE_NATIVE_PORT:-29010}:9000"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8123/ping | grep -q Ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    mem_limit: 1g
+    logging: *default-logging
+
+  clamav:
+    # The Debian variant is the multi-arch one (the Alpine "latest" tag is amd64 only).
+    image: clamav/clamav:1.5.4-debian
+    profiles: ["full"]
+    restart: unless-stopped
+    environment:
+      # Reload signatures in place instead of loading a second copy: halves peak RAM (~1 GB).
+      CLAMD_CONF_ConcurrentDatabaseReload: "no"
+    volumes:
+      - clamav_data:/var/lib/clamav
+    ports:
+      - "127.0.0.1:${CLAMAV_PORT:-23310}:3310"
+    healthcheck:
+      # First start downloads the signature database (~300 MB), hence the long start period.
+      test: ["CMD-SHELL", "clamdcheck.sh"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 600s
+    mem_limit: 1536m
+    logging: *default-logging
+
+volumes:
+  postgres_data:
+    name: supportx_dev_postgres_data
+  valkey_data:
+    name: supportx_dev_valkey_data
+  nats_data:
+    name: supportx_dev_nats_data
+  minio_data:
+    name: supportx_dev_minio_data
+  mailpit_data:
+    name: supportx_dev_mailpit_data
+  opensearch_data:
+    name: supportx_dev_opensearch_data
+  clickhouse_data:
+    name: supportx_dev_clickhouse_data
+  clamav_data:
+    name: supportx_dev_clamav_data
