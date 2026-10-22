@@ -33,6 +33,22 @@ updates:
     commit-message:
       prefix: build
       include: scope
+    # Majors pinned by recorded decisions; upgrading them needs a product-owner decision first.
+    ignore:
+      - dependency-name: typescript # D-014: latest typescript-eslint supports (5.9.x)
+        update-types: [version-update:semver-major]
+      - dependency-name: antd # ADR-002: Ant Design 5
+        update-types: [version-update:semver-major]
+      - dependency-name: "@ant-design/*"
+        update-types: [version-update:semver-major]
+      - dependency-name: react # CLAUDE.md §3: React 18
+        update-types: [version-update:semver-major]
+      - dependency-name: react-dom
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react"
+        update-types: [version-update:semver-major]
+      - dependency-name: "@types/react-dom"
+        update-types: [version-update:semver-major]
     groups:
       frontend-minor-patch:
         update-types: [minor, patch]
