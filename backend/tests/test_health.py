@@ -32,7 +32,9 @@ async def test_ready_reports_unconfigured_dependencies_as_not_ready(
         "status": "not_configured",
         "latency_ms": None,
         "reason": None,
+        "critical": True,
     }
+    assert body["degraded"] == []  # no NATS configured: worker heartbeats are not probed
 
 
 async def test_docs_are_served_in_dev_and_hidden_in_production(

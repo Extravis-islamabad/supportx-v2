@@ -2,7 +2,8 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
 	backend-dev backend-env openapi openapi-check schema-check \
-	db-migrate db-downgrade db-revision db-current db-seed db-guard e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard e2e \
+	worker-relay worker-consumers events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
 
@@ -10,6 +11,8 @@ BACKEND := cd backend &&
 FRONTEND := cd frontend &&
 PIP_AUDIT_VERSION := 2.10.1
 OPENAPI_FILE := ../frontend/packages/api-client/openapi.json
+EVENT_SCHEMAS := ../docs/architecture/event-schemas.json
+EVENTS_CLI := $(BACKEND) uv run python -m workers.events_cli
 # Local dev stack (WP-002, docs/dev-setup.md). `--profile full` on down/ps/logs so they cover every
 # service whichever profile started it; it never starts anything by itself.
 DEV_DIR := deploy/compose
@@ -24,7 +27,7 @@ setup: ## Install backend (uv, Python 3.12) and frontend (pnpm) deps, install gi
 	$(FRONTEND) pnpm install --frozen-lockfile
 	uv run --project backend pre-commit install
 
-lint: backend-lint frontend-lint ## Lint everything (ruff, import-linter, OpenAPI drift, ESLint, Prettier)
+lint: backend-lint frontend-lint ## Lint everything (ruff, import-linter, OpenAPI + event schema drift, ESLint, Prettier)
 
 typecheck: backend-typecheck frontend-typecheck ## Type-check everything (mypy strict, tsc strict)
 
@@ -47,7 +50,10 @@ backend-dev: ## Run the API with auto-reload on http://127.0.0.1:8000 (needs bac
 # --- Database (WP-005). Alembic runs as supportx_migrator straight to PostgreSQL, using
 # SUPPORTX_MIGRATION_DATABASE_URL (backend/.env from `make backend-env`, or the environment).
 
-db-migrate: ## Apply all migrations (upgrade to head)
+db-bootstrap: ## Create missing database roles/grants (idempotent; never changes data or passwords)
+	$(BACKEND) uv run python -m tooling.db_bootstrap --database supportx
+
+db-migrate: db-bootstrap ## Apply all migrations (upgrade to head)
 	$(BACKEND) uv run alembic upgrade head
 
 db-downgrade: ## Roll back ONE migration (asks you to type "yes"; may drop tables and data)
@@ -68,6 +74,34 @@ db-seed: ## Create the demo tenant if missing (idempotent, never deletes or upda
 
 db-guard: ## Check every table's tenant isolation (RLS) in the dev database
 	$(BACKEND) uv run python -m tooling.rls_guard
+
+# --- Event bus (WP-007, docs/architecture/events.md). Workers read backend/.env (make backend-env).
+
+worker-relay: ## Run the outbox relay (outbox table -> NATS JetStream) until Ctrl+C
+	$(BACKEND) uv run python -m workers.outbox_relay
+
+worker-consumers: ## Run every module consumer (dev profile: logs every event) until Ctrl+C
+	$(BACKEND) uv run python -m workers.consumers
+
+events-tail: ## Watch events live: make events-tail [tenant=<id>] [type=identity_access.>] [since=10m|all]
+	$(EVENTS_CLI) tail $(if $(tenant),--tenant $(tenant)) $(if $(type),--type '$(type)') \
+		$(if $(since),--since $(since))
+
+events-stats: ## Stream sizes, dead-letter count and worker heartbeats
+	$(EVENTS_CLI) stats
+
+dlq-list: ## List dead letters: make dlq-list [consumer=<name>]
+	$(EVENTS_CLI) dlq-list $(if $(consumer),--consumer $(consumer))
+
+dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | all=1 [consumer=<name>]
+	$(EVENTS_CLI) dlq-replay $(if $(seq),--seq $(seq)) $(if $(all),--all) \
+		$(if $(consumer),--consumer $(consumer))
+
+events-schemas: ## Export every event schema to docs/architecture/event-schemas.json
+	$(BACKEND) uv run python -m tooling.event_schemas write $(EVENT_SCHEMAS)
+
+events-check: ## Fail on an outdated schema export or a breaking event change (base=<file> in CI)
+	$(BACKEND) uv run python -m tooling.event_schemas check $(EVENT_SCHEMAS) $(if $(base),--base $(base))
 
 openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API types (D-022)
 	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
@@ -107,7 +141,7 @@ audit-frontend:
 
 backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports
-	$(MAKE) openapi-check
+	$(MAKE) openapi-check events-check
 
 backend-typecheck:
 	$(BACKEND) uv run mypy

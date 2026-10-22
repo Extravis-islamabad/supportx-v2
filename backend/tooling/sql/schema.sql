@@ -7,3 +7,4 @@ CREATE EXTENSION IF NOT EXISTS citext;
 ALTER SCHEMA public OWNER TO supportx_migrator;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO supportx_app;
+GRANT USAGE ON SCHEMA public TO supportx_relay;

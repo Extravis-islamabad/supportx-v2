@@ -20,15 +20,18 @@ async def _startup(app: FastAPI) -> None:   # optional: build clients, warm cach
 async def _shutdown(app: FastAPI) -> None:  # optional: close what startup opened
     ...
 
-async def _on_ticket_created(event: Mapping[str, Any]) -> None:  # optional, wired in WP-007
-    ...
+async def _on_ticket_created(event: EventEnvelope, session: AsyncSession | None) -> None:
+    ...  # optional consumer handler (docs/architecture/events.md)
 
 module = ModuleSpec(
     name="<name>",                       # must equal the folder name
     routers=[router],                    # mounted under /api/v1 (give the router its own prefix)
     on_startup=[_startup],               # run in module-name order
     on_shutdown=[_shutdown],             # run in reverse order
-    event_handlers={"work_items.created": [_on_ticket_created]},
+    events=[TicketCreated],              # DomainEvent classes from events.py (registered)
+    consumers=[ConsumerSpec(name="<name>__on_ticket_created",
+                            event_types=("work_items.ticket.created",),
+                            handler=_on_ticket_created)],
 )
 ```
 
@@ -36,8 +39,9 @@ Rules the registry enforces at startup (`app/core/modules.py`):
 
 - every package under `app/modules/` must define `module = ModuleSpec(...)`;
 - `ModuleSpec.name` must equal the package name, and names must be unique;
-- startup hooks run in name order, shutdown hooks in reverse; event handlers from all modules are
-  merged per event type into `app.state.event_handlers` for the event bus (WP-007).
+- startup hooks run in name order, shutdown hooks in reverse;
+- every event's type starts with the module name and `(type, version)` is unique (event registry);
+  consumers are named `<module>__<purpose>` and run in the consumer worker (WP-007).
 
 See `system/__init__.py` for a complete, tested example (router + startup hook that builds the
 readiness service from settings).
@@ -47,7 +51,7 @@ readiness service from settings).
 ```
 app/modules/<module>/
   __init__.py     # PUBLIC: the ModuleSpec plus the service interface other modules may import
-  events.py       # PUBLIC published event contracts (payload schemas, event type codes)
+  events.py       # PUBLIC event contracts: DomainEvent classes (see docs/architecture/events.md)
   api/            # FastAPI routers + request/response schemas. No business logic.
   service/        # use cases: own the transaction, permission + entitlement checks, outbox events
   domain/         # entities, value objects, state machines, policies, ports. Pure Python, no I/O.

@@ -25,6 +25,10 @@ class CheckResponse(BaseModel):
     status: CheckStatus
     latency_ms: float | None = Field(default=None, description="Probe duration.")
     reason: FailureReason | None = Field(default=None, description="Why it failed, if it did.")
+    critical: bool = Field(
+        default=True,
+        description="False for informational checks (event workers): they never cause a 503.",
+    )
 
 
 class ReadinessResponse(BaseModel):
@@ -33,6 +37,9 @@ class ReadinessResponse(BaseModel):
     status: Literal["ready", "not_ready"]
     checks: dict[str, CheckResponse]
     failed: list[str]
+    degraded: list[str] = Field(
+        default_factory=list, description="Informational checks that are not OK."
+    )
 
 
 def get_readiness_service(request: Request) -> ReadinessService:
@@ -62,7 +69,9 @@ async def get_ready(
 ) -> ReadinessResponse:
     """Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.
 
-    Otherwise 503, naming the failing dependency with a reason code.
+    Otherwise 503, naming the failing dependency with a reason code. The outbox relay and the
+    consumer worker are reported from their heartbeats (`outbox_relay`, `event_consumers`) but
+    are informational: when they are down the response lists them under `degraded`, still 200.
     """
     report = await service.check()
     if not report.ready:
@@ -74,8 +83,11 @@ def _to_response(report: ReadinessReport) -> ReadinessResponse:
     return ReadinessResponse(
         status="ready" if report.ready else "not_ready",
         checks={
-            name: CheckResponse(status=r.status, latency_ms=r.latency_ms, reason=r.reason)
+            name: CheckResponse(
+                status=r.status, latency_ms=r.latency_ms, reason=r.reason, critical=r.critical
+            )
             for name, r in report.checks.items()
         },
         failed=report.failed,
+        degraded=report.degraded,
     )

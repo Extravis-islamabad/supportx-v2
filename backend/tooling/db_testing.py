@@ -7,7 +7,8 @@ never touched (CLAUDE.md rule h).
 
 Connection settings, in order:
 1. env: SUPPORTX_TEST_ADMIN_URL (superuser, any database), SUPPORTX_TEST_APP_PASSWORD,
-   SUPPORTX_TEST_MIGRATOR_PASSWORD, optional SUPPORTX_TEST_PGBOUNCER (host:port);
+   SUPPORTX_TEST_MIGRATOR_PASSWORD, SUPPORTX_TEST_RELAY_PASSWORD, optional SUPPORTX_TEST_PGBOUNCER
+   (host:port);
 2. otherwise the dev stack's deploy/compose/.env.
 The application role connects through PgBouncer when one is configured (as in production).
 """
@@ -23,9 +24,10 @@ import asyncpg
 from alembic import command
 from alembic.config import Config
 
-from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE
+from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE, RELAY_ROLE
 from tooling.db_bootstrap import (
     TEST_DATABASE_PREFIX,
+    RolePasswords,
     bootstrap,
     drop_test_database,
     with_credentials,
@@ -43,7 +45,15 @@ class DbTestConfig:
     admin_url: str
     app_password: str
     migrator_password: str
+    relay_password: str
     pgbouncer: str | None  # "host:port" or None to connect the app role directly
+
+    @property
+    def passwords(self) -> RolePasswords:
+        """Passwords for the bootstrap (used only when a role does not exist yet)."""
+        return RolePasswords(
+            app=self.app_password, migrator=self.migrator_password, relay=self.relay_password
+        )
 
 
 @dataclass(frozen=True)
@@ -55,6 +65,7 @@ class ThrowawayDatabase:
     migrator_url: str
     app_url: str  # through PgBouncer when configured
     app_direct_url: str
+    relay_url: str  # always direct to PostgreSQL (LISTEN/NOTIFY needs a real session)
 
 
 def _read_env_file(path: Path) -> dict[str, str]:
@@ -73,6 +84,7 @@ def load_config() -> DbTestConfig | None:
             admin_url=admin_url,
             app_password=os.environ["SUPPORTX_TEST_APP_PASSWORD"],
             migrator_password=os.environ["SUPPORTX_TEST_MIGRATOR_PASSWORD"],
+            relay_password=os.environ["SUPPORTX_TEST_RELAY_PASSWORD"],
             pgbouncer=os.environ.get("SUPPORTX_TEST_PGBOUNCER") or None,
         )
     if not STACK_ENV.is_file():
@@ -85,6 +97,7 @@ def load_config() -> DbTestConfig | None:
         ),
         app_password=env["SUPPORTX_APP_PASSWORD"],
         migrator_password=env["SUPPORTX_MIGRATOR_PASSWORD"],
+        relay_password=env["SUPPORTX_RELAY_PASSWORD"],
         pgbouncer=f"127.0.0.1:{env['PGBOUNCER_PORT']}",
     )
 
@@ -115,6 +128,7 @@ def describe(config: DbTestConfig, name: str) -> ThrowawayDatabase:
         migrator_url=with_credentials(in_db, MIGRATOR_ROLE, config.migrator_password),
         app_url=_via(app_direct, config.pgbouncer) if config.pgbouncer else app_direct,
         app_direct_url=app_direct,
+        relay_url=with_credentials(in_db, RELAY_ROLE, config.relay_password),
     )
 
 
@@ -139,7 +153,7 @@ def downgrade(url: str, revision: str = "base") -> None:
 def create(config: DbTestConfig, *, migrate_to: str | None = "head") -> ThrowawayDatabase:
     """Create, bootstrap and (optionally) migrate a fresh throwaway database."""
     name = f"{TEST_DATABASE_PREFIX}{secrets.token_hex(6)}"
-    asyncio.run(bootstrap(config.admin_url, name, config.app_password, config.migrator_password))
+    asyncio.run(bootstrap(config.admin_url, name, config.passwords))
     database = describe(config, name)
     if migrate_to is not None:
         migrate(database.migrator_url, migrate_to)

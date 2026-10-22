@@ -46,8 +46,16 @@ def test_bootstrap_files_define_the_rls_roles() -> None:
     assert f"'{APP_ROLE}'" in roles
     assert f"'{MIGRATOR_ROLE}'" in roles
     assert "NOBYPASSRLS NOINHERIT" in roles
-    statements = parse(roles, {"app_password": "a", "migrator_password": "m"})
-    assert [s.gexec for s in statements] == [True, True, False, False]
+    statements = parse(
+        roles, {"app_password": "a", "migrator_password": "m", "relay_password": "r"}
+    )
+    assert [s.gexec for s in statements] == [True, True, True, False, False, False]
+    assert "'supportx_relay'" in roles
+    assert "ALTER ROLE supportx_relay LOGIN NOSUPERUSER" in roles
+    assert (
+        "supportx_relay LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS"
+        in roles
+    )
 
 
 def test_dev_stack_init_runs_the_same_files() -> None:

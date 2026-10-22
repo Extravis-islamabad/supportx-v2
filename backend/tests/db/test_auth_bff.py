@@ -5,10 +5,12 @@ in-memory store; PostgreSQL is real (users are provisioned under RLS). The same 
 the real Keycloak in tests/integration/test_auth_keycloak.py.
 """
 
+import json
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import asyncpg
 import httpx
@@ -458,3 +460,114 @@ def test_cookie_flags_per_profile(profile: str, name: str, secure: bool) -> None
     assert "SameSite=lax" in header
     assert "Domain" not in header
     del response
+
+
+# --- events (WP-007): written with the change they describe, CLAUDE.md rule b ----------------
+
+
+async def events_of(bff: Bff, email: str) -> list[dict[str, Any]]:
+    """Every identity event about the user with `email` (any tenant), oldest first."""
+    ids = {str(row["id"]) for row in await _user_ids(bff, email)}
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT envelope FROM outbox_events WHERE event_type LIKE 'identity_access.%'"
+            " ORDER BY id"
+        )
+    finally:
+        await conn.close()
+    envelopes = [json.loads(row["envelope"]) for row in rows]
+    return [e for e in envelopes if e["payload"].get("user_id") in ids]
+
+
+async def _user_ids(bff: Bff, email: str) -> list[asyncpg.Record]:
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        return await conn.fetch("SELECT id FROM users WHERE email = $1", email)
+    finally:
+        await conn.close()
+
+
+def types(events: list[dict[str, Any]]) -> list[str]:
+    return [e["event_type"].removeprefix("identity_access.") for e in events]
+
+
+async def test_first_login_provisions_then_logs_in(bff: Bff) -> None:
+    await bff.login(bff.user("a", email="new@demo.test", name="Noor New"))
+    events = await events_of(bff, "new@demo.test")
+    assert types(events) == ["user.provisioned", "user.logged_in"]
+    provisioned, logged_in = events
+    user_id = provisioned["payload"]["user_id"]
+    assert provisioned["payload"] == {"user_id": user_id, "user_type": "technician", "locale": "en"}
+    assert logged_in["payload"] == {"user_id": user_id, "client": "console"}
+    for event in events:
+        assert event["tenant_id"] == str(bff.tenants[0])
+        assert event["actor"] == {"type": "user", "id": user_id}
+        assert (event["aggregate_type"], event["aggregate_id"]) == ("user", user_id)
+        assert event["aggregate_version"] == 1
+        assert event["correlation_id"]  # the callback request's ID
+    # Payloads carry IDs and codes only, never personal data (architecture.md §8.2).
+    assert "new@demo.test" not in json.dumps(events)
+    assert "Noor New" not in json.dumps(events)
+
+
+async def test_changed_profile_is_a_user_updated_event_naming_the_fields(bff: Bff) -> None:
+    await bff.login(bff.user("a", email="upd@demo.test", name="Before"))
+    bff.clock.advance(timedelta(minutes=1))
+    await bff.login(bff.user("a", email="upd@demo.test", name="After", locale="ar"))
+    bff.clock.advance(timedelta(minutes=1))
+    await bff.login(bff.user("a", email="upd@demo.test", name="After", locale="ar"))
+    events = await events_of(bff, "upd@demo.test")
+    assert types(events) == [
+        "user.provisioned",
+        "user.logged_in",
+        "user.updated",
+        "user.logged_in",
+        "user.logged_in",  # nothing changed the third time: no user.updated
+    ]
+    assert events[2]["payload"]["changed_fields"] == ["display_name", "locale"]
+    assert events[2]["aggregate_version"] == 2
+    assert "After" not in json.dumps(events)
+
+
+async def test_logout_is_recorded(bff: Bff) -> None:
+    await bff.login(bff.user("a", email="out@demo.test"))
+    response = await bff.client.post(
+        "/api/v1/auth/logout", headers={"X-CSRF-Token": await bff.csrf()}
+    )
+    assert response.status_code == 204
+    events = await events_of(bff, "out@demo.test")
+    assert types(events)[-1] == "user.logged_out"
+    assert events[-1]["payload"]["client"] == "console"
+
+
+async def test_tenant_switch_is_recorded_only_in_the_target_tenant(bff: Bff) -> None:
+    a, b = bff.tenants
+    await bff.login(bff.user("a", "b", email="sw@demo.test"))
+    switched = await bff.client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(b)},
+        headers={"X-CSRF-Token": await bff.csrf()},
+    )
+    assert switched.status_code == 200
+    events = await events_of(bff, "sw@demo.test")
+    in_a = [e for e in events if e["tenant_id"] == str(a)]
+    in_b = [e for e in events if e["tenant_id"] == str(b)]
+    assert types(in_a) == ["user.provisioned", "user.logged_in"]
+    assert types(in_b) == ["user.provisioned", "session.tenant_switched"]
+    assert str(a) not in json.dumps(in_b)  # tenant B never learns about tenant A
+
+
+async def test_refused_login_records_nothing(bff: Bff) -> None:
+    await bff.login(bff.user("a", email="off@demo.test"))
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute("UPDATE users SET status = 'disabled' WHERE email = 'off@demo.test'")
+    finally:
+        await conn.close()
+    before = await events_of(bff, "off@demo.test")
+    response = await bff.login(bff.user("a", email="off@demo.test", name="Changed"))
+    assert response.status_code == 403
+    assert await events_of(bff, "off@demo.test") == before
+    (row,) = await user_rows(bff.db, "off@demo.test")
+    assert row["display_name"] != "Changed"  # the refresh rolled back with the events

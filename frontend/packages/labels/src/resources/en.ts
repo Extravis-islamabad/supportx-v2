@@ -63,6 +63,11 @@ export const en = {
   'user_type.technician': 'Technician',
   'user_type.requester': 'Requester',
   'auth.sign_in_again': 'Sign in again',
+  'event_type.identity_access.user.provisioned': 'User added',
+  'event_type.identity_access.user.updated': 'User profile updated',
+  'event_type.identity_access.user.logged_in': 'Signed in',
+  'event_type.identity_access.user.logged_out': 'Signed out',
+  'event_type.identity_access.session.tenant_switched': 'Switched organisation',
 } as const;
 
 export type LabelKey = keyof typeof en;

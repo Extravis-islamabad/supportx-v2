@@ -60,4 +60,9 @@ export const ar: Partial<Record<LabelKey, string>> = {
   'user_type.technician': 'فني',
   'user_type.requester': 'مقدّم طلب',
   'auth.sign_in_again': 'تسجيل الدخول مرة أخرى',
+  'event_type.identity_access.user.provisioned': 'تمت إضافة مستخدم',
+  'event_type.identity_access.user.updated': 'تم تحديث ملف المستخدم',
+  'event_type.identity_access.user.logged_in': 'تسجيل الدخول',
+  'event_type.identity_access.user.logged_out': 'تسجيل الخروج',
+  'event_type.identity_access.session.tenant_switched': 'تم تبديل المؤسسة',
 };

@@ -22,6 +22,7 @@ import re
 
 APP_ROLE = "supportx_app"
 MIGRATOR_ROLE = "supportx_migrator"
+RELAY_ROLE = "supportx_relay"  # outbox relay (WP-007, docs/architecture/events.md)
 TENANT_COLUMN = "tenant_id"
 CURRENT_TENANT_SQL = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
 APP_DML_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE")

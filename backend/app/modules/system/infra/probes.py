@@ -6,15 +6,19 @@ Library-specific errors are translated to stable FailureReason codes here, at th
 """
 
 import asyncio
+import json
 import math
+from datetime import UTC, datetime
 from urllib.parse import urlsplit
 
 import asyncpg
 import httpx
 import nats
 import nats.errors
+import nats.js.errors
 import valkey.asyncio
 import valkey.exceptions
+from nats.aio.client import Client as NatsClient
 
 from app.modules.system.domain.readiness import FailureReason, ProbeFailedError
 
@@ -82,6 +86,30 @@ async def _ignore_nats_error(_error: Exception) -> None:
     """nats-py logs every connection error by default; the probe reports its own reason."""
 
 
+async def _connect_nats(url: str, timeout_s: float) -> NatsClient:
+    """One short-lived NATS connection that fails fast instead of retrying."""
+    # nats-py keeps retrying a refused initial connection instead of failing fast, which would
+    # turn "unreachable" into a timeout; a plain TCP connect answers that first.
+    parts = urlsplit(url)
+    _reader, writer = await asyncio.wait_for(
+        asyncio.open_connection(parts.hostname, parts.port or NATS_DEFAULT_PORT), timeout_s
+    )
+    writer.close()
+    await writer.wait_closed()
+    try:
+        return await nats.connect(
+            url,
+            connect_timeout=timeout_s,
+            allow_reconnect=False,
+            max_reconnect_attempts=0,
+            error_cb=_ignore_nats_error,
+        )
+    except (nats.errors.AuthorizationError, nats.errors.InvalidUserCredentialsError) as exc:
+        raise ProbeFailedError(FailureReason.AUTH_FAILED) from exc
+    except nats.errors.NoServersError as exc:
+        raise ProbeFailedError(FailureReason.UNREACHABLE) from exc
+
+
 class NatsProbe:
     """Connect to NATS (server INFO + CONNECT handshake) and flush one round trip."""
 
@@ -92,34 +120,60 @@ class NatsProbe:
 
     async def check(self, timeout_s: float) -> None:
         """Connect without reconnecting, flush, close."""
-        await self._require_tcp(timeout_s)
-        try:
-            client = await nats.connect(
-                self._url,
-                connect_timeout=timeout_s,
-                allow_reconnect=False,
-                max_reconnect_attempts=0,
-                error_cb=_ignore_nats_error,
-            )
-        except (nats.errors.AuthorizationError, nats.errors.InvalidUserCredentialsError) as exc:
-            raise ProbeFailedError(FailureReason.AUTH_FAILED) from exc
-        except nats.errors.NoServersError as exc:
-            raise ProbeFailedError(FailureReason.UNREACHABLE) from exc
+        client = await _connect_nats(self._url, timeout_s)
         try:
             # nats-py takes whole seconds here.
             await client.flush(timeout=max(1, math.ceil(timeout_s)))
         finally:
             await client.close()
 
-    async def _require_tcp(self, timeout_s: float) -> None:
-        # nats-py keeps retrying a refused initial connection instead of failing fast, which
-        # would turn "unreachable" into a timeout; a plain TCP connect answers that first.
-        url = urlsplit(self._url)
-        _reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(url.hostname, url.port or NATS_DEFAULT_PORT), timeout_s
-        )
-        writer.close()
-        await writer.wait_closed()
+
+class WorkerHeartbeatProbe:
+    """Is at least one worker of a kind alive? Reads its heartbeat from the NATS KV bucket.
+
+    Read-only: this never publishes. The workers write `<kind>.<instance>` every few seconds
+    (workers/heartbeat.py); a key expires a minute after its worker stops.
+    """
+
+    def __init__(
+        self, url: str, *, name: str, bucket: str, kind: str, stale_after_s: float
+    ) -> None:
+        self.name = name
+        self._url = url
+        self._bucket = bucket
+        self._prefix = f"{kind}."
+        self._stale_after_s = stale_after_s
+
+    async def check(self, timeout_s: float) -> None:
+        """Fails with not_running (no heartbeat) or stale_heartbeat (newest one too old)."""
+        client = await _connect_nats(self._url, timeout_s)
+        try:
+            newest = await self._newest_heartbeat(client)
+        finally:
+            await client.close()
+        if newest is None:
+            raise ProbeFailedError(FailureReason.NOT_RUNNING)
+        if (datetime.now(UTC) - newest).total_seconds() > self._stale_after_s:
+            raise ProbeFailedError(FailureReason.STALE_HEARTBEAT)
+
+    async def _newest_heartbeat(self, client: NatsClient) -> datetime | None:
+        try:
+            bucket = await client.jetstream().key_value(self._bucket)
+            keys = await bucket.keys()
+        except (nats.js.errors.BucketNotFoundError, nats.js.errors.NoKeysError):
+            return None
+        newest: datetime | None = None
+        for key in keys:
+            if not key.startswith(self._prefix):
+                continue
+            try:
+                entry = await bucket.get(key)
+            except nats.js.errors.KeyNotFoundError:
+                continue  # expired between keys() and get()
+            if entry.value:
+                at = datetime.fromisoformat(json.loads(entry.value)["at"])
+                newest = at if newest is None or at > newest else newest
+        return newest
 
 
 class KeycloakProbe:

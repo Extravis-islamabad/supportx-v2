@@ -1,0 +1,279 @@
+{
+  "envelope": {
+    "$defs": {
+      "Actor": {
+        "description": "Who caused the event: a user (by ID) or a system component (by name).",
+        "properties": {
+          "id": {
+            "maxLength": 128,
+            "title": "Id",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "user",
+              "system"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id"
+        ],
+        "title": "Actor",
+        "type": "object"
+      }
+    },
+    "description": "What is stored in the outbox and published to NATS, byte for byte.",
+    "properties": {
+      "actor": {
+        "$ref": "#/$defs/Actor"
+      },
+      "aggregate_id": {
+        "maxLength": 128,
+        "title": "Aggregate Id",
+        "type": "string"
+      },
+      "aggregate_type": {
+        "title": "Aggregate Type",
+        "type": "string"
+      },
+      "aggregate_version": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Version of the aggregate after the change, if versioned.",
+        "title": "Aggregate Version"
+      },
+      "causation_id": {
+        "anyOf": [
+          {
+            "format": "uuid",
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "The event that caused this one, when a consumer emits it.",
+        "title": "Causation Id"
+      },
+      "correlation_id": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Request ID of the API call (or the causing event's).",
+        "title": "Correlation Id"
+      },
+      "event_id": {
+        "description": "UUIDv7; also the NATS message ID (deduplication).",
+        "format": "uuid",
+        "title": "Event Id",
+        "type": "string"
+      },
+      "event_type": {
+        "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$",
+        "title": "Event Type",
+        "type": "string"
+      },
+      "occurred_at": {
+        "format": "date-time",
+        "title": "Occurred At",
+        "type": "string"
+      },
+      "payload": {
+        "additionalProperties": true,
+        "title": "Payload",
+        "type": "object"
+      },
+      "schema_version": {
+        "minimum": 1,
+        "title": "Schema Version",
+        "type": "integer"
+      },
+      "tenant_id": {
+        "format": "uuid",
+        "title": "Tenant Id",
+        "type": "string"
+      },
+      "traceparent": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "W3C trace context.",
+        "title": "Traceparent"
+      }
+    },
+    "required": [
+      "event_id",
+      "event_type",
+      "schema_version",
+      "tenant_id",
+      "actor",
+      "occurred_at",
+      "aggregate_type",
+      "aggregate_id",
+      "payload"
+    ],
+    "title": "EventEnvelope",
+    "type": "object"
+  },
+  "events": {
+    "identity_access.session.tenant_switched": {
+      "1": {
+        "description": "A signed-in user moved their session into this tenant.\n\nPublished in the tenant switched TO only; the previous tenant is deliberately not named, so\none tenant's subscribers never learn which other tenants a user belongs to.",
+        "properties": {
+          "client": {
+            "enum": [
+              "console",
+              "portal"
+            ],
+            "title": "Client",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "client"
+        ],
+        "title": "SessionTenantSwitched",
+        "type": "object"
+      }
+    },
+    "identity_access.user.logged_in": {
+      "1": {
+        "description": "A user started a session in this tenant.",
+        "properties": {
+          "client": {
+            "enum": [
+              "console",
+              "portal"
+            ],
+            "title": "Client",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "client"
+        ],
+        "title": "UserLoggedIn",
+        "type": "object"
+      }
+    },
+    "identity_access.user.logged_out": {
+      "1": {
+        "description": "A user ended their session in this tenant.",
+        "properties": {
+          "client": {
+            "enum": [
+              "console",
+              "portal"
+            ],
+            "title": "Client",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "client"
+        ],
+        "title": "UserLoggedOut",
+        "type": "object"
+      }
+    },
+    "identity_access.user.provisioned": {
+      "1": {
+        "description": "A user signed in to a tenant for the first time and got a user record there.",
+        "properties": {
+          "locale": {
+            "title": "Locale",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "locale"
+        ],
+        "title": "UserProvisioned",
+        "type": "object"
+      }
+    },
+    "identity_access.user.updated": {
+      "1": {
+        "description": "Profile fields synced from the identity provider changed (names only, not values).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "changed_fields"
+        ],
+        "title": "UserUpdated",
+        "type": "object"
+      }
+    }
+  },
+  "format": 1
+}

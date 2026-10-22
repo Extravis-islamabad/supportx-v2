@@ -12,10 +12,16 @@ For every table in the `public` schema:
   platform (allowlisted)   - RLS enabled AND forced; app privileges exactly as listed
   any table                - supportx_app owns nothing and never has TRUNCATE, REFERENCES or
                              TRIGGER (TRUNCATE ignores RLS)
+                           - supportx_relay has exactly the rights in RELAY_PRIVILEGES (table and
+                             column level) and nothing on any other table
+  cross-tenant policies    - a policy that is not tenant-restricted is allowed only if it is in
+                             CROSS_TENANT_POLICIES and applies to exactly that role (never PUBLIC,
+                             never supportx_app)
 
-Also: supportx_app is not superuser and has no BYPASSRLS.
+Also: supportx_app and supportx_relay are not superusers and have no BYPASSRLS.
 
-Adding to PLATFORM_TABLES needs a reason and a reviewer: it removes a table from tenant isolation.
+Adding to PLATFORM_TABLES or CROSS_TENANT_POLICIES needs a reason and a reviewer: it removes a
+table (or a role's view of it) from tenant isolation.
 """
 
 import asyncio
@@ -25,7 +31,7 @@ from dataclasses import dataclass, field
 import asyncpg
 
 from app.core.config import Settings
-from app.shared.db.rls import APP_ROLE
+from app.shared.db.rls import APP_ROLE, RELAY_ROLE
 
 SCHEMA = "public"
 # Tables that are deliberately not tenant-scoped, with what the app may do on them.
@@ -38,6 +44,21 @@ PLATFORM_TABLES: dict[str, tuple[frozenset[str], str]] = {
 # Not application data at all: never reachable by supportx_app.
 IGNORED_TABLES: dict[str, str] = {
     "alembic_version": "Alembic's migration bookkeeping; owned by the migrator, no app grants.",
+}
+# (table, policy) -> (the only role it may apply to, why it may see every tenant).
+CROSS_TENANT_POLICIES: dict[tuple[str, str], tuple[str, str]] = {
+    (
+        "outbox_events",
+        f"outbox_events_relay_{command}",
+    ): (RELAY_ROLE, "The outbox relay publishes every tenant's events (WP-007, events.md).")
+    for command in ("select", "update", "delete")
+}
+# Everything supportx_relay may do, per table: (table privileges, columns it may UPDATE).
+RELAY_PRIVILEGES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "outbox_events": (
+        frozenset({"SELECT", "DELETE"}),
+        frozenset({"published_at", "publish_attempts", "last_error", "updated_at"}),
+    ),
 }
 REQUIRED_COMMANDS = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
 FORBIDDEN_APP_PRIVILEGES = frozenset({"TRUNCATE", "REFERENCES", "TRIGGER"})
@@ -123,6 +144,43 @@ async def _check_common(
         "SELECT polname FROM pg_policy WHERE polrelid = $1 ORDER BY polname", table["oid"]
     )
     report.policies = [row["polname"] for row in policies]
+    await _check_relay(conn, table["oid"], report)
+
+
+async def _check_relay(conn: asyncpg.Connection, oid: int, report: TableReport) -> None:
+    """supportx_relay: exactly RELAY_PRIVILEGES on its tables, nothing anywhere else."""
+    allowed_table, allowed_columns = RELAY_PRIVILEGES.get(report.name, (frozenset(), frozenset()))
+    table_privileges = {
+        row["privilege_type"]
+        for row in await conn.fetch(
+            """
+            SELECT privilege_type FROM information_schema.role_table_grants
+            WHERE grantee = $1 AND table_schema = $2 AND table_name = $3
+            """,
+            RELAY_ROLE,
+            SCHEMA,
+            report.name,
+        )
+    }
+    if table_privileges - allowed_table:
+        report.problems.append(
+            f"{RELAY_ROLE} has {sorted(table_privileges - allowed_table)} beyond RELAY_PRIVILEGES"
+        )
+    # Column-level grants live in pg_attribute.attacl (explicit grants only).
+    column_grants = await conn.fetch(
+        """
+        SELECT a.attname, acl.privilege_type
+        FROM pg_attribute a, aclexplode(a.attacl) acl
+        WHERE a.attrelid = $1 AND acl.grantee = (SELECT oid FROM pg_roles WHERE rolname = $2)
+        """,
+        oid,
+        RELAY_ROLE,
+    )
+    for grant in column_grants:
+        if grant["privilege_type"] != "UPDATE" or grant["attname"] not in allowed_columns:
+            report.problems.append(
+                f"{RELAY_ROLE} has column {grant['privilege_type']} on {grant['attname']}"
+            )
 
 
 async def _check_tenant_table(conn: asyncpg.Connection, oid: int, report: TableReport) -> None:
@@ -138,12 +196,18 @@ async def _check_tenant_table(conn: asyncpg.Connection, oid: int, report: TableR
         report.problems.append("no tenant_id column (add it, or allowlist as a platform table)")
     elif column["type"] != "uuid" or not column["attnotnull"]:
         report.problems.append("tenant_id must be uuid NOT NULL")
+    await _check_tenant_policies(conn, oid, report)
+    await _check_indexes(conn, oid, report)
 
+
+async def _check_tenant_policies(conn: asyncpg.Connection, oid: int, report: TableReport) -> None:
     policies = await conn.fetch(
         """
         SELECT polname, polcmd::text AS polcmd,
                pg_get_expr(polqual, polrelid) AS using_expr,
-               pg_get_expr(polwithcheck, polrelid) AS check_expr
+               pg_get_expr(polwithcheck, polrelid) AS check_expr,
+               0 = ANY(polroles) AS for_public,
+               ARRAY(SELECT rolname FROM pg_roles WHERE oid = ANY(polroles)) AS roles
         FROM pg_policy WHERE polrelid = $1
         """,
         oid,
@@ -157,6 +221,13 @@ async def _check_tenant_table(conn: asyncpg.Connection, oid: int, report: TableR
         "*": REQUIRED_COMMANDS,
     }
     for policy in policies:
+        cross_tenant = CROSS_TENANT_POLICIES.get((report.name, policy["polname"]))
+        if cross_tenant is not None:
+            if policy["for_public"] or list(policy["roles"]) != [cross_tenant[0]]:
+                report.problems.append(
+                    f"policy {policy['polname']} must apply only TO {cross_tenant[0]}"
+                )
+            continue  # allowlisted; does not count towards the tenant policies below
         expressions = [e for e in (policy["using_expr"], policy["check_expr"]) if e]
         if not expressions or any(e.strip().lower() == "true" for e in expressions):
             report.problems.append(f"policy {policy['polname']} is not tenant-restricted")
@@ -174,6 +245,8 @@ async def _check_tenant_table(conn: asyncpg.Connection, oid: int, report: TableR
     if missing:
         report.problems.append(f"no tenant policy for {sorted(missing)}")
 
+
+async def _check_indexes(conn: asyncpg.Connection, oid: int, report: TableReport) -> None:
     indexes = await conn.fetch(
         """
         SELECT ic.relname AS index_name,
@@ -191,17 +264,19 @@ async def _check_tenant_table(conn: asyncpg.Connection, oid: int, report: TableR
 
 
 async def role_problems(conn: asyncpg.Connection) -> list[str]:
-    """Problems with the application role itself."""
-    role = await conn.fetchrow(
-        "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1", APP_ROLE
-    )
-    if role is None:
-        return [f"role {APP_ROLE} does not exist"]
+    """Problems with the runtime roles themselves (application and relay)."""
     problems = []
-    if role["rolsuper"]:
-        problems.append(f"{APP_ROLE} is a superuser")
-    if role["rolbypassrls"]:
-        problems.append(f"{APP_ROLE} has BYPASSRLS")
+    for name in (APP_ROLE, RELAY_ROLE):
+        role = await conn.fetchrow(
+            "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1", name
+        )
+        if role is None:
+            problems.append(f"role {name} does not exist")
+            continue
+        if role["rolsuper"]:
+            problems.append(f"{name} is a superuser")
+        if role["rolbypassrls"]:
+            problems.append(f"{name} has BYPASSRLS")
     return problems
 
 

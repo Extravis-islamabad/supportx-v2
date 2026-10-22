@@ -164,7 +164,9 @@ export interface paths {
          * Readiness
          * @description Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.
          *
-         *     Otherwise 503, naming the failing dependency with a reason code.
+         *     Otherwise 503, naming the failing dependency with a reason code. The outbox relay and the
+         *     consumer worker are reported from their heartbeats (`outbox_relay`, `event_consumers`) but
+         *     are informational: when they are down the response lists them under `degraded`, still 200.
          */
         get: operations["get_ready_api_v1_ready_get"];
         put?: never;
@@ -185,6 +187,12 @@ export interface components {
          */
         CheckResponse: {
             /**
+             * Critical
+             * @description False for informational checks (event workers): they never cause a 503.
+             * @default true
+             */
+            critical: boolean;
+            /**
              * Latency Ms
              * @description Probe duration.
              */
@@ -204,7 +212,7 @@ export interface components {
          * @description Why a check failed. Stable codes only: raw exception text never leaves the server.
          * @enum {string}
          */
-        FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "error";
+        FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "not_running" | "stale_heartbeat" | "error";
         /**
          * FieldError
          * @description One invalid input field.
@@ -313,6 +321,11 @@ export interface components {
             checks: {
                 [key: string]: components["schemas"]["CheckResponse"];
             };
+            /**
+             * Degraded
+             * @description Informational checks that are not OK.
+             */
+            degraded?: string[];
             /** Failed */
             failed: string[];
             /**

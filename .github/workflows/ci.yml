@@ -25,6 +25,7 @@ jobs:
     timeout-minutes: 20
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
+    # NATS JetStream is started as a step below (service containers cannot pass `-js`).
     # Passwords are throwaway values unique to this run; the containers die with the job.
     services:
       postgres:
@@ -56,16 +57,38 @@ jobs:
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
       SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+      SUPPORTX_TEST_RELAY_PASSWORD: ci-relay-${{ github.run_id }}
       SUPPORTX_TEST_PGBOUNCER: 127.0.0.1:6432
       SUPPORTX_REQUIRE_DB_TESTS: "1"
+      # Outbox relay, consumers, DLQ and latency/throughput tests (WP-007) cannot be skipped.
+      SUPPORTX_TEST_NATS_URL: nats://127.0.0.1:4222
+      SUPPORTX_REQUIRE_NATS_TESTS: "1"
       SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 0 # the event schema check compares with the target branch
+      - name: Start NATS JetStream (same image as the dev stack)
+        run: |
+          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2.15.1-alpine -js -m 8222
+          for _ in $(seq 1 30); do
+            curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' && break
+            sleep 1
+          done
+          curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' # fail the job if never up
       - uses: ./.github/actions/setup-backend
-      - name: Lint (ruff check, ruff format --check, import-linter, OpenAPI drift)
+      - name: Lint (ruff check, ruff format --check, import-linter, OpenAPI + event schema drift)
         run: make backend-lint
+      - name: Event schemas have no breaking change against the target branch
+        run: |
+          base_ref="${GITHUB_BASE_REF:-main}"
+          base_file="$RUNNER_TEMP/event-schemas.base.json"
+          if git show "origin/${base_ref}:docs/architecture/event-schemas.json" > "$base_file" 2>/dev/null; then
+            make events-check base="$base_file"
+          else
+            echo "origin/${base_ref} has no event-schemas.json yet: nothing to compare against."
+          fi
       - name: Type-check (mypy --strict)
         run: make backend-typecheck
       - name: Create roles and database (same code as the test fixtures)
@@ -73,8 +96,20 @@ jobs:
         run: uv run python -m tooling.db_bootstrap --database supportx
       - name: Migrate to head, then check tenant isolation (RLS guard)
         run: make db-migrate db-current db-guard
-      - name: Test (pytest incl. database tests, coverage threshold from pyproject.toml)
+      - name: Test (pytest incl. database + event bus tests, coverage threshold from pyproject.toml)
+        env:
+          SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
         run: make backend-test
+      - name: Event bus latency and throughput (job summary)
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/event-perf.json" ]; then
+            { echo '### Event bus performance'; echo '```json'; cat "$RUNNER_TEMP/event-perf.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            cat "$RUNNER_TEMP/event-perf.json"
+          fi
+      - name: NATS logs on failure
+        if: ${{ failure() }}
+        run: docker logs --tail 200 nats
 
   frontend:
     name: frontend

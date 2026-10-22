@@ -27,3 +27,7 @@ status page (§15) may later read from it.
 ## Notes
 
 Accepted with WP-004 at the product owner's request.
+
+WP-007 (2026-10-23): the module also declares the dev-only event logger consumer
+(`system__dev_event_logger`, off in production) and reports the event workers' heartbeats in
+`/ready`. It still owns no tables and publishes no events.

@@ -88,9 +88,40 @@ class Settings(BaseSettings):
     # honoured only in the dev and test profiles and ALWAYS ignored in production.
     dev_tenant_header: bool = False
 
+    # Event bus (WP-007, docs/architecture/events.md). The relay connects as supportx_relay
+    # straight to PostgreSQL, never through PgBouncer: LISTEN needs a session-level connection.
+    # Only the relay process reads `relay_database_url`.
+    relay_database_url: SecretStr | None = None
+    # Prefix for every stream, subject and bucket name. Empty in real deployments; the test suite
+    # sets a random one so it never touches the dev stack's streams.
+    events_namespace: str = Field(default="", pattern=r"^[a-z0-9_]*$", max_length=24)
+    events_stream_max_age_hours: int = Field(default=168, ge=1)
+    events_stream_replicas: int = Field(default=1, ge=1, le=5)
+    # JetStream drops a second message with the same Nats-Msg-Id (= event ID) inside this window.
+    # It must outlast a relay crash and restart, see events.md "Duplicates".
+    events_duplicate_window_seconds: int = Field(default=300, ge=10, le=86400)
+    dlq_max_age_hours: int = Field(default=720, ge=1)
+    relay_batch_size: int = Field(default=200, ge=1, le=5000)
+    # LISTEN/NOTIFY wakes the relay at once; this poll only catches a missed notification.
+    relay_poll_interval_seconds: float = Field(default=2.0, gt=0, le=60)
+    relay_publish_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    outbox_retention_hours: int = Field(default=72, ge=1)
+    outbox_purge_interval_seconds: int = Field(default=3600, ge=10)
+    consumer_max_attempts: int = Field(default=5, ge=1, le=100)
+    consumer_backoff_initial_seconds: float = Field(default=1.0, gt=0)
+    consumer_backoff_max_seconds: float = Field(default=60.0, gt=0)
+    consumer_ack_wait_seconds: float = Field(default=30.0, ge=1)
+    heartbeat_interval_seconds: float = Field(default=5.0, gt=0, le=60)
+    heartbeat_stale_seconds: float = Field(default=20.0, gt=0, le=600)
+    # Dev-only consumer that logs every event. None = on in the dev profile only; never in
+    # production, whatever this says.
+    dev_event_logger: bool | None = None
+
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"
+    # Worker metrics (WP-007); `console` prints them periodically. Prometheus export: WP-014.
+    metrics_exporter: TraceExporter = "none"
 
     @model_validator(mode="after")
     def _production_requires_backing_services(self) -> Self:
@@ -125,6 +156,15 @@ class Settings(BaseSettings):
         if self.session_cookie_secure is not None:
             return self.session_cookie_secure
         return self.profile != "dev"
+
+    @property
+    def effective_dev_event_logger(self) -> bool:
+        """The dev event logger runs in dev by default, on request in test, never in production."""
+        if self.profile == "production":
+            return False
+        if self.dev_event_logger is not None:
+            return self.dev_event_logger
+        return self.profile == "dev"
 
     @property
     def tenant_header_enabled(self) -> bool:

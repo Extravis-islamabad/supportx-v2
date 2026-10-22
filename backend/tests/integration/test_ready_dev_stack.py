@@ -69,8 +69,12 @@ async def test_ready_against_the_running_dev_stack(
     assert response.status_code == 200, response.json()
     body = response.json()
     assert body["status"] == "ready"
-    assert set(body["checks"]) == {"postgres", "valkey", "nats", "keycloak"}
-    assert all(check["status"] == "ok" for check in body["checks"].values())
+    critical = {name for name, check in body["checks"].items() if check["critical"]}
+    assert critical == {"postgres", "valkey", "nats", "keycloak"}
+    assert all(body["checks"][name]["status"] == "ok" for name in critical)
+    # The event workers are reported from their heartbeats but never make the API unready.
+    assert {"outbox_relay", "event_consumers"} <= set(body["checks"])
+    assert set(body["degraded"]) <= {"outbox_relay", "event_consumers"}
 
 
 @pytest.mark.integration
