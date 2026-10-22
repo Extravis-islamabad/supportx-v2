@@ -2,11 +2,11 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 3 of 15 work packages done.
-- **Last completed:** WP-003 (CI pipeline and quality gates), 2026-10-22.
-- **Next work package:** WP-004 (backend application core). WP-009 is also unblocked; WP-005
-  becomes unblocked once WP-004 is done.
-- **Blockers:** None for WP-004. WP-014 needs k3d installed (D-003; Homebrew is not installed
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 4 of 15 work packages done.
+- **Last completed:** WP-004 (backend application core), 2026-10-23.
+- **Next work package:** WP-005 (data layer, RLS and tenancy bootstrap). WP-009 (entitlement
+  interface) and WP-010 (frontend foundation) are also unblocked.
+- **Blockers:** None for WP-005. WP-014 needs k3d installed (D-003; Homebrew is not installed
   either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
@@ -76,7 +76,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   the build (on a throwaway branch).
 - **Depends on:** WP-001; CI platform: GitHub Actions on a private GitHub repo (D-015)
 
-### [ ] WP-004 — Backend application core
+### [x] WP-004 — Backend application core (done 2026-10-23)
 - **Goal:** Production-shaped FastAPI app with cross-cutting concerns, no business modules yet.
 - **Scope:** `app/main.py` app factory; `core/config` (env-driven; pydantic-settings pending approval); structured
   JSON logging with trace ID and tenant ID; RFC 9457 error model with machine codes; liveness and
@@ -206,6 +206,37 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   needed.
 
 ## Session log (newest first)
+
+### 2026-10-23 — WP-004 backend application core
+- Housekeeping: PR #7 was already merged; Dependabot PR #3 (jsdom 27 → 30) rebased, all checks
+  green, merged; D-019 (uvicorn, structlog, uuid-utils, OpenTelemetry) recorded via PR #8.
+- Settings (`app/core/config.py`): pydantic-settings, `SUPPORTX_` env vars + `backend/.env`,
+  profiles dev/test/production (production requires every backing-service URL), secrets as
+  `SecretStr`. `make backend-env` writes `backend/.env` from the dev stack's secrets.
+- App factory + lifespan (`app/main.py`), `python -m app` entry point, `make backend-dev`
+  (uvicorn, reload, 127.0.0.1:8000). Module registry (`app/core/modules.py`, `ModuleSpec`):
+  modules are discovered from `app/modules/`, so main.py never changes; documented in
+  `app/modules/README.md`. Example `system` module (ADR-018) with `/api/v1/health` and
+  `/api/v1/ready` (PostgreSQL via PgBouncer, Valkey, NATS; concurrent, 2 s timeout, reason codes).
+- RFC 9457 problem details with `code`, `message_key`, `params`, field `errors`, `request_id`;
+  `AppError` hierarchy; framework 404/405/422 mapped; unhandled exceptions → generic 500.
+  Request-ID and security-header ASGI middleware. structlog JSON/console logging with request_id,
+  tenant_id placeholder, trace/span IDs and redaction. OpenTelemetry FastAPI instrumentation,
+  exporter `none` by default (`console` opt-in). UUIDv7 `new_id()` and `Clock`/`FrozenClock`.
+- OpenAPI 3.1 export to `frontend/packages/api-client/openapi.json` (`make openapi`); drift check
+  runs in `make backend-lint` and therefore in CI. Error codes have en/ar labels (CI test).
+- Frontend: Vite proxies `/api` → 127.0.0.1:8000 in console and portal; console home shows a live
+  API status tag (TanStack Query, 10 s poll) with labels in en/ar/ur. Verified in Chrome: green
+  "API online", then red "API offline" without refresh after stopping the API.
+- Tests: backend 97 (2 dev-stack integration tests skip automatically when the stack is down),
+  coverage ≥ 96%; frontend 24. The integration test found that PgBouncer reports a bad password as
+  a protocol violation; the probe now maps it to `auth_failed`.
+- New runtime deps (D-019 + D-004): uvicorn, structlog, uuid-utils, opentelemetry-api/-sdk,
+  opentelemetry-instrumentation-fastapi, pydantic-settings, asyncpg. Official client SDKs (named
+  for veto): valkey (valkey-py, MIT), nats-py (Apache-2.0). Dev: asyncpg-stubs (BSD-3, D-012).
+  Frontend: @tanstack/react-query (listed stack).
+- Follow-ups: field-level error labels (`errors.field.*`) arrive with i18next in WP-010; the API
+  client generation from openapi.json is WP-010; OTLP exporter when the observability stack lands.
 
 ### 2026-10-22 — WP-003 CI pipeline and quality gates
 - Recorded D-015..D-017 (private GitHub repo + Actions, S3-only object storage, Temporal without

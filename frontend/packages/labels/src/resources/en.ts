@@ -12,6 +12,23 @@ export const en = {
   'module.incident_management': 'Incident Management',
   'status.awaiting_customer': 'Awaiting Customer',
   'priority.p1_critical': 'P1 – Critical',
+  'api_status.checking': 'Checking API…',
+  'api_status.online': 'API online',
+  'api_status.offline': 'API offline',
+  'errors.bad_request': 'The request could not be processed.',
+  'errors.unauthenticated': 'Please sign in to continue.',
+  'errors.permission_denied': 'You do not have permission to do this.',
+  'errors.entitlement_required': 'Your plan does not include this feature.',
+  'errors.not_found': 'The item was not found.',
+  'errors.conflict': 'Someone else changed this item. Reload to see the latest version.',
+  'errors.validation_failed': 'Some fields need your attention.',
+  'errors.rate_limited': 'Too many requests. Please wait a moment and try again.',
+  'errors.service_unavailable': 'The service is temporarily unavailable. Please try again shortly.',
+  'errors.internal_error': 'Something went wrong on our side. Please try again.',
+  'errors.method_not_allowed': 'This action is not supported here.',
+  'errors.not_acceptable': 'The requested format is not supported.',
+  'errors.payload_too_large': 'The upload is too large.',
+  'errors.unsupported_media_type': 'This file or content type is not supported.',
 } as const;
 
 export type LabelKey = keyof typeof en;

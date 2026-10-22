@@ -5,8 +5,18 @@ description = "SupportX v2 Core API (modular monolith) and workers"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "asyncpg>=0.32.0",
     "fastapi>=0.160.0",
+    "nats-py>=2.16.0",
+    "opentelemetry-api>=1.45.1",
+    "opentelemetry-instrumentation-fastapi>=0.66b1",
+    "opentelemetry-sdk>=1.45.1",
     "pydantic>=2.14.1",
+    "pydantic-settings>=2.16.1",
+    "structlog>=26.1.0",
+    "uuid-utils>=1.1.0",
+    "uvicorn>=0.54.0",
+    "valkey>=6.2.0",
 ]
 
 [tool.uv]
@@ -15,6 +25,7 @@ package = false
 
 [dependency-groups]
 dev = [
+    "asyncpg-stubs>=0.32.0",
     "httpx>=0.28.1",
     "import-linter>=2.15",
     "mypy>=2.4.0",
@@ -41,11 +52,15 @@ ignore = [
     "D100",   # module docstrings: optional, package layout carries the meaning
     "D104",   # package docstrings: empty __init__.py files are intentional
     "CPY001", # copyright headers: not adopted (no licence-header policy yet)
+    "D107",   # __init__ docstrings: the class docstring documents construction
+    "D401",   # imperative mood: descriptive summaries ("Current time, UTC.") read better
+    "N818",   # API error classes are named for the HTTP outcome (NotFound, Conflict), WP-004 spec
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "D", "PLR2004"]
-"**/tests/**" = ["S101", "D", "PLR2004"]
+"tests/**" = ["S101", "S105", "S106", "D", "PLR2004"]
+"**/tests/**" = ["S101", "S105", "S106", "D", "PLR2004"]
+"conftest.py" = ["D"]
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -67,6 +82,11 @@ testpaths = ["tests", "app"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = ["--strict-markers", "--cov=app", "--cov=tooling", "--cov-report=term-missing"]
+markers = ["integration: needs the local dev stack (make dev-up); skipped automatically otherwise"]
+
+[tool.coverage.run]
+# Measure the code under test, not the tests themselves.
+omit = ["*/tests/*", "conftest.py"]
 
 [tool.coverage.report]
 # Spec (§16.2) puts the threshold on domain and service layers; revisit once modules exist.

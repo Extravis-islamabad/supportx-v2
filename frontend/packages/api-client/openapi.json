@@ -1,0 +1,340 @@
+{
+  "components": {
+    "schemas": {
+      "CheckResponse": {
+        "description": "One dependency's readiness.",
+        "properties": {
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Probe duration.",
+            "title": "Latency Ms"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FailureReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it failed, if it did."
+          },
+          "status": {
+            "$ref": "#/components/schemas/CheckStatus"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "CheckResponse",
+        "type": "object"
+      },
+      "CheckStatus": {
+        "description": "Outcome of one dependency check.",
+        "enum": [
+          "ok",
+          "failed",
+          "not_configured"
+        ],
+        "title": "CheckStatus",
+        "type": "string"
+      },
+      "FailureReason": {
+        "description": "Why a check failed. Stable codes only: raw exception text never leaves the server.",
+        "enum": [
+          "timeout",
+          "unreachable",
+          "auth_failed",
+          "unexpected_response",
+          "error"
+        ],
+        "title": "FailureReason",
+        "type": "string"
+      },
+      "FieldError": {
+        "description": "One invalid input field.",
+        "properties": {
+          "code": {
+            "description": "Stable machine code, e.g. `missing`.",
+            "title": "Code",
+            "type": "string"
+          },
+          "field": {
+            "description": "Dotted path of the field, e.g. `body.title`.",
+            "title": "Field",
+            "type": "string"
+          },
+          "message_key": {
+            "description": "Labels key the UI translates.",
+            "title": "Message Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "field",
+          "code",
+          "message_key"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "description": "Liveness: the process is up and serving.",
+        "properties": {
+          "status": {
+            "const": "ok",
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "version"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "ProblemDetail": {
+        "description": "RFC 9457 problem details, extended with SupportX's machine code and message key.",
+        "properties": {
+          "code": {
+            "description": "Stable machine code clients switch on.",
+            "title": "Code",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "$ref": "#/components/schemas/FieldError"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Request path that failed.",
+            "title": "Instance"
+          },
+          "message_key": {
+            "description": "Labels key the UI translates into the user's language.",
+            "title": "Message Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "title": {
+            "description": "Short, generic English summary (not for display).",
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "description": "URI reference identifying the problem type.",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "message_key"
+        ],
+        "title": "ProblemDetail",
+        "type": "object"
+      },
+      "ReadinessResponse": {
+        "description": "Readiness: every dependency this process needs, and which one failed.",
+        "properties": {
+          "checks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CheckResponse"
+            },
+            "title": "Checks",
+            "type": "object"
+          },
+          "failed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "checks",
+          "failed"
+        ],
+        "title": "ReadinessResponse",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "SupportX v2 Core API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "description": "Return 200 while the process runs.\n\nChecks no dependency, so a database outage never makes the orchestrator restart healthy API\npods.",
+        "operationId": "get_health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Liveness",
+        "tags": [
+          "system"
+        ]
+      }
+    },
+    "/api/v1/ready": {
+      "get": {
+        "description": "Return 200 when PostgreSQL, Valkey and NATS all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code.",
+        "operationId": "get_ready_api_v1_ready_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadinessResponse"
+                }
+              }
+            },
+            "description": "A dependency is not ready."
+          }
+        },
+        "summary": "Readiness",
+        "tags": [
+          "system"
+        ]
+      }
+    }
+  }
+}
