@@ -68,6 +68,10 @@ typescript-eslint, eslint-plugin-react-hooks, eslint-plugin-react-refresh, globa
 i18next + react-i18next for `packages/labels`, adopted in WP-010 (D-013); TypeScript pinned to the
 latest version typescript-eslint supports, currently 5.9.x (D-014).
 
+**Approved additions (D-019):** backend runtime libraries uvicorn (ASGI server), structlog
+(structured logging), uuid-utils (UUIDv7 IDs), opentelemetry-api, opentelemetry-sdk and
+opentelemetry-instrumentation-fastapi (no exporter configured yet).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
