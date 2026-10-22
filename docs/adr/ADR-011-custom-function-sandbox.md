@@ -3,7 +3,7 @@
 - **Status:** Open
 - **Date:** 2026-10-22
 - **Source:** architecture.md §6.7, §19
-- **Owner:** TBC
+- **Owner:** Haider (Product Owner)
 
 ## Context
 

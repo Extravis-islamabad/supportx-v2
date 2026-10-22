@@ -12,6 +12,7 @@ beyond. It ships as one codebase for SaaS, on-prem and air-gapped, with real-tim
 | `CLAUDE.md` | Engineering rulebook (stack, layout, non-negotiable rules, definition of done) |
 | `docs/specs/architecture.md` | Architecture v0.2, the source of truth |
 | `docs/specs/product-plan.md` | Product planning v0.1 (subordinate to architecture) |
+| `docs/DECISIONS.md` | Product owner decision log |
 | `docs/adr/` | Architecture Decision Records |
 | `docs/PROGRESS.md` | Work packages, current status, session log |
 
@@ -23,4 +24,4 @@ beyond. It ships as one codebase for SaaS, on-prem and air-gapped, with real-tim
 ## Prerequisites (dev)
 
 git, uv (provides Python 3.12), Node 20+ with pnpm (via corepack), Docker with Compose, kubectl,
-and k3d or kind (to be decided).
+and k3d (D-003).

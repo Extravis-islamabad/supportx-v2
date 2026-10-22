@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Source:** architecture.md §2 intro, §2.14, §4.1, §6.8
-- **Owner:** TBC
+- **Owner:** Haider (Product Owner)
 
 ## Context
 
@@ -21,4 +21,11 @@ SupportX does no network, server or application monitoring and no alert correlat
 
 ## Notes
 
-Accepted at bootstrap (architecture.md §19 listed it as *Proposed*); confirm owner at Stage 0 sign-off.
+Accepted at bootstrap (architecture.md §19 listed it as *Proposed*). Owner set by D-007 until a tech lead is appointed.
+
+## Clarification 2026-10-22 (D-001)
+
+Decision unchanged. Monitoring-dependent features stay in scope (pre/post change health checks,
+live health on CMDB impact maps, wallboards with monitoring status). SupportX may **read** health,
+problems and topology from the MonetX API, read-only, through `monitoring_integrations` only. It
+still performs no monitoring, no device polling and no alert correlation.

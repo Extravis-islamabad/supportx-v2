@@ -1,3 +1,8 @@
+> **Authority notice (D-002, 2026-10-22):** `docs/specs/architecture.md` is authoritative over this
+> document on every conflict, including roadmap timing (architecture.md §17 replaces §10 below).
+> In particular, SupportX does no monitoring or alert correlation (ADR-017), and migration from
+> SupportX v1 is out of scope (D-005). See `docs/DECISIONS.md`.
+
 **SupportX v2**
 
 Product Planning Document

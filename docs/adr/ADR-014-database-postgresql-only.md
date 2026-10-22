@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Source:** architecture.md §7.5
-- **Owner:** TBC
+- **Owner:** Haider (Product Owner)
 
 ## Context
 
@@ -20,4 +20,4 @@ PostgreSQL 16 is the only system of record, bundled, installed, tuned and backed
 
 ## Notes
 
-Accepted at bootstrap (architecture.md §19 listed it as *Proposed*); confirm owner at Stage 0 sign-off.
+Accepted at bootstrap (architecture.md §19 listed it as *Proposed*). Owner set by D-007 until a tech lead is appointed.

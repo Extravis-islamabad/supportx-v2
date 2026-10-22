@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Source:** architecture.md §3 P1, §4.1, §6.1
-- **Owner:** TBC
+- **Owner:** Haider (Product Owner)
 
 ## Context
 
@@ -22,4 +22,4 @@ The Core API is a FastAPI modular monolith of domain modules (§6.1) with strict
 
 ## Notes
 
-Accepted at bootstrap (architecture.md §19 listed it as *Proposed*); confirm owner at Stage 0 sign-off.
+Accepted at bootstrap (architecture.md §19 listed it as *Proposed*). Owner set by D-007 until a tech lead is appointed.

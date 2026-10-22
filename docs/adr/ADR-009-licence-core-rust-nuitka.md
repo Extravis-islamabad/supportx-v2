@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Source:** architecture.md §13, §13.7
-- **Owner:** TBC
+- **Owner:** Haider (Product Owner)
 
 ## Context
 
@@ -21,4 +21,4 @@ Signature verification (Ed25519), hardware fingerprinting and enforcement live i
 
 ## Notes
 
-Accepted at bootstrap (architecture.md §19 listed it as *Proposed*); confirm owner at Stage 0 sign-off.
+Accepted at bootstrap (architecture.md §19 listed it as *Proposed*). Owner set by D-007 until a tech lead is appointed.

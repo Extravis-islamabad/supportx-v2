@@ -3,7 +3,7 @@
 - **Status:** Accepted
 - **Date:** 2026-10-22
 - **Source:** architecture.md §5, §6.7
-- **Owner:** TBC
+- **Owner:** Haider (Product Owner)
 
 ## Context
 
@@ -21,4 +21,4 @@ Use Temporal (Python SDK). Visual workflows are stored as a JSON DSL and execute
 
 ## Notes
 
-Accepted at bootstrap (architecture.md §19 listed it as *Proposed*); confirm owner at Stage 0 sign-off.
+Accepted at bootstrap (architecture.md §19 listed it as *Proposed*). Owner set by D-007 until a tech lead is appointed.

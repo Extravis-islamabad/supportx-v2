@@ -312,7 +312,7 @@ Everything else SDP provides is also in scope, at the same level of depth:
 
 The platform is organised in four tiers: clients, edge, application services and data. All client traffic enters through the edge. The Core API is the only component that writes business data; every other service reacts to events or reads through defined interfaces.
 
-<img src="media/a913c04ddc4c2e718762eb66319cd158c2dfc99d.png" style="width:6.875in;height:2.6875in" />
+<img src="media/architecture-overview.png" style="width:6.875in;height:2.6875in" />
 
 *Figure 1. SupportX v2 logical architecture*
 
@@ -580,7 +580,7 @@ SupportX v2 supports PostgreSQL only as its system of record. ServiceDesk Plus o
 
 Real-time behaviour is a platform service, not a per-screen feature. Any change committed by any source (a technician, the portal, an email, a rule, a workflow, an AI agent or a monitoring event) reaches every screen that shows the affected data within one second, with no refresh.
 
-<img src="media/3fe6ba0575fc1cd568d32739f4de016194676b4e.png" style="width:4.47917in;height:4.15625in" />
+<img src="media/realtime-flow.png" style="width:4.47917in;height:4.15625in" />
 
 *Figure 2. Path of a live update from commit to every subscribed screen*
 
@@ -824,7 +824,7 @@ All code checks entitlements through one interface (has_feature, check_limit, re
 
 ## 13.2 On-prem activation flow
 
-<img src="media/e10672c9b498051c66d0c7030c6bee06348765ca.png" style="width:6.66667in;height:1.23958in" />
+<img src="media/licence-activation.png" style="width:6.66667in;height:1.23958in" />
 
 *Figure 3. Online and offline activation for on-prem and air-gapped installations*
 

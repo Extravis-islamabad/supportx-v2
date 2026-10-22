@@ -5,25 +5,19 @@
 - **Stage:** 0 — Foundation (architecture.md §17). Not started.
 - **Last completed:** Project bootstrap (rules, ADRs, plan). No application code yet.
 - **Next work package:** WP-001 (Monorepo skeleton and dev tooling).
-- **Blockers:** None for WP-001. WP-003 needs the CI platform decision; WP-014 needs the local
-  cluster tool decision; WP-015 needs design input (see "Open questions").
+- **Blockers:** None for WP-001. WP-003 needs the CI platform decision; WP-014 needs k3d
+  installed (D-003; Homebrew is not installed either).
 
 ### Open questions (awaiting product owner)
 
-1. Confirm which product-plan scope that depends on monitoring data (pre/post change health checks,
-   live health on impact maps, NOC wallboards with monitoring status) is still wanted, and whether
-   SupportX may *read* health data from a MonetX API (ADR-017).
-2. Which roadmap wins on timing: architecture.md §17 (Stage 0 = 3 months; MonetX connector and
-   visual workflows in Stage 2) or product-plan.md §10 (Phase 0 = 4–6 weeks; both in Phase 1)?
-   Assumed: architecture.md.
-3. CI platform (GitHub Actions, GitLab CI, other) and git remote.
-4. Local Kubernetes for dev: k3d (matches k3s on-prem) or kind? Neither is installed.
-5. Approval for tooling the specs imply but the stack list omits: Rust toolchain + PyO3/maturin
-   (licence core), asyncpg, pydantic-settings, Nuitka, OpenFeature SDK, pgvector, PgBouncer, Jinja2, pre-commit.
-6. Is migration from SupportX v1 in scope (product-plan.md §8 says yes; architecture.md §18 covers
-   only ServiceDesk Plus)?
-7. When is Urdu in scope for the definition of done ("Urdu where in scope", §16.3)?
-8. Owners for each ADR (all marked TBC).
+1. CI platform (GitHub Actions, GitLab CI, other) and git remote. Blocks WP-003.
+2. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
+   download, or install Homebrew first? Blocks WP-014.
+
+Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
+(D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
+ADR owners (D-007), prototype design input (D-008), BFF location (D-009), Keycloak tenancy (D-010),
+Redis licence (D-011).
 
 ## Stage 0: Foundation — work packages
 
@@ -47,7 +41,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 ### [ ] WP-002 — Local dev stack (Docker Compose)
 - **Goal:** One command brings up every backing service for local development.
 - **Scope:** `deploy/dev/docker-compose.yml` for PostgreSQL 16 (+ pgvector), NATS JetStream,
-  Temporal (+ UI), Centrifugo, Keycloak, Redis/Valkey, OpenSearch, MinIO, ClickHouse; named volumes
+  Temporal (+ UI), Centrifugo, Keycloak, Valkey, OpenSearch, MinIO, ClickHouse; named volumes
   prefixed `supportx_dev_`; health checks; `make dev-up`, `make dev-down` (never removes volumes);
   `.env.example`.
 - **Acceptance:** `make dev-up` reaches all-healthy on the dev Mac; a smoke script connects to each
@@ -87,8 +81,9 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 ### [ ] WP-006 — Identity and authentication
 - **Goal:** Users log in via Keycloak; API knows who and which tenant.
-- **Scope:** Keycloak dev realm import (one realm per tenant pattern); BFF login flow (OIDC Code +
-  PKCE, HttpOnly session cookie, tokens server-side in Redis); `identity_access` module (users,
+- **Scope:** Keycloak dev realm import (one shared realm, tenants as Keycloak Organizations —
+  D-010; dedicated-realm path stubbed); BFF login flow in `app/modules/identity_access/bff` (D-009;
+  OIDC Code + PKCE, HttpOnly session cookie, tokens server-side in Valkey); `identity_access` module (users,
   groups, roles minimal); permission policy layer skeleton (module/action check) used by services;
   API-key auth stub for integrations.
 - **Acceptance:** Integration test logs a user in against Keycloak (Testcontainers or dev stack),
@@ -109,7 +104,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 ### [ ] WP-008 — API conventions
 - **Goal:** Shared building blocks every module will use.
 - **Scope:** Optimistic concurrency (version + ETag/If-Match, 409 with changed fields);
-  Idempotency-Key handling on POST (Redis-backed); cursor pagination; filter DSL v0 (field, op,
+  Idempotency-Key handling on POST (Valkey-backed); cursor pagination; filter DSL v0 (field, op,
   value, AND/OR groups) compiled to SQLAlchemy; OpenAPI diff check script.
 - **Acceptance:** Unit and integration tests for each block; a stale-version update returns 409; a
   repeated POST with the same key creates one record.
@@ -163,28 +158,39 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   on-prem provider for the WP-009 entitlement interface; dev-only signing tool with a test key.
 - **Acceptance:** Rust and Python tests: valid licence accepted, any edited field rejected,
   fingerprint tolerance works (2 changed components pass, 3 fail); no production key in the repo.
-- **Depends on:** WP-009; approval of Rust/PyO3 toolchain (open question 5)
+- **Depends on:** WP-009 (Rust/PyO3 approved by D-004; Rust toolchain must be installed)
 
 ### [ ] WP-014 — Deployment skeleton (Helm and local cluster)
 - **Goal:** The same build runs on Kubernetes from day one (§14.3).
-- **Scope:** Container images for API, workers, BFF; one Helm chart with `values-dev`,
-  `values-single-node` profiles; local k3d (or kind) cluster script; readiness/liveness wired;
+- **Scope:** Container images for API and workers (the BFF ships inside the API — D-009); one Helm
+  chart with `values-dev`, `values-single-node` profiles; local k3d cluster script (D-003); readiness/liveness wired;
   in-cluster Postgres/NATS/Centrifugo for dev.
 - **Acceptance:** `make cluster-up && make deploy-dev` installs the chart and the walking-skeleton
   e2e test passes against the cluster.
-- **Depends on:** WP-002, WP-004 (WP-012 for the final acceptance run); local cluster tool decision
-  (open question 4)
+- **Depends on:** WP-002, WP-004 (WP-012 for the final acceptance run); k3d installed on the dev
+  machine (D-003, open question 2)
 
 ### [ ] WP-015 — Clickable prototype of console and portal
 - **Goal:** Stage 0 product outcome: navigable prototype to validate journeys with stakeholders.
 - **Scope:** Console shell (navigation, command palette, split list/record view, dashboard
   placeholder) and portal shell (AI-assistant landing, catalog, my requests) using mock data
   through the real `ui` and `labels` packages; en/ar.
-- **Acceptance:** Product owner can click through the agreed journeys in both apps; all text via
-  labels; no ManageEngine screens or wording reused.
-- **Depends on:** WP-010; design input / agreed journeys from the product owner
+- **Acceptance:** Product owner reviews screenshots of the journeys in both apps (D-008); all text
+  via labels; no ManageEngine screens or wording reused.
+- **Depends on:** WP-010. Built from the spec with Ant Design defaults (D-008); no designer input
+  needed.
 
 ## Session log (newest first)
+
+### 2026-10-22 — Product owner decisions D-001..D-011
+- Created `docs/DECISIONS.md`; applied decisions to CLAUDE.md (stack, layout, monitoring boundary,
+  DoD languages), ADR-006 (revised), ADR-012, ADR-017 (clarification), all ADR owners, the
+  product-plan.md authority banner, and WP dependency notes (WP-006, 008, 013, 014, 015).
+
+### 2026-10-22 — Spec figures added
+- Added `docs/specs/media/` with `architecture-overview.png` (Fig. 1), `realtime-flow.png`
+  (Fig. 2) and `licence-activation.png` (Fig. 3); repointed the three image links in
+  `architecture.md` from hash filenames to these names. No spec text changed.
 
 ### 2026-10-22 — Project bootstrap
 - Moved specs to `docs/specs/`. Created `CLAUDE.md`, `README.md`, `.gitignore`, `.editorconfig`,

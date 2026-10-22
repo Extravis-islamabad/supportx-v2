@@ -10,14 +10,19 @@ wins over the specs.
 |---|---|
 | `docs/specs/architecture.md` (v0.2) | **Source of truth.** Wins on any conflict. |
 | `docs/specs/product-plan.md` (v0.1) | Product context, pillars, packaging. Subordinate to architecture.md. |
+| `docs/DECISIONS.md` | Product owner decision log (D-001...). Overrides the specs where they differ. |
 | `docs/adr/` | Formal decisions (ADR-001..017 from architecture.md §19). New decisions get a new ADR. |
 | `docs/PROGRESS.md` | Work-package plan, current status and session log. |
 
-Known conflict, already resolved: product-plan.md describes alert correlation, de-duplication and
-an event-ingestion pipeline inside SupportX. **That is wrong for this build.** SupportX does no
-network/infra monitoring and no alert correlation; it only has the MonetX connector plus a generic
-alert webhook (architecture.md §2 intro, §2.14, §6.8, ADR-017). Other conflicts are logged in
-`docs/PROGRESS.md` → "Open questions".
+architecture.md wins over product-plan.md on every conflict, including roadmap timing:
+architecture.md §17 replaces product-plan.md §10 (D-002).
+
+Monitoring boundary (ADR-017, D-001): product-plan.md describes alert correlation, de-duplication
+and an event-ingestion pipeline inside SupportX. **That is wrong for this build.** SupportX does no
+monitoring, no device polling and no alert correlation. It has the MonetX connector plus a generic
+alert webhook (architecture.md §2 intro, §2.14, §6.8). Through `monitoring_integrations` only, it
+may **read** health, problems and topology from the MonetX API (read-only) to power pre/post change
+health checks, live health on CMDB impact maps and wallboards with monitoring status.
 
 ## 2. Product summary
 
@@ -34,28 +39,38 @@ copy. Never reproduce ManageEngine screens, layouts, wording, help text, icons o
 original, designed on Ant Design 5. Where SDP relies on another ManageEngine product, SupportX
 delivers natively or via Extravis products (AgentX, PatchX, MonetX).
 
+v2 is a first build: migration from SupportX v1 is out of scope (D-005). The ServiceDesk Plus
+migration tool (architecture.md §18) remains in scope.
+
 ## 3. Tech stack (architecture.md §5) — closed list
 
 **Backend:** Python 3.12+, FastAPI + Pydantic v2, SQLAlchemy 2.0 (async) + Alembic,
 PostgreSQL 16 (RLS, JSONB, pgvector), NATS JetStream, Temporal (Python SDK), Centrifugo,
-Keycloak, Redis 7 (or Valkey), OpenSearch, MinIO / S3, ClickHouse. Package management: **uv**.
+Keycloak, **Valkey** (replaces Redis everywhere — D-004), OpenSearch, MinIO / S3, ClickHouse.
+Package management: **uv**.
 
 **Frontend:** React 18 + TypeScript (strict) + Vite, Ant Design 5, TanStack Query, Zustand,
 React Hook Form + Zod, Apache ECharts, React Flow (xyflow), Monaco. Package management: **pnpm**
 workspace.
 
-**Platform:** Kubernetes + Helm (k3s for single-node on-prem); Docker Compose for local dev only;
-OpenTelemetry, Prometheus, Grafana, Loki, Tempo. Licence core in Rust (PyO3) — §13.7.
+**Platform:** Kubernetes + Helm (k3s for single-node on-prem; **k3d** for local clusters — D-003);
+Docker Compose for local dev only; OpenTelemetry, Prometheus, Grafana, Loki, Tempo.
 
-**Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest, import-linter, Testcontainers,
-tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit, Trivy, cosign.
+**Approved additions (D-004):** Rust toolchain + PyO3/maturin (licence core, §13.7), asyncpg,
+pydantic-settings, Nuitka, OpenFeature SDK, pgvector, PgBouncer, Jinja2 (sandboxed environment
+only), pre-commit, ClamAV, pgBackRest, React Native (mobile, later), Go (only if ADR-015 chooses a
+new agent).
+
+**Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
+import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
+Trivy, cosign.
 
 **Dependency rule:** never add a runtime or dev dependency outside this list without asking the
-product owner first. Small standard libraries that a listed tool needs to function (e.g. the
-official client SDK for a listed component, `asyncpg` for SQLAlchemy, `@ant-design/icons`)
-still need to be named in the session report so they can be vetoed. Every dependency must have a
-licence that allows on-prem redistribution (§5 licence box); AGPL / source-available needs explicit
-approval (ADR-012).
+product owner first. Small companion libraries that a listed tool needs to function (e.g. the
+official client SDK for a listed component, `@ant-design/icons`, `typescript-eslint`,
+`@vitejs/plugin-react`, `httpx` for FastAPI's test client) still need to be named in the session
+report so they can be vetoed. Every dependency must have a licence that allows on-prem
+redistribution (§5 licence box); AGPL / source-available needs explicit approval (ADR-012).
 
 ## 4. Repository layout (target)
 
@@ -67,17 +82,22 @@ backend/                     # architecture.md §6.4
     shared/                  # base models, pagination, filtering DSL, outbox, events
     modules/<module>/        # one folder per §6.1 module, same shape for all:
       api/  service/  domain/  infra/  events.py  tests/
+    modules/identity_access/bff/  # backend-for-frontend login layer (D-009): same deployable
+                                  # and same origin as the UI
   workers/                   # NATS consumers, Temporal workers
   migrations/                # Alembic
-  pyproject.toml             # uv-managed; ruff, mypy strict, pytest
+  tests/                     # app-level tests (health, wiring); module tests live in modules
+  pyproject.toml             # uv-managed; ruff, mypy strict, pytest, import-linter
 frontend/                    # pnpm workspace, architecture.md §9.2
   apps/console/  apps/portal/
   packages/ui/ api-client/ realtime/ labels/ charts/ forms/ flow/
   e2e/                       # Playwright
-deploy/                      # Helm chart + per-profile values, dev docker-compose, k3d/kind config
+deploy/                      # Helm chart + per-profile values, dev docker-compose, k3d config
 licence-core/                # Rust licence library (PyO3) — §13.7
+mobile/                      # React Native apps (later, §9.1)
 docs/
-  specs/  adr/  PROGRESS.md
+  specs/  specs/media/  adr/  DECISIONS.md  PROGRESS.md
+Makefile                     # setup, lint, typecheck, test, format, check
 ```
 
 Modules (§6.1): identity_access, organization, work_items, service_catalog, knowledge, sla,
@@ -113,7 +133,8 @@ only — never sensitive data.
 **d) Labels, not enums (§9.5, P9).** No raw code, enum key, internal ID, exception name or stack
 trace ever reaches the UI. Everything renders through `frontend/packages/labels`
 (`incident_management` → "Incident Management"). Every backend enum code needs an English label
-(CI-enforced) and an Arabic translation. API errors are RFC 9457 problem details with a machine
+(CI-enforced) and an Arabic translation; Urdu becomes mandatory from Stage 2 (D-006). Every screen
+must work in RTL. API errors are RFC 9457 problem details with a machine
 code + params; the UI maps code → human message.
 
 **e) Module boundaries (§6.1).** Modules never import each other's internals and never query each
@@ -187,7 +208,8 @@ A task is done only when all apply (or the session report explains why one does 
 
 - Works in SaaS and on-prem profiles and respects licensing (entitlement interface only).
 - Updates live in every place the data is shown, with no refresh.
-- All visible text uses labels, translated into English and Arabic (Urdu where in scope).
+- All visible text uses labels, translated into English and Arabic with RTL working (from day
+  one); Urdu too from Stage 2 onward (D-006).
 - API documented, permissions enforced, events emitted via outbox, audit recorded.
 - Tests at the right layers pass; dashboards/alerts exist for new services; user docs updated.
 - ruff, mypy, tsc, ESLint, Prettier, import-linter and tests are green locally.
@@ -205,7 +227,8 @@ A task is done only when all apply (or the session report explains why one does 
    say so plainly with the output.
 5. **Ask before:** adding a dependency outside §3; changing an ADR's decision; changing a
    non-negotiable rule; anything destructive or outward-facing (pushing, publishing, deleting).
-6. **New decision → new ADR** in `docs/adr/` (next free number) and a row in `docs/adr/README.md`.
+6. **New decision → new ADR** in `docs/adr/` (next free number, row in `docs/adr/README.md`) for
+   architecture; a `docs/DECISIONS.md` entry for product owner decisions.
 7. **Never fake it.** No placeholder implementations reported as finished, no skipped tests to get
    green, no `# type: ignore` / `eslint-disable` without a justification comment.
 8. **End of session:** update `docs/PROGRESS.md` (status, WP checkboxes, newest-first session log
@@ -213,8 +236,9 @@ A task is done only when all apply (or the session report explains why one does 
 
 ### Session report format
 
-Every task ends with exactly these sections (from the bootstrap task). Write "No change" in a
-section that doesn't apply; don't drop it.
+Every task ends with exactly these sections (from the bootstrap task), unless the task prompt
+gives its own report format, which then wins. Write "No change" in a section that doesn't apply;
+don't drop it.
 
 ```
 ## Files created                      — and files modified/deleted, one line each
