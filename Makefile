@@ -1,7 +1,7 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
-	backend-dev backend-env openapi openapi-check \
+	backend-dev backend-env openapi openapi-check schema-check \
 	db-migrate db-downgrade db-revision db-current db-seed db-guard e2e \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
@@ -73,8 +73,10 @@ openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API ty
 	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
 	$(FRONTEND) pnpm --filter @supportx/api-client generate
 
-openapi-check: ## Fail if openapi.json or the generated schema.ts is out of date (CI)
+openapi-check: ## Fail if the committed openapi.json is out of date (backend lint, CI)
 	$(BACKEND) uv run python -m tooling.export_openapi --check $(OPENAPI_FILE)
+
+schema-check: ## Fail if api-client/src/schema.ts is out of date (frontend lint, CI)
 	$(FRONTEND) pnpm --filter @supportx/api-client check:schema
 
 e2e: ## Playwright journeys (needs dev-up, backend-dev and the console dev server running)
@@ -115,6 +117,7 @@ backend-test:
 
 frontend-lint:
 	$(FRONTEND) pnpm lint && pnpm format:check
+	$(MAKE) schema-check
 
 frontend-typecheck:
 	$(FRONTEND) pnpm typecheck
