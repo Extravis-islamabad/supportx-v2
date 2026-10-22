@@ -64,14 +64,10 @@ async def test_security_headers_on_every_response(
 
 
 async def test_hsts_only_in_production(
-    settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
+    production_settings: Callable[..., Settings],
+    run_app: Callable[[FastAPI], Any],
 ) -> None:
-    production = settings_factory(
-        profile="production",
-        database_url="postgresql://u:p@db/x",
-        valkey_url="valkey://:p@kv:6379/0",
-        nats_url="nats://bus:4222",
-    )
+    production = production_settings()
     async with run_app(create_app(production)) as client:
         response = await client.get("/api/v1/health")
     assert response.headers["strict-transport-security"].startswith("max-age=")

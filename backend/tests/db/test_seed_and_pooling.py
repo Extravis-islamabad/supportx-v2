@@ -7,7 +7,7 @@ from sqlalchemy import text
 
 from app.core.database import Database, create_engine, pgbouncer_safe_connect_args
 from app.core.tenancy import TenantContext
-from tooling import seed_dev
+from tooling import db_testing, seed_dev
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = pytest.mark.db
@@ -21,21 +21,30 @@ async def demo_tenant(url: str) -> asyncpg.Record | None:
         await conn.close()
 
 
-async def test_seed_creates_the_demo_tenant_once_and_never_overwrites(
-    migrated_db: ThrowawayDatabase,
+def test_seed_creates_the_dev_tenants_once_and_never_overwrites(
+    db_config: db_testing.DbTestConfig,
 ) -> None:
-    first = await seed_dev.seed(migrated_db.migrator_url)
-    conn = await asyncpg.connect(migrated_db.migrator_url)
+    # Own database: this test edits the seeded tenant, which other tests rely on.
+    database = db_testing.create(db_config)
+    try:
+        first = asyncio.run(seed_dev.seed(database.migrator_url))
+        asyncio.run(_rename_demo(database.migrator_url))
+        second = asyncio.run(seed_dev.seed(database.migrator_url))
+        row = asyncio.run(demo_tenant(database.migrator_url))
+    finally:
+        db_testing.destroy(db_config, database)
+    assert (first, second) == (["demo", "other"], [])
+    assert row is not None
+    assert row["id"] == seed_dev.DEMO_TENANT_ID
+    assert row["name"] == "Renamed by user"  # the seed left the user's change alone
+
+
+async def _rename_demo(url: str) -> None:
+    conn = await asyncpg.connect(url)
     try:
         await conn.execute("UPDATE tenants SET name = 'Renamed by user' WHERE slug = 'demo'")
     finally:
         await conn.close()
-    second = await seed_dev.seed(migrated_db.migrator_url)
-    row = await demo_tenant(migrated_db.migrator_url)
-    assert (first, second) == (True, False)
-    assert row is not None
-    assert row["id"] == seed_dev.DEMO_TENANT_ID
-    assert row["name"] == "Renamed by user"  # the seed left the user's change alone
 
 
 async def test_many_concurrent_transactions_through_pgbouncer(

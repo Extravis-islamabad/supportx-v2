@@ -30,7 +30,7 @@ def error_codes() -> set[str]:
 
 
 def test_per_raise_codes_are_collected() -> None:
-    assert {"tenant_required", "version_conflict", "tenant_not_found"} <= error_codes()
+    assert {"csrf_failed", "version_conflict", "tenant_not_found"} <= error_codes()
 
 
 def _subclasses(cls: type[errors.AppError]) -> list[type[errors.AppError]]:

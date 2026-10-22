@@ -63,7 +63,10 @@ def build_app(settings: Settings) -> FastAPI:
 
 @pytest.fixture
 def dev_app(migrated_db: ThrowawayDatabase, settings_factory: Callable[..., Settings]) -> FastAPI:
-    return build_app(settings_factory(profile="dev", database_url=migrated_db.app_url))
+    # The X-Tenant-ID header is an explicit dev-only opt-in (SUPPORTX_DEV_TENANT_HEADER).
+    return build_app(
+        settings_factory(profile="dev", database_url=migrated_db.app_url, dev_tenant_header=True)
+    )
 
 
 def header(tenant: uuid.UUID) -> dict[str, str]:
@@ -101,19 +104,37 @@ async def test_missing_or_invalid_header_in_dev(
     async with run_app(dev_app) as client:
         missing = await client.get("/api/v1/organization/tenant")
         invalid = await client.get("/api/v1/organization/tenant", headers={"X-Tenant-ID": "acme"})
-    assert (missing.status_code, missing.json()["code"]) == (401, "tenant_required")
+    assert (missing.status_code, missing.json()["code"]) == (401, "unauthenticated")
     assert (invalid.status_code, invalid.json()["code"]) == (400, "invalid_tenant_id")
+
+
+@pytest.mark.db
+async def test_header_is_ignored_unless_explicitly_enabled(
+    migrated_db: ThrowawayDatabase,
+    settings_factory: Callable[..., Settings],
+    run_app: Callable[[FastAPI], Any],
+    tenant_pair: tuple[uuid.UUID, uuid.UUID],
+) -> None:
+    app = build_app(settings_factory(profile="dev", database_url=migrated_db.app_url))
+    async with run_app(app) as client:
+        response = await client.get("/api/v1/organization/tenant", headers=header(tenant_pair[0]))
+    assert (response.status_code, response.json()["code"]) == (401, "unauthenticated")
 
 
 async def test_production_ignores_the_tenant_header(
     settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
 ) -> None:
-    """Production must not trust a client-chosen tenant, even a valid, existing one."""
+    """Production must not trust a client-chosen tenant, even with the dev switch turned on."""
     production = settings_factory(
         profile="production",
         database_url="postgresql://supportx_app:x@127.0.0.1:1/supportx",
         valkey_url="valkey://:p@127.0.0.1:1/0",
         nats_url="nats://127.0.0.1:1",
+        oidc_issuer="http://127.0.0.1:1/realms/supportx",
+        oidc_console_client_secret="x",
+        oidc_portal_client_secret="x",
+        session_secret="s" * 32,
+        dev_tenant_header=True,
     )
     async with run_app(build_app(production)) as client:
         response = await client.get(
@@ -121,9 +142,9 @@ async def test_production_ignores_the_tenant_header(
         )
         invalid = await client.get("/api/v1/organization/tenant", headers={"X-Tenant-ID": "acme"})
     assert response.status_code == 401
-    assert response.json()["code"] == "tenant_required"
+    assert response.json()["code"] == "unauthenticated"
     # Even a malformed header is ignored rather than parsed.
-    assert invalid.json()["code"] == "tenant_required"
+    assert invalid.json()["code"] == "unauthenticated"
 
 
 @pytest.mark.db
@@ -168,7 +189,9 @@ async def test_stale_update_returns_409_problem_details(
 async def test_tenant_endpoints_need_a_database(
     settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
 ) -> None:
-    async with run_app(build_app(settings_factory(profile="dev"))) as client:
+    async with run_app(
+        build_app(settings_factory(profile="dev", dev_tenant_header=True))
+    ) as client:
         response = await client.get("/api/v1/organization/tenant", headers=header(uuid.uuid4()))
     assert response.status_code == 503
     assert response.json()["code"] == "database_not_configured"

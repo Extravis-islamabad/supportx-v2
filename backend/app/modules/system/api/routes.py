@@ -60,7 +60,7 @@ async def get_ready(
     response: Response,
     service: Annotated[ReadinessService, Depends(get_readiness_service)],
 ) -> ReadinessResponse:
-    """Return 200 when PostgreSQL, Valkey and NATS all answer within the timeout.
+    """Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.
 
     Otherwise 503, naming the failing dependency with a reason code.
     """

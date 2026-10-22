@@ -10,6 +10,7 @@ from alembic import op
 
 from app.shared.db.rls import (
     APP_DML_PRIVILEGES,
+    actor_audit_statements,
     app_grant_statements,
     drop_tenant_rls_statements,
     tenant_rls_statements,
@@ -25,6 +26,15 @@ def enable_tenant_rls(table: str, column: str = "tenant_id") -> None:
 def disable_tenant_rls(table: str) -> None:
     """Reverse of `enable_tenant_rls` (only for downgrades that keep the table)."""
     for statement in drop_tenant_rls_statements(table):
+        op.execute(statement)
+
+
+def enable_actor_audit(table: str) -> None:
+    """Fill created_by/updated_by from the transaction's app.user_id (trigger from migration 0002).
+
+    Works for every write path, including raw SQL; created_by can never be changed afterwards.
+    """
+    for statement in actor_audit_statements(table):
         op.execute(statement)
 
 

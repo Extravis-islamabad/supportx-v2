@@ -57,7 +57,7 @@ the 2xxxx range to avoid clashing with other projects; each one can be changed i
 | PgBouncer (transaction mode) | core | `localhost:26432`, database `supportx` | `supportx_app` / `SUPPORTX_APP_PASSWORD` |
 | Valkey | core | `localhost:26379` | password `VALKEY_PASSWORD` (no username) |
 | NATS + JetStream | core | `nats://localhost:24222`, monitoring <http://localhost:28222> | none (dev) |
-| Keycloak (dev mode) | core | <http://localhost:28080> (admin console), health <http://localhost:28090/health> | `admin` / `KEYCLOAK_ADMIN_PASSWORD` |
+| Keycloak (dev mode) | core | <http://localhost:28080> (admin console), health <http://localhost:28090/health>; realm `supportx` imported from `deploy/compose/keycloak/` | `admin` / `KEYCLOAK_ADMIN_PASSWORD`; test users below |
 | Centrifugo | core | <http://localhost:28000> (admin UI at `/`), WebSocket `ws://localhost:28000/connection/websocket` | admin UI password `CENTRIFUGO_ADMIN_PASSWORD`; server API key `CENTRIFUGO_API_KEY` |
 | MinIO (S3) | core | API <http://localhost:29000>, console <http://localhost:29001>, bucket `attachments` | `supportx` / `MINIO_ROOT_PASSWORD` |
 | Mailpit (fake email) | core | web inbox <http://localhost:28025>, SMTP `localhost:21025` | none; SMTP accepts any login |
@@ -98,19 +98,44 @@ make db-guard       # check that every table is tenant-isolated (RLS)
 make db-current     # which migration the database is at
 ```
 
-The demo tenant always has the same ID, so you can use it straight away:
+The dev tenants always have the same IDs; they match the Keycloak organizations' `tenant_id`
+attribute:
 
-| Tenant | Slug | ID (use as `X-Tenant-ID` in dev) |
+| Tenant | Slug | ID |
 |---|---|---|
 | Demo Company | `demo` | `01900000-0000-7000-8000-00000000de30` |
+| Other Company | `other` | `01900000-0000-7000-8000-00000000a7e2` |
+
+### Signing in (WP-006)
 
 ```bash
-curl -H 'X-Tenant-ID: 01900000-0000-7000-8000-00000000de30' \
-  http://127.0.0.1:8000/api/v1/organization/tenant
+make dev-up backend-env db-migrate db-seed   # once
+make backend-dev                              # API on 127.0.0.1:8000
+cd frontend && pnpm --filter @supportx/console dev   # console on http://localhost:5173
+cd frontend && pnpm --filter @supportx/portal dev    # portal on http://localhost:5174
 ```
 
-The `X-Tenant-ID` header works only in the dev and test profiles; production ignores it. How
-tenant isolation works: `docs/architecture/tenancy.md`.
+Open the console or portal: you are sent to Keycloak (realm `supportx`). Enter the email, then the
+password (two steps). These **test users** are imported with the realm (dev only):
+
+| Email | Password | Organization | Role | Locale |
+|---|---|---|---|---|
+| `admin@demo.test` | `Admin-Demo-2026!` | Demo Company | tenant admin + technician | en |
+| `tech@demo.test` | `Tech-Demo-2026!` | Demo Company | technician | en |
+| `user@demo.test` | `User-Demo-2026!` | Demo Company | requester | **ar** (UI opens right-to-left) |
+| `other@other.test` | `Other-Corp-2026!` | Other Company | technician | en |
+| `multi@demo.test` | `Multi-Org-2026!` | Demo Company **and** Other Company | technician | en |
+| `nobody@nowhere.test` | `No-Org-User-2026!` | none (shows the "no organisation" message) | requester | en |
+
+Keycloak admin console: <http://localhost:28080> (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). Five wrong
+passwords lock a user for a while (brute-force protection is on even in dev). The realm is imported
+only when it does not exist yet: after changing `deploy/compose/keycloak/supportx-realm.json`,
+delete the `supportx` realm in the admin console (or `make dev-reset`) and restart Keycloak.
+
+The API's tenant comes from the login session. For scripts and quick `curl` tests you can still let
+the API trust an `X-Tenant-ID` header, but only by opting in: add `SUPPORTX_DEV_TENANT_HEADER=true`
+to `backend/.env` (dev profile only; production always ignores the header). How it all works:
+`docs/architecture/authentication.md` and `docs/architecture/tenancy.md`.
 
 `make db-downgrade` rolls back one migration and asks you to type `yes` first, because it can drop
 tables and their data. Backend tests never touch the `supportx` database: they create throwaway

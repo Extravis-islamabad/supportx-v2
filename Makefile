@@ -1,8 +1,8 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
-	backend-dev backend-env openapi openapi-check \
-	db-migrate db-downgrade db-revision db-current db-seed db-guard \
+	backend-dev backend-env openapi openapi-check schema-check \
+	db-migrate db-downgrade db-revision db-current db-seed db-guard e2e \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
 
@@ -69,11 +69,18 @@ db-seed: ## Create the demo tenant if missing (idempotent, never deletes or upda
 db-guard: ## Check every table's tenant isolation (RLS) in the dev database
 	$(BACKEND) uv run python -m tooling.rls_guard
 
-openapi: ## Export the OpenAPI 3.1 contract to frontend/packages/api-client/openapi.json
+openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API types (D-022)
 	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
+	$(FRONTEND) pnpm --filter @supportx/api-client generate
 
-openapi-check: ## Fail if the committed OpenAPI contract is out of date (CI)
+openapi-check: ## Fail if the committed openapi.json is out of date (backend lint, CI)
 	$(BACKEND) uv run python -m tooling.export_openapi --check $(OPENAPI_FILE)
+
+schema-check: ## Fail if api-client/src/schema.ts is out of date (frontend lint, CI)
+	$(FRONTEND) pnpm --filter @supportx/api-client check:schema
+
+e2e: ## Playwright journeys (needs dev-up, backend-dev and the console dev server running)
+	$(FRONTEND) pnpm --filter @supportx/e2e e2e
 
 build: ## Production builds of the console and portal
 	$(FRONTEND) pnpm build
@@ -110,6 +117,7 @@ backend-test:
 
 frontend-lint:
 	$(FRONTEND) pnpm lint && pnpm format:check
+	$(MAKE) schema-check
 
 frontend-typecheck:
 	$(FRONTEND) pnpm typecheck

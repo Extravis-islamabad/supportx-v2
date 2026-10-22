@@ -109,6 +109,19 @@
         "title": "FieldError",
         "type": "object"
       },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
       "HealthResponse": {
         "description": "Liveness: the process is up and serving.",
         "properties": {
@@ -127,6 +140,36 @@
           "version"
         ],
         "title": "HealthResponse",
+        "type": "object"
+      },
+      "MeResponse": {
+        "description": "Session summary for the UI.\n\n`csrf_token` must be sent as X-CSRF-Token on every POST/PUT/PATCH/DELETE; it is tied to this\nsession and changes when the session does.",
+        "properties": {
+          "csrf_token": {
+            "title": "Csrf Token",
+            "type": "string"
+          },
+          "tenant": {
+            "$ref": "#/components/schemas/TenantOut"
+          },
+          "tenants": {
+            "items": {
+              "$ref": "#/components/schemas/TenantOut"
+            },
+            "title": "Tenants",
+            "type": "array"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          }
+        },
+        "required": [
+          "user",
+          "tenant",
+          "tenants",
+          "csrf_token"
+        ],
+        "title": "MeResponse",
         "type": "object"
       },
       "ProblemDetail": {
@@ -254,6 +297,41 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "SwitchTenantRequest": {
+        "description": "Which of the user's tenants to make active.",
+        "properties": {
+          "tenant_id": {
+            "format": "uuid",
+            "title": "Tenant Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tenant_id"
+        ],
+        "title": "SwitchTenantRequest",
+        "type": "object"
+      },
+      "TenantOut": {
+        "description": "A tenant the user belongs to.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TenantOut",
+        "type": "object"
+      },
       "TenantResponse": {
         "description": "The caller's tenant. `status` is a code; the UI renders it via labels.",
         "properties": {
@@ -291,6 +369,102 @@
         ],
         "title": "TenantStatus",
         "type": "string"
+      },
+      "UserOut": {
+        "description": "The logged-in user (in the active tenant).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locale": {
+            "enum": [
+              "en",
+              "ar",
+              "ur"
+            ],
+            "title": "Locale",
+            "type": "string"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "user_type": {
+            "$ref": "#/components/schemas/UserType"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "locale",
+          "user_type",
+          "roles"
+        ],
+        "title": "UserOut",
+        "type": "object"
+      },
+      "UserType": {
+        "description": "Which app a user works in. Stored as a code; the UI shows a label.",
+        "enum": [
+          "technician",
+          "requester"
+        ],
+        "title": "UserType",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
       }
     }
   },
@@ -300,6 +474,268 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/auth/callback": {
+      "get": {
+        "description": "Keycloak sends the browser here. Creates a new session and sets the session cookie.\n\nFailures are RFC 9457 problems for API clients. A browser navigation (Accept: text/html) is\nsent back to its app with `?auth_error=<code>` instead, which the app shows as a translated\nmessage (CLAUDE.md rule d: no raw codes or JSON on screen).",
+        "operationId": "callback_api_v1_auth_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Finish login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "get": {
+        "description": "Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).\n\n`returnTo` must be a same-origin relative path; anything else lands on `/`.",
+        "operationId": "login_api_v1_auth_login_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "default": "console",
+              "enum": [
+                "console",
+                "portal"
+              ],
+              "title": "App",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "returnTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Returnto"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Start login",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "description": "End this session and the Keycloak session; clears the cookie.",
+        "operationId": "logout_api_v1_auth_logout_post",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Log out",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "description": "The logged-in user, active tenant, switchable tenants and CSRF token.",
+        "operationId": "me_api_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Current session",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/switch-tenant": {
+      "post": {
+        "description": "Make another of the user's tenants active. Issues a new session ID and CSRF token.",
+        "operationId": "switch_tenant_api_v1_auth_switch_tenant_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchTenantRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Switch active tenant",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "description": "Return 200 while the process runs.\n\nChecks no dependency, so a database outage never makes the orchestrator restart healthy API\npods.",
@@ -334,7 +770,7 @@
     },
     "/api/v1/organization/tenant": {
       "get": {
-        "description": "Return the tenant of the request (401 `tenant_required` when none is established).",
+        "description": "Return the tenant of the request (401 `unauthenticated` without a session).",
         "operationId": "read_current_tenant_api_v1_organization_tenant_get",
         "responses": {
           "200": {
@@ -366,7 +802,7 @@
     },
     "/api/v1/ready": {
       "get": {
-        "description": "Return 200 when PostgreSQL, Valkey and NATS all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code.",
+        "description": "Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code.",
         "operationId": "get_ready_api_v1_ready_get",
         "responses": {
           "200": {

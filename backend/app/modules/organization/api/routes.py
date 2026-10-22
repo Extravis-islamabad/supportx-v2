@@ -23,6 +23,6 @@ class TenantResponse(BaseModel):
 
 @router.get("/tenant", summary="Current tenant")
 async def read_current_tenant(session: TenantSession) -> TenantResponse:
-    """Return the tenant of the request (401 `tenant_required` when none is established)."""
+    """Return the tenant of the request (401 `unauthenticated` without a session)."""
     tenant = await get_current_tenant(session)
     return TenantResponse(id=tenant.id, name=tenant.name, slug=tenant.slug, status=tenant.status)

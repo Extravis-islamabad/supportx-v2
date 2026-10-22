@@ -2,12 +2,11 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 5 of 15 work packages done.
-- **Last completed:** WP-005 (data layer, RLS and tenancy bootstrap), 2026-10-23.
-- **Next work package:** WP-006 (identity and authentication) — unblocked now. WP-007 (outbox),
-  WP-008 (API conventions), WP-009 (entitlements) and WP-010 (frontend foundation) are also
-  unblocked.
-- **Blockers:** None for WP-006. WP-014 needs k3d installed (D-003; Homebrew is not installed
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 6 of 15 work packages done.
+- **Last completed:** WP-006 (identity and authentication), 2026-10-23.
+- **Next work package:** WP-007 (transactional outbox and event bus). WP-008, WP-009 and WP-010
+  are also unblocked.
+- **Blockers:** None for WP-007. WP-014 needs k3d installed (D-003; Homebrew is not installed
   either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
@@ -99,7 +98,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   fresh Testcontainers database.
 - **Depends on:** WP-002, WP-004
 
-### [ ] WP-006 — Identity and authentication
+### [x] WP-006 — Identity and authentication (done 2026-10-23)
 - **Goal:** Users log in via Keycloak; API knows who and which tenant.
 - **Scope:** Keycloak dev realm import (one shared realm, tenants as Keycloak Organizations —
   D-010; dedicated-realm path stubbed); BFF login flow in `app/modules/identity_access/bff` (D-009;
@@ -207,6 +206,36 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   needed.
 
 ## Session log (newest first)
+
+### 2026-10-23 — WP-006 identity and authentication
+- Part A: role/grant definitions now live once in `backend/tooling/sql/*.sql`, run by both the dev
+  stack's PostgreSQL init (psql) and `tooling/db_bootstrap.py` (tests, CI). Proven with
+  dev-reset → dev-up → dev-check → db-migrate. D-021 (cryptography), D-022 (openapi-typescript).
+- Keycloak: realm export `deploy/compose/keycloak/supportx-realm.json` imported on dev-up
+  (Organizations on, confidential `supportx-console` / `supportx-portal` clients with PKCE S256,
+  `supportx_organizations` + `supportx_roles` claims, password policy, brute-force protection),
+  orgs Demo Company / Other Company (`tenant_id` attribute), six test users (one Arabic, one
+  multi-org, one without org). Client secrets are generated into `.env` and injected.
+- BFF (`identity_access/bff`): /auth/login, /callback, /logout, /me, /switch-tenant. ID tokens
+  verified (RS256 via JWKS + issuer/audience/expiry/nonce). Sessions in Valkey, AES-256-GCM,
+  hashed keys; opaque HttpOnly SameSite=Lax cookie (`__Host-` + Secure in production); new ID on
+  login and tenant switch; idle/absolute timeouts; silent refresh (refused → session ends);
+  synchronizer CSRF token + Origin check; back-channel Keycloak logout. Browser login failures
+  return to the app with `?auth_error=` (translated), API clients get problem details.
+- Users table (migration 0002, RLS, guard passes), JIT provisioning, `supportx_stamp_actor`
+  trigger fills created_by/updated_by from `app.user_id`. Tenant context now comes from the
+  session; `X-Tenant-ID` only with SUPPORTX_DEV_TENANT_HEADER=true in dev/test, never production.
+  Readiness checks Keycloak.
+- Frontend: generated `api-client/src/schema.ts`, `apiFetch` (CSRF header on unsafe methods),
+  `useSession`/`useLogout`; ui `SessionGate` (login redirect, user locale → RTL) and `AppHeader`
+  (name, tenant, sign out) in console and portal; labels en/ar (+ur for auth basics).
+- Tests: backend unit (domain, crypto, JWT, fake IdP), DB tests for the full BFF flow, real-Keycloak
+  integration tests (each user, JIT, logout ends both sessions, Other Company isolation, no-org 403,
+  production ignores the header, brute force + password policy); Playwright login journey; all
+  run in CI (stack-smoke on auth/deploy PRs and nightly). Verified by hand in Chrome as well
+  (fixed a header contrast bug and a raw-JSON error page found that way).
+- Follow-ups: tenant switcher UI (endpoint exists); Keycloak production hardening (WP-014);
+  auth audit events with the outbox (WP-007); `errors.field.*` labels (WP-010).
 
 ### 2026-10-23 — WP-005 data layer, RLS and tenancy bootstrap
 - Arabic label check: all ar/ur labels were already in correct logical order (the reversed text

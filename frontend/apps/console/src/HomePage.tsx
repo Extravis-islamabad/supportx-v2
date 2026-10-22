@@ -9,15 +9,13 @@ export function HomePage() {
   const t = useLabel();
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
-      <Layout.Content style={{ padding: 48 }}>
-        <Typography.Title>{t('product.name')}</Typography.Title>
-        <Space style={{ marginBottom: 16 }}>
-          <Typography.Text type="secondary">{t('app.console.name')}</Typography.Text>
-          <ApiStatus />
-        </Space>
-        <AppearanceControls />
-      </Layout.Content>
-    </Layout>
+    <Layout.Content style={{ padding: 48 }}>
+      <Typography.Title>{t('product.name')}</Typography.Title>
+      <Space style={{ marginBottom: 16 }}>
+        <Typography.Text type="secondary">{t('app.console.name')}</Typography.Text>
+        <ApiStatus />
+      </Space>
+      <AppearanceControls />
+    </Layout.Content>
   );
 }

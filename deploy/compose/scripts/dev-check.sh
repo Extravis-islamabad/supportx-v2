@@ -177,6 +177,9 @@ check "keycloak: health ready" keycloak core "/health/ready is UP" -- \
   http_grep '"status": ?"UP"' "http://127.0.0.1:$KEYCLOAK_MANAGEMENT_PORT/health/ready"
 check "keycloak: master realm" keycloak core "OIDC discovery for master realm" -- \
   http_grep '"issuer"' "http://127.0.0.1:$KEYCLOAK_PORT/realms/master/.well-known/openid-configuration"
+check "keycloak: supportx realm" keycloak core "supportx realm imported (orgs, clients)" -- \
+  http_grep '"issuer":"http://localhost:[0-9]+/realms/supportx"' \
+  "http://127.0.0.1:$KEYCLOAK_PORT/realms/supportx/.well-known/openid-configuration"
 
 # --- Centrifugo ---------------------------------------------------------------------------------
 check "centrifugo: health" centrifugo core "/health responds" -- \

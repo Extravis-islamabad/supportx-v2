@@ -11,16 +11,19 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supportx/labels": "workspace:*"
+    "@supportx/labels": "workspace:*",
+    "@supportx/api-client": "workspace:*"
   },
   "peerDependencies": {
     "antd": "catalog:",
-    "react": "catalog:"
+    "react": "catalog:",
+    "@tanstack/react-query": "catalog:"
   },
   "devDependencies": {
     "@types/react": "catalog:",
     "antd": "catalog:",
     "react": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "@tanstack/react-query": "catalog:"
   }
 }

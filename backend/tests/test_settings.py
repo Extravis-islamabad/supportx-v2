@@ -7,17 +7,15 @@ from pydantic import ValidationError
 from app.core.config import Settings, get_settings
 
 
-def test_defaults_follow_the_profile(settings_factory: Callable[..., Settings]) -> None:
+def test_defaults_follow_the_profile(
+    settings_factory: Callable[..., Settings],
+    production_settings: Callable[..., Settings],
+) -> None:
     dev = settings_factory(profile="dev")
     assert dev.effective_log_format == "console"
     assert dev.effective_api_docs_enabled is True
 
-    production = settings_factory(
-        profile="production",
-        database_url="postgresql://u:p@db/x",
-        valkey_url="valkey://:p@kv:6379/0",
-        nats_url="nats://bus:4222",
-    )
+    production = production_settings()
     assert production.effective_log_format == "json"
     assert production.effective_api_docs_enabled is False
 
@@ -33,8 +31,28 @@ def test_explicit_values_override_profile_defaults(
 def test_production_requires_every_backing_service(
     settings_factory: Callable[..., Settings],
 ) -> None:
-    with pytest.raises(ValidationError, match="SUPPORTX_VALKEY_URL, SUPPORTX_NATS_URL"):
+    with pytest.raises(
+        ValidationError, match="SUPPORTX_VALKEY_URL, SUPPORTX_NATS_URL, SUPPORTX_OIDC"
+    ):
         settings_factory(profile="production", database_url="postgresql://u:p@db/x")
+
+
+def test_production_session_rules(production_settings: Callable[..., Settings]) -> None:
+    settings = production_settings()
+    assert settings.effective_session_cookie_secure is True
+    assert settings.auth_configured is True
+    with pytest.raises(ValidationError, match="SESSION_COOKIE_SECURE"):
+        production_settings(session_cookie_secure=False)
+    with pytest.raises(ValidationError, match="at least 32 characters"):
+        production_settings(session_secret="short")
+
+
+def test_cookie_secure_defaults(settings_factory: Callable[..., Settings]) -> None:
+    assert settings_factory(profile="dev").effective_session_cookie_secure is False
+    assert settings_factory(profile="test").effective_session_cookie_secure is True
+    assert settings_factory(
+        profile="dev", session_cookie_secure=True
+    ).effective_session_cookie_secure
 
 
 def test_invalid_values_fail_at_startup(settings_factory: Callable[..., Settings]) -> None:

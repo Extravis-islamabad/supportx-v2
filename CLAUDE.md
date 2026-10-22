@@ -74,6 +74,10 @@ opentelemetry-instrumentation-fastapi (no exporter configured yet).
 
 **Approved additions (D-020):** official clients valkey-py (`valkey`) and nats-py (`nats-py`).
 
+**Approved additions (D-021, D-022):** `cryptography` (PyCA; AES-256-GCM session encryption, later
+Ed25519 licence signatures and field-level encryption); `openapi-typescript` (dev-only; generates
+`packages/api-client/src/schema.ts` from the OpenAPI export).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

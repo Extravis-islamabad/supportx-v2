@@ -27,7 +27,7 @@ async def test_ready_reports_unconfigured_dependencies_as_not_ready(
     assert response.status_code == 503
     body = response.json()
     assert body["status"] == "not_ready"
-    assert body["failed"] == ["postgres", "valkey", "nats"]
+    assert body["failed"] == ["postgres", "valkey", "nats", "keycloak"]
     assert body["checks"]["postgres"] == {
         "status": "not_configured",
         "latency_ms": None,
@@ -36,7 +36,9 @@ async def test_ready_reports_unconfigured_dependencies_as_not_ready(
 
 
 async def test_docs_are_served_in_dev_and_hidden_in_production(
-    settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
+    settings_factory: Callable[..., Settings],
+    production_settings: Callable[..., Settings],
+    run_app: Callable[[FastAPI], Any],
 ) -> None:
     async with run_app(create_app(settings_factory(api_docs_enabled=True))) as client:
         docs = await client.get("/api/v1/docs")
@@ -46,12 +48,7 @@ async def test_docs_are_served_in_dev_and_hidden_in_production(
     assert "cdn.jsdelivr.net" in docs.headers["content-security-policy"]
     assert schema.json()["openapi"].startswith("3.1")
 
-    production = settings_factory(
-        profile="production",
-        database_url="postgresql://u:p@db/x",
-        valkey_url="valkey://:p@kv:6379/0",
-        nats_url="nats://bus:4222",
-    )
+    production = production_settings()
     async with run_app(create_app(production)) as client:
         assert (await client.get("/api/v1/docs")).status_code == 404
         assert (await client.get("/api/v1/openapi.json")).status_code == 404

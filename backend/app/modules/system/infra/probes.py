@@ -10,6 +10,7 @@ import math
 from urllib.parse import urlsplit
 
 import asyncpg
+import httpx
 import nats
 import nats.errors
 import valkey.asyncio
@@ -119,3 +120,24 @@ class NatsProbe:
         )
         writer.close()
         await writer.wait_closed()
+
+
+class KeycloakProbe:
+    """The realm's OIDC discovery document answers (login depends on it)."""
+
+    name = "keycloak"
+
+    def __init__(self, issuer: str) -> None:
+        self._url = issuer.rstrip("/") + "/.well-known/openid-configuration"
+
+    async def check(self, timeout_s: float) -> None:
+        """GET the discovery document."""
+        try:
+            async with httpx.AsyncClient(timeout=timeout_s) as client:
+                response = await client.get(self._url)
+        except httpx.TimeoutException as exc:
+            raise ProbeFailedError(FailureReason.TIMEOUT) from exc
+        except httpx.HTTPError as exc:
+            raise ProbeFailedError(FailureReason.UNREACHABLE) from exc
+        if response.status_code != 200 or "issuer" not in response.text:  # noqa: PLR2004 - HTTP OK
+            raise ProbeFailedError(FailureReason.UNEXPECTED_RESPONSE)

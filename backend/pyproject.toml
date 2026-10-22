@@ -7,7 +7,9 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
+    "cryptography>=50.0.2",
     "fastapi>=0.160.0",
+    "httpx>=0.28.1",
     "nats-py>=2.16.0",
     "opentelemetry-api>=1.45.1",
     "opentelemetry-instrumentation-fastapi>=0.66b1",
@@ -28,7 +30,6 @@ package = false
 [dependency-groups]
 dev = [
     "asyncpg-stubs>=0.32.0",
-    "httpx>=0.28.1",
     "import-linter>=2.15",
     "mypy>=2.4.0",
     "pre-commit>=4.7.0",
@@ -59,8 +60,8 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106", "D", "PLR2004"]
-"**/tests/**" = ["S101", "S105", "S106", "D", "PLR2004"]
+"tests/**" = ["S101", "S105", "S106", "D", "PLR2004", "FBT001"]
+"**/tests/**" = ["S101", "S105", "S106", "D", "PLR2004", "FBT001"]
 "conftest.py" = ["D"]
 "migrations/versions/*" = ["D", "INP001", "E501"]  # generated-style scripts; long DDL lines read best unwrapped
 "migrations/*" = ["INP001"]

@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supportx/api-client": "workspace:*",
     "@supportx/labels": "workspace:*",
     "@supportx/ui": "workspace:*",
     "@tanstack/react-query": "catalog:",
