@@ -42,6 +42,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres/initdb:/docker-entrypoint-initdb.d:ro
+      # Role/database definitions shared with backend/tooling/db_bootstrap.py (single source).
+      - ../../backend/tooling/sql:/supportx-sql:ro
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-25432}:5432"
     healthcheck:

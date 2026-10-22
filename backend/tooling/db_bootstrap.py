@@ -1,14 +1,8 @@
-"""Create the database roles and a SupportX database the way the dev stack does (WP-005).
+"""Create the database roles and a SupportX database (WP-005; single source since WP-006).
 
-The dev stack's init script (deploy/compose/postgres/initdb/10-supportx.sh) runs only inside the
-compose Postgres. This module does the same for any PostgreSQL where we hold a superuser login:
-test fixtures (throwaway databases) and CI (service container). Keep the two in step.
-
-    supportx_migrator  owns the database and schema; runs migrations.
-    supportx_app       runtime role: not superuser, owns nothing, NOBYPASSRLS, NOINHERIT.
-
-Existing roles keep their passwords (the dev stack's .env depends on them); only their safety
-attributes are re-asserted.
+The definitions live in tooling/sql/*.sql and are executed by BOTH this module (test fixtures,
+CI) and the dev stack's PostgreSQL init script (with psql), so they cannot drift. This module
+contains a tiny runner for the psql subset those files use (see tooling/sql/README.md).
 
 CLI (CI): python -m tooling.db_bootstrap --database supportx
   env: SUPPORTX_TEST_ADMIN_URL, SUPPORTX_TEST_APP_PASSWORD, SUPPORTX_TEST_MIGRATOR_PASSWORD
@@ -19,18 +13,84 @@ import asyncio
 import os
 import re
 import sys
+from collections.abc import Mapping
+from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 import asyncpg
 
-from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE
-
+SQL_DIR = Path(__file__).resolve().parent / "sql"
 TEST_DATABASE_PREFIX = "supportx_test_"
-_ROLE_ATTRIBUTES = {
-    MIGRATOR_ROLE: "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS",
-    APP_ROLE: "NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS NOINHERIT",
-}
 _DATABASE_NAME = re.compile(r"^[a-z_][a-z0-9_]{0,62}$")
+_LITERAL_VAR = re.compile(r":'([A-Za-z_][A-Za-z0-9_]*)'")
+_IDENTIFIER_VAR = re.compile(r':"([A-Za-z_][A-Za-z0-9_]*)"')
+_GEXEC = "\\gexec"
+
+
+@dataclass(frozen=True)
+class Statement:
+    """One statement from a bootstrap SQL file."""
+
+    sql: str
+    gexec: bool  # psql \gexec: run, then execute every value of the result as SQL
+
+
+def quote_literal(value: str) -> str:
+    """SQL string literal (standard_conforming_strings, the PostgreSQL default since 9.1)."""
+    if "\x00" in value:
+        msg = "NUL byte in SQL literal"
+        raise ValueError(msg)
+    return "'" + value.replace("'", "''") + "'"
+
+
+def quote_identifier(value: str) -> str:
+    """SQL identifier, always double-quoted."""
+    if "\x00" in value:
+        msg = "NUL byte in SQL identifier"
+        raise ValueError(msg)
+    return '"' + value.replace('"', '""') + '"'
+
+
+def parse(script: str, variables: Mapping[str, str]) -> list[Statement]:
+    """Split a bootstrap file into statements, substituting psql-style variables."""
+
+    def literal(match: re.Match[str]) -> str:
+        return quote_literal(variables[match.group(1)])
+
+    def identifier(match: re.Match[str]) -> str:
+        return quote_identifier(variables[match.group(1)])
+
+    statements: list[Statement] = []
+    buffer: list[str] = []
+    for raw in script.splitlines():
+        line = raw.rstrip()
+        if not buffer and (not line.strip() or line.lstrip().startswith("--")):
+            continue
+        gexec = line.endswith(_GEXEC)
+        if gexec:
+            line = line[: -len(_GEXEC)].rstrip()
+        buffer.append(line)
+        if gexec or line.endswith(";"):
+            sql = "\n".join(buffer).rstrip(";").strip()
+            sql = _IDENTIFIER_VAR.sub(identifier, _LITERAL_VAR.sub(literal, sql))
+            statements.append(Statement(sql=sql, gexec=gexec))
+            buffer = []
+    if any(part.strip() for part in buffer):
+        msg = "bootstrap SQL ends without ';' or \\gexec"
+        raise ValueError(msg)
+    return statements
+
+
+async def run_script(conn: asyncpg.Connection, name: str, variables: Mapping[str, str]) -> None:
+    """Execute tooling/sql/<name> on `conn` like `psql -v ... -f <name>` would."""
+    for statement in parse((SQL_DIR / name).read_text(encoding="utf-8"), variables):
+        if statement.gexec:
+            for row in await conn.fetch(statement.sql):
+                for value in row.values():
+                    await conn.execute(value)
+        else:
+            await conn.execute(statement.sql)
 
 
 def with_database(url: str, database: str) -> str:
@@ -47,42 +107,11 @@ def with_credentials(url: str, user: str, password: str) -> str:
     return urlunsplit(parts._replace(netloc=f"{user}:{password}@{host}{port}"))
 
 
-async def ensure_roles(
-    admin: asyncpg.Connection, app_password: str, migrator_password: str
-) -> None:
-    """Create missing roles; re-assert safety attributes on all of them."""
-    for role, password in ((MIGRATOR_ROLE, migrator_password), (APP_ROLE, app_password)):
-        exists = await admin.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", role)
-        if not exists:
-            statement = await admin.fetchval(
-                "SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', $1::text, $2::text)",
-                role,
-                password,
-            )
-            await admin.execute(statement)
-        await admin.execute(f"ALTER ROLE {role} LOGIN {_ROLE_ATTRIBUTES[role]}")
-
-
-async def create_database(admin: asyncpg.Connection, name: str) -> bool:
-    """Create `name` owned by the migrator if missing. Returns True if it was created."""
+def _check_database_name(name: str) -> str:
     if not _DATABASE_NAME.fullmatch(name):
         msg = f"unsafe database name {name!r}"
         raise ValueError(msg)
-    if await admin.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name):
-        return False
-    await admin.execute(f"CREATE DATABASE {name} OWNER {MIGRATOR_ROLE}")
-    await admin.execute(f"REVOKE ALL ON DATABASE {name} FROM PUBLIC")
-    await admin.execute(f"GRANT CONNECT, TEMPORARY ON DATABASE {name} TO {APP_ROLE}")
-    return True
-
-
-async def prepare_schema(admin_in_database: asyncpg.Connection) -> None:
-    """Extensions and schema privileges inside the database (connected as superuser)."""
-    for extension in ("vector", "pgcrypto", "citext"):
-        await admin_in_database.execute(f"CREATE EXTENSION IF NOT EXISTS {extension}")
-    await admin_in_database.execute(f"ALTER SCHEMA public OWNER TO {MIGRATOR_ROLE}")
-    await admin_in_database.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
-    await admin_in_database.execute(f"GRANT USAGE ON SCHEMA public TO {APP_ROLE}")
+    return name
 
 
 async def drop_test_database(admin: asyncpg.Connection, name: str) -> None:
@@ -96,19 +125,25 @@ async def drop_test_database(admin: asyncpg.Connection, name: str) -> None:
 async def bootstrap(
     admin_url: str, database: str, app_password: str, migrator_password: str
 ) -> bool:
-    """Roles + database + schema. Idempotent; never drops or alters data."""
+    """Roles + database + schema. Idempotent; never drops or alters data. True if created."""
+    _check_database_name(database)
     admin = await asyncpg.connect(admin_url)
     try:
-        await ensure_roles(admin, app_password, migrator_password)
-        created = await create_database(admin, database)
+        await run_script(
+            admin,
+            "roles.sql",
+            {"app_password": app_password, "migrator_password": migrator_password},
+        )
+        existed = await admin.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", database)
+        await run_script(admin, "database.sql", {"database": database})
     finally:
         await admin.close()
     in_database = await asyncpg.connect(with_database(admin_url, database))
     try:
-        await prepare_schema(in_database)
+        await run_script(in_database, "schema.sql", {})
     finally:
         await in_database.close()
-    return created
+    return not existed
 
 
 def main(argv: list[str]) -> int:  # pragma: no cover - thin CLI over tested functions
