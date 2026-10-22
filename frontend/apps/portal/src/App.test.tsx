@@ -33,7 +33,10 @@ describe('portal', () => {
     render(<App />);
 
     expect(await screen.findByRole('button', { name: 'تسجيل الخروج' })).toBeDefined();
-    expect(document.documentElement.dir).toBe('rtl');
+    // The provider applies dir in an effect, just after the labels render: wait for it.
+    await waitFor(() => {
+      expect(document.documentElement.dir).toBe('rtl');
+    });
   });
 
   it('switches the document to right-to-left from the appearance controls', async () => {
