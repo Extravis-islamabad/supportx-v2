@@ -1,9 +1,12 @@
 # SupportX v2
 
+[![CI](https://github.com/devhat-pm/supportx-v2/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/devhat-pm/supportx-v2/actions/workflows/ci.yml)
+[![Security](https://github.com/devhat-pm/supportx-v2/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/devhat-pm/supportx-v2/actions/workflows/security.yml)
+
 Greenfield enterprise ITSM / ESM platform by Extravis: full ServiceDesk Plus capability parity, then
 beyond. It ships as one codebase for SaaS, on-prem and air-gapped, with real-time updates on every screen.
 
-> Status: Stage 0 (Foundation), bootstrap only. No application code yet. See `docs/PROGRESS.md`.
+> Status: Stage 0 (Foundation). See `docs/PROGRESS.md`. Local dev stack: `docs/dev-setup.md`.
 
 ## Where to start
 
