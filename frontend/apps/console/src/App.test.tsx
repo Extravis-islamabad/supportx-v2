@@ -43,7 +43,10 @@ describe('console', () => {
     render(<App />);
 
     expect(await screen.findByRole('button', { name: 'تسجيل الخروج' })).toBeDefined();
-    expect(document.documentElement.dir).toBe('rtl');
+    // The provider applies dir/lang in an effect, just after the labels render: wait for it.
+    await waitFor(() => {
+      expect(document.documentElement.dir).toBe('rtl');
+    });
     expect(document.documentElement.lang).toBe('ar');
   });
 
