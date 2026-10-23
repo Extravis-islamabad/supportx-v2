@@ -48,6 +48,10 @@ USER_SETTING = "app.user_id"
 SESSION_TENANT_KEY = "supportx.tenant"
 SESSION_PLATFORM_KEY = "supportx.platform"
 AFTER_COMMIT_KEY = "supportx.after_commit"
+# The request's open unit of work, so per-request helpers (the authorization subject) reuse its
+# connection instead of taking a second one: N concurrent requests each holding one connection
+# and waiting for another would exhaust a small pool (PgBouncer query_wait_timeout).
+REQUEST_SESSION_STATE = "tenant_session"
 
 log = get_logger(__name__)
 
@@ -190,6 +194,7 @@ def get_database(request: Request) -> Database:
 
 
 async def tenant_unit_of_work(
+    request: Request,
     database: Annotated[Database, Depends(get_database)],
     tenant: Annotated[TenantContext, Depends(resolve_tenant)],
 ) -> AsyncIterator[AsyncSession]:
@@ -199,7 +204,11 @@ async def tenant_unit_of_work(
     endpoint (or the commit) raises.
     """
     async with database.tenant_session(tenant) as session:
-        yield session
+        setattr(request.state, REQUEST_SESSION_STATE, session)
+        try:
+            yield session
+        finally:
+            setattr(request.state, REQUEST_SESSION_STATE, None)
     # Committed. Run what must only happen for committed data (cache invalidation, WP-016).
     for callback in session.info.get(AFTER_COMMIT_KEY, ()):
         try:

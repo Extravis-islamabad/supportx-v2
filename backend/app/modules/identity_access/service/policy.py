@@ -27,7 +27,7 @@ from fastapi import Request
 from sqlalchemy import ColumnElement, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import Database
+from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
@@ -55,7 +55,7 @@ SUBJECT_STATE = "authz_subject"
 MemberLookup = Callable[
     [AsyncSession, uuid.UUID], Awaitable[tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]]
 ]
-EntitledFeatures = Callable[[uuid.UUID], Awaitable[frozenset[str]]]
+EntitledFeatures = Callable[[uuid.UUID, AsyncSession | None], Awaitable[frozenset[str]]]
 
 
 # --- resource types: how scopes, rules and field visibility apply to one kind of record ---------
@@ -389,7 +389,7 @@ class PolicyService:
             role_keys=role_keys,
             grants=grants,
             catalogue=self.catalogue,
-            entitled_features=await self.entitled_features(tenant_id),
+            entitled_features=await self.entitled_features(tenant_id, session),
             site_ids=site_ids,
             group_ids=group_ids,
             is_tenant_admin=TENANT_ADMIN in role_keys,
@@ -409,7 +409,12 @@ class PolicyService:
         subject = (
             _nobody(context.tenant_id, uuid.UUID(int=0))
             if context.user_id is None
-            else await self.subject(context.tenant_id, context.user_id)
+            else await self.subject(
+                context.tenant_id,
+                context.user_id,
+                # Reuse the request's connection when it already holds one (see database.py).
+                getattr(request.state, REQUEST_SESSION_STATE, None),
+            )
         )
         setattr(request.state, SUBJECT_STATE, subject)
         return subject

@@ -8,6 +8,8 @@ feature check, read-only check for writes, and the grace warning headers for ten
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.errors import EntitlementRequired, ReadOnlyMode
 from app.core.tenancy import TenantContext
 from app.modules.licensing.domain.catalogue import EDITION_RATE_LIMIT_MULTIPLIER
@@ -39,10 +41,15 @@ class RouteGate:
         self.is_admin = is_admin
 
     async def check_request(
-        self, context: TenantContext, *, feature: str | None, write: bool
+        self,
+        context: TenantContext,
+        *,
+        feature: str | None,
+        write: bool,
+        session: AsyncSession | None = None,
     ) -> Mapping[str, str]:
         """Raise when blocked; otherwise the warning headers (grace, admins only)."""
-        entitlement = await self.service.entitlement(context.tenant_id)
+        entitlement = await self.service.entitlement(context.tenant_id, session)
         if feature is not None and not entitlement.has_feature(feature):
             raise EntitlementRequired(params={"feature": feature})
         now = self.service.clock()

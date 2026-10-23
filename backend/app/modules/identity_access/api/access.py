@@ -144,7 +144,7 @@ def _detail(detail: role_service.RoleDetail) -> RoleDetailOut:
 @router.get("/permissions", summary="Permission catalogue")
 async def list_permissions(subject: ViewRoles, policy: Policy) -> list[PermissionOut]:
     """Every permission, with whether the tenant's plan includes it."""
-    features = await policy.entitled_features(subject.tenant_id)
+    features = await policy.entitled_features(subject.tenant_id, None)
     return [
         PermissionOut(
             key=spec.key,

@@ -218,9 +218,12 @@ async def summary(session: AsyncSession, *, show_usage: bool, is_admin: bool) ->
     return await _service().summary(session, show_usage=show_usage, is_admin=is_admin)
 
 
-async def entitled_features(tenant_id: uuid.UUID) -> frozenset[str]:
+async def entitled_features(
+    tenant_id: uuid.UUID, session: AsyncSession | None = None
+) -> frozenset[str]:
     """Feature keys the tenant's plan includes (for compiling permissions, WP-016)."""
-    return frozenset(str(f) for f in (await _service().entitlement(tenant_id)).features)
+    entitlement = await _service().entitlement(tenant_id, session)
+    return frozenset(str(f) for f in entitlement.features)
 
 
 module = ModuleSpec(
