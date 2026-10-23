@@ -80,7 +80,13 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await expect(user.getByText(/Ask your administrator for access/)).toBeVisible();
 
   // Clean up: delete the suite's role (nobody holds it any more).
-  await admin.keyboard.press('Escape');
+  // Close the drawer with its button: Escape only reaches it while focus is inside, and the
+  // checkbox just clicked is briefly disabled (focus falls back to the page) in slow runs.
+  await admin
+    .getByRole('dialog', { name: /^Access of / })
+    .getByRole('button', { name: 'Close' })
+    .click();
+  await expect(drawer).toBeHidden();
   await admin.getByRole('tab', { name: 'Roles' }).click();
   await admin.getByTestId('roles-table').getByText(roleName).click();
   await admin.getByTestId('delete-role').click();
