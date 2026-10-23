@@ -41,3 +41,5 @@ same way.
 | [sdp-area-09-reports-dashboards.md](sdp-area-09-reports-dashboards.md) | Reports and dashboards: dashboards and widgets, custom report types and wizards, scheduling, drill-down, built-in report catalogue |
 | [sdp-area-10-ai-zia.md](sdp-area-10-ai-zia.md) | AI / Zia: predictive and generative features, providers, cluster analysis, chatbot and Ask Zia, test results |
 | [sdp-area-11-users-roles-permissions.md](sdp-area-11-users-roles-permissions.md) | Admin part 1: users, roles and permission matrix, groups, fine-grained access, sites, departments, organization roles, import |
+| [sdp-area-12-automation.md](sdp-area-12-automation.md) | Admin part 2, automation: SLAs, auto-assign, business rules, triggers, schedules, custom actions, workflows, life cycles, closure rules, templates (part 1 and follow-up 12b: notification rules, workflow and life cycle tests, SLA pause, execution order) |
+| [sdp-area-13-customization-settings.md](sdp-area-13-customization-settings.md) | Admin part 3: helpdesk customization, additional fields, checklists, templates, closure, reopen and archive rules, surveys, mail, general settings (part 1) |
