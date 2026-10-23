@@ -54,6 +54,7 @@ from app.modules.licensing.service.entitlements import (
 )
 from app.modules.licensing.service.gate import EntitlementRateLimits, RouteGate
 from app.modules.licensing.service.ports import EntitlementProvider
+from app.modules.licensing.service.realtime import ROUTES as REALTIME_ROUTES
 from app.modules.licensing.service.subscriptions import (
     SubscriptionPlan,
     apply_subscription,
@@ -233,6 +234,7 @@ module = ModuleSpec(
     on_shutdown=[_shutdown],
     events=EVENTS,
     consumers=[CACHE_INVALIDATION],
+    realtime=REALTIME_ROUTES,
     # Who sees licence warnings (and, later, imports licences).
     permissions=[PermissionSpec("licence.manage")],
 )

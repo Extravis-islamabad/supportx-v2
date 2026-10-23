@@ -19,7 +19,9 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.modules.identity_access.infra.models import User, UserRole
+from app.modules.identity_access.service.authz_consumer import handler as authz_handler
 from app.modules.identity_access.service.directory import USERS
 from app.modules.identity_access.service.policy import authorize_stored
 from app.modules.organization import memberships
@@ -34,7 +36,6 @@ from app.shared.realtime import (
     Publication,
     RealtimeEffects,
     RealtimeRoute,
-    broadcast,
     personal,
     record,
 )
@@ -88,6 +89,15 @@ CHANNELS = [
 # --- what reaches screens -------------------------------------------------------------------------
 
 
+async def _fresh_access(envelope: EventEnvelope) -> None:
+    """Make the tenant's compiled permissions stale before anyone is told to refetch.
+
+    The API process that made the change already did; this covers changes made elsewhere and
+    keeps the order "cache stale, then message" independent of the authz consumer.
+    """
+    await authz_handler(get_settings)(envelope, None)
+
+
 def _actor(envelope: EventEnvelope) -> str | None:
     return envelope.actor.id if envelope.actor.type == "user" else None
 
@@ -122,12 +132,15 @@ async def _user_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
         ),
     ]
     revoke = [user_id] if ACCESS_FIELDS & set(fields) else []
+    if revoke:
+        await _fresh_access(envelope)
     return RealtimeEffects(publications=publications, revoke_users=revoke)
 
 
 async def _role_assignment(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A role was given or taken: the user's access, their record, the role counts."""
     del session
+    await _fresh_access(envelope)
     tenant = envelope.tenant_id
     user_id = uuid.UUID(str(envelope.payload["user_id"]))
     role_id = str(envelope.payload["role_id"])
@@ -149,6 +162,7 @@ async def _role_assignment(envelope: EventEnvelope, session: AsyncSession) -> Re
 
 async def _role_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A role was created, edited or deleted: the roles list; holders' access if it changed."""
+    await _fresh_access(envelope)
     tenant = envelope.tenant_id
     role_id = uuid.UUID(str(envelope.payload["role_id"]))
     holders: list[uuid.UUID] = []
@@ -168,6 +182,7 @@ async def _role_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
 async def _membership_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user joined or left a site/group: their access, their record, that unit's users list."""
     del session
+    await _fresh_access(envelope)
     tenant = envelope.tenant_id
     user_id = uuid.UUID(str(envelope.payload["user_id"]))
     unit = uuid.UUID(str(envelope.payload["unit_id"]))
@@ -194,20 +209,24 @@ async def _membership_changed(envelope: EventEnvelope, session: AsyncSession) ->
 
 
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """The tenant's plan changed: banners and menus everywhere; everyone rejoins (features)."""
+    """The tenant's plan changed: permissions depend on features, so everyone rejoins.
+
+    (The banner message itself is licensing's route.)
+    """
+    await _fresh_access(envelope)
     users = list(await session.scalars(select(User.id).where(User.status == "active")))
-    fields = tuple(envelope.payload.get("changed_fields", ()))
-    return RealtimeEffects(
-        publications=[
-            Publication(broadcast(envelope.tenant_id), "entitlements.changed", fields=fields)
-        ],
-        revoke_users=users,
-    )
+    return RealtimeEffects(revoke_users=users)
 
 
 ROUTES = [
     RealtimeRoute(
-        ("identity_access.user.provisioned", "identity_access.user.updated"), _user_changed
+        (
+            "identity_access.user.provisioned",
+            "identity_access.user.updated",
+            # A login changes "last login" in the users list.
+            "identity_access.user.logged_in",
+        ),
+        _user_changed,
     ),
     RealtimeRoute(("identity_access.user_role.changed",), _role_assignment),
     RealtimeRoute(("identity_access.role.changed",), _role_changed),
