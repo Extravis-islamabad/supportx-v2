@@ -5,22 +5,33 @@
   "type": "module",
   "description": "Typed API client and TanStack Query hooks generated from the backend OpenAPI spec (architecture.md §9.2).",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "generate": "openapi-typescript ./openapi.json --output ./src/schema.ts",
-    "check:schema": "openapi-typescript ./openapi.json --output ./src/schema.ts --check"
+    "check:schema": "openapi-typescript ./openapi.json --output ./src/schema.ts --check",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "openapi-typescript": "^7.13.0",
-    "typescript": "catalog:",
     "@tanstack/react-query": "catalog:",
+    "@types/react": "catalog:",
+    "openapi-typescript": "^7.13.0",
     "react": "catalog:",
-    "@types/react": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "react-dom": "catalog:",
+    "@types/react-dom": "catalog:"
   },
   "peerDependencies": {
     "@tanstack/react-query": "catalog:",
     "react": "catalog:"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
   }
 }

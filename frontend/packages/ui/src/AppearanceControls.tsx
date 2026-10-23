@@ -1,10 +1,11 @@
-import { Select, Space, Switch, Typography } from 'antd';
+import { Segmented, Select, Space, Switch, Typography } from 'antd';
 
 import { LOCALES } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
+import { THEME_MODES } from './theme';
 
-/** Dark-mode switch, RTL switch and language picker. */
+/** Theme mode, RTL switch and language picker. */
 export function AppearanceControls() {
   const { mode, direction, locale, setMode, setDirection, setLocale } = useAppearance();
   const t = useLabel();
@@ -12,13 +13,12 @@ export function AppearanceControls() {
   return (
     <Space size="large" wrap>
       <Space>
-        <Typography.Text>{t('appearance.dark_mode')}</Typography.Text>
-        <Switch
-          aria-label={t('appearance.dark_mode')}
-          checked={mode === 'dark'}
-          onChange={(checked) => {
-            setMode(checked ? 'dark' : 'light');
-          }}
+        <Typography.Text id="appearance-theme-label">{t('appearance.theme')}</Typography.Text>
+        <Segmented
+          aria-labelledby="appearance-theme-label"
+          value={mode}
+          onChange={setMode}
+          options={THEME_MODES.map((value) => ({ value, label: t(`appearance.theme.${value}`) }))}
         />
       </Space>
       <Space>

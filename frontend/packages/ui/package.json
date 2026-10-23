@@ -8,22 +8,30 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
-    "@supportx/labels": "workspace:*",
-    "@supportx/api-client": "workspace:*"
+    "@ant-design/icons": "^5.6.1",
+    "@supportx/api-client": "workspace:*",
+    "@supportx/labels": "workspace:*"
   },
   "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
     "antd": "catalog:",
-    "react": "catalog:",
-    "@tanstack/react-query": "catalog:"
+    "react": "catalog:"
   },
   "devDependencies": {
+    "@tanstack/react-query": "catalog:",
     "@types/react": "catalog:",
     "antd": "catalog:",
     "react": "catalog:",
     "typescript": "catalog:",
-    "@tanstack/react-query": "catalog:"
+    "react-dom": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "vitest": "catalog:"
   }
 }

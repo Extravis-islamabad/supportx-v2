@@ -1,0 +1,17 @@
+{
+  "name": "@supportx/eslint-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "SupportX ESLint rules: no raw codes or hard-coded text in JSX (architecture.md §9.5, CLAUDE.md rule d).",
+  "exports": {
+    ".": "./index.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "eslint": "^10.13.0",
+    "vitest": "catalog:"
+  }
+}

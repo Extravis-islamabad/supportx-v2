@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "ECharts wrappers and the dashboard widget kit (architecture.md §9.6).",
+  "description": "Apache ECharts wrapper that follows the app theme (light/dark/high contrast) and RTL (architecture.md §9.6).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -11,6 +11,16 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "antd": "catalog:",
+    "react": "catalog:",
+    "@types/react": "catalog:"
+  },
+  "dependencies": {
+    "echarts": "^6.1.0"
+  },
+  "peerDependencies": {
+    "antd": "catalog:",
+    "react": "catalog:"
   }
 }

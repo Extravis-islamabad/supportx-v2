@@ -12,13 +12,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ant-design/icons": "^5.6.1",
     "@supportx/api-client": "workspace:*",
     "@supportx/labels": "workspace:*",
     "@supportx/ui": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "antd": "catalog:",
     "react": "catalog:",
-    "react-dom": "catalog:"
+    "react-dom": "catalog:",
+    "react-router": "^7.18.4"
   },
   "devDependencies": {
     "@testing-library/dom": "catalog:",

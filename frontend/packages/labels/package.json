@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Label dictionary, humanize() and i18n resources (architecture.md §9.5).",
+  "description": "Label dictionary (en, ar, ur) on i18next + react-i18next, humanize() fallback (architecture.md §9.5, D-013).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -12,7 +12,21 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@types/react": "catalog:",
+    "react": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "react-dom": "catalog:",
+    "@types/react-dom": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/dom": "catalog:"
+  },
+  "dependencies": {
+    "i18next": "^26.5.2",
+    "react-i18next": "^17.1.0"
+  },
+  "peerDependencies": {
+    "react": "catalog:"
   }
 }
