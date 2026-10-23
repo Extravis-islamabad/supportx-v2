@@ -299,6 +299,8 @@ test('site-scoped technician: sees and writes only announcements for their site'
     },
   });
   expect(role.status(), await role.text()).toBe(201);
+  // Signing in provisions the user in SupportX (first login); only then can they get a role.
+  const limited = await open(browser, 'limited', '/');
   const users = (await (
     await call(
       admin.page,
@@ -318,7 +320,13 @@ test('site-scoped technician: sees and writes only announcements for their site'
     site_ids: [site.id],
   });
   const forAll = await create(admin.page, { title: `E2E Everyone ${s}` });
-  const limited = await open(browser, 'limited', '/announcements');
+  // The role change cuts the live connection (access changed); load the list afresh.
+  await limited.page.goto('/announcements');
+  await expect(limited.page.locator('html')).toHaveAttribute(
+    'data-realtime-status',
+    'connected',
+    LIVE,
+  );
   try {
     await expect(limited.page.getByText(forNorth.title)).toBeVisible();
     await expect(limited.page.getByText(forAll.title)).toHaveCount(0);
