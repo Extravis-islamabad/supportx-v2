@@ -272,6 +272,12 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
   role, reason and screen.
 - Found by tests: `site`/`group` were wrongly treated as covering `own` (lost own rows) → only
   `all` covers; membership changes only reached the cache via the consumer → after-commit hook.
+- Found by CI: on a cache miss the subject and the entitlement were read on a second connection
+  while the request held one, so 5 concurrent requests deadlocked CI's 5-connection PgBouncer
+  pool → both read through the request's connection (`REQUEST_SESSION_STATE`), test asserts one
+  connection per request. Dark mode's selected menu/tab text was ~1.6:1 (Ant Design's dark
+  primary) → light brand tint, contrast test for several brand colours. axe scans only the open
+  modal (the page behind its mask is inert).
 - Tests: backend 686+ (matrix, scopes on 100k rows ~1 ms/page, rules SQL ≡ memory, masking, SoD,
   escalation/system role/last admin/cross-tenant/stale cache attacks, guard, mapping once);
   frontend 110 Vitest; Playwright 10 journeys incl. custom role → menus and axe (roles list,
