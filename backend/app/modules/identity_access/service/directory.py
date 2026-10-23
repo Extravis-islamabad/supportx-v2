@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import NavLayout, UserType
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import User
@@ -39,7 +39,7 @@ from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 
-EDITABLE_FIELDS = frozenset({"signature", "time_zone"})
+EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout"})
 MAX_SIGNATURE_LENGTH = 2000
 
 USER_FIELDS = ResourceFields(
@@ -128,6 +128,14 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
                     message_key="errors.field.invalid_choice",
                 )
             )
+        elif name == "nav_layout" and value not in {layout.value for layout in NavLayout}:
+            errors.append(
+                FieldError(
+                    field="body.nav_layout",
+                    code="invalid_choice",
+                    message_key="errors.field.invalid_choice",
+                )
+            )
         elif name == "signature" and value is not None and len(value) > MAX_SIGNATURE_LENGTH:
             errors.append(
                 FieldError(
@@ -152,7 +160,7 @@ async def update_preferences(
     expected_version: int,
     changes: Mapping[str, Any],
 ) -> User:
-    """Change your own signature/time zone if the record is still at `expected_version`."""
+    """Change your own preferences if the record is still at `expected_version`."""
     if user_id != subject.user_id:
         raise PermissionDenied(code="own_profile_only")
     require(
