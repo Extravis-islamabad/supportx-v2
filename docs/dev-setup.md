@@ -169,6 +169,15 @@ Licence files instead of plans: `SUPPORTX_ENTITLEMENT_PROVIDER=licence_file` and
 `SUPPORTX_LICENCE_FILE=/path/licence.json` (an unsigned file is accepted in dev/test only); see
 docs/architecture/entitlements.md.
 
+### Roles and permissions (WP-016)
+
+SupportX, not Keycloak, decides what users may do (D-029). At each user's first login after
+WP-016 their Keycloak roles are mapped once: admin@demo.test → Tenant administrator,
+tech@demo.test / multi@demo.test / other@other.test → Technician, user@demo.test → Requester.
+After that, change access in **Admin › Roles** and **Admin › Users** (click a user). Changes apply
+on the user's next request (reload their browser tab). How it works:
+docs/architecture/authorization.md.
+
 ### Events: watching them flow (WP-007)
 
 Four terminals (the API, the relay, the consumers, a live view):

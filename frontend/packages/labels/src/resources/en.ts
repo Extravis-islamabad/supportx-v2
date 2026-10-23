@@ -425,6 +425,43 @@ export const en = {
   'event_type.organization.site.changed': 'Site changed',
   'event_type.organization.support_group.changed': 'Support group changed',
   'event_type.organization.membership.changed': 'Membership changed',
+  // Admin › Roles and access (WP-016)
+  'nav.admin_roles': 'Roles',
+  'actions.add': 'Add',
+  'access.title': 'Access of {{name}}',
+  'access.roles': 'Roles',
+  'access.sites': 'Sites',
+  'access.groups': 'Support groups',
+  'access.none': 'None',
+  'access.new_sites': 'New site name',
+  'access.new_groups': 'New support group name',
+  'access.ask_admin': 'Ask your administrator for access.',
+  'roles.title': 'Roles',
+  'roles.new': 'New role',
+  'roles.col.name': 'Role',
+  'roles.col.type': 'Type',
+  'roles.col.users': 'Users',
+  'roles.type.system': 'Built-in',
+  'roles.type.custom': 'Custom',
+  'roles.editor.new': 'New role',
+  'roles.editor.edit': 'Role: {{name}}',
+  'roles.name': 'Name',
+  'roles.description': 'Description',
+  'roles.permissions': 'Permissions',
+  'roles.system_read_only':
+    'Built-in roles cannot be changed. Create a custom role to grant a different set of permissions.',
+  'roles.has_rule': 'Limited by a rule',
+  'roles.scope_of': 'Scope for {{permission}}',
+  'roles.delete': 'Delete role',
+  'roles.delete_title': 'Delete {{name}}?',
+  'roles.delete_in_use_one':
+    '{{count}} user has this role. Choose the role they move to; nobody loses access silently.',
+  'roles.delete_in_use_other':
+    '{{count}} users have this role. Choose the role they move to; nobody loses access silently.',
+  'roles.reassign_to': 'Move users to',
+  'roles.delete_confirm': 'Nobody has this role. It will be deleted.',
+  'roles.saved': 'The role was saved.',
+  'roles.deleted': 'The role was deleted.',
 } as const;
 
 export type LabelKey = keyof typeof en;

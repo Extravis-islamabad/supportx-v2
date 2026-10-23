@@ -2,14 +2,13 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 10 of 16 work packages done.
-- **Last completed:** WP-010 (frontend foundation and design system), 2026-10-23. Before it:
-  WP-009 (entitlement interface).
-- **Next work package:** WP-016 (authorization policy layer) or WP-011 (realtime pipeline); both
-  are unblocked now. WP-012 needs both. WP-015 (clickable prototype) is unblocked by WP-010.
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 11 of 16 work packages done.
+- **Last completed:** WP-016 (authorization policy layer), 2026-10-23. Before it: WP-010.
+- **Next work package:** WP-011 (realtime pipeline end to end; unblocked). WP-012 (walking
+  skeleton) then needs only WP-011. WP-015 (clickable prototype) is also unblocked.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
-- **Blockers:** None for WP-016 or WP-011. WP-014 needs k3d installed (D-003; Homebrew is not installed
+- **Blockers:** None for WP-011. WP-014 needs k3d installed (D-003; Homebrew is not installed
   either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
@@ -209,7 +208,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Depends on:** WP-010. Built from the spec with Ant Design defaults (D-008); no designer input
   needed.
 
-### [ ] WP-016 — Authorization policy layer (added by D-025; must land before WP-012)
+### [x] WP-016 — Authorization policy layer (added by D-025; done 2026-10-23)
 - **Goal:** One authorisation policy layer (architecture.md §11.2) that every caller uses, so
   WP-012 and all later modules copy a real permission model instead of `user_type` checks.
 - **Scope:** Roles and permissions model (module + action, e.g. `change.approve`); scopes
@@ -247,6 +246,38 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
 ## Session log (newest first)
+
+### 2026-10-23 — WP-016 authorization policy layer
+- Decisions: D-028 (`@ant-design/icons`, `@hookform/resolvers` approved), D-029 (SupportX DB is the
+  source of truth for authorization; Keycloak roles mapped once at first login). ADR-022.
+- Backend: permission catalogue as code (30 permissions: users, roles, profile, sites, groups,
+  settings, licence + reserved requests/problems/changes/releases/assets/cmdb/knowledge/reports),
+  each tied to a licence feature; `ModuleSpec.permissions`. Migration 0006: roles,
+  role_permissions (scope + filter-DSL condition), user_roles, sites, support_groups, members
+  (RLS, same-tenant composite FKs, guard passes), users.roles_mapped_at.
+- Policy service: compiled subjects (grants, memberships, entitlements) cached in Valkey per
+  tenant generation; `authorize`, `authorize_stored`, `scope_filter` (SQL, OR over grants, DSL
+  conditions via the WP-008 compiler), `visible` (hide/mask), SoD rules (`own_request_approval`).
+  Invalidation after commit (`access_changed`) + consumer `identity_access__invalidate_authz`.
+- Enforcement: `require_permission` / `require_signed_in` / `@public_route` on every route, guard
+  test proven against a planted route; interim checks (technicians_only, tenant_admin role,
+  admin-only Users page) replaced; `/auth/me` returns SupportX roles + effective permissions;
+  licensing's admin notices use `licence.manage`.
+- Admin API: permissions, roles CRUD (ETag/If-Match, Idempotency-Key), user access, role
+  assignment, sites/groups with members. Protections: system roles immutable, no escalation, last
+  tenant admin (advisory lock), role-in-use reassignment.
+- Console: Admin (tabs Users / Roles), role editor with permission matrix (scope per permission,
+  locked when outside the plan, read-only system roles), user access drawer (roles, sites,
+  groups), menus and pages driven by permissions. en + ar labels for every permission, scope,
+  role, reason and screen.
+- Found by tests: `site`/`group` were wrongly treated as covering `own` (lost own rows) → only
+  `all` covers; membership changes only reached the cache via the consumer → after-commit hook.
+- Tests: backend 686+ (matrix, scopes on 100k rows ~1 ms/page, rules SQL ≡ memory, masking, SoD,
+  escalation/system role/last admin/cross-tenant/stale cache attacks, guard, mapping once);
+  frontend 110 Vitest; Playwright 10 journeys incl. custom role → menus and axe (roles list,
+  editor, drawer; Arabic + dark).
+- Follow-ups: SSO group → role mapping; condition editing in the UI; design-time SoD warnings;
+  user_type (seat counting) still follows Keycloak; search/realtime/agent call sites (WP-011+).
 
 ### 2026-10-23 — WP-010 frontend foundation and design system
 - Decisions: D-026 (react-router 7.x — 8.x needs React 19 —, openapi-fetch, @axe-core/playwright;

@@ -2005,10 +2005,12 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UnitOut"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Created (or replayed)."
           },
           "401": {
             "content": {
@@ -2503,10 +2505,12 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UnitOut"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Created (or replayed)."
           },
           "401": {
             "content": {
@@ -3171,10 +3175,12 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/RoleDetailOut"
+                }
               }
             },
-            "description": "Successful Response"
+            "description": "Created (or replayed)."
           },
           "401": {
             "content": {

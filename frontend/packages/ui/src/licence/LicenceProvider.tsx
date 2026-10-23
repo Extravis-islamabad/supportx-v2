@@ -4,8 +4,6 @@ import { useEntitlements, type Feature, type MeResponse } from '@supportx/api-cl
 
 import { LicenceContext, type Licence } from './context';
 
-export const ADMIN_ROLE = 'tenant_admin';
-
 /**
  * Loads GET /entitlements once per session/tenant and shares it. Until it has loaded nothing is
  * hidden or disabled: the UI never invents a restriction the server has not stated.
@@ -18,7 +16,8 @@ export function LicenceProvider({
   children: ReactNode;
 }) {
   const { data } = useEntitlements();
-  const isAdmin = session.user.roles.includes(ADMIN_ROLE);
+  // Licence notices are for whoever manages the licence (WP-016 permission).
+  const isAdmin = (session.permissions ?? []).some((p) => p.key === 'licence.manage');
   const licence = useMemo<Licence>(() => {
     const features = data === undefined ? null : new Set<Feature>(data.features);
     return {

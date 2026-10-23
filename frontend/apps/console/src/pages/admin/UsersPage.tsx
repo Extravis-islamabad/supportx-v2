@@ -8,7 +8,9 @@ import {
   type FilterExpression,
   type UserDetail,
 } from '@supportx/api-client';
-import { NotInPlan, useAppearance, useLabel, useLicence } from '@supportx/ui';
+import { NoAccess, useAccess, useAppearance, useLabel } from '@supportx/ui';
+
+import { UserAccessDrawer } from './UserAccessDrawer';
 
 const SORTS = ['display_name', '-display_name', '-last_login_at', '-created_at'] as const;
 const TYPES = ['technician', 'requester'] as const;
@@ -39,7 +41,9 @@ function equals(field: string, value: string | undefined): FilterExpression | un
 export function UsersPage() {
   const t = useLabel();
   const { locale } = useAppearance();
-  const { isAdmin } = useLicence();
+  const { can } = useAccess();
+  const allowed = can('users.view');
+  const [opened, setOpened] = useState<UserDetail>();
   const [search, setSearch] = useState('');
   const [userType, setUserType] = useState<string>();
   const [status, setStatus] = useState<string>();
@@ -50,7 +54,7 @@ export function UsersPage() {
     () => allOf(searchFilter(query), equals('user_type', userType), equals('status', status)),
     [query, userType, status],
   );
-  const users = useUsers({ filter, sort, limit: 25 }, isAdmin);
+  const users = useUsers({ filter, sort, limit: 25 }, allowed);
   const rows = useMemo(() => users.data?.pages.flatMap((page) => page.items) ?? [], [users.data]);
   const total = users.data?.pages[0]?.estimated_total;
 
@@ -71,7 +75,7 @@ export function UsersPage() {
     };
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
-  if (!isAdmin) return <NotInPlan titleKey="nav.admin_users" isAdmin={false} />;
+  if (!allowed) return <NoAccess titleKey="nav.admin_users" />;
 
   const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
   const anyOption = { value: '', label: t('users.any') };
@@ -79,7 +83,7 @@ export function UsersPage() {
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Flex justify="space-between" align="baseline" wrap>
-        <Typography.Title level={1} style={{ margin: 0 }}>
+        <Typography.Title level={2} style={{ margin: 0 }}>
           {t('users.title')}
         </Typography.Title>
         {total !== undefined && total !== null && (
@@ -144,6 +148,13 @@ export function UsersPage() {
         loading={users.isPending && users.fetchStatus === 'fetching'}
         dataSource={rows}
         pagination={false}
+        onRow={(user) => ({
+          onClick: () => {
+            setOpened(user);
+          },
+          style: { cursor: 'pointer' },
+          'data-testid': `user-row-${user.email}`,
+        })}
         columns={[
           { key: 'name', title: t('users.col.name'), render: (_, user) => user.display_name },
           { key: 'email', title: t('users.col.email'), render: (_, user) => user.email },
@@ -171,6 +182,12 @@ export function UsersPage() {
                 : dateFormat.format(new Date(user.last_login_at)),
           },
         ]}
+      />
+      <UserAccessDrawer
+        user={opened}
+        onClose={() => {
+          setOpened(undefined);
+        }}
       />
       <div ref={sentinel} data-testid="users-sentinel" style={{ minHeight: 1 }}>
         {isFetchingNextPage && (

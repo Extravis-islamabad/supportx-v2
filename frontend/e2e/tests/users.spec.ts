@@ -10,7 +10,7 @@ test('users list: search, filter, sort and infinite scroll against the real API'
     .getByRole('navigation', { name: 'Main navigation' })
     .getByText('Admin', { exact: true })
     .click();
-  await expect(page.getByRole('heading', { name: 'Users', level: 1 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Users', level: 2 })).toBeVisible();
   const table = page.getByTestId('users-table');
   const rows = table.locator('tbody tr.ant-table-row');
 

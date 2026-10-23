@@ -267,9 +267,9 @@ describe('Admin › Users', () => {
     ).toBe('req-500');
   });
 
-  it('is not available to technicians who are not admins', async () => {
-    api();
+  it('is not available to requesters (no users.view)', async () => {
+    api({ me: fakeSession({ roles: ['requester'], user_type: 'requester' }) });
     render(<App />);
-    expect(await screen.findByText(/Ask your administrator/)).toBeDefined();
+    expect(await screen.findByText(/Ask your administrator for access/)).toBeDefined();
   });
 });

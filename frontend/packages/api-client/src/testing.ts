@@ -11,11 +11,88 @@ export type UserDetail = components['schemas']['UserDetail'];
 export const DEMO_TENANT = { id: '01900000-0000-7000-8000-00000000de30', name: 'Demo Company' };
 export const OTHER_TENANT = { id: '01900000-0000-7000-8000-00000000a7e2', name: 'Other Company' };
 
-/** A session as GET /api/v1/auth/me returns it. */
+type Grant = [
+  string,
+  MeResponse['permissions'] extends (infer P)[] | undefined
+    ? P extends { scope: infer S }
+      ? S
+      : never
+    : never,
+];
+
+const TECHNICIAN: Grant[] = [
+  ['profile.edit', 'own'],
+  ['users.view', 'all'],
+  ['sites.view', 'all'],
+  ['groups.view', 'all'],
+  ['requests.view', 'all'],
+  ['requests.create', 'all'],
+  ['requests.edit', 'all'],
+  ['requests.assign', 'all'],
+  ['requests.close', 'all'],
+  ['problems.view', 'all'],
+  ['problems.manage', 'group'],
+  ['changes.view', 'all'],
+  ['changes.create', 'all'],
+  ['releases.view', 'all'],
+  ['assets.view', 'all'],
+  ['assets.manage', 'group'],
+  ['cmdb.view', 'all'],
+  ['knowledge.view', 'all'],
+  ['knowledge.manage', 'group'],
+  ['reports.view', 'all'],
+];
+const ADMIN_EXTRA: Grant[] = [
+  ['users.manage', 'all'],
+  ['roles.view', 'all'],
+  ['roles.manage', 'all'],
+  ['sites.manage', 'all'],
+  ['groups.manage', 'all'],
+  ['settings.manage', 'all'],
+  ['licence.manage', 'all'],
+  ['changes.approve', 'all'],
+  ['releases.manage', 'all'],
+  ['cmdb.manage', 'all'],
+  ['problems.manage', 'all'],
+];
+const REQUESTER: Grant[] = [
+  ['profile.edit', 'own'],
+  ['requests.view', 'own'],
+  ['requests.create', 'all'],
+  ['requests.close', 'own'],
+  ['knowledge.view', 'all'],
+];
+
+/** Effective permissions like GET /auth/me returns for the system roles (mirrors the backend). */
+export function fakePermissions(
+  role: 'tenant_admin' | 'technician' | 'requester',
+): NonNullable<MeResponse['permissions']> {
+  const grants =
+    role === 'requester'
+      ? REQUESTER
+      : role === 'technician'
+        ? TECHNICIAN
+        : [...TECHNICIAN, ...ADMIN_EXTRA];
+  const byKey = new Map(grants.map(([key, scope]) => [key, scope]));
+  return [...byKey.entries()].map(([key, scope]) => ({
+    key,
+    scope,
+    scopes: [scope],
+    conditional: false,
+  }));
+}
+
+/** A session as GET /api/v1/auth/me returns it (a technician unless overridden). */
 export function fakeSession(
   user: Partial<MeResponse['user']> = {},
   extra: Partial<Omit<MeResponse, 'user'>> = {},
 ): MeResponse {
+  const roles = user.roles ?? ['technician'];
+  const role = roles.includes('tenant_admin')
+    ? 'tenant_admin'
+    : roles.includes('technician')
+      ? 'technician'
+      : 'requester';
   return {
     user: {
       id: '01900000-0000-7000-8000-000000000101',
@@ -29,6 +106,7 @@ export function fakeSession(
     tenant: DEMO_TENANT,
     tenants: [DEMO_TENANT],
     csrf_token: 'csrf-from-session',
+    permissions: fakePermissions(role),
     ...extra,
   };
 }

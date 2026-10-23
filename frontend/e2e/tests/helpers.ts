@@ -47,3 +47,34 @@ export async function expectAccessible(page: Page, label: string): Promise<void>
     `axe violations on ${label}`,
   ).toEqual([]);
 }
+
+interface RoleRow {
+  id: string;
+  key: string;
+  name: string;
+  is_system: boolean;
+  user_count: number;
+  version: number;
+}
+
+/**
+ * Delete the suite's own custom roles (named "E2E …") left by an earlier, interrupted run,
+ * through the API with the signed-in admin's session. Holders move to the Requester role.
+ */
+export async function deleteE2eRoles(admin: Page): Promise<number> {
+  const request = admin.context().request;
+  const me = (await (await request.get('/api/v1/auth/me')).json()) as { csrf_token: string };
+  const roles = (await (await request.get('/api/v1/roles')).json()) as RoleRow[];
+  const requester = roles.find((role) => role.key === 'requester');
+  let deleted = 0;
+  for (const role of roles.filter((r) => !r.is_system && r.name.startsWith('E2E '))) {
+    const query =
+      role.user_count > 0 && requester !== undefined ? `?reassign_to=${requester.id}` : '';
+    const response = await request.delete(`/api/v1/roles/${role.id}${query}`, {
+      headers: { 'If-Match': `"${String(role.version)}"`, 'X-CSRF-Token': me.csrf_token },
+    });
+    expect(response.status(), await response.text()).toBe(204);
+    deleted += 1;
+  }
+  return deleted;
+}

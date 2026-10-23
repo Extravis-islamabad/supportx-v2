@@ -421,4 +421,48 @@ export const ar: LabelResource = {
   'event_type.organization.site.changed': 'تم تغيير موقع',
   'event_type.organization.support_group.changed': 'تم تغيير مجموعة دعم',
   'event_type.organization.membership.changed': 'تم تغيير عضوية',
+  // Admin › Roles and access (WP-016)
+  'nav.admin_roles': 'الأدوار',
+  'actions.add': 'إضافة',
+  'access.title': 'صلاحيات {{name}}',
+  'access.roles': 'الأدوار',
+  'access.sites': 'المواقع',
+  'access.groups': 'مجموعات الدعم',
+  'access.none': 'لا شيء',
+  'access.new_sites': 'اسم موقع جديد',
+  'access.new_groups': 'اسم مجموعة دعم جديدة',
+  'access.ask_admin': 'اطلب الصلاحية من المسؤول.',
+  'roles.title': 'الأدوار',
+  'roles.new': 'دور جديد',
+  'roles.col.name': 'الدور',
+  'roles.col.type': 'النوع',
+  'roles.col.users': 'المستخدمون',
+  'roles.type.system': 'مضمّن',
+  'roles.type.custom': 'مخصص',
+  'roles.editor.new': 'دور جديد',
+  'roles.editor.edit': 'الدور: {{name}}',
+  'roles.name': 'الاسم',
+  'roles.description': 'الوصف',
+  'roles.permissions': 'الصلاحيات',
+  'roles.system_read_only':
+    'لا يمكن تغيير الأدوار المضمّنة. أنشئ دورًا مخصصًا لمنح مجموعة مختلفة من الصلاحيات.',
+  'roles.has_rule': 'محدود بقاعدة',
+  'roles.scope_of': 'نطاق {{permission}}',
+  'roles.delete': 'حذف الدور',
+  'roles.delete_title': 'حذف {{name}}؟',
+  'roles.delete_in_use_one':
+    'لدى مستخدم واحد هذا الدور. اختر الدور الذي سيُنقل إليه؛ لن يفقد أحد صلاحياته دون علم.',
+  'roles.delete_in_use_other':
+    'لدى {{count}} مستخدم هذا الدور. اختر الدور الذي سيُنقلون إليه؛ لن يفقد أحد صلاحياته دون علم.',
+  'roles.reassign_to': 'نقل المستخدمين إلى',
+  'roles.delete_confirm': 'لا أحد لديه هذا الدور. سيتم حذفه.',
+  'roles.saved': 'تم حفظ الدور.',
+  'roles.deleted': 'تم حذف الدور.',
+  'roles.delete_in_use_zero': 'لا يوجد مستخدمون لديهم هذا الدور.',
+  'roles.delete_in_use_two':
+    'لدى مستخدمَين هذا الدور. اختر الدور الذي سيُنقلان إليه؛ لن يفقد أحد صلاحياته دون علم.',
+  'roles.delete_in_use_few':
+    'لدى {{count}} مستخدمين هذا الدور. اختر الدور الذي سيُنقلون إليه؛ لن يفقد أحد صلاحياته دون علم.',
+  'roles.delete_in_use_many':
+    'لدى {{count}} مستخدمًا هذا الدور. اختر الدور الذي سيُنقلون إليه؛ لن يفقد أحد صلاحياته دون علم.',
 };

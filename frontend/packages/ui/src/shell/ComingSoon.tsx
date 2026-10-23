@@ -27,3 +27,15 @@ export function NotInPlan({ titleKey, isAdmin }: { titleKey: LabelKey; isAdmin: 
     />
   );
 }
+
+/** The user's roles do not include this section (the server would answer 403 too). */
+export function NoAccess({ titleKey }: { titleKey: LabelKey }) {
+  const t = useLabel();
+  return (
+    <Result
+      status="403"
+      title={<h1 style={{ fontSize: 'inherit', margin: 0 }}>{t(titleKey)}</h1>}
+      subTitle={`${t('errors.permission_denied')} ${t('access.ask_admin')}`}
+    />
+  );
+}

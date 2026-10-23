@@ -32,22 +32,55 @@ describe('theme', () => {
 describe('visibleNav', () => {
   const items: NavItem[] = [
     { key: 'home', path: '/', labelKey: 'nav.home' },
-    { key: 'cmdb', path: '/cmdb', labelKey: 'nav.cmdb', feature: 'cmdb' },
-    { key: 'admin', path: '/admin', labelKey: 'nav.admin', adminOnly: true },
+    {
+      key: 'requests',
+      path: '/requests',
+      labelKey: 'nav.requests',
+      feature: 'incident',
+      permissions: ['requests.view'],
+    },
+    {
+      key: 'cmdb',
+      path: '/cmdb',
+      labelKey: 'nav.cmdb',
+      feature: 'cmdb',
+      permissions: ['cmdb.view'],
+    },
+    {
+      key: 'admin',
+      path: '/admin',
+      labelKey: 'nav.admin',
+      permissions: ['roles.view', 'users.manage'],
+    },
   ];
   const has = (feature: string) => feature !== 'cmdb';
 
-  it('hides sections outside the plan and admin sections from other users', () => {
-    expect(visibleNav(items, { has, isAdmin: false }).map((i) => i.key)).toEqual(['home']);
+  it('shows only sections whose permission the user holds', () => {
+    const requester = (keys: readonly string[]) => keys.includes('requests.view');
+    expect(
+      visibleNav(items, { canAny: requester, has, managesLicence: false }).map((i) => i.key),
+    ).toEqual(['home', 'requests']);
   });
 
-  it('shows tenant admins every section, the missing ones locked', () => {
-    const nav = visibleNav(items, { has, isAdmin: true });
+  it('shows the admin area for any admin permission', () => {
+    const manager = (keys: readonly string[]) => keys.includes('users.manage');
+    expect(
+      visibleNav(items, { canAny: manager, has, managesLicence: false }).map((i) => i.key),
+    ).toEqual(['home', 'admin']);
+  });
+
+  it('shows sections outside the plan locked to whoever manages the licence', () => {
+    const everything = () => true;
+    const nav = visibleNav(items, { canAny: everything, has, managesLicence: true });
     expect(nav.map((i) => [i.key, i.locked])).toEqual([
       ['home', false],
+      ['requests', false],
       ['cmdb', true],
       ['admin', false],
     ]);
+    expect(
+      visibleNav(items, { canAny: everything, has, managesLicence: false }).map((i) => i.key),
+    ).not.toContain('cmdb');
   });
 });
 

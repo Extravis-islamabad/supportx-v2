@@ -195,7 +195,13 @@ async def get_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     return _detail(detail)
 
 
-@router.post("/roles", summary="Create a custom role", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/roles",
+    summary="Create a custom role",
+    status_code=status.HTTP_201_CREATED,
+    response_model=RoleDetailOut,
+    responses={201: {"model": RoleDetailOut, "description": "Created (or replayed)."}},
+)
 async def create_role(
     body: RoleCreate,
     session: TenantSession,

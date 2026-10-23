@@ -62,7 +62,12 @@ def build_router(kind: Literal["site", "group"]) -> APIRouter:
         return [_out(v) for v in await units.list_units(session, kind)]
 
     @router.post(
-        "", summary=f"Create a {kind}", status_code=status.HTTP_201_CREATED, dependencies=[manage]
+        "",
+        summary=f"Create a {kind}",
+        status_code=status.HTTP_201_CREATED,
+        dependencies=[manage],
+        response_model=UnitOut,
+        responses={201: {"model": UnitOut, "description": "Created (or replayed)."}},
     )
     async def create_unit(
         body: UnitIn, session: TenantSession, idempotency: Idempotency

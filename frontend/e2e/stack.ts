@@ -42,6 +42,12 @@ export function fixtures(action: 'create' | 'delete'): string {
  */
 export const USERS = {
   tech: { email: 'e2e.tech@demo.test', first: 'Erin', last: 'E2E Tech', roles: ['technician'] },
+  limited: {
+    email: 'e2e.limited@demo.test',
+    first: 'Lina',
+    last: 'E2E Limited',
+    roles: ['requester'],
+  },
   admin: {
     email: 'e2e.admin@demo.test',
     first: 'Adel',
