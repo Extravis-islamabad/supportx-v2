@@ -5,9 +5,33 @@
       "http://localhost:5174",
       "http://127.0.0.1:5173",
       "http://127.0.0.1:5174"
-    ]
+    ],
+    "token": {
+      "audience": "supportx-realtime",
+      "issuer": "supportx-api"
+    },
+    "channel_limit": 256
+  },
+  "channel": {
+    "namespace_boundary": "|",
+    "without_namespace": {
+      "history_size": 100,
+      "history_ttl": "300s",
+      "force_recovery": true,
+      "allow_presence_for_subscriber": true,
+      "presence": true
+    }
+  },
+  "sse": {
+    "enabled": true
+  },
+  "http_stream": {
+    "enabled": true
   },
   "http_api": {},
+  "prometheus": {
+    "enabled": true
+  },
   "admin": {
     "enabled": true
   },

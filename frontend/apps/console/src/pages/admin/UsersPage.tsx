@@ -1,13 +1,16 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge, Flex, Input, Select, Space, Spin, Table, Typography } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   allOf,
+  queryKeys,
   searchFilter,
   useUsers,
   type FilterExpression,
   type UserDetail,
 } from '@supportx/api-client';
+import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
 import { NoAccess, useAccess, useAppearance, useLabel } from '@supportx/ui';
 
 import { UserAccessDrawer } from './UserAccessDrawer';
@@ -55,6 +58,12 @@ export function UsersPage() {
     [query, userType, status],
   );
   const users = useUsers({ filter, sort, limit: 25 }, allowed);
+  // Live (WP-011): a new or changed user refreshes the lists on screen and the changed records.
+  const queryClient = useQueryClient();
+  useListChannel(allowed ? 'users' : null, (message) => {
+    refreshList(queryClient, [...queryKeys.users.all, 'list']);
+    for (const id of message.ids) refreshRecord(queryClient, queryKeys.users.detail(id), message);
+  });
   const rows = useMemo(() => users.data?.pages.flatMap((page) => page.items) ?? [], [users.data]);
   const total = users.data?.pages[0]?.estimated_total;
 

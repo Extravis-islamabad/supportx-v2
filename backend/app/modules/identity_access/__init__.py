@@ -29,6 +29,7 @@ from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
+from app.modules.identity_access.bff.realtime import router as realtime_router
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
@@ -54,6 +55,7 @@ from app.modules.identity_access.service.policy import (
     scope_filter,
     visible,
 )
+from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
@@ -151,11 +153,14 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="identity_access",
-    routers=[router, users_router, access_router],
+    routers=[router, users_router, access_router, realtime_router],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
     consumers=[AUTHZ_INVALIDATION],
+    # Realtime (WP-011): who may join which channel, and what identity events show on screens.
+    channels=CHANNELS,
+    realtime=ROUTES,
     # Own permissions plus the reserved ITSM ones (moved to their modules as they arrive).
     permissions=IDENTITY_PERMISSIONS + RESERVED_PERMISSIONS,
     # Licensed technician seats (WP-009); requesters are never counted.

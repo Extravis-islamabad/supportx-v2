@@ -75,9 +75,10 @@ async def get_ready(
 ) -> ReadinessResponse:
     """Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.
 
-    Otherwise 503, naming the failing dependency with a reason code. The outbox relay and the
-    consumer worker are reported from their heartbeats (`outbox_relay`, `event_consumers`) but
-    are informational: when they are down the response lists them under `degraded`, still 200.
+    Otherwise 503, naming the failing dependency with a reason code. The outbox relay, the
+    consumer worker and the realtime fan-out are reported from their heartbeats (`outbox_relay`,
+    `event_consumers`, `realtime_fanout`) but are informational: when they are down the response
+    lists them under `degraded`, still 200.
     """
     report = await service.check()
     if not report.ready:

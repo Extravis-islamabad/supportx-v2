@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "SupportX v2 technician console (architecture.md §9.1).",
+  "description": "SupportX v2 technician console (architecture.md \u00a79.1).",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -17,6 +17,7 @@
     "@supportx/charts": "workspace:*",
     "@supportx/forms": "workspace:*",
     "@supportx/labels": "workspace:*",
+    "@supportx/realtime": "workspace:*",
     "@supportx/ui": "workspace:*",
     "@tanstack/react-query": "catalog:",
     "antd": "catalog:",

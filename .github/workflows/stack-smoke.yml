@@ -64,6 +64,8 @@ jobs:
           # outbox relay and the consumer worker (WP-009).
           (cd backend && nohup uv run python -m workers.outbox_relay > ../relay.log 2>&1 &)
           (cd backend && nohup uv run python -m workers.consumers > ../consumers.log 2>&1 &)
+          # Live screens (WP-011): domain events → Centrifugo through the fan-out worker.
+          (cd backend && nohup uv run python -m workers.realtime_fanout > ../fanout.log 2>&1 &)
           (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
           for _ in $(seq 1 60); do
             curl -fsS http://localhost:5173/api/v1/ready >/dev/null && break
@@ -79,9 +81,9 @@ jobs:
         if: ${{ failure() }}
         run: |
           make dev-ps
-          tail -n 200 api.log relay.log consumers.log console.log || true
+          tail -n 200 api.log relay.log consumers.log fanout.log console.log || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
-            --profile full logs --no-color --tail=200 keycloak postgres pgbouncer
+            --profile full logs --no-color --tail=200 keycloak postgres pgbouncer centrifugo
       - name: Upload Playwright report
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

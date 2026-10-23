@@ -26,6 +26,12 @@ from app.shared.api.listing import CursorCodec
 from app.shared.api.openapi import add_filter_schema
 from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.events import EventRegistry, install_registry
+from app.shared.realtime import (
+    CENTRIFUGO_STATE,
+    REALTIME_STATE,
+    CentrifugoClient,
+    RealtimeRegistry,
+)
 
 API_V1_PREFIX = "/api/v1"
 OPENAPI_URL = f"{API_V1_PREFIX}/openapi.json"
@@ -52,6 +58,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
         # Created here, not at import, so the pool belongs to the server's event loop.
         app.state.db = Database.from_settings(settings)
         valkey_client = _start_rate_limiter(app, settings)
+        centrifugo = CentrifugoClient.from_settings(settings)
+        setattr(app.state, CENTRIFUGO_STATE, centrifugo)
         await registry.start(app)
         log.info(
             "startup_complete",
@@ -65,6 +73,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
             await registry.stop(app)
             if valkey_client is not None:
                 await valkey_client.aclose()
+            if centrifugo is not None:
+                await centrifugo.aclose()
             if app.state.db is not None:
                 await app.state.db.dispose()
             if tracer_provider is not None:
@@ -81,6 +91,9 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     )
     app.state.settings = settings
     app.state.modules = registry
+    # Channel specs and fan-out routes of every module (WP-011); invalid declarations fail here.
+    setattr(app.state, REALTIME_STATE, RealtimeRegistry.build(registry.modules))
+    setattr(app.state, CENTRIFUGO_STATE, None)  # set in the lifespan when configured
     app.state.cursor_codec = CursorCodec.from_settings(settings)
 
     install_error_handlers(app)

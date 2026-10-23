@@ -24,7 +24,7 @@ from app.core.logging import get_logger
 
 log = get_logger(__name__)
 
-WorkerKind = Literal["relay", "consumers"]
+WorkerKind = Literal["relay", "consumers", "fanout"]
 _UNSAFE_KEY_CHARS = re.compile(r"[^A-Za-z0-9_-]")
 
 

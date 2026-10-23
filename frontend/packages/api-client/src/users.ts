@@ -3,10 +3,12 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { api, call, rememberEtag } from './client';
 import { queryKeys } from './keys';
 import type { components } from './schema';
+import type { MeResponse } from './session';
 
 export type UserDetail = components['schemas']['UserDetail'];
 export type UserPage = components['schemas']['UserPage'];
 export type UserPreferencesPatch = components['schemas']['UserPreferencesPatch'];
+export type NavLayout = components['schemas']['NavLayout'];
 export type FilterExpression = components['schemas']['FilterExpression'];
 export type FilterCondition = components['schemas']['FilterCondition'];
 
@@ -91,6 +93,46 @@ export function useUpdateUser(id: string) {
       rememberEtag(`/api/v1/users/${id}`, `"${String(user.version)}"`);
       queryClient.setQueryData(queryKeys.users.detail(id), user);
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.users.all, 'list'] });
+    },
+  });
+}
+
+/**
+ * Change the signed-in user's navigation layout (WP-011). Stored server-side, so it follows the
+ * user to other devices (their sessions refresh live). Applied at once (optimistic); reads the
+ * current version just before saving, so it never collides with an open profile form.
+ */
+export function useSetNavLayout(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (layout: NavLayout) => {
+      const latest = await queryClient.query({
+        queryKey: queryKeys.users.detail(userId),
+        queryFn: () =>
+          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
+        staleTime: 0,
+      });
+      return call(
+        api.PATCH('/api/v1/users/{user_id}', {
+          params: {
+            path: { user_id: userId },
+            header: { 'If-Match': `"${String(latest.version)}"` },
+          },
+          body: { nav_layout: layout },
+        }),
+      );
+    },
+    onMutate: (layout) => {
+      queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
+        me ? { ...me, user: { ...me.user, nav_layout: layout } } : me,
+      );
+    },
+    onSuccess: (user) => {
+      rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
+      queryClient.setQueryData(queryKeys.users.detail(userId), user);
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session }); // undo the optimism
     },
   });
 }

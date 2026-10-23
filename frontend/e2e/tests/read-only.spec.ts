@@ -11,13 +11,11 @@ test.afterAll(() => {
 test('read-only mode: persistent banner, edit buttons disabled, reads still work', async ({
   page,
 }) => {
-  devSubscription('other', '--expires 2026-09-01');
   await signIn(page, SEEDED.other.email, SEEDED.other.password, '/profile');
-  // The plan change reaches the API through the event bus and cache invalidation (WP-009).
-  await expect(async () => {
-    await page.reload();
-    await expect(page.getByTestId('read-only-banner')).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  await expect(page.locator('html')).toHaveAttribute('data-realtime-status', 'connected');
+  // The plan change reaches the open page live: event bus → fan-out → banner (WP-009, WP-011).
+  devSubscription('other', '--expires 2026-09-01');
+  await expect(page.getByTestId('read-only-banner')).toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('read-only-banner')).toContainText(
     'Read-only mode: you can view and export data.',
   );
@@ -31,9 +29,7 @@ test('read-only mode: persistent banner, edit buttons disabled, reads still work
   await page.screenshot({ path: 'test-results/read-only.png', fullPage: true });
 
   devSubscription('other', '--expires never');
-  await expect(async () => {
-    await page.reload();
-    await expect(page.getByTestId('profile-save')).toBeEnabled({ timeout: 2_000 });
-  }).toPass({ timeout: 30_000 });
+  // Back to normal without a reload either.
+  await expect(page.getByTestId('profile-save')).toBeEnabled({ timeout: 5_000 });
   await expect(page.getByTestId('read-only-banner')).toHaveCount(0);
 });

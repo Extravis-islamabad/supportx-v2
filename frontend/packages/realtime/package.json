@@ -3,14 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Centrifugo client, channel hooks and TanStack Query cache patching (architecture.md §8.3).",
+  "description": "Centrifugo client, channel hooks and TanStack Query cache patching (architecture.md \u00a78.3).",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "devDependencies": {
-    "typescript": "catalog:"
+    "@tanstack/react-query": "catalog:",
+    "@types/react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "@types/react-dom": "catalog:",
+    "typescript": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@testing-library/dom": "catalog:",
+    "vitest": "catalog:"
+  },
+  "dependencies": {
+    "@supportx/api-client": "workspace:*",
+    "centrifuge": "5.7.4"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:"
   }
 }

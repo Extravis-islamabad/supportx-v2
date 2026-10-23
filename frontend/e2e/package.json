@@ -3,11 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Playwright end-to-end journeys against a running stack (architecture.md §16.2).",
+  "description": "Playwright end-to-end journeys against a running stack (architecture.md \u00a716.2).",
   "scripts": {
     "e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "install-browsers": "playwright install chromium"
+    "install-browsers": "playwright install chromium",
+    "perf:latency": "playwright test -c playwright.perf.config.ts",
+    "perf:load": "node perf/realtime-load.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",

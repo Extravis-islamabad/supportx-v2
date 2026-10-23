@@ -1,15 +1,12 @@
 import { expect, test } from '@playwright/test';
 
-import { signInAs } from './helpers';
+import { goToSection, signInAs } from './helpers';
 
 test('users list: search, filter, sort and infinite scroll against the real API', async ({
   page,
 }) => {
   await signInAs(page, 'admin');
-  await page
-    .getByRole('navigation', { name: 'Main navigation' })
-    .getByText('Admin', { exact: true })
-    .click();
+  await goToSection(page, 'Admin');
   await expect(page.getByRole('heading', { name: 'Users', level: 2 })).toBeVisible();
   const table = page.getByTestId('users-table');
   const rows = table.locator('tbody tr.ant-table-row');

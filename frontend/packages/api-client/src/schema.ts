@@ -342,13 +342,79 @@ export interface paths {
          * Readiness
          * @description Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.
          *
-         *     Otherwise 503, naming the failing dependency with a reason code. The outbox relay and the
-         *     consumer worker are reported from their heartbeats (`outbox_relay`, `event_consumers`) but
-         *     are informational: when they are down the response lists them under `degraded`, still 200.
+         *     Otherwise 503, naming the failing dependency with a reason code. The outbox relay, the
+         *     consumer worker and the realtime fan-out are reported from their heartbeats (`outbox_relay`,
+         *     `event_consumers`, `realtime_fanout`) but are informational: when they are down the response
+         *     lists them under `degraded`, still 200.
          */
         get: operations["get_ready_api_v1_ready_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/realtime/connection-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Realtime connection token
+         * @description Lets the signed-in user connect to the realtime gateway for the session's tenant.
+         *
+         *     Signed in means a valid BFF session (CSRF-checked: this is a POST), resolved for the tenant.
+         */
+        post: operations["get_connection_token_api_v1_realtime_connection_token_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/realtime/lists/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Channels of a live list
+         * @description Which channels to join to follow list `name` (`users`, `roles`…); empty without access.
+         */
+        get: operations["list_channels_api_v1_realtime_lists__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/realtime/subscription-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Realtime subscription token
+         * @description Signed only when the policy layer allows this user to see what the channel carries.
+         *
+         *     Refused (403 `realtime_channel_denied`) for another tenant's channel, an unknown kind, or a
+         *     record or list the user may not see.
+         */
+        post: operations["get_subscription_token_api_v1_realtime_subscription_token_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -725,6 +791,14 @@ export interface components {
             used: number | null;
         };
         /**
+         * LiveListChannels
+         * @description The channels to join to follow one list live (one per audience the user belongs to).
+         */
+        LiveListChannels: {
+            /** Channels */
+            channels: string[];
+        };
+        /**
          * MeResponse
          * @description Session summary for the UI.
          *
@@ -742,6 +816,14 @@ export interface components {
             tenants: components["schemas"]["TenantOut"][];
             user: components["schemas"]["UserOut"];
         };
+        /**
+         * NavLayout
+         * @description Where the console's navigation sits, per user (WP-011; a ServiceDesk Plus parity choice).
+         *
+         *     Stored server-side so the choice follows the user to every device.
+         * @enum {string}
+         */
+        NavLayout: "top" | "side" | "side_compact";
         /**
          * Op
          * @description Every operator of the grammar.
@@ -839,6 +921,19 @@ export interface components {
             status: "ready" | "not_ready";
         };
         /**
+         * RealtimeToken
+         * @description A short-lived Centrifugo token.
+         */
+        RealtimeToken: {
+            /**
+             * Expires In
+             * @description Seconds until the token expires.
+             */
+            expires_in: number;
+            /** Token */
+            token: string;
+        };
+        /**
          * RoleCreate
          * @description A new custom role.
          */
@@ -916,6 +1011,14 @@ export interface components {
          * @enum {string}
          */
         StateReason: "expired" | "licence_mismatch" | "suspended" | "not_yet_valid" | "no_entitlement";
+        /**
+         * SubscriptionTokenRequest
+         * @description The channel to join, e.g. `t:<tenant>:users:<user id>`.
+         */
+        SubscriptionTokenRequest: {
+            /** Channel */
+            channel: string;
+        };
         /**
          * SwitchTenantRequest
          * @description Which of the user's tenants to make active.
@@ -1050,6 +1153,7 @@ export interface components {
              * @enum {string}
              */
             locale: "en" | "ar" | "ur";
+            nav_layout: components["schemas"]["NavLayout"];
             /** Signature */
             signature: string | null;
             /**
@@ -1090,6 +1194,11 @@ export interface components {
              * @enum {string}
              */
             locale: "en" | "ar" | "ur";
+            /**
+             * @description The user's navigation layout preference.
+             * @default top
+             */
+            nav_layout: components["schemas"]["NavLayout"];
             /** Roles */
             roles: string[];
             user_type: components["schemas"]["UserType"];
@@ -1119,6 +1228,8 @@ export interface components {
          * @description Fields SupportX owns. Identity fields come from Keycloak and cannot be set here.
          */
         UserPreferencesPatch: {
+            /** @description Navigation: top bar, side bar or compact side bar. */
+            nav_layout?: components["schemas"]["NavLayout"] | null;
             /**
              * Signature
              * @description Reply signature.
@@ -2315,6 +2426,124 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+        };
+    };
+    get_connection_token_api_v1_realtime_connection_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealtimeToken"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_channels_api_v1_realtime_lists__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveListChannels"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_subscription_token_api_v1_realtime_subscription_token_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubscriptionTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RealtimeToken"];
+                };
+            };
+            /** @description Not allowed to join this channel (realtime_channel_denied). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

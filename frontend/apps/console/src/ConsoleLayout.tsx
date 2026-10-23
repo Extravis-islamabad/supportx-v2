@@ -2,13 +2,14 @@ import { App as AntApp } from 'antd';
 import { useCallback, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
-import { useLogout, useSession, useSwitchTenant } from '@supportx/api-client';
+import { useLogout, useSession, useSetNavLayout, useSwitchTenant } from '@supportx/api-client';
 import {
   AppHeader,
   AppShell,
   CommandPalette,
   ConnectivityBanner,
   LicenceBanners,
+  reportError,
   useCommandPaletteShortcut,
   useAccess,
   useLabel,
@@ -34,6 +35,7 @@ export function ConsoleLayout() {
   }, []);
   useCommandPaletteShortcut(openPalette);
 
+  const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const access = useAccess();
   const nav = useMemo(
     () =>
@@ -58,11 +60,16 @@ export function ConsoleLayout() {
     <AppShell
       nav={nav}
       activeKey={activeKey}
+      layout={session.user.nav_layout}
       onNavigate={(path) => void navigate(path)}
-      header={
+      header={(topNav) => (
         <AppHeader
           appName="app.console.name"
           session={session}
+          start={topNav ?? undefined}
+          onNavLayoutChange={(layout) => {
+            setNavLayout.mutate(layout, { onError: reportError });
+          }}
           onLogout={() => void logout()}
           onProfile={() => void navigate('/profile')}
           onOpenPalette={openPalette}
@@ -76,7 +83,7 @@ export function ConsoleLayout() {
             });
           }}
         />
-      }
+      )}
       banners={
         <>
           <ConnectivityBanner />

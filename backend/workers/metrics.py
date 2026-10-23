@@ -11,7 +11,7 @@ endpoint arrives with the deployment work (WP-014). The same numbers are in ever
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
-from opentelemetry.metrics import CallbackOptions, Counter, Meter, Observation
+from opentelemetry.metrics import CallbackOptions, Counter, Histogram, Meter, Observation
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
 from opentelemetry.sdk.resources import Resource
@@ -147,4 +147,93 @@ class ConsumerMetrics:
             "dead_lettered": dict(self.dead_lettered),
             "lag": dict(self.lag),
             "dlq_messages": self.dlq_messages,
+        }
+
+
+@dataclass
+class FanoutMetrics:
+    """What the realtime fan-out worker reports (WP-011)."""
+
+    events_total: int = 0
+    publications_total: int = 0
+    coalesced_total: int = 0
+    deferred_total: int = 0
+    dropped_total: int = 0
+    revocations_total: int = 0
+    failures_total: int = 0
+    # Commit → handed to Centrifugo, seconds, for the most recent publications.
+    recent_lag: list[float] = field(default_factory=list)
+    _publications: Counter | None = field(default=None, init=False, repr=False)
+    _coalesced: Counter | None = field(default=None, init=False, repr=False)
+    _dropped: Counter | None = field(default=None, init=False, repr=False)
+    _lag: Histogram | None = field(default=None, init=False, repr=False)
+
+    LAG_WINDOW = 1000
+
+    def bind(self, meter: Meter) -> None:
+        """Register the instruments."""
+        self._publications = meter.create_counter(
+            "supportx.realtime.publications", unit="{message}", description="Messages published"
+        )
+        self._coalesced = meter.create_counter(
+            "supportx.realtime.coalesced",
+            unit="{message}",
+            description="Messages merged into another one (bursts, rate limit)",
+        )
+        self._dropped = meter.create_counter(
+            "supportx.realtime.dropped",
+            unit="{message}",
+            description="Messages given up after the tenant backlog limit (lists refreshed)",
+        )
+        self._lag = meter.create_histogram(
+            "supportx.realtime.fanout_lag",
+            unit="s",
+            description="Time from the change's commit to its publication",
+        )
+
+    def published(self, count: int, lags: Iterable[float]) -> None:
+        """`count` messages reached Centrifugo; `lags` per message."""
+        self.publications_total += count
+        if self._publications is not None and count:
+            self._publications.add(count)
+        for lag in lags:
+            self.recent_lag.append(lag)
+            if self._lag is not None:
+                self._lag.record(lag)
+        del self.recent_lag[: -self.LAG_WINDOW]
+
+    def coalesced(self, count: int) -> None:
+        """`count` messages were merged into others."""
+        self.coalesced_total += count
+        if self._coalesced is not None and count:
+            self._coalesced.add(count)
+
+    def dropped(self, count: int) -> None:
+        """`count` messages were replaced by a list refresh (backlog limit)."""
+        self.dropped_total += count
+        if self._dropped is not None and count:
+            self._dropped.add(count)
+
+    def lag_percentiles(self) -> dict[str, float]:
+        """p50/p95/p99 of the recent fan-out lag, in milliseconds."""
+        if not self.recent_lag:
+            return {}
+        ordered = sorted(self.recent_lag)
+
+        def pick(q: float) -> float:
+            return round(ordered[min(len(ordered) - 1, int(q * len(ordered)))] * 1000, 1)
+
+        return {"p50_ms": pick(0.5), "p95_ms": pick(0.95), "p99_ms": pick(0.99)}
+
+    def snapshot(self) -> dict[str, object]:
+        """For the heartbeat."""
+        return {
+            "events_total": self.events_total,
+            "publications_total": self.publications_total,
+            "coalesced_total": self.coalesced_total,
+            "deferred_total": self.deferred_total,
+            "dropped_total": self.dropped_total,
+            "revocations_total": self.revocations_total,
+            "failures_total": self.failures_total,
+            "lag": self.lag_percentiles(),
         }

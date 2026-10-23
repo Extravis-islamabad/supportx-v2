@@ -31,6 +31,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "FailureReason": "failure_reason",
     "Feature": "feature",
     "LimitKey": "limit",
+    "NavLayout": "nav_layout",
     "Op": "filter_op",
     "ReadinessResponse.status": "readiness_status",
     "StateReason": "entitlement_reason",

@@ -271,5 +271,8 @@ def test_app_consumers_are_valid_and_the_dev_logger_is_dev_only() -> None:
         oidc_console_client_secret="c",
         oidc_portal_client_secret="p",
         session_secret="s" * 32,
+        centrifugo_api_url="http://127.0.0.1:1",
+        centrifugo_api_key="k",
+        centrifugo_token_secret="c" * 32,
     )
     assert not logger.enabled(production)  # never in production, whatever the setting says

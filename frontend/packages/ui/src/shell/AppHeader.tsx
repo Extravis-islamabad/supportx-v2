@@ -2,7 +2,7 @@ import { DownOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Flex, Layout, Popover, Select, Typography, theme } from 'antd';
 import type { ReactNode } from 'react';
 
-import type { MeResponse } from '@supportx/api-client';
+import type { MeResponse, NavLayout } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
 
 import { useLabel } from '../appearance';
@@ -19,6 +19,10 @@ export interface AppHeaderProps {
   onProfile?: () => void;
   onOpenPalette?: () => void;
   extra?: ReactNode;
+  /** Shown instead of the app name at the start of the row (top-bar navigation). */
+  start?: ReactNode;
+  /** Offer the navigation layout choice (console). */
+  onNavLayoutChange?: (layout: NavLayout) => void;
 }
 
 function initials(name: string): string {
@@ -40,6 +44,8 @@ export function AppHeader({
   onProfile,
   onOpenPalette,
   extra,
+  start,
+  onNavLayoutChange,
 }: AppHeaderProps) {
   const t = useLabel();
   const { token } = theme.useToken();
@@ -58,16 +64,27 @@ export function AppHeader({
         lineHeight: 'normal',
       }}
     >
-      <Typography.Text strong style={{ flex: 1 }}>
-        {t(appName)}
-      </Typography.Text>
+      {start ?? (
+        <Typography.Text strong style={{ flex: 1 }}>
+          {t(appName)}
+        </Typography.Text>
+      )}
       {onOpenPalette !== undefined && (
         <Button icon={<SearchOutlined />} onClick={onOpenPalette} data-testid="open-palette">
           {t('palette.open')} <Typography.Text keyboard>{t('palette.shortcut')}</Typography.Text>
         </Button>
       )}
       {extra}
-      <Popover content={<AppearanceControls />} trigger="click" placement="bottomRight">
+      <Popover
+        content={
+          <AppearanceControls
+            navLayout={onNavLayoutChange === undefined ? undefined : session.user.nav_layout}
+            onNavLayoutChange={onNavLayoutChange}
+          />
+        }
+        trigger="click"
+        placement="bottomRight"
+      >
         <Button data-testid="appearance-menu">{t('appearance.title')}</Button>
       </Popover>
       {canSwitch ? (

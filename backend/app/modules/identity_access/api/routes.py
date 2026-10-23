@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import NavLayout, UserType
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import directory
@@ -49,6 +49,7 @@ class UserDetail(BaseModel):
     locale: Literal["en", "ar", "ur"]
     time_zone: str | None
     signature: str | None
+    nav_layout: NavLayout
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -72,6 +73,9 @@ class UserPreferencesPatch(BaseModel):
 
     signature: str | None = Field(default=None, max_length=2000, description="Reply signature.")
     time_zone: str | None = Field(default=None, max_length=64, description="IANA, e.g. Asia/Dubai.")
+    nav_layout: NavLayout | None = Field(
+        default=None, description="Navigation: top bar, side bar or compact side bar."
+    )
 
 
 ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]

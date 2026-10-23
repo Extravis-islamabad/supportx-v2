@@ -53,7 +53,7 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
 
 
 def _worker_probes(settings: Settings) -> list[DependencyProbe]:
-    """Heartbeats of the outbox relay and the consumer worker (informational, WP-007)."""
+    """Heartbeats of the event workers (informational): relay, consumers, realtime fan-out."""
     if settings.nats_url is None:
         return []  # already reported as nats: not_configured
     bucket = BusNames(settings.events_namespace).heartbeat_bucket
@@ -65,7 +65,11 @@ def _worker_probes(settings: Settings) -> list[DependencyProbe]:
             kind=kind,
             stale_after_s=settings.heartbeat_stale_seconds,
         )
-        for name, kind in (("outbox_relay", "relay"), ("event_consumers", "consumers"))
+        for name, kind in (
+            ("outbox_relay", "relay"),
+            ("event_consumers", "consumers"),
+            ("realtime_fanout", "fanout"),
+        )
     ]
 
 

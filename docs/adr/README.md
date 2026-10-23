@@ -29,3 +29,4 @@ Owner: the product owner owns all ADRs until a tech lead is appointed (D-007).
 | [ADR-020](ADR-020-api-conventions-storage.md) | API conventions: idempotency in PostgreSQL, signed keyset cursors, Valkey rate limits | Accepted | Haider (Product Owner) |
 | [ADR-021](ADR-021-entitlement-interface.md) | Entitlement interface: providers, route guard, cached plans, locked seat counts | Accepted | Haider (Product Owner) |
 | [ADR-022](ADR-022-authorization-policy-layer.md) | Authorization policy layer: SupportX-owned roles, scoped grants, one policy service | Accepted | Haider (Product Owner) |
+| [ADR-023](ADR-023-realtime-pipeline.md) | Realtime pipeline: per-channel tokens, module-declared routes, windowed fan-out | Accepted | Haider (Product Owner) |

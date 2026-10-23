@@ -54,6 +54,12 @@ export {
   type UserAccess,
 } from './access';
 export { queryKeys } from './keys';
+export {
+  fetchConnectionToken,
+  fetchListChannels,
+  fetchSubscriptionToken,
+  type RealtimeToken,
+} from './realtime';
 export type { components, paths } from './schema';
 export {
   fetchMe,
@@ -67,6 +73,7 @@ export {
 export {
   allOf,
   searchFilter,
+  useSetNavLayout,
   useUpdateUser,
   useUser,
   useUsers,
@@ -74,6 +81,7 @@ export {
   type FilterExpression,
   type UserDetail,
   type UserPage,
+  type NavLayout,
   type UserPreferencesPatch,
   type UsersQuery,
 } from './users';

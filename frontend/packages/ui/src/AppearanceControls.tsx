@@ -1,17 +1,39 @@
 import { Segmented, Select, Space, Switch, Typography } from 'antd';
 
+import type { NavLayout } from '@supportx/api-client';
 import { LOCALES } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
+import { NAV_LAYOUTS } from './shell/nav';
 import { THEME_MODES } from './theme';
 
-/** Theme mode, RTL switch and language picker. */
-export function AppearanceControls() {
+export interface AppearanceControlsProps {
+  /** The user's navigation layout; with `onNavLayoutChange` the choice is offered (console). */
+  navLayout?: NavLayout;
+  onNavLayoutChange?: (layout: NavLayout) => void;
+}
+
+/** Theme mode, navigation layout, RTL switch and language picker. */
+export function AppearanceControls({ navLayout, onNavLayoutChange }: AppearanceControlsProps) {
   const { mode, direction, locale, setMode, setDirection, setLocale } = useAppearance();
   const t = useLabel();
 
   return (
     <Space size="large" wrap>
+      {navLayout !== undefined && onNavLayoutChange !== undefined && (
+        <Space>
+          <Typography.Text id="appearance-navigation-label">
+            {t('appearance.navigation')}
+          </Typography.Text>
+          <Segmented
+            aria-labelledby="appearance-navigation-label"
+            data-testid="nav-layout"
+            value={navLayout}
+            onChange={onNavLayoutChange}
+            options={NAV_LAYOUTS.map((value) => ({ value, label: t(`nav_layout.${value}`) }))}
+          />
+        </Space>
+      )}
       <Space>
         <Typography.Text id="appearance-theme-label">{t('appearance.theme')}</Typography.Text>
         <Segmented

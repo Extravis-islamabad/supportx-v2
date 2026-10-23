@@ -11,7 +11,13 @@ export default defineConfig({
     strictPort: true,
     // Same-origin API in development: the browser calls /api/... and Vite forwards it to the
     // backend started with `make backend-dev` (D-009: BFF and UI share one origin).
-    proxy: { '/api': { target: 'http://127.0.0.1:8000', changeOrigin: false } },
+    proxy: {
+      '/api': { target: 'http://127.0.0.1:8000', changeOrigin: false },
+      // Realtime gateway (Centrifugo, WP-011) on the same origin too: WebSocket, then the HTTP
+      // streaming / SSE fallbacks and their emulation endpoint.
+      '/connection': { target: 'http://127.0.0.1:28000', changeOrigin: false, ws: true },
+      '/emulation': { target: 'http://127.0.0.1:28000', changeOrigin: false },
+    },
   },
   test: {
     environment: 'jsdom',

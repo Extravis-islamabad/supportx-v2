@@ -30,6 +30,17 @@ class UserType(StrEnum):
     REQUESTER = "requester"
 
 
+class NavLayout(StrEnum):
+    """Where the console's navigation sits, per user (WP-011; a ServiceDesk Plus parity choice).
+
+    Stored server-side so the choice follows the user to every device.
+    """
+
+    TOP = "top"
+    SIDE = "side"
+    SIDE_COMPACT = "side_compact"
+
+
 class ClaimsError(ValueError):
     """The ID token's claims are not acceptable; the login must fail."""
 

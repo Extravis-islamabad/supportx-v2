@@ -37,6 +37,7 @@ class User(TenantEntity):
         CheckConstraint("status IN ('active', 'disabled')", name="status_code"),
         CheckConstraint("user_type IN ('technician', 'requester')", name="user_type_code"),
         CheckConstraint("char_length(signature) <= 2000", name="signature_length"),
+        CheckConstraint("nav_layout IN ('top', 'side', 'side_compact')", name="nav_layout_code"),
         # Keyset pagination for the sortable columns of GET /users (tenant first, ID last).
         Index("ix_users_tenant_created", "tenant_id", "created_at", "id"),
         Index("ix_users_tenant_display_name", "tenant_id", "display_name", "id"),
@@ -53,6 +54,7 @@ class User(TenantEntity):
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
+    nav_layout: Mapped[str] = mapped_column(server_default="top")
     # When the Keycloak roles were mapped to SupportX roles (once, D-029); NULL = not yet.
     roles_mapped_at: Mapped[datetime | None]
 

@@ -18,3 +18,8 @@ catalog:
   jsdom: ^30.1.3
   '@testing-library/react': ^16.3.0
   '@testing-library/dom': ^10.4.0
+
+# Install scripts of dependencies run only when listed here (pnpm refuses unlisted ones in CI).
+# protobufjs (via centrifuge, D-030): its postinstall only prints a version notice; not needed.
+allowBuilds:
+  protobufjs: false

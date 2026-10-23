@@ -1,13 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { deleteE2eRoles, expectAccessible, signInAs } from './helpers';
+import { deleteE2eRoles, expectAccessible, mainNav, navItems, signInAs } from './helpers';
 
+/** The sections the user's navigation offers, read live (no reload: WP-011 pushes changes). */
 async function menu(page: Page): Promise<string[]> {
-  await page.reload();
-  const nav = page.getByRole('navigation', { name: 'Main navigation' });
-  await expect(nav.getByText('Home', { exact: true })).toBeVisible();
-  return nav.getByRole('menuitem').allTextContents();
+  await expect(mainNav(page)).toBeVisible();
+  return navItems(page);
 }
+
+/** Realtime target: a role change reaches the other user's menus within about a second. */
+const LIVE = { timeout: 3_000 };
 
 /**
  * WP-016 journey: an admin builds a custom role, gives it to a test user, the user sees exactly
@@ -36,7 +38,7 @@ test('custom role: create, assign, see the menus, remove', async ({ browser }) =
 async function journey(admin: Page, user: Page, roleName: string): Promise<void> {
   // The limited user signs in once (JIT: requester, mapped once from Keycloak).
   await signInAs(user, 'limited');
-  expect(await menu(user)).toEqual(['Home', 'Requests', 'Knowledge']);
+  expect(await menu(user)).toEqual(['home', 'requests', 'knowledge']);
 
   // Admin builds the role in Admin › Roles.
   await admin.reload();
@@ -69,13 +71,13 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
 
   // The user's next request: exactly the role's sections are added.
   await expect
-    .poll(async () => menu(user))
-    .toEqual(['Home', 'Requests', 'Problems', 'Knowledge', 'Reports']);
+    .poll(async () => menu(user), LIVE)
+    .toEqual(['home', 'requests', 'problems', 'knowledge', 'reports']);
 
   // Removing the role takes effect on the next request too.
   await drawer.getByLabel(roleName).click();
   await expect(drawer.getByLabel(roleName)).not.toBeChecked();
-  await expect.poll(async () => menu(user)).toEqual(['Home', 'Requests', 'Knowledge']);
+  await expect.poll(async () => menu(user), LIVE).toEqual(['home', 'requests', 'knowledge']);
   await user.goto('/problems');
   await expect(user.getByText(/Ask your administrator for access/)).toBeVisible();
 

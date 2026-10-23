@@ -36,6 +36,7 @@ describe('theme', () => {
       const token = theme.getDesignToken(config);
       const selected = config.components?.Menu?.itemSelectedColor;
       expect(config.components?.Tabs?.itemSelectedColor).toBe(selected);
+      expect(config.components?.Menu?.horizontalItemSelectedColor).toBe(selected);
       for (const background of [token.colorPrimaryBg, '#141414']) {
         expect(contrastRatio(String(selected), background)).toBeGreaterThanOrEqual(4.5);
       }
