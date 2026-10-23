@@ -19,7 +19,9 @@ import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from datetime import time as day_start
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import asyncpg
 import httpx
@@ -43,6 +45,8 @@ from tooling.db_testing import ThrowawayDatabase
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
 
 BASE = "/announcements"
+KARACHI = ZoneInfo("Asia/Karachi")
+HONOLULU = ZoneInfo("Pacific/Honolulu")
 CONSOLE = {"X-SupportX-Client": "console"}
 
 
@@ -325,6 +329,70 @@ async def test_create_is_idempotent_with_a_key(world: World) -> None:
     assert problem(other) == (422, "idempotency_key_reused")
     titles = await world.call("GET", f"{BASE}?title=Once", a, a.admin)
     assert len(titles.json()["items"]) == 1
+
+
+async def test_owner_candidates_are_people_who_may_manage(world: World) -> None:
+    a = world.a
+    response = await world.call("GET", f"{BASE}/owner-candidates", a, a.tech)
+    assert response.status_code == 200, response.text
+    # Admin (all), Comms and Site Tech (custom roles), Tech (built-in, own); never requesters
+    # or anyone from tenant B. Sorted by name.
+    assert [row["display_name"] for row in response.json()] == [
+        "Alpha Admin",
+        "Alpha Comms",
+        "Alpha Site Tech",
+        "Alpha Tech",
+    ]
+    assert set(response.json()[0]) == {"id", "display_name"}
+    found = await world.call("GET", f"{BASE}/owner-candidates?search=site", a, a.tech)
+    assert [row["id"] for row in found.json()] == [str(a.site_tech)]
+    # LIKE wildcards are literal.
+    wild = await world.call("GET", f"{BASE}/owner-candidates?search=%25", a, a.tech)
+    assert wild.json() == []
+    limited = await world.call("GET", f"{BASE}/owner-candidates?limit=2", a, a.tech)
+    assert len(limited.json()) == 2
+    # The current owner is always named, first, even outside the search.
+    named = await world.call(
+        "GET", f"{BASE}/owner-candidates?search=site&include={a.requester}", a, a.tech
+    )
+    assert [row["display_name"] for row in named.json()] == ["Alpha Requester", "Alpha Site Tech"]
+    foreign = await world.call(
+        "GET", f"{BASE}/owner-candidates?search=site&include={world.b.admin}", a, a.tech
+    )
+    assert [row["id"] for row in foreign.json()] == [str(a.site_tech)]
+    denied = await world.call("GET", f"{BASE}/owner-candidates", a, a.requester)
+    assert problem(denied) == (403, "permission_denied")
+
+
+async def test_owner_must_be_allowed_to_manage(world: World) -> None:
+    a = world.a
+    refused = await world.call(
+        "POST", BASE, a, a.admin, json={"title": "t", "body": "b", "owner_id": str(a.requester)}
+    )
+    assert problem(refused) == (422, "validation_failed")
+    assert [(e["field"], e["code"]) for e in refused.json()["errors"]] == [
+        ("body.owner_id", "owner_not_allowed")
+    ]
+    item = await world.create(a, a.admin, owner_id=str(a.comms))
+    assert item["owner_id"] == str(a.comms)
+    path = f"{BASE}/{item['id']}"
+    moved = await world.call(
+        "PATCH",
+        path,
+        a,
+        a.admin,
+        headers={"If-Match": '"1"'},
+        json={"owner_id": str(world.b.admin)},
+    )
+    # Another tenant's user does not exist here at all.
+    assert [(e["field"], e["code"]) for e in moved.json()["errors"]] == [
+        ("body.owner_id", "unknown_value")
+    ]
+    edited = await world.call(
+        "PATCH", path, a, a.admin, headers={"If-Match": '"1"'}, json={"owner_id": str(a.tech)}
+    )
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["owner_id"] == str(a.tech)
 
 
 RANDOM = "random"
@@ -766,13 +834,20 @@ async def test_today_follows_the_users_time_zone(world: World) -> None:
     """ "Created today" is the user's today (X-Time-Zone), not the server's (follow-up c)."""
     a = world.a
     item = await world.create(a, a.admin, title="Zone check")
-    # Created one minute after midnight of today in Karachi (+05:00). Honolulu (-10:00) is 15 hours
-    # behind, so at that instant it is still yesterday there.
+    # An instant inside today in Karachi (+05:00) but not inside today in Honolulu (-10:00). When
+    # both are on the same date that is just after Karachi's midnight (Honolulu's day starts 15
+    # hours later); once Karachi is a date ahead, it is just after Honolulu's day ends.
+    now = datetime.now(UTC)
+    karachi_day = datetime.combine(now.astimezone(KARACHI).date(), day_start(), KARACHI)
+    honolulu_day = datetime.combine(now.astimezone(HONOLULU).date(), day_start(), HONOLULU)
+    minute = timedelta(minutes=1)
+    at = (
+        karachi_day + minute
+        if karachi_day < honolulu_day
+        else honolulu_day + timedelta(days=1) + minute
+    )
     await world.sql(
-        "UPDATE announcements SET created_at ="
-        " (date_trunc('day', now() AT TIME ZONE 'Asia/Karachi') + interval '1 minute')"
-        " AT TIME ZONE 'Asia/Karachi' WHERE id = $1",
-        uuid.UUID(item["id"]),
+        "UPDATE announcements SET created_at = $2 WHERE id = $1", uuid.UUID(item["id"]), at
     )
     dsl = json.dumps({"field": "created_at", "op": "today"})
     karachi = await world.call(

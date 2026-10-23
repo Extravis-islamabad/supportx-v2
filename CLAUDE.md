@@ -88,6 +88,10 @@ client), `@axe-core/playwright` (test-only accessibility checks).
 
 **Approved additions (D-030):** `centrifuge` (centrifuge-js, Centrifugo's official client).
 
+**Approved additions (D-035, D-036):** `dayjs` (Ant Design 5's date library, used directly by
+the shared `DateTimeField`); Tiptap (MIT) as the rich-text editor, with server-side HTML
+sanitising, to be added with the Knowledge module (not yet installed).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

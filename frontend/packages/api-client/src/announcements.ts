@@ -19,6 +19,7 @@ export type AnnouncementVisibility = components['schemas']['AnnouncementVisibili
 export type AnnouncementFeed = components['schemas']['FeedOut'];
 export type AnnouncementHistoryEntry = components['schemas']['HistoryEntryOut'];
 export type AnnouncementSettings = components['schemas']['SettingsOut'];
+export type AnnouncementOwnerCandidate = components['schemas']['OwnerCandidateOut'];
 
 /** List parameters the UI controls (the shared filter DSL, a sort, the trash or not). */
 export interface AnnouncementsQuery {
@@ -30,6 +31,36 @@ export interface AnnouncementsQuery {
 
 const path = (id: string) => `/api/v1/announcements/${id}`;
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
+
+/**
+ * People who may own an announcement (they may manage announcements), matching `search` by name
+ * or email; `include` (the current owner) is always named first. For the owner picker; the API
+ * refuses anyone else as owner. Never cached as fresh, so role changes show when it reopens.
+ */
+export function useAnnouncementOwnerCandidates(
+  search: string,
+  include: string | null,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: queryKeys.announcements.ownerCandidates(search, include),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/announcements/owner-candidates', {
+          params: {
+            query: {
+              search: search === '' ? undefined : search,
+              include: include === null ? undefined : [include],
+              limit: 20,
+            },
+          },
+        }),
+      ),
+    enabled,
+    staleTime: 0,
+    placeholderData: (previous) => previous,
+  });
+}
 
 /** Staff list (or the trash), cursor-paged: `fetchNextPage()` follows `next_cursor`. */
 export function useAnnouncements(query: AnnouncementsQuery, enabled = true) {

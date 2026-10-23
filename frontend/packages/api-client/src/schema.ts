@@ -51,6 +51,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/announcements/owner-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People who may own an announcement
+         * @description Active users who may manage announcements, by name, for the owner picker.
+         *
+         *     `search` matches name or email (contains, case-insensitive). Other people are refused as
+         *     owner on create and edit (`owner_not_allowed`). `include` (e.g. the current owner) is listed
+         *     first by name even when outside this page.
+         */
+        get: operations["owner_candidates_api_v1_announcements_owner_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/announcements/settings": {
         parameters: {
             query?: never;
@@ -1427,6 +1451,19 @@ export interface components {
          */
         Op: "eq" | "ne" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "between" | "contains" | "starts_with" | "is_null" | "is_not_null" | "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "last_n_days" | "next_n_days" | "before_now" | "after_now";
         /**
+         * OwnerCandidateOut
+         * @description Someone who may own an announcement (holds announcements.manage).
+         */
+        OwnerCandidateOut: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
          * PermissionOut
          * @description A catalogue permission. Labels: `permission.<key>` and `permission.<key>.description`.
          */
@@ -2090,6 +2127,75 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    owner_candidates_api_v1_announcements_owner_candidates_get: {
+        parameters: {
+            query?: {
+                search?: string | null;
+                limit?: number;
+                include?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerCandidateOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */
