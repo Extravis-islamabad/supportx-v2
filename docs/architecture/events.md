@@ -192,5 +192,6 @@ Outbox rows stuck unpublished show `last_error`:
 OpenTelemetry instruments (Prometheus names after export):
 `supportx_outbox_oldest_unpublished_age_seconds`, `supportx_relay_published_events_total`,
 `supportx_relay_publish_failures_total`, `supportx_consumer_lag`, `supportx_dlq_messages`,
-`supportx_consumer_processed_events_total`. `SUPPORTX_METRICS_EXPORTER=console` prints them; the
-Prometheus scrape endpoint comes with WP-014. The same numbers are in the heartbeats.
+`supportx_consumer_processed_events_total`. `SUPPORTX_METRICS_EXPORTER=console` prints them;
+`prometheus` serves them on `SUPPORTX_METRICS_PORT` (9464, with `/healthz` and `/readyz` for
+probes; WP-014, docs/deployment.md). The same numbers are in the heartbeats.

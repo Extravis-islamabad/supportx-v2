@@ -1,0 +1,68 @@
+{{- $c := dict "root" . "component" "migrate" -}}
+# One Job per Helm revision (ADR-025): roles + database from tooling/sql, then Alembic. Not a
+# Helm hook: a pre-install hook would run before the in-cluster PostgreSQL exists, and a
+# post-install hook would deadlock with --wait. The API and workers of this revision wait for it
+# in an init container instead (tooling/wait_for_job.py). Re-running is safe; a database already
+# migrated by a newer release is left alone (rollback), nothing is ever downgraded.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "supportx.migrateJob" . }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: {{ .Values.migrate.waitTimeoutSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Release.Name }}-migrate
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: migrate
+          image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              python -m tooling.deploy_migrate
+              {{- if .Values.app.seedDevData }}
+              && python -m tooling.seed_dev
+              {{- end }}
+          env:
+            - name: SUPPORTX_PROFILE
+              value: {{ .Values.app.profile | quote }}
+            - name: SUPPORTX_DEPLOY_DATABASE
+              value: {{ .Values.postgresql.database | quote }}
+            - name: SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: migrator-db-password}}
+            - name: SUPPORTX_MIGRATION_DATABASE_URL
+              value: "postgresql://supportx_migrator:$(SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD)@{{ include "supportx.dbHost" . }}:{{ include "supportx.dbPort" . }}/{{ .Values.postgresql.database }}"
+            {{- if eq .Values.postgresql.mode "cnpg" }}
+            # Superuser only here, only to create roles, the database and extensions.
+            - name: SUPPORTX_SECRET_PG_SUPERUSER_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Release.Name }}-pg-superuser, key: password}}
+            - name: SUPPORTX_DEPLOY_ADMIN_URL
+              value: "postgresql://postgres:$(SUPPORTX_SECRET_PG_SUPERUSER_PASSWORD)@{{ include "supportx.dbHost" . }}:5432/postgres"
+            - name: SUPPORTX_DEPLOY_CNPG_POOLER
+              value: "1"
+            - name: SUPPORTX_DEPLOY_APP_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: app-db-password}}
+            - name: SUPPORTX_DEPLOY_MIGRATOR_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: migrator-db-password}}
+            - name: SUPPORTX_DEPLOY_RELAY_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: relay-db-password}}
+            {{- end }}
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.migrate.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}

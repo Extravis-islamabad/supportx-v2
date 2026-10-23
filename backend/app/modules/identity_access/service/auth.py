@@ -16,6 +16,7 @@ import uuid
 from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal
+from urllib.parse import urlsplit
 
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
@@ -115,10 +116,25 @@ class AuthService:
     # --- clients and origins -------------------------------------------------------------------
 
     def base_url(self, app: AppName) -> str:
-        """Public origin of the console or portal (where the browser lands after login)."""
+        """Public base URL of the console or portal, path included (`https://host/portal`)."""
         return (self.settings.console_url if app == "console" else self.settings.portal_url).rstrip(
             "/"
         )
+
+    def origin(self, app: AppName) -> str:
+        """Scheme and host of the console or portal: where the BFF and its callback live.
+
+        Both UIs may share one host (the portal under /portal, WP-014); the API is always at the
+        host's /api, so the callback and the Origin check use the origin, not the base path.
+        """
+        parts = urlsplit(self.base_url(app))
+        return f"{parts.scheme}://{parts.netloc}"
+
+    def landing(self, app: AppName, return_to: str) -> str:
+        """Where the browser goes after login: its own path, else the UI's home."""
+        if return_to == "/":
+            return self.base_url(app) + "/"
+        return self.origin(app) + return_to
 
     def client(self, app: AppName) -> ClientCredentials:
         """The confidential OIDC client of the console or portal."""
@@ -135,13 +151,13 @@ class AuthService:
         if secret is None:
             raise ServiceUnavailable(code="auth_not_configured")
         return ClientCredentials(
-            client_id, secret.get_secret_value(), self.base_url(app) + CALLBACK_PATH
+            client_id, secret.get_secret_value(), self.origin(app) + CALLBACK_PATH
         )
 
     @property
     def allowed_origins(self) -> frozenset[str]:
         """Origins allowed to send state-changing requests with the session cookie."""
-        return frozenset({self.base_url("console"), self.base_url("portal")})
+        return frozenset({self.origin("console"), self.origin("portal")})
 
     # --- login ---------------------------------------------------------------------------------
 
@@ -193,7 +209,7 @@ class AuthService:
             await self.store.delete_session(previous_session_id)
         session_id = await self._save_new(session)
         log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
-        return LoginResult(session_id, session, self.base_url(app) + pending["return_to"])
+        return LoginResult(session_id, session, self.landing(app, pending["return_to"]))
 
     async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
         client = self.client(app)

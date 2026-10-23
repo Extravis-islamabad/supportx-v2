@@ -1,0 +1,24 @@
+apiVersion: v2
+name: supportx
+description: >-
+  SupportX v2: API (with the BFF), event workers, realtime gateway, identity and data stores in
+  one chart for every profile (architecture.md §14.3, ADR-025). INTERNAL/DEV images only until
+  the Nuitka build exists (D-038).
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.35.0-0"
+home: https://github.com/devhat-pm/supportx-v2
+maintainers:
+  - name: Extravis
+dependencies:
+  # Upstream charts (D-037). PostgreSQL comes from the CloudNativePG operator (a cluster-wide
+  # prerequisite, deploy/k3d/README.md), not from a subchart.
+  - name: nats
+    version: 2.15.1
+    repository: https://nats-io.github.io/k8s/helm/charts/
+    condition: nats.enabled
+  - name: valkey
+    version: 0.12.0
+    repository: https://valkey.io/valkey-helm/
+    condition: valkey.enabled

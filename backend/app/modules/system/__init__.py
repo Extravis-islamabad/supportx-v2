@@ -43,7 +43,8 @@ def build_readiness_service(settings: Settings) -> ReadinessService:
     if settings.oidc_issuer is None:
         not_configured.append("keycloak")
     else:
-        probes.append(KeycloakProbe(settings.oidc_issuer))
+        # The realm as this process reaches it (inside a cluster: the internal URL, WP-014).
+        probes.append(KeycloakProbe(settings.oidc_internal_url or settings.oidc_issuer))
     return ReadinessService(
         probes,
         not_configured=not_configured,

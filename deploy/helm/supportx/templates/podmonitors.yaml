@@ -1,0 +1,23 @@
+{{- if include "supportx.podMonitorsEnabled" . }}
+# Prometheus Operator scraping of every SupportX pod's internal /metrics (WP-014). Without the
+# CRDs the pods carry prometheus.io/* annotations instead (_helpers.tpl).
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "metrics") | nindent 4 }}
+spec:
+  selector:
+    matchExpressions:
+      - key: app.kubernetes.io/instance
+        operator: In
+        values: [{{ .Release.Name | quote }}]
+      - key: app.kubernetes.io/component
+        operator: In
+        values: [api, relay, consumers, fanout]
+  podMetricsEndpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+{{- end }}

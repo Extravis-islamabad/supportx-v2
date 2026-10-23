@@ -25,6 +25,9 @@ export const routes: RouteObject[] = [
   },
 ];
 
+/** Routes are relative to where the portal is served: `/` in dev, `/portal/` when deployed. */
+export const BASENAME = import.meta.env.BASE_URL.replace(/\/$/, '') || '/';
+
 export function createRouter() {
-  return createBrowserRouter(routes);
+  return createBrowserRouter(routes, { basename: BASENAME });
 }

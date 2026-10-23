@@ -1,0 +1,62 @@
+{{- $c := dict "root" . "component" "web" -}}
+# Console (/) and portal (/portal/) static files (deploy/images/web.Dockerfile).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  strategy:
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: web
+          image: {{ include "supportx.image" (dict "root" . "name" "web") }}
+          imagePullPolicy: {{ .Values.images.web.pullPolicy }}
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+          volumeMounts:
+            - {name: cache, mountPath: /var/cache/nginx}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

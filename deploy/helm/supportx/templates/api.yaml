@@ -1,0 +1,82 @@
+{{- $c := dict "root" . "component" "api" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ .Values.api.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  strategy:
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        {{- include "supportx.configChecksum" . | nindent 8 }}
+        {{- include "supportx.metricsAnnotations" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}-workload
+      automountServiceAccountToken: true
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      initContainers:
+        {{- include "supportx.waitForMigrate" . | nindent 8 }}
+      containers:
+        - name: api
+          image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          {{- include "supportx.backendEnvFrom" . | nindent 10 }}
+          env:
+            {{- include "supportx.secretEnv" . | nindent 12 }}
+            - name: SUPPORTX_SERVICE_NAME
+              value: supportx-api
+          ports:
+            - {name: http, containerPort: 8000}
+            - {name: metrics, containerPort: 9464}
+          startupProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /api/v1/ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            {{- if .Values.app.licenceSecret }}
+            - {name: licence, mountPath: /etc/supportx/licence, readOnly: true}
+            {{- end }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        {{- if .Values.app.licenceSecret }}
+        # Read only by the licensing module (CLAUDE.md rule f).
+        - name: licence
+          secret: {secretName: {{ .Values.app.licenceSecret }}}
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: http, port: 8000, targetPort: http}

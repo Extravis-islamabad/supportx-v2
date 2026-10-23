@@ -92,7 +92,8 @@ refetch; the API filters by audience. See `app/modules/announcements/service/rea
 
 ## Operating it
 
-- Run: `make worker-fanout` (dev), the `realtime_fanout` deployment later (WP-014).
+- Run: `make worker-fanout` (dev); in Kubernetes the `supportx-fanout` Deployment, always one copy
+  (docs/deployment.md, ADR-025). Its Prometheus metrics are on port 9464.
 - `/api/v1/ready` lists `realtime_fanout` (informational, like the other workers); `make
   events-stats` prints its counters: publications, coalesced, deferred (rate limit), dropped
   (backlog limit), revocations, failures, fan-out lag p50/p95/p99.

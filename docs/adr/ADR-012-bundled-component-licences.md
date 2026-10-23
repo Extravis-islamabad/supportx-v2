@@ -1,6 +1,6 @@
-# ADR-012: Bundled component licences (MinIO, Grafana, Redis)
+# ADR-012: Bundled component licences (MinIO, Grafana, Redis, monitoring stack)
 
-- **Status:** Open
+- **Status:** Accepted (2026-10-24, D-038; Open before)
 - **Date:** 2026-10-22
 - **Source:** architecture.md §5 licence box, §19
 - **Owner:** Haider (Product Owner)
@@ -18,10 +18,12 @@ On-prem installs redistribute third-party components. MinIO and Grafana are AGPL
   - **Local development:** MinIO from the `pgsty/minio` and `pgsty/mc` community images (see Notes).
     Dev only; never bundled.
   - **SaaS:** the cloud provider's S3 service.
-  - **On-prem bundle — open:** evaluate SeaweedFS (Apache-2.0) and other S3-compatible stores
-    (licence, air-gap install, HA, operational fit) before the first on-prem release. MinIO stays a
-    candidate only if legal approves AGPL redistribution.
-- **Grafana — open:** legal review before the first on-prem release; alternatives exist if needed.
+  - **On-prem bundle — SeaweedFS (Apache-2.0)** (D-038). Packaged with WP-014b (single node) and
+    WP-014c (air-gapped bundle); the evaluation there covers HA and backup. MinIO is not bundled.
+- **Monitoring stack — permissive only on-prem (D-038).** Grafana, Loki and Tempo are all AGPL, so
+  the on-prem observability bundle is VictoriaMetrics + VictoriaLogs (Apache-2.0), Jaeger
+  (Apache-2.0) and Perses (Apache-2.0, dashboards). Grafana (with Loki/Tempo) may be used only
+  inside Extravis-run SaaS, never shipped to customers.
 
 ## Consequences
 
@@ -30,9 +32,9 @@ On-prem installs redistribute third-party components. MinIO and Grafana are AGPL
 
 ## Notes
 
-Open in architecture.md §19 for the on-prem object store and Grafana; decision required before the
-first on-prem release. Redis part resolved 2026-10-22 (D-011). Object-storage direction set
-2026-10-22 (D-016).
+Open in architecture.md §19 for the on-prem object store and Grafana until 2026-10-24, when the
+WP-014 plan decisions closed both (D-038). Redis part resolved 2026-10-22 (D-011). Object-storage
+direction set 2026-10-22 (D-016). Deployment components approved as D-037 are all permissive.
 
 MinIO image situation (found in WP-002, 2026-10-22): MinIO Inc. no longer publishes community
 container images. `minio/minio` and `minio/mc` pulls from Docker Hub are denied and the Quay tags

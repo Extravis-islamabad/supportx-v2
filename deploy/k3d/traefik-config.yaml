@@ -1,0 +1,22 @@
+# k3s's bundled Traefik with the Gateway API provider on (D2). The chart creates its own
+# Gateway per release (routing.gateway.create), so Traefik's default Gateway stays off.
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+spec:
+  valuesContent: |-
+    providers:
+      kubernetesGateway:
+        enabled: true
+    gateway:
+      enabled: false
+    ports:
+      web:
+        # WebSocket and HTTP-streaming connections stay open (realtime, WP-011).
+        transport:
+          respondingTimeouts:
+            readTimeout: 0
+            writeTimeout: 0
+            idleTimeout: 3600s

@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 import { OTHER_TENANT_ID } from '../realtime';
-import { stackEnv } from '../stack';
+import { centrifugoTokenSecret, CONSOLE_URL } from '../stack';
 import { deleteE2eRoles, signInAs } from './helpers';
 
 /**
@@ -11,7 +11,8 @@ import { deleteE2eRoles, signInAs } from './helpers';
  * WebSocket clients through the same origin the browser uses. Every attempt must be refused.
  */
 
-const WS_URL = 'ws://localhost:5173/connection/websocket';
+// Same origin as the console: the Vite proxy in dev, the gateway in the k3d cluster.
+const WS_URL = `${CONSOLE_URL.replace(/^http/, 'ws')}/connection/websocket`;
 
 interface Reply {
   id?: number;
@@ -134,7 +135,7 @@ test('forged and expired connection tokens are refused by the gateway', async ({
   expect(reply.connect).toBeUndefined(); // refused (invalid token: the gateway closes)
   forged.close();
 
-  const secret = stackEnv().CENTRIFUGO_TOKEN_HMAC_SECRET ?? '';
+  const secret = centrifugoTokenSecret();
   const expired = new RawClient();
   const old = { ...claims, iat: claims.iat - 3600, exp: claims.iat - 60 };
   const expiredReply = await expired.connect(sign(old, secret));

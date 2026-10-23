@@ -1,20 +1,27 @@
 /**
- * The dev stack the suite runs against: Keycloak admin access (from deploy/compose/.env, written
- * by `make dev-init`), the backend dev tools, and the users the suite works with.
+ * The stack the suite runs against: the Compose dev stack (Keycloak admin access from
+ * deploy/compose/.env, written by `make dev-init`) or, with SUPPORTX_E2E_* set by
+ * `make cluster-e2e`, the k3d cluster (WP-014). Also the backend dev tools and the suite's users.
  */
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '../..');
 
-/** The portal dev server (`pnpm --filter @supportx/portal dev`); the console is the baseURL. */
+/** The console: Playwright's baseURL (Vite dev server, or the cluster's public URL). */
+export const CONSOLE_URL = process.env.SUPPORTX_CONSOLE_URL ?? 'http://localhost:5173';
+
+/** The portal dev server (`pnpm --filter @supportx/portal dev`), or `<cluster>/portal`. */
 export const PORTAL_URL = process.env.SUPPORTX_PORTAL_URL ?? 'http://localhost:5174';
 
+/** The Compose stack's settings; empty when there is none (cluster runs in CI). */
 export function stackEnv(): Record<string, string> {
-  const text = readFileSync(resolve(REPO, 'deploy/compose/.env'), 'utf8');
+  const path = resolve(REPO, 'deploy/compose/.env');
+  if (!existsSync(path)) return {};
+  const text = readFileSync(path, 'utf8');
   return Object.fromEntries(
     text
       .split('\n')
@@ -75,17 +82,28 @@ export function passwordOf(user: E2eUser): string {
 
 export type KeycloakAdmin = (path: string, init?: RequestInit) => Promise<Response>;
 
-/** Keycloak admin API on the dev realm (dev credentials from deploy/compose/.env). */
+/** The realtime gateway's token key, to forge tokens in the security tests (dev only). */
+export function centrifugoTokenSecret(): string {
+  return (
+    process.env.SUPPORTX_E2E_CENTRIFUGO_TOKEN_SECRET ??
+    stackEnv().CENTRIFUGO_TOKEN_HMAC_SECRET ??
+    ''
+  );
+}
+
+/** Keycloak admin API on the dev realm (Compose .env, or SUPPORTX_E2E_KEYCLOAK_* for k3d). */
 export async function keycloakAdmin(): Promise<KeycloakAdmin> {
   const env = stackEnv();
-  const base = `http://localhost:${env.KEYCLOAK_PORT ?? '28080'}`;
+  const base =
+    process.env.SUPPORTX_E2E_KEYCLOAK_URL ?? `http://localhost:${env.KEYCLOAK_PORT ?? '28080'}`;
   const tokenResponse = await fetch(`${base}/realms/master/protocol/openid-connect/token`, {
     method: 'POST',
     body: new URLSearchParams({
       grant_type: 'password',
       client_id: 'admin-cli',
-      username: env.KEYCLOAK_ADMIN_USER ?? 'admin',
-      password: env.KEYCLOAK_ADMIN_PASSWORD ?? '',
+      username: process.env.SUPPORTX_E2E_KEYCLOAK_ADMIN_USER ?? env.KEYCLOAK_ADMIN_USER ?? 'admin',
+      password:
+        process.env.SUPPORTX_E2E_KEYCLOAK_ADMIN_PASSWORD ?? env.KEYCLOAK_ADMIN_PASSWORD ?? '',
     }),
   });
   if (!tokenResponse.ok) {

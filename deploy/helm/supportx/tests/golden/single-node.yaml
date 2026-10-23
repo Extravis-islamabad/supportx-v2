@@ -1,0 +1,2409 @@
+---
+# Source: supportx/templates/networkpolicies.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-default-deny-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-api-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: api
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+      ports:
+        - {port: 8000, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-web-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: web
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+      ports:
+        - {port: 8080, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-centrifugo-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: centrifugo
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+      ports:
+        - {port: 8000, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-keycloak-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: keycloak
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+      ports:
+        - {port: 8080, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+# Every SupportX pod's /metrics (9464), Keycloak's management port (9000) and the exporters of
+# NATS (7777) and Valkey (9121): scraping from anywhere in the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-metrics-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {port: 9464, protocol: TCP}
+        - {port: 9000, protocol: TCP}
+        - {port: 7777, protocol: TCP}
+        - {port: 9121, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+# NATS and Valkey: only SupportX's own pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-bus-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/instance, operator: In, values: ["supportx"]}
+      - {key: app.kubernetes.io/name, operator: In, values: [nats, valkey]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+      ports:
+        - {port: 4222, protocol: TCP}
+        - {port: 6379, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
+# PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
+# other instances (replication) and the CloudNativePG operator (instance manager on 8000).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-postgresql-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: supportx-pg
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: supportx-pg
+      ports:
+        - {port: 5432, protocol: TCP}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+      ports:
+        - {port: 8000, protocol: TCP}
+        - {port: 5432, protocol: TCP}
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {port: 9187, protocol: TCP}   # CloudNativePG metrics
+
+---
+# Source: supportx/charts/nats/templates/pod-disruption-budget.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  labels:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/version: 2.15.1
+    helm.sh/chart: nats-2.15.1
+  name: supportx-nats
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: nats
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/name: nats
+
+---
+# Source: supportx/charts/valkey/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: supportx-valkey
+  labels:
+    helm.sh/chart: valkey-0.12.0
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: false
+
+---
+# Source: supportx/templates/rbac.yaml
+# Service accounts. Only the API and workers read the Kubernetes API, and only to see whether
+# this release's migrate Job is done (tooling/wait_for_job.py).
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: supportx-workload
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+automountServiceAccountToken: false
+
+---
+# Source: supportx/templates/rbac.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: supportx-migrate
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+automountServiceAccountToken: false
+
+---
+# Source: supportx/charts/nats/templates/config-map.yaml
+apiVersion: v1
+data:
+  nats.conf: |
+    {
+      "authorization": {
+        "password": $SUPPORTX_NATS_PASSWORD,
+        "user": "supportx"
+      },
+      "http_port": 8222,
+      "jetstream": {
+        "max_file_store": 20Gi,
+        "max_memory_store": 256Mi,
+        "store_dir": "/data"
+      },
+      "lame_duck_duration": "30s",
+      "lame_duck_grace_period": "10s",
+      "pid_file": "/var/run/nats/nats.pid",
+      "port": 4222,
+      "server_name": $SERVER_NAME
+    }
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/version: 2.15.1
+    helm.sh/chart: nats-2.15.1
+  name: supportx-nats-config
+
+---
+# Source: supportx/charts/valkey/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supportx-valkey-config
+  labels:
+    helm.sh/chart: valkey-0.12.0
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  valkey.conf: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+    
+
+---
+# Source: supportx/charts/valkey/templates/init_config.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supportx-valkey-init-scripts
+  labels:
+    helm.sh/chart: valkey-0.12.0
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  init.sh: |-
+    #!/bin/sh
+    set -eu
+
+    # Default config paths
+    VALKEY_CONFIG=${VALKEY_CONFIG_PATH:-/data/conf/valkey.conf}
+
+    LOGFILE="/data/init.log"
+    DATA_DIR="/data/conf"
+
+    # Logging function (outputs to stderr and file)
+    log() {
+      echo "$(date) $1" | tee -a "$LOGFILE" >&2
+    }
+    # Function to get password for a user
+    # Usage: get_user_password <username> [password_key]
+    # Returns: password via stdout, exits with error if not found
+    get_user_password() {
+      username="$1"
+      password_key="${2:-$username}"
+      password=""
+      # Try to get password from existing secret first (priority)
+      if [ -f "/valkey-users-secret/$password_key" ]; then
+        password=$(cat "/valkey-users-secret/$password_key")
+        log "Using password from existing secret for user $username"
+      elif [ -f "/valkey-auth-secret/${username}-password" ]; then
+        # Fallback to inline password
+        password=$(cat "/valkey-auth-secret/${username}-password")
+        log "Using inline password for user $username"
+      else
+        log "ERROR: No password found for user $username"
+        return 1
+      fi
+
+      echo "$password"
+    }
+
+    # Clean old log if requested
+    if [ "${KEEP_OLD_LOGS:-false}" != "true" ]; then
+      rm -f "$LOGFILE"
+    fi
+
+    if [ -f "$LOGFILE" ]; then
+      log "Detected restart of this instance ($HOSTNAME)"
+    fi
+
+    log "Creating configuration in $DATA_DIR..."
+    mkdir -p "$DATA_DIR"
+    rm -f "$VALKEY_CONFIG"
+
+
+    # Base valkey.conf
+    log "Generating base valkey.conf"
+    {
+      echo "port 6379"
+      echo "protected-mode no"
+      echo "bind * -::*"
+      echo "dir /data"
+    } >>"$VALKEY_CONFIG"
+    # Create secure directory for ACL file
+    log "Creating /etc/valkey directory for ACL file"
+    mkdir -p /etc/valkey
+
+    # Set aclfile path in valkey.conf
+    echo "aclfile /etc/valkey/users.acl" >>"$VALKEY_CONFIG"
+
+    # Remove or reset existing ACL file if present (it may be read-only from previous run)
+    log "Preparing ACL file at /etc/valkey/users.acl"
+    if [ -f /etc/valkey/users.acl ]; then
+      log "Removing existing read-only users.acl file"
+      chmod 0600 /etc/valkey/users.acl
+      rm -f /etc/valkey/users.acl
+    fi
+
+    # Create ACL file with secure permissions
+    touch /etc/valkey/users.acl
+    chmod 0600 /etc/valkey/users.acl
+    # Generate ACL entries for each user
+    log "Generating ACL entries for users"
+
+    # User: default
+    PASSWORD=$(get_user_password "default" "valkey-password") || exit 1
+
+    # Hash the password and write ACL entry
+    PASSHASH=$(echo -n "$PASSWORD" | sha256sum | cut -f 1 -d " ")
+    echo "user default on #$PASSHASH ~* &* +@all" >> /etc/valkey/users.acl
+
+    # Set final permissions
+    chmod 0400 /etc/valkey/users.acl
+    log "ACL file created with 0400 permissions"
+
+    # Append extra configs if present
+    if [ -f /usr/local/etc/valkey/valkey.conf ]; then
+      log "Appending /usr/local/etc/valkey/valkey.conf"
+      cat /usr/local/etc/valkey/valkey.conf >>"$VALKEY_CONFIG"
+    fi
+    if [ -d /extravalkeyconfigs ]; then
+      log "Appending files in /extravalkeyconfigs/"
+      cat /extravalkeyconfigs/* >>"$VALKEY_CONFIG"
+    fi
+
+
+---
+# Source: supportx/templates/centrifugo.yaml
+# Realtime gateway (ADR-005, ADR-023). Same options as the dev stack's config.json; the browser
+# reaches it on the public host at /connection and /emulation (D3). Secrets only through env.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supportx-centrifugo
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: centrifugo
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+data:
+  config.json: |
+    {
+      "client": {
+        "allowed_origins": ["https://supportx.example.com"],
+        "token": {"audience": "supportx-realtime", "issuer": "supportx-api"},
+        "channel_limit": 256
+      },
+      "channel": {
+        "namespace_boundary": "|",
+        "without_namespace": {
+          "history_size": 100,
+          "history_ttl": "300s",
+          "force_recovery": true,
+          "allow_presence_for_subscriber": true,
+          "presence": true
+        }
+      },
+      "sse": {"enabled": true},
+      "http_stream": {"enabled": true},
+      "http_api": {},
+      "prometheus": {"enabled": true},
+      "health": {"enabled": true},
+      "log": {"level": "info"}
+    }
+
+---
+# Source: supportx/templates/configmap-env.yaml
+# Non-secret SUPPORTX_* settings shared by the API and the workers (app/core/config.py).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supportx-env
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: config
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+data:
+  SUPPORTX_PROFILE: "production"
+  SUPPORTX_LOG_LEVEL: "info"
+  # The browser's URLs (D3): console at /, portal at /portal.
+  SUPPORTX_CONSOLE_URL: "https://supportx.example.com"
+  SUPPORTX_PORTAL_URL: "https://supportx.example.com/portal"
+  # Keycloak: public issuer for browsers and token checks; the API itself uses the in-cluster
+  # address (back channel).
+  SUPPORTX_OIDC_ISSUER: "https://supportx.example.com/auth/realms/supportx"
+  SUPPORTX_OIDC_INTERNAL_URL: "http://supportx-keycloak:8080/auth/realms/supportx"
+  SUPPORTX_CENTRIFUGO_API_URL: "http://supportx-centrifugo:8000"
+  SUPPORTX_EVENTS_STREAM_REPLICAS: "1"
+  # /metrics (and the workers' /healthz, /readyz) on the internal port (WP-014).
+  SUPPORTX_METRICS_EXPORTER: prometheus
+  SUPPORTX_METRICS_HOST: "0.0.0.0"
+  SUPPORTX_METRICS_PORT: "9464"
+  SUPPORTX_ENTITLEMENT_PROVIDER: "subscription"
+
+---
+# Source: supportx/templates/keycloak.yaml
+# Keycloak (ADR-006) on the public host at /auth (D3). The API talks to it inside the cluster
+# (SUPPORTX_OIDC_INTERNAL_URL); Keycloak keeps the public issuer for browsers and tokens.
+# The realm file is imported on first start only; an existing realm is never overwritten.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supportx-keycloak-realm
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: keycloak
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+data:
+  supportx-realm.json: |
+    {
+      "realm": "supportx",
+      "displayName": "SupportX",
+      "enabled": true,
+      "organizationsEnabled": true,
+      "sslRequired": "external",
+      "registrationAllowed": false,
+      "loginWithEmailAllowed": true,
+      "duplicateEmailsAllowed": false,
+      "resetPasswordAllowed": false,
+      "rememberMe": false,
+      "editUsernameAllowed": false,
+      "internationalizationEnabled": true,
+      "supportedLocales": [
+        "en",
+        "ar",
+        "ur"
+      ],
+      "defaultLocale": "en",
+      "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined) and notEmail(undefined) and passwordHistory(3)",
+      "bruteForceProtected": true,
+      "permanentLockout": false,
+      "failureFactor": 5,
+      "waitIncrementSeconds": 60,
+      "maxFailureWaitSeconds": 900,
+      "maxDeltaTimeSeconds": 43200,
+      "minimumQuickLoginWaitSeconds": 60,
+      "quickLoginCheckMilliSeconds": 1000,
+      "accessTokenLifespan": 300,
+      "ssoSessionIdleTimeout": 1800,
+      "ssoSessionMaxLifespan": 43200,
+      "revokeRefreshToken": false,
+      "roles": {
+        "realm": [
+          {
+            "name": "tenant_admin",
+            "description": "Administers the tenant's SupportX configuration."
+          },
+          {
+            "name": "technician",
+            "description": "Works tickets in the technician console."
+          },
+          {
+            "name": "requester",
+            "description": "Raises and follows requests in the self-service portal."
+          }
+        ]
+      },
+      "clients": [
+        {
+          "clientId": "supportx-console",
+          "name": "SupportX Console",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "${SUPPORTX_KC_CONSOLE_SECRET}",
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "frontchannelLogout": false,
+          "redirectUris": [
+            "${SUPPORTX_KC_CONSOLE_ORIGIN}/api/v1/auth/callback"
+          ],
+          "webOrigins": [],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "${SUPPORTX_KC_CONSOLE_ORIGIN}/*",
+            "backchannel.logout.session.required": "true",
+            "use.refresh.tokens": "true"
+          },
+          "protocolMappers": [
+            {
+              "name": "organization-membership",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-organization-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "claim.name": "supportx_organizations",
+                "jsonType.label": "JSON",
+                "multivalued": "true",
+                "addOrganizationAttributes": "true",
+                "addOrganizationId": "true",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "true"
+              }
+            },
+            {
+              "name": "realm-roles",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "claim.name": "supportx_roles",
+                "jsonType.label": "String",
+                "multivalued": "true",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "false"
+              }
+            }
+          ]
+        },
+        {
+          "clientId": "supportx-portal",
+          "name": "SupportX Portal",
+          "enabled": true,
+          "protocol": "openid-connect",
+          "publicClient": false,
+          "clientAuthenticatorType": "client-secret",
+          "secret": "${SUPPORTX_KC_PORTAL_SECRET}",
+          "standardFlowEnabled": true,
+          "implicitFlowEnabled": false,
+          "directAccessGrantsEnabled": false,
+          "serviceAccountsEnabled": false,
+          "frontchannelLogout": false,
+          "redirectUris": [
+            "${SUPPORTX_KC_PORTAL_ORIGIN}/api/v1/auth/callback"
+          ],
+          "webOrigins": [],
+          "attributes": {
+            "pkce.code.challenge.method": "S256",
+            "post.logout.redirect.uris": "${SUPPORTX_KC_PORTAL_ORIGIN}/*",
+            "backchannel.logout.session.required": "true",
+            "use.refresh.tokens": "true"
+          },
+          "protocolMappers": [
+            {
+              "name": "organization-membership",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-organization-membership-mapper",
+              "consentRequired": false,
+              "config": {
+                "claim.name": "supportx_organizations",
+                "jsonType.label": "JSON",
+                "multivalued": "true",
+                "addOrganizationAttributes": "true",
+                "addOrganizationId": "true",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "true"
+              }
+            },
+            {
+              "name": "realm-roles",
+              "protocol": "openid-connect",
+              "protocolMapper": "oidc-usermodel-realm-role-mapper",
+              "consentRequired": false,
+              "config": {
+                "claim.name": "supportx_roles",
+                "jsonType.label": "String",
+                "multivalued": "true",
+                "id.token.claim": "true",
+                "access.token.claim": "true",
+                "introspection.token.claim": "true",
+                "userinfo.token.claim": "false"
+              }
+            }
+          ]
+        }
+      ]
+    }
+    
+
+---
+# Source: supportx/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: supportx-read-jobs
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+rules:
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["get"]
+
+---
+# Source: supportx/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: supportx-workload-read-jobs
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: supportx-read-jobs
+subjects:
+  - kind: ServiceAccount
+    name: supportx-workload
+    namespace: supportx
+
+---
+# Source: supportx/charts/nats/templates/headless-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/version: 2.15.1
+    helm.sh/chart: nats-2.15.1
+  name: supportx-nats-headless
+spec:
+  clusterIP: None
+  ports:
+  - appProtocol: tcp
+    name: nats
+    port: 4222
+    targetPort: nats
+  - appProtocol: http
+    name: monitor
+    port: 8222
+    targetPort: monitor
+  publishNotReadyAddresses: true
+  selector:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/name: nats
+
+---
+# Source: supportx/charts/nats/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/version: 2.15.1
+    helm.sh/chart: nats-2.15.1
+  name: supportx-nats
+spec:
+  ports:
+  - appProtocol: tcp
+    name: nats
+    port: 4222
+    targetPort: nats
+  selector:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/name: nats
+
+---
+# Source: supportx/charts/valkey/templates/metrics-svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-valkey-metrics
+  labels:
+    helm.sh/chart: valkey-0.12.0
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: metrics
+    app.kubernetes.io/part-of: valkey
+  annotations:
+spec:
+  type: ClusterIP
+  ports:
+    - name: metrics
+      port: 9121
+      protocol: TCP
+      targetPort: metrics
+  selector:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+
+---
+# Source: supportx/charts/valkey/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-valkey
+  labels:
+    helm.sh/chart: valkey-0.12.0
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: primary
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: tcp
+      protocol: TCP
+      name: tcp
+  selector:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+
+---
+# Source: supportx/templates/api.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-api
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  selector:
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: api
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+
+---
+# Source: supportx/templates/centrifugo.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-centrifugo
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: centrifugo
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  selector:
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: centrifugo
+  ports:
+    - {name: http, port: 8000, targetPort: http}
+
+---
+# Source: supportx/templates/keycloak.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-keycloak
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: keycloak
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  selector:
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: keycloak
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+
+---
+# Source: supportx/templates/web.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-web
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: web
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  selector:
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: web
+  ports:
+    - {name: http, port: 8080, targetPort: http}
+
+---
+# Source: supportx/charts/valkey/templates/deploy_valkey.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-valkey
+  labels:
+    helm.sh/chart: valkey-0.12.0
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valkey
+      app.kubernetes.io/instance: supportx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: valkey
+        app.kubernetes.io/instance: supportx
+      annotations:
+        checksum/initconfig: f59acfe2c04ba9e9ed05cf084cf04436
+        checksum/config: 85a9c5d884b396d1dc4c1815acdc2235
+    spec:
+      
+      automountServiceAccountToken: false
+      serviceAccountName: supportx-valkey
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: supportx-valkey-init
+          image: docker.io/valkey/valkey:9.1.2
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          command: [ "/scripts/init.sh" ]
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+            - name: scripts
+              mountPath: /scripts
+            - name: valkey-config
+              mountPath: /usr/local/etc/valkey/valkey.conf
+              subPath: valkey.conf
+            - name: valkey-acl
+              mountPath: /etc/valkey
+            - name: valkey-users-secret
+              mountPath: /valkey-users-secret
+              readOnly: true
+      containers:
+        - name: supportx-valkey
+          image: docker.io/valkey/valkey:9.1.2
+          imagePullPolicy: IfNotPresent
+          command: [ "valkey-server" ]
+          args: [ "/data/conf/valkey.conf" ]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          env:
+            - name: VALKEY_LOG_LEVEL
+              value: "notice"
+          ports:
+            - name: tcp
+              containerPort: 6379
+              protocol: TCP
+          livenessProbe:
+            exec:
+              command:
+              - valkey-cli
+              - ping
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 1
+          startupProbe:
+            exec:
+              command:
+              - valkey-cli
+              - ping
+            failureThreshold: 3
+            initialDelaySeconds: 0
+            periodSeconds: 10
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+            - name: valkey-acl
+              mountPath: /etc/valkey
+        - name: metrics
+          image: ghcr.io/oliver006/redis_exporter:v1.79.0
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1000
+          ports:
+            - name: metrics
+              containerPort: 9121
+          startupProbe:
+            tcpSocket:
+              port: metrics
+          livenessProbe:
+            tcpSocket:
+              port: metrics
+          readinessProbe:
+            httpGet:
+              path: /
+              port: metrics
+          env:
+            - name: REDIS_ALIAS
+              value: supportx-valkey
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: supportx-app
+                  key: valkey-password
+      volumes:
+        - name: scripts
+          configMap:
+            name: supportx-valkey-init-scripts
+            defaultMode: 0555
+        - name: valkey-acl
+          emptyDir:
+            medium: Memory
+        - name: valkey-config
+          configMap:
+            name: supportx-valkey-config
+        - name: valkey-users-secret
+          secret:
+            secretName: supportx-app
+            defaultMode: 0400
+        - name: valkey-data
+          emptyDir: {}
+
+---
+# Source: supportx/templates/api.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-api
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: api
+  strategy:
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: api
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: supportx-workload
+      automountServiceAccountToken: true
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: wait-for-migrate
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "tooling.wait_for_job"]
+          env:
+            - name: SUPPORTX_MIGRATE_JOB
+              value: supportx-migrate-1
+            - name: SUPPORTX_WAIT_TIMEOUT_SECONDS
+              value: "900"
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+      containers:
+        - name: api
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: supportx-env
+          env:
+            - name: SUPPORTX_SECRET_APP_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: app-db-password}}
+            - name: SUPPORTX_SECRET_VALKEY_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: valkey-password}}
+            - name: SUPPORTX_SECRET_NATS_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: nats-password}}
+            - name: SUPPORTX_DATABASE_URL
+              value: "postgresql://supportx_app:$(SUPPORTX_SECRET_APP_DB_PASSWORD)@supportx-pg-pooler:5432/supportx"
+            - name: SUPPORTX_VALKEY_URL
+              value: "valkey://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@supportx-valkey:6379/0"
+            - name: SUPPORTX_NATS_URL
+              value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
+            - name: SUPPORTX_SESSION_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
+            - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_CENTRIFUGO_API_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
+            - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_SERVICE_NAME
+              value: supportx-api
+          ports:
+            - {name: http, containerPort: 8000}
+            - {name: metrics, containerPort: 9464}
+          startupProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 2
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /api/v1/health, port: http}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /api/v1/ready, port: http}
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1536Mi
+            requests:
+              cpu: 500m
+              memory: 512Mi
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/templates/centrifugo.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-centrifugo
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: centrifugo
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: centrifugo
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: centrifugo
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        checksum/config: 8fda59cfdbd23fc9793f273a42254133c2295337a11fbba5373799c78bb1de07
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: centrifugo
+          image: centrifugo/centrifugo:v6.10.1
+          command: ["centrifugo", "--config", "/centrifugo/config.json"]
+          env:
+            - name: CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: CENTRIFUGO_HTTP_API_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
+          ports:
+            - {name: http, containerPort: 8000}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+          volumeMounts:
+            - {name: config, mountPath: /centrifugo, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: supportx-centrifugo}
+
+---
+# Source: supportx/templates/keycloak.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-keycloak
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: keycloak
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: keycloak
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: keycloak
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: /metrics
+    spec:
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        # The upstream image's user. Plain `start` builds the server at boot: its build output
+        # and temp files go to the emptyDirs below; the rest of the filesystem is read-only.
+        # An optimized image with our themes (`start --optimized`) comes with WP-014b / WP-017.
+        runAsUser: 1000
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        # The build directory starts as the image's own copy; `start` rebuilds into it.
+        - name: copy-build
+          image: quay.io/keycloak/keycloak:26.8.1
+          command: ["/bin/sh", "-c", "cp -R /opt/keycloak/lib/quarkus/. /build/"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          volumeMounts:
+            - {name: build, mountPath: /build}
+      containers:
+        - name: keycloak
+          image: quay.io/keycloak/keycloak:26.8.1
+          args: ["start", "--import-realm"]
+          env:
+            - {name: KC_DB, value: postgres}
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://supportx-pg-rw:5432/keycloak"
+            - name: KC_DB_USERNAME
+              valueFrom: {secretKeyRef: {name: supportx-db-keycloak, key: username}}
+            - name: KC_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-db-keycloak, key: password}}
+            # TLS ends at the gateway; Keycloak trusts its X-Forwarded-* headers.
+            - {name: KC_HTTP_ENABLED, value: "true"}
+            - {name: KC_PROXY_HEADERS, value: xforwarded}
+            - {name: KC_HTTP_RELATIVE_PATH, value: /auth}
+            - {name: KC_HTTP_MANAGEMENT_RELATIVE_PATH, value: /}
+            - name: KC_HOSTNAME
+              value: "https://supportx.example.com/auth"
+            - {name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC, value: "true"}
+            - {name: KC_HEALTH_ENABLED, value: "true"}
+            - {name: KC_METRICS_ENABLED, value: "true"}
+            - name: KC_CACHE
+              value: local
+            - {name: JAVA_OPTS_KC_HEAP, value: "-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=25"}
+            # Temporary bootstrap admin (Keycloak replaces it with real admins later).
+            - {name: KC_BOOTSTRAP_ADMIN_USERNAME, value: admin}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-admin-password}}
+            # Placeholders in the realm file.
+            - name: SUPPORTX_KC_CONSOLE_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
+            - name: SUPPORTX_KC_PORTAL_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - {name: SUPPORTX_KC_CONSOLE_ORIGIN, value: "https://supportx.example.com"}
+            - {name: SUPPORTX_KC_PORTAL_ORIGIN, value: "https://supportx.example.com"}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: management, containerPort: 9000}
+          startupProbe:
+            httpGet: {path: /health/started, port: management}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /health/live, port: management}
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: {path: /health/ready, port: management}
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1536Mi
+            requests:
+              cpu: 250m
+              memory: 768Mi
+          volumeMounts:
+            - {name: realm, mountPath: /opt/keycloak/data/import, readOnly: true}
+            - {name: build, mountPath: /opt/keycloak/lib/quarkus}
+            - {name: data-tmp, mountPath: /opt/keycloak/data/tmp}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: realm
+          configMap: {name: supportx-keycloak-realm}
+        - name: build
+          emptyDir: {}
+        - name: data-tmp
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/templates/web.yaml
+# Console (/) and portal (/portal/) static files (deploy/images/web.Dockerfile).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-web
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: web
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: web
+  strategy:
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: web
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+    spec:
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: web
+          image: ghcr.io/devhat-pm/supportx-web:0.1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - {name: http, containerPort: 8080}
+          readinessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /healthz, port: http}
+            periodSeconds: 10
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: 200m
+              memory: 96Mi
+            requests:
+              cpu: 20m
+              memory: 32Mi
+          volumeMounts:
+            - {name: cache, mountPath: /var/cache/nginx}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: cache
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/templates/workers.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-relay
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: relay
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: relay
+  strategy:
+    # Surge before stopping: the fan-out's single consumer is never absent for long (ADR-023).
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: relay
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: supportx-workload
+      automountServiceAccountToken: true
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: wait-for-migrate
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "tooling.wait_for_job"]
+          env:
+            - name: SUPPORTX_MIGRATE_JOB
+              value: supportx-migrate-1
+            - name: SUPPORTX_WAIT_TIMEOUT_SECONDS
+              value: "900"
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+      containers:
+        - name: relay
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "workers.outbox_relay"]
+          envFrom:
+            - configMapRef:
+                name: supportx-env
+          env:
+            - name: SUPPORTX_SECRET_APP_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: app-db-password}}
+            - name: SUPPORTX_SECRET_VALKEY_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: valkey-password}}
+            - name: SUPPORTX_SECRET_NATS_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: nats-password}}
+            - name: SUPPORTX_DATABASE_URL
+              value: "postgresql://supportx_app:$(SUPPORTX_SECRET_APP_DB_PASSWORD)@supportx-pg-pooler:5432/supportx"
+            - name: SUPPORTX_VALKEY_URL
+              value: "valkey://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@supportx-valkey:6379/0"
+            - name: SUPPORTX_NATS_URL
+              value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
+            - name: SUPPORTX_SESSION_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
+            - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_CENTRIFUGO_API_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
+            - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_SERVICE_NAME
+              value: "supportx-relay"
+            # The relay reads the outbox as supportx_relay, straight to PostgreSQL (LISTEN/NOTIFY).
+            - name: SUPPORTX_SECRET_RELAY_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: relay-db-password}}
+            - name: SUPPORTX_RELAY_DATABASE_URL
+              value: "postgresql://supportx_relay:$(SUPPORTX_SECRET_RELAY_DB_PASSWORD)@supportx-pg-rw:5432/supportx"
+          ports:
+            - {name: metrics, containerPort: 9464}
+          startupProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /readyz, port: metrics}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: 500m
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/templates/workers.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-consumers
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: consumers
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: consumers
+  strategy:
+    # Surge before stopping: the fan-out's single consumer is never absent for long (ADR-023).
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: consumers
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: supportx-workload
+      automountServiceAccountToken: true
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: wait-for-migrate
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "tooling.wait_for_job"]
+          env:
+            - name: SUPPORTX_MIGRATE_JOB
+              value: supportx-migrate-1
+            - name: SUPPORTX_WAIT_TIMEOUT_SECONDS
+              value: "900"
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+      containers:
+        - name: consumers
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "workers.consumers"]
+          envFrom:
+            - configMapRef:
+                name: supportx-env
+          env:
+            - name: SUPPORTX_SECRET_APP_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: app-db-password}}
+            - name: SUPPORTX_SECRET_VALKEY_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: valkey-password}}
+            - name: SUPPORTX_SECRET_NATS_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: nats-password}}
+            - name: SUPPORTX_DATABASE_URL
+              value: "postgresql://supportx_app:$(SUPPORTX_SECRET_APP_DB_PASSWORD)@supportx-pg-pooler:5432/supportx"
+            - name: SUPPORTX_VALKEY_URL
+              value: "valkey://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@supportx-valkey:6379/0"
+            - name: SUPPORTX_NATS_URL
+              value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
+            - name: SUPPORTX_SESSION_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
+            - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_CENTRIFUGO_API_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
+            - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_SERVICE_NAME
+              value: "supportx-consumers"
+          ports:
+            - {name: metrics, containerPort: 9464}
+          startupProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /readyz, port: metrics}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: 500m
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 160Mi
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/templates/workers.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supportx-fanout
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: fanout
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: fanout
+  strategy:
+    # Surge before stopping: the fan-out's single consumer is never absent for long (ADR-023).
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: fanout
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9464"
+        prometheus.io/path: /metrics
+    spec:
+      serviceAccountName: supportx-workload
+      automountServiceAccountToken: true
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: wait-for-migrate
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "tooling.wait_for_job"]
+          env:
+            - name: SUPPORTX_MIGRATE_JOB
+              value: supportx-migrate-1
+            - name: SUPPORTX_WAIT_TIMEOUT_SECONDS
+              value: "900"
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+      containers:
+        - name: fanout
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "workers.realtime_fanout"]
+          envFrom:
+            - configMapRef:
+                name: supportx-env
+          env:
+            - name: SUPPORTX_SECRET_APP_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: app-db-password}}
+            - name: SUPPORTX_SECRET_VALKEY_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: valkey-password}}
+            - name: SUPPORTX_SECRET_NATS_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: nats-password}}
+            - name: SUPPORTX_DATABASE_URL
+              value: "postgresql://supportx_app:$(SUPPORTX_SECRET_APP_DB_PASSWORD)@supportx-pg-pooler:5432/supportx"
+            - name: SUPPORTX_VALKEY_URL
+              value: "valkey://:$(SUPPORTX_SECRET_VALKEY_PASSWORD)@supportx-valkey:6379/0"
+            - name: SUPPORTX_NATS_URL
+              value: "nats://supportx:$(SUPPORTX_SECRET_NATS_PASSWORD)@supportx-nats:4222"
+            - name: SUPPORTX_SESSION_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: session-secret}}
+            - name: SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
+            - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_CENTRIFUGO_API_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
+            - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_SERVICE_NAME
+              value: "supportx-fanout"
+          ports:
+            - {name: metrics, containerPort: 9464}
+          startupProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /readyz, port: metrics}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: 500m
+              memory: 384Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/charts/nats/templates/stateful-set.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  labels:
+    app.kubernetes.io/component: nats
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: nats
+    app.kubernetes.io/version: 2.15.1
+    helm.sh/chart: nats-2.15.1
+  name: supportx-nats
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: nats
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/name: nats
+  serviceName: supportx-nats-headless
+  template:
+    metadata:
+      annotations:
+        prometheus.io/port: "7777"
+        prometheus.io/scrape: "true"
+      labels:
+        app.kubernetes.io/component: nats
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: nats
+        app.kubernetes.io/version: 2.15.1
+        helm.sh/chart: nats-2.15.1
+    spec:
+      containers:
+      - args:
+        - --config
+        - /etc/nats-config/nats.conf
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: SERVER_NAME
+          value: $(POD_NAME)
+        - name: SUPPORTX_NATS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: nats-password
+              name: supportx-app
+        image: nats:2.15.1-alpine
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - nats-server
+              - -sl=ldm=/var/run/nats/nats.pid
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz?js-enabled-only=true
+            port: monitor
+          initialDelaySeconds: 10
+          periodSeconds: 30
+          successThreshold: 1
+          timeoutSeconds: 5
+        name: nats
+        ports:
+        - containerPort: 4222
+          name: nats
+        - containerPort: 8222
+          name: monitor
+        readinessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /healthz?js-server-only=true
+            port: monitor
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        resources:
+          limits:
+            cpu: "1"
+            memory: 1Gi
+          requests:
+            cpu: 50m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        startupProbe:
+          failureThreshold: 90
+          httpGet:
+            path: /healthz
+            port: monitor
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 5
+        volumeMounts:
+        - mountPath: /etc/nats-config
+          name: config
+        - mountPath: /var/run/nats
+          name: pid
+        - mountPath: /data
+          name: supportx-nats-js
+      - args:
+        - -pid
+        - /var/run/nats/nats.pid
+        - -config
+        - /etc/nats-config/nats.conf
+        image: natsio/nats-server-config-reloader:0.24.0
+        name: reloader
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        volumeMounts:
+        - mountPath: /var/run/nats
+          name: pid
+        - mountPath: /etc/nats-config
+          name: config
+      - args:
+        - -port=7777
+        - -connz
+        - -routez
+        - -subz
+        - -varz
+        - -prefix=nats
+        - -use_internal_server_id
+        - -jsz=all
+        - http://localhost:8222/
+        image: natsio/prometheus-nats-exporter:0.20.2
+        name: prom-exporter
+        ports:
+        - containerPort: 7777
+          name: prom-metrics
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+      enableServiceLinks: false
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      shareProcessNamespace: true
+      terminationGracePeriodSeconds: 60
+      volumes:
+      - configMap:
+          name: supportx-nats-config
+        name: config
+      - emptyDir: {}
+        name: pid
+  volumeClaimTemplates:
+  - metadata:
+      name: supportx-nats-js
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+# Source: supportx/templates/migrate-job.yaml
+# One Job per Helm revision (ADR-025): roles + database from tooling/sql, then Alembic. Not a
+# Helm hook: a pre-install hook would run before the in-cluster PostgreSQL exists, and a
+# post-install hook would deadlock with --wait. The API and workers of this revision wait for it
+# in an init container instead (tooling/wait_for_job.py). Re-running is safe; a database already
+# migrated by a newer release is left alone (rollback), nothing is ever downgraded.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: supportx-migrate-1
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: migrate
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: migrate
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+    spec:
+      restartPolicy: Never
+      serviceAccountName: supportx-migrate
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              python -m tooling.deploy_migrate
+          env:
+            - name: SUPPORTX_PROFILE
+              value: "production"
+            - name: SUPPORTX_DEPLOY_DATABASE
+              value: "supportx"
+            - name: SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: migrator-db-password}}
+            - name: SUPPORTX_MIGRATION_DATABASE_URL
+              value: "postgresql://supportx_migrator:$(SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD)@supportx-pg-rw:5432/supportx"
+            # Superuser only here, only to create roles, the database and extensions.
+            - name: SUPPORTX_SECRET_PG_SUPERUSER_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-pg-superuser, key: password}}
+            - name: SUPPORTX_DEPLOY_ADMIN_URL
+              value: "postgresql://postgres:$(SUPPORTX_SECRET_PG_SUPERUSER_PASSWORD)@supportx-pg-rw:5432/postgres"
+            - name: SUPPORTX_DEPLOY_CNPG_POOLER
+              value: "1"
+            - name: SUPPORTX_DEPLOY_APP_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: app-db-password}}
+            - name: SUPPORTX_DEPLOY_MIGRATOR_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: migrator-db-password}}
+            - name: SUPPORTX_DEPLOY_RELAY_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: relay-db-password}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 192Mi
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
+# Source: supportx/templates/postgresql.yaml
+# PostgreSQL 16 + pgvector through the CloudNativePG operator (D1, D-037). The bootstrap database
+# is Keycloak's; SupportX's own roles and database come from tooling/sql via the migrate Job
+# (one source with the dev stack and CI). Backups and replicas: WP-014b.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: supportx-pg
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: postgresql
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:16.15-202610190958-standard-trixie
+  enableSuperuserAccess: true
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: supportx-db-keycloak
+  postgresql:
+    parameters:
+      effective_cache_size: "6GB"
+      max_connections: "200"
+      shared_buffers: "2GB"
+  storage:
+    size: 100Gi
+  walStorage:
+    size: 20Gi
+  resources:
+    limits:
+      cpu: "3"
+      memory: 8Gi
+    requests:
+      cpu: "1"
+      memory: 4Gi
+
+---
+# Source: supportx/templates/routing.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: supportx
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: routing
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  gatewayClassName: traefik
+  listeners:
+    - name: websecure
+      port: 8443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: supportx-tls
+      allowedRoutes:
+        namespaces: {from: Same}
+
+---
+# Source: supportx/templates/routing.yaml
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: supportx
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: routing
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  parentRefs:
+    - name: supportx
+      namespace: supportx
+      sectionName: websecure
+  hostnames:
+    - supportx.example.com
+  rules:
+    # Keycloak's admin console and admin API stay off the public host.
+    - matches:
+        - path: {type: PathPrefix, value: /auth/admin}
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            path: {type: ReplaceFullPath, replaceFullPath: /}
+            statusCode: 302
+    - matches:
+        - path: {type: PathPrefix, value: /api}
+      backendRefs:
+        - name: supportx-api
+          port: 8000
+    - matches:
+        - path: {type: PathPrefix, value: /connection}
+      backendRefs:
+        - name: supportx-centrifugo
+          port: 8000
+    - matches:
+        - path: {type: PathPrefix, value: /emulation}
+      backendRefs:
+        - name: supportx-centrifugo
+          port: 8000
+    - matches:
+        - path: {type: PathPrefix, value: /auth}
+      backendRefs:
+        - name: supportx-keycloak
+          port: 8080
+    - matches:
+        - path: {type: PathPrefix, value: /}
+      backendRefs:
+        - name: supportx-web
+          port: 8080
+
+---
+# Source: supportx/templates/postgresql.yaml
+# PgBouncer in transaction mode in front of PostgreSQL (architecture.md §7.3): the API's pool.
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: supportx-pg-pooler
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: postgresql
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  cluster:
+    name: supportx-pg
+  instances: 1
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      default_pool_size: "25"
+      max_client_conn: "500"

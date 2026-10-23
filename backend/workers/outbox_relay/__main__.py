@@ -37,10 +37,13 @@ async def main(stop: asyncio.Event) -> None:
     """Relay + heartbeat until `stop`."""
     settings = runtime.load_settings("supportx-outbox-relay")
     provider, meter = runtime.meter(settings)
+    started = asyncio.Event()
+    ops = await runtime.start_ops(settings, ready=lambda: started.is_set() and not stop.is_set())
     metrics = RelayMetrics()
     metrics.bind(meter)
     connected = await bus.connect(settings, "outbox-relay")
     relay = build_relay(settings, connected, metrics)
+    started.set()
 
     def stats() -> dict[str, float | int]:
         return metrics.snapshot()
@@ -60,6 +63,7 @@ async def main(stop: asyncio.Event) -> None:
     finally:
         await connected.close()
         provider.shutdown()
+        await runtime.stop_ops(ops)
 
 
 if __name__ == "__main__":

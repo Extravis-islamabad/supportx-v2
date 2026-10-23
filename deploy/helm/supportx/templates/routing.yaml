@@ -1,0 +1,115 @@
+{{- /*
+One host, paths (D3). Same routes as the Vite dev proxy:
+  /api/        API (with the BFF, D-009)
+  /connection  Centrifugo WebSocket, HTTP-streaming and SSE (WP-011)
+  /emulation   Centrifugo's fallback emulation endpoint
+  /auth/       Keycloak; /auth/admin only when keycloak.exposeAdmin (dev, e2e)
+  /            console, /portal/ portal (web)
+Gateway API with Traefik by default (D2); a plain Ingress for clusters that bring their own.
+*/ -}}
+{{- $c := dict "root" . "component" "routing" -}}
+{{- $gw := .Values.routing.gateway -}}
+{{- $gwName := default .Release.Name $gw.name -}}
+{{- $gwNamespace := default .Release.Namespace $gw.namespace -}}
+{{- $backends := list
+  (dict "path" "/api" "service" "api" "port" 8000)
+  (dict "path" "/connection" "service" "centrifugo" "port" 8000)
+  (dict "path" "/emulation" "service" "centrifugo" "port" 8000)
+  (dict "path" "/auth" "service" "keycloak" "port" 8080)
+  (dict "path" "/" "service" "web" "port" 8080)
+-}}
+{{- if eq .Values.routing.mode "gateway" }}
+{{- if $gw.create }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: {{ $gwName }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  gatewayClassName: {{ $gw.className }}
+  listeners:
+    - name: {{ $gw.listenerName }}
+      port: {{ $gw.port }}
+      protocol: {{ $gw.protocol }}
+      {{- if eq $gw.protocol "HTTPS" }}
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: {{ required "routing.gateway.tlsSecret is required for HTTPS" $gw.tlsSecret }}
+      {{- end }}
+      allowedRoutes:
+        namespaces: {from: Same}
+---
+{{- end }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gwName }}
+      namespace: {{ $gwNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  {{- with .Values.routing.hostnames }}
+  hostnames:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- if not .Values.keycloak.exposeAdmin }}
+    # Keycloak's admin console and admin API stay off the public host.
+    - matches:
+        - path: {type: PathPrefix, value: /auth/admin}
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            path: {type: ReplaceFullPath, replaceFullPath: /}
+            statusCode: 302
+    {{- end }}
+    {{- range $backends }}
+    - matches:
+        - path: {type: PathPrefix, value: {{ .path }}}
+      backendRefs:
+        - name: {{ printf "%s-%s" $.Release.Name .service }}
+          port: {{ .port }}
+    {{- end }}
+{{- else if eq .Values.routing.mode "ingress" }}
+{{- $ing := .Values.routing.ingress -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+  {{- with $ing.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  ingressClassName: {{ $ing.className }}
+  {{- if $ing.tlsSecret }}
+  tls:
+    - secretName: {{ $ing.tlsSecret }}
+      {{- with $.Values.routing.hostnames }}
+      hosts:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+  {{- end }}
+  rules:
+    {{- $hosts := .Values.routing.hostnames | default (list "") }}
+    {{- range $host := $hosts }}
+    - {{- if $host }} host: {{ $host }}{{ end }}
+      http:
+        paths:
+          {{- range $backends }}
+          - path: {{ .path }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ printf "%s-%s" $.Release.Name .service }}
+                port: {number: {{ .port }}}
+          {{- end }}
+    {{- end }}
+{{- end }}

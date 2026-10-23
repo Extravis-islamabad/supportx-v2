@@ -38,6 +38,8 @@ async def main(stop: asyncio.Event) -> None:
         log.error("fanout_not_configured", needs="SUPPORTX_CENTRIFUGO_* and SUPPORTX_DATABASE_URL")
         return
     provider, meter = runtime.meter(settings)
+    started = asyncio.Event()
+    ops = await runtime.start_ops(settings, ready=lambda: started.is_set() and not stop.is_set())
     consumer_metrics = ConsumerMetrics()
     consumer_metrics.bind(meter)
     metrics = FanoutMetrics()
@@ -59,6 +61,7 @@ async def main(stop: asyncio.Event) -> None:
     await runner.ensure()
     await runner.subscribe()
     log.info("fanout_ready", event_types=list(spec.event_types))
+    started.set()
 
     async def observe() -> None:
         heartbeat = Heartbeat(
@@ -80,6 +83,7 @@ async def main(stop: asyncio.Event) -> None:
         await client.aclose()
         await database.dispose()
         provider.shutdown()
+        await runtime.stop_ops(ops)
 
 
 if __name__ == "__main__":

@@ -130,7 +130,7 @@ async def _startup(app: FastAPI) -> None:
         store=SessionStore(
             ValkeyKeyValue(kv), SessionCipher(settings.session_secret.get_secret_value())
         ),
-        oidc=OidcClient(settings.oidc_issuer, http),
+        oidc=OidcClient(settings.oidc_issuer, http, settings.oidc_internal_url),
         database=app.state.db,
         clock=system_clock,
         cookie_name=cookie_name(settings),

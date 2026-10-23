@@ -1,6 +1,6 @@
 """Integration: BFF login against the REAL Keycloak of the dev stack (realm import in
-deploy/compose/keycloak). Needs `make dev-up`; skipped automatically otherwise. CI runs these in the
-stack-smoke workflow, where the stack is up.
+deploy/helm/supportx/files/keycloak/dev). Needs `make dev-up`; skipped automatically otherwise.
+CI runs these in the stack-smoke workflow, where the stack is up.
 
 The API runs in-process with a throwaway, migrated database; Keycloak, Valkey and PgBouncer are the
 dev stack's own. The OIDC redirect URI is http://localhost:5173/api/v1/auth/callback, as registered

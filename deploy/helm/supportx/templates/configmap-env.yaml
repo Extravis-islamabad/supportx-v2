@@ -1,0 +1,31 @@
+{{- include "supportx.validate" . -}}
+# Non-secret SUPPORTX_* settings shared by the API and the workers (app/core/config.py).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-env
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "config") | nindent 4 }}
+data:
+  SUPPORTX_PROFILE: {{ .Values.app.profile | quote }}
+  SUPPORTX_LOG_LEVEL: {{ .Values.app.logLevel | quote }}
+  # The browser's URLs (D3): console at /, portal at /portal.
+  SUPPORTX_CONSOLE_URL: {{ .Values.publicUrl | quote }}
+  SUPPORTX_PORTAL_URL: {{ printf "%s/portal" .Values.publicUrl | quote }}
+  # Keycloak: public issuer for browsers and token checks; the API itself uses the in-cluster
+  # address (back channel).
+  SUPPORTX_OIDC_ISSUER: {{ printf "%s/auth/realms/supportx" .Values.publicUrl | quote }}
+  SUPPORTX_OIDC_INTERNAL_URL: {{ printf "http://%s-keycloak:8080/auth/realms/supportx" .Release.Name | quote }}
+  SUPPORTX_CENTRIFUGO_API_URL: {{ printf "http://%s-centrifugo:8000" .Release.Name | quote }}
+  SUPPORTX_EVENTS_STREAM_REPLICAS: "1"
+  # /metrics (and the workers' /healthz, /readyz) on the internal port (WP-014).
+  SUPPORTX_METRICS_EXPORTER: prometheus
+  SUPPORTX_METRICS_HOST: "0.0.0.0"
+  SUPPORTX_METRICS_PORT: "9464"
+  SUPPORTX_ENTITLEMENT_PROVIDER: {{ .Values.app.entitlementProvider | quote }}
+  {{- if eq .Values.app.entitlementProvider "licence_file" }}
+  SUPPORTX_LICENCE_FILE: /etc/supportx/licence/licence.json
+  {{- end }}
+  {{- range $name, $value := .Values.app.extraEnv }}
+  {{ $name }}: {{ $value | quote }}
+  {{- end }}

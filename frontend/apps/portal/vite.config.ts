@@ -3,7 +3,10 @@ import { defineConfig } from 'vitest/config';
 
 import { codeSplitting } from '../../vite.chunks';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // Deployed builds live under /portal on the same host as the console (WP-014, D3: one host
+  // with paths). The dev server keeps its own origin at /.
+  base: command === 'build' ? '/portal/' : '/',
   plugins: [react()],
   build: { rolldownOptions: { output: { codeSplitting } } },
   server: {
@@ -23,4 +26,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
   },
-});
+}));

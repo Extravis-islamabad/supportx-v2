@@ -144,6 +144,28 @@ jobs:
       - name: Production builds (console, portal)
         run: make build
 
+  chart:
+    # Every PR (WP-014): the Helm chart lints, renders and validates for every profile, and the
+    # production render matches the reviewed golden file (deploy/scripts/chart-lint.sh).
+    name: chart
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.3.1
+      - name: Install kubeconform (pinned, checksum-verified)
+        run: |
+          curl -fsSL -o /tmp/kubeconform.tar.gz \
+            https://github.com/yannh/kubeconform/releases/download/v0.8.0/kubeconform-linux-amd64.tar.gz
+          echo "9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883  /tmp/kubeconform.tar.gz" | sha256sum -c -
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+      - name: Lint, render and validate every profile
+        run: make chart-lint
+
   pre-commit:
     name: pre-commit
     runs-on: ubuntu-24.04

@@ -61,12 +61,12 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": false,
       "redirectUris": [
-        "http://localhost:5173/api/v1/auth/callback"
+        "${SUPPORTX_KC_CONSOLE_ORIGIN}/api/v1/auth/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5173/*",
+        "post.logout.redirect.uris": "${SUPPORTX_KC_CONSOLE_ORIGIN}/*",
         "backchannel.logout.session.required": "true",
         "use.refresh.tokens": "true"
       },
@@ -119,12 +119,12 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": false,
       "redirectUris": [
-        "http://localhost:5174/api/v1/auth/callback"
+        "${SUPPORTX_KC_PORTAL_ORIGIN}/api/v1/auth/callback"
       ],
       "webOrigins": [],
       "attributes": {
         "pkce.code.challenge.method": "S256",
-        "post.logout.redirect.uris": "http://localhost:5174/*",
+        "post.logout.redirect.uris": "${SUPPORTX_KC_PORTAL_ORIGIN}/*",
         "backchannel.logout.session.required": "true",
         "use.refresh.tokens": "true"
       },
@@ -160,211 +160,6 @@
             "introspection.token.claim": "true",
             "userinfo.token.claim": "false"
           }
-        }
-      ]
-    }
-  ],
-  "users": [
-    {
-      "username": "admin@demo.test",
-      "email": "admin@demo.test",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Amal",
-      "lastName": "Admin",
-      "attributes": {
-        "locale": [
-          "en"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Admin-Demo-2026!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "tenant_admin",
-        "technician"
-      ]
-    },
-    {
-      "username": "tech@demo.test",
-      "email": "tech@demo.test",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Tariq",
-      "lastName": "Technician",
-      "attributes": {
-        "locale": [
-          "en"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Tech-Demo-2026!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "technician"
-      ]
-    },
-    {
-      "username": "user@demo.test",
-      "email": "user@demo.test",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Yusra",
-      "lastName": "Requester",
-      "attributes": {
-        "locale": [
-          "ar"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "User-Demo-2026!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "requester"
-      ]
-    },
-    {
-      "username": "other@other.test",
-      "email": "other@other.test",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Omar",
-      "lastName": "Other",
-      "attributes": {
-        "locale": [
-          "en"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Other-Corp-2026!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "technician"
-      ]
-    },
-    {
-      "username": "multi@demo.test",
-      "email": "multi@demo.test",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Maya",
-      "lastName": "Multi",
-      "attributes": {
-        "locale": [
-          "en"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "Multi-Org-2026!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "technician"
-      ]
-    },
-    {
-      "username": "nobody@nowhere.test",
-      "email": "nobody@nowhere.test",
-      "emailVerified": true,
-      "enabled": true,
-      "firstName": "Nadia",
-      "lastName": "Noorg",
-      "attributes": {
-        "locale": [
-          "en"
-        ]
-      },
-      "credentials": [
-        {
-          "type": "password",
-          "value": "No-Org-User-2026!",
-          "temporary": false
-        }
-      ],
-      "realmRoles": [
-        "requester"
-      ]
-    }
-  ],
-  "organizations": [
-    {
-      "name": "Demo Company",
-      "alias": "demo",
-      "enabled": true,
-      "description": "Demo tenant (SupportX dev seed)",
-      "attributes": {
-        "tenant_id": [
-          "01900000-0000-7000-8000-00000000de30"
-        ]
-      },
-      "domains": [
-        {
-          "name": "demo.test",
-          "verified": false
-        }
-      ],
-      "members": [
-        {
-          "username": "admin@demo.test",
-          "membershipType": "UNMANAGED"
-        },
-        {
-          "username": "tech@demo.test",
-          "membershipType": "UNMANAGED"
-        },
-        {
-          "username": "user@demo.test",
-          "membershipType": "UNMANAGED"
-        },
-        {
-          "username": "multi@demo.test",
-          "membershipType": "UNMANAGED"
-        }
-      ]
-    },
-    {
-      "name": "Other Company",
-      "alias": "other",
-      "enabled": true,
-      "description": "Second tenant for isolation tests (SupportX dev seed)",
-      "attributes": {
-        "tenant_id": [
-          "01900000-0000-7000-8000-00000000a7e2"
-        ]
-      },
-      "domains": [
-        {
-          "name": "other.test",
-          "verified": false
-        }
-      ],
-      "members": [
-        {
-          "username": "other@other.test",
-          "membershipType": "UNMANAGED"
-        },
-        {
-          "username": "multi@demo.test",
-          "membershipType": "UNMANAGED"
         }
       ]
     }

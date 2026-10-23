@@ -84,3 +84,19 @@ def test_service_probes_only_configured_dependencies(
     assert [p.name for p in service._probes] == ["nats"]  # noqa: SLF001 - wiring under test
     assert service._not_configured == ("postgres", "valkey", "keycloak")  # noqa: SLF001
     assert service._timeout == 0.7  # noqa: SLF001
+
+
+def test_keycloak_is_probed_where_this_process_reaches_it(
+    settings_factory: Callable[..., Settings],
+) -> None:
+    """Inside a cluster the public issuer is not reachable from pods (WP-014)."""
+    service = build_readiness_service(
+        settings_factory(
+            oidc_issuer="https://desk.example.com/auth/realms/supportx",
+            oidc_internal_url="http://keycloak:8080/auth/realms/supportx",
+        )
+    )
+    keycloak = next(p for p in service._probes if p.name == "keycloak")  # noqa: SLF001
+    assert keycloak._url == (  # type: ignore[attr-defined]  # noqa: SLF001 - KeycloakProbe internals
+        "http://keycloak:8080/auth/realms/supportx/.well-known/openid-configuration"
+    )
