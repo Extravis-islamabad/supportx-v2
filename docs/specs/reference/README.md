@@ -40,3 +40,4 @@ same way.
 | [sdp-area-08-solutions-knowledge.md](sdp-area-08-solutions-knowledge.md) | Solutions / knowledge base: topics, approval, publishing, review dates, request and problem resolution links |
 | [sdp-area-09-reports-dashboards.md](sdp-area-09-reports-dashboards.md) | Reports and dashboards: dashboards and widgets, custom report types and wizards, scheduling, drill-down, built-in report catalogue |
 | [sdp-area-10-ai-zia.md](sdp-area-10-ai-zia.md) | AI / Zia: predictive and generative features, providers, cluster analysis, chatbot and Ask Zia, test results |
+| [sdp-area-11-users-roles-permissions.md](sdp-area-11-users-roles-permissions.md) | Admin part 1: users, roles and permission matrix, groups, fine-grained access, sites, departments, organization roles, import |
