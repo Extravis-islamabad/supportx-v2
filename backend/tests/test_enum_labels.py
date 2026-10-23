@@ -21,6 +21,14 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    "AnnouncementAction": "announcement_action",
+    "AnnouncementAudience": "announcement_audience",
+    "AnnouncementSeverity": "announcement_severity",
+    "AnnouncementStatus": "announcement_status",
+    "AnnouncementVisibility": "announcement_visibility",
+    "HistoryEntryOut.actor_type": "actor_type",
+    "HistoryEntryOut.kind": "change_kind",
+    "HistoryEntryOut.source": "change_source",
     "CheckStatus": "check_status",
     "EffectivePermission.scope": "scope",
     "EffectivePermission.scopes[]": "scope",

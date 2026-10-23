@@ -16,6 +16,7 @@ from app.modules.organization.events import EVENTS
 from app.modules.organization.service.tenants import get_current_tenant
 from app.modules.organization.service.units import (
     Memberships,
+    existing_unit_ids,
     memberships,
     users_in_groups,
     users_in_sites,
@@ -40,6 +41,7 @@ __all__ = [
     "Memberships",
     "TenantStatus",
     "TenantView",
+    "existing_unit_ids",
     "get_current_tenant",
     "memberships",
     "module",

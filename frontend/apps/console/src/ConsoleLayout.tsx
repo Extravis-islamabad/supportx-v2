@@ -4,6 +4,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { useLogout, useSession, useSetNavLayout, useSwitchTenant } from '@supportx/api-client';
 import {
+  AnnouncementBanners,
   AppHeader,
   AppShell,
   CommandPalette,
@@ -88,6 +89,10 @@ export function ConsoleLayout() {
         <>
           <ConnectivityBanner />
           <LicenceBanners />
+          <AnnouncementBanners
+            enabled={licence.has('incident')}
+            onOpen={(id) => void navigate(`/announcements/${id}`)}
+          />
         </>
       }
     >

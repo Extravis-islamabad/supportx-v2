@@ -103,7 +103,8 @@ function ProfileForm({
     base.current = baseVersion;
   }, [baseVersion]);
   const others = useRef<PresenceMember[]>([]);
-  const [conflict, setConflict] = useState(false);
+  // The 409 itself (null: no conflict): the dialog says who changed which fields.
+  const [conflict, setConflict] = useState<unknown>(null);
   // Live (WP-011): a save elsewhere is announced before this user saves; the 409 dialog stays
   // as the safety net. `changedBy` is who saved (a name), null while nothing new arrived.
   const [changedBy, setChangedBy] = useState<string | null>(null);
@@ -145,7 +146,7 @@ function ProfileForm({
         },
         onError: (error) => {
           if (error instanceof ApiError && error.isConflict) {
-            setConflict(true);
+            setConflict(error);
           } else if (!applyServerErrors(error, form.setError, FIELDS)) {
             reportError(error);
           }
@@ -212,13 +213,17 @@ function ProfileForm({
         </Space>
       </Form>
       <ConflictDialog
-        open={conflict}
+        open={conflict !== null}
+        error={conflict}
+        fieldLabel={(field) =>
+          t(field === 'nav_layout' ? 'appearance.navigation' : `profile.${field}`)
+        }
         onReload={() => {
-          setConflict(false);
+          setConflict(null);
           takeLatest();
         }}
         onKeepMine={() => {
-          setConflict(false);
+          setConflict(null);
           // My edited fields, laid over the latest saved version; everything else is theirs.
           const fields = changedFields();
           const mine = form.getValues();

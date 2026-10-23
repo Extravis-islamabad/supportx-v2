@@ -28,6 +28,7 @@ def build_relay(settings: Settings, connected: bus.Bus, metrics: RelayMetrics) -
         publish_timeout=settings.relay_publish_timeout_seconds,
         retention=timedelta(hours=settings.outbox_retention_hours),
         purge_interval=settings.outbox_purge_interval_seconds,
+        processed_retention=timedelta(days=settings.processed_events_retention_days),
         metrics=metrics,
     )
 

@@ -255,3 +255,16 @@ async def count_units(session: AsyncSession, kind: Kind) -> int:
         )
         or 0
     )
+
+
+async def existing_unit_ids(
+    session: AsyncSession, kind: Kind, ids: Sequence[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Which of `ids` are live sites / groups of the session's tenant (for other modules)."""
+    if not ids:
+        return frozenset()
+    model = UNITS[kind].model
+    found = await session.scalars(
+        select(model.id).where(model.id.in_(list(ids)), model.deleted_at.is_(None))
+    )
+    return frozenset(found)

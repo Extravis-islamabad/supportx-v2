@@ -4,6 +4,248 @@
  */
 
 export interface paths {
+    "/api/v1/announcements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List announcements
+         * @description Announcements you may see as staff (scope-filtered), drafts and archive included.
+         *
+         *     Filter with the DSL (`filter=`) or simple parameters (`status=published`), sort with
+         *     `sort=-updated_at`, page with `limit`/`cursor`.
+         */
+        get: operations["list_announcements_api_v1_announcements_get"];
+        put?: never;
+        /**
+         * Create an announcement
+         * @description A new draft. Send an Idempotency-Key: a retried request returns the same 201.
+         */
+        post: operations["create_api_v1_announcements_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/feed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Announcements live for you
+         * @description Published, inside their window, addressed to you. Used by banners and the portal.
+         */
+        get: operations["feed_api_v1_announcements_feed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Announcement settings
+         * @description The module's tenant settings (staff may read them: they explain disabled actions).
+         */
+        get: operations["get_settings_api_v1_announcements_settings_get"];
+        /**
+         * Change announcement settings
+         * @description Turn the four-eyes rule on or off. If-Match: the version you read ("0" if never set).
+         */
+        put: operations["put_settings_api_v1_announcements_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Announcements in the trash
+         * @description Deleted announcements you may see, with the same filters; restore with POST …/restore.
+         */
+        get: operations["list_trash_api_v1_announcements_trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an announcement
+         * @description One announcement, as much of it as you may see.
+         *
+         *     Staff in scope: everything (`kind` = staff). Its audience while it is live: the public view
+         *     (`kind` = public). Anyone else: 404 `announcement_not_found`, even for drafts that exist.
+         */
+        get: operations["get_announcement_api_v1_announcements__announcement_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Move an announcement to the trash
+         * @description Soft delete: recoverable from the trash with POST …/restore.
+         */
+        delete: operations["delete_api_v1_announcements__announcement_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit an announcement
+         * @description Change the fields you send. Needs If-Match; the status changes through actions.
+         */
+        patch: operations["edit_api_v1_announcements__announcement_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Archive
+         * @description Draft or published → archived, with an optional reason.
+         */
+        post: operations["archive_api_v1_announcements__announcement_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History of an announcement
+         * @description Every save, newest first: who, when, from where, what changed from what to what, why.
+         */
+        get: operations["history_api_v1_announcements__announcement_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish
+         * @description Draft → published. Needs announcements.publish (and, with four-eyes on, not your own).
+         */
+        post: operations["publish_api_v1_announcements__announcement_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reopen
+         * @description Archived → draft.
+         */
+        post: operations["reopen_api_v1_announcements__announcement_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore from the trash
+         * @description Take it out of the trash, as it was.
+         */
+        post: operations["restore_api_v1_announcements__announcement_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/announcements/{announcement_id}/unpublish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unpublish
+         * @description Published → draft, with an optional reason.
+         */
+        post: operations["unpublish_api_v1_announcements__announcement_id__unpublish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/callback": {
         parameters: {
             query?: never;
@@ -516,6 +758,8 @@ export interface paths {
         /**
          * Update your preferences
          * @description Change your own signature or time zone. Needs `If-Match` with the ETag you read.
+         *
+         *     A stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.
          */
         patch: operations["update_user_api_v1_users__user_id__patch"];
         trace?: never;
@@ -568,6 +812,287 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ActionStateOut
+         * @description A status action as you may use it now. Disabled ones carry a reason code (labelled).
+         */
+        ActionStateOut: {
+            action: components["schemas"]["AnnouncementAction"];
+            /** Allowed */
+            allowed: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * AnnouncementAction
+         * @description AnnouncementStatus actions, in the order the UI shows them.
+         * @enum {string}
+         */
+        AnnouncementAction: "publish" | "unpublish" | "archive" | "reopen";
+        /**
+         * AnnouncementAudience
+         * @description Who it is for: everyone in the tenant, or members of chosen sites / support groups.
+         * @enum {string}
+         */
+        AnnouncementAudience: "everyone" | "sites" | "groups";
+        /**
+         * AnnouncementIn
+         * @description A new announcement (always saved as a draft).
+         */
+        AnnouncementIn: {
+            /** @default everyone */
+            audience: components["schemas"]["AnnouncementAudience"];
+            /**
+             * Body
+             * @description Plain text; line breaks are kept.
+             */
+            body: string;
+            /**
+             * Group Ids
+             * @description When audience = groups.
+             */
+            group_ids?: string[];
+            /**
+             * Owner Id
+             * @description Default: you.
+             */
+            owner_id?: string | null;
+            /** Publish From */
+            publish_from?: string | null;
+            /** Publish Until */
+            publish_until?: string | null;
+            /** @default info */
+            severity: components["schemas"]["AnnouncementSeverity"];
+            /**
+             * Show As Banner
+             * @default false
+             */
+            show_as_banner: boolean;
+            /**
+             * Site Ids
+             * @description When audience = sites.
+             */
+            site_ids?: string[];
+            /** Title */
+            title: string;
+        };
+        /**
+         * AnnouncementListItem
+         * @description One row of the staff list.
+         */
+        AnnouncementListItem: {
+            audience: components["schemas"]["AnnouncementAudience"];
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Display Id */
+            display_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Publish From */
+            publish_from: string | null;
+            /** Publish Until */
+            publish_until: string | null;
+            /** Published At */
+            published_at: string | null;
+            severity: components["schemas"]["AnnouncementSeverity"];
+            /** Show As Banner */
+            show_as_banner: boolean;
+            status: components["schemas"]["AnnouncementStatus"];
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            visibility: components["schemas"]["AnnouncementVisibility"];
+        };
+        /**
+         * AnnouncementOut
+         * @description An announcement as staff see it.
+         */
+        AnnouncementOut: {
+            /** Actions */
+            actions: components["schemas"]["ActionStateOut"][];
+            audience: components["schemas"]["AnnouncementAudience"];
+            /** Body */
+            body: string;
+            /**
+             * Can Manage
+             * @description Whether you may edit or delete it (UI hint only).
+             */
+            can_manage: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /** Display Id */
+            display_id: string;
+            /** Group Ids */
+            group_ids: string[];
+            /** History Count */
+            history_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @default staff
+             * @constant
+             */
+            kind: "staff";
+            /**
+             * Next Change In Seconds
+             * @description Seconds until its visibility changes by the clock (window start or end).
+             */
+            next_change_in_seconds: number | null;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Publish From */
+            publish_from: string | null;
+            /** Publish Until */
+            publish_until: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Published By */
+            published_by: string | null;
+            severity: components["schemas"]["AnnouncementSeverity"];
+            /** Show As Banner */
+            show_as_banner: boolean;
+            /** Site Ids */
+            site_ids: string[];
+            status: components["schemas"]["AnnouncementStatus"];
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by: string | null;
+            /**
+             * Version
+             * @description Send it back as If-Match (the ETag) to change it.
+             */
+            version: number;
+            visibility: components["schemas"]["AnnouncementVisibility"];
+        };
+        /**
+         * AnnouncementPage
+         * @description One page of the staff list, and when the first row's visibility changes.
+         */
+        AnnouncementPage: {
+            /**
+             * Estimated Total
+             * @description Only with include_total=true: matching rows, counted up to 10,000 (10,000 means 'at least').
+             */
+            estimated_total?: number | null;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["AnnouncementListItem"][];
+            /** Next Change In Seconds */
+            next_change_in_seconds?: number | null;
+            /**
+             * Next Cursor
+             * @description Pass as `cursor` for the next page.
+             */
+            next_cursor: string | null;
+        };
+        /**
+         * AnnouncementPatch
+         * @description Fields to change (only those sent). The status changes through actions, not here.
+         */
+        AnnouncementPatch: {
+            audience?: components["schemas"]["AnnouncementAudience"] | null;
+            /** Body */
+            body?: string | null;
+            /** Group Ids */
+            group_ids?: string[] | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Publish From */
+            publish_from?: string | null;
+            /** Publish Until */
+            publish_until?: string | null;
+            severity?: components["schemas"]["AnnouncementSeverity"] | null;
+            /** Show As Banner */
+            show_as_banner?: boolean | null;
+            /** Site Ids */
+            site_ids?: string[] | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * AnnouncementPublicOut
+         * @description An announcement as its audience sees it (nothing about owners or workflow).
+         */
+        AnnouncementPublicOut: {
+            /** Body */
+            body: string;
+            /** Display Id */
+            display_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @default public
+             * @constant
+             */
+            kind: "public";
+            /** Next Change In Seconds */
+            next_change_in_seconds: number | null;
+            /** Publish Until */
+            publish_until: string | null;
+            /** Published At */
+            published_at: string | null;
+            severity: components["schemas"]["AnnouncementSeverity"];
+            /** Show As Banner */
+            show_as_banner: boolean;
+            /** Title */
+            title: string;
+            visibility: components["schemas"]["AnnouncementVisibility"];
+        };
+        /**
+         * AnnouncementSeverity
+         * @description How prominent it is: one scale, no mixing of "high" and "affects users".
+         * @enum {string}
+         */
+        AnnouncementSeverity: "info" | "warning" | "critical";
+        /**
+         * AnnouncementStatus
+         * @description Lifecycle of an announcement. Stored as a code; the UI shows a label.
+         * @enum {string}
+         */
+        AnnouncementStatus: "draft" | "published" | "archived";
+        /**
+         * AnnouncementVisibility
+         * @description Whether it is on screens now (computed).
+         * @enum {string}
+         */
+        AnnouncementVisibility: "hidden" | "scheduled" | "live" | "ended";
         /**
          * CheckResponse
          * @description One dependency's readiness.
@@ -671,6 +1196,31 @@ export interface components {
          */
         Feature: "incident" | "service_request" | "knowledge" | "sla" | "ai_assist" | "problem" | "change" | "release" | "catalog" | "cmdb" | "assets" | "discovery" | "procurement" | "workflows" | "ai_agents" | "monetx_integration" | "projects" | "esm" | "msp" | "advanced_reporting" | "sandbox" | "config_as_code" | "custom_functions" | "local_ai_runtime" | "compliance_packs";
         /**
+         * FeedOut
+         * @description What is live for you now (banners and the portal), and when that changes.
+         */
+        FeedOut: {
+            /** Items */
+            items: components["schemas"]["AnnouncementPublicOut"][];
+            /**
+             * Next Change In Seconds
+             * @description Refetch after this many seconds (a window starts or ends); null: no timer.
+             */
+            next_change_in_seconds: number | null;
+        };
+        /**
+         * FieldChangeOut
+         * @description One field of one save. Values are codes, IDs, text or ISO times; the UI labels them.
+         */
+        FieldChangeOut: {
+            /** Field */
+            field: string;
+            /** New */
+            new?: unknown;
+            /** Old */
+            old?: unknown;
+        };
+        /**
          * FieldError
          * @description One invalid input field.
          */
@@ -767,6 +1317,52 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /**
+         * HistoryEntryOut
+         * @description One save.
+         */
+        HistoryEntryOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Actor Type
+             * @enum {string}
+             */
+            actor_type: "user" | "system";
+            /** Changes */
+            changes: components["schemas"]["FieldChangeOut"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "created" | "updated" | "status" | "deleted" | "restored";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "ui" | "api" | "rule" | "workflow" | "ai_agent" | "system" | "import";
+            /** Version */
+            version: number;
+        };
+        /**
+         * HistoryOut
+         * @description Saves of one announcement, newest first.
+         */
+        HistoryOut: {
+            /** Items */
+            items: components["schemas"]["HistoryEntryOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /**
          * LimitKey
@@ -1006,6 +1602,27 @@ export interface components {
             version: number;
         };
         /**
+         * SettingsIn
+         * @description New settings.
+         */
+        SettingsIn: {
+            /** Require Second Publisher */
+            require_second_publisher: boolean;
+        };
+        /**
+         * SettingsOut
+         * @description The module's tenant settings. `version` 0 = never changed.
+         */
+        SettingsOut: {
+            /**
+             * Require Second Publisher
+             * @description Four-eyes: the owner or author of an announcement may not publish it.
+             */
+            require_second_publisher: boolean;
+            /** Version */
+            version: number;
+        };
+        /**
          * StateReason
          * @description Why the state is not plain `active`. Shown to admins through labels.
          * @enum {string}
@@ -1081,6 +1698,14 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
+        };
+        /**
+         * TransitionIn
+         * @description Optional reason (unpublish and archive), kept in the history.
+         */
+        TransitionIn: {
+            /** Reason */
+            reason?: string | null;
         };
         /**
          * UnitIn
@@ -1201,6 +1826,11 @@ export interface components {
             nav_layout: components["schemas"]["NavLayout"];
             /** Roles */
             roles: string[];
+            /**
+             * Time Zone
+             * @description The user's time zone preference (IANA); null: use the browser's.
+             */
+            time_zone?: string | null;
             user_type: components["schemas"]["UserType"];
         };
         /**
@@ -1269,6 +1899,1122 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_announcements_api_v1_announcements_get: {
+        parameters: {
+            query?: {
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementPage"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_api_v1_announcements_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnouncementIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    feed_api_v1_announcements_feed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeedOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_announcements_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_announcements_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict, who changed what. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_trash_api_v1_announcements_trash_get: {
+        parameters: {
+            query?: {
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementPage"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_announcement_api_v1_announcements__announcement_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"] | components["schemas"]["AnnouncementPublicOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Does not exist, or not visible to you (announcement_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_api_v1_announcements__announcement_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict, who changed what. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    edit_api_v1_announcements__announcement_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AnnouncementPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict, who changed what. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    archive_api_v1_announcements__announcement_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransitionIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description invalid_transition, cannot_publish (with a reason) or version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    history_api_v1_announcements__announcement_id__history_get: {
+        parameters: {
+            query?: {
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    publish_api_v1_announcements__announcement_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description invalid_transition, cannot_publish (with a reason) or version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reopen_api_v1_announcements__announcement_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description invalid_transition, cannot_publish (with a reason) or version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    restore_api_v1_announcements__announcement_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict, who changed what. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    unpublish_api_v1_announcements__announcement_id__unpublish_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                announcement_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TransitionIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnnouncementOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such announcement visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description invalid_transition, cannot_publish (with a reason) or version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     callback_api_v1_auth_callback_get: {
         parameters: {
             query?: {
@@ -3137,7 +4883,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Stale If-Match (version_conflict). */
+            /** @description Stale If-Match (says who changed what). */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -4,6 +4,12 @@ Creates 40 requester rows in Demo Company (`e2e-scroll-NN@demo.test`) so the use
 more than one page to scroll through; `delete` removes exactly those rows again. Only rows this
 tool creates are ever touched (CLAUDE.md rule h): they are matched by their reserved e-mail
 pattern. They are requesters, so they never take a technician seat. Refuses production.
+
+`delete` also removes what the suite itself created through the UI and API (WP-012), matched
+by the reserved "E2E " name prefix: announcements (with their field history and audience rows)
+and sites, in the two dev tenants; plus the field history of the suite's own users
+(`e2e.*@demo.test`, profile and layout saves). The API only soft-deletes, and history is
+append-only for the application; the suite must leave nothing.
 """
 
 import asyncio
@@ -13,15 +19,44 @@ import uuid
 import asyncpg
 
 from app.core.config import Settings
-from tooling.seed_dev import DEMO_TENANT_ID
+from tooling.seed_dev import DEMO_TENANT_ID, OTHER_TENANT_ID
 
 COUNT = 40
 PATTERN = "e2e-scroll-%@demo.test"
+SUITE_PREFIX = "E2E %"
+SUITE_USERS = "e2e.%@demo.test"  # the suite's own Keycloak users (frontend/e2e/stack.ts)
+# Children first: history and memberships, then the records. ($1: the matching pattern.)
+SUITE_RECORDS = (
+    (
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'announcement' AND record_id IN"
+            " (SELECT id FROM announcements WHERE title LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        # Profile and layout saves of the suite's users (their own records' history).
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'user' AND record_id IN"
+            " (SELECT id FROM users WHERE email LIKE $1)"
+        ),
+        SUITE_USERS,
+    ),
+    ("announcements", "DELETE FROM announcements WHERE title LIKE $1", SUITE_PREFIX),
+    (
+        "site_members",
+        "DELETE FROM site_members WHERE site_id IN (SELECT id FROM sites WHERE name LIKE $1)",
+        SUITE_PREFIX,
+    ),
+    ("sites", "DELETE FROM sites WHERE name LIKE $1", SUITE_PREFIX),
+)
 
 
-async def _in_tenant(conn: asyncpg.Connection) -> None:
-    # users has FORCED RLS: even the migrator works inside the tenant's context.
-    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(DEMO_TENANT_ID))
+async def _in_tenant(conn: asyncpg.Connection, tenant: uuid.UUID = DEMO_TENANT_ID) -> None:
+    # Business tables have FORCED RLS: even the migrator works inside the tenant's context.
+    await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant))
 
 
 async def create(url: str) -> int:
@@ -60,6 +95,22 @@ async def delete(url: str) -> int:
         await conn.close()
 
 
+async def delete_suite_records(url: str) -> dict[str, int]:
+    """Remove the "E2E …" announcements and sites the suite created; returns rows per table."""
+    removed = {table: 0 for table, _, _ in SUITE_RECORDS}
+    conn = await asyncpg.connect(url)
+    try:
+        for tenant in (DEMO_TENANT_ID, OTHER_TENANT_ID):
+            async with conn.transaction():
+                await _in_tenant(conn, tenant)
+                for table, statement, pattern in SUITE_RECORDS:
+                    status = await conn.execute(statement, pattern)
+                    removed[table] += int(status.split()[-1])
+    finally:
+        await conn.close()
+    return removed
+
+
 def main() -> int:  # pragma: no cover - thin CLI over the tested functions
     """CLI entry point."""
     settings = Settings()
@@ -72,6 +123,9 @@ def main() -> int:  # pragma: no cover - thin CLI over the tested functions
     url = settings.migration_database_url.get_secret_value()
     done = asyncio.run(create(url) if action == "create" else delete(url))
     sys.stdout.write(f"e2e fixtures {action}: {done} rows\n")
+    if action == "delete":
+        suite = asyncio.run(delete_suite_records(url))
+        sys.stdout.write(f"e2e suite records deleted: {suite}\n")
     return 0
 
 

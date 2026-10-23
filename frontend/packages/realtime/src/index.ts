@@ -18,6 +18,7 @@ export {
   useRealtimeStatus,
   useRealtimeUser,
   useRecordChannel,
+  useTenantChannel,
 } from './hooks';
 export { REALTIME_KEY, listChannelsKey } from './keys';
 export { RealtimeContext, type RealtimeContextValue } from './context';

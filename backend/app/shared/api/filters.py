@@ -25,7 +25,7 @@ import json
 import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from enum import StrEnum
 from typing import Any, NoReturn
 
@@ -232,8 +232,9 @@ def _short(text: object) -> str:
     return "".join(ch for ch in str(text) if ch.isprintable())[:64]
 
 
-def _start_of_day(day: date) -> datetime:
-    return datetime.combine(day, time.min, tzinfo=UTC)
+def _start_of_day(day: date, zone: tzinfo = UTC) -> datetime:
+    """Midnight of `day` in `zone`, as a UTC instant."""
+    return datetime.combine(day, time.min, tzinfo=zone).astimezone(UTC)
 
 
 def _month_start(day: date) -> date:
@@ -247,21 +248,28 @@ def _next_month(day: date) -> date:
 def relative_range(
     op: Op, now: datetime, days: int | None = None
 ) -> tuple[datetime | None, datetime | None]:
-    """[start, end) for a relative-date operator, in UTC."""
-    today = now.astimezone(UTC).date()
+    """[start, end) for a relative-date operator, as UTC instants.
+
+    Calendar operators ("today", "this week" …) use the days of `now`'s time zone: pass
+    `now` in the user's zone so "today" is the user's today (WP-012 follow-up); a UTC `now`
+    gives UTC days.
+    """
+    zone = now.tzinfo or UTC
+    today = now.date()
     monday = today - timedelta(days=today.weekday())
+
+    def day(value: date) -> datetime:
+        return _start_of_day(value, zone)
+
     ranges: dict[Op, Callable[[], tuple[datetime | None, datetime | None]]] = {
-        Op.TODAY: lambda: (_start_of_day(today), _start_of_day(today + timedelta(days=1))),
-        Op.YESTERDAY: lambda: (_start_of_day(today - timedelta(days=1)), _start_of_day(today)),
-        Op.THIS_WEEK: lambda: (_start_of_day(monday), _start_of_day(monday + timedelta(days=7))),
-        Op.LAST_WEEK: lambda: (_start_of_day(monday - timedelta(days=7)), _start_of_day(monday)),
-        Op.THIS_MONTH: lambda: (
-            _start_of_day(_month_start(today)),
-            _start_of_day(_next_month(today)),
-        ),
+        Op.TODAY: lambda: (day(today), day(today + timedelta(days=1))),
+        Op.YESTERDAY: lambda: (day(today - timedelta(days=1)), day(today)),
+        Op.THIS_WEEK: lambda: (day(monday), day(monday + timedelta(days=7))),
+        Op.LAST_WEEK: lambda: (day(monday - timedelta(days=7)), day(monday)),
+        Op.THIS_MONTH: lambda: (day(_month_start(today)), day(_next_month(today))),
         Op.LAST_MONTH: lambda: (
-            _start_of_day(_month_start(_month_start(today) - timedelta(days=1))),
-            _start_of_day(_month_start(today)),
+            day(_month_start(_month_start(today) - timedelta(days=1))),
+            day(_month_start(today)),
         ),
         Op.LAST_N_DAYS: lambda: (now - timedelta(days=days or 0), now),
         Op.NEXT_N_DAYS: lambda: (now, now + timedelta(days=days or 0)),

@@ -23,6 +23,11 @@ declarations), `backend/workers/` (relay, consumer worker, CLI).
    search indexing, workflows and analytics will all be consumers like this.
 6. **Housekeeping.** Published outbox rows are deleted by the relay after 72 hours
    (`SUPPORTX_OUTBOX_RETENTION_HOURS`). Unpublished rows are never deleted: the database refuses.
+   In the same pass (WP-012) the relay deletes expired idempotency keys and consumer records
+   (`processed_events`) older than 30 days (`SUPPORTX_PROCESSED_EVENTS_RETENTION_DAYS`, at least
+   7: the stream keeps events 7 days, so a redelivery could still need a younger record). The
+   relay's RLS policies on those two tables show it only rows past those limits, so it cannot
+   remove anything younger whatever the setting says.
 
 Measured on the dev stack (1,000 events, one transaction each): commit → consumer received
 p50 0.9 ms, p95 1.3 ms, p99 2.4 ms. One relay published 10,000 queued events at about 20,900
@@ -68,7 +73,7 @@ worker starts. Nobody creates them by hand.
 | Role | Can read | Can write | Cannot |
 |---|---|---|---|
 | `supportx_app` (API, consumers) | its own tenant's business rows; its tenant's `processed_events` | business rows of its tenant; INSERT into `outbox_events` for its tenant only; INSERT `processed_events` | read, update or delete any outbox row (even its own); write another tenant's rows; TRUNCATE; bypass RLS |
-| `supportx_relay` (outbox relay) | every tenant's `outbox_events` rows | `published_at`, `publish_attempts`, `last_error`, `updated_at` on outbox rows; DELETE of *published* outbox rows | read or write any other table (`users`, `tenants`, `processed_events`, ...); insert or alter events; delete unpublished events; bypass RLS |
+| `supportx_relay` (outbox relay) | every tenant's `outbox_events` rows; expired `idempotency_keys`; `processed_events` older than 7 days | `published_at`, `publish_attempts`, `last_error`, `updated_at` on outbox rows; DELETE of *published* outbox rows, of expired idempotency keys and of consumer records older than 7 days | read or write any other table (`users`, `tenants`, business tables, ...); see or delete younger keys or consumer records; insert or alter events; delete unpublished events; bypass RLS |
 | `supportx_migrator` | (owner, RLS forced) | DDL via migrations | runtime use |
 
 **How the relay reads across tenants safely.** It does *not* have `BYPASSRLS`. Instead the

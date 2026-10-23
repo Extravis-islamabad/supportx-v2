@@ -27,6 +27,32 @@ export const routes: RouteObject[] = [
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
       {
+        path: 'announcements',
+        handle: { section: 'announcements' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/announcements/AnnouncementsPage'))
+                .AnnouncementsPage,
+            }),
+          },
+          {
+            path: 'new',
+            lazy: async () => ({
+              Component: (await import('./pages/announcements/NewAnnouncementPage'))
+                .NewAnnouncementPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/announcements/AnnouncementPage')).AnnouncementPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'admin',
         handle: { section: 'admin' },
         lazy: async () => ({ Component: (await import('./pages/admin/AdminLayout')).AdminLayout }),

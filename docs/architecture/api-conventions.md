@@ -34,6 +34,17 @@ PATCH /api/v1/users/0191...          If-Match: "7"   (someone saved first)   →
 The 409 body carries `params: {"expected_version": 7, "current_version": 8}`; the client reloads
 and shows what changed. `If-Match: *` is refused: it would mean "overwrite whatever is there".
 
+Records with field history (WP-012, `app/shared/history`) explain the 409 from it: `params` also
+has `changed_fields` (comma-separated field codes, labelled by the UI), `changed_by` (display
+names) and `changed_at` (ISO time of the last save). Services call
+`explain_conflict(session, error, record_type=..., record_id=..., names=...)` on a version
+conflict; `<ConflictDialog error={...} fieldLabel={...}>` shows it.
+
+**Client headers.** The console and portal send `X-SupportX-Client: console|portal` (history
+records the source `ui`; anything else is `api`) and `X-Time-Zone` (the user's profile zone, else
+the browser's): calendar filters such as `today` and `this_week` use the user's days (an unknown
+zone falls back to UTC).
+
 ## 2. Idempotency-Key on POST
 
 Clients send a random key (a UUID) per *intended* create and reuse it when retrying.

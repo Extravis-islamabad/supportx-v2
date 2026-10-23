@@ -22,6 +22,7 @@ from app.modules.identity_access.service.policy import visible
 from app.shared.api.concurrency import ExpectedVersion, not_modified, set_etag
 from app.shared.api.listing import ListQuery, Page, list_query
 from app.shared.api.ratelimit import rate_limit
+from app.shared.history import source_of
 
 router = APIRouter(
     prefix="/users",
@@ -124,7 +125,7 @@ async def get_user(
     "/{user_id}",
     summary="Update your preferences",
     responses={
-        409: {"model": ProblemDetail, "description": "Stale If-Match (version_conflict)."},
+        409: {"model": ProblemDetail, "description": "Stale If-Match (says who changed what)."},
         428: {"model": ProblemDetail, "description": "If-Match missing."},
     },
 )
@@ -135,14 +136,19 @@ async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     response: Response,
     session: TenantSession,
     subject: EditProfile,
+    request: Request,
 ) -> UserDetail:
-    """Change your own signature or time zone. Needs `If-Match` with the ETag you read."""
+    """Change your own signature or time zone. Needs `If-Match` with the ETag you read.
+
+    A stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.
+    """
     user = await directory.update_preferences(
         session,
         subject,
         user_id,
         expected_version=version,
         changes=body.model_dump(include=body.model_fields_set),
+        source=source_of(request),
     )
     set_etag(response, user.version)
     return UserDetail.of(user, subject)

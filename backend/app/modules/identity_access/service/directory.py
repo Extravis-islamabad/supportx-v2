@@ -13,7 +13,7 @@ Field visibility: `last_login_at` only for subjects holding `users.manage`.
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 from zoneinfo import available_timezones
 
@@ -38,6 +38,9 @@ from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
+from app.shared.history import Change, Source, explain_conflict, record_changes
+
+USER_RECORD_TYPE = "user"
 
 EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout"})
 MAX_SIGNATURE_LENGTH = 2000
@@ -152,15 +155,20 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
     return clean
 
 
-async def update_preferences(
+async def update_preferences(  # noqa: PLR0913 - the record, the version and the change, explicit
     session: AsyncSession,
     subject: Subject,
     user_id: uuid.UUID,
     *,
     expected_version: int,
     changes: Mapping[str, Any],
+    source: Source = "api",
 ) -> User:
-    """Change your own preferences if the record is still at `expected_version`."""
+    """Change your own preferences if the record is still at `expected_version`.
+
+    Each save is kept in the field history; a stale version gets a 409 saying who changed which
+    fields since (WP-012 follow-up).
+    """
     if user_id != subject.user_id:
         raise PermissionDenied(code="own_profile_only")
     require(
@@ -172,13 +180,33 @@ async def update_preferences(
     changed = sorted(name for name, value in clean.items() if getattr(current, name) != value)
     if not changed:
         if current.version != expected_version:
-            raise Conflict(
-                code="version_conflict",
-                params={"expected_version": expected_version, "current_version": current.version},
+            raise await _explained(
+                session,
+                Conflict(
+                    code="version_conflict",
+                    params={
+                        "expected_version": expected_version,
+                        "current_version": current.version,
+                    },
+                ),
+                user_id,
             )
         return current  # nothing to change: no new version, no event
-    updated = await UserRepository(session).update(
-        user_id, expected_version=expected_version, changes={n: clean[n] for n in changed}
+    before = {name: getattr(current, name) for name in changed}
+    try:
+        updated = await UserRepository(session).update(
+            user_id, expected_version=expected_version, changes={n: clean[n] for n in changed}
+        )
+    except Conflict as error:
+        raise await _explained(session, error, user_id) from error
+    await record_changes(
+        session,
+        record_type=USER_RECORD_TYPE,
+        record_id=user_id,
+        version=updated.version,
+        kind="updated",
+        changes=[Change(name, before[name], clean[name]) for name in changed],
+        source=source,
     )
     await record_event(
         session,
@@ -187,3 +215,36 @@ async def update_preferences(
         aggregate_version=updated.version,
     )
     return updated
+
+
+async def _explained(session: AsyncSession, error: Conflict, user_id: uuid.UUID) -> Conflict:
+    return await explain_conflict(
+        session,
+        error,
+        record_type=USER_RECORD_TYPE,
+        record_id=user_id,
+        names=lambda ids: display_names(session, ids),
+    )
+
+
+async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str, str]:
+    """{user id: display name} for users of the session's tenant (unknown IDs left out).
+
+    For other modules' messages and history ("changed by Aisha Tech"): names only, nothing else.
+    """
+    wanted: list[uuid.UUID] = []
+    for raw in user_ids:
+        try:
+            wanted.append(uuid.UUID(str(raw)))
+        except ValueError:
+            continue
+    if not wanted:
+        return {}
+    rows = await session.execute(select(User.id, User.display_name).where(User.id.in_(wanted)))
+    return {str(row.id): row.display_name for row in rows}
+
+
+async def display_names(session: AsyncSession, user_ids: Sequence[str]) -> list[str]:
+    """Display names in the given order (unknown IDs skipped)."""
+    names = await user_names(session, user_ids)
+    return [names[str(user_id)] for user_id in user_ids if str(user_id) in names]

@@ -59,6 +59,13 @@ CROSS_TENANT_POLICIES: dict[tuple[str, str], tuple[str, str]] = {
         f"outbox_events_relay_{command}",
     ): (RELAY_ROLE, "The outbox relay publishes every tenant's events (WP-007, events.md).")
     for command in ("select", "update", "delete")
+} | {
+    (table, f"{table}_relay_{command}"): (
+        RELAY_ROLE,
+        "Housekeeping by the relay (WP-012, migration 0010): only rows past their retention.",
+    )
+    for table in ("idempotency_keys", "processed_events")
+    for command in ("select", "delete")
 }
 # Everything supportx_relay may do, per table: (table privileges, columns it may UPDATE).
 RELAY_PRIVILEGES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
@@ -66,6 +73,8 @@ RELAY_PRIVILEGES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
         frozenset({"SELECT", "DELETE"}),
         frozenset({"published_at", "publish_attempts", "last_error", "updated_at"}),
     ),
+    "idempotency_keys": (frozenset({"SELECT", "DELETE"}), frozenset()),
+    "processed_events": (frozenset({"SELECT", "DELETE"}), frozenset()),
 }
 REQUIRED_COMMANDS = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
 FORBIDDEN_APP_PRIVILEGES = frozenset({"TRUNCATE", "REFERENCES", "TRIGGER"})
