@@ -2,7 +2,7 @@ import { App, Button, Card, Space, Typography } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { useCreateAnnouncement } from '@supportx/api-client';
+import { useCreateAnnouncement, useSession } from '@supportx/api-client';
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
 import { NoAccess, reportError, useAccess, useLabel, WriteButton } from '@supportx/ui';
 
@@ -16,14 +16,20 @@ export function NewAnnouncementPage() {
   const { message } = App.useApp();
   const { can } = useAccess();
   const create = useCreateAnnouncement();
-  const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
+  // The author owns it unless they pick someone else (the picker shows their name).
+  const me = useSession().data?.user.id ?? null;
+  const form = useForm<Values>({
+    resolver: zodResolver(schema),
+    defaultValues: { ...EMPTY, owner_id: me },
+  });
   // One key per form: a retried save (timeout, double click) creates one announcement, not two.
   const [key, setKey] = useState(() => crypto.randomUUID());
 
   if (!can('announcements.manage')) return <NoAccess titleKey="nav.announcements" />;
   const save = form.handleSubmit((values) => {
     create.mutate(
-      { body: { ...EMPTY, ...bodyOf(values) }, key },
+      // bodyOf leaves out an empty owner; the API then makes the author the owner.
+      { body: { ...EMPTY, owner_id: undefined, ...bodyOf(values) }, key },
       {
         onSuccess: (saved) => {
           void message.success(t('announcements.created', { id: saved.display_id }));

@@ -91,17 +91,49 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
                     tenant,
                     name,
                 )
+        # Roles: only a soft-deleted custom "E2E …" role goes (with its permissions).
+        for key, name, deleted, system in (
+            ("e2e_old", "E2E reports 1", True, False),
+            ("e2e_live", "E2E reports 2", False, False),
+            ("helpdesk", "Helpdesk", True, False),
+            ("e2e_sys", "E2E system", True, True),
+        ):
+            role_id = await conn.fetchval(
+                "INSERT INTO roles (id, tenant_id, key, name, is_system, deleted_at)"
+                " VALUES (gen_random_uuid(), $1, $2, $3, $4,"
+                " CASE WHEN $5 THEN now() END) RETURNING id",
+                seed_dev.DEMO_TENANT_ID,
+                key,
+                name,
+                system,
+                deleted,
+            )
+            await conn.execute(
+                "INSERT INTO role_permissions (tenant_id, role_id, permission, scope)"
+                " VALUES ($1, $2, 'announcements.view', 'all')",
+                seed_dev.DEMO_TENANT_ID,
+                role_id,
+            )
     finally:
         await conn.close()
 
     removed = await e2e_fixtures.delete_suite_records(database.migrator_url)
-    assert removed == {"field_changes": 2, "announcements": 1, "site_members": 0, "sites": 2}
+    assert removed == {
+        "field_changes": 2,
+        "announcements": 1,
+        "site_members": 0,
+        "sites": 2,
+        "user_roles": 0,
+        "roles": 1,
+    }
 
     conn = await asyncpg.connect(database.admin_url)
     try:
         titles = await conn.fetch("SELECT title FROM announcements")
         history = await conn.fetch("SELECT record_type, field FROM field_changes ORDER BY 1")
         sites = await conn.fetch("SELECT name FROM sites ORDER BY tenant_id")
+        roles = await conn.fetch("SELECT name FROM roles ORDER BY name")
+        grants = await conn.fetchval("SELECT count(*) FROM role_permissions")
     finally:
         await conn.close()
     assert [r["title"] for r in titles] == ["Keep this note"]
@@ -111,3 +143,5 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         ("user", "signature"),
     ]
     assert [r["name"] for r in sites] == ["Head office", "Head office"]
+    assert [r["name"] for r in roles] == ["E2E reports 2", "E2E system", "Helpdesk"]
+    assert grants == 3

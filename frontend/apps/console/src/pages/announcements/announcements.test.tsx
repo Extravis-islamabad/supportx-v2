@@ -187,3 +187,102 @@ describe('One announcement', () => {
     ).toBeDefined();
   });
 });
+
+describe('New announcement', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/announcements/new');
+  });
+  afterEach(() => {
+    restore();
+  });
+
+  it('owner picker: only people who may own it, searchable; the author by default', async () => {
+    const me = ADMIN.user.id;
+    const COMMS = '01900000-0000-7000-8000-000000000202';
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/announcements/owner-candidates': (call) => ({
+          body: call.url.searchParams.get('search')
+            ? [{ id: COMMS, display_name: 'Cara Comms' }]
+            : [
+                { id: me, display_name: 'Amal Admin' },
+                { id: COMMS, display_name: 'Cara Comms' },
+              ],
+        }),
+        'POST /api/v1/announcements': {
+          status: 201,
+          body: { ...ITEM, owner_id: COMMS },
+          headers: { ETag: '"1"' },
+        },
+        [`GET ${PATH}`]: { body: ITEM, headers: { ETag: '"1"' } },
+        [`GET ${PATH}/history`]: { body: { items: [], next_cursor: null } },
+      },
+    });
+    render(<App />);
+    const picker = await screen.findByTestId('ann-owner');
+    // The author is preselected and shown by name, never by ID.
+    await waitFor(() => {
+      expect(picker.textContent).toContain('Amal Admin');
+    });
+    expect(picker.textContent).not.toContain(me);
+    expect(
+      fake
+        .find('GET', '/api/v1/announcements/owner-candidates')[0]
+        ?.url.searchParams.get('include'),
+    ).toBe(me);
+
+    const search = within(picker).getByRole('combobox');
+    fireEvent.mouseDown(search);
+    fireEvent.change(search, { target: { value: 'car' } });
+    await waitFor(() => {
+      expect(
+        fake
+          .find('GET', '/api/v1/announcements/owner-candidates')
+          .some((c) => c.url.searchParams.get('search') === 'car'),
+      ).toBe(true);
+    });
+    fireEvent.click(await screen.findByTitle('Cara Comms'));
+
+    fireEvent.change(screen.getByTestId('ann-title'), { target: { value: 'Mail outage' } });
+    fireEvent.change(screen.getByTestId('ann-body'), { target: { value: 'Mail is down.' } });
+    fireEvent.click(screen.getByTestId('ann-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/announcements')).toHaveLength(1);
+    });
+    const body = fake.find('POST', '/api/v1/announcements')[0]?.body as Record<string, unknown>;
+    expect(body.owner_id).toBe(COMMS);
+    expect(body.publish_from).toBeNull();
+  });
+
+  it('an owner the API refuses is explained under the field', async () => {
+    api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/announcements/owner-candidates': {
+          body: [{ id: ADMIN.user.id, display_name: 'Amal Admin' }],
+        },
+        'POST /api/v1/announcements': {
+          status: 422,
+          body: problem(422, 'validation_failed', {
+            errors: [
+              {
+                field: 'body.owner_id',
+                code: 'owner_not_allowed',
+                message_key: 'errors.field.owner_not_allowed',
+                params: {},
+              },
+            ],
+          }),
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.change(await screen.findByTestId('ann-title'), { target: { value: 'T' } });
+    fireEvent.change(screen.getByTestId('ann-body'), { target: { value: 'B' } });
+    fireEvent.click(screen.getByTestId('ann-save'));
+    expect((await screen.findByTestId('error-owner_id')).textContent).toBe(
+      'This person may not manage announcements, so cannot own one.',
+    );
+  });
+});

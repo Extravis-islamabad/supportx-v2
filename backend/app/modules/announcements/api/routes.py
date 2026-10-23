@@ -30,7 +30,7 @@ from app.modules.announcements.domain.announcement import (
 )
 from app.modules.announcements.infra.models import Announcement
 from app.modules.announcements.service import announcements as service
-from app.modules.identity_access import Subject
+from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query
@@ -68,6 +68,7 @@ Manage = Annotated[Subject, Depends(require_permission(service.MANAGE))]
 Publish = Annotated[Subject, Depends(require_permission(service.PUBLISH))]
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 SettingsAdmin = Annotated[Subject, Depends(require_permission("settings.manage"))]
+Policy = Annotated[PolicyService, Depends(get_policy)]
 AnnouncementsQuery = Annotated[ListQuery, Depends(list_query(service.ANNOUNCEMENT_FIELDS))]
 
 
@@ -192,6 +193,13 @@ class AnnouncementOut(BaseModel):
             history_count=view.history_count,
             can_manage=view.can_manage,
         )
+
+
+class OwnerCandidateOut(BaseModel):
+    """Someone who may own an announcement (holds announcements.manage)."""
+
+    id: uuid.UUID
+    display_name: str
 
 
 class AnnouncementPublicOut(BaseModel):
@@ -403,6 +411,32 @@ async def feed(session: TenantSession, subject: SignedIn) -> FeedOut:
     return FeedOut(items=items, next_change_in_seconds=found.next_change_in_seconds)
 
 
+@router.get("/owner-candidates", summary="People who may own an announcement")
+async def owner_candidates(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
+    session: TenantSession,
+    subject: Manage,
+    policy: Policy,
+    search: Annotated[str | None, Query(max_length=100)] = None,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    include: Annotated[list[uuid.UUID] | None, Query(max_length=5)] = None,
+) -> list[OwnerCandidateOut]:
+    """Active users who may manage announcements, by name, for the owner picker.
+
+    `search` matches name or email (contains, case-insensitive). Other people are refused as
+    owner on create and edit (`owner_not_allowed`). `include` (e.g. the current owner) is listed
+    first by name even when outside this page.
+    """
+    found = await service.owner_candidates(
+        session,
+        subject,
+        policy,
+        search=(search or "").strip() or None,
+        limit=limit,
+        include=include or [],
+    )
+    return [OwnerCandidateOut(id=user_id, display_name=name) for user_id, name in found]
+
+
 @router.get("/settings", summary="Announcement settings")
 async def get_settings(session: TenantSession, subject: View) -> SettingsOut:
     """The module's tenant settings (staff may read them: they explain disabled actions)."""
@@ -442,18 +476,19 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     status_code=status.HTTP_201_CREATED,
     response_model=AnnouncementOut,
 )
-async def create(
+async def create(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: AnnouncementIn,
     session: TenantSession,
     subject: Manage,
     idempotency: Idempotency,
     request: Request,
+    policy: Policy,
 ) -> Response:
     """A new draft. Send an Idempotency-Key: a retried request returns the same 201."""
 
     async def run() -> Created:
         view = await service.create(
-            session, subject, body.model_dump(exclude_unset=True), source_of(request)
+            session, subject, body.model_dump(exclude_unset=True), source_of(request), policy
         )
         out = AnnouncementOut.of(view)
         return Created(
@@ -497,6 +532,7 @@ async def edit(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
     response: Response,
     request: Request,
+    policy: Policy,
 ) -> AnnouncementOut:
     """Change the fields you send. Needs If-Match; the status changes through actions."""
     view = await service.update(
@@ -506,6 +542,7 @@ async def edit(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         expected_version=version,
         values=body.model_dump(include=body.model_fields_set),
         source=source_of(request),
+        holders=policy,
     )
     set_etag(response, view.record.version)
     return AnnouncementOut.of(view)

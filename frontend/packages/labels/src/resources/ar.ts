@@ -536,6 +536,9 @@ export const ar: LabelResource = {
   'announcement.body_help': 'نص عادي. يتم الاحتفاظ بفواصل الأسطر.',
   'announcement.publish_from_help': 'فارغ: فور نشره.',
   'announcement.publish_until_help': 'فارغ: حتى يُلغى نشره أو يُؤرشف.',
+  'announcement.owner_help': 'يمكن فقط لمن يملك صلاحية إدارة الإعلانات أن يكون مالكًا لها.',
+  'announcement.owner_search': 'ابحث بالاسم أو البريد الإلكتروني',
+  'datetime.time_zone_note': 'الأوقات بتوقيت {{zone}}.',
   'announcement_severity.info': 'معلومات',
   'announcement_severity.warning': 'تحذير',
   'announcement_severity.critical': 'حرج',
@@ -592,6 +595,8 @@ export const ar: LabelResource = {
   'errors.field.required': 'هذا الحقل مطلوب.',
   'errors.field.not_allowed': 'هذا غير مسموح مع القيم الأخرى.',
   'errors.field.unknown_value': 'هذه القيمة غير موجودة (لم تعد موجودة).',
+  'errors.field.owner_not_allowed':
+    'لا يملك هذا الشخص صلاحية إدارة الإعلانات، لذا لا يمكن أن يكون مالكًا.',
   'errors.field.too_many': 'اختر {{max}} كحد أقصى.',
   'errors.field.window_end_before_start': 'يجب أن يكون بعد البداية.',
   'event_type.announcements.announcement.created': 'أُنشئ إعلان',
