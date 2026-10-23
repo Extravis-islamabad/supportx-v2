@@ -1,19 +1,23 @@
 """BFF endpoints under /api/v1/auth (D-009). Tokens never leave the server."""
 
 import uuid
-from typing import Annotated, Literal
+from typing import TYPE_CHECKING, Annotated, Literal
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
+from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
 from app.core.errors import ServiceUnavailable, Unauthenticated
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.service.auth import AuthService, LoginFailure
+
+if TYPE_CHECKING:
+    from app.modules.identity_access.service.policy import PolicyService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -41,7 +45,7 @@ CurrentSession = Annotated[tuple[str, Session], Depends(current_session)]
 
 
 class UserOut(BaseModel):
-    """The logged-in user (in the active tenant)."""
+    """The logged-in user (in the active tenant). `roles`: SupportX role keys."""
 
     id: uuid.UUID
     email: str
@@ -58,17 +62,28 @@ class TenantOut(BaseModel):
     name: str
 
 
+class EffectivePermission(BaseModel):
+    """A permission the user holds (WP-016), for showing and hiding UI. The server enforces it."""
+
+    key: str
+    scope: Scope = Field(description="The broadest scope held.")
+    scopes: list[Scope]
+    conditional: bool = Field(description="Some grants only apply to records matching a rule.")
+
+
 class MeResponse(BaseModel):
     """Session summary for the UI.
 
     `csrf_token` must be sent as X-CSRF-Token on every POST/PUT/PATCH/DELETE; it is tied to this
-    session and changes when the session does.
+    session and changes when the session does. `user.roles` are the user's SupportX role keys
+    (D-029: SupportX, not Keycloak, decides access); `permissions` their effective permissions.
     """
 
     user: UserOut
     tenant: TenantOut
     tenants: list[TenantOut]
     csrf_token: str
+    permissions: list[EffectivePermission] = Field(default_factory=list)
 
 
 class SwitchTenantRequest(BaseModel):
@@ -84,6 +99,7 @@ class SwitchTenantRequest(BaseModel):
     response_class=RedirectResponse,
 )
 @entitlement_exempt
+@public_route
 async def login(
     auth: Auth,
     app: Annotated[Literal["console", "portal"], Query()] = "console",
@@ -104,6 +120,7 @@ async def login(
     response_class=RedirectResponse,
 )
 @entitlement_exempt
+@public_route
 async def callback(
     request: Request,
     auth: Auth,
@@ -137,14 +154,37 @@ async def callback(
 
 @router.get("/me", summary="Current session")
 @entitlement_exempt
-async def me(found: CurrentSession) -> MeResponse:
-    """The logged-in user, active tenant, switchable tenants and CSRF token."""
+@public_route
+async def me(found: CurrentSession, request: Request) -> MeResponse:
+    """The logged-in user, active tenant, switchable tenants, CSRF token and permissions."""
     _session_id, session = found
-    return MeResponse.model_validate(AuthService.describe(session))
+    return await _describe(request, session)
+
+
+async def _describe(request: Request, session: Session) -> MeResponse:
+    """Session summary plus the user's SupportX roles and effective permissions."""
+    described = AuthService.describe(session)
+    policy: PolicyService | None = getattr(request.app.state, "policy", None)
+    if policy is None:
+        described["user"]["roles"] = []
+        return MeResponse.model_validate(described)
+    subject = await policy.subject(session.tenant_uuid, session.user_uuid)
+    described["user"]["roles"] = sorted(subject.role_keys)
+    described["permissions"] = [
+        {
+            "key": key,
+            "scope": subject.broadest_scope(key),
+            "scopes": sorted({g.scope for g in grants}),
+            "conditional": all(g.condition is not None for g in grants),
+        }
+        for key, grants in subject.grants.items()
+    ]
+    return MeResponse.model_validate(described)
 
 
 @router.post("/logout", summary="Log out", status_code=status.HTTP_204_NO_CONTENT)
 @entitlement_exempt
+@public_route
 async def logout(found: CurrentSession, auth: Auth) -> Response:
     """End this session and the Keycloak session; clears the cookie."""
     session_id, session = found
@@ -156,11 +196,16 @@ async def logout(found: CurrentSession, auth: Auth) -> Response:
 
 @router.post("/switch-tenant", summary="Switch active tenant")
 @entitlement_exempt
+@public_route
 async def switch_tenant(
-    body: SwitchTenantRequest, found: CurrentSession, auth: Auth, response: Response
+    body: SwitchTenantRequest,
+    found: CurrentSession,
+    auth: Auth,
+    response: Response,
+    request: Request,
 ) -> MeResponse:
     """Make another of the user's tenants active. Issues a new session ID and CSRF token."""
     session_id, session = found
     new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
     set_session_cookie(response, auth.settings, new_id)
-    return MeResponse.model_validate(AuthService.describe(switched))
+    return await _describe(request, switched)

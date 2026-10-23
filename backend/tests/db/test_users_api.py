@@ -7,7 +7,8 @@ X-Test-Tenant / X-Test-User, so each test can act as any user of any tenant.
 import asyncio
 import json
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -18,6 +19,7 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI, Request
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import event
 
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
@@ -46,6 +48,7 @@ class Directory:
     tenant: uuid.UUID
     tech: uuid.UUID
     requester: uuid.UUID
+    app: FastAPI
 
     def as_(self, user: uuid.UUID | None = None, tenant: uuid.UUID | None = None) -> dict[str, str]:
         headers = {"X-Test-Tenant": str(tenant or self.tenant)}
@@ -106,7 +109,7 @@ async def directory(migrated_db: ThrowawayDatabase) -> AsyncIterator[Directory]:
         setattr(app.state, SESSION_RESOLVER_STATE, fake_session)
         transport = ASGITransport(app=app, raise_app_exceptions=False)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            yield Directory(client, migrated_db, tenant, tech, requester)
+            yield Directory(client, migrated_db, tenant, tech, requester, app)
 
 
 def names(response: httpx.Response) -> list[str]:
@@ -293,9 +296,13 @@ async def test_unknown_query_parameters_are_refused(directory: Directory) -> Non
 
 
 async def test_requesters_cannot_list_or_read_others(directory: Directory) -> None:
-    assert (await directory.list(directory.requester)).json()["code"] == "technicians_only"
+    refused = (await directory.list(directory.requester)).json()
+    assert (refused["code"], refused["params"]) == (
+        "permission_denied",
+        {"permission": "users.view", "reason": "no_permission"},
+    )
     other = await directory.get(f"/api/v1/users/{directory.tech}", directory.requester)
-    assert other.json()["code"] == "technicians_only"
+    assert other.json()["code"] == "permission_denied"
     me = await directory.get(f"/api/v1/users/{directory.requester}", directory.requester)
     assert me.status_code == 200
 
@@ -405,18 +412,43 @@ async def test_identity_fields_and_other_users_cannot_be_patched(directory: Dire
     }
 
 
+@contextmanager
+def connection_peak(directory: Directory) -> Iterator[list[int]]:
+    """Track the most DB connections checked out at once while the block runs."""
+    engine = directory.app.state.db.engine.sync_engine
+    state = [0, 0]  # peak, open
+
+    def checkout(*_: object) -> None:
+        state[1] += 1
+        state[0] = max(state[0], state[1])
+
+    def checkin(*_: object) -> None:
+        state[1] -= 1
+
+    event.listen(engine, "checkout", checkout)
+    event.listen(engine, "checkin", checkin)
+    try:
+        yield state
+    finally:
+        event.remove(engine, "checkout", checkout)
+        event.remove(engine, "checkin", checkin)
+
+
 async def test_concurrent_patches_with_the_same_version_let_exactly_one_win(
     directory: Directory,
 ) -> None:
     path = f"/api/v1/users/{directory.tech}"
     headers = {**directory.as_(directory.tech), "If-Match": '"1"'}
-    responses = await asyncio.gather(
-        *(
-            directory.client.patch(path, json={"signature": f"v{i}"}, headers=headers)
-            for i in range(5)
+    with connection_peak(directory) as peak:
+        responses = await asyncio.gather(
+            *(
+                directory.client.patch(path, json={"signature": f"v{i}"}, headers=headers)
+                for i in range(5)
+            )
         )
-    )
     assert sorted(r.status_code for r in responses) == [200, 409, 409, 409, 409]
+    # One connection per request: two each starved CI's 5-connection PgBouncer pool.
+    assert peak[0] <= 5
     assert len(await outbox_updates(directory.db, directory.tech)) == 1
 
 

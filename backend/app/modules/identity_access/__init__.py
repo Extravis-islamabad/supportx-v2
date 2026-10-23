@@ -2,36 +2,111 @@
 
 BFF login with Keycloak, sessions and users. The BFF lives in `bff/` inside the Core API (D-009).
 
-Public interface for other modules: `UserType`. Sessions reach the rest of the app only as the
-`TenantContext` resolved by app.core.tenancy.
+Also the authorization policy layer (WP-016, architecture.md §11.2): permission catalogue, roles,
+assignments and the one policy service the API, search, realtime and AI agents use.
+
+Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
+`authorize_stored`, `scope_filter`, `visible`, `require`. Sessions reach the rest of the app only
+as the `TenantContext` resolved by app.core.tenancy; routes declare permissions with
+app.core.authorization.require_permission.
 """
 
+import uuid
 from typing import TYPE_CHECKING
 
 import httpx
 import valkey.asyncio
 from fastapi import FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.modules import ModuleSpec
+from app.core.authorization import (
+    AUTHORIZER_STATE,
+    register_access_invalidator,
+    unregister_access_invalidator,
+)
+from app.core.modules import ModuleRegistry, ModuleSpec
 from app.core.tenancy import SESSION_RESOLVER_STATE
+from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.permissions import (
+    IDENTITY_PERMISSIONS,
+    RESERVED_PERMISSIONS,
+    Catalogue,
+)
+from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.events import EVENTS
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
+from app.modules.identity_access.service import directory
 from app.modules.identity_access.service.auth import AuthService
+from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
+from app.modules.identity_access.service.policy import (
+    PolicyService,
+    ResourceType,
+    ValkeySubjectCache,
+    authorize,
+    authorize_stored,
+    require,
+    scope_filter,
+    visible,
+)
 from app.modules.identity_access.service.users import count_technicians
+from app.modules.licensing import Feature, entitled_features
+from app.modules.organization import memberships
 from app.shared.clock import system_clock
 
 if TYPE_CHECKING:
     from app.core.config import Settings
 
 
+def build_catalogue(registry: ModuleRegistry) -> Catalogue:
+    """Every module's permissions plus the reserved ITSM ones, validated (fails startup if bad)."""
+    specs = [spec for module in registry.modules for spec in module.permissions]
+    return Catalogue.build(specs, frozenset(f.value for f in Feature))
+
+
+async def _members(
+    session: AsyncSession, user_id: uuid.UUID
+) -> tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]:
+    found = await memberships(session, user_id)
+    return found.site_ids, found.group_ids
+
+
+def _start_policy(app: FastAPI, settings: "Settings") -> None:
+    """The policy layer (WP-016): needs the database; caches in Valkey when configured."""
+    app.state.policy = None
+    setattr(app.state, AUTHORIZER_STATE, None)
+    app.state.policy_client = None
+    catalogue = build_catalogue(app.state.modules)
+    if app.state.db is None:
+        return
+    cache = None
+    if settings.valkey_url is not None:
+        client = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+        app.state.policy_client = client
+        cache = ValkeySubjectCache(
+            client, prefix=settings.valkey_key_prefix, ttl_seconds=AUTHZ_CACHE_TTL_SECONDS
+        )
+    policy = PolicyService(
+        app.state.db,
+        catalogue,
+        cache=cache,
+        memberships=_members,
+        entitled_features=entitled_features,
+        resources={"users": directory.USERS},
+    )
+    app.state.policy = policy
+    setattr(app.state, AUTHORIZER_STATE, policy)
+    register_access_invalidator(policy.invalidate)
+
+
 async def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
+    _start_policy(app, settings)
     app.state.auth = None
     if not settings.auth_configured:
         return
@@ -53,12 +128,20 @@ async def _startup(app: FastAPI) -> None:
         clock=system_clock,
         cookie_name=cookie_name(settings),
     )
+    if app.state.policy is not None:
+        service.on_roles_mapped = app.state.policy.invalidate
     app.state.auth = service
     app.state.auth_clients = (http, kv)
     setattr(app.state, SESSION_RESOLVER_STATE, service.resolve)
 
 
 async def _shutdown(app: FastAPI) -> None:
+    policy = getattr(app.state, "policy", None)
+    if policy is not None:
+        unregister_access_invalidator(policy.invalidate)
+    policy_client = getattr(app.state, "policy_client", None)
+    if policy_client is not None:
+        await policy_client.aclose()
     clients = getattr(app.state, "auth_clients", None)
     if clients is not None:
         http, kv = clients
@@ -68,12 +151,30 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="identity_access",
-    routers=[router, users_router],
+    routers=[router, users_router, access_router],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
+    consumers=[AUTHZ_INVALIDATION],
+    # Own permissions plus the reserved ITSM ones (moved to their modules as they arrive).
+    permissions=IDENTITY_PERMISSIONS + RESERVED_PERMISSIONS,
     # Licensed technician seats (WP-009); requesters are never counted.
     usage_counters={"technicians": count_technicians},
 )
 
-__all__ = ["UserType", "module"]
+# Compiled permissions are refreshed through events at the latest after this (seconds); the
+# generation bump makes changes visible far sooner (see service/policy.py).
+AUTHZ_CACHE_TTL_SECONDS = 300
+
+__all__ = [
+    "PolicyService",
+    "ResourceType",
+    "Subject",
+    "UserType",
+    "authorize",
+    "authorize_stored",
+    "module",
+    "require",
+    "scope_filter",
+    "visible",
+]

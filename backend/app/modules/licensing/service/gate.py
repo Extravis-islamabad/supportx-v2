@@ -6,13 +6,15 @@ feature check, read-only check for writes, and the grace warning headers for ten
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Awaitable, Callable, Mapping
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import EntitlementRequired, ReadOnlyMode
 from app.core.tenancy import TenantContext
 from app.modules.licensing.domain.catalogue import EDITION_RATE_LIMIT_MULTIPLIER
 from app.modules.licensing.domain.entitlement import EntitlementState, StateReason, days_left
-from app.modules.licensing.service.entitlements import ADMIN_ROLE, EntitlementService
+from app.modules.licensing.service.entitlements import EntitlementService
 from app.shared.api.ratelimit import RateLimitPolicy, RateLimitPolicyProvider
 
 STATE_HEADER = "SupportX-Licence-State"
@@ -20,17 +22,34 @@ GRACE_ENDS_HEADER = "SupportX-Licence-Grace-Ends"
 DAYS_LEFT_HEADER = "SupportX-Licence-Days-Left"
 
 
+AdminCheck = Callable[[TenantContext], Awaitable[bool]]
+
+
+async def _nobody_is_admin(context: TenantContext) -> bool:
+    del context
+    return False
+
+
 class RouteGate:
     """Feature and read-only enforcement for module routes."""
 
-    def __init__(self, service: EntitlementService) -> None:
+    def __init__(
+        self, service: EntitlementService, is_admin: AdminCheck = _nobody_is_admin
+    ) -> None:
         self.service = service
+        # `licence.manage` through the policy layer (WP-016); only asked during a grace period.
+        self.is_admin = is_admin
 
     async def check_request(
-        self, context: TenantContext, *, feature: str | None, write: bool
+        self,
+        context: TenantContext,
+        *,
+        feature: str | None,
+        write: bool,
+        session: AsyncSession | None = None,
     ) -> Mapping[str, str]:
         """Raise when blocked; otherwise the warning headers (grace, admins only)."""
-        entitlement = await self.service.entitlement(context.tenant_id)
+        entitlement = await self.service.entitlement(context.tenant_id, session)
         if feature is not None and not entitlement.has_feature(feature):
             raise EntitlementRequired(params={"feature": feature})
         now = self.service.clock()
@@ -39,7 +58,7 @@ class RouteGate:
             reason = status.reason or StateReason.NO_ENTITLEMENT
             raise ReadOnlyMode(params={"reason": reason.value})
         ends = status.grace_ends_at
-        if status.state is EntitlementState.GRACE and ends and ADMIN_ROLE in context.roles:
+        if status.state is EntitlementState.GRACE and ends and await self.is_admin(context):
             return {
                 STATE_HEADER: status.state.value,
                 GRACE_ENDS_HEADER: ends.isoformat(),

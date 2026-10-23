@@ -10,8 +10,8 @@ export interface NavItem {
   icon?: ReactNode;
   /** Licence feature the section needs (WP-009); none = every edition. */
   feature?: Feature;
-  /** Only tenant admins see it. */
-  adminOnly?: boolean;
+  /** Permissions that open the section (any one of them, WP-016); none = everyone. */
+  permissions?: readonly string[];
 }
 
 export interface VisibleNavItem extends NavItem {
@@ -20,16 +20,32 @@ export interface VisibleNavItem extends NavItem {
 }
 
 /**
- * Which sections a user sees. Sections outside the plan are hidden for everyone except tenant
- * admins, who see them locked with an upgrade hint: they are the ones who can act on it, while
- * for everyone else a menu of things they cannot open is only noise.
+ * Which sections a user sees (WP-016): those whose permission they hold. A section outside the
+ * tenant's plan is shown locked, with an upgrade hint, to users who manage the licence: they can
+ * act on it, while for everyone else a menu of things they cannot open is only noise.
  */
 export function visibleNav(
   items: readonly NavItem[],
-  { has, isAdmin }: { has: (feature: Feature) => boolean; isAdmin: boolean },
+  {
+    canAny,
+    has,
+    managesLicence,
+  }: {
+    canAny: (keys: readonly string[]) => boolean;
+    has: (feature: Feature) => boolean;
+    managesLicence: boolean;
+  },
 ): VisibleNavItem[] {
-  return items
-    .filter((item) => !item.adminOnly || isAdmin)
-    .map((item) => ({ ...item, locked: item.feature !== undefined && !has(item.feature) }))
-    .filter((item) => !item.locked || isAdmin);
+  const result: VisibleNavItem[] = [];
+  for (const item of items) {
+    const outsidePlan = item.feature !== undefined && !has(item.feature);
+    if (outsidePlan) {
+      if (managesLicence) result.push({ ...item, locked: true });
+      continue;
+    }
+    if (item.permissions === undefined || canAny(item.permissions)) {
+      result.push({ ...item, locked: false });
+    }
+  }
+  return result;
 }

@@ -2,9 +2,10 @@
 
 import uuid
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
+from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.modules.organization.domain.tenant import TenantStatus
 from app.modules.organization.service.tenants import get_current_tenant
@@ -21,7 +22,7 @@ class TenantResponse(BaseModel):
     status: TenantStatus
 
 
-@router.get("/tenant", summary="Current tenant")
+@router.get("/tenant", summary="Current tenant", dependencies=[Depends(require_signed_in())])
 async def read_current_tenant(session: TenantSession) -> TenantResponse:
     """Return the tenant of the request (401 `unauthenticated` without a session)."""
     tenant = await get_current_tenant(session)

@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, type RouteObject } from 'react-router';
+import { createBrowserRouter, type RouteObject } from 'react-router';
 
 import { ConsoleLayout } from './ConsoleLayout';
 import { SECTION_KEYS } from './nav';
@@ -26,11 +26,21 @@ export const routes: RouteObject[] = [
         handle: { section: key },
         lazy: async () => ({ Component: (await import('./pages/SectionPage')).SectionPage }),
       })),
-      { path: 'admin', element: <Navigate to="/admin/users" replace /> },
       {
-        path: 'admin/users',
+        path: 'admin',
         handle: { section: 'admin' },
-        lazy: async () => ({ Component: (await import('./pages/UsersPage')).UsersPage }),
+        lazy: async () => ({ Component: (await import('./pages/admin/AdminLayout')).AdminLayout }),
+        children: [
+          { index: true, element: null },
+          {
+            path: 'users',
+            lazy: async () => ({ Component: (await import('./pages/admin/UsersPage')).UsersPage }),
+          },
+          {
+            path: 'roles',
+            lazy: async () => ({ Component: (await import('./pages/admin/RolesPage')).RolesPage }),
+          },
+        ],
       },
       {
         path: 'profile',

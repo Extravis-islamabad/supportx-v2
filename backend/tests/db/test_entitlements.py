@@ -31,7 +31,7 @@ from app.modules.identity_access.service.users import count_technicians, provisi
 from app.modules.licensing import EntitlementService, LimitKey
 from app.modules.licensing.infra.providers import SubscriptionProvider
 from app.modules.licensing.service.entitlements import install, installed, uninstall
-from conftest import create_tenant, make_settings
+from conftest import assign_system_role, create_tenant, make_settings
 from tests.db.test_users_api import seed_users
 from tooling.db_testing import ThrowawayDatabase
 
@@ -191,8 +191,12 @@ async def test_entitlements_endpoint_flags_problems_for_admins(
     client: AsyncClient, migrated_db: ThrowawayDatabase
 ) -> None:
     tenant = await create_tenant(migrated_db.migrator_url, "Grace", edition="enterprise")
+    admin_id, tech_id = await seed_users(  # noqa: RUF059 - tech_id: the non-admin below
+        migrated_db, tenant, [{"user_type": "technician"}, {"user_type": "technician"}]
+    )
+    await assign_system_role(migrated_db.admin_url, tenant, admin_id, "tenant_admin")
     await set_term(migrated_db, tenant, expires_at=NOW - timedelta(days=2), grace_days=14)
-    admin = await client.get("/api/v1/entitlements", headers=as_user(tenant, roles="tenant_admin"))
+    admin = await client.get("/api/v1/entitlements", headers=as_user(tenant, admin_id))
     body = admin.json()
     assert (body["state"], body["state_reason"], body["writable"]) == ("grace", "expired", True)
     assert body["admin_warning"] is True

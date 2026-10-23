@@ -1,4 +1,5 @@
 export { useAppearance, useLabel, type Appearance, type Direction } from './appearance';
+export { ADMIN_PERMISSIONS, useAccess, type Access } from './access';
 export { AppearanceControls } from './AppearanceControls';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
 export * from './errors';
@@ -8,6 +9,7 @@ export * from './shell';
 export {
   buildTheme,
   darken,
+  lighten,
   DEFAULT_BRANDING,
   THEME_MODES,
   type Branding,

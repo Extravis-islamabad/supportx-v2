@@ -19,10 +19,12 @@ import valkey.asyncio
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import AUTHORIZER_STATE, Authorizer, PermissionSpec
 from app.core.entitlements import ENTITLEMENT_GATE_STATE
 from app.core.errors import ServiceUnavailable
 from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec, UsageCounter
+from app.core.tenancy import TenantContext
 from app.modules.licensing.api.routes import router
 from app.modules.licensing.domain.catalogue import Edition, Feature, LimitKey, unknown_features
 from app.modules.licensing.domain.entitlement import (
@@ -139,8 +141,13 @@ def start_service(app: FastAPI, service: EntitlementService) -> None:
 
     Tests call this after startup to swap in a StaticProvider-backed service.
     """
+
+    async def is_admin(context: TenantContext) -> bool:
+        authorizer: Authorizer | None = getattr(app.state, AUTHORIZER_STATE, None)
+        return authorizer is not None and await authorizer.allows(context, "licence.manage")
+
     app.state.entitlements = service
-    setattr(app.state, ENTITLEMENT_GATE_STATE, RouteGate(service))
+    setattr(app.state, ENTITLEMENT_GATE_STATE, RouteGate(service, is_admin))
     limiter: RateLimiter | None = getattr(app.state, RATE_LIMITER_STATE, None)
     if limiter is not None:
         base = limiter.provider
@@ -206,9 +213,17 @@ async def reserve_capacity(
     return await _service().reserve(session, limit, adding, code=code)
 
 
-async def summary(session: AsyncSession) -> Summary:
+async def summary(session: AsyncSession, *, show_usage: bool, is_admin: bool) -> Summary:
     """Edition, features, limits with usage, state and term."""
-    return await _service().summary(session)
+    return await _service().summary(session, show_usage=show_usage, is_admin=is_admin)
+
+
+async def entitled_features(
+    tenant_id: uuid.UUID, session: AsyncSession | None = None
+) -> frozenset[str]:
+    """Feature keys the tenant's plan includes (for compiling permissions, WP-016)."""
+    entitlement = await _service().entitlement(tenant_id, session)
+    return frozenset(str(f) for f in entitlement.features)
 
 
 module = ModuleSpec(
@@ -218,6 +233,8 @@ module = ModuleSpec(
     on_shutdown=[_shutdown],
     events=EVENTS,
     consumers=[CACHE_INVALIDATION],
+    # Who sees licence warnings (and, later, imports licences).
+    permissions=[PermissionSpec("licence.manage")],
 )
 
 __all__ = [
@@ -236,6 +253,7 @@ __all__ = [
     "check_limit",
     "current_state",
     "current_subscription",
+    "entitled_features",
     "has_feature",
     "hold_limit",
     "module",

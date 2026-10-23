@@ -33,6 +33,7 @@ export function AppearanceControls() {
       </Space>
       <Select
         aria-label={t('appearance.language')}
+        data-testid="language-select"
         value={locale}
         onChange={setLocale}
         options={LOCALES.map((value) => ({ value, label: t(`locale.${value}`) }))}

@@ -59,6 +59,22 @@ class TenantScoped:
         )
 
 
+class TenantKeyed:
+    """`tenant_id` as the first primary-key column (link tables: user_roles, members ...).
+
+    Their composite primary key then starts with tenant_id, as the RLS guard requires of every
+    multi-column index.
+    """
+
+    @declared_attr
+    @classmethod
+    def tenant_id(cls) -> Mapped[uuid.UUID]:
+        """Owning tenant; leads the primary key."""
+        return mapped_column(
+            ForeignKey("tenants.id", ondelete="RESTRICT"), primary_key=True, sort_order=-90
+        )
+
+
 class Timestamps:
     """Creation and last-change time (timestamptz)."""
 

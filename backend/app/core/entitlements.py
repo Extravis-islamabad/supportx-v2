@@ -19,7 +19,9 @@ from collections.abc import Awaitable, Callable, Mapping
 from typing import Any, Protocol
 
 from fastapi import Request, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.database import REQUEST_SESSION_STATE
 from app.core.tenancy import TenantContext, resolve_tenant
 
 ENTITLEMENT_GATE_STATE = "entitlement_gate"
@@ -33,7 +35,12 @@ class EntitlementGate(Protocol):
     """What the guard asks per request; implemented by the licensing module."""
 
     async def check_request(
-        self, context: TenantContext, *, feature: str | None, write: bool
+        self,
+        context: TenantContext,
+        *,
+        feature: str | None,
+        write: bool,
+        session: AsyncSession | None = None,
     ) -> Mapping[str, str]:
         """Raise the problem that blocks this request, or return headers to add to the response."""
         ...
@@ -65,7 +72,9 @@ def route_guard(feature: str | None) -> Callable[[Request, Response], Awaitable[
         write = request.method not in SAFE_METHODS and not getattr(
             endpoint, _READ_ONLY_EXEMPT_ATTR, False
         )
-        headers = await gate.check_request(context, feature=feature, write=write)
+        # The request's own connection if it already holds one (see REQUEST_SESSION_STATE).
+        session = getattr(request.state, REQUEST_SESSION_STATE, None)
+        headers = await gate.check_request(context, feature=feature, write=write, session=session)
         response.headers.update(headers)
 
     return guard

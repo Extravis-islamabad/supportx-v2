@@ -197,7 +197,7 @@ async def test_module_functions_use_the_installed_service() -> None:
         assert caught.value.instance_code == "limit_reached"
         assert caught.value.params == {"limit": "technicians", "max": 50}
         assert session.statements == 2  # two advisory locks: hold + reserve
-        summary = await licensing.summary(session)
+        summary = await licensing.summary(session, show_usage=True, is_admin=False)
         assert summary.edition is Edition.PROFESSIONAL
         assert summary.admin_warning is False
     finally:

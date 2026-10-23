@@ -75,10 +75,36 @@ class SessionTenantSwitched(DomainEvent):
     client: ClientApp
 
 
+class RoleChanged(DomainEvent):
+    """A role was created, edited (name, description, permissions) or deleted (WP-016)."""
+
+    event_type: ClassVar[str] = "identity_access.role.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "role"
+
+    role_id: uuid.UUID
+    change: Literal["created", "updated", "deleted"]
+    changed_fields: list[str]
+
+
+class UserRoleChanged(DomainEvent):
+    """A role was assigned to or removed from a user (WP-016)."""
+
+    event_type: ClassVar[str] = "identity_access.user_role.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    role_id: uuid.UUID
+    change: Literal["assigned", "removed"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
     UserLoggedIn,
     UserLoggedOut,
     SessionTenantSwitched,
+    RoleChanged,
+    UserRoleChanged,
 )

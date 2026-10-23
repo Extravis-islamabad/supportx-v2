@@ -10,6 +10,7 @@ import {
   ConnectivityBanner,
   LicenceBanners,
   useCommandPaletteShortcut,
+  useAccess,
   useLabel,
   useLicence,
   visibleNav,
@@ -33,7 +34,12 @@ export function ConsoleLayout() {
   }, []);
   useCommandPaletteShortcut(openPalette);
 
-  const nav = useMemo(() => visibleNav(NAV, licence), [licence]);
+  const access = useAccess();
+  const nav = useMemo(
+    () =>
+      visibleNav(NAV, { canAny: access.canAny, has: licence.has, managesLicence: licence.isAdmin }),
+    [access, licence],
+  );
   const commands = useMemo(
     () => [
       ...nav

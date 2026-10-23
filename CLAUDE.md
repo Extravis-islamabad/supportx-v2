@@ -84,6 +84,8 @@ Ed25519 licence signatures and field-level encryption); `openapi-typescript` (de
 **Approved additions (D-026):** `react-router` (7.x while on React 18), `openapi-fetch` (typed API
 client), `@axe-core/playwright` (test-only accessibility checks).
 
+**Approved additions (D-028):** `@ant-design/icons` (5.x), `@hookform/resolvers`.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

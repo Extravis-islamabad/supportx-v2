@@ -1,6 +1,6 @@
 import { useMatches } from 'react-router';
 
-import { ComingSoon, NotInPlan, useLicence } from '@supportx/ui';
+import { ComingSoon, NoAccess, NotInPlan, useAccess, useLicence } from '@supportx/ui';
 
 import { navItem } from '../nav';
 
@@ -8,11 +8,15 @@ import { navItem } from '../nav';
 export function SectionPage() {
   const matches = useMatches();
   const { has, isAdmin } = useLicence();
+  const { canAny } = useAccess();
   const handle = matches.at(-1)?.handle as { section?: string } | undefined;
   const item = navItem(handle?.section ?? '');
   if (item === undefined) return null;
   if (item.feature !== undefined && !has(item.feature)) {
     return <NotInPlan titleKey={item.labelKey} isAdmin={isAdmin} />;
+  }
+  if (item.permissions !== undefined && !canAny(item.permissions)) {
+    return <NoAccess titleKey={item.labelKey} />;
   }
   return <ComingSoon titleKey={item.labelKey} />;
 }

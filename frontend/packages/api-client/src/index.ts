@@ -33,6 +33,26 @@ export {
   type Entitlements,
   type Feature,
 } from './entitlements';
+export {
+  usePermissionCatalogue,
+  useRole,
+  useRoleAssignment,
+  useRoleMutations,
+  useRoles,
+  useUnitMutations,
+  useUnits,
+  useUserAccess,
+  type EffectivePermission,
+  type PermissionInfo,
+  type RoleDetail,
+  type RoleGrant,
+  type RoleInput,
+  type RoleSummary,
+  type Scope,
+  type Unit,
+  type UnitKind,
+  type UserAccess,
+} from './access';
 export { queryKeys } from './keys';
 export type { components, paths } from './schema';
 export {

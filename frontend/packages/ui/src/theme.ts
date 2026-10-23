@@ -69,31 +69,55 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
           colorTextDescription: 'rgba(0, 0, 0, 0.62)',
           colorTextPlaceholder: 'rgba(0, 0, 0, 0.58)',
         };
+  if (mode !== 'dark') {
+    return {
+      algorithm: antdTheme.defaultAlgorithm,
+      token: { ...SHARED, ...readable, colorPrimary: brand.colorPrimary },
+    };
+  }
+  // The dark algorithm keeps a deep brand colour as the primary, which Menu, Tabs and links use
+  // for *text*: a purple like #9619B5 then reads at about 1.6:1 on the dark selected background
+  // (axe, WP-016). Selected and active text uses a light tint of the brand instead.
+  const primaryText = lighten(brand.colorPrimary, 0.5);
   return {
-    algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-    token: { ...SHARED, ...readable, colorPrimary: brand.colorPrimary },
-    // The sidebar uses Ant Design's "light" sider, whose colours are fixed (white): give it the
-    // container colours of the current mode instead, so dark mode has a dark sidebar.
-    components:
-      mode === 'dark'
-        ? {
-            Layout: {
-              lightSiderBg: '#141414',
-              lightTriggerBg: '#1f1f1f',
-              lightTriggerColor: 'rgba(255, 255, 255, 0.85)',
-            },
-          }
-        : undefined,
+    algorithm: antdTheme.darkAlgorithm,
+    token: {
+      ...SHARED,
+      ...readable,
+      colorPrimary: brand.colorPrimary,
+      colorLink: primaryText,
+      colorPrimaryText: primaryText,
+    },
+    components: {
+      // The sidebar uses Ant Design's "light" sider, whose colours are fixed (white): give it
+      // the container colours of the dark mode instead, so dark mode has a dark sidebar.
+      Layout: {
+        lightSiderBg: '#141414',
+        lightTriggerBg: '#1f1f1f',
+        lightTriggerColor: 'rgba(255, 255, 255, 0.85)',
+      },
+      Menu: { itemSelectedColor: primaryText },
+      Tabs: { itemSelectedColor: primaryText, itemActiveColor: primaryText },
+    },
   };
 }
 
 /** Darken a #rrggbb colour by `amount` (0..1) toward black. */
 export function darken(hex: string, amount: number): string {
+  return mix(hex, amount, 0);
+}
+
+/** Lighten a #rrggbb colour by `amount` (0..1) toward white. */
+export function lighten(hex: string, amount: number): string {
+  return mix(hex, amount, 255);
+}
+
+function mix(hex: string, amount: number, target: number): string {
   const match = /^#([0-9a-f]{6})$/i.exec(hex);
   if (match?.[1] === undefined) return hex;
   const value = Number.parseInt(match[1], 16);
   const channels = [value >> 16, (value >> 8) & 0xff, value & 0xff].map((channel) =>
-    Math.round(channel * (1 - amount)),
+    Math.round(channel + (target - channel) * amount),
   );
   return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`;
 }

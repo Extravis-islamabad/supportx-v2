@@ -19,6 +19,7 @@ import pytest_asyncio
 from fastapi import APIRouter, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
 
+from app.core.authorization import AUTHORIZER_STATE
 from app.core.entitlements import read_only_exempt
 from app.core.modules import ModuleRegistry, ModuleSpec
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
@@ -127,11 +128,19 @@ def file_provider(value: Entitlement, tmp_path: Path) -> LicenceFileProvider:
     )
 
 
+class RoleHeaderAuthorizer:
+    """Stand-in for the policy layer (no database here): tenant admins hold licence.manage."""
+
+    async def allows(self, context: TenantContext, permission: str) -> bool:
+        return permission == "licence.manage" and "tenant_admin" in context.roles
+
+
 @pytest_asyncio.fixture
 async def app() -> AsyncIterator[FastAPI]:
     application = create_app(make_settings(), registry=REGISTRY)
     async with application.router.lifespan_context(application):
         setattr(application.state, SESSION_RESOLVER_STATE, fake_session)
+        setattr(application.state, AUTHORIZER_STATE, RoleHeaderAuthorizer())
         yield application
 
 

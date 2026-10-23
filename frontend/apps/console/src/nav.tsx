@@ -11,11 +11,11 @@ import {
   SwapOutlined,
 } from '@ant-design/icons';
 
-import type { NavItem } from '@supportx/ui';
+import { ADMIN_PERMISSIONS, type NavItem } from '@supportx/ui';
 
 /**
- * Console sections. `feature` ties a section to the licence (WP-009): sections outside the plan
- * are hidden, or shown locked to tenant admins (see visibleNav in @supportx/ui).
+ * Console sections. `permissions` decide who sees a section (WP-016); `feature` ties it to the
+ * licence (WP-009): outside the plan it is hidden, or shown locked to whoever manages the licence.
  */
 export const NAV: readonly NavItem[] = [
   { key: 'home', path: '/', labelKey: 'nav.home', icon: <HomeOutlined /> },
@@ -25,6 +25,7 @@ export const NAV: readonly NavItem[] = [
     labelKey: 'nav.requests',
     icon: <InboxOutlined />,
     feature: 'incident',
+    permissions: ['requests.view'],
   },
   {
     key: 'problems',
@@ -32,6 +33,7 @@ export const NAV: readonly NavItem[] = [
     labelKey: 'nav.problems',
     icon: <BugOutlined />,
     feature: 'problem',
+    permissions: ['problems.view'],
   },
   {
     key: 'changes',
@@ -39,6 +41,7 @@ export const NAV: readonly NavItem[] = [
     labelKey: 'nav.changes',
     icon: <SwapOutlined />,
     feature: 'change',
+    permissions: ['changes.view'],
   },
   {
     key: 'releases',
@@ -46,6 +49,7 @@ export const NAV: readonly NavItem[] = [
     labelKey: 'nav.releases',
     icon: <RocketOutlined />,
     feature: 'release',
+    permissions: ['releases.view'],
   },
   {
     key: 'assets',
@@ -53,22 +57,37 @@ export const NAV: readonly NavItem[] = [
     labelKey: 'nav.assets',
     icon: <AppstoreOutlined />,
     feature: 'assets',
+    permissions: ['assets.view'],
   },
-  { key: 'cmdb', path: '/cmdb', labelKey: 'nav.cmdb', icon: <ClusterOutlined />, feature: 'cmdb' },
+  {
+    key: 'cmdb',
+    path: '/cmdb',
+    labelKey: 'nav.cmdb',
+    icon: <ClusterOutlined />,
+    feature: 'cmdb',
+    permissions: ['cmdb.view'],
+  },
   {
     key: 'knowledge',
     path: '/knowledge',
     labelKey: 'nav.knowledge',
     icon: <BookOutlined />,
     feature: 'knowledge',
+    permissions: ['knowledge.view'],
   },
-  { key: 'reports', path: '/reports', labelKey: 'nav.reports', icon: <BarChartOutlined /> },
+  {
+    key: 'reports',
+    path: '/reports',
+    labelKey: 'nav.reports',
+    icon: <BarChartOutlined />,
+    permissions: ['reports.view'],
+  },
   {
     key: 'admin',
-    path: '/admin/users',
+    path: '/admin',
     labelKey: 'nav.admin',
     icon: <SettingOutlined />,
-    adminOnly: true,
+    permissions: ADMIN_PERMISSIONS,
   },
 ];
 

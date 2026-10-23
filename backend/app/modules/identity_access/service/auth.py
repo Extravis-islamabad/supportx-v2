@@ -15,7 +15,7 @@ import secrets
 import uuid
 from dataclasses import replace
 from datetime import timedelta
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
@@ -51,6 +51,9 @@ from app.modules.identity_access.infra.oidc import (
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
 from app.shared.clock import Clock
+
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 log = get_logger(__name__)
 
@@ -106,6 +109,8 @@ class AuthService:
         self.cookie_name = cookie_name
         self.idle = timedelta(seconds=settings.session_idle_timeout_seconds)
         self.absolute = timedelta(seconds=settings.session_absolute_timeout_seconds)
+        # Set by the module startup once the policy service exists (WP-016).
+        self.on_roles_mapped: Callable[[uuid.UUID], Awaitable[None]] | None = None
 
     # --- clients and origins -------------------------------------------------------------------
 
@@ -240,6 +245,7 @@ class AuthService:
             now,
             client=app,
             reason="login",
+            on_roles_mapped=self.on_roles_mapped,
         )
         return Session(
             subject=identity.subject,
@@ -395,6 +401,7 @@ class AuthService:
             self.clock.now(),
             client=_client_app(session),
             reason="tenant_switch",
+            on_roles_mapped=self.on_roles_mapped,
         )
         switched = replace(
             session,
