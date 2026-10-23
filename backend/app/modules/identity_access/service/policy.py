@@ -24,7 +24,7 @@ from typing import Any, Literal, Protocol
 
 import valkey.exceptions
 from fastapi import Request
-from sqlalchemy import ColumnElement, false, or_, select, true
+from sqlalchemy import ColumnElement, and_, exists, false, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import REQUEST_SESSION_STATE, Database
@@ -398,6 +398,82 @@ class PolicyService:
     async def invalidate(self, tenant_id: uuid.UUID) -> None:
         """Make every cached subject of the tenant stale."""
         await self.cache.invalidate(tenant_id)
+
+    async def holders(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        permission: str,
+        *,
+        search: str | None = None,
+        limit: int = 20,
+    ) -> list[tuple[uuid.UUID, str]]:
+        """Active users of the tenant who hold `permission` (any scope): (id, display name).
+
+        For pickers such as "owner" (only people who may own the record). SQL narrows to users
+        with a granting role; each is then confirmed with their compiled subject, so licence
+        entitlement and unmapped defaults apply exactly as on their own requests.
+        """
+        granting_system = [
+            key
+            for key in SYSTEM_ROLES
+            if any(p == permission for p, _ in self.catalogue.system_grants(key))
+        ]
+        granting_roles = select(Role.id).where(
+            Role.deleted_at.is_(None),
+            or_(
+                and_(Role.is_system.is_(True), Role.key.in_(granting_system)),
+                and_(
+                    Role.is_system.is_(False),
+                    Role.id.in_(
+                        select(RolePermission.role_id).where(
+                            RolePermission.permission == permission
+                        )
+                    ),
+                ),
+            ),
+        )
+        live_role = (
+            select(UserRole.user_id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(UserRole.user_id == User.id, Role.deleted_at.is_(None))
+        )
+        unmapped_types = [t for t, key in UNMAPPED_DEFAULT.items() if key in granting_system]
+        query = select(User.id, User.display_name).where(
+            User.status == "active",
+            or_(
+                User.id.in_(select(UserRole.user_id).where(UserRole.role_id.in_(granting_roles))),
+                and_(
+                    User.roles_mapped_at.is_(None),
+                    User.user_type.in_(unmapped_types),
+                    ~exists(live_role),
+                ),
+            ),
+        )
+        if search:
+            # LIKE wildcards typed by the user match themselves only.
+            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            query = query.where(
+                or_(
+                    User.display_name.ilike(pattern, escape="\\"),
+                    User.email.ilike(pattern, escape="\\"),
+                )
+            )
+        rows = (
+            await session.execute(query.order_by(User.display_name, User.id).limit(limit))
+        ).all()
+        return [
+            (row.id, row.display_name)
+            for row in rows
+            if (await self.subject(tenant_id, row.id, session)).holds(permission)
+        ]
+
+    async def user_holds(
+        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, permission: str
+    ) -> bool:
+        """Whether another user of the tenant holds `permission` (e.g. a proposed owner)."""
+        return (await self.subject(tenant_id, user_id, session)).holds(permission)
 
     # --- core Authorizer protocol ----------------------------------------------------------------
 

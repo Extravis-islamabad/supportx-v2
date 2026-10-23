@@ -129,6 +129,13 @@ Copy `packages/api-client/src/announcements.ts` and `apps/console/src/pages/anno
   otherwise), actions in fixed order and disabled with a tooltip reason, History tab,
   `ConflictDialog error={...} fieldLabel={...}`.
 - [ ] Forms: `FormField` + Zod (`schema` in a plain `.ts` file), `applyServerErrors`.
+- [ ] Dates and times: always `DateTimeField` / `DateTimeRangeField` from `@supportx/ui` (D-035),
+  never a native date input or a bare DatePicker. Form values stay ISO instants; the field shows
+  and takes them in the user's profile time zone and says which zone.
+- [ ] People pickers (owner, assignee): a searchable `Select` fed by a module endpoint that lists
+  only users holding the needed permission (`PolicyService.holders`), with the current value
+  passed as `include` so it is shown by name; the service refuses anyone else
+  (`user_holds`, field error code `<field>_not_allowed`). Example: announcement owner.
 - [ ] Nav item with `feature` and `permissions`; routes lazily loaded.
 - [ ] Vitest: list labels and filter DSL, action order and reasons, 409 text.
 

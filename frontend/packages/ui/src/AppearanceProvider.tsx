@@ -3,6 +3,9 @@ import type { Locale as AntLocale } from 'antd/es/locale';
 import arEG from 'antd/locale/ar_EG';
 import enUS from 'antd/locale/en_US';
 import urPK from 'antd/locale/ur_PK';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ar';
+import 'dayjs/locale/ur';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
@@ -54,6 +57,11 @@ export function AppearanceProvider({
     document.documentElement.lang = locale;
     document.documentElement.dataset.theme = mode;
   }, [direction, locale, mode]);
+
+  // Ant Design's pickers take month and weekday names from dayjs's global locale.
+  useEffect(() => {
+    dayjs.locale(locale);
+  }, [locale]);
 
   const brand = useMemo(() => ({ ...DEFAULT_BRANDING, ...branding }), [branding]);
   const appearance = useMemo<Appearance>(

@@ -1,44 +1,55 @@
-import { Form, Input, Radio, Select, Space, Switch } from 'antd';
-import type { ReactNode } from 'react';
+import { Form, Input, Radio, Select, Space, Spin, Switch } from 'antd';
+import { useDeferredValue, useState, type ReactNode } from 'react';
 
-import { useUnits } from '@supportx/api-client';
+import { useAnnouncementOwnerCandidates, useUnits } from '@supportx/api-client';
 import { FormField, type UseFormReturn } from '@supportx/forms';
-import { useAccess, useLabel } from '@supportx/ui';
+import { DateTimeField, useAccess, useLabel } from '@supportx/ui';
 
 import { AUDIENCES, BODY_MAX, SEVERITIES, TITLE_MAX, type Values } from './form';
 
-/** ISO instant → the value of a local `datetime-local` input (the user's own clock time). */
-function toLocalInput(value: string | null): string {
-  if (value === null) return '';
-  const date = new Date(value);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-/** Date and time in the browser's own picker (keyboard friendly, mirrors in RTL). */
-function DateTime({
+/**
+ * Who owns it: a searchable list of only the people who may manage announcements (the API
+ * refuses anyone else). The current owner is always named, even outside the first page.
+ */
+function OwnerPicker({
   value,
   onChange,
   id,
-  testId,
 }: {
   value: string | null;
   onChange: (value: string | null) => void;
   id: string;
-  testId: string;
 }) {
+  const t = useLabel();
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const typed = useDeferredValue(search.trim());
+  const candidates = useAnnouncementOwnerCandidates(typed, value, open || value !== null);
   return (
-    <Input
+    <Select
       id={id}
-      type="datetime-local"
-      allowClear
-      value={toLocalInput(value)}
-      onChange={(event) => {
-        const raw = event.target.value;
-        onChange(raw === '' ? null : new Date(raw).toISOString());
+      showSearch
+      value={value ?? undefined}
+      placeholder={t('announcement.owner_search')}
+      filterOption={false}
+      onSearch={setSearch}
+      onOpenChange={(visible) => {
+        setOpen(visible);
+        // Reopening asks again: someone may have gained or lost the permission meanwhile.
+        if (visible) void candidates.refetch();
+        else setSearch('');
       }}
-      data-testid={testId}
-      style={{ minWidth: 240 }}
+      onChange={(next: string) => {
+        onChange(next);
+      }}
+      loading={candidates.isFetching}
+      notFoundContent={candidates.isFetching ? <Spin size="small" /> : undefined}
+      options={(candidates.data ?? []).map((user) => ({
+        value: user.id,
+        label: user.display_name,
+      }))}
+      data-testid="ann-owner"
+      style={{ minWidth: 260 }}
     />
   );
 }
@@ -138,6 +149,15 @@ export function AnnouncementFields({
           )}
         />
       )}
+      <FormField
+        control={form.control}
+        name="owner_id"
+        labelKey="announcement.field.owner_id"
+        helpKey="announcement.owner_help"
+        render={({ value, onChange, id }) => (
+          <OwnerPicker value={value} onChange={onChange} id={id} />
+        )}
+      />
       <Space size="large" wrap align="start">
         <FormField
           control={form.control}
@@ -145,7 +165,7 @@ export function AnnouncementFields({
           labelKey="announcement.field.publish_from"
           helpKey="announcement.publish_from_help"
           render={({ value, onChange, id }) => (
-            <DateTime value={value} onChange={onChange} id={id} testId="ann-from" />
+            <DateTimeField value={value} onChange={onChange} id={id} testId="ann-from" />
           )}
         />
         <FormField
@@ -154,7 +174,7 @@ export function AnnouncementFields({
           labelKey="announcement.field.publish_until"
           helpKey="announcement.publish_until_help"
           render={({ value, onChange, id }) => (
-            <DateTime value={value} onChange={onChange} id={id} testId="ann-until" />
+            <DateTimeField value={value} onChange={onChange} id={id} testId="ann-until" />
           )}
         />
       </Space>

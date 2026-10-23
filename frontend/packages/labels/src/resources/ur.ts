@@ -94,6 +94,9 @@ export const ur: LabelResource = {
   'announcement.body_help': 'سادہ متن۔ سطروں کے وقفے برقرار رہتے ہیں۔',
   'announcement.publish_from_help': 'خالی: شائع ہوتے ہی۔',
   'announcement.publish_until_help': 'خالی: جب تک اشاعت واپس نہ لی جائے یا آرکائیو نہ کیا جائے۔',
+  'announcement.owner_help': 'صرف وہی لوگ مالک بن سکتے ہیں جو اعلانات کا انتظام کر سکتے ہیں۔',
+  'announcement.owner_search': 'نام یا ای میل سے تلاش کریں',
+  'datetime.time_zone_note': 'اوقات {{zone}} کے مطابق ہیں۔',
   'announcement_severity.info': 'معلومات',
   'announcement_severity.warning': 'انتباہ',
   'announcement_severity.critical': 'انتہائی اہم',
@@ -155,6 +158,8 @@ export const ur: LabelResource = {
   'errors.field.required': 'یہ خانہ ضروری ہے۔',
   'errors.field.not_allowed': 'یہ دوسری اقدار کے ساتھ اجازت شدہ نہیں۔',
   'errors.field.unknown_value': 'یہ قدر موجود نہیں (اب نہیں رہی)۔',
+  'errors.field.owner_not_allowed':
+    'یہ شخص اعلانات کا انتظام نہیں کر سکتا، اس لیے مالک نہیں بن سکتا۔',
   'errors.field.too_many': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
   'errors.field.window_end_before_start': 'شروع کے بعد ہونا چاہیے۔',
   'event_type.announcements.announcement.created': 'اعلان بنایا گیا',

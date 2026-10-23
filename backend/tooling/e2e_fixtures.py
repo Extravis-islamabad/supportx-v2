@@ -10,6 +10,9 @@ by the reserved "E2E " name prefix: announcements (with their field history and 
 and sites, in the two dev tenants; plus the field history of the suite's own users
 (`e2e.*@demo.test`, profile and layout saves). The API only soft-deletes, and history is
 append-only for the application; the suite must leave nothing.
+
+Custom roles named "E2E …" are hard-deleted only once the suite has soft-deleted them (WP-012b):
+a live role, a system role or any other name is never touched. Their permission rows cascade.
 """
 
 import asyncio
@@ -51,6 +54,20 @@ SUITE_RECORDS = (
         SUITE_PREFIX,
     ),
     ("sites", "DELETE FROM sites WHERE name LIKE $1", SUITE_PREFIX),
+    (
+        # Normally none: deleting a role through the API moves its holders first.
+        "user_roles",
+        (
+            "DELETE FROM user_roles WHERE role_id IN (SELECT id FROM roles"
+            " WHERE name LIKE $1 AND deleted_at IS NOT NULL AND NOT is_system)"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        "roles",
+        "DELETE FROM roles WHERE name LIKE $1 AND deleted_at IS NOT NULL AND NOT is_system",
+        SUITE_PREFIX,
+    ),
 )
 
 
@@ -96,7 +113,7 @@ async def delete(url: str) -> int:
 
 
 async def delete_suite_records(url: str) -> dict[str, int]:
-    """Remove the "E2E …" announcements and sites the suite created; returns rows per table."""
+    """Remove the "E2E …" records the suite created (deleted roles too); returns rows per table."""
     removed = {table: 0 for table, _, _ in SUITE_RECORDS}
     conn = await asyncpg.connect(url)
     try:

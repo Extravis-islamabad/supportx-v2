@@ -27,6 +27,8 @@ export const queryKeys = {
     history: (id: string) => ['announcements', 'history', id] as const,
     feed: ['announcements', 'feed'] as const,
     settings: ['announcements', 'settings'] as const,
+    ownerCandidates: (search: string, include: string | null) =>
+      ['announcements', 'owner-candidates', search, include] as const,
   },
   users: {
     all: ['users'] as const,

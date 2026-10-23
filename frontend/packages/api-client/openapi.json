@@ -1614,6 +1614,26 @@
         "title": "Op",
         "type": "string"
       },
+      "OwnerCandidateOut": {
+        "description": "Someone who may own an announcement (holds announcements.manage).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "OwnerCandidateOut",
+        "type": "object"
+      },
       "PermissionOut": {
         "description": "A catalogue permission. Labels: `permission.<key>` and `permission.<key>.description`.",
         "properties": {
@@ -2953,6 +2973,134 @@
           }
         },
         "summary": "Announcements live for you",
+        "tags": [
+          "announcements"
+        ]
+      }
+    },
+    "/api/v1/announcements/owner-candidates": {
+      "get": {
+        "description": "Active users who may manage announcements, by name, for the owner picker.\n\n`search` matches name or email (contains, case-insensitive). Other people are refused as\nowner on create and edit (`owner_not_allowed`). `include` (e.g. the current owner) is listed\nfirst by name even when outside this page.",
+        "operationId": "owner_candidates_api_v1_announcements_owner_candidates_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "include",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "maxItems": 5,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Include"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/OwnerCandidateOut"
+                  },
+                  "title": "Response Owner Candidates Api V1 Announcements Owner Candidates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such announcement visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "People who may own an announcement",
         "tags": [
           "announcements"
         ]
