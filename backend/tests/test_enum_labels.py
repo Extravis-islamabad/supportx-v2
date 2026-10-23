@@ -22,6 +22,10 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     "CheckStatus": "check_status",
+    "EffectivePermission.scope": "scope",
+    "EffectivePermission.scopes[]": "scope",
+    "GrantIO.scope": "scope",
+    "PermissionOut.scopes[]": "scope",
     "Edition": "edition",
     "EntitlementState": "entitlement_state",
     "FailureReason": "failure_reason",
@@ -46,6 +50,8 @@ def enums(schemas: dict[str, Any]) -> Iterator[tuple[str, list[str]]]:
         for prop, spec in schema.get("properties", {}).items():
             if "enum" in spec:
                 yield f"{name}.{prop}", spec["enum"]
+            if "enum" in spec.get("items", {}):  # list of codes, e.g. scopes: [...]
+                yield f"{name}.{prop}[]", spec["items"]["enum"]
 
 
 @pytest.fixture(scope="module")

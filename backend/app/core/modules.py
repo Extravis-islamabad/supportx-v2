@@ -16,6 +16,7 @@ from types import MappingProxyType, ModuleType
 from fastapi import APIRouter, Depends, FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.authorization import PermissionSpec
 from app.core.entitlements import route_guard
 
 LifecycleHook = Callable[[FastAPI], Awaitable[None]]
@@ -47,6 +48,9 @@ class ModuleSpec:
     # then refused with 403 `entitlement_required` for tenants whose plan lacks it. None = core
     # platform module, available in every edition. Checked against the feature catalogue at startup.
     feature: str | None = None
+    # Permissions this module offers (WP-016): `users.view`, `changes.approve` ... Collected into
+    # the permission catalogue; routes then use require_permission("<key>").
+    permissions: Sequence[PermissionSpec] = ()
     # Counted licence limits this module owns the numbers for: limit key -> counter.
     usage_counters: Mapping[str, UsageCounter] = field(default_factory=lambda: MappingProxyType({}))
 

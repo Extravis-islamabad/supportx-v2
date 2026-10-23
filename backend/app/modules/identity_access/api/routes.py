@@ -11,11 +11,14 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import directory
+from app.modules.identity_access.service.policy import visible
 from app.shared.api.concurrency import ExpectedVersion, not_modified, set_etag
 from app.shared.api.listing import ListQuery, Page, list_query
 from app.shared.api.ratelimit import rate_limit
@@ -52,9 +55,10 @@ class UserDetail(BaseModel):
     version: int = Field(description="Send it back as If-Match (the ETag) to update.")
 
     @classmethod
-    def of(cls, user: User) -> "UserDetail":
-        """From the ORM row (values validated against the codes above)."""
-        return cls.model_validate(user, from_attributes=True)
+    def of(cls, user: User, subject: Subject) -> "UserDetail":
+        """From the ORM row, with the fields the subject may not see hidden (WP-016)."""
+        data = cls.model_validate(user, from_attributes=True).model_dump()
+        return cls.model_validate(visible(subject, directory.USERS, data))
 
 
 class UserPage(Page[UserDetail]):
@@ -70,16 +74,21 @@ class UserPreferencesPatch(BaseModel):
     time_zone: str | None = Field(default=None, max_length=64, description="IANA, e.g. Asia/Dubai.")
 
 
+ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]
+SignedIn = Annotated[Subject, Depends(require_signed_in())]
+EditProfile = Annotated[Subject, Depends(require_permission("profile.edit"))]
+
+
 @router.get("", summary="List users")
-async def list_users(session: TenantSession, query: UsersQuery) -> UserPage:
-    """Users of the tenant (technicians only).
+async def list_users(session: TenantSession, query: UsersQuery, subject: ViewUsers) -> UserPage:
+    """Users the caller may see (`users.view`, filtered to its scope).
 
     Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), sort with
     `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
     """
-    page = await directory.list_users(session, query)
+    page = await directory.list_users(session, subject, query)
     return UserPage(
-        items=[UserDetail.of(u) for u in page.rows],
+        items=[UserDetail.of(u, subject) for u in page.rows],
         next_cursor=page.next_cursor,
         has_more=page.has_more,
         estimated_total=page.estimated_total,
@@ -92,15 +101,19 @@ async def list_users(session: TenantSession, query: UsersQuery) -> UserPage:
     responses={304: {"description": "Not modified (If-None-Match)."}},
 )
 async def get_user(
-    user_id: uuid.UUID, request: Request, response: Response, session: TenantSession
+    user_id: uuid.UUID,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: SignedIn,
 ) -> UserDetail:
-    """One user, with its ETag. Yourself always; others only for technicians."""
-    user = await directory.get_user(session, user_id)
+    """One user, with its ETag. Yourself always; others with `users.view` in scope."""
+    user = await directory.get_user(session, subject, user_id)
     cached = not_modified(request, user.version)
     if cached is not None:
         return cached  # type: ignore[return-value]  # 304 without a body
     set_etag(response, user.version)
-    return UserDetail.of(user)
+    return UserDetail.of(user, subject)
 
 
 @router.patch(
@@ -111,19 +124,21 @@ async def get_user(
         428: {"model": ProblemDetail, "description": "If-Match missing."},
     },
 )
-async def update_user(
+async def update_user(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     user_id: uuid.UUID,
     body: UserPreferencesPatch,
     version: ExpectedVersion,
     response: Response,
     session: TenantSession,
+    subject: EditProfile,
 ) -> UserDetail:
     """Change your own signature or time zone. Needs `If-Match` with the ETag you read."""
     user = await directory.update_preferences(
         session,
+        subject,
         user_id,
         expected_version=version,
         changes=body.model_dump(include=body.model_fields_set),
     )
     set_etag(response, user.version)
-    return UserDetail.of(user)
+    return UserDetail.of(user, subject)

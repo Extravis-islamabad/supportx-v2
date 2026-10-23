@@ -140,6 +140,41 @@
     "type": "object"
   },
   "events": {
+    "identity_access.role.changed": {
+      "1": {
+        "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_id",
+          "change",
+          "changed_fields"
+        ],
+        "title": "RoleChanged",
+        "type": "object"
+      }
+    },
     "identity_access.session.tenant_switched": {
       "1": {
         "description": "A signed-in user moved their session into this tenant.\n\nPublished in the tenant switched TO only; the previous tenant is deliberately not named, so\none tenant's subscribers never learn which other tenants a user belongs to.",
@@ -274,6 +309,38 @@
         "type": "object"
       }
     },
+    "identity_access.user_role.changed": {
+      "1": {
+        "description": "A role was assigned to or removed from a user (WP-016).",
+        "properties": {
+          "change": {
+            "enum": [
+              "assigned",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "role_id",
+          "change"
+        ],
+        "title": "UserRoleChanged",
+        "type": "object"
+      }
+    },
     "licensing.entitlement.changed": {
       "1": {
         "description": "The tenant's entitlement changed (plan, add-ons, limits, term or status).\n\nConsumers: the entitlement cache invalidation (this module); later the realtime fan-out\n(WP-011) so open consoles re-read GET /api/v1/entitlements and show or hide menus live.",
@@ -299,6 +366,97 @@
           "changed_fields"
         ],
         "title": "EntitlementChanged",
+        "type": "object"
+      }
+    },
+    "organization.membership.changed": {
+      "1": {
+        "description": "A user was added to or removed from a site or support group.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "site",
+              "group"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "unit_id": {
+            "format": "uuid",
+            "title": "Unit Id",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "unit_id",
+          "user_id",
+          "change"
+        ],
+        "title": "MembershipChanged",
+        "type": "object"
+      }
+    },
+    "organization.site.changed": {
+      "1": {
+        "description": "A site was created or renamed.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "site_id": {
+            "format": "uuid",
+            "title": "Site Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site_id",
+          "changed_fields"
+        ],
+        "title": "SiteChanged",
+        "type": "object"
+      }
+    },
+    "organization.support_group.changed": {
+      "1": {
+        "description": "A support group was created or renamed.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "group_id",
+          "changed_fields"
+        ],
+        "title": "SupportGroupChanged",
         "type": "object"
       }
     }

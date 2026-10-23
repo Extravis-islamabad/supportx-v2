@@ -10,6 +10,7 @@ back, so it records neither the profile refresh nor an event.
 """
 
 import uuid
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
@@ -32,6 +33,7 @@ from app.modules.identity_access.events import (
     UserUpdated,
 )
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service.roles import map_identity_roles
 from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
 from app.modules.organization import TenantStatus, get_current_tenant
 from app.shared.events import Actor, DomainEvent, record_event
@@ -98,7 +100,7 @@ async def _existing_row(
     return before
 
 
-async def provision_user(  # noqa: PLR0913 - keyword-only event context
+async def provision_user(  # noqa: C901, PLR0913 - keyword-only event context; one login flow
     database: Database,
     tenant_id: uuid.UUID,
     identity: Identity,
@@ -106,6 +108,7 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context
     *,
     client: ClientApp,
     reason: SessionReason,
+    on_roles_mapped: Callable[[uuid.UUID], Awaitable[None]] | None = None,
 ) -> ProvisionedUser:
     """Create or update the user's row in `tenant_id`; refuses unknown, suspended or disabled."""
     async with database.tenant_session(TenantContext(tenant_id)) as session:
@@ -177,6 +180,12 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context
             await record_event(
                 session, event, aggregate_id=user_id, aggregate_version=version, actor=actor
             )
+        # First login since WP-016: Keycloak roles become SupportX role assignments, once (D-029).
+        mapped = await map_identity_roles(session, user_id, identity.roles, now)
+    if mapped and on_roles_mapped is not None:
+        # Committed: drop any compiled permissions cached from before (the events do it too,
+        # but the browser asks for /auth/me immediately after this login).
+        await on_roles_mapped(tenant_id)
     return ProvisionedUser(user_id=user_id, tenant_id=tenant_id, tenant_name=tenant.name)
 
 

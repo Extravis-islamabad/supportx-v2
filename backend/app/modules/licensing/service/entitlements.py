@@ -40,9 +40,8 @@ from app.modules.licensing.infra.cache import EntitlementCache, NoCache
 from app.modules.licensing.service.ports import EntitlementProvider
 
 Clock = Callable[[], datetime]
-ADMIN_ROLE = "tenant_admin"
-# Roles that may see usage numbers (seat counts) in the summary.
-STAFF_ROLES = frozenset({"tenant_admin", "technician"})
+# Who sees licence notices and usage is a permission decision (WP-016), made by the caller:
+# `licence.manage` for the admin warning, `users.view` for seat counts.
 
 
 def _utcnow() -> datetime:
@@ -194,13 +193,13 @@ class EntitlementService:
 
     # --- summary ----------------------------------------------------------------------------------
 
-    async def summary(self, session: AsyncSession) -> Summary:
-        """The tenant's entitlement for display; usage only for staff roles."""
+    async def summary(self, session: AsyncSession, *, show_usage: bool, is_admin: bool) -> Summary:
+        """The tenant's entitlement for display; usage only with `show_usage`."""
         context = session_tenant(session)
         entitlement = await self.entitlement(context.tenant_id, session)
         now = self.clock()
         status = entitlement.status(now)
-        staff = bool(context.roles & STAFF_ROLES)
+        staff = show_usage
         limits = []
         for key in LimitKey:
             used = await self.usage(session, key) if staff else None
@@ -213,8 +212,7 @@ class EntitlementService:
             edition=entitlement.edition,
             status=status,
             days_left=days_left(status, now),
-            admin_warning=ADMIN_ROLE in context.roles
-            and status.state is not EntitlementState.ACTIVE,
+            admin_warning=is_admin and status.state is not EntitlementState.ACTIVE,
             features=sorted(entitlement.features),
             limits=limits,
             term=entitlement.term,

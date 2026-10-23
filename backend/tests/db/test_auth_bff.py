@@ -503,12 +503,16 @@ def types(events: list[dict[str, Any]]) -> list[str]:
 async def test_first_login_provisions_then_logs_in(bff: Bff) -> None:
     await bff.login(bff.user("a", email="new@demo.test", name="Noor New"))
     events = await events_of(bff, "new@demo.test")
-    assert types(events) == ["user.provisioned", "user.logged_in"]
-    provisioned, logged_in = events
+    # WP-016 / D-029: the first login also maps the Keycloak roles to SupportX roles, once.
+    assert types(events) == ["user.provisioned", "user.logged_in", "user_role.changed"]
+    provisioned, logged_in, role = events
     user_id = provisioned["payload"]["user_id"]
     assert provisioned["payload"] == {"user_id": user_id, "user_type": "technician", "locale": "en"}
     assert logged_in["payload"] == {"user_id": user_id, "client": "console"}
-    for event in events:
+    # The mapping is done by the platform, not the user: a system actor.
+    assert (role["payload"]["user_id"], role["payload"]["change"]) == (user_id, "assigned")
+    assert role["actor"] == {"type": "system", "id": "identity_access"}
+    for event in (provisioned, logged_in):
         assert event["tenant_id"] == str(bff.tenants[0])
         assert event["actor"] == {"type": "user", "id": user_id}
         assert (event["aggregate_type"], event["aggregate_id"]) == ("user", user_id)
@@ -529,12 +533,13 @@ async def test_changed_profile_is_a_user_updated_event_naming_the_fields(bff: Bf
     assert types(events) == [
         "user.provisioned",
         "user.logged_in",
+        "user_role.changed",  # the one-time role mapping (D-029); never again
         "user.updated",
         "user.logged_in",
         "user.logged_in",  # nothing changed the third time: no user.updated
     ]
-    assert events[2]["payload"]["changed_fields"] == ["display_name", "locale"]
-    assert events[2]["aggregate_version"] == 2
+    assert events[3]["payload"]["changed_fields"] == ["display_name", "locale"]
+    assert events[3]["aggregate_version"] == 2
     assert "After" not in json.dumps(events)
 
 
@@ -561,8 +566,8 @@ async def test_tenant_switch_is_recorded_only_in_the_target_tenant(bff: Bff) -> 
     events = await events_of(bff, "sw@demo.test")
     in_a = [e for e in events if e["tenant_id"] == str(a)]
     in_b = [e for e in events if e["tenant_id"] == str(b)]
-    assert types(in_a) == ["user.provisioned", "user.logged_in"]
-    assert types(in_b) == ["user.provisioned", "session.tenant_switched"]
+    assert types(in_a) == ["user.provisioned", "user.logged_in", "user_role.changed"]
+    assert types(in_b) == ["user.provisioned", "session.tenant_switched", "user_role.changed"]
     assert str(a) not in json.dumps(in_b)  # tenant B never learns about tenant A
 
 
@@ -640,3 +645,54 @@ async def test_switching_into_a_full_tenant_is_refused(bff: Bff) -> None:
     )
     assert (switched.status_code, switched.json()["code"]) == (403, "technician_limit_reached")
     assert (await bff.me()).json()["tenant"]["id"] == str(a)  # still in the old tenant
+
+
+# --- WP-016: roles and permissions in the session ------------------------------------------------
+
+
+async def test_me_returns_supportx_roles_and_effective_permissions(bff: Bff) -> None:
+    admin = bff.user("a", email="perm-admin@demo.test", roles=("tenant_admin", "technician"))
+    await bff.login(admin)
+    me = (await bff.me()).json()
+    assert me["user"]["roles"] == ["technician", "tenant_admin"]
+    held = {p["key"]: p for p in me["permissions"]}
+    assert held["roles.manage"] == {
+        "key": "roles.manage",
+        "scope": "all",
+        "scopes": ["all"],
+        "conditional": False,
+    }
+    assert held["profile.edit"]["scope"] == "own"
+
+    await bff.login(bff.user("a", email="perm-req@demo.test", roles=("requester",)))
+    me = (await bff.me()).json()
+    assert me["user"]["roles"] == ["requester"]
+    assert "users.view" not in {p["key"] for p in me["permissions"]}
+    assert {p["key"]: p["scope"] for p in me["permissions"]}["requests.view"] == "own"
+
+
+async def test_keycloak_roles_are_mapped_only_once(bff: Bff) -> None:
+    """D-029: after the first login SupportX is authoritative; Keycloak roles no longer apply."""
+    a, _b = bff.tenants
+    await bff.login(bff.user("a", email="once@demo.test", roles=("technician",)))
+    (row,) = await user_rows(bff.db, "once@demo.test")
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        # An admin removes the technician role in SupportX...
+        await conn.execute(
+            "DELETE FROM user_roles WHERE tenant_id = $1 AND user_id ="
+            " (SELECT id FROM users WHERE tenant_id = $1 AND email = 'once@demo.test')",
+            a,
+        )
+        # ...then the user signs in again, still a technician in Keycloak, now even an admin there.
+        await bff.login(bff.user("a", email="once@demo.test", roles=("technician", "tenant_admin")))
+        count = await conn.fetchval(
+            "SELECT count(*) FROM user_roles ur JOIN users u ON u.id = ur.user_id"
+            " WHERE u.tenant_id = $1 AND u.email = 'once@demo.test'",
+            a,
+        )
+    finally:
+        await conn.close()
+    assert count == 0
+    assert row["tenant_id"] == a
+    assert (await bff.me()).json()["permissions"] == []

@@ -22,7 +22,7 @@ on-prem; the cost is one extra parse per statement. See docs/architecture/tenanc
 """
 
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from typing import Annotated, Any
 
@@ -40,12 +40,16 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import Settings
 from app.core.errors import ServiceUnavailable
+from app.core.logging import get_logger
 from app.core.tenancy import TenantContext, resolve_tenant
 
 TENANT_SETTING = "app.tenant_id"
 USER_SETTING = "app.user_id"
 SESSION_TENANT_KEY = "supportx.tenant"
 SESSION_PLATFORM_KEY = "supportx.platform"
+AFTER_COMMIT_KEY = "supportx.after_commit"
+
+log = get_logger(__name__)
 
 # set_config(..., true) is SET LOCAL with bind parameters (SET itself cannot take parameters).
 _SET_CONTEXT = text(
@@ -196,6 +200,21 @@ async def tenant_unit_of_work(
     """
     async with database.tenant_session(tenant) as session:
         yield session
+    # Committed. Run what must only happen for committed data (cache invalidation, WP-016).
+    for callback in session.info.get(AFTER_COMMIT_KEY, ()):
+        try:
+            await callback()
+        except Exception:
+            log.warning("after_commit_failed", exc_info=True)
+
+
+def after_commit(session: AsyncSession, callback: Callable[[], Awaitable[None]]) -> None:
+    """Run `callback` once this request's transaction has committed (never if it rolls back).
+
+    Only for best-effort side effects with a reliable backstop: for anything that must happen,
+    write an event to the outbox instead (CLAUDE.md rule b).
+    """
+    session.info.setdefault(AFTER_COMMIT_KEY, []).append(callback)
 
 
 # scope="function": the commit happens before the response is sent, so a failed commit becomes

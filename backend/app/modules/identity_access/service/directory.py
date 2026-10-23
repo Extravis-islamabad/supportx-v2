@@ -5,10 +5,11 @@ Identity fields (email, name, locale, type) belong to Keycloak and are refreshed
 signature and the preferred time zone. Those are edited here, with optimistic concurrency, and
 each change emits `identity_access.user.updated` in the same transaction (CLAUDE.md rules b, g).
 
-Permissions (checked here, in the service, never in the router):
-- list and read other users: technicians of the tenant;
-- read yourself: anyone;
-- change preferences: only your own.
+Permissions (WP-016 policy layer; the route checks the permission, this layer the record):
+- list and read other users: `users.view`, filtered to the subject's scope;
+- read yourself: any signed-in user;
+- change preferences: `profile.edit`, own record only.
+Field visibility: `last_login_at` only for subjects holding `users.manage`.
 """
 
 import uuid
@@ -19,12 +20,20 @@ from zoneinfo import available_timezones
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service.policy import (
+    FieldRule,
+    ResourceType,
+    authorize,
+    authorize_stored,
+    require,
+    scope_filter,
+)
+from app.modules.organization import users_in_groups, users_in_sites
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
@@ -63,40 +72,42 @@ class UserRepository(Repository[User]):
     model = User
 
 
-def _context(session: AsyncSession) -> TenantContext:
-    context = session.info.get(SESSION_TENANT_KEY)
-    if not isinstance(context, TenantContext):  # pragma: no cover - TenantSession guarantees it
-        raise TypeError
-    return context
+def users_resource() -> ResourceType:
+    """How the policy applies to user records (WP-016).
 
-
-async def _caller(session: AsyncSession) -> User:
-    """The calling user's own row in this tenant (403 if there is none, e.g. no session user)."""
-    context = _context(session)
-    caller = (
-        await session.scalar(select(User).where(User.id == context.user_id))
-        if context.user_id
-        else None
+    own = the user themselves; site/group = users sharing one of the subject's sites/groups;
+    the last sign-in time is only shown to subjects who manage users.
+    """
+    return ResourceType(
+        name="users",
+        fields=USER_FIELDS,
+        owner_columns=(User.id,),
+        site_scope=lambda ids: User.id.in_(users_in_sites(ids)),
+        group_scope=lambda ids: User.id.in_(users_in_groups(ids)),
+        field_rules={"last_login_at": FieldRule("users.manage")},
     )
-    if caller is None or caller.status != "active":
-        raise PermissionDenied
-    return caller
 
 
-async def list_users(session: AsyncSession, query: ListQuery) -> PageResult[User]:
-    """One page of users matching the query (technicians only)."""
-    caller = await _caller(session)
-    if caller.user_type != UserType.TECHNICIAN.value:
-        raise PermissionDenied(code="technicians_only")
-    return await paginate(session, select(User).where(User.deleted_at.is_(None)), query)
+USERS = users_resource()
 
 
-async def get_user(session: AsyncSession, user_id: uuid.UUID) -> User:
-    """A user of this tenant: yourself, or anyone if you are a technician (404 if absent)."""
-    caller = await _caller(session)
-    if user_id != caller.id and caller.user_type != UserType.TECHNICIAN.value:
-        raise PermissionDenied(code="technicians_only")
-    return await UserRepository(session).get(user_id)
+async def list_users(session: AsyncSession, subject: Subject, query: ListQuery) -> PageResult[User]:
+    """One page of the users the subject may see (users.view, scope-filtered)."""
+    visible_rows = select(User).where(
+        User.deleted_at.is_(None), scope_filter(subject, "users.view", USERS)
+    )
+    return await paginate(session, visible_rows, query)
+
+
+async def get_user(session: AsyncSession, subject: Subject, user_id: uuid.UUID) -> User:
+    """Yourself always; anyone else with users.view in scope (404 if absent)."""
+    user = await UserRepository(session).get(user_id)
+    if user_id != subject.user_id:
+        require(
+            await authorize_stored(session, subject, "users.view", USERS, User.id, user_id),
+            "users.view",
+        )
+    return user
 
 
 def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
@@ -135,15 +146,19 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
 
 async def update_preferences(
     session: AsyncSession,
+    subject: Subject,
     user_id: uuid.UUID,
     *,
     expected_version: int,
     changes: Mapping[str, Any],
 ) -> User:
     """Change your own signature/time zone if the record is still at `expected_version`."""
-    caller = await _caller(session)
-    if user_id != caller.id:
+    if user_id != subject.user_id:
         raise PermissionDenied(code="own_profile_only")
+    require(
+        authorize(subject, "profile.edit", USERS, RecordFacts(owner_ids=frozenset({user_id}))),
+        "profile.edit",
+    )
     clean = _validate(changes)
     current = await UserRepository(session).get(user_id)
     changed = sorted(name for name, value in clean.items() if getattr(current, name) != value)

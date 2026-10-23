@@ -293,9 +293,13 @@ async def test_unknown_query_parameters_are_refused(directory: Directory) -> Non
 
 
 async def test_requesters_cannot_list_or_read_others(directory: Directory) -> None:
-    assert (await directory.list(directory.requester)).json()["code"] == "technicians_only"
+    refused = (await directory.list(directory.requester)).json()
+    assert (refused["code"], refused["params"]) == (
+        "permission_denied",
+        {"permission": "users.view", "reason": "no_permission"},
+    )
     other = await directory.get(f"/api/v1/users/{directory.tech}", directory.requester)
-    assert other.json()["code"] == "technicians_only"
+    assert other.json()["code"] == "permission_denied"
     me = await directory.get(f"/api/v1/users/{directory.requester}", directory.requester)
     assert me.status_code == 200
 

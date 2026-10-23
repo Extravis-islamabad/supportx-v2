@@ -166,3 +166,35 @@ async def tenant_pair(migrated_db: db_testing.ThrowawayDatabase) -> tuple[uuid.U
         await create_tenant(migrated_db.migrator_url, "Tenant A"),
         await create_tenant(migrated_db.migrator_url, "Tenant B"),
     )
+
+
+async def assign_system_role(
+    admin_url: str, tenant_id: uuid.UUID, user_id: uuid.UUID, key: str
+) -> None:
+    """Give a test user a system role directly (WP-016); marks their roles as mapped."""
+    conn = await asyncpg.connect(admin_url)
+    try:
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO roles (id, tenant_id, key, name, is_system)"
+                " VALUES ($1, $2, $3, $3, true)"
+                " ON CONFLICT (tenant_id, key) WHERE deleted_at IS NULL DO NOTHING",
+                uuid.uuid4(),
+                tenant_id,
+                key,
+            )
+            role_id = await conn.fetchval(
+                "SELECT id FROM roles WHERE tenant_id = $1 AND key = $2 AND deleted_at IS NULL",
+                tenant_id,
+                key,
+            )
+            await conn.execute(
+                "INSERT INTO user_roles (tenant_id, user_id, role_id) VALUES ($1, $2, $3)"
+                " ON CONFLICT DO NOTHING",
+                tenant_id,
+                user_id,
+                role_id,
+            )
+            await conn.execute("UPDATE users SET roles_mapped_at = now() WHERE id = $1", user_id)
+    finally:
+        await conn.close()

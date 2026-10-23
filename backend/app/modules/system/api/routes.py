@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, Field
 
 from app import __version__
+from app.core.authorization import public_route
 from app.core.entitlements import entitlement_exempt
 from app.modules.system.domain.readiness import CheckStatus, FailureReason, ReadinessReport
 from app.modules.system.service.readiness import ReadinessService
@@ -51,6 +52,7 @@ def get_readiness_service(request: Request) -> ReadinessService:
 
 @router.get("/health", summary="Liveness")
 @entitlement_exempt
+@public_route
 async def get_health() -> HealthResponse:
     """Return 200 while the process runs.
 
@@ -66,6 +68,7 @@ async def get_health() -> HealthResponse:
     responses={503: {"model": ReadinessResponse, "description": "A dependency is not ready."}},
 )
 @entitlement_exempt
+@public_route
 async def get_ready(
     response: Response,
     service: Annotated[ReadinessService, Depends(get_readiness_service)],

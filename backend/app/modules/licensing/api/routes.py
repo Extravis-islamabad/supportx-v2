@@ -6,11 +6,12 @@ No secrets: no signature, customer, licence ID, installation ID or fingerprint.
 """
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel, Field
 
+from app.core.authorization import require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ServiceUnavailable
 from app.modules.licensing.domain.catalogue import Edition, Feature, LimitKey
@@ -73,10 +74,17 @@ def get_service(request: Request) -> EntitlementService:
 
 @router.get("", summary="Current entitlements")
 async def read_entitlements(
-    session: TenantSession, service: Annotated[EntitlementService, Depends(get_service)]
+    session: TenantSession,
+    service: Annotated[EntitlementService, Depends(get_service)],
+    subject: Annotated[Any, Depends(require_signed_in())],  # noqa: ANN401 - identity_access's Subject
 ) -> EntitlementsResponse:
-    """Edition, features, limits with usage, state and term of the caller's tenant."""
-    summary = await service.summary(session)
+    """Edition, features, limits with usage, state and term of the caller's tenant.
+
+    Usage (seat counts) for subjects holding `users.view`; the admin warning for `licence.manage`.
+    """
+    summary = await service.summary(
+        session, show_usage=subject.holds("users.view"), is_admin=subject.holds("licence.manage")
+    )
     status = summary.status
     term = summary.term
     return EntitlementsResponse(
