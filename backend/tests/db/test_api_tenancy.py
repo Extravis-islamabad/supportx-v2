@@ -134,6 +134,9 @@ async def test_production_ignores_the_tenant_header(
         oidc_console_client_secret="x",
         oidc_portal_client_secret="x",
         session_secret="s" * 32,
+        centrifugo_api_url="http://127.0.0.1:1",
+        centrifugo_api_key="k",
+        centrifugo_token_secret="c" * 32,
         dev_tenant_header=True,
     )
     async with run_app(build_app(production)) as client:

@@ -46,6 +46,9 @@ PRODUCTION_REQUIRED: dict[str, Any] = {
     "oidc_console_client_secret": "console-secret",
     "oidc_portal_client_secret": "portal-secret",
     "session_secret": "s" * 32,
+    "centrifugo_api_url": "http://127.0.0.1:1",
+    "centrifugo_api_key": "centrifugo-key",
+    "centrifugo_token_secret": "c" * 32,
 }
 
 

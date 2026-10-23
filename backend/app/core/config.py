@@ -145,6 +145,22 @@ class Settings(BaseSettings):
     # licensing.entitlement.changed event, the TTL only bounds staleness if an event is lost.
     entitlement_cache_ttl_seconds: int = Field(default=300, ge=0, le=86400)
 
+    # Realtime (WP-011, docs/architecture/realtime.md). The API signs Centrifugo connection and
+    # subscription tokens with `centrifugo_token_secret` (HS256, same key Centrifugo verifies);
+    # the fan-out worker and revocation call Centrifugo's server API at `centrifugo_api_url`.
+    centrifugo_api_url: str | None = None
+    centrifugo_api_key: SecretStr | None = None
+    centrifugo_token_secret: SecretStr | None = None
+    centrifugo_timeout_seconds: float = Field(default=3.0, gt=0, le=30)
+    # Short lifetimes: a token outliving a permission change is cut off by revocation anyway,
+    # the expiry only bounds what a lost revocation could leak (architecture.md §8.2).
+    realtime_connection_token_ttl_seconds: int = Field(default=900, ge=30, le=86400)
+    realtime_subscription_token_ttl_seconds: int = Field(default=300, ge=30, le=86400)
+    # Fan-out: list publications to one channel within this window become one message, and a
+    # tenant gets at most this many publications per second (the rest are coalesced).
+    realtime_coalesce_ms: int = Field(default=250, ge=0, le=5000)
+    realtime_tenant_publications_per_second: float = Field(default=200.0, gt=0)
+
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"
@@ -162,6 +178,9 @@ class Settings(BaseSettings):
                 "oidc_console_client_secret",
                 "oidc_portal_client_secret",
                 "session_secret",
+                "centrifugo_api_url",
+                "centrifugo_api_key",
+                "centrifugo_token_secret",
             )
             missing = [name for name in required if getattr(self, name) is None]
             if missing:

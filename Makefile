@@ -3,7 +3,7 @@
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard dev-subscription e2e \
-	worker-relay worker-consumers events-tail events-stats dlq-list dlq-replay events-schemas events-check \
+	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
 
@@ -85,6 +85,9 @@ worker-relay: ## Run the outbox relay (outbox table -> NATS JetStream) until Ctr
 
 worker-consumers: ## Run every module consumer (dev profile: logs every event) until Ctrl+C
 	$(BACKEND) uv run python -m workers.consumers
+
+worker-fanout: ## Run the realtime fan-out (events -> Centrifugo -> live screens) until Ctrl+C
+	$(BACKEND) uv run python -m workers.realtime_fanout
 
 events-tail: ## Watch events live: make events-tail [tenant=<id>] [type=identity_access.>] [since=10m|all]
 	$(EVENTS_CLI) tail $(if $(tenant),--tenant $(tenant)) $(if $(type),--type '$(type)') \

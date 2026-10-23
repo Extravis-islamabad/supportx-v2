@@ -51,6 +51,10 @@ class ModuleSpec:
     # Permissions this module offers (WP-016): `users.view`, `changes.approve` ... Collected into
     # the permission catalogue; routes then use require_permission("<key>").
     permissions: Sequence[PermissionSpec] = ()
+    # Realtime (WP-011, app/shared/realtime): ChannelSpec instances (who may join which channel)
+    # and RealtimeRoute instances (which events reach which channels, whose access they change).
+    channels: Sequence[object] = ()
+    realtime: Sequence[object] = ()
     # Counted licence limits this module owns the numbers for: limit key -> counter.
     usage_counters: Mapping[str, UsageCounter] = field(default_factory=lambda: MappingProxyType({}))
 

@@ -11,15 +11,24 @@ from pydantic import BaseModel, Field
 from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
 from app.core.errors import ServiceUnavailable, Unauthenticated
+from app.core.logging import get_logger
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.service.auth import AuthService, LoginFailure
+from app.shared.realtime import (
+    CENTRIFUGO_STATE,
+    SESSION_ENDED,
+    CentrifugoClient,
+    CentrifugoError,
+    realtime_user,
+)
 
 if TYPE_CHECKING:
     from app.modules.identity_access.service.policy import PolicyService
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+log = get_logger(__name__)
 
 
 def get_auth(request: Request) -> AuthService:
@@ -182,13 +191,31 @@ async def _describe(request: Request, session: Session) -> MeResponse:
     return MeResponse.model_validate(described)
 
 
+async def _end_realtime(request: Request, session: Session) -> None:
+    """Cut the user's realtime connections in the session's tenant (best effort, WP-011).
+
+    Their tokens would otherwise keep a socket open until they expire. Other browsers of the same
+    user in that tenant reconnect on their own, with tokens from their own sessions.
+    """
+    client: CentrifugoClient | None = getattr(request.app.state, CENTRIFUGO_STATE, None)
+    if client is None:
+        return
+    try:
+        await client.disconnect(
+            realtime_user(session.tenant_uuid, session.user_uuid), SESSION_ENDED, "session ended"
+        )
+    except CentrifugoError:
+        log.warning("realtime_disconnect_failed", exc_info=True)
+
+
 @router.post("/logout", summary="Log out", status_code=status.HTTP_204_NO_CONTENT)
 @entitlement_exempt
 @public_route
-async def logout(found: CurrentSession, auth: Auth) -> Response:
+async def logout(found: CurrentSession, auth: Auth, request: Request) -> Response:
     """End this session and the Keycloak session; clears the cookie."""
     session_id, session = found
     await auth.logout(session_id, session)
+    await _end_realtime(request, session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     clear_session_cookie(response, auth.settings)
     return response
@@ -208,4 +235,5 @@ async def switch_tenant(
     session_id, session = found
     new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
     set_session_cookie(response, auth.settings, new_id)
+    await _end_realtime(request, session)  # the old tenant's connection
     return await _describe(request, switched)
