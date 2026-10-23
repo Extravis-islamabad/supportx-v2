@@ -210,4 +210,51 @@ Title (required), Description (rich text), Schedule Start/End, Actual Start/End,
 - Release approvals (blocked by mail).
 - Project import (not run).
 
-=== END OF AREA 6 ===
+# Area 6b (add to end of Area 6 report): PJT-6 follow-up tests
+
+## Navigation path
+Projects > PJT-6 > tabs Summary / Details / Milestones / Tasks / Associations, overflow "…" = Time Sheet, Members, Comments, Settings, History. View icons top-right of the project header: 1 Gantt, 2 Kanban, 3 Resource Management, 4 Task Dependency diagram. Task page: Details / Task Dependency / Worklogs / Comments / History; task Actions menu = Add Worklog, Add Comment.
+
+## Behaviour observed in tests
+**1. Dates, milestone assignment, Gantt, Kanban**
+- Milestone edit form dates use a calendar-only picker (day precision). I set Schedule Start Oct 26 and Schedule End Oct 30; Milestones list then shows Schedule End. The inputs are read-only text boxes, so dates can only be chosen from the picker.
+- Task dates use a date-and-time picker (hour, minute drop-downs + Apply). Task 1: Oct 27 to Oct 29 (default time was "now"). Task form also has Estimated Effort (days/hrs/mins), Additional Cost ($), Task Type, Notify Before Schedule Start, % Completed, Owner (only one owner offered: me).
+- Assign Milestone is done by ticking the task in the Tasks list and using the "Assign Milestone" bulk drop-down (options: No Milestone + each milestone). It first asks "preserve the task dependencies of the selected tasks?" with Cancel / No / Yes. After choosing Yes the toast says "Milestone(s) assigned".
+- Gantt updated at once: green project bar auto-spans the earliest to latest child date (even though the project's own Schedule Start/End fields stay "Not Configured"), orange milestone bar, blue task bars, an orange arrow between dependent tasks. Items with no dates show "Not Scheduled". Task 2 was shown directly under the project instead of under the milestone because it had no milestone.
+- Gantt toolbar: Select Milestones filter, All Tasks filter, Export as PDF, Time Settings (Gantt based on Scheduled / Actual / Both; date range; zoom slider years to hours; "Exclude holidays and weekends" checkbox). Row gear menu on a task: Edit Task, Delete Task. Hover card on a bar shows task ID, status, priority, scheduled and actual dates, owner, More Info, edit, delete.
+- Dragging a bar works: it saves immediately ("Task Scheduled Time updated successfully"), snaps to whole days, and resets the time to 12:00 AM to 11:59 PM. Dragging task 2 left shrank its length from about 25 h to one day.
+
+**2. Second task and dependency**
+- Task 2 created from Add Task (the title is pre-filled with the template name "Default Task", must be overwritten).
+- Dependencies are NOT created from the task Actions menu or the Task Dependency tab on the task (that tab is read-only: "No dependency available"). They are created in the fourth view icon (Task Dependency diagram): hover a task node, a blue link icon appears on its right edge, drag it onto the other task. Toast "New Dependency added"; a "Last Activities" drop-down logs it. Diagram has Horizontal/Vertical layout, Reload, Save as PDF. Direction: the task you drag from is the predecessor. Only finish-to-start style links were seen; no lag or link-type choice.
+- Violation test: I dragged the successor (task 2) to Oct 28, before predecessor task 1 ends (Oct 29), then moved task 1 later to Oct 30. Both saves succeeded with no warning, no blocking, no red arrow and no auto-shift of the successor; the Gantt arrow simply loops backwards. So dependencies are visual only here (auto-scheduling is a separate project setting that is off by default).
+
+**3. Worklog, Time Sheet, Resource load, roll-up**
+- Add Worklog form: Owner, Worklog Type (only "General Services"), Include non-operational hours, Executed Time start and end, Time Taken to Resolve (hrs/mins), Currency and Exchange Rate, Technician cost per hour (read-only, 0.00), Tech Charges, Other Charges, Total Charges (auto-sum), Description. Quirk: changing the end picker's month moved the end by days and the time-taken box jumped to 231 h; time taken and end time stay in sync, so set the end time first, then check the hours.
+- Saved: 1 h, $20 tech + $5 other = $25 total on task 1. Toast "Worklog added"; the task Worklogs tab shows a row and TOTAL row.
+- Time Sheet (project overflow tab): one row per member with Time Spent 1 h 00 min, Technicians 20.00, Others 5.00, Total 25.00, expandable per member, Export as PDF.
+- Resource Management: per-member daily capacity 9 h. On Oct 23 load 0/9 h. On Oct 29, when task 1 (assigned to me) is scheduled, load shows 9/9 h and a full-day bar. The load is based on scheduled time spread over the day, not on Estimated Effort (4 h) or on the worklog. Task 2 has no owner, so it only appears under the "Unassigned" toggle. Other toggle: "Unscheduled". Options: Project Member Filter, date navigation, Hours/Days zoom, Bar Color (Priority), Legend.
+- Roll-up: with default settings, project Estimated Hours, Actual Hours, Estimated Cost, Actual Cost all stayed "-" even after the worklog and the 4 h estimate and $10 additional cost. Roll-up needs the Settings switches "Aggregate estimated effort", "Calculate actual time from child entities" and "Calculate actual cost on closure" (both closure ones only calculate at closure). I did not turn those three on.
+
+**4. Closure tests (PJT-6 only)**
+- Default settings: Close > "Do you want to close the Project?" > Yes closes the project with both tasks and the milestone still Open. Project shows Closed, % Completed jumps to 100% although tasks show 0/2 done; Actual End is auto-set to today. The Close button disappears; to reopen, use Edit and change Status (list: Open, Onhold, Closed, Canceled, In Progress). I reset Status to Open and % Completed to 0.
+- Settings tab toggles save instantly (toast "Settings saved", no Save button). Turning on "Prevent closure with open child entities" then Close > Yes gave a red error toast: "Cannot close this project as one or more of its child entities are still open." Project stays Open.
+- Turned Prevent off and "Auto-close child entities" on (its limitations note says: child updates trigger no custom actions or notifications, closure rules are not applied, and "Calculate actual time" is not run). Close now shows a different confirmation saying all milestones and tasks will also be closed. After Yes: project Closed, both tasks Closed, milestone 1/1, tasks 2/2, 100%. Actual Hours and Cost still "-".
+- Full Settings list on a project, grouped: Schedule Settings (Enable strict project management, Auto-schedule child entities, Aggregate estimated effort); Closure Settings (Restrict operations on a completed entity, Auto-close child entities, Prevent closure with open child entities, Calculate actual time from child entities, Calculate actual cost on closure, Clear actual end time on re-open).
+
+**5. Summary tab and fourth icon**
+- Summary tab = six donut widgets: Tasks by Due Date, Milestones by Due Date (both "On Track"), Tasks Completed, Milestones Completed, Milestones by Status, Tasks by Status (empty widgets say "No Data").
+- Fourth icon = Task Dependency diagram described above.
+
+## Weak spots / confusing UX
+- Dependencies can be violated silently; no warning even when dragging a successor before its predecessor.
+- Dependency can only be created inside the diagram view, not from the task form.
+- Project close succeeds with open work by default and shows 100% complete.
+- Resource load ignores estimated effort and worklogs.
+- The calendar-only picker and date-time picker open on click but close on scroll, and the worklog end picker rewrites time taken.
+- Settings toggles apply instantly with no confirmation or undo.
+
+## Test records created
+PJT-6 now has: milestone "ZZ-CLAUDE-TEST milestone 1" (Oct 26 to 30, now Closed), "ZZ-CLAUDE-TEST project task 1" (Oct 27 to 30, owner me, 4 h estimate, $10 cost, 1 h worklog, Closed), "ZZ-CLAUDE-TEST project task 2" (Oct 28, Closed), one dependency task 1 to task 2. PJT-6 is Closed. Settings left as: Auto-close child entities ON, all others off.
+
+=== END OF AREA 6 (including 6b) ===
