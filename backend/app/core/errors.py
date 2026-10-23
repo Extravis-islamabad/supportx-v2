@@ -101,6 +101,24 @@ class EntitlementRequired(AppError):
     code = "entitlement_required"
 
 
+class ReadOnlyMode(AppError):
+    """The tenant's licence/plan is read-only: data can be viewed and exported, not changed.
+
+    Raised for every write while the entitlement state is read_only or invalid (architecture.md
+    §13.6, WP-009). `params.reason` says why (expired, suspended, licence_mismatch ...).
+    """
+
+    status = HTTPStatus.FORBIDDEN
+    code = "read_only_mode"
+
+
+class LimitReached(AppError):
+    """Adding one more would exceed a counted licence limit (technicians, assets ...; §13.6)."""
+
+    status = HTTPStatus.FORBIDDEN
+    code = "limit_reached"
+
+
 class NotFound(AppError):
     """The resource does not exist or is not visible to the caller."""
 

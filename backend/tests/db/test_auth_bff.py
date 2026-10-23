@@ -571,3 +571,64 @@ async def test_refused_login_records_nothing(bff: Bff) -> None:
     assert await events_of(bff, "off@demo.test") == before
     (row,) = await user_rows(bff.db, "off@demo.test")
     assert row["display_name"] != "Changed"  # the refresh rolled back with the events
+
+
+# --- technician seats (WP-009) --------------------------------------------------------------------
+
+
+async def set_technician_seats(db: ThrowawayDatabase, tenant: uuid.UUID, seats: int) -> None:
+    """Change a tenant's plan directly (this test app caches nothing: its Valkey is unreachable)."""
+    conn = await asyncpg.connect(db.migrator_url)
+    try:
+        await conn.execute(
+            "UPDATE tenant_subscriptions SET limits = jsonb_build_object('technicians', $2::int)"
+            " WHERE tenant_id = $1",
+            tenant,
+            seats,
+        )
+    finally:
+        await conn.close()
+
+
+async def test_technician_over_the_seat_limit_cannot_log_in(bff: Bff) -> None:
+    a, _b = bff.tenants
+    await set_technician_seats(bff.db, a, 1)
+    first = await bff.login(bff.user("a", email="first@demo.test"))
+    assert first.status_code == 302
+
+    blocked = await bff.login(bff.user("a", email="second@demo.test"))
+    body = blocked.json()
+    assert (blocked.status_code, body["code"], body["message_key"]) == (
+        403,
+        "technician_limit_reached",
+        "errors.technician_limit_reached",
+    )
+    assert body["params"] == {"limit": "technicians", "max": 1}
+    assert await user_rows(bff.db, "second@demo.test") == []  # nothing provisioned
+
+    # A browser lands back on the console with a translatable code, never raw JSON.
+    start = await bff.client.get("/api/v1/auth/login", params={"app": "console"})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a", email="x@demo.test"))
+    html = {"Accept": "text/html,application/xhtml+xml"}
+    response = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers=html
+    )
+    assert response.headers["location"] == f"{CONSOLE}/?auth_error=technician_limit_reached"
+
+    # The seat holder keeps working, and requesters are never counted.
+    assert (await bff.login(bff.user("a", email="first@demo.test"))).status_code == 302
+    requester = bff.user("a", email="req@demo.test", roles=("requester",))
+    assert (await bff.login(requester)).status_code == 302
+
+
+async def test_switching_into_a_full_tenant_is_refused(bff: Bff) -> None:
+    a, b = bff.tenants
+    await set_technician_seats(bff.db, b, 0)
+    await bff.login(bff.user("a", "b", email="multi@demo.test"))
+    switched = await bff.client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(b)},
+        headers={"X-CSRF-Token": await bff.csrf()},
+    )
+    assert (switched.status_code, switched.json()["code"]) == (403, "technician_limit_reached")
+    assert (await bff.me()).json()["tenant"]["id"] == str(a)  # still in the old tenant

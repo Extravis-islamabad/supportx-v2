@@ -32,6 +32,8 @@ module = ModuleSpec(
     consumers=[ConsumerSpec(name="<name>__on_ticket_created",
                             event_types=("work_items.ticket.created",),
                             handler=_on_ticket_created)],
+    feature="change",                    # licence feature (catalogue key); None = every edition
+    usage_counters={"assets": count_assets},  # counted licence limits this module owns
 )
 ```
 
@@ -41,7 +43,13 @@ Rules the registry enforces at startup (`app/core/modules.py`):
 - `ModuleSpec.name` must equal the package name, and names must be unique;
 - startup hooks run in name order, shutdown hooks in reverse;
 - every event's type starts with the module name and `(type, version)` is unique (event registry);
-  consumers are named `<module>__<purpose>` and run in the consumer worker (WP-007).
+  consumers are named `<module>__<purpose>` and run in the consumer worker (WP-007);
+- `feature` must be a key of the licensing catalogue, and each counted limit has at most one
+  counter (WP-009). Every route of a module with a `feature` answers 403 `entitlement_required`
+  for tenants whose plan lacks it, and every write (POST/PUT/PATCH/DELETE) of every module answers
+  403 `read_only_mode` while the tenant is read-only. Mark exceptions on the endpoint with
+  `@read_only_exempt` (exports) or `@entitlement_exempt` (no tenant: health, login). See
+  docs/architecture/entitlements.md.
 
 See `system/__init__.py` for a complete, tested example (router + startup hook that builds the
 readiness service from settings).

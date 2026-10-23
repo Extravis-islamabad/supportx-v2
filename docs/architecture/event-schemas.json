@@ -273,6 +273,34 @@
         "title": "UserUpdated",
         "type": "object"
       }
+    },
+    "licensing.entitlement.changed": {
+      "1": {
+        "description": "The tenant's entitlement changed (plan, add-ons, limits, term or status).\n\nConsumers: the entitlement cache invalidation (this module); later the realtime fan-out\n(WP-011) so open consoles re-read GET /api/v1/entitlements and show or hide menus live.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "source": {
+            "enum": [
+              "subscription",
+              "licence"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "changed_fields"
+        ],
+        "title": "EntitlementChanged",
+        "type": "object"
+      }
     }
   },
   "format": 1

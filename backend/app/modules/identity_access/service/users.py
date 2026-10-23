@@ -14,14 +14,15 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import Boolean, literal_column, select
+from sqlalchemy import Boolean, Row, func, literal_column, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database
 from app.core.errors import Conflict, NotFound, PermissionDenied
 from app.core.tenancy import TenantContext
-from app.modules.identity_access.domain.identity import Identity
+from app.modules.identity_access.domain.identity import Identity, UserType
 from app.modules.identity_access.events import (
     ClientApp,
     SessionTenantSwitched,
@@ -31,6 +32,7 @@ from app.modules.identity_access.events import (
     UserUpdated,
 )
 from app.modules.identity_access.infra.models import User
+from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
 from app.modules.organization import TenantStatus, get_current_tenant
 from app.shared.events import Actor, DomainEvent, record_event
 from app.shared.ids import new_id
@@ -49,6 +51,20 @@ class ProvisionedUser:
     tenant_name: str
 
 
+async def count_technicians(session: AsyncSession) -> int:
+    """Active technicians of the session's tenant: the `technicians` licence usage (WP-009)."""
+    count = await session.scalar(
+        select(func.count())
+        .select_from(User)
+        .where(
+            User.user_type == UserType.TECHNICIAN.value,
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
+    )
+    return int(count or 0)
+
+
 async def tenant_name(database: Database, tenant_id: uuid.UUID) -> str | None:
     """Name of an active tenant, or None if it is unknown or suspended."""
     async with database.tenant_session(TenantContext(tenant_id)) as session:
@@ -57,6 +73,29 @@ async def tenant_name(database: Database, tenant_id: uuid.UUID) -> str | None:
         except NotFound:
             return None
     return tenant.name if tenant.status is TenantStatus.ACTIVE else None
+
+
+async def _existing_row(
+    session: AsyncSession, tenant_id: uuid.UUID, identity: Identity
+) -> Row[str, str, str, str] | None:
+    """The user's current synced fields (locked), after claiming a technician seat if needed."""
+    technician = identity.user_type is UserType.TECHNICIAN
+    if technician:
+        # Taken before reading the row, so a parallel first login of the same user sees the row
+        # the other one created instead of competing for a second seat.
+        await hold_limit(session, LimitKey.TECHNICIANS)
+    before = (
+        await session.execute(
+            select(User.email, User.display_name, User.locale, User.user_type)
+            .where(User.tenant_id == tenant_id, User.external_subject == identity.subject)
+            .with_for_update()
+        )
+    ).one_or_none()
+    if technician and (before is None or before.user_type != UserType.TECHNICIAN.value):
+        # A new technician seat (new user, or a requester promoted in Keycloak). Existing
+        # technicians are never re-checked, so lowering the limit locks nobody out (§13.6).
+        await reserve_capacity(session, LimitKey.TECHNICIANS, code="technician_limit_reached")
+    return before
 
 
 async def provision_user(  # noqa: PLR0913 - keyword-only event context
@@ -84,13 +123,7 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context
             "last_login_at": now,
             "updated_at": now,
         }
-        before = (
-            await session.execute(
-                select(User.email, User.display_name, User.locale, User.user_type)
-                .where(User.tenant_id == tenant_id, User.external_subject == identity.subject)
-                .with_for_update()
-            )
-        ).one_or_none()
+        before = await _existing_row(session, tenant_id, identity)
         statement = (
             insert(User)
             .values(

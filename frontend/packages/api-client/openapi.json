@@ -53,6 +53,127 @@
         "title": "CheckStatus",
         "type": "string"
       },
+      "Edition": {
+        "description": "Commercial tier (product-plan.md §9).",
+        "enum": [
+          "essentials",
+          "professional",
+          "enterprise"
+        ],
+        "title": "Edition",
+        "type": "string"
+      },
+      "EntitlementState": {
+        "description": "Derived licence state (see module docstring).",
+        "enum": [
+          "active",
+          "grace",
+          "read_only",
+          "invalid"
+        ],
+        "title": "EntitlementState",
+        "type": "string"
+      },
+      "EntitlementsResponse": {
+        "description": "The current tenant's entitlement. Codes render through labels (edition.*, feature.* ...).",
+        "properties": {
+          "admin_warning": {
+            "description": "Show the licence warning banner to this user.",
+            "title": "Admin Warning",
+            "type": "boolean"
+          },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Whole days of grace left, while in grace.",
+            "title": "Days Left"
+          },
+          "edition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Edition"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/Feature"
+            },
+            "title": "Features",
+            "type": "array"
+          },
+          "grace_ends_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grace Ends At"
+          },
+          "limits": {
+            "items": {
+              "$ref": "#/components/schemas/LimitOut"
+            },
+            "title": "Limits",
+            "type": "array"
+          },
+          "state": {
+            "$ref": "#/components/schemas/EntitlementState"
+          },
+          "state_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StateReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "term": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TermOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "writable": {
+            "description": "False in read-only mode: changes are refused.",
+            "title": "Writable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "edition",
+          "state",
+          "state_reason",
+          "writable",
+          "grace_ends_at",
+          "days_left",
+          "admin_warning",
+          "features",
+          "limits",
+          "term"
+        ],
+        "title": "EntitlementsResponse",
+        "type": "object"
+      },
       "FailureReason": {
         "description": "Why a check failed. Stable codes only: raw exception text never leaves the server.",
         "enum": [
@@ -65,6 +186,38 @@
           "error"
         ],
         "title": "FailureReason",
+        "type": "string"
+      },
+      "Feature": {
+        "description": "A licensable capability. A module declares one in its ModuleSpec (`feature=`).",
+        "enum": [
+          "incident",
+          "service_request",
+          "knowledge",
+          "sla",
+          "ai_assist",
+          "problem",
+          "change",
+          "release",
+          "catalog",
+          "cmdb",
+          "assets",
+          "discovery",
+          "procurement",
+          "workflows",
+          "ai_agents",
+          "monetx_integration",
+          "projects",
+          "esm",
+          "msp",
+          "advanced_reporting",
+          "sandbox",
+          "config_as_code",
+          "custom_functions",
+          "local_ai_runtime",
+          "compliance_packs"
+        ],
+        "title": "Feature",
         "type": "string"
       },
       "FieldError": {
@@ -272,6 +425,68 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "LimitKey": {
+        "description": "A counted limit (architecture.md §13.1). End users (requesters) are never counted.",
+        "enum": [
+          "technicians",
+          "assets",
+          "departments",
+          "msp_customers",
+          "ai_agent_runs_per_month"
+        ],
+        "title": "LimitKey",
+        "type": "string"
+      },
+      "LimitOut": {
+        "description": "A counted limit. `limit` null = unlimited; `used` null = not counted (yet) or not shown.",
+        "properties": {
+          "key": {
+            "$ref": "#/components/schemas/LimitKey"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "remaining": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Remaining"
+          },
+          "used": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Live usage; shown to technicians and admins only.",
+            "title": "Used"
+          }
+        },
+        "required": [
+          "key",
+          "limit",
+          "used",
+          "remaining"
+        ],
+        "title": "LimitOut",
+        "type": "object"
+      },
       "MeResponse": {
         "description": "Session summary for the UI.\n\n`csrf_token` must be sent as X-CSRF-Token on every POST/PUT/PATCH/DELETE; it is tied to this\nsession and changes when the session does.",
         "properties": {
@@ -465,6 +680,18 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "StateReason": {
+        "description": "Why the state is not plain `active`. Shown to admins through labels.",
+        "enum": [
+          "expired",
+          "licence_mismatch",
+          "suspended",
+          "not_yet_valid",
+          "no_entitlement"
+        ],
+        "title": "StateReason",
+        "type": "string"
+      },
       "SwitchTenantRequest": {
         "description": "Which of the user's tenants to make active.",
         "properties": {
@@ -537,6 +764,52 @@
         ],
         "title": "TenantStatus",
         "type": "string"
+      },
+      "TermOut": {
+        "description": "Validity of the plan or licence.",
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "grace_days": {
+            "title": "Grace Days",
+            "type": "integer"
+          },
+          "maintenance_until": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maintenance Until"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "expires_at",
+          "maintenance_until",
+          "grace_days"
+        ],
+        "title": "TermOut",
+        "type": "object"
       },
       "UserDetail": {
         "description": "A user of the tenant. Codes (`user_type`, `status`, `locale`) render through labels.",
@@ -1085,6 +1358,68 @@
         "summary": "Switch active tenant",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/entitlements": {
+      "get": {
+        "description": "Edition, features, limits with usage, state and term of the caller's tenant.",
+        "operationId": "read_entitlements_api_v1_entitlements_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitlementsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Entitlements are not available."
+          }
+        },
+        "summary": "Current entitlements",
+        "tags": [
+          "entitlements"
         ]
       }
     },

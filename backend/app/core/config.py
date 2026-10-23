@@ -135,6 +135,16 @@ class Settings(BaseSettings):
     # Prefix for every Valkey key the API writes (tests use a random one).
     valkey_key_prefix: str = Field(default="supportx:", max_length=40)
 
+    # Entitlements (WP-009, docs/architecture/entitlements.md). Where licence data comes from:
+    # `subscription` = the tenant's plan row in tenant_subscriptions (control-plane data);
+    # `licence_file` = a licence document at `licence_file`. Only the licensing module reads
+    # these; no other code may branch on them (guard test in app/modules/licensing/tests).
+    entitlement_provider: Literal["subscription", "licence_file"] = "subscription"
+    licence_file: Path | None = None
+    # Per-tenant entitlement cache in Valkey; changes invalidate it at once through the
+    # licensing.entitlement.changed event, the TTL only bounds staleness if an event is lost.
+    entitlement_cache_ttl_seconds: int = Field(default=300, ge=0, le=86400)
+
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"
@@ -164,6 +174,9 @@ class Settings(BaseSettings):
             if self.session_secret is not None and len(self.session_secret.get_secret_value()) < 32:  # noqa: PLR2004 - minimum key material
                 msg = "SUPPORTX_SESSION_SECRET must be at least 32 characters in production"
                 raise ValueError(msg)
+        if self.entitlement_provider == "licence_file" and self.licence_file is None:
+            msg = "SUPPORTX_ENTITLEMENT_PROVIDER=licence_file requires SUPPORTX_LICENCE_FILE"
+            raise ValueError(msg)
         return self
 
     @property

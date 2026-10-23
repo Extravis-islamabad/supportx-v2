@@ -23,6 +23,7 @@ from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service.auth import AuthService
+from app.modules.identity_access.service.users import count_technicians
 from app.shared.clock import system_clock
 
 if TYPE_CHECKING:
@@ -71,6 +72,8 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
+    # Licensed technician seats (WP-009); requesters are never counted.
+    usage_counters={"technicians": count_technicians},
 )
 
 __all__ = ["UserType", "module"]
