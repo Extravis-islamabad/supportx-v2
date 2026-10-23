@@ -219,6 +219,8 @@ keycloak-realm: ## Regenerate the production (base) Keycloak realm from the dev 
 	$(BACKEND) uv run python -m tooling.keycloak_realm
 
 chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock
+	helm repo add nats https://nats-io.github.io/k8s/helm/charts/ --force-update >/dev/null
+	helm repo add valkey https://valkey.io/valkey-helm/ --force-update >/dev/null
 	helm dependency build $(CHART)
 
 chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
