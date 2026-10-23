@@ -101,6 +101,7 @@ test('roles page in Arabic and dark mode is accessible', async ({ page }) => {
   await page.keyboard.press('Escape');
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.getByTestId('roles-table').getByText('مسؤول المؤسسة')).toBeVisible();
+  await expectAccessible(page, 'roles list (Arabic, dark)');
   await page.getByTestId('role-row-technician').click();
   await expect(page.getByText(/لا يمكن تغيير الأدوار المضمّنة/)).toBeVisible();
   await expectAccessible(page, 'role editor (Arabic, dark)');
