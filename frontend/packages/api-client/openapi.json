@@ -572,6 +572,23 @@
         "title": "LimitOut",
         "type": "object"
       },
+      "LiveListChannels": {
+        "description": "The channels to join to follow one list live (one per audience the user belongs to).",
+        "properties": {
+          "channels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Channels",
+            "type": "array"
+          }
+        },
+        "required": [
+          "channels"
+        ],
+        "title": "LiveListChannels",
+        "type": "object"
+      },
       "MeResponse": {
         "description": "Session summary for the UI.\n\n`csrf_token` must be sent as X-CSRF-Token on every POST/PUT/PATCH/DELETE; it is tied to this\nsession and changes when the session does. `user.roles` are the user's SupportX role keys\n(D-029: SupportX, not Keycloak, decides access); `permissions` their effective permissions.",
         "properties": {
@@ -608,6 +625,16 @@
         ],
         "title": "MeResponse",
         "type": "object"
+      },
+      "NavLayout": {
+        "description": "Where the console's navigation sits, per user (WP-011; a ServiceDesk Plus parity choice).\n\nStored server-side so the choice follows the user to every device.",
+        "enum": [
+          "top",
+          "side",
+          "side_compact"
+        ],
+        "title": "NavLayout",
+        "type": "string"
       },
       "Op": {
         "description": "Every operator of the grammar.",
@@ -830,6 +857,26 @@
         "title": "ReadinessResponse",
         "type": "object"
       },
+      "RealtimeToken": {
+        "description": "A short-lived Centrifugo token.",
+        "properties": {
+          "expires_in": {
+            "description": "Seconds until the token expires.",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "expires_in"
+        ],
+        "title": "RealtimeToken",
+        "type": "object"
+      },
       "RoleCreate": {
         "description": "A new custom role.",
         "properties": {
@@ -1036,6 +1083,21 @@
         ],
         "title": "StateReason",
         "type": "string"
+      },
+      "SubscriptionTokenRequest": {
+        "description": "The channel to join, e.g. `t:<tenant>:users:<user id>`.",
+        "properties": {
+          "channel": {
+            "maxLength": 256,
+            "title": "Channel",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel"
+        ],
+        "title": "SubscriptionTokenRequest",
+        "type": "object"
       },
       "SwitchTenantRequest": {
         "description": "Which of the user's tenants to make active.",
@@ -1291,6 +1353,9 @@
             "title": "Locale",
             "type": "string"
           },
+          "nav_layout": {
+            "$ref": "#/components/schemas/NavLayout"
+          },
           "signature": {
             "anyOf": [
               {
@@ -1344,6 +1409,7 @@
           "locale",
           "time_zone",
           "signature",
+          "nav_layout",
           "last_login_at",
           "created_at",
           "updated_at",
@@ -1376,6 +1442,11 @@
             ],
             "title": "Locale",
             "type": "string"
+          },
+          "nav_layout": {
+            "$ref": "#/components/schemas/NavLayout",
+            "default": "top",
+            "description": "The user's navigation layout preference."
           },
           "roles": {
             "items": {
@@ -1450,6 +1521,17 @@
         "additionalProperties": false,
         "description": "Fields SupportX owns. Identity fields come from Keycloak and cannot be set here.",
         "properties": {
+          "nav_layout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NavLayout"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Navigation: top bar, side bar or compact side bar."
+          },
           "signature": {
             "anyOf": [
               {
@@ -3013,7 +3095,7 @@
     },
     "/api/v1/ready": {
       "get": {
-        "description": "Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code. The outbox relay and the\nconsumer worker are reported from their heartbeats (`outbox_relay`, `event_consumers`) but\nare informational: when they are down the response lists them under `degraded`, still 200.",
+        "description": "Return 200 when PostgreSQL, Valkey, NATS and Keycloak all answer within the timeout.\n\nOtherwise 503, naming the failing dependency with a reason code. The outbox relay, the\nconsumer worker and the realtime fan-out are reported from their heartbeats (`outbox_relay`,\n`event_consumers`, `realtime_fanout`) but are informational: when they are down the response\nlists them under `degraded`, still 200.",
         "operationId": "get_ready_api_v1_ready_get",
         "responses": {
           "200": {
@@ -3050,6 +3132,146 @@
         "summary": "Readiness",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/realtime/connection-token": {
+      "post": {
+        "description": "Lets the signed-in user connect to the realtime gateway for the session's tenant.\n\nSigned in means a valid BFF session (CSRF-checked: this is a POST), resolved for the tenant.",
+        "operationId": "get_connection_token_api_v1_realtime_connection_token_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeToken"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Realtime connection token",
+        "tags": [
+          "realtime"
+        ]
+      }
+    },
+    "/api/v1/realtime/lists/{name}": {
+      "get": {
+        "description": "Which channels to join to follow list `name` (`users`, `roles`…); empty without access.",
+        "operationId": "list_channels_api_v1_realtime_lists__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveListChannels"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Channels of a live list",
+        "tags": [
+          "realtime"
+        ]
+      }
+    },
+    "/api/v1/realtime/subscription-token": {
+      "post": {
+        "description": "Signed only when the policy layer allows this user to see what the channel carries.\n\nRefused (403 `realtime_channel_denied`) for another tenant's channel, an unknown kind, or a\nrecord or list the user may not see.",
+        "operationId": "get_subscription_token_api_v1_realtime_subscription_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubscriptionTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RealtimeToken"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Not allowed to join this channel (realtime_channel_denied)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Realtime subscription token",
+        "tags": [
+          "realtime"
         ]
       }
     },

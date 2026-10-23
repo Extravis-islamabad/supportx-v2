@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { SEEDED } from '../stack';
-import { expectAccessible, signIn, signInAs } from './helpers';
+import { expectAccessible, goToSection, navItems, signIn, signInAs } from './helpers';
 
 const SECTIONS = [
   'Requests',
@@ -18,13 +18,12 @@ test('navigation: every section opens a translated coming-soon page; palette and
   page,
 }) => {
   await signInAs(page, 'tech');
-  const nav = page.getByRole('navigation', { name: 'Main navigation' });
   for (const section of SECTIONS) {
-    await nav.getByText(section, { exact: true }).click();
+    await goToSection(page, section);
     await expect(page.getByRole('heading', { name: section, level: 1 })).toBeVisible();
     await expect(page.getByText(/being built/)).toBeVisible();
   }
-  await expect(nav.getByText('Admin', { exact: true })).toHaveCount(0); // not a tenant admin
+  expect(await navItems(page)).not.toContain('admin'); // not a tenant admin
 
   await page.keyboard.press('Control+k');
   const palette = page.getByRole('combobox', { name: 'Type a page name…' });
@@ -67,11 +66,12 @@ test('RTL: the Arabic user gets Arabic labels right-to-left', async ({ page }) =
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
   const nav = page.getByRole('navigation', { name: 'التنقل الرئيسي' });
-  await expect(nav.getByText('الطلبات', { exact: true })).toBeVisible();
-  // The sidebar sits on the right in RTL.
-  const sider = await page.locator('.ant-layout-sider').boundingBox();
+  const home = nav.getByText('الرئيسية', { exact: true }).filter({ visible: true });
+  await expect(home).toBeVisible();
+  // The top bar starts on the right in RTL (the side bar layouts: see layouts.spec.ts).
+  const box = await home.boundingBox();
   const width = page.viewportSize()?.width ?? 0;
-  expect(sider?.x ?? 0).toBeGreaterThan(width / 2);
+  expect(box?.x ?? 0).toBeGreaterThan(width / 2);
   await expectAccessible(page, 'home (Arabic, RTL)');
   await page.screenshot({ path: 'test-results/rtl-arabic.png' });
 });

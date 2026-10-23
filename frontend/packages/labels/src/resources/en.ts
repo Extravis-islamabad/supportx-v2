@@ -40,6 +40,10 @@ export const en = {
   'tenant_status.suspended': 'Suspended',
   'errors.session_expired': 'Your session has ended. Please sign in again.',
   'errors.csrf_failed': 'This request could not be verified. Please reload the page and try again.',
+  'errors.realtime_channel_denied':
+    'You can no longer follow this live. Reload the page to see the latest data.',
+  'errors.realtime_not_configured':
+    'Live updates are not set up on this server. Reload the page to see the latest data.',
   'errors.no_organization':
     'Your account is not linked to any organisation yet. Please contact your administrator.',
   'errors.not_a_member': 'You are not a member of that organisation.',
@@ -217,8 +221,23 @@ export const en = {
     'This item was saved by someone else after you opened it. Reload to see their version, or keep your changes and save them on top of theirs.',
   'conflict.keep_mine': 'Keep my changes',
   'conflict.reload': 'Reload their version',
+  'appearance.navigation': 'Navigation',
+  'nav_layout.top': 'Top bar',
+  'nav_layout.side': 'Side bar',
+  'nav_layout.side_compact': 'Compact side bar',
+  'nav.more': 'More',
+  'live.changed_by':
+    'This record was just changed by {{name}}. Reload to see the changes before you save.',
+  'live.you_elsewhere': '{{name}} (you, in another window)',
+  'live.someone': 'another user',
+  'live.reload': 'Reload',
+  'presence.label': 'Also viewing',
+  'presence.viewing': 'Also viewing: {{names}}',
+  'presence.you_elsewhere': 'You (another window)',
   'connectivity.reconnecting':
     'Reconnecting… Some information may be out of date until the connection is back.',
+  'connectivity.polling':
+    'Live updates are limited on this network: the page refreshes every 15 seconds.',
   'crash.title': 'Something went wrong on this page',
   'crash.body':
     'The page stopped working. Reloading usually fixes it. If it happens again, send us the reference.',

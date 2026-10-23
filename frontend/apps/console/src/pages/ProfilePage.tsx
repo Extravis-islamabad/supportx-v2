@@ -1,15 +1,29 @@
-import { App, Card, Descriptions, Form, Input, Skeleton, Space, Typography } from 'antd';
-import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Descriptions,
+  Form,
+  Input,
+  Skeleton,
+  Space,
+  Typography,
+} from 'antd';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   ApiError,
+  queryKeys,
   useSession,
   useUpdateUser,
   useUser,
   type UserDetail,
 } from '@supportx/api-client';
 import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx/forms';
-import { ConflictDialog, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
+import { ConflictDialog, PresenceAvatars, reportError, useLabel, WriteButton } from '@supportx/ui';
 
 const schema = z.object({
   signature: z.string().max(2000, 'errors.field.value_too_long'),
@@ -60,25 +74,63 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
-      <ProfileForm user={user.data} reload={async () => (await user.refetch()).data} />
+      <ProfileForm
+        user={user.data}
+        selfName={me.display_name}
+        reload={async () => (await user.refetch()).data}
+      />
     </Space>
   );
 }
 
 function ProfileForm({
   user,
+  selfName,
   reload,
 }: {
   user: UserDetail;
+  selfName: string;
   reload: () => Promise<UserDetail | undefined>;
 }) {
   const t = useLabel();
   const { message } = App.useApp();
+  const queryClient = useQueryClient();
   const update = useUpdateUser(user.id);
   // The version this form's values are based on: sent as If-Match on save.
   const [baseVersion, setBaseVersion] = useState(user.version);
+  const base = useRef(baseVersion);
+  useEffect(() => {
+    base.current = baseVersion;
+  }, [baseVersion]);
+  const others = useRef<PresenceMember[]>([]);
   const [conflict, setConflict] = useState(false);
+  // Live (WP-011): a save elsewhere is announced before this user saves; the 409 dialog stays
+  // as the safety net. `changedBy` is who saved (a name), null while nothing new arrived.
+  const [changedBy, setChangedBy] = useState<string | null>(null);
+  const viewers = useRecordChannel('users', user.id, (event) => {
+    if (event.type !== 'users.changed' && event.type !== 'refresh') return;
+    if (event.version !== undefined && event.version <= base.current) return; // our own save
+    void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(user.id) });
+    if (event.type === 'refresh') return;
+    const by =
+      event.by === user.id
+        ? t('live.you_elsewhere', { name: selfName })
+        : (others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone'));
+    setChangedBy(by);
+  });
+  useEffect(() => {
+    others.current = viewers;
+  }, [viewers]);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: valuesOf(user) });
+  const takeLatest = () => {
+    setChangedBy(null);
+    void reload().then((latest) => {
+      if (latest !== undefined) {
+        form.reset(valuesOf(latest));
+        setBaseVersion(latest.version);
+      }
+    });
+  };
 
   const changedFields = () => FIELDS.filter((name) => form.getFieldState(name).isDirty);
   const save = (values: Values, version: number, fields: readonly Field[]) => {
@@ -88,6 +140,7 @@ function ProfileForm({
         onSuccess: (saved) => {
           form.reset(valuesOf(saved));
           setBaseVersion(saved.version);
+          setChangedBy(null);
           void message.success(t('profile.saved'));
         },
         onError: (error) => {
@@ -102,7 +155,22 @@ function ProfileForm({
   };
 
   return (
-    <Card>
+    <Card extra={<PresenceAvatars viewers={viewers} selfUserId={user.id} />}>
+      {changedBy !== null && (
+        <Alert
+          type="warning"
+          showIcon
+          role="status"
+          data-testid="live-change-notice"
+          style={{ marginBottom: 16 }}
+          message={t('live.changed_by', { name: changedBy })}
+          action={
+            <Button size="small" onClick={takeLatest} data-testid="live-change-reload">
+              {t('live.reload')}
+            </Button>
+          }
+        />
+      )}
       <Form
         layout="vertical"
         onFinish={() => {
@@ -147,12 +215,7 @@ function ProfileForm({
         open={conflict}
         onReload={() => {
           setConflict(false);
-          void reload().then((latest) => {
-            if (latest !== undefined) {
-              form.reset(valuesOf(latest));
-              setBaseVersion(latest.version);
-            }
-          });
+          takeLatest();
         }}
         onKeepMine={() => {
           setConflict(false);

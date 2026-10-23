@@ -1,8 +1,10 @@
 import { PlusOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import { Badge, Flex, Table, Typography } from 'antd';
 import { useState } from 'react';
 
-import { useRoles, type RoleSummary } from '@supportx/api-client';
+import { queryKeys, useRoles, type RoleSummary } from '@supportx/api-client';
+import { refreshList, useListChannel } from '@supportx/realtime';
 import { NoAccess, useAccess, useLabel, WriteButton } from '@supportx/ui';
 
 import { RoleEditor } from './RoleEditor';
@@ -14,6 +16,12 @@ export function RolesPage() {
   const { can } = useAccess();
   const allowed = can('roles.view');
   const roles = useRoles(allowed);
+  // Live (WP-011): roles created, edited, deleted or (un)assigned elsewhere.
+  const queryClient = useQueryClient();
+  useListChannel(allowed ? 'roles' : null, (message) => {
+    refreshList(queryClient, queryKeys.access.roles);
+    for (const id of message.ids) refreshList(queryClient, queryKeys.access.role(id));
+  });
   // undefined = closed; null = a new role; a role = edit (or view, for system roles).
   const [editing, setEditing] = useState<RoleSummary | null>();
 

@@ -2,6 +2,8 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { RouterProvider } from 'react-router';
 
+import { RealtimeProvider } from '@supportx/realtime';
+
 import {
   AppearanceProvider,
   createQueryClient,
@@ -31,9 +33,11 @@ export function App({ navigate }: AppProps) {
             <SessionGate app="console" navigate={navigate}>
               {(session) => (
                 // Keyed by tenant: a tenant switch remounts everything below with fresh state.
-                <LicenceProvider key={session.tenant.id} session={session}>
-                  <RouterProvider router={router} />
-                </LicenceProvider>
+                <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
+                  <LicenceProvider key={session.tenant.id} session={session}>
+                    <RouterProvider router={router} />
+                  </LicenceProvider>
+                </RealtimeProvider>
               )}
             </SessionGate>
           </ErrorReporterProvider>

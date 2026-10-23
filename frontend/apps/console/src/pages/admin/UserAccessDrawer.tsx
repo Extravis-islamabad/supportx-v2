@@ -11,9 +11,11 @@ import {
   Spin,
   Typography,
 } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
+  queryKeys,
   useRoleAssignment,
   useRoles,
   useUnitMutations,
@@ -22,7 +24,8 @@ import {
   type UnitKind,
   type UserDetail,
 } from '@supportx/api-client';
-import { useAccess, useLabel } from '@supportx/ui';
+import { refreshList, useRealtimeUser, useRecordChannel } from '@supportx/realtime';
+import { PresenceAvatars, useAccess, useLabel } from '@supportx/ui';
 
 import { roleName } from './roleName';
 
@@ -39,6 +42,13 @@ export interface UserAccessDrawerProps {
 export function UserAccessDrawer({ user, onClose }: UserAccessDrawerProps) {
   const t = useLabel();
   const access = useUserAccess(user?.id);
+  // Live (WP-011): roles or memberships changed by another admin show at once; and who else
+  // has this user open.
+  const queryClient = useQueryClient();
+  const viewers = useRecordChannel('users', user?.id, () => {
+    if (user !== undefined) refreshList(queryClient, queryKeys.access.user(user.id));
+  });
+  const self = useRealtimeUser();
   return (
     <Drawer
       open={user !== undefined}
@@ -56,6 +66,7 @@ export function UserAccessDrawer({ user, onClose }: UserAccessDrawerProps) {
           style={{ width: '100%' }}
           data-testid="user-access"
         >
+          <PresenceAvatars viewers={viewers} selfUserId={self} />
           <RolesSection userId={user.id} roleIds={access.data.role_ids} />
           <UnitsSection kind="sites" userId={user.id} memberOf={access.data.site_ids} />
           <UnitsSection kind="groups" userId={user.id} memberOf={access.data.group_ids} />

@@ -96,7 +96,13 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
         lightTriggerBg: '#1f1f1f',
         lightTriggerColor: 'rgba(255, 255, 255, 0.85)',
       },
-      Menu: { itemSelectedColor: primaryText },
+      Menu: {
+        itemSelectedColor: primaryText,
+        // The top-bar layout (WP-011) uses the horizontal menu, with its own tokens.
+        horizontalItemSelectedColor: primaryText,
+        horizontalItemHoverColor: primaryText,
+        subMenuItemSelectedColor: primaryText, // "More" when the current section is inside it
+      },
       Tabs: { itemSelectedColor: primaryText, itemActiveColor: primaryText },
     },
   };

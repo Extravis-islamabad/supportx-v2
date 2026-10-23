@@ -84,3 +84,36 @@ export async function deleteE2eRoles(admin: Page): Promise<number> {
   }
   return deleted;
 }
+
+/** The main navigation, whatever the user's layout (top bar, side bar, compact side bar). */
+export function mainNav(page: Page) {
+  return page.locator('nav[data-items]');
+}
+
+/** Section keys the navigation offers (independent of layout and of what fits on screen). */
+export async function navItems(page: Page): Promise<string[]> {
+  const items = await mainNav(page).getAttribute('data-items');
+  return (items ?? '').split(' ').filter(Boolean);
+}
+
+/**
+ * Open a section by its visible label: directly when it is on screen, else through the top
+ * bar's "More" menu (sections that do not fit the width).
+ */
+export async function goToSection(page: Page, label: string): Promise<void> {
+  // Items that overflowed into "More" stay in the DOM, transparent and aria-hidden.
+  const direct = mainNav(page)
+    .locator('li[role="menuitem"]:not([aria-hidden="true"])')
+    .getByText(label, { exact: true });
+  if ((await direct.count()) > 0) {
+    await direct.first().click();
+    return;
+  }
+  await mainNav(page).getByTestId('nav-more').click();
+  await page
+    .locator('.ant-menu-submenu-popup')
+    .getByText(label, { exact: true })
+    .filter({ visible: true })
+    .first()
+    .click();
+}

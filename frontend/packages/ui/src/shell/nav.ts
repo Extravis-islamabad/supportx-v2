@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import type { Feature } from '@supportx/api-client';
+import type { Feature, NavLayout } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
 
 export interface NavItem {
@@ -49,3 +49,6 @@ export function visibleNav(
   }
   return result;
 }
+
+/** The navigation layouts a user can choose (WP-011), in the order they are offered. */
+export const NAV_LAYOUTS: readonly NavLayout[] = ['top', 'side', 'side_compact'];

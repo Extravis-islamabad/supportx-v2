@@ -1,6 +1,8 @@
 import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
+import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
+
 afterEach(() => {
   cleanup();
 });
@@ -24,3 +26,6 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: () => false,
   }),
 });
+
+// No realtime gateway in unit tests: the realtime package has its own tests with a fake client.
+setDefaultClientFactory(inertClientFactory);
