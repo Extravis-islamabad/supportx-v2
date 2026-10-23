@@ -7,7 +7,7 @@ import { label } from '@supportx/labels';
 
 import { describeError } from './errors/describe';
 import { visibleNav, type NavItem } from './shell/nav';
-import { buildTheme, darken, DEFAULT_BRANDING } from './theme';
+import { buildTheme, darken, DEFAULT_BRANDING, lighten } from './theme';
 
 const t = (key: string, params?: Record<string, unknown>) => label(key, 'en', params as never);
 
@@ -26,8 +26,36 @@ describe('theme', () => {
     expect(contrast.token?.lineWidth).toBe(2);
     expect(contrast.token?.colorPrimary).toBe(darken('#9619B5', 0.35));
     expect(darken('#ffffff', 0.5)).toBe('#808080');
+    expect(lighten('#000000', 0.5)).toBe('#808080');
   });
+
+  it.each(['#9619B5', '#0055aa', '#1677ff', '#b80000'])(
+    'dark (%s): selected menu and tab text reaches WCAG AA on the selected and page backgrounds',
+    (colorPrimary) => {
+      const config = buildTheme('dark', { colorPrimary });
+      const token = theme.getDesignToken(config);
+      const selected = config.components?.Menu?.itemSelectedColor;
+      expect(config.components?.Tabs?.itemSelectedColor).toBe(selected);
+      for (const background of [token.colorPrimaryBg, '#141414']) {
+        expect(contrastRatio(String(selected), background)).toBeGreaterThanOrEqual(4.5);
+      }
+    },
+  );
 });
+
+/** WCAG 2.1 contrast ratio of two opaque #rrggbb colours. */
+function contrastRatio(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const value = Number.parseInt(hex.slice(1, 7), 16);
+    const [r, g, b] = [value >> 16, (value >> 8) & 0xff, value & 0xff].map((channel) => {
+      const c = channel / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    }) as [number, number, number];
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number];
+  return (high + 0.05) / (low + 0.05);
+}
 
 describe('visibleNav', () => {
   const items: NavItem[] = [

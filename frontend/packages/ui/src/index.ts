@@ -9,6 +9,7 @@ export * from './shell';
 export {
   buildTheme,
   darken,
+  lighten,
   DEFAULT_BRANDING,
   THEME_MODES,
   type Branding,
