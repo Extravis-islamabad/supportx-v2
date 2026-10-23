@@ -251,7 +251,7 @@
     },
     "identity_access.user.updated": {
       "1": {
-        "description": "Profile fields synced from the identity provider changed (names only, not values).",
+        "description": "Profile fields changed (names only, never values).\n\nEither synced from Keycloak at login, or SupportX-owned preferences edited by the user (WP-008).",
         "properties": {
           "changed_fields": {
             "items": {

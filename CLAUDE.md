@@ -78,6 +78,9 @@ opentelemetry-instrumentation-fastapi (no exporter configured yet).
 Ed25519 licence signatures and field-level encryption); `openapi-typescript` (dev-only; generates
 `packages/api-client/src/schema.ts` from the OpenAPI export).
 
+**Approved additions (D-023):** `opentelemetry-exporter-prometheus` and `prometheus_client`
+(Apache-2.0) for the Prometheus scrape endpoint of the API and workers (WP-014).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
@@ -255,6 +258,16 @@ A task is done only when all apply (or the session report explains why one does 
    green, no `# type: ignore` / `eslint-disable` without a justification comment.
 8. **End of session:** update `docs/PROGRESS.md` (status, WP checkboxes, newest-first session log
    entry) and finish with the report below.
+
+### Working rules (D-024)
+
+- **Never run a destructive git command without saving work first.** `git checkout -- .`,
+  `git restore` on unstaged work, `git reset --hard`, `git clean -f` and any force push are only
+  allowed after the work they could destroy is saved with `git stash` or a commit (and pushing
+  with force still needs the product owner's OK, item 5). When in doubt, `git stash` first.
+- **The same protection applies to data:** never delete or overwrite existing data (databases,
+  volumes, files, streams, buckets) without the product owner's explicit confirmation; create
+  fresh test data instead (rule 5h).
 
 ### Session report format
 

@@ -117,6 +117,128 @@
         "title": "FieldError",
         "type": "object"
       },
+      "FilterAnd": {
+        "additionalProperties": false,
+        "description": "All of the nodes.",
+        "properties": {
+          "and": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FilterCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterAnd"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterOr"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "And",
+            "type": "array"
+          }
+        },
+        "required": [
+          "and"
+        ],
+        "title": "FilterAnd",
+        "type": "object"
+      },
+      "FilterCondition": {
+        "additionalProperties": false,
+        "description": "`{field, op, value?}`. Which fields and operators are allowed depends on the endpoint.",
+        "properties": {
+          "field": {
+            "maxLength": 64,
+            "title": "Field",
+            "type": "string"
+          },
+          "op": {
+            "$ref": "#/components/schemas/Op"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              },
+              {
+                "items": {},
+                "type": "array"
+              },
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Scalar; list for in/not_in; [low, high] for between; days for *_n_days.",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "field",
+          "op"
+        ],
+        "title": "FilterCondition",
+        "type": "object"
+      },
+      "FilterExpression": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/FilterCondition"
+          },
+          {
+            "$ref": "#/components/schemas/FilterAnd"
+          },
+          {
+            "$ref": "#/components/schemas/FilterOr"
+          }
+        ],
+        "title": "FilterExpression"
+      },
+      "FilterOr": {
+        "additionalProperties": false,
+        "description": "Any of the nodes.",
+        "properties": {
+          "or": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FilterCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterAnd"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterOr"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Or",
+            "type": "array"
+          }
+        },
+        "required": [
+          "or"
+        ],
+        "title": "FilterOr",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -179,6 +301,36 @@
         ],
         "title": "MeResponse",
         "type": "object"
+      },
+      "Op": {
+        "description": "Every operator of the grammar.",
+        "enum": [
+          "eq",
+          "ne",
+          "in",
+          "not_in",
+          "gt",
+          "gte",
+          "lt",
+          "lte",
+          "between",
+          "contains",
+          "starts_with",
+          "is_null",
+          "is_not_null",
+          "today",
+          "yesterday",
+          "this_week",
+          "last_week",
+          "this_month",
+          "last_month",
+          "last_n_days",
+          "next_n_days",
+          "before_now",
+          "after_now"
+        ],
+        "title": "Op",
+        "type": "string"
       },
       "ProblemDetail": {
         "description": "RFC 9457 problem details, extended with SupportX's machine code and message key.",
@@ -386,6 +538,109 @@
         "title": "TenantStatus",
         "type": "string"
       },
+      "UserDetail": {
+        "description": "A user of the tenant. Codes (`user_type`, `status`, `locale`) render through labels.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "locale": {
+            "enum": [
+              "en",
+              "ar",
+              "ur"
+            ],
+            "title": "Locale",
+            "type": "string"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Zone"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_type": {
+            "$ref": "#/components/schemas/UserType"
+          },
+          "version": {
+            "description": "Send it back as If-Match (the ETag) to update.",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "user_type",
+          "status",
+          "locale",
+          "time_zone",
+          "signature",
+          "last_login_at",
+          "created_at",
+          "updated_at",
+          "version"
+        ],
+        "title": "UserDetail",
+        "type": "object"
+      },
       "UserOut": {
         "description": "The logged-in user (in the active tenant).",
         "properties": {
@@ -431,6 +686,87 @@
           "roles"
         ],
         "title": "UserOut",
+        "type": "object"
+      },
+      "UserPage": {
+        "description": "One page of users.",
+        "properties": {
+          "estimated_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only with include_total=true: matching rows, counted up to 10,000 (10,000 means 'at least').",
+            "title": "Estimated Total"
+          },
+          "has_more": {
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserDetail"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `cursor` for the next page.",
+            "title": "Next Cursor"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
+        "title": "UserPage",
+        "type": "object"
+      },
+      "UserPreferencesPatch": {
+        "additionalProperties": false,
+        "description": "Fields SupportX owns. Identity fields come from Keycloak and cannot be set here.",
+        "properties": {
+          "signature": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Reply signature.",
+            "title": "Signature"
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IANA, e.g. Asia/Dubai.",
+            "title": "Time Zone"
+          }
+        },
+        "title": "UserPreferencesPatch",
         "type": "object"
       },
       "UserType": {
@@ -855,6 +1191,385 @@
         "summary": "Readiness",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "description": "Users of the tenant (technicians only).\n\nFilter with the DSL (`filter=`) and/or simple parameters (`status=active`), sort with\n`sort=-last_login_at,display_name`, page with `limit` and `cursor`.",
+        "operationId": "list_users_api_v1_users_get",
+        "parameters": [
+          {
+            "description": "Filter DSL as JSON (schema: FilterExpression).",
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "contentMediaType": "application/json",
+              "contentSchema": {
+                "$ref": "#/components/schemas/FilterExpression"
+              },
+              "description": "JSON text of a FilterExpression.",
+              "title": "Filter"
+            }
+          },
+          {
+            "description": "e.g. -created_at,display_name",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. -created_at,display_name",
+              "title": "Sort"
+            }
+          },
+          {
+            "description": "Page size (default 50, max 200).",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page size (default 50, max 200).",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "next_cursor of the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor of the previous page.",
+              "title": "Cursor"
+            }
+          },
+          {
+            "description": "Also count matches (capped).",
+            "in": "query",
+            "name": "include_total",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also count matches (capped).",
+              "title": "Include Total",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not allowed."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Invalid filter, sort, page size or body."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "List users",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/{user_id}": {
+      "get": {
+        "description": "One user, with its ETag. Yourself always; others only for technicians.",
+        "operationId": "get_user_api_v1_users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "304": {
+            "description": "Not modified (If-None-Match)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not allowed."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Invalid filter, sort, page size or body."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Get a user",
+        "tags": [
+          "users"
+        ]
+      },
+      "patch": {
+        "description": "Change your own signature or time zone. Needs `If-Match` with the ETag you read.",
+        "operationId": "update_user_api_v1_users__user_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UserPreferencesPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not allowed."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match (version_conflict)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Invalid filter, sort, page size or body."
+          },
+          "428": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "If-Match missing."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Rate limit exceeded."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Update your preferences",
+        "tags": [
+          "users"
         ]
       }
     }

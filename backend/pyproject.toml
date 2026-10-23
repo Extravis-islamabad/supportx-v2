@@ -97,6 +97,7 @@ markers = [
     "integration: needs the local dev stack (make dev-up); skipped automatically otherwise",
     "db: needs PostgreSQL (dev stack or CI service); skipped locally if absent, required in CI",
     "nats: needs NATS JetStream (dev stack or CI container); skipped locally if absent, required in CI",
+    "valkey: needs Valkey (dev stack or CI service); skipped locally if absent, required in CI",
 ]
 
 [tool.coverage.run]

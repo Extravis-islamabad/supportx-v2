@@ -177,6 +177,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users
+         * @description Users of the tenant (technicians only).
+         *
+         *     Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), sort with
+         *     `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
+         */
+        get: operations["list_users_api_v1_users_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a user
+         * @description One user, with its ETag. Yourself always; others only for technicians.
+         */
+        get: operations["get_user_api_v1_users__user_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update your preferences
+         * @description Change your own signature or time zone. Needs `If-Match` with the ETag you read.
+         */
+        patch: operations["update_user_api_v1_users__user_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -238,6 +285,41 @@ export interface components {
                 [key: string]: string | number | boolean | null;
             };
         };
+        /**
+         * FilterAnd
+         * @description All of the nodes.
+         */
+        FilterAnd: {
+            /** And */
+            and: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd"] | components["schemas"]["FilterOr"])[];
+        };
+        /**
+         * FilterCondition
+         * @description `{field, op, value?}`. Which fields and operators are allowed depends on the endpoint.
+         */
+        FilterCondition: {
+            /** Field */
+            field: string;
+            op: components["schemas"]["Op"];
+            /**
+             * Value
+             * @description Scalar; list for in/not_in; [low, high] for between; days for *_n_days.
+             * @default null
+             */
+            value: string | number | boolean | unknown[] | {
+                [key: string]: unknown;
+            } | null;
+        };
+        /** FilterExpression */
+        FilterExpression: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd"] | components["schemas"]["FilterOr"];
+        /**
+         * FilterOr
+         * @description Any of the nodes.
+         */
+        FilterOr: {
+            /** Or */
+            or: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd"] | components["schemas"]["FilterOr"])[];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -271,6 +353,12 @@ export interface components {
             tenants: components["schemas"]["TenantOut"][];
             user: components["schemas"]["UserOut"];
         };
+        /**
+         * Op
+         * @description Every operator of the grammar.
+         * @enum {string}
+         */
+        Op: "eq" | "ne" | "in" | "not_in" | "gt" | "gte" | "lt" | "lte" | "between" | "contains" | "starts_with" | "is_null" | "is_not_null" | "today" | "yesterday" | "this_week" | "last_week" | "this_month" | "last_month" | "last_n_days" | "next_n_days" | "before_now" | "after_now";
         /**
          * ProblemDetail
          * @description RFC 9457 problem details, extended with SupportX's machine code and message key.
@@ -381,6 +469,53 @@ export interface components {
          */
         TenantStatus: "active" | "suspended";
         /**
+         * UserDetail
+         * @description A user of the tenant. Codes (`user_type`, `status`, `locale`) render through labels.
+         */
+        UserDetail: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Login At */
+            last_login_at: string | null;
+            /**
+             * Locale
+             * @enum {string}
+             */
+            locale: "en" | "ar" | "ur";
+            /** Signature */
+            signature: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "disabled";
+            /** Time Zone */
+            time_zone: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            user_type: components["schemas"]["UserType"];
+            /**
+             * Version
+             * @description Send it back as If-Match (the ETag) to update.
+             */
+            version: number;
+        };
+        /**
          * UserOut
          * @description The logged-in user (in the active tenant).
          */
@@ -402,6 +537,42 @@ export interface components {
             /** Roles */
             roles: string[];
             user_type: components["schemas"]["UserType"];
+        };
+        /**
+         * UserPage
+         * @description One page of users.
+         */
+        UserPage: {
+            /**
+             * Estimated Total
+             * @description Only with include_total=true: matching rows, counted up to 10,000 (10,000 means 'at least').
+             */
+            estimated_total?: number | null;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["UserDetail"][];
+            /**
+             * Next Cursor
+             * @description Pass as `cursor` for the next page.
+             */
+            next_cursor: string | null;
+        };
+        /**
+         * UserPreferencesPatch
+         * @description Fields SupportX owns. Identity fields come from Keycloak and cannot be set here.
+         */
+        UserPreferencesPatch: {
+            /**
+             * Signature
+             * @description Reply signature.
+             */
+            signature?: string | null;
+            /**
+             * Time Zone
+             * @description IANA, e.g. Asia/Dubai.
+             */
+            time_zone?: string | null;
         };
         /**
          * UserType
@@ -700,6 +871,248 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ReadinessResponse"];
+                };
+            };
+        };
+    };
+    list_users_api_v1_users_get: {
+        parameters: {
+            query?: {
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPage"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not allowed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid filter, sort, page size or body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limit exceeded. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_user_api_v1_users__user_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not modified (If-None-Match). */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not allowed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid filter, sort, page size or body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limit exceeded. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_user_api_v1_users__user_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UserPreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not allowed. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (version_conflict). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Invalid filter, sort, page size or body. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description If-Match missing. */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limit exceeded. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
         };

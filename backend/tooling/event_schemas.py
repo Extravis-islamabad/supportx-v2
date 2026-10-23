@@ -74,7 +74,8 @@ def compare_object(name: str, old: Mapping[str, Any], new: Mapping[str, Any]) ->
     for definition, schema in old_defs.items():
         if definition in new_defs and _strip(schema) != _strip(new_defs[definition]):
             problems.append(f"{name}: shared definition {definition!r} changed")
-    rest = {k for k in set(old) | set(new) if k not in {"properties", "required", "$defs"}}
+    structural = {"properties", "required", "$defs"} | _COSMETIC
+    rest = {k for k in set(old) | set(new) if k not in structural}
     if any(_strip(old.get(k)) != _strip(new.get(k)) for k in rest):
         problems.append(f"{name}: schema options changed")
     return problems

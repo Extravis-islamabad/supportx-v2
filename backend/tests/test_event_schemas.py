@@ -37,6 +37,7 @@ def test_new_optional_field_and_doc_edits_are_allowed(base: dict[str, Any]) -> N
     now = copy.deepcopy(base)
     payload(now)["properties"]["session_kind"] = {"type": "string", "default": "web"}
     payload(now)["properties"]["client"]["description"] = "reworded"
+    payload(now)["description"] = "The class docstring changed too."
     now["events"]["identity_access.user.logged_in"]["2"] = {"type": "object"}
     assert event_schemas.breaking_changes(base, now) == []
 

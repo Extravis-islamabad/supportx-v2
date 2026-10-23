@@ -9,7 +9,9 @@ Run locally: `make backend-dev` (uvicorn with reload on 127.0.0.1:8000).
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
+import valkey.asyncio
 from fastapi import APIRouter, FastAPI
 
 from app import __version__
@@ -20,6 +22,9 @@ from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.modules import ModuleRegistry, discover_modules
 from app.core.telemetry import setup_tracing
+from app.shared.api.listing import CursorCodec
+from app.shared.api.openapi import add_filter_schema
+from app.shared.api.ratelimit import RATE_LIMITER_STATE, RateLimiter, SettingsPolicyProvider
 from app.shared.events import EventRegistry, install_registry
 
 API_V1_PREFIX = "/api/v1"
@@ -46,6 +51,7 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Created here, not at import, so the pool belongs to the server's event loop.
         app.state.db = Database.from_settings(settings)
+        valkey_client = _start_rate_limiter(app, settings)
         await registry.start(app)
         log.info(
             "startup_complete",
@@ -57,6 +63,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
             yield
         finally:
             await registry.stop(app)
+            if valkey_client is not None:
+                await valkey_client.aclose()
             if app.state.db is not None:
                 await app.state.db.dispose()
             if tracer_provider is not None:
@@ -73,6 +81,7 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     )
     app.state.settings = settings
     app.state.modules = registry
+    app.state.cursor_codec = CursorCodec.from_settings(settings)
 
     install_error_handlers(app)
     # Last added runs first: security headers wrap everything, including the 500 responses that
@@ -93,4 +102,30 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     app.include_router(api_v1)
 
     tracer_provider = setup_tracing(app, settings)
+    _publish_shared_schemas(app)
     return app
+
+
+def _start_rate_limiter(app: FastAPI, settings: Settings) -> Any:  # noqa: ANN401 - valkey client, untyped library
+    """Rate limiter on Valkey (WP-008); off when disabled or Valkey is not configured."""
+    setattr(app.state, RATE_LIMITER_STATE, None)
+    if not settings.rate_limit_enabled or settings.valkey_url is None:
+        return None
+    client = valkey.asyncio.from_url(settings.valkey_url.get_secret_value())  # type: ignore[no-untyped-call]  # valkey-py ships no annotation for from_url
+    limiter = RateLimiter(
+        client, prefix=settings.valkey_key_prefix, provider=SettingsPolicyProvider(settings)
+    )
+    setattr(app.state, RATE_LIMITER_STATE, limiter)
+    return client
+
+
+def _publish_shared_schemas(app: FastAPI) -> None:
+    """Add the filter DSL schema to the OpenAPI document (app/shared/api/openapi.py)."""
+    generate = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema is None:
+            app.openapi_schema = add_filter_schema(generate())
+        return app.openapi_schema
+
+    app.openapi = openapi  # type: ignore[method-assign]  # FastAPI's documented customisation hook
