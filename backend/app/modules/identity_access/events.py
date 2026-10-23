@@ -25,7 +25,10 @@ class UserProvisioned(DomainEvent):
 
 
 class UserUpdated(DomainEvent):
-    """Profile fields synced from the identity provider changed (names only, not values)."""
+    """Profile fields changed (names only, never values).
+
+    Either synced from Keycloak at login, or SupportX-owned preferences edited by the user (WP-008).
+    """
 
     event_type: ClassVar[str] = "identity_access.user.updated"
     schema_version: ClassVar[int] = 1

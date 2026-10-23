@@ -117,6 +117,24 @@ class Settings(BaseSettings):
     # production, whatever this says.
     dev_event_logger: bool | None = None
 
+    # API conventions (WP-008, docs/architecture/api-conventions.md).
+    # Key for signing list cursors. None = derived from SUPPORTX_SESSION_SECRET; with neither
+    # (dev/test without login) a random per-process key is used, so cursors die with the process.
+    cursor_secret: SecretStr | None = None
+    page_size_default: int = Field(default=50, ge=1, le=500)
+    page_size_max: int = Field(default=200, ge=1, le=1000)
+    idempotency_ttl_hours: int = Field(default=24, ge=1, le=720)
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    # Requests per window for each route group, per user (or API token) and per tenant. Groups not
+    # listed use "default". JSON in the environment, e.g.
+    # SUPPORTX_RATE_LIMITS='{"users": {"user": 300, "tenant": 3000}}'.
+    rate_limits: dict[str, dict[str, int]] = Field(
+        default_factory=lambda: {"default": {"user": 600, "tenant": 6000}}
+    )
+    # Prefix for every Valkey key the API writes (tests use a random one).
+    valkey_key_prefix: str = Field(default="supportx:", max_length=40)
+
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"

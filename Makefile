@@ -1,7 +1,7 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
-	backend-dev backend-env openapi openapi-check schema-check \
+	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard e2e \
 	worker-relay worker-consumers events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
@@ -109,6 +109,10 @@ openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API ty
 
 openapi-check: ## Fail if the committed openapi.json is out of date (backend lint, CI)
 	$(BACKEND) uv run python -m tooling.export_openapi --check $(OPENAPI_FILE)
+
+openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.json of the target branch>
+	@test -n "$(base)" || { echo 'usage: make openapi-diff base=path/to/old/openapi.json'; exit 2; }
+	$(BACKEND) uv run python -m tooling.openapi_diff $(abspath $(base)) $(OPENAPI_FILE)
 
 schema-check: ## Fail if api-client/src/schema.ts is out of date (frontend lint, CI)
 	$(FRONTEND) pnpm --filter @supportx/api-client check:schema

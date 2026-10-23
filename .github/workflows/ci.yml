@@ -53,6 +53,13 @@ jobs:
           # which proves our asyncpg settings work without that feature (app/core/database.py).
           MAX_PREPARED_STATEMENTS: "0"
         ports: ["6432:6432"]
+      # Rate limiting (WP-008) runs against real Valkey; no password on this throwaway container.
+      valkey:
+        image: valkey/valkey:9.1.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
     env:
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
@@ -63,6 +70,8 @@ jobs:
       # Outbox relay, consumers, DLQ and latency/throughput tests (WP-007) cannot be skipped.
       SUPPORTX_TEST_NATS_URL: nats://127.0.0.1:4222
       SUPPORTX_REQUIRE_NATS_TESTS: "1"
+      SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
+      SUPPORTX_REQUIRE_VALKEY_TESTS: "1"
       SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -89,6 +98,12 @@ jobs:
           else
             echo "origin/${base_ref} has no event-schemas.json yet: nothing to compare against."
           fi
+      - name: OpenAPI has no breaking change against the target branch
+        run: |
+          base_ref="${GITHUB_BASE_REF:-main}"
+          base_file="$RUNNER_TEMP/openapi.base.json"
+          git show "origin/${base_ref}:frontend/packages/api-client/openapi.json" > "$base_file"
+          make openapi-diff base="$base_file"
       - name: Type-check (mypy --strict)
         run: make backend-typecheck
       - name: Create roles and database (same code as the test fixtures)

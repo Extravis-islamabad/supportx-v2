@@ -14,6 +14,7 @@ from fastapi import FastAPI
 
 from app.core.modules import ModuleSpec
 from app.core.tenancy import SESSION_RESOLVER_STATE
+from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
@@ -66,7 +67,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="identity_access",
-    routers=[router],
+    routers=[router, users_router],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,

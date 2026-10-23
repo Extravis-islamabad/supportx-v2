@@ -68,6 +68,43 @@ export const en = {
   'event_type.identity_access.user.logged_in': 'Signed in',
   'event_type.identity_access.user.logged_out': 'Signed out',
   'event_type.identity_access.session.tenant_switched': 'Switched organisation',
+  // WP-008: API conventions (concurrency, idempotency, filters, sorting, paging).
+  'errors.precondition_required':
+    'This change needs the version you are editing. Reload the item and try again.',
+  'errors.invalid_etag':
+    'The item version sent with this change is not valid. Reload and try again.',
+  'errors.idempotency_key_reused':
+    'This request was already used for different data. Start a new request.',
+  'errors.idempotency_request_in_progress':
+    'The same request is still being processed. Please wait a moment.',
+  'errors.invalid_idempotency_key': 'The request identifier is not valid.',
+  'errors.invalid_filter': 'The filter could not be applied. Check the highlighted condition.',
+  'errors.invalid_sort': 'The list cannot be sorted this way.',
+  'errors.invalid_page_size': 'Too many rows were requested for one page.',
+  'errors.technicians_only': 'Only technicians can see other users.',
+  'errors.own_profile_only': 'You can only change your own preferences.',
+  'errors.field.filter_too_large': 'The filter is too large.',
+  'errors.field.invalid_json': 'The filter is not valid.',
+  'errors.field.filter_too_deep': 'The filter has too many nested groups.',
+  'errors.field.invalid_node': 'This part of the filter is not a condition or a group.',
+  'errors.field.invalid_group': 'A group needs at least one condition.',
+  'errors.field.too_many_conditions': 'The filter has too many conditions.',
+  'errors.field.unknown_key': 'This filter setting is not recognised.',
+  'errors.field.unknown_field': 'You cannot filter on this field.',
+  'errors.field.unknown_operator': 'This comparison is not recognised.',
+  'errors.field.operator_not_allowed': 'This comparison cannot be used with this field.',
+  'errors.field.value_not_allowed': 'This comparison does not take a value.',
+  'errors.field.invalid_value': 'This value is not valid for the field.',
+  'errors.field.list_too_long': 'Too many values in this list.',
+  'errors.field.invalid_range': 'The start of the range is after its end.',
+  'errors.field.invalid_choice': 'This is not one of the allowed values.',
+  'errors.field.value_too_long': 'This value is too long.',
+  'errors.field.unknown_parameter': 'This list option is not recognised.',
+  'errors.field.invalid_sort': 'Choose between one and three sort fields.',
+  'errors.field.unknown_sort_field': 'The list cannot be sorted by this field.',
+  'errors.field.duplicate_sort_field': 'Each field can be used only once in the sort.',
+  'errors.field.out_of_range': 'This number is outside the allowed range.',
+  'errors.field.read_only': 'This field cannot be changed here.',
 } as const;
 
 export type LabelKey = keyof typeof en;

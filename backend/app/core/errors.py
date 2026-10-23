@@ -62,9 +62,12 @@ class AppError(Exception):
         params: Mapping[str, ParamValue] | None = None,
         errors: Sequence[FieldError] = (),
         code: str | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> None:
         self.params = dict(params or {})
         self.errors = list(errors)
+        # Response headers that belong to the problem (Retry-After, RateLimit-*, ETag ...).
+        self.headers = dict(headers or {})
         # A subclass may narrow the code per raise site (e.g. `not_found` → `ticket_not_found`).
         self.instance_code = code or self.code
         super().__init__(self.instance_code)
@@ -110,6 +113,13 @@ class Conflict(AppError):
 
     status = HTTPStatus.CONFLICT
     code = "conflict"
+
+
+class PreconditionRequired(AppError):
+    """A conditional header is mandatory here, e.g. If-Match on updates (RFC 6585)."""
+
+    status = HTTPStatus.PRECONDITION_REQUIRED
+    code = "precondition_required"
 
 
 class ValidationFailed(AppError):
@@ -232,7 +242,8 @@ async def _app_error_handler(request: Request, exc: Exception) -> JSONResponse:
             errors=exc.errors,
             instance=request.url.path,
             request_id=current_request_id(),
-        )
+        ),
+        headers=exc.headers,
     )
 
 
