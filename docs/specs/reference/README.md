@@ -38,3 +38,4 @@ same way.
 | [sdp-area-06-releases-projects.md](sdp-area-06-releases-projects.md) | Releases and projects |
 | [sdp-area-07-assets-cmdb-purchase.md](sdp-area-07-assets-cmdb-purchase.md) | Assets, CMDB, contracts and purchase (7b: asset setup, software licences, asset detail tabs, problem/change links) |
 | [sdp-area-08-solutions-knowledge.md](sdp-area-08-solutions-knowledge.md) | Solutions / knowledge base: topics, approval, publishing, review dates, request and problem resolution links |
+| [sdp-area-09-reports-dashboards.md](sdp-area-09-reports-dashboards.md) | Reports and dashboards: dashboards and widgets, custom report types and wizards, scheduling, drill-down, built-in report catalogue |
