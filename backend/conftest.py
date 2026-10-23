@@ -1,7 +1,9 @@
 """Shared pytest fixtures for app-level tests (tests/) and module tests (app/modules/*/tests/)."""
 
 import asyncio
+import json
 import os
+import secrets
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import asynccontextmanager
@@ -20,8 +22,17 @@ from tooling import db_testing
 
 
 def make_settings(**overrides: Any) -> Settings:  # noqa: ANN401 - pydantic validates the values
-    """Test-profile settings that never read backend/.env or the developer's environment file."""
-    values: dict[str, Any] = {"profile": "test", "tracing_enabled": False, **overrides}
+    """Test-profile settings that never read backend/.env or the developer's environment file.
+
+    Every call gets its own Valkey key prefix, so tests never read or write the dev API's keys
+    (sessions, rate limits, cached entitlements) even when they share the dev stack's Valkey.
+    """
+    values: dict[str, Any] = {
+        "profile": "test",
+        "tracing_enabled": False,
+        "valkey_key_prefix": f"test-{secrets.token_hex(6)}:",
+        **overrides,
+    }
     return Settings.load(env_file=None, **values)
 
 
@@ -111,17 +122,38 @@ async def app_db(migrated_db: db_testing.ThrowawayDatabase) -> AsyncIterator[Dat
     await database.dispose()
 
 
-async def create_tenant(migrator_url: str, name: str = "Tenant") -> uuid.UUID:
-    """Insert a tenant as the migrator (the only role allowed to provision tenants)."""
+async def create_tenant(
+    migrator_url: str,
+    name: str = "Tenant",
+    *,
+    edition: str | None = "enterprise",
+    limits: dict[str, int | None] | None = None,
+) -> uuid.UUID:
+    """Insert a tenant as the migrator (the only role allowed to provision tenants).
+
+    With a subscription by default (WP-009): a tenant without one is entitled to nothing, so it
+    could not even provision a technician. `edition=None` creates a tenant without a plan. The
+    row is written directly (no entitlement.changed event), so tests that count outbox rows are
+    not affected.
+    """
     tenant_id = uuid.uuid4()
     conn = await asyncpg.connect(migrator_url)
     try:
-        await conn.execute(
-            "INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3)",
-            tenant_id,
-            name,
-            f"t-{tenant_id.hex[:12]}",
-        )
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3)",
+                tenant_id,
+                name,
+                f"t-{tenant_id.hex[:12]}",
+            )
+            if edition is not None:
+                await conn.execute(
+                    "INSERT INTO tenant_subscriptions (tenant_id, edition, limits, starts_at)"
+                    " VALUES ($1, $2, $3::jsonb, now() - interval '1 day')",
+                    tenant_id,
+                    edition,
+                    json.dumps(limits or {}),
+                )
     finally:
         await conn.close()
     return tenant_id

@@ -14,7 +14,7 @@ Resolution order:
 
 import uuid
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import structlog
 from fastapi import Request
@@ -24,6 +24,9 @@ from app.core.errors import BadRequest, Unauthenticated
 
 TENANT_HEADER = "X-Tenant-ID"
 SESSION_RESOLVER_STATE = "session_resolver"
+# request.state attribute holding the resolved context: the route guards (app/core/entitlements.py)
+# resolve the tenant outside FastAPI's dependency cache, so resolution is memoised per request.
+_REQUEST_CONTEXT_ATTR = "tenant_context"
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,9 @@ class TenantContext:
 
     tenant_id: uuid.UUID
     user_id: uuid.UUID | None = None
+    # Realm roles of the session user (tenant_admin, technician, requester). Coarse until the
+    # policy layer exists (WP-016); used for admin-only notices such as the licence grace warning.
+    roles: frozenset[str] = field(default_factory=frozenset)
 
 
 # Returns the session's context, None when the request has no session, or raises a problem
@@ -51,6 +57,9 @@ def tenant_from_header(settings: Settings, header_value: str | None) -> TenantCo
 
 async def resolve_tenant(request: Request) -> TenantContext:
     """FastAPI dependency: the tenant (and user) of this request, or 401 `unauthenticated`."""
+    cached: TenantContext | None = getattr(request.state, _REQUEST_CONTEXT_ATTR, None)
+    if cached is not None:
+        return cached
     context: TenantContext | None = None
     resolver: SessionResolver | None = getattr(request.app.state, SESSION_RESOLVER_STATE, None)
     if resolver is not None:
@@ -64,4 +73,5 @@ async def resolve_tenant(request: Request) -> TenantContext:
         tenant_id=str(context.tenant_id),
         user_id=str(context.user_id) if context.user_id else None,
     )
+    setattr(request.state, _REQUEST_CONTEXT_ATTR, context)
     return context

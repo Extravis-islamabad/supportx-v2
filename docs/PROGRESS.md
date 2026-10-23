@@ -2,11 +2,15 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 7 of 15 work packages done.
-- **Last completed:** WP-007 (transactional outbox and event bus), 2026-10-23.
-- **Next work package:** WP-008 (API conventions). WP-009 and WP-010 are also unblocked; WP-011
-  (realtime) needs WP-010 first.
-- **Blockers:** None for WP-008. WP-014 needs k3d installed (D-003; Homebrew is not installed
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 9 of 16 work packages done.
+- **Last completed:** WP-009 (entitlement interface), 2026-10-23. Before it: WP-008 (API
+  conventions), 2026-10-23.
+- **Next work package:** WP-016 (authorization policy layer, D-025) or WP-010 (frontend
+  foundation); both are unblocked. WP-011 needs WP-010; WP-012 needs WP-011 and WP-016; WP-013
+  is unblocked by WP-009 but needs the Rust toolchain installed.
+- **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
+  branch, if any, is left for the product owner).
+- **Blockers:** None for WP-016 or WP-010. WP-014 needs k3d installed (D-003; Homebrew is not installed
   either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
@@ -130,7 +134,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   repeated POST with the same key creates one record.
 - **Depends on:** WP-004, WP-005
 
-### [ ] WP-009 — Entitlement interface
+### [x] WP-009 — Entitlement interface (done 2026-10-23)
 - **Goal:** Non-negotiable rule (f) has a single, real seam.
 - **Scope:** `licensing` module exposing `has_feature`, `check_limit`, `remaining`; provider
   protocol with a SaaS-plan provider stub and a dev provider (config-driven); FastAPI dependency
@@ -170,7 +174,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Acceptance:** Playwright test with two browser contexts: an edit in one appears live in the
   other without refresh; stale edit shows a 409 conflict message; tenant B never sees tenant A's
   records; no raw codes on screen.
-- **Depends on:** WP-006, WP-007, WP-008, WP-009, WP-011
+- **Depends on:** WP-006, WP-007, WP-008, WP-009, WP-011, WP-016 (D-025)
 
 ### [ ] WP-013 — Licence core prototype (Rust)
 - **Goal:** De-risk ADR-009 early.
@@ -206,7 +210,99 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - **Depends on:** WP-010. Built from the spec with Ant Design defaults (D-008); no designer input
   needed.
 
+### [ ] WP-016 — Authorization policy layer (added by D-025; must land before WP-012)
+- **Goal:** One authorisation policy layer (architecture.md §11.2) that every caller uses, so
+  WP-012 and all later modules copy a real permission model instead of `user_type` checks.
+- **Scope:** Roles and permissions model (module + action, e.g. `change.approve`); scopes
+  (all / site / group / own); attribute rules (e.g. HR cases only for the HR group, assets by site
+  and state); field-level visibility (hidden or masked fields per role); segregation-of-duties
+  checks (requester of a change cannot approve it; conflicts flagged at role design time). One
+  policy evaluation service used by the API, search, realtime fan-out (§8.2) and AI agents.
+  Compiled permissions per user cached in Valkey and invalidated by events (role, group and
+  membership changes via the outbox). Seed roles: tenant admin, technician, requester (mapped
+  from the Keycloak realm roles). Replace the `user_type` checks in `identity_access` (WP-008
+  users API) with policy calls. RLS stays the final tenant boundary beneath it.
+- **Acceptance:** Tests for each level (module/action, scope, attribute, field masking, SoD) on a
+  sample resource; the same decision from API, search filter, realtime subscription check and an
+  AI-agent tool call; cache invalidated by a role-change event; tenant A roles never apply in
+  tenant B; labels (en/ar) for every role, permission and scope code.
+- **Depends on:** WP-006, WP-007, WP-008
+
 ## Session log (newest first)
+
+### 2026-10-23 — WP-009 entitlement interface (+ planning: WP-016, D-025)
+- Part A: WP-016 "Authorization policy layer" (§11.2) added before WP-012 (WP-012 now depends on
+  it); D-025 records it and that D-030..D-039 are released. WP-008 session-log entry moved to its
+  newest-first place.
+- `licensing` module (ADR-021, `docs/architecture/entitlements.md`): catalogue as code (3
+  editions, 25 features, 5 counted limits, rate multipliers; en/ar labels CI-checked);
+  `Entitlement` with derived state active / grace / read_only / invalid (expiry, suspension,
+  WP-013 `degraded_since`), maintenance window; licence document parser (§13.3, whole-day UTC
+  terms, canonical `signed_payload`). Interface: has_feature, require_feature, check_limit,
+  remaining, hold_limit, reserve_capacity, current_state, summary.
+- Providers (config `SUPPORTX_ENTITLEMENT_PROVIDER`): `subscription` (migration 0005
+  `tenant_subscriptions`, platform table: app SELECT of its own row only, RLS guard allowlist),
+  `licence_file` (unsigned accepted in dev/test only; production refuses to start; signed files
+  wait for WP-013), `StaticProvider` for tests. Providers read through the caller's session.
+- Enforcement: `ModuleSpec(feature=..., usage_counters=...)`; the registry adds a route guard to
+  every module route (`app/core/entitlements.py`): 403 `entitlement_required` (params feature),
+  403 `read_only_mode` for POST/PUT/PATCH/DELETE (params reason; `@read_only_exempt`,
+  `@entitlement_exempt` for exports/health/login), grace headers `SupportX-Licence-*` for tenant
+  admins (`TenantContext.roles` added). Technician seats reserved at JIT provisioning under a
+  per-tenant advisory lock (`technician_limit_reached`, browser `?auth_error=`); requesters
+  unlimited; existing technicians never re-checked. Rate-limit budgets ×1/×2/×4 by edition.
+- Valkey cache per tenant with generation counter; `licensing.entitlement.changed` (outbox) →
+  consumer `licensing__invalidate_cache`. `GET /api/v1/entitlements` (edition, features, limits
+  with usage for staff, state, term; no secrets).
+- Guards: AST test fails on deployment-mode references outside licensing; import-linter contract
+  "Only the licensing module touches entitlement providers" (proven to break on a planted import).
+- Dev: `make db-seed` → Demo Company Enterprise, Other Company Professional with 2 technician
+  seats; `make dev-subscription TENANT=.. ARGS=..` changes a dev plan (row + event). Test tenants
+  get an Enterprise plan by default; every test app gets a random Valkey prefix.
+- Tests: 598 backend (coverage 97.5%), incl. 20-way provisioning race (exactly 5 of 20 at limit
+  5), same user ×10 in parallel takes one seat, read-only on every write method, grace headers,
+  both providers gating identically, production rejects unsigned licence, cross-tenant RLS on
+  subscriptions, end-to-end cache invalidation over outbox → NATS → consumer → Valkey. The race
+  test found a real pool-starvation deadlock (provider opening a second connection while holding
+  the seat lock); fixed by reading through the caller's session. Verified live on the dev stack
+  with real Keycloak logins (seat block, no lock-out, grace headers, read-only, ~1 s plan refresh).
+- Follow-ups: UI use of `/entitlements` (menus, banners; WP-010/015) and live refresh via WP-011;
+  counters for assets, desks, MSP customers, monthly AI-run meter; installation-wide on-prem
+  counts; soft-deleted users must retake a seat on return; WP-013 verifier, fingerprint,
+  15-minute re-check; admin targeting via WP-016.
+
+### 2026-10-23 — WP-008 API conventions (Agent 1, parallel with WP-010)
+- Part A: D-023 (opentelemetry-exporter-prometheus + prometheus_client approved for WP-014),
+  D-024 + CLAUDE.md §11 "Working rules" (no destructive git command without stash/commit first;
+  same protection for data).
+- `app/shared/api/`: `concurrency` (ETag from version, If-None-Match → 304, If-Match required:
+  428 precondition_required / 409 version_conflict / 400 invalid_etag), `idempotency`
+  (`idempotency_keys` table, claimed + stored in the request transaction, tenant+user scoped,
+  24 h TTL, replay / 422 idempotency_key_reused / concurrent duplicates wait and replay),
+  `filters` (JSON DSL with and/or groups, 13 operators + 10 relative-date operators, typed
+  per-resource allowlist, limits, JSON-path errors, simple `?field=value` params, bound
+  parameters only), `listing` (sort allowlist + id tie-breaker, keyset pagination with NULL
+  handling, HMAC-signed cursors bound to endpoint/tenant/user/sort/filter, page envelope with
+  capped `estimated_total`), `ratelimit` (Valkey fixed window per user + per tenant per route
+  group, RateLimit-* headers, 429 + Retry-After, policy-provider hook for WP-009, fail open),
+  `deprecation` (Deprecation/Sunset/Link, 12-month minimum), `openapi` (FilterExpression schema
+  published; generated TS types). AppError now carries response headers; PreconditionRequired.
+- Migration 0004: `idempotency_keys` (RLS), users.signature/time_zone, keyset indexes
+  (tenant_id, field, id). Endpoints: GET /api/v1/users (filter/sort/cursor), GET /users/{id}
+  (ETag/304), PATCH /users/{id} (own signature/time zone, If-Match, emits user.updated).
+  Permissions: technicians list/read others; anyone reads self; only own preferences.
+- `tooling/openapi_diff.py` + `make openapi-diff` + CI step against the target branch (recursive,
+  additive-aware; also catches renamed schemas). Fixed WP-007 event checker: a class docstring
+  edit was wrongly reported as breaking.
+- Labels: 10 problem codes + 22 field-error codes (en/ar); label test now also checks
+  `errors.field.*`. CI backend job gains a Valkey service; Valkey tests are required in CI.
+- Tests: 500+ backend (unit: DSL grammar/limits/injection, cursors, sorting, ETags; HTTP + real
+  PostgreSQL: users API, idempotency incl. 10 concurrent duplicates, rate limits on real Valkey).
+  Filter compile 0.2 ms (30 conditions); 100k-row filtered list p50 5.7-7.5 ms over HTTP.
+- Follow-ups: cleanup job for expired `idempotency_keys`; API-token subject for rate limits once
+  API keys exist; entitlement-based rate-limit provider (WP-009); user time zone for relative
+  dates; 409 "what changed" needs field history (§7.4); a permission policy layer (none exists
+  yet; the users service checks user_type directly).
 
 ### 2026-10-23 — WP-007 transactional outbox and event bus
 - `app/shared/events`: `EventEnvelope` (UUIDv7 event_id, type, schema_version, tenant, actor,
@@ -409,37 +505,3 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 - Environment: Python 3.12 is available via uv (system `python3` is 3.9.6); pnpm, k3d and kind are
   not installed (pnpm can be enabled via corepack).
 - No application code written. Next: WP-001.
-
-### 2026-10-23 — WP-008 API conventions (Agent 1, parallel with WP-010)
-- Part A: D-023 (opentelemetry-exporter-prometheus + prometheus_client approved for WP-014),
-  D-024 + CLAUDE.md §11 "Working rules" (no destructive git command without stash/commit first;
-  same protection for data).
-- `app/shared/api/`: `concurrency` (ETag from version, If-None-Match → 304, If-Match required:
-  428 precondition_required / 409 version_conflict / 400 invalid_etag), `idempotency`
-  (`idempotency_keys` table, claimed + stored in the request transaction, tenant+user scoped,
-  24 h TTL, replay / 422 idempotency_key_reused / concurrent duplicates wait and replay),
-  `filters` (JSON DSL with and/or groups, 13 operators + 10 relative-date operators, typed
-  per-resource allowlist, limits, JSON-path errors, simple `?field=value` params, bound
-  parameters only), `listing` (sort allowlist + id tie-breaker, keyset pagination with NULL
-  handling, HMAC-signed cursors bound to endpoint/tenant/user/sort/filter, page envelope with
-  capped `estimated_total`), `ratelimit` (Valkey fixed window per user + per tenant per route
-  group, RateLimit-* headers, 429 + Retry-After, policy-provider hook for WP-009, fail open),
-  `deprecation` (Deprecation/Sunset/Link, 12-month minimum), `openapi` (FilterExpression schema
-  published; generated TS types). AppError now carries response headers; PreconditionRequired.
-- Migration 0004: `idempotency_keys` (RLS), users.signature/time_zone, keyset indexes
-  (tenant_id, field, id). Endpoints: GET /api/v1/users (filter/sort/cursor), GET /users/{id}
-  (ETag/304), PATCH /users/{id} (own signature/time zone, If-Match, emits user.updated).
-  Permissions: technicians list/read others; anyone reads self; only own preferences.
-- `tooling/openapi_diff.py` + `make openapi-diff` + CI step against the target branch (recursive,
-  additive-aware; also catches renamed schemas). Fixed WP-007 event checker: a class docstring
-  edit was wrongly reported as breaking.
-- Labels: 10 problem codes + 22 field-error codes (en/ar); label test now also checks
-  `errors.field.*`. CI backend job gains a Valkey service; Valkey tests are required in CI.
-- Tests: 500+ backend (unit: DSL grammar/limits/injection, cursors, sorting, ETags; HTTP + real
-  PostgreSQL: users API, idempotency incl. 10 concurrent duplicates, rate limits on real Valkey).
-  Filter compile 0.2 ms (30 conditions); 100k-row filtered list p50 5.7-7.5 ms over HTTP.
-- Follow-ups: cleanup job for expired `idempotency_keys`; API-token subject for rate limits once
-  API keys exist; entitlement-based rate-limit provider (WP-009); user time zone for relative
-  dates; 409 "what changed" needs field history (§7.4); a permission policy layer (none exists
-  yet; the users service checks user_type directly).
-

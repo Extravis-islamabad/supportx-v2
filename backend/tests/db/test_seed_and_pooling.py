@@ -1,4 +1,5 @@
 import asyncio
+import json
 import uuid
 
 import asyncpg
@@ -31,9 +32,15 @@ def test_seed_creates_the_dev_tenants_once_and_never_overwrites(
         asyncio.run(_rename_demo(database.migrator_url))
         second = asyncio.run(seed_dev.seed(database.migrator_url))
         row = asyncio.run(demo_tenant(database.migrator_url))
+        plans = asyncio.run(_plans(database.migrator_url))
     finally:
         db_testing.destroy(db_config, database)
-    assert (first, second) == (["demo", "other"], [])
+    demo, other = seed_dev.DEMO_TENANT_ID, seed_dev.OTHER_TENANT_ID
+    assert first == ["demo", "other", f"{demo}:subscription", f"{other}:subscription"]
+    assert second == []
+    # WP-009: Enterprise for Demo, Professional with 2 technician seats for Other; changed by
+    # hand (here: 5 seats) the seed leaves it alone.
+    assert plans == {demo: ("enterprise", {}), other: ("professional", {"technicians": 5})}
     assert row is not None
     assert row["id"] == seed_dev.DEMO_TENANT_ID
     assert row["name"] == "Renamed by user"  # the seed left the user's change alone
@@ -43,8 +50,21 @@ async def _rename_demo(url: str) -> None:
     conn = await asyncpg.connect(url)
     try:
         await conn.execute("UPDATE tenants SET name = 'Renamed by user' WHERE slug = 'demo'")
+        await conn.execute(
+            "UPDATE tenant_subscriptions SET limits = '{\"technicians\": 5}' WHERE tenant_id = $1",
+            seed_dev.OTHER_TENANT_ID,
+        )
     finally:
         await conn.close()
+
+
+async def _plans(url: str) -> dict[uuid.UUID, tuple[str, dict[str, int]]]:
+    conn = await asyncpg.connect(url)
+    try:
+        rows = await conn.fetch("SELECT tenant_id, edition, limits::text FROM tenant_subscriptions")
+    finally:
+        await conn.close()
+    return {r["tenant_id"]: (r["edition"], json.loads(r["limits"])) for r in rows}
 
 
 async def test_many_concurrent_transactions_through_pgbouncer(

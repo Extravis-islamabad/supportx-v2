@@ -110,6 +110,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Current entitlements
+         * @description Edition, features, limits with usage, state and term of the caller's tenant.
+         */
+        get: operations["read_entitlements_api_v1_entitlements_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/health": {
         parameters: {
             query?: never;
@@ -255,11 +275,60 @@ export interface components {
          */
         CheckStatus: "ok" | "failed" | "not_configured";
         /**
+         * Edition
+         * @description Commercial tier (product-plan.md §9).
+         * @enum {string}
+         */
+        Edition: "essentials" | "professional" | "enterprise";
+        /**
+         * EntitlementState
+         * @description Derived licence state (see module docstring).
+         * @enum {string}
+         */
+        EntitlementState: "active" | "grace" | "read_only" | "invalid";
+        /**
+         * EntitlementsResponse
+         * @description The current tenant's entitlement. Codes render through labels (edition.*, feature.* ...).
+         */
+        EntitlementsResponse: {
+            /**
+             * Admin Warning
+             * @description Show the licence warning banner to this user.
+             */
+            admin_warning: boolean;
+            /**
+             * Days Left
+             * @description Whole days of grace left, while in grace.
+             */
+            days_left: number | null;
+            edition: components["schemas"]["Edition"] | null;
+            /** Features */
+            features: components["schemas"]["Feature"][];
+            /** Grace Ends At */
+            grace_ends_at: string | null;
+            /** Limits */
+            limits: components["schemas"]["LimitOut"][];
+            state: components["schemas"]["EntitlementState"];
+            state_reason: components["schemas"]["StateReason"] | null;
+            term: components["schemas"]["TermOut"] | null;
+            /**
+             * Writable
+             * @description False in read-only mode: changes are refused.
+             */
+            writable: boolean;
+        };
+        /**
          * FailureReason
          * @description Why a check failed. Stable codes only: raw exception text never leaves the server.
          * @enum {string}
          */
         FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "not_running" | "stale_heartbeat" | "error";
+        /**
+         * Feature
+         * @description A licensable capability. A module declares one in its ModuleSpec (`feature=`).
+         * @enum {string}
+         */
+        Feature: "incident" | "service_request" | "knowledge" | "sla" | "ai_assist" | "problem" | "change" | "release" | "catalog" | "cmdb" | "assets" | "discovery" | "procurement" | "workflows" | "ai_agents" | "monetx_integration" | "projects" | "esm" | "msp" | "advanced_reporting" | "sandbox" | "config_as_code" | "custom_functions" | "local_ai_runtime" | "compliance_packs";
         /**
          * FieldError
          * @description One invalid input field.
@@ -337,6 +406,28 @@ export interface components {
             status: "ok";
             /** Version */
             version: string;
+        };
+        /**
+         * LimitKey
+         * @description A counted limit (architecture.md §13.1). End users (requesters) are never counted.
+         * @enum {string}
+         */
+        LimitKey: "technicians" | "assets" | "departments" | "msp_customers" | "ai_agent_runs_per_month";
+        /**
+         * LimitOut
+         * @description A counted limit. `limit` null = unlimited; `used` null = not counted (yet) or not shown.
+         */
+        LimitOut: {
+            key: components["schemas"]["LimitKey"];
+            /** Limit */
+            limit: number | null;
+            /** Remaining */
+            remaining: number | null;
+            /**
+             * Used
+             * @description Live usage; shown to technicians and admins only.
+             */
+            used: number | null;
         };
         /**
          * MeResponse
@@ -423,6 +514,12 @@ export interface components {
             status: "ready" | "not_ready";
         };
         /**
+         * StateReason
+         * @description Why the state is not plain `active`. Shown to admins through labels.
+         * @enum {string}
+         */
+        StateReason: "expired" | "licence_mismatch" | "suspended" | "not_yet_valid" | "no_entitlement";
+        /**
          * SwitchTenantRequest
          * @description Which of the user's tenants to make active.
          */
@@ -468,6 +565,23 @@ export interface components {
          * @enum {string}
          */
         TenantStatus: "active" | "suspended";
+        /**
+         * TermOut
+         * @description Validity of the plan or licence.
+         */
+        TermOut: {
+            /** Expires At */
+            expires_at: string | null;
+            /** Grace Days */
+            grace_days: number;
+            /** Maintenance Until */
+            maintenance_until: string | null;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
         /**
          * UserDetail
          * @description A user of the tenant. Codes (`user_type`, `status`, `locale`) render through labels.
@@ -770,6 +884,62 @@ export interface operations {
             };
             /** @description Unexpected server error. */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    read_entitlements_api_v1_entitlements_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntitlementsResponse"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Rate limit exceeded. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Entitlements are not available. */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

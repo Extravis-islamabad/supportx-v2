@@ -40,6 +40,13 @@ PLATFORM_TABLES: dict[str, tuple[frozenset[str], str]] = {
         frozenset({"SELECT"}),
         "The tenant registry itself: id IS the tenant. RLS lets the app read only its own row.",
     ),
+    "tenant_subscriptions": (
+        frozenset({"SELECT"}),
+        (
+            "Control-plane plan per tenant (WP-009): the app reads only its own row and can "
+            "never change what a tenant is entitled to."
+        ),
+    ),
 }
 # Not application data at all: never reachable by supportx_app.
 IGNORED_TABLES: dict[str, str] = {

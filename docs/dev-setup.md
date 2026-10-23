@@ -102,11 +102,55 @@ have yet (here `supportx_relay`); it never changes existing passwords or data.
 ```bash
 make backend-env    # writes/updates backend/.env (adds missing settings, never overwrites)
 make db-migrate     # create/upgrade tables (as supportx_migrator, directly to PostgreSQL)
-make db-seed        # demo tenant (idempotent, never deletes or changes existing data)
+make db-seed        # dev tenants + plans (idempotent, never deletes or changes existing data)
 make db-guard       # check that every table is tenant-isolated (RLS)
 make db-current     # which migration the database is at
 make db-bootstrap   # create missing roles/grants (run automatically by db-migrate)
 ```
+
+### Plans and licence limits (WP-009)
+
+`make db-seed` also gives each dev tenant a subscription (only if it has none; it never changes an
+existing plan):
+
+| Tenant | Plan | Technician seats |
+|---|---|---|
+| Demo Company | Enterprise, no expiry | 250 (edition default) |
+| Other Company | Professional, no expiry | **2** (low on purpose) |
+
+Show or change a dev tenant's plan with `make dev-subscription` (runs as the migrator role, writes
+the `licensing.entitlement.changed` event in the same transaction; with `make worker-relay` and
+`make worker-consumers` running, the API picks the change up within about a second):
+
+```bash
+make dev-subscription TENANT=other                                  # show the plan
+make dev-subscription TENANT=other ARGS="--technicians 1"           # 1 technician seat
+make dev-subscription TENANT=demo  ARGS="--expires 2026-10-19"      # expired: grace period
+make dev-subscription TENANT=other ARGS="--expires 2026-09-01"      # past grace: read-only
+make dev-subscription TENANT=other ARGS="--status suspended"        # suspended: read-only
+make dev-subscription TENANT=other ARGS="--edition essentials"      # fewer features
+make dev-subscription TENANT=other ARGS="--expires never --status active --technicians 2"  # reset
+```
+
+Other options: `--assets`, `--departments`, `--msp-customers`, `--ai-agent-runs-per-month` (a
+number or `unlimited`) and `--grace-days`. `TENANT` is `demo`, `other` or a tenant UUID. The tool
+refuses to run in the production profile.
+
+Trying the technician limit by hand (Other Company: other@other.test already holds one seat):
+
+1. `make dev-subscription TENANT=other ARGS="--technicians 1"`.
+2. Sign in to the console as multi@demo.test (lands in Demo Company) and switch to Other Company:
+   refused with "All technician seats in your organisation’s plan are in use. Ask your
+   administrator to free a seat or add more." (`technician_limit_reached`). A direct login that
+   is refused lands on the console with the same message.
+3. Sign in as other@other.test: still works (existing technicians are never locked out).
+4. `make dev-subscription TENANT=other ARGS="--technicians 2"`, switch again: allowed.
+5. Lower it back to 1: both technicians keep working; only a third new one would be refused.
+
+`GET /api/v1/entitlements` (signed in) shows edition, features, limits with usage, state and term.
+Licence files instead of plans: `SUPPORTX_ENTITLEMENT_PROVIDER=licence_file` and
+`SUPPORTX_LICENCE_FILE=/path/licence.json` (an unsigned file is accepted in dev/test only); see
+docs/architecture/entitlements.md.
 
 ### Events: watching them flow (WP-007)
 

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
+from app.core.entitlements import entitlement_exempt
 from app.core.errors import ServiceUnavailable, Unauthenticated
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import UserType
@@ -82,6 +83,7 @@ class SwitchTenantRequest(BaseModel):
     status_code=status.HTTP_302_FOUND,
     response_class=RedirectResponse,
 )
+@entitlement_exempt
 async def login(
     auth: Auth,
     app: Annotated[Literal["console", "portal"], Query()] = "console",
@@ -101,6 +103,7 @@ async def login(
     status_code=status.HTTP_302_FOUND,
     response_class=RedirectResponse,
 )
+@entitlement_exempt
 async def callback(
     request: Request,
     auth: Auth,
@@ -133,6 +136,7 @@ async def callback(
 
 
 @router.get("/me", summary="Current session")
+@entitlement_exempt
 async def me(found: CurrentSession) -> MeResponse:
     """The logged-in user, active tenant, switchable tenants and CSRF token."""
     _session_id, session = found
@@ -140,6 +144,7 @@ async def me(found: CurrentSession) -> MeResponse:
 
 
 @router.post("/logout", summary="Log out", status_code=status.HTTP_204_NO_CONTENT)
+@entitlement_exempt
 async def logout(found: CurrentSession, auth: Auth) -> Response:
     """End this session and the Keycloak session; clears the cookie."""
     session_id, session = found
@@ -150,6 +155,7 @@ async def logout(found: CurrentSession, auth: Auth) -> Response:
 
 
 @router.post("/switch-tenant", summary="Switch active tenant")
+@entitlement_exempt
 async def switch_tenant(
     body: SwitchTenantRequest, found: CurrentSession, auth: Auth, response: Response
 ) -> MeResponse:

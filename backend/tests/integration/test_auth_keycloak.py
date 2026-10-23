@@ -133,7 +133,7 @@ async def test_each_test_user_logs_in_and_is_provisioned(
     name: str,
 ) -> None:
     callback = await session.login(email)
-    assert callback.status_code == 302
+    assert callback.status_code == 302, callback.text
     assert callback.headers["location"] == f"{CONSOLE}/home"
     me = (await session.me()).json()
     assert me["tenant"]["name"] == tenant

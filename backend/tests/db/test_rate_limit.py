@@ -116,7 +116,8 @@ async def limited_app(
     valkey_client: tuple[Any, str], prefix: str, migrated_db: db_testing.ThrowawayDatabase
 ) -> AsyncIterator[tuple[AsyncClient, dict[str, str]]]:
     _, url = valkey_client
-    tenant = await create_tenant(migrated_db.migrator_url, "Limited")
+    # Essentials: budgets x1 (the edition multiplier is tested in licensing tests).
+    tenant = await create_tenant(migrated_db.migrator_url, "Limited", edition="essentials")
     (tech,) = await seed_users(migrated_db, tenant, [{"user_type": "technician"}])
     settings = make_settings(
         database_url=migrated_db.app_url,

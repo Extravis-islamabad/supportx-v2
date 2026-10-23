@@ -302,7 +302,9 @@ class AuthService:
         if found is None:
             return None
         _session_id, session = found
-        return TenantContext(tenant_id=session.tenant_uuid, user_id=session.user_uuid)
+        return TenantContext(
+            tenant_id=session.tenant_uuid, user_id=session.user_uuid, roles=frozenset(session.roles)
+        )
 
     def _check_csrf(self, request: Request, session: Session) -> None:
         """Synchronizer token: the header must equal the token stored in the server-side session."""

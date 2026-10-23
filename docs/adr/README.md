@@ -27,3 +27,4 @@ Owner: the product owner owns all ADRs until a tech lead is appointed (D-007).
 | [ADR-018](ADR-018-system-module.md) | `system` platform module for process health | Accepted | Haider (Product Owner) |
 | [ADR-019](ADR-019-event-bus-conventions.md) | Event bus conventions: relay role, subjects, dedupe, dead letters | Accepted | Haider (Product Owner) |
 | [ADR-020](ADR-020-api-conventions-storage.md) | API conventions: idempotency in PostgreSQL, signed keyset cursors, Valkey rate limits | Accepted | Haider (Product Owner) |
+| [ADR-021](ADR-021-entitlement-interface.md) | Entitlement interface: providers, route guard, cached plans, locked seat counts | Accepted | Haider (Product Owner) |

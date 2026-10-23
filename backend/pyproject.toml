@@ -141,3 +141,18 @@ allow_indirect_imports = true
 ignore_imports = [
     "app.modules.system.infra.probes -> nats",
 ]
+
+[[tool.importlinter.contracts]]
+# CLAUDE.md rule f / WP-009: nothing outside the licensing module may reach the entitlement
+# providers, the licence file reader or the subscription table; everyone goes through the
+# entitlement interface (app.modules.licensing). The module-boundary contract already covers other
+# modules; this one also covers core, shared, main, workers and tooling.
+name = "Only the licensing module touches entitlement providers"
+type = "forbidden"
+source_modules = ["app", "workers", "tooling"]
+forbidden_modules = ["app.modules.licensing.infra"]
+allow_indirect_imports = true
+ignore_imports = [
+    "app.modules.licensing -> app.modules.licensing.infra.**",
+    "app.modules.licensing.** -> app.modules.licensing.infra.**",
+]

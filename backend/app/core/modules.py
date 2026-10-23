@@ -9,13 +9,19 @@ editing main.py or the workers.
 
 import importlib
 import pkgutil
-from collections.abc import Awaitable, Callable, Iterable, Sequence
-from dataclasses import dataclass
-from types import ModuleType
+from collections.abc import Awaitable, Callable, Iterable, Mapping, Sequence
+from dataclasses import dataclass, field
+from types import MappingProxyType, ModuleType
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, Depends, FastAPI
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.entitlements import route_guard
 
 LifecycleHook = Callable[[FastAPI], Awaitable[None]]
+# Counts what a module owns for a counted licence limit (e.g. active technicians), inside the
+# caller's tenant session. See app/modules/licensing and docs/architecture/entitlements.md.
+UsageCounter = Callable[[AsyncSession], Awaitable[int]]
 
 MODULES_PACKAGE = "app.modules"
 
@@ -37,6 +43,12 @@ class ModuleSpec:
     events: Sequence[type] = ()
     # ConsumerSpec instances (app/shared/events/consumers.py), validated by the consumer worker.
     consumers: Sequence[object] = ()
+    # Licence feature key this module needs (WP-009), e.g. "change". Every route of the module is
+    # then refused with 403 `entitlement_required` for tenants whose plan lacks it. None = core
+    # platform module, available in every edition. Checked against the feature catalogue at startup.
+    feature: str | None = None
+    # Counted licence limits this module owns the numbers for: limit key -> counter.
+    usage_counters: Mapping[str, UsageCounter] = field(default_factory=lambda: MappingProxyType({}))
 
 
 def discover_modules(package: ModuleType | None = None) -> list[ModuleSpec]:
@@ -68,10 +80,15 @@ class ModuleRegistry:
     modules: Sequence[ModuleSpec]
 
     def include_routers(self, router: APIRouter) -> None:
-        """Mount every module's routers on `router` (the /api/v1 router)."""
+        """Mount every module's routers on `router` (the /api/v1 router).
+
+        Each route gets the entitlement guard for the module's feature (app/core/entitlements.py),
+        so a module is gated by declaring `feature=` and its routes need no code for it.
+        """
         for spec in self.modules:
+            guard = Depends(route_guard(spec.feature))
             for module_router in spec.routers:
-                router.include_router(module_router)
+                router.include_router(module_router, dependencies=[guard])
 
     async def start(self, app: FastAPI) -> None:
         """Run startup hooks in module order."""
