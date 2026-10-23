@@ -120,7 +120,7 @@ openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.j
 schema-check: ## Fail if api-client/src/schema.ts is out of date (frontend lint, CI)
 	$(FRONTEND) pnpm --filter @supportx/api-client check:schema
 
-e2e: ## Playwright journeys (needs dev-up, backend-dev and the console dev server running)
+e2e: ## Playwright journeys + axe (needs dev-up, backend-dev, worker-relay, worker-consumers and the console dev server)
 	$(FRONTEND) pnpm --filter @supportx/e2e e2e
 
 build: ## Production builds of the console and portal

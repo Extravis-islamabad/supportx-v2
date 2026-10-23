@@ -192,6 +192,14 @@ async def test_just_in_time_provisioning_creates_then_updates_the_user(bff: Bff)
     assert (second["display_name"], second["locale"], second["version"]) == ("Renamed", "ar", 2)
     assert second["last_login_at"] > first["last_login_at"]
 
+    # Signing in again with nothing changed keeps the version: an edit form open elsewhere
+    # must not turn stale just because the user signed in on another device (WP-010).
+    bff.clock.advance(timedelta(minutes=1))
+    await bff.login(bff.user("a", email="jit@demo.test", name="Renamed", locale="ar"))
+    (third,) = await user_rows(bff.db, "jit@demo.test")
+    assert third["version"] == second["version"]
+    assert third["last_login_at"] > second["last_login_at"]
+
 
 async def test_every_login_issues_a_new_session_id(bff: Bff) -> None:
     bff.client.cookies.set(DEV_COOKIE_NAME, "attacker-chosen-session-id", domain="console.test")

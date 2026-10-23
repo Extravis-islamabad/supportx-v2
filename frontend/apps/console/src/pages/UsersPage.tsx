@@ -1,4 +1,4 @@
-import { Flex, Input, Select, Space, Spin, Table, Tag, Typography } from 'antd';
+import { Badge, Flex, Input, Select, Space, Spin, Table, Typography } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
@@ -156,9 +156,10 @@ export function UsersPage() {
             key: 'status',
             title: t('users.col.status'),
             render: (_, user) => (
-              <Tag color={user.status === 'active' ? 'success' : 'default'}>
-                {t(`user_status.${user.status}`)}
-              </Tag>
+              <Badge
+                status={user.status === 'active' ? 'success' : 'default'}
+                text={t(`user_status.${user.status}`)}
+              />
             ),
           },
           {

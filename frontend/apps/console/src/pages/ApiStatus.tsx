@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Tag } from 'antd';
+import { Badge } from 'antd';
 
 import { api, call, queryKeys } from '@supportx/api-client';
 import { useLabel } from '@supportx/ui';
@@ -29,19 +29,11 @@ export function ApiStatus() {
   });
 
   if (isPending) {
-    return (
-      <Tag role="status" color="default">
-        {t('api_status.checking')}
-      </Tag>
-    );
+    return <Badge role="status" status="processing" text={t('api_status.checking')} />;
   }
   return isSuccess ? (
-    <Tag role="status" color="success">
-      {t('api_status.online')}
-    </Tag>
+    <Badge role="status" status="success" text={t('api_status.online')} />
   ) : (
-    <Tag role="status" color="error">
-      {t('api_status.offline')}
-    </Tag>
+    <Badge role="status" status="error" text={t('api_status.offline')} />
   );
 }

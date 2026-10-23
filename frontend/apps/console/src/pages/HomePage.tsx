@@ -1,4 +1,4 @@
-import { Card, Col, Row, Space, Statistic, Tag, Typography } from 'antd';
+import { Badge, Card, Col, Row, Space, Statistic, Typography } from 'antd';
 
 import { useSession } from '@supportx/api-client';
 import { useLabel, useLicence } from '@supportx/ui';
@@ -43,12 +43,11 @@ export function HomePage() {
             <Card>
               <Typography.Text type="secondary">{t('home.plan_state')}</Typography.Text>
               <div style={{ marginTop: 8 }}>
-                <Tag
-                  color={entitlements.writable ? 'success' : 'error'}
+                <Badge
                   data-testid="licence-state"
-                >
-                  {t(`entitlement_state.${entitlements.state}`)}
-                </Tag>
+                  status={entitlements.writable ? 'success' : 'error'}
+                  text={t(`entitlement_state.${entitlements.state}`)}
+                />
               </div>
             </Card>
           </Col>

@@ -47,14 +47,43 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
         controlOutlineWidth: 3,
       },
       components: {
-        Layout: { siderBg: '#ffffff', headerBg: '#ffffff' },
+        Layout: { lightSiderBg: '#ffffff', headerBg: '#ffffff' },
         Menu: { itemSelectedBg: '#000000', itemSelectedColor: '#ffffff' },
+        Segmented: { itemSelectedBg: '#000000', itemSelectedColor: '#ffffff' },
       },
     };
   }
+  // Ant Design's default secondary/description text (45% opacity) is about 4:1 on its
+  // background: below WCAG AA for normal text (4.5:1). Raised here (axe, WP-010).
+  const readable =
+    mode === 'dark'
+      ? {
+          colorTextSecondary: 'rgba(255, 255, 255, 0.75)',
+          colorTextTertiary: 'rgba(255, 255, 255, 0.68)',
+          colorTextDescription: 'rgba(255, 255, 255, 0.68)',
+          colorTextPlaceholder: 'rgba(255, 255, 255, 0.6)',
+        }
+      : {
+          colorTextSecondary: 'rgba(0, 0, 0, 0.68)',
+          colorTextTertiary: 'rgba(0, 0, 0, 0.62)',
+          colorTextDescription: 'rgba(0, 0, 0, 0.62)',
+          colorTextPlaceholder: 'rgba(0, 0, 0, 0.58)',
+        };
   return {
     algorithm: mode === 'dark' ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-    token: { ...SHARED, colorPrimary: brand.colorPrimary },
+    token: { ...SHARED, ...readable, colorPrimary: brand.colorPrimary },
+    // The sidebar uses Ant Design's "light" sider, whose colours are fixed (white): give it the
+    // container colours of the current mode instead, so dark mode has a dark sidebar.
+    components:
+      mode === 'dark'
+        ? {
+            Layout: {
+              lightSiderBg: '#141414',
+              lightTriggerBg: '#1f1f1f',
+              lightTriggerColor: 'rgba(255, 255, 255, 0.85)',
+            },
+          }
+        : undefined,
   };
 }
 

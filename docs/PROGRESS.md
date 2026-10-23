@@ -2,15 +2,14 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 9 of 16 work packages done.
-- **Last completed:** WP-009 (entitlement interface), 2026-10-23. Before it: WP-008 (API
-  conventions), 2026-10-23.
-- **Next work package:** WP-016 (authorization policy layer, D-025) or WP-010 (frontend
-  foundation); both are unblocked. WP-011 needs WP-010; WP-012 needs WP-011 and WP-016; WP-013
-  is unblocked by WP-009 but needs the Rust toolchain installed.
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 10 of 16 work packages done.
+- **Last completed:** WP-010 (frontend foundation and design system), 2026-10-23. Before it:
+  WP-009 (entitlement interface).
+- **Next work package:** WP-016 (authorization policy layer) or WP-011 (realtime pipeline); both
+  are unblocked now. WP-012 needs both. WP-015 (clickable prototype) is unblocked by WP-010.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
-- **Blockers:** None for WP-016 or WP-010. WP-014 needs k3d installed (D-003; Homebrew is not installed
+- **Blockers:** None for WP-016 or WP-011. WP-014 needs k3d installed (D-003; Homebrew is not installed
   either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
@@ -144,7 +143,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   deployment-mode checks in module code.
 - **Depends on:** WP-004
 
-### [ ] WP-010 — Frontend foundation and design system
+### [x] WP-010 — Frontend foundation and design system (done 2026-10-23)
 - **Goal:** Shared frontend packages that enforce rule (d) from day one.
 - **Scope:** `packages/ui` (AntD 5 theme tokens, light/dark/high-contrast, RTL switch, app shell);
   `packages/labels` migrated to i18next + react-i18next (D-013; dictionary, `humanize()` with
@@ -228,7 +227,66 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   tenant B; labels (en/ar) for every role, permission and scope code.
 - **Depends on:** WP-006, WP-007, WP-008
 
+## Stage 1: planned work packages
+
+Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
+
+### [ ] WP-017 — Tenant branding and domains (D-027; planning only)
+- **Goal:** Each tenant gets its own address and look without a redesign: the WP-010 theme
+  already takes per-tenant seeds (`Branding` in `packages/ui/src/theme.ts`).
+- **Scope:** Per-tenant subdomain in SaaS (`<slug>.supportx...`); optional custom domain with
+  automatic TLS (ACME, certificate lifecycle per cell); tenant resolution from the request host as
+  a login hint (pre-selects the Keycloak organization, never an authorisation decision); logo,
+  favicon and brand colours on console, portal, the Keycloak login theme and outgoing e-mails;
+  a branding admin screen (preview, contrast check against WCAG AA before saving); assets stored
+  through the S3 API (D-016) and served with cache headers; works on-prem (one installation
+  domain) through the same entitlement and settings interfaces.
+- **Acceptance:** Two tenants on two hosts see their own logo and colours on every surface
+  including the login page and e-mails; an unknown host falls back to the default brand; a colour
+  failing contrast is refused with a translated message; e2e covers both hosts.
+- **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
+
 ## Session log (newest first)
+
+### 2026-10-23 — WP-010 frontend foundation and design system
+- Decisions: D-026 (react-router 7.x — 8.x needs React 19 —, openapi-fetch, @axe-core/playwright;
+  CLAUDE.md §3), D-027 (Stage 1 WP-017 tenant branding and domains, planning only). Companions
+  named for veto: `@ant-design/icons` 5.x (MIT), `@hookform/resolvers` (MIT). i18next 26.5.4 /
+  react-i18next 17.1.0 chosen to respect pnpm's minimum release age (no policy exclusion added).
+- api-client: openapi-fetch on `schema.ts`; middleware adds X-Request-ID, CSRF, Idempotency-Key
+  (POST) and If-Match (from remembered ETags); `call()` → typed `ApiError` (problem details,
+  field errors, request ID, outage detection); connectivity events; `queryKeys`; hooks for
+  session, tenant switch, entitlements, users (infinite, filter DSL), user, update user.
+- labels on i18next + react-i18next (flat keys, CLDR plurals incl. six Arabic forms,
+  interpolation, humanize fallback); ~150 new en/ar keys, ur for the shell. ESLint plugin
+  `@supportx/eslint-plugin` (`no-raw-enum`, `no-literal-text`; 23 rule tests). Backend
+  `test_enum_labels.py`: every enum in the OpenAPI contract needs en+ar labels.
+- ui: Extravis theme (#9619B5), light/dark/high contrast, AA-safe secondary text, tenant
+  `Branding` override, antd locales; AppShell, header (tenant switcher, user menu, appearance),
+  Ctrl+K palette, Coming soon / Not in plan; licence context, grace + read-only banners,
+  `WriteButton`; error reporter (toasts + Copy reference), conflict dialog, reconnecting banner,
+  error boundary, `createQueryClient`. forms: FormField + applyServerErrors. charts: themed,
+  RTL-mirrored ECharts wrapper.
+- Console: react-router with lazy routes (Home, 8 sections, Admin › Users, My profile, 404,
+  dev-only /dev/components), entitlement-aware sidebar (hidden; locked + upgrade hint for
+  admins). Portal: simple top-nav shell. Vendor chunk groups (`vite.chunks.ts`): largest chunk
+  726 kB → 416 kB, no chunk over 500 kB.
+- Found and fixed via e2e: every login bumped the user's `version` (JIT upsert), so signing in on
+  a second device made an open profile form stale → version now moves only when a synced field
+  changes (+ test); "keep my changes" re-sent untouched fields and wiped the other user's change
+  → PATCH now sends only changed fields; antd secondary text / tags / dark sider failed axe
+  contrast → tokens and badges fixed.
+- Tests: frontend 102 Vitest (api-client 9, labels 25, ui 13, forms 3, eslint-plugin 23,
+  console 25, portal 4); Playwright 8 journeys on the dev stack incl. axe (0 serious/critical on
+  home, coming soon, users, profile, Arabic RTL, high contrast, dark); backend 602.
+- e2e test data: suite-owned Keycloak users e2e.tech/e2e.admin (random password per run), 40
+  `e2e-scroll-NN` requester rows (`tooling/e2e_fixtures.py`, deleted after the run), Other
+  Company plan changed and restored with `make dev-subscription`. CI stack-smoke now starts the
+  event workers and runs all journeys.
+- Follow-ups: initial console download is larger than before (shell uses more of Ant Design;
+  ~415 kB gzip) — trim with per-component imports or lazy header widgets; live entitlement
+  refresh via WP-011; field-level permission rendering from WP-016; Urdu labels complete in
+  Stage 2.
 
 ### 2026-10-23 — WP-009 entitlement interface (+ planning: WP-016, D-025)
 - Part A: WP-016 "Authorization policy layer" (§11.2) added before WP-012 (WP-012 now depends on

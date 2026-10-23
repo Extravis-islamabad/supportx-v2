@@ -22,12 +22,18 @@ function valuesOf(user: UserDetail): Values {
   return { signature: user.signature ?? '', time_zone: user.time_zone ?? '' };
 }
 
-/** Empty inputs clear the preference (null), they do not store an empty string. */
-function changesOf(values: Values) {
-  return {
+type Field = (typeof FIELDS)[number];
+
+/**
+ * Only the fields the user changed (PATCH semantics): a save never overwrites a field someone
+ * else changed meanwhile that this user did not touch. Empty inputs clear the preference (null).
+ */
+function changesOf(values: Values, fields: readonly Field[]) {
+  const all = {
     signature: values.signature === '' ? null : values.signature,
     time_zone: values.time_zone.trim() === '' ? null : values.time_zone.trim(),
   };
+  return Object.fromEntries(fields.map((name) => [name, all[name]]));
 }
 
 /**
@@ -74,9 +80,10 @@ function ProfileForm({
   const [conflict, setConflict] = useState(false);
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: valuesOf(user) });
 
-  const save = (values: Values, version: number) => {
+  const changedFields = () => FIELDS.filter((name) => form.getFieldState(name).isDirty);
+  const save = (values: Values, version: number, fields: readonly Field[]) => {
     update.mutate(
-      { changes: changesOf(values), version },
+      { changes: changesOf(values, fields), version },
       {
         onSuccess: (saved) => {
           form.reset(valuesOf(saved));
@@ -100,7 +107,7 @@ function ProfileForm({
         layout="vertical"
         onFinish={() => {
           void form.handleSubmit((values) => {
-            save(values, baseVersion);
+            save(values, baseVersion, changedFields());
           })();
         }}
       >
@@ -149,11 +156,15 @@ function ProfileForm({
         }}
         onKeepMine={() => {
           setConflict(false);
+          // My edited fields, laid over the latest saved version; everything else is theirs.
+          const fields = changedFields();
           const mine = form.getValues();
           void reload().then((latest) => {
             if (latest !== undefined) {
+              form.reset(valuesOf(latest));
+              for (const name of fields) form.setValue(name, mine[name], { shouldDirty: true });
               setBaseVersion(latest.version);
-              save(mine, latest.version);
+              save(form.getValues(), latest.version, fields);
             }
           });
         }}

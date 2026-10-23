@@ -55,7 +55,7 @@ describe('My profile', () => {
     expect(await screen.findByText('Your preferences were saved.')).toBeDefined();
     const [patch] = fake.find('PATCH', ME_PATH);
     expect(patch?.headers.get('If-Match')).toBe('"3"');
-    expect(patch?.body).toEqual({ signature: 'Regards', time_zone: null });
+    expect(patch?.body).toEqual({ signature: 'Regards' }); // only what changed
   });
 
   it('shows the API field errors inline under the field, translated', async () => {
@@ -120,7 +120,7 @@ describe('My profile', () => {
     expect(await screen.findByText('Your preferences were saved.')).toBeDefined();
     const patches = fake.find('PATCH', ME_PATH);
     expect(patches.map((p) => p.headers.get('If-Match'))).toEqual(['"3"', '"5"']);
-    expect(patches[1]?.body).toEqual({ signature: 'mine', time_zone: null });
+    expect(patches[1]?.body).toEqual({ signature: 'mine' });
   });
 
   it('on a 409 conflict, "reload their version" replaces my edits', async () => {

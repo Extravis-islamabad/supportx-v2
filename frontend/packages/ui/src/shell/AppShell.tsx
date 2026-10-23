@@ -38,7 +38,14 @@ export function AppShell({ nav, activeKey, onNavigate, header, banners, children
           {branding.logoUrl !== undefined ? (
             <img src={branding.logoUrl} alt={t('product.name')} style={{ maxHeight: 32 }} />
           ) : (
-            <Typography.Text strong style={{ color: token.colorPrimary, fontSize: 18 }}>
+            <Typography.Text
+              strong
+              style={{
+                fontSize: 18,
+                borderInlineStart: `4px solid ${token.colorPrimary}`,
+                paddingInlineStart: 8,
+              }}
+            >
               {collapsed ? t('product.short_name') : t('product.name')}
             </Typography.Text>
           )}
