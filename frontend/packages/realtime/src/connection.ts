@@ -264,6 +264,9 @@ export class RealtimeConnection {
   private setStatus(status: ConnectionStatus): void {
     if (status === this.status) return;
     this.status = status;
+    // Visible to tests and to anyone diagnosing a proxy: which state, over which transport.
+    document.documentElement.dataset.realtimeStatus = status;
+    document.documentElement.dataset.realtimeTransport = this.transport ?? '';
     for (const listener of this.statusListeners) listener(status);
   }
 

@@ -86,6 +86,8 @@ client), `@axe-core/playwright` (test-only accessibility checks).
 
 **Approved additions (D-028):** `@ant-design/icons` (5.x), `@hookform/resolvers`.
 
+**Approved additions (D-030):** `centrifuge` (centrifuge-js, Centrifugo's official client).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

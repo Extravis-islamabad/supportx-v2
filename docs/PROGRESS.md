@@ -2,13 +2,13 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 11 of 16 work packages done.
-- **Last completed:** WP-016 (authorization policy layer), 2026-10-23. Before it: WP-010.
-- **Next work package:** WP-011 (realtime pipeline end to end; unblocked). WP-012 (walking
-  skeleton) then needs only WP-011. WP-015 (clickable prototype) is also unblocked.
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 12 of 16 work packages done.
+- **Last completed:** WP-011 (realtime pipeline end to end), 2026-10-23. Before it: WP-016.
+- **Next work package:** WP-012 (walking skeleton; now unblocked). WP-015 (clickable prototype)
+  is also unblocked.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
-- **Blockers:** None for WP-011. WP-014 needs k3d installed (D-003; Homebrew is not installed
+- **Blockers:** None for WP-012. WP-014 needs k3d installed (D-003; Homebrew is not installed
   either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
@@ -153,7 +153,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   regenerating the API client after a backend schema change breaks `tsc` where expected.
 - **Depends on:** WP-001, WP-004
 
-### [ ] WP-011 — Realtime pipeline end to end
+### [x] WP-011 — Realtime pipeline end to end (done 2026-10-23)
 - **Goal:** Non-negotiable rule (c) proven: commit → screen in under 1 s.
 - **Scope:** Connection and subscription token endpoints with permission checks (§8.2); fan-out
   consumer NATS → Centrifugo using §8.1 channel names and minimal payloads; `packages/realtime`
@@ -246,6 +246,38 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
 ## Session log (newest first)
+
+### 2026-10-23 — WP-011 realtime pipeline end to end
+- Decisions: D-030 (`centrifuge` client approved), D-031 (navigation layout as a server-side user
+  preference, SDP parity). ADR-023 (realtime pipeline). Docs: docs/architecture/realtime.md.
+- Backend: `app/shared/realtime` (§8.1 channel names, HS256 connection/subscription tokens,
+  Centrifugo server API client, `ChannelSpec`/`RealtimeRoute`/`LiveList` declarations);
+  `/api/v1/realtime/connection-token`, `/subscription-token` (policy layer decides),
+  `/lists/{list}`; identity_access channels (own, tenant broadcast, user records with presence,
+  users and roles lists) and routes; licensing route for plan changes; logout/tenant switch cut
+  the old connection. Production now requires the Centrifugo settings.
+- `workers/realtime_fanout` (`make worker-fanout`): windowed WP-007 consumer, list coalescing
+  (250 ms), per-tenant token bucket, idempotent batch publishes, cache invalidation before
+  publishing, revocation by disconnect (code 4000), metrics + heartbeat, reported by /ready.
+- Centrifugo dev config: history + forced recovery, presence, SSE/HTTP-streaming fallbacks,
+  Prometheus; namespace separator moved so the `t:` names stay as in §8.1.
+- Frontend: `packages/realtime` (centrifuge-js; WebSocket → HTTP streaming → SSE → polling;
+  shared channels, recovery, presence; hooks), live users list, roles list, access drawer,
+  menus, licence banners, profile change notice + presence; reconnecting/polling banner.
+- Navigation layouts: top bar (default, More overflow), side bar, compact side bar; stored in
+  `users.nav_layout` (migration 0007), follows the user live to other sessions.
+- Found and fixed on the way: dark-mode contrast of horizontal menu / "More" selection; a race
+  where a plan change could be refetched before the entitlement cache was dropped (now dropped
+  by the route before publishing); e2e navigation helpers made layout-independent.
+- Tests: backend 739 (tokens, channels, live lists, registry, fan-out merging / rate limit /
+  failures, pipeline through NATS, token endpoint attacks); 114 Vitest (incl. 12 realtime);
+  Playwright 17 journeys (two-browser live updates, streaming and polling fallbacks, raw
+  WebSocket attacks, revocation < 1 s, layouts with axe). Measured: 200 saves p50 153 / p95 275 /
+  p99 291 ms; 2,000 connections × 200 changes p50 205 / p95 353 / p99 407 ms, 0 lost; Centrifugo
+  ≤ 10 % CPU / 131 MiB, fan-out ≤ 5 % CPU / 91 MB.
+- Follow-ups: Prometheus scrape of the worker (WP-014 ingress also routes /connection and
+  /emulation to Centrifugo); work-item, dashboard and portal channels as those modules arrive;
+  sites/groups lists live in the access drawer; fan-out horizontal scaling (one consumer today).
 
 ### 2026-10-23 — WP-016 authorization policy layer
 - Decisions: D-028 (`@ant-design/icons`, `@hookform/resolvers` approved), D-029 (SupportX DB is the

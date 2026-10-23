@@ -50,12 +50,14 @@ the full services running. Use `make dev-down` to stop everything.
 ```bash
 make backend-dev                                     # API on 127.0.0.1:8000
 make worker-relay & make worker-consumers            # events (plan changes, cache refresh)
+make worker-fanout                                   # live screens (WP-011): events → Centrifugo
 cd frontend && pnpm --filter @supportx/console dev   # http://localhost:5173
 cd frontend && pnpm --filter @supportx/portal dev    # http://localhost:5174
 ```
 
-Sign in with the dev users from section 4. Things to try: the sidebar and **Ctrl+K**;
-**Appearance** (light / dark / high contrast, right-to-left, language); the tenant switcher
+Sign in with the dev users from section 4. Things to try: the navigation and **Ctrl+K**;
+**Appearance** (navigation: top bar / side bar / compact side bar, stored on the server; light /
+dark / high contrast, right-to-left, language); the tenant switcher
 (multi@demo.test belongs to both companies); **Admin › Users** (as admin@demo.test); **My
 profile** in the user menu (open it in two browsers and save in both to see the conflict
 dialog); `/dev/components` (development builds only: chart, every error message). Licence states
@@ -174,9 +176,19 @@ docs/architecture/entitlements.md.
 SupportX, not Keycloak, decides what users may do (D-029). At each user's first login after
 WP-016 their Keycloak roles are mapped once: admin@demo.test → Tenant administrator,
 tech@demo.test / multi@demo.test / other@other.test → Technician, user@demo.test → Requester.
-After that, change access in **Admin › Roles** and **Admin › Users** (click a user). Changes apply
-on the user's next request (reload their browser tab). How it works:
+After that, change access in **Admin › Roles** and **Admin › Users** (click a user). With
+`make worker-fanout` running, the user's open browser updates by itself within about a second
+(menus, pages); without it, on their next request. How it works:
 docs/architecture/authorization.md.
+
+### Live updates (WP-011)
+
+Every screen updates by itself when data changes (`make worker-fanout` must run; Centrifugo is
+part of `make dev-up`; the Vite dev servers proxy `/connection` to it). Try two browsers side by
+side: Admin › Users in one, sign in as another user in the other; My profile in both (presence
+avatars, and a notice when the other one saves); `make dev-subscription` while a page is open
+(the banner appears without a reload). How it works and how to make a new screen live:
+docs/architecture/realtime.md.
 
 ### Events: watching them flow (WP-007)
 
