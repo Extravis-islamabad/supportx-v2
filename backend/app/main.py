@@ -13,6 +13,7 @@ from typing import Any
 
 import valkey.asyncio
 from fastapi import APIRouter, FastAPI
+from opentelemetry.sdk.metrics import MeterProvider
 
 from app import __version__
 from app.core.config import Settings, get_settings
@@ -21,6 +22,7 @@ from app.core.errors import ProblemDetail, install_error_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import RequestContextMiddleware, SecurityHeadersMiddleware
 from app.core.modules import ModuleRegistry, discover_modules
+from app.core.ops_server import OpsServer
 from app.core.telemetry import setup_tracing
 from app.shared.api.listing import CursorCodec
 from app.shared.api.openapi import add_filter_schema
@@ -61,6 +63,7 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
         centrifugo = CentrifugoClient.from_settings(settings)
         setattr(app.state, CENTRIFUGO_STATE, centrifugo)
         await registry.start(app)
+        ops = await _start_ops(settings, meter_provider)
         log.info(
             "startup_complete",
             profile=settings.profile,
@@ -70,6 +73,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
         try:
             yield
         finally:
+            if ops is not None:
+                await ops.stop()
             await registry.stop(app)
             if valkey_client is not None:
                 await valkey_client.aclose()
@@ -79,6 +84,8 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
                 await app.state.db.dispose()
             if tracer_provider is not None:
                 tracer_provider.shutdown()
+            if meter_provider is not None:
+                meter_provider.shutdown()
             log.info("shutdown_complete")
 
     app = FastAPI(
@@ -114,9 +121,21 @@ def create_app(settings: Settings | None = None, registry: ModuleRegistry | None
     registry.include_routers(api_v1)
     app.include_router(api_v1)
 
-    tracer_provider = setup_tracing(app, settings)
+    tracer_provider, meter_provider = setup_tracing(app, settings)
     _publish_shared_schemas(app)
     return app
+
+
+async def _start_ops(settings: Settings, meter_provider: MeterProvider | None) -> OpsServer | None:
+    """Prometheus scrape endpoint on the internal metrics port (WP-014), when metrics are on.
+
+    Health stays on the public port (/api/v1/health, /api/v1/ready).
+    """
+    if meter_provider is None:
+        return None
+    ops = OpsServer(settings.metrics_host, settings.metrics_port)
+    await ops.start()
+    return ops
 
 
 def _start_rate_limiter(app: FastAPI, settings: Settings) -> Any:  # noqa: ANN401 - valkey client, untyped library

@@ -1,0 +1,29 @@
+# Local Kubernetes for SupportX (D-003, D9): `make cluster-up` creates it, `make cluster-down`
+# deletes the cluster (asks first). k3s is pinned to the same version as the on-prem appliance.
+apiVersion: k3d.io/v1alpha5
+kind: Simple
+metadata:
+  name: supportx
+servers: 1
+agents: 0
+image: rancher/k3s:v1.36.5-k3s1
+ports:
+  # The public URL is http://supportx.localhost:8080 (browsers resolve *.localhost to 127.0.0.1).
+  - port: 127.0.0.1:8080:80
+    nodeFilters: [loadbalancer]
+  # Dev only: PostgreSQL's primary for the e2e suite's fixture tools (values-dev.yaml
+  # postgresql.cnpg.devNodePort), on this machine's loopback only. A kubectl port-forward exits
+  # on the first reset connection, which made the suite flaky.
+  - port: 127.0.0.1:25433:30432
+    nodeFilters: [server:0]
+options:
+  k3s:
+    extraArgs:
+      # Secrets encrypted at rest, as on the appliance (WP-014 plan §4).
+      - arg: --secrets-encryption
+        nodeFilters: [server:*]
+files:
+  # Traefik (bundled with k3s) also serves the Gateway API (D2).
+  - source: traefik-config.yaml
+    destination: k3s-manifests-custom/traefik-config.yaml
+    nodeFilters: [server:*]

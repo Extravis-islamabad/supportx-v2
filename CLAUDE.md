@@ -59,7 +59,7 @@ Docker Compose for local dev only; OpenTelemetry, Prometheus, Grafana, Loki, Tem
 
 **Approved additions (D-004):** Rust toolchain + PyO3/maturin (licence core, §13.7), asyncpg,
 pydantic-settings, Nuitka, OpenFeature SDK, pgvector, PgBouncer, Jinja2 (sandboxed environment
-only), pre-commit, ClamAV, pgBackRest, React Native (mobile, later), Go (only if ADR-015 chooses a
+only), pre-commit, ClamAV, pgBackRest (superseded by CloudNativePG backups, D-038), React Native (mobile, later), Go (only if ADR-015 chooses a
 new agent).
 
 **Approved additions (D-012..D-014):** test/build helpers httpx, @testing-library/react,
@@ -87,6 +87,14 @@ client), `@axe-core/playwright` (test-only accessibility checks).
 **Approved additions (D-028):** `@ant-design/icons` (5.x), `@hookform/resolvers`.
 
 **Approved additions (D-030):** `centrifuge` (centrifuge-js, Centrifugo's official client).
+
+**Approved additions (D-037, D-038 — deployment, WP-014):** CloudNativePG, cert-manager, the
+official NATS and Valkey charts (+ prometheus-nats-exporter, redis_exporter), Gateway API CRDs,
+Traefik (bundled with k3s), kubeconform (CI), External Secrets Operator (SaaS), Fluent Bit,
+OpenTelemetry Collector, Zot, rclone, Kyverno or the Sigstore policy-controller; on-prem
+monitoring VictoriaMetrics, VictoriaLogs, Jaeger, Perses (Grafana only inside SaaS); SeaweedFS for
+on-prem object storage. Container images are INTERNAL/DEV until Nuitka builds exist and go only to
+private registries (D-038).
 
 **Approved additions (D-035, D-036):** `dayjs` (Ant Design 5's date library, used directly by
 the shared `DateTimeField`); Tiptap (MIT) as the rich-text editor, with server-side HTML

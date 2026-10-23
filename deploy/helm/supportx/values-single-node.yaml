@@ -1,0 +1,49 @@
+# One k3s VM, the appliance (architecture.md §14.2: 8 vCPU, 32 GB RAM, 500 GB SSD, up to ~50
+# technicians). Install with your own host and certificate, e.g.
+#   helm install supportx deploy/helm/supportx -n supportx \
+#     -f deploy/helm/supportx/values-single-node.yaml \
+#     --set publicUrl=https://supportx.example.com \
+#     --set routing.hostnames={supportx.example.com} \
+#     --set routing.gateway.tlsSecret=supportx-tls
+# Backups (CloudNativePG to S3-compatible storage off the VM) arrive with WP-014b; until then
+# this profile is for internal evaluation only. Images are INTERNAL/DEV builds (D-038).
+app:
+  profile: production
+  # On-prem: the signed licence file (WP-013). Until then the plan rows (subscription).
+  entitlementProvider: subscription
+
+routing:
+  gateway:
+    protocol: HTTPS
+    listenerName: websecure
+    port: 8443                  # Traefik's websecure entrypoint on k3s
+
+keycloak:
+  realmImport: base
+
+api:
+  replicas: 1
+  resources:
+    requests: {cpu: 500m, memory: 512Mi}
+    limits: {cpu: "2", memory: 1536Mi}
+
+postgresql:
+  cnpg:
+    instances: 1
+    storage: {size: 100Gi}
+    walStorage: {size: 20Gi}
+    parameters:
+      shared_buffers: 2GB
+      effective_cache_size: 6GB
+      max_connections: "200"
+    resources:
+      requests: {cpu: "1", memory: 4Gi}
+      limits: {cpu: "3", memory: 8Gi}
+    pooler:
+      instances: 1
+
+nats:
+  config:
+    jetstream:
+      fileStore:
+        pvc: {size: 20Gi}

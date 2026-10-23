@@ -1,0 +1,253 @@
+# SupportX chart defaults: production-shaped and secret-free. Profiles override them:
+#   values-dev.yaml          local k3d cluster (make deploy-dev)
+#   values-single-node.yaml  one k3s VM (architecture.md §14.2 appliance)
+# HA, SaaS and air-gapped profiles follow in WP-014b/c/d (docs/PROGRESS.md).
+# Nothing here branches on SaaS vs on-prem (CLAUDE.md rule f): profiles differ only in sizes,
+# replicas, routing and which licence provider the licensing module reads.
+
+# --- where users reach it (D3: one host, paths) ---------------------------------------------------
+# The browser's origin. Console at /, portal at /portal/, API at /api, realtime at /connection and
+# /emulation, Keycloak at /auth. Required.
+publicUrl: ""
+
+images:
+  registry: ""          # overrides every image's registry (air-gapped mirror, WP-014c)
+  pullSecrets: []
+  backend:
+    repository: ghcr.io/devhat-pm/supportx-backend
+    tag: ""             # default: .Chart.AppVersion
+    digest: ""          # preferred in real installs: sha256:...
+    pullPolicy: IfNotPresent
+  web:
+    repository: ghcr.io/devhat-pm/supportx-web
+    tag: ""
+    digest: ""
+    pullPolicy: IfNotPresent
+  # Third-party images, pinned (D-037). Digests are added by the release pipeline (WP-014c).
+  keycloak: quay.io/keycloak/keycloak:26.8.1
+  centrifugo: centrifugo/centrifugo:v6.10.1
+  postgres: ghcr.io/cloudnative-pg/postgresql:16.15-202610190958-standard-trixie
+
+# --- secrets (never in values) ---------------------------------------------------------------------
+# Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
+# by the installer (WP-014c) or External Secrets (WP-014d). Keys: see deploy/helm/README.md.
+secrets:
+  app: supportx-app                 # Opaque: app keys, role passwords, NATS/Valkey passwords
+  keycloakDb: supportx-db-keycloak  # kubernetes.io/basic-auth for the keycloak database owner
+
+# --- application settings (SUPPORTX_*) ---------------------------------------------------------------
+app:
+  profile: production
+  logLevel: info
+  # subscription = plan rows (dev, SaaS); licence_file = signed licence (on-prem, WP-013).
+  entitlementProvider: subscription
+  licenceSecret: ""                 # Secret with key `licence.json` when licence_file is used
+  extraEnv: {}                      # more SUPPORTX_* settings, name: value
+  # Dev only: create the two demo tenants that match the dev realm (tooling/seed_dev.py).
+  seedDevData: false
+
+api:
+  replicas: 1
+  # One uvicorn process per pod; scale with replicas so each pod has one metrics registry.
+  resources:
+    requests: {cpu: 250m, memory: 384Mi}
+    limits: {cpu: "2", memory: 1Gi}
+
+relay:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
+consumers:
+  replicas: 1
+  resources:
+    requests: {cpu: 50m, memory: 160Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
+# Exactly one copy (ADR-023: merge windows and per-tenant rate limits are in memory). Rollouts
+# surge one new pod before the old stops; the durable consumer resumes from its last ack.
+fanout:
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+
+web:
+  replicas: 1
+  resources:
+    requests: {cpu: 20m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 96Mi}
+
+migrate:
+  # Seconds the API and workers wait for this release's migrate Job before failing.
+  waitTimeoutSeconds: 900
+  resources:
+    requests: {cpu: 100m, memory: 192Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+# --- PostgreSQL 16 (CloudNativePG, D1) --------------------------------------------------------------
+postgresql:
+  # cnpg: a Cluster in this release (operator installed cluster-wide first).
+  # external: a DBA-managed server; set the host and run tooling/sql once as superuser.
+  mode: cnpg
+  database: supportx
+  external:
+    host: ""
+    port: 5432
+    poolerHost: ""                  # PgBouncer in transaction mode, if any (else = host)
+  cnpg:
+    instances: 1
+    storage: {size: 20Gi, storageClass: ""}
+    walStorage: {size: "", storageClass: ""}   # empty = WAL on the data volume
+    parameters:
+      shared_buffers: 512MB
+      max_connections: "200"
+    resources:
+      requests: {cpu: 250m, memory: 1Gi}
+      limits: {cpu: "2", memory: 2Gi}
+    # Dev only (values-dev.yaml): a NodePort on the primary for the e2e suite's tools. Never set
+    # it in a real install; empty = off.
+    devNodePort: ""
+    # Where the operator runs (NetworkPolicies let it reach the instances).
+    operatorNamespace: cnpg-system
+    pooler:
+      instances: 1
+      defaultPoolSize: "25"
+      maxClientConn: "500"
+    # Backups to S3-compatible storage (Barman Cloud plugin): WP-014b.
+
+# --- NATS JetStream (upstream chart, D-037) ---------------------------------------------------------
+nats:
+  enabled: true
+  config:
+    cluster: {enabled: false}
+    monitor: {enabled: true}
+    jetstream:
+      enabled: true
+      fileStore:
+        pvc: {size: 10Gi}
+      memoryStore: {enabled: true, maxSize: 256Mi}
+    merge:
+      authorization:
+        user: supportx
+        password: << $SUPPORTX_NATS_PASSWORD >>
+  container:
+    env:
+      SUPPORTX_NATS_PASSWORD:
+        valueFrom:
+          secretKeyRef: {name: supportx-app, key: nats-password}
+    merge:
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: ["ALL"]}
+      resources:
+        requests: {cpu: 50m, memory: 128Mi}
+        limits: {cpu: "1", memory: 1Gi}
+  natsBox: {enabled: false}
+  promExporter:
+    enabled: true
+    merge:
+      securityContext: &restricted
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities: {drop: ["ALL"]}
+  reloader:
+    merge:
+      securityContext: *restricted
+  podTemplate:
+    merge:
+      metadata:
+        annotations:
+          prometheus.io/scrape: "true"
+          prometheus.io/port: "7777"
+      spec:
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
+          seccompProfile: {type: RuntimeDefault}
+
+# --- Valkey (upstream chart): sessions, caches, rate limits; nothing durable (ADR-020) -----------
+valkey:
+  enabled: true
+  auth:
+    enabled: true
+    usersExistingSecret: supportx-app
+    aclUsers:
+      default:
+        permissions: "~* &* +@all"
+        passwordKey: valkey-password
+  valkeyConfig: |
+    maxmemory 256mb
+    maxmemory-policy noeviction
+  dataStorage: {enabled: false}
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 500m, memory: 384Mi}
+  metrics:
+    enabled: true
+    exporter:
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        runAsNonRoot: true
+        runAsUser: 1000
+        capabilities: {drop: ["ALL"]}
+
+# --- Centrifugo (realtime gateway, ADR-005) ---------------------------------------------------------
+centrifugo:
+  replicas: 1                       # more than one needs the Valkey engine (WP-014b)
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: "1", memory: 512Mi}
+
+# --- Keycloak (identity, ADR-006) ---------------------------------------------------------------------
+keycloak:
+  replicas: 1
+  # base = settings, roles and clients only (production); dev = plus demo users/orgs (never prod).
+  realmImport: base
+  # Route /auth/admin publicly (gateway mode). Off in production: SupportX manages its users;
+  # the dev profile turns it on for the e2e suite. Plain Ingress cannot block it (WP-014b).
+  exposeAdmin: false
+  resources:
+    requests: {cpu: 250m, memory: 768Mi}
+    limits: {cpu: "2", memory: 1536Mi}
+
+# --- routing (D2: Gateway API, plain Ingress as the supported fallback) ----------------------------
+routing:
+  mode: gateway                     # gateway | ingress | none
+  hostnames: []                     # empty = every host that reaches the gateway
+  gateway:
+    create: true                    # false = attach the routes to an existing Gateway
+    name: ""                        # default: <release>
+    namespace: ""                   # default: release namespace
+    className: traefik
+    listenerName: web
+    port: 8000                      # Traefik's web entrypoint inside the cluster
+    protocol: HTTP
+    tlsSecret: ""                   # with protocol HTTPS
+  ingress:
+    className: traefik
+    annotations: {}
+    tlsSecret: ""
+
+# --- observability ------------------------------------------------------------------------------------
+metrics:
+  # Every SupportX pod serves /metrics on 9464 (internal only). With the Prometheus Operator CRDs
+  # present the chart creates PodMonitors, else it annotates the pods for plain Prometheus.
+  podMonitors: auto                 # auto | true | false
+
+networkPolicies:
+  enabled: true
+  # Where the gateway / ingress controller runs (Traefik is in kube-system on k3s).
+  ingressNamespace: kube-system
+
+# Extra annotations on SupportX's own pods (make deploy-dev sets one per build: dev images keep
+# the same tag, so this is what rolls them).
+podAnnotations: {}
+
+podSecurity:
+  runAsUser: 10001
+  fsGroup: 10001

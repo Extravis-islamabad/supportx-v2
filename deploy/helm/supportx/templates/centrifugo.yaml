@@ -1,0 +1,98 @@
+{{- $c := dict "root" . "component" "centrifugo" -}}
+# Realtime gateway (ADR-005, ADR-023). Same options as the dev stack's config.json; the browser
+# reaches it on the public host at /connection and /emulation (D3). Secrets only through env.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+data:
+  config.json: |
+    {
+      "client": {
+        "allowed_origins": [{{ .Values.publicUrl | quote }}],
+        "token": {"audience": "supportx-realtime", "issuer": "supportx-api"},
+        "channel_limit": 256
+      },
+      "channel": {
+        "namespace_boundary": "|",
+        "without_namespace": {
+          "history_size": 100,
+          "history_ttl": "300s",
+          "force_recovery": true,
+          "allow_presence_for_subscriber": true,
+          "presence": true
+        }
+      },
+      "sse": {"enabled": true},
+      "http_stream": {"enabled": true},
+      "http_api": {},
+      "prometheus": {"enabled": true},
+      "health": {"enabled": true},
+      "log": {"level": "info"}
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ .Values.centrifugo.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        checksum/config: {{ .Values.publicUrl | sha256sum }}
+        {{- if not (include "supportx.podMonitorsEnabled" .) }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: centrifugo
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.centrifugo) }}
+          command: ["centrifugo", "--config", "/centrifugo/config.json"]
+          env:
+            - name: CENTRIFUGO_CLIENT_TOKEN_HMAC_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: centrifugo-token-secret}}
+            - name: CENTRIFUGO_HTTP_API_KEY
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: centrifugo-api-key}}
+          ports:
+            - {name: http, containerPort: 8000}
+          readinessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: http}
+            periodSeconds: 10
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.centrifugo.resources | nindent 12 }}
+          volumeMounts:
+            - {name: config, mountPath: /centrifugo, readOnly: true}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "supportx.name" $c }}}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: http, port: 8000, targetPort: http}

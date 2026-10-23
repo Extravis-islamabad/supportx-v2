@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 
-import { SEEDED } from '../stack';
+import { CONSOLE_URL, SEEDED } from '../stack';
 import { signIn } from './helpers';
 
 test('a technician logs in to the console, sees name and tenant, and logs out', async ({
   page,
 }) => {
   await signIn(page, SEEDED.tech.email, SEEDED.tech.password);
-  await expect(page).toHaveURL(/localhost:5173\/$/);
+  await expect(page).toHaveURL(`${CONSOLE_URL}/`);
   await expect(page.getByTestId('user-name')).toHaveText('Tariq Technician');
   await expect(page.getByTestId('tenant-name')).toHaveText('Demo Company');
   const cookies = await page.context().cookies();

@@ -1,7 +1,8 @@
 """`make db-seed`: demo data for local development (WP-005, WP-006, WP-009).
 
 Creates the two dev tenants and their subscriptions if they are missing. The tenant IDs match the
-`tenant_id` attributes of the Keycloak organizations in deploy/compose/keycloak/supportx-realm.json.
+`tenant_id` attributes of the Keycloak organizations in the dev realm
+(deploy/helm/supportx/files/keycloak/dev/supportx-realm.json).
 Idempotent, never updates or deletes anything: an existing tenant or subscription is left exactly
 as it is (change plans with `make dev-subscription`). Runs as supportx_migrator, the only role
 allowed to create tenants and plans. Documented in docs/dev-setup.md.

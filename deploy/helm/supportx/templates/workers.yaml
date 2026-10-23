@@ -1,0 +1,79 @@
+{{- /* The event workers (ADR-019, ADR-023): one Deployment each, same image. */ -}}
+{{- $workers := list
+  (dict "component" "relay" "module" "workers.outbox_relay" "replicas" .Values.relay.replicas "resources" .Values.relay.resources)
+  (dict "component" "consumers" "module" "workers.consumers" "replicas" .Values.consumers.replicas "resources" .Values.consumers.resources)
+  (dict "component" "fanout" "module" "workers.realtime_fanout" "replicas" 1 "resources" .Values.fanout.resources)
+-}}
+{{- range $w := $workers }}
+{{- $c := dict "root" $ "component" $w.component }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ $w.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  strategy:
+    # Surge before stopping: the fan-out's single consumer is never absent for long (ADR-023).
+    rollingUpdate: {maxSurge: 1, maxUnavailable: 0}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        {{- include "supportx.configChecksum" $ | nindent 8 }}
+        {{- include "supportx.metricsAnnotations" $ | nindent 8 }}
+    spec:
+      serviceAccountName: {{ $.Release.Name }}-workload
+      automountServiceAccountToken: true
+      {{- include "supportx.pullSecrets" $ | nindent 6 }}
+      {{- include "supportx.podSecurityContext" $ | nindent 6 }}
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        {{- include "supportx.waitForMigrate" $ | nindent 8 }}
+      containers:
+        - name: {{ $w.component }}
+          image: {{ include "supportx.image" (dict "root" $ "name" "backend") }}
+          imagePullPolicy: {{ $.Values.images.backend.pullPolicy }}
+          command: ["python", "-m", {{ $w.module | quote }}]
+          {{- include "supportx.backendEnvFrom" $ | nindent 10 }}
+          env:
+            {{- include "supportx.secretEnv" $ | nindent 12 }}
+            - name: SUPPORTX_SERVICE_NAME
+              value: {{ printf "supportx-%s" $w.component | quote }}
+            {{- if eq $w.component "relay" }}
+            # The relay reads the outbox as supportx_relay, straight to PostgreSQL (LISTEN/NOTIFY).
+            - name: SUPPORTX_SECRET_RELAY_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: relay-db-password}}
+            - name: SUPPORTX_RELAY_DATABASE_URL
+              value: "postgresql://supportx_relay:$(SUPPORTX_SECRET_RELAY_DB_PASSWORD)@{{ include "supportx.dbHost" $ }}:{{ include "supportx.dbPort" $ }}/{{ $.Values.postgresql.database }}"
+            {{- end }}
+          ports:
+            - {name: metrics, containerPort: 9464}
+          startupProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 2
+            failureThreshold: 30
+          livenessProbe:
+            httpGet: {path: /healthz, port: metrics}
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /readyz, port: metrics}
+            periodSeconds: 5
+            timeoutSeconds: 3
+          {{- include "supportx.containerSecurityContext" $ | nindent 10 }}
+          resources:
+            {{- toYaml $w.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

@@ -1,0 +1,87 @@
+{{- if eq .Values.postgresql.mode "cnpg" }}
+{{- $c := dict "root" . "component" "postgresql" -}}
+{{- $pg := .Values.postgresql.cnpg -}}
+# PostgreSQL 16 + pgvector through the CloudNativePG operator (D1, D-037). The bootstrap database
+# is Keycloak's; SupportX's own roles and database come from tooling/sql via the migrate Job
+# (one source with the dev stack and CI). Backups and replicas: WP-014b.
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ .Release.Name }}-pg
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  instances: {{ $pg.instances }}
+  imageName: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.postgres) }}
+  {{- with .Values.images.pullSecrets }}
+  imagePullSecrets:
+    {{- range . }}
+    - name: {{ . }}
+    {{- end }}
+  {{- end }}
+  enableSuperuserAccess: true
+  bootstrap:
+    initdb:
+      database: keycloak
+      owner: keycloak
+      secret:
+        name: {{ .Values.secrets.keycloakDb }}
+  postgresql:
+    parameters:
+      {{- range $k, $v := $pg.parameters }}
+      {{ $k }}: {{ $v | quote }}
+      {{- end }}
+  storage:
+    size: {{ $pg.storage.size }}
+    {{- with $pg.storage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  {{- if $pg.walStorage.size }}
+  walStorage:
+    size: {{ $pg.walStorage.size }}
+    {{- with $pg.walStorage.storageClass }}
+    storageClass: {{ . }}
+    {{- end }}
+  {{- end }}
+  resources:
+    {{- toYaml $pg.resources | nindent 4 }}
+  {{- if include "supportx.podMonitorsEnabled" . }}
+  monitoring:
+    enablePodMonitor: true
+  {{- end }}
+{{- if $pg.devNodePort }}
+---
+# DEV ONLY: the primary on a NodePort for the e2e suite's fixture tools (values-dev.yaml).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}-pg-dev
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  type: NodePort
+  selector:
+    cnpg.io/cluster: {{ .Release.Name }}-pg
+    cnpg.io/instanceRole: primary
+  ports:
+    - {name: postgres, port: 5432, targetPort: 5432, nodePort: {{ $pg.devNodePort }}}
+{{- end }}
+---
+# PgBouncer in transaction mode in front of PostgreSQL (architecture.md §7.3): the API's pool.
+apiVersion: postgresql.cnpg.io/v1
+kind: Pooler
+metadata:
+  name: {{ .Release.Name }}-pg-pooler
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  cluster:
+    name: {{ .Release.Name }}-pg
+  instances: {{ $pg.pooler.instances }}
+  type: rw
+  pgbouncer:
+    poolMode: transaction
+    parameters:
+      default_pool_size: {{ $pg.pooler.defaultPoolSize | quote }}
+      max_client_conn: {{ $pg.pooler.maxClientConn | quote }}
+{{- end }}

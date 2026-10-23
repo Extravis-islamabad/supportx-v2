@@ -1,0 +1,47 @@
+{{- $c := dict "root" . "component" "smoke-test" -}}
+# `helm test <release>`: the installed release answers on every internal route (WP-014).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ .Release.Name }}-smoke-test
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  automountServiceAccountToken: false
+  {{- include "supportx.pullSecrets" . | nindent 2 }}
+  {{- include "supportx.podSecurityContext" . | nindent 2 }}
+  containers:
+    - name: smoke
+      image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+      imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+      command: ["python", "-c"]
+      args:
+        - |
+          import sys, httpx
+          rel = {{ .Release.Name | quote }}
+          checks = [
+              ("API ready", f"http://{rel}-api:8000/api/v1/ready", 200),
+              ("API live", f"http://{rel}-api:8000/api/v1/health", 200),
+              ("web", f"http://{rel}-web:8080/healthz", 200),
+              ("portal", f"http://{rel}-web:8080/portal/", 200),
+              ("realtime", f"http://{rel}-centrifugo:8000/health", 200),
+              ("identity", f"http://{rel}-keycloak:8080/auth/realms/supportx/.well-known/openid-configuration", 200),
+          ]
+          failed = 0
+          for name, url, want in checks:
+              try:
+                  got = httpx.get(url, timeout=10).status_code
+              except httpx.HTTPError as exc:
+                  got = type(exc).__name__
+              ok = got == want
+              failed += not ok
+              print(f"{'ok  ' if ok else 'FAIL'} {name}: {got}")
+          sys.exit(1 if failed else 0)
+      {{- include "supportx.containerSecurityContext" . | nindent 6 }}
+      resources:
+        requests: {cpu: 10m, memory: 64Mi}
+        limits: {cpu: 200m, memory: 128Mi}

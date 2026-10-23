@@ -76,7 +76,7 @@ the 2xxxx range to avoid clashing with other projects; each one can be changed i
 | PgBouncer (transaction mode) | core | `localhost:26432`, database `supportx` | `supportx_app` / `SUPPORTX_APP_PASSWORD` |
 | Valkey | core | `localhost:26379` | password `VALKEY_PASSWORD` (no username) |
 | NATS + JetStream | core | `nats://localhost:24222`, monitoring <http://localhost:28222> | none (dev) |
-| Keycloak (dev mode) | core | <http://localhost:28080> (admin console), health <http://localhost:28090/health>; realm `supportx` imported from `deploy/compose/keycloak/` | `admin` / `KEYCLOAK_ADMIN_PASSWORD`; test users below |
+| Keycloak (dev mode) | core | <http://localhost:28080> (admin console), health <http://localhost:28090/health>; realm `supportx` imported from `deploy/helm/supportx/files/keycloak/dev/` | `admin` / `KEYCLOAK_ADMIN_PASSWORD`; test users below |
 | Centrifugo | core | <http://localhost:28000> (admin UI at `/`), WebSocket `ws://localhost:28000/connection/websocket` | admin UI password `CENTRIFUGO_ADMIN_PASSWORD`; server API key `CENTRIFUGO_API_KEY` |
 | MinIO (S3) | core | API <http://localhost:29000>, console <http://localhost:29001>, bucket `attachments` | `supportx` / `MINIO_ROOT_PASSWORD` |
 | Mailpit (fake email) | core | web inbox <http://localhost:28025>, SMTP `localhost:21025` | none; SMTP accepts any login |
@@ -238,7 +238,7 @@ password (two steps). These **test users** are imported with the realm (dev only
 
 Keycloak admin console: <http://localhost:28080> (`admin` / `KEYCLOAK_ADMIN_PASSWORD`). Five wrong
 passwords lock a user for a while (brute-force protection is on even in dev). The realm is imported
-only when it does not exist yet: after changing `deploy/compose/keycloak/supportx-realm.json`,
+only when it does not exist yet: after changing `deploy/helm/supportx/files/keycloak/dev/supportx-realm.json`,
 delete the `supportx` realm in the admin console (or `make dev-reset`) and restart Keycloak.
 
 The API's tenant comes from the login session. For scripts and quick `curl` tests you can still let

@@ -2,25 +2,26 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 13 of 16 work packages done.
-- **Last completed:** WP-012b (WP-012 follow-ups: date pickers, owner picker, E2E role teardown),
-  2026-10-24. Before it: WP-012.
-- **Next work package:** WP-015 (clickable prototype; unblocked). WP-013 needs the Rust toolchain
-  installed, WP-014 needs k3d (neither is on the dev machine).
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
+  (WP-014 = part 1 of 4; 014b-d are planned below).
+- **Last completed:** WP-014 (deployment part 1: images, Helm chart for dev and single-node, k3d,
+  CI), 2026-10-24. Before it: WP-012b.
+- **Next work package:** WP-015 (clickable prototype) or WP-013 (licence core; Rust 1.99.1 is now
+  installed). WP-014b (HA + backups) is unblocked as well.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
-- **Blockers:** None for WP-015. WP-013 needs Rust (rustc/cargo) installed; WP-014 needs k3d
-  installed (D-003; Homebrew is not installed either).
+- **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
+  on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
 
 ### Open questions (awaiting product owner)
 
-1. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
-   download, or install Homebrew first? Blocks WP-014.
+None.
 
 Resolved 2026-10-24: rich-text editor = Tiptap with server-side sanitising, built with the
-Knowledge module (D-036).
+Knowledge module (D-036); k3d installed through Homebrew by the product owner; WP-014 plan
+decisions D1-D13 (D-038).
 
 ### Open items
 
@@ -189,20 +190,53 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   fingerprint tolerance works (2 changed components pass, 3 fail); no production key in the repo.
 - **Depends on:** WP-009 (Rust/PyO3 approved by D-004; Rust toolchain must be installed)
 
-### [ ] WP-014 — Deployment skeleton (Helm and local cluster)
-- **Goal:** The same build runs on Kubernetes from day one (§14.3).
-- **Scope:** Container images for API and workers (the BFF ships inside the API — D-009); one Helm
-  chart with `values-dev`, `values-single-node` profiles; local k3d cluster script (D-003); readiness/liveness wired;
-  in-cluster Postgres/NATS/Centrifugo for dev.
+### [x] WP-014 — Deployment part 1: images, Helm chart (dev, single-node), k3d, CI (done 2026-10-24)
+- **Goal:** The same build runs on Kubernetes from day one (§14.3). Plan approved 2026-10-24 with
+  decisions D1-D13 (D-038); split into 014 / 014b / 014c / 014d.
+- **Scope:** Container images for API and workers (the BFF ships inside the API, D-009) and the web
+  apps; one Helm chart with `values-dev` and `values-single-node`; local k3d cluster (k3s
+  v1.36.5); readiness/liveness wired; in-cluster PostgreSQL (CloudNativePG), NATS, Valkey,
+  Centrifugo, Keycloak; migrations on deploy; metrics endpoints; CI chart lint on every PR, k3d
+  install + smoke test on deployment changes, Playwright on k3d nightly.
 - **Acceptance:** `make cluster-up && make deploy-dev` installs the chart and the walking-skeleton
-  e2e test passes against the cluster.
-- **Depends on:** WP-002, WP-004 (WP-012 for the final acceptance run); k3d installed on the dev
-  machine (D-003, open question 2)
-- **Note (D-017):** Temporal is deployed without the `auto-setup` image; schema setup and
-  migrations run as a job using `temporalio/admin-tools` (`temporal-sql-tool`) before the server
-  starts. The dev compose stack keeps `auto-setup` 1.29.7.
-- **Note (D-016):** object storage via S3 API only; the in-cluster dev store and the on-prem
-  bundled store follow ADR-012.
+  e2e test passes against the cluster. **Met**: all 24 Playwright journeys pass on k3d.
+- **Depends on:** WP-002, WP-004, WP-012
+- **Note (D-017):** Temporal is deployed without `auto-setup`; the `admin-tools` schema Job comes
+  with the first workflow module (D-038 item 11).
+
+### [ ] WP-014b — Deployment part 2: HA, backups, monitoring (planned, D-038)
+- **Goal:** Standard HA profile and recoverable data.
+- **Scope:** `values-ha.yaml` (3 nodes; CNPG 3 instances; NATS cluster with stream replicas 3;
+  Valkey with Sentinel and app support; Centrifugo on the Valkey engine; Keycloak 2 with Infinispan;
+  PDBs, HPA, anti-affinity); CloudNativePG built-in backups (Barman Cloud to S3-compatible
+  storage, PITR) and a restore runbook incl. the NATS stream reset; SeaweedFS for on-prem object
+  storage with rclone backups; pre-upgrade check Job (licence maintenance date, disk, fresh
+  backup); upgrade test in CI; the permissive monitoring bundle (VictoriaMetrics, VictoriaLogs,
+  Jaeger, Perses) with dashboards and alert rules; an optimized Keycloak image; egress
+  NetworkPolicies; a way to block `/auth/admin` in Ingress mode.
+- **Acceptance:** HA install survives the loss of any one node with the e2e suite passing; a
+  restore drill (backup → new cluster → smoke test) passes in CI; alerts fire in a fault test.
+- **Depends on:** WP-014
+
+### [ ] WP-014c — Deployment part 3: release pipeline and air-gapped install (planned, D-038)
+- **Goal:** Signed, verifiable releases a customer can install with no internet.
+- **Scope:** multi-arch builds on native runners (amd64, arm64); push to GHCR as **private**
+  packages only; cosign signing (password-protected key in GitHub secrets, moved to a KMS before
+  the first customer release) and SBOM attestations; digest pinning and mirroring of third-party
+  images; offline bundle (images, charts, k3s, checksums, signature) and `supportx-install`
+  (verify / init / up / upgrade / check / backup-secrets / support-bundle); install test with
+  egress blocked. **Requires the Nuitka build (WP-013 / ADR-009) before any customer bundle.**
+- **Acceptance:** a bundle built in CI installs on a VM with no network and passes the smoke test;
+  a tampered image or bundle is refused.
+- **Depends on:** WP-014b, WP-013; repo private (D-015) before any image is pushed
+
+### [ ] WP-014d — Deployment part 4: SaaS cell (planned, D-038; with WP-017)
+- **Goal:** One region cell (§14.1) from the same chart.
+- **Scope:** `values-saas.yaml`; External Secrets Operator; cert-manager with DNS-01 wildcard
+  certificates; managed PostgreSQL option; admission-time signature verification; per-tenant
+  hostnames (WP-017).
+- **Acceptance:** a cell installs from values only; two tenants on two hosts pass the e2e suite.
+- **Depends on:** WP-014c, WP-017
 
 ### [ ] WP-015 — Clickable prototype of console and portal
 - **Goal:** Stage 0 product outcome: navigable prototype to validate journeys with stakeholders.
@@ -263,6 +297,55 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-24 — WP-014 deployment part 1 (images, chart, k3d, CI)
+- Decisions: D-037 (deployment components), D-038 (plan decisions D1-D13; D-004 pgBackRest
+  superseded by CloudNativePG backups), ADR-025 (deployment), ADR-012 now Accepted (SeaweedFS
+  on-prem, permissive on-prem monitoring).
+- Images (`deploy/images`): `supportx-backend` (one image; api / relay / consumers / fanout /
+  migrate by command; python 3.12.15-slim-trixie; non-root 10001; read-only root works) and
+  `supportx-web` (nginx-unprivileged 1.30.6, console `/`, portal `/portal/`, CSP). Both labelled
+  INTERNAL/DEV (D-038). Sizes on arm64: backend 340 MB, web 99 MB. Trivy: no fixable HIGH/CRITICAL
+  (web base patched with `apk upgrade` for brotli CVE-2026-111497).
+- Chart `deploy/helm/supportx` (ADR-025): API, workers, web, Centrifugo, Keycloak (realm import:
+  dev or base), CloudNativePG Cluster + Pooler, NATS and Valkey subcharts (auth on, hardened),
+  migrate Job per revision + wait-for-job init containers (RBAC: get jobs), Gateway API routes or
+  Ingress, NetworkPolicies (deny by default; verified blocking on k3s), PodMonitor or annotations,
+  `helm test` smoke pod, NOTES. Profiles `values-dev.yaml`, `values-single-node.yaml`.
+- Backend: `/metrics` + worker `/healthz` `/readyz` on 9464 (`app/core/ops_server.py`, Prometheus
+  exporter of D-023 now installed); API HTTP metrics; `SUPPORTX_OIDC_INTERNAL_URL` (back channel
+  inside the cluster; token, keys and logout always internal); BFF callback and Origin check from
+  the UI origin (portal under `/portal`); readiness probes Keycloak internally;
+  `tooling/deploy_migrate.py` (bootstrap from tooling/sql, CNPG pooler lookup, Alembic under an
+  advisory lock, newer-schema skip); `tooling/wait_for_job.py`; `tooling/keycloak_realm.py`
+  (base realm without demo users/orgs, checked in `make lint`). The dev realm moved into the chart
+  (`files/keycloak/dev`), shared with Compose, URLs as placeholders. Portal builds with base
+  `/portal/`.
+- Local: `make cluster-up`, `deploy-dev`, `cluster-test`, `cluster-e2e`, `chart-lint`,
+  `cluster-down` (asks); k3d `supportx` with k3s v1.36.5-k3s1, Traefik 3.7.13 with the Gateway
+  provider, CloudNativePG 1.30.1. e2e helpers take cluster URLs and secrets from env.
+- CI: `ci.yml` › `chart` (every PR); `cluster.yml` (images + Trivy + SBOM, k3d smoke on deployment
+  changes; Playwright on k3d nightly); Trivy fs scan uses `.trivyignore.yaml` (one documented false
+  positive). No images are pushed (D-038 item 6); cosign signing starts with WP-014c.
+- Found on the way: Keycloak keeps the logout endpoint public even with a dynamic back channel
+  (logout failed until every back-channel call was moved internal); `kubectl port-forward` exits on
+  the first reset connection (dev NodePort instead); a pre-install Helm hook cannot migrate an
+  in-cluster database (Job per revision instead); MinIO and Mailpit are not deployed (no code
+  uses object storage or mail yet). The layouts journey was flaky on the cluster: a click on
+  "Appearance" landing during the re-render after a layout or language change is lost (the popover
+  stays open), and the test's clean-up used an Arabic label, so one failure left the suite user on
+  the side bar for later runs. The test now retries closing and resets by position.
+- Tests: backend unit + DB (ops server, deploy migrate on a throwaway database, wait-for-job,
+  realm, OIDC internal URL and back channel, BFF URLs with a path, readiness); chart lint for 5
+  profile variants (kubeconform: all valid); `helm test` passes; Playwright 24/24 on k3d.
+- Follow-ups: the Appearance popover should close on the first click after a layout/language
+  change (UI); the upstream Valkey chart's own `helm test` pod is refused by our NetworkPolicy and
+  reports "auth enforced" for the wrong reason (WP-014b); kubeconform was installed on the dev Mac
+  with Homebrew (CI downloads a pinned, checksum-verified binary).
+- Dev data: Compose stack untouched except the Keycloak realm file's new location (the existing
+  realm in the dev database is not re-imported). Three throwaway `supportx_test_*` databases left
+  by a failing test run of this session were dropped. The k3d cluster is new and holds only
+  seeded demo data.
 
 ### 2026-10-24 — WP-012b WP-012 follow-ups
 - Decisions: D-035 (dayjs approved as a direct dependency; one shared date-time field in the

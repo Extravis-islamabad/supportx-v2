@@ -1,0 +1,134 @@
+{{- if .Values.networkPolicies.enabled }}
+{{- /*
+Ingress is denied by default in the release namespace; each component accepts only what it needs
+(WP-014 plan §4). Egress stays open for now (Keycloak may federate to LDAP/IdPs, the API calls
+MonetX later); tightening it is WP-014b. Metrics ports are open to the cluster, never routed.
+*/ -}}
+{{- $rel := .Release.Name -}}
+{{- $ours := dict "app.kubernetes.io/name" "supportx" "app.kubernetes.io/instance" $rel -}}
+{{- $gateway := dict "kubernetes.io/metadata.name" .Values.networkPolicies.ingressNamespace -}}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-default-deny-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+{{- /* Public entry points: from the gateway / ingress controller and from our own pods. */}}
+{{- range $target := list (dict "component" "api" "port" 8000) (dict "component" "web" "port" 8080) (dict "component" "centrifugo" "port" 8000) (dict "component" "keycloak" "port" 8080) }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-{{ $target.component }}-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" $ "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: {{ $target.component }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml $gateway | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml $ours | nindent 14 }}
+      ports:
+        - {port: {{ $target.port }}, protocol: TCP}
+{{- end }}
+---
+# Every SupportX pod's /metrics (9464), Keycloak's management port (9000) and the exporters of
+# NATS (7777) and Valkey (9121): scraping from anywhere in the cluster.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-metrics-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {port: 9464, protocol: TCP}
+        - {port: 9000, protocol: TCP}
+        - {port: 7777, protocol: TCP}
+        - {port: 9121, protocol: TCP}
+---
+# NATS and Valkey: only SupportX's own pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-bus-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchExpressions:
+      - {key: app.kubernetes.io/instance, operator: In, values: [{{ $rel | quote }}]}
+      - {key: app.kubernetes.io/name, operator: In, values: [nats, valkey]}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $ours | nindent 14 }}
+      ports:
+        - {port: 4222, protocol: TCP}
+        - {port: 6379, protocol: TCP}
+{{- if eq .Values.postgresql.mode "cnpg" }}
+---
+# PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
+# other instances (replication) and the CloudNativePG operator (instance manager on 8000).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-postgresql-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      cnpg.io/cluster: {{ $rel }}-pg
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $ours | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              cnpg.io/cluster: {{ $rel }}-pg
+      ports:
+        - {port: 5432, protocol: TCP}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.postgresql.cnpg.operatorNamespace }}
+      ports:
+        - {port: 8000, protocol: TCP}
+        - {port: 5432, protocol: TCP}
+    - from:
+        - namespaceSelector: {}
+      ports:
+        - {port: 9187, protocol: TCP}   # CloudNativePG metrics
+    {{- if .Values.postgresql.cnpg.devNodePort }}
+    # DEV ONLY (values-dev.yaml): NodePort traffic arrives from the node's address, so the e2e
+    # tools on the host need an address-based rule. k3d binds the port to 127.0.0.1 only.
+    - from:
+        - ipBlock: {cidr: 0.0.0.0/0}
+      ports:
+        - {port: 5432, protocol: TCP}
+    {{- end }}
+{{- end }}
+{{- end }}

@@ -11,9 +11,14 @@ endpoint arrives with the deployment work (WP-014). The same numbers are in ever
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 
+from opentelemetry.exporter.prometheus import PrometheusMetricReader
 from opentelemetry.metrics import CallbackOptions, Counter, Histogram, Meter, Observation
 from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.sdk.metrics.export import ConsoleMetricExporter, PeriodicExportingMetricReader
+from opentelemetry.sdk.metrics.export import (
+    ConsoleMetricExporter,
+    MetricReader,
+    PeriodicExportingMetricReader,
+)
 from opentelemetry.sdk.resources import Resource
 
 from app import __version__
@@ -24,11 +29,14 @@ METER_NAME = "supportx.events"
 
 def build_meter_provider(settings: Settings) -> MeterProvider:
     """Meter provider for one worker process, exporting only if an exporter is configured."""
-    readers = (
-        [PeriodicExportingMetricReader(ConsoleMetricExporter(), export_interval_millis=15_000)]
-        if settings.metrics_exporter == "console"
-        else []
-    )
+    readers: list[MetricReader] = []
+    if settings.metrics_exporter == "console":
+        readers.append(
+            PeriodicExportingMetricReader(ConsoleMetricExporter(), export_interval_millis=15_000)
+        )
+    elif settings.metrics_exporter == "prometheus":
+        # Collected on scrape into prometheus_client's registry, served by app.core.ops_server.
+        readers.append(PrometheusMetricReader())
     return MeterProvider(
         metric_readers=readers,
         resource=Resource.create(

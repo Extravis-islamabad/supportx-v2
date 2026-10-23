@@ -31,6 +31,8 @@ async def main(stop: asyncio.Event) -> None:
     """All runners + heartbeat until `stop`."""
     settings = runtime.load_settings("supportx-consumers")
     provider, meter = runtime.meter(settings)
+    started = asyncio.Event()
+    ops = await runtime.start_ops(settings, ready=lambda: started.is_set() and not stop.is_set())
     metrics = ConsumerMetrics()
     metrics.bind(meter)
     specs = enabled_consumers(settings)
@@ -52,6 +54,7 @@ async def main(stop: asyncio.Event) -> None:
         await runner.ensure()
         await runner.subscribe()
     log.info("consumers_ready", consumers=[r.name for r in runners])
+    started.set()
 
     async def observe() -> None:
         heartbeat = Heartbeat(
@@ -79,6 +82,7 @@ async def main(stop: asyncio.Event) -> None:
         if database is not None:
             await database.dispose()
         provider.shutdown()
+        await runtime.stop_ops(ops)
 
 
 if __name__ == "__main__":

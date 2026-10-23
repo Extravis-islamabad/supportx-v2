@@ -118,14 +118,33 @@ def verify_rs256(token: str, jwks: dict[str, Any]) -> dict[str, Any]:
 
 
 class OidcClient:
-    """Keycloak endpoints for one realm, discovered from the issuer URL and cached."""
+    """Keycloak endpoints for one realm, discovered from the issuer URL and cached.
 
-    def __init__(self, issuer: str, http: httpx.AsyncClient) -> None:
+    `internal_url` is where this process reaches the realm when the public issuer is not
+    reachable from inside the cluster (WP-014). Keycloak, run with a dynamic back channel, then
+    answers discovery with internal token / keys / logout endpoints but the public authorization
+    endpoint and issuer, so browsers and token checks keep using the public URL.
+    """
+
+    def __init__(
+        self, issuer: str, http: httpx.AsyncClient, internal_url: str | None = None
+    ) -> None:
         self.issuer = issuer.rstrip("/")
+        self.discovery_base = (internal_url or issuer).rstrip("/")
         self._http = http
         self._metadata: dict[str, Any] | None = None
         self._jwks: dict[str, Any] | None = None
         self._fetched_at = 0.0
+
+    def _backchannel(self, url: str) -> str:
+        """An endpoint this process calls itself, moved to the internal base when there is one.
+
+        Keycloak's dynamic back channel already answers internal token and key URLs, but keeps
+        the logout and revocation endpoints on the public host (browsers use them too).
+        """
+        if self.discovery_base != self.issuer and url.startswith(self.issuer + "/"):
+            return self.discovery_base + url[len(self.issuer) :]
+        return url
 
     async def _get_json(self, url: str) -> dict[str, Any]:
         try:
@@ -141,7 +160,7 @@ class OidcClient:
     async def metadata(self) -> dict[str, Any]:
         """OIDC discovery document (cached for five minutes)."""
         if self._metadata is None or time.monotonic() - self._fetched_at > _METADATA_TTL_SECONDS:
-            self._metadata = await self._get_json(self.issuer + DISCOVERY_PATH)
+            self._metadata = await self._get_json(self.discovery_base + DISCOVERY_PATH)
             self._jwks = None
             self._fetched_at = time.monotonic()
         return self._metadata
@@ -149,7 +168,9 @@ class OidcClient:
     async def jwks(self, *, refresh: bool = False) -> dict[str, Any]:
         """Keycloak's signing keys (refetched once when a token names an unknown key)."""
         if self._jwks is None or refresh:
-            self._jwks = await self._get_json((await self.metadata())["jwks_uri"])
+            self._jwks = await self._get_json(
+                self._backchannel((await self.metadata())["jwks_uri"])
+            )
         return self._jwks
 
     async def authorization_url(
@@ -177,7 +198,7 @@ class OidcClient:
         return f"{(await self.metadata())['authorization_endpoint']}?{urlencode(params)}"
 
     async def _token_request(self, client: ClientCredentials, form: dict[str, str]) -> TokenSet:
-        endpoint = (await self.metadata())["token_endpoint"]
+        endpoint = self._backchannel((await self.metadata())["token_endpoint"])
         try:
             response = await self._http.post(
                 endpoint,
@@ -227,7 +248,7 @@ class OidcClient:
 
     async def end_session(self, client: ClientCredentials, refresh_token: str) -> bool:
         """End the Keycloak SSO session from the back channel. False if Keycloak refused."""
-        endpoint = (await self.metadata())["end_session_endpoint"]
+        endpoint = self._backchannel((await self.metadata())["end_session_endpoint"])
         try:
             response = await self._http.post(
                 endpoint,

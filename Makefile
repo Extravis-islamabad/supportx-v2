@@ -6,7 +6,8 @@
 	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check
+	frontend-install-check keycloak-realm chart-deps chart-lint images cluster-up cluster-secrets \
+	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
@@ -153,6 +154,7 @@ audit-frontend:
 backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports
 	$(MAKE) openapi-check events-check
+	$(BACKEND) uv run python -m tooling.keycloak_realm --check
 
 backend-typecheck:
 	$(BACKEND) uv run mypy
@@ -205,3 +207,50 @@ dev-check: $(DEV_ENV) ## Verify every running dev service really works (PASS/FAI
 
 dev-reset: $(DEV_ENV) ## DELETE all dev data volumes (asks you to type "yes" first)
 	@bash $(DEV_DIR)/scripts/dev-reset.sh
+
+# --- Kubernetes (WP-014, docs/deployment.md). k3s pinned in deploy/k3d/cluster.yaml (D9). ---------
+CHART := deploy/helm/supportx
+NAMESPACE := supportx
+K3D_CLUSTER := supportx
+IMAGE_TAG := dev
+GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
+
+keycloak-realm: ## Regenerate the production (base) Keycloak realm from the dev realm
+	$(BACKEND) uv run python -m tooling.keycloak_realm
+
+chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock
+	helm repo add nats https://nats-io.github.io/k8s/helm/charts/ --force-update >/dev/null
+	helm repo add valkey https://valkey.io/valkey-helm/ --force-update >/dev/null
+	helm dependency build $(CHART)
+
+chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
+	@bash deploy/scripts/chart-lint.sh
+
+images: ## Build the INTERNAL/DEV backend and web images for this machine's architecture
+	docker build -f deploy/images/backend.Dockerfile -t supportx-backend:$(IMAGE_TAG) \
+		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
+	docker build -f deploy/images/web.Dockerfile -t supportx-web:$(IMAGE_TAG) \
+		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
+
+cluster-up: ## Create the local k3d cluster (k3s v1.36.5) and its prerequisites (CloudNativePG)
+	@bash deploy/k3d/up.sh
+
+cluster-secrets: ## Create the chart's Secrets with random values (never overwrites existing ones)
+	@bash deploy/scripts/secrets.sh $(NAMESPACE)
+
+deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgrade the dev profile on k3d
+	k3d image import supportx-backend:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
+		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
+	helm test supportx -n $(NAMESPACE) --logs
+
+cluster-test: ## helm test: the installed release answers on every internal route
+	helm test supportx -n $(NAMESPACE) --logs
+
+cluster-e2e: ## Playwright journeys against the k3d cluster (ARGS="tests/login.spec.ts" for one file)
+	@bash deploy/k3d/e2e.sh $(ARGS)
+
+cluster-down: ## DELETE the k3d cluster and all its data (asks you to type "yes" first)
+	@printf 'This deletes the k3d cluster "$(K3D_CLUSTER)" and every volume in it.\nType "yes" to continue: '; \
+		read answer; [ "$$answer" = "yes" ] || { echo "Cancelled."; exit 1; }
+	k3d cluster delete $(K3D_CLUSTER)

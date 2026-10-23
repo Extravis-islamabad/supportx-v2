@@ -1,0 +1,41 @@
+# Local k3d cluster (make cluster-up && make deploy-dev). Plain http on supportx.localhost:8080,
+# the dev realm with its demo users, demo tenants seeded, images built locally and imported.
+publicUrl: http://supportx.localhost:8080
+
+images:
+  backend: {repository: supportx-backend, tag: dev, pullPolicy: Never}
+  web: {repository: supportx-web, tag: dev, pullPolicy: Never}
+
+app:
+  profile: dev
+  logLevel: info
+  seedDevData: true
+
+keycloak:
+  realmImport: dev
+  exposeAdmin: true             # the e2e suite creates its users through the admin API
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: "2", memory: 1Gi}
+
+postgresql:
+  cnpg:
+    devNodePort: 30432          # 127.0.0.1:25433 on the host (deploy/k3d/cluster.yaml)
+    storage: {size: 2Gi}
+    parameters:
+      shared_buffers: 128MB
+      max_connections: "100"
+    resources:
+      requests: {cpu: 100m, memory: 256Mi}
+      limits: {cpu: "1", memory: 768Mi}
+
+nats:
+  config:
+    jetstream:
+      fileStore:
+        pvc: {size: 1Gi}
+
+api:
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 768Mi}

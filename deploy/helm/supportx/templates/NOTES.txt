@@ -1,0 +1,12 @@
+SupportX {{ .Chart.AppVersion }} ({{ .Values.app.profile }} profile) is installing.
+
+  Console:  {{ .Values.publicUrl }}/
+  Portal:   {{ .Values.publicUrl }}/portal/
+  API:      {{ .Values.publicUrl }}/api/v1/ready
+
+The API and workers wait for the migrate Job ({{ include "supportx.migrateJob" . }}):
+  kubectl -n {{ .Release.Namespace }} logs job/{{ include "supportx.migrateJob" . }}
+Then check everything:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+INTERNAL/DEV images: not for customer distribution (D-038).

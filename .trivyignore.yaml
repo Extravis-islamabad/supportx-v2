@@ -1,0 +1,10 @@
+# Accepted Trivy findings, each scoped as narrowly as Trivy allows and explained. Review with every
+# chart dependency upgrade.
+misconfigurations:
+  - id: KSV-0109
+    paths:
+      - deploy/helm/supportx/tests/golden/single-node.yaml
+    statement: >-
+      False positive (WP-014): the upstream Valkey chart's ConfigMap "supportx-valkey-init-scripts"
+      is a shell script that reads the password from the mounted Secret (auth.usersExistingSecret);
+      no secret value is stored in it.

@@ -1,0 +1,21 @@
+# Build contexts are the repo root (deploy/images/*.Dockerfile). Keep them small and secret-free.
+**/.git
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules
+**/.venv
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/.import_linter_cache
+**/.coverage
+**/dist
+**/test-results
+**/playwright-report
+backend/tests
+docs
+mobile
+licence-core
+deploy/compose/.env

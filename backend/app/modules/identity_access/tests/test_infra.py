@@ -130,3 +130,53 @@ async def test_metadata_is_cached() -> None:
     await oidc.metadata()
     assert len(calls) == 1
     assert time.monotonic() - started < 1
+
+
+async def test_discovery_can_use_an_internal_url_while_tokens_keep_the_public_issuer() -> None:
+    """In Kubernetes the API reaches Keycloak inside the cluster (WP-014)."""
+    seen: list[str] = []
+    idp = FakeIdp()
+
+    def recording(request: httpx.Request) -> httpx.Response:
+        seen.append(str(request.url))
+        return idp.handler(request)
+
+    oidc = OidcClient(
+        ISSUER,
+        httpx.AsyncClient(transport=httpx.MockTransport(recording)),
+        internal_url="http://keycloak.internal:8080/realms/supportx/",
+    )
+    await oidc.metadata()
+    assert seen == [
+        "http://keycloak.internal:8080/realms/supportx/.well-known/openid-configuration"
+    ]
+    assert oidc.issuer == ISSUER.rstrip("/")
+
+
+async def test_back_channel_calls_never_use_the_public_host() -> None:
+    """Keycloak keeps logout on the public host, which pods cannot resolve (WP-014)."""
+    public = "http://desk.example.com/auth/realms/supportx"
+    internal = "http://keycloak:8080/auth/realms/supportx"
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        if request.url.path.endswith("/.well-known/openid-configuration"):
+            return httpx.Response(
+                200,
+                json={
+                    "issuer": public,
+                    "authorization_endpoint": f"{public}/protocol/openid-connect/auth",
+                    "token_endpoint": f"{internal}/protocol/openid-connect/token",
+                    "jwks_uri": f"{internal}/protocol/openid-connect/certs",
+                    "end_session_endpoint": f"{public}/protocol/openid-connect/logout",
+                },
+            )
+        return httpx.Response(204)
+
+    oidc = OidcClient(public, httpx.AsyncClient(transport=httpx.MockTransport(handler)), internal)
+    assert await oidc.end_session(CLIENT, "refresh") is True
+    assert calls[-1] == f"{internal}/protocol/openid-connect/logout"
+    # The browser still goes to the public login page.
+    url = await oidc.authorization_url(CLIENT, state="s", nonce="n", pkce=PkcePair.generate())
+    assert url.startswith(f"{public}/protocol/openid-connect/auth?")

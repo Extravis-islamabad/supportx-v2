@@ -1,0 +1,143 @@
+{{- $c := dict "root" . "component" "keycloak" -}}
+# Keycloak (ADR-006) on the public host at /auth (D3). The API talks to it inside the cluster
+# (SUPPORTX_OIDC_INTERNAL_URL); Keycloak keeps the public issuer for browsers and tokens.
+# The realm file is imported on first start only; an existing realm is never overwritten.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" $c }}-realm
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+data:
+  {{- if eq .Values.keycloak.realmImport "dev" }}
+  supportx-realm.json: |
+    {{- .Files.Get "files/keycloak/dev/supportx-realm.json" | nindent 4 }}
+  {{- else if eq .Values.keycloak.realmImport "base" }}
+  supportx-realm.json: |
+    {{- .Files.Get "files/keycloak/base/supportx-realm.json" | nindent 4 }}
+  {{- else }}
+  {{- fail "keycloak.realmImport must be dev or base" }}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: {{ .Values.keycloak.replicas }}
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        {{- if not (include "supportx.podMonitorsEnabled" .) }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9000"
+        prometheus.io/path: /metrics
+        {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        # The upstream image's user. Plain `start` builds the server at boot: its build output
+        # and temp files go to the emptyDirs below; the rest of the filesystem is read-only.
+        # An optimized image with our themes (`start --optimized`) comes with WP-014b / WP-017.
+        runAsUser: 1000
+        runAsGroup: 0
+        fsGroup: 0
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        # The build directory starts as the image's own copy; `start` rebuilds into it.
+        - name: copy-build
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.keycloak) }}
+          command: ["/bin/sh", "-c", "cp -R /opt/keycloak/lib/quarkus/. /build/"]
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 32Mi}
+            limits: {cpu: 200m, memory: 128Mi}
+          volumeMounts:
+            - {name: build, mountPath: /build}
+      containers:
+        - name: keycloak
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.keycloak) }}
+          args: ["start", "--import-realm"]
+          env:
+            - {name: KC_DB, value: postgres}
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://{{ include "supportx.dbHost" . }}:{{ include "supportx.dbPort" . }}/keycloak"
+            - name: KC_DB_USERNAME
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.keycloakDb }}, key: username}}
+            - name: KC_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.keycloakDb }}, key: password}}
+            # TLS ends at the gateway; Keycloak trusts its X-Forwarded-* headers.
+            - {name: KC_HTTP_ENABLED, value: "true"}
+            - {name: KC_PROXY_HEADERS, value: xforwarded}
+            - {name: KC_HTTP_RELATIVE_PATH, value: /auth}
+            - {name: KC_HTTP_MANAGEMENT_RELATIVE_PATH, value: /}
+            - name: KC_HOSTNAME
+              value: {{ printf "%s/auth" .Values.publicUrl | quote }}
+            - {name: KC_HOSTNAME_BACKCHANNEL_DYNAMIC, value: "true"}
+            - {name: KC_HEALTH_ENABLED, value: "true"}
+            - {name: KC_METRICS_ENABLED, value: "true"}
+            - name: KC_CACHE
+              value: {{ if gt (int .Values.keycloak.replicas) 1 }}ispn{{ else }}local{{ end }}
+            - {name: JAVA_OPTS_KC_HEAP, value: "-XX:MaxRAMPercentage=65 -XX:InitialRAMPercentage=25"}
+            # Temporary bootstrap admin (Keycloak replaces it with real admins later).
+            - {name: KC_BOOTSTRAP_ADMIN_USERNAME, value: admin}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-admin-password}}
+            # Placeholders in the realm file.
+            - name: SUPPORTX_KC_CONSOLE_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-console-secret}}
+            - name: SUPPORTX_KC_PORTAL_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-portal-secret}}
+            - {name: SUPPORTX_KC_CONSOLE_ORIGIN, value: {{ .Values.publicUrl | quote }}}
+            - {name: SUPPORTX_KC_PORTAL_ORIGIN, value: {{ .Values.publicUrl | quote }}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: management, containerPort: 9000}
+          startupProbe:
+            httpGet: {path: /health/started, port: management}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /health/live, port: management}
+            periodSeconds: 15
+          readinessProbe:
+            httpGet: {path: /health/ready, port: management}
+            periodSeconds: 10
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+          volumeMounts:
+            - {name: realm, mountPath: /opt/keycloak/data/import, readOnly: true}
+            - {name: build, mountPath: /opt/keycloak/lib/quarkus}
+            - {name: data-tmp, mountPath: /opt/keycloak/data/tmp}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: realm
+          configMap: {name: {{ include "supportx.name" $c }}-realm}
+        - name: build
+          emptyDir: {}
+        - name: data-tmp
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: http, port: 8080, targetPort: http}

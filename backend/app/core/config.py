@@ -22,6 +22,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 Profile = Literal["dev", "test", "production"]
 LogFormat = Literal["console", "json"]
 TraceExporter = Literal["none", "console"]
+MetricsExporter = Literal["none", "console", "prometheus"]
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 ENV_FILE = BACKEND_DIR / ".env"
@@ -67,13 +68,20 @@ class Settings(BaseSettings):
     # Authentication (WP-006): OIDC against Keycloak through the BFF (architecture.md §11.1).
     # The issuer is the realm URL, e.g. http://localhost:28080/realms/supportx.
     oidc_issuer: str | None = None
+    # Where the API itself reaches the same realm (back channel: discovery, token, keys, logout),
+    # e.g. http://keycloak:8080/auth/realms/supportx inside Kubernetes, where the public issuer
+    # (the browser's URL) is not reachable from pods. None = the issuer. ID tokens are still
+    # checked against `oidc_issuer` (Keycloak keeps the public issuer with a dynamic back channel).
+    oidc_internal_url: str | None = None
     oidc_console_client_id: str = "supportx-console"
     oidc_console_client_secret: SecretStr | None = None
     oidc_portal_client_id: str = "supportx-portal"
     oidc_portal_client_secret: SecretStr | None = None
     oidc_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
-    # Public base URLs of the two UIs. The OIDC callback is <base>/api/v1/auth/callback (same
-    # origin as the UI, D-009) and returnTo paths are resolved against them.
+    # Public base URLs of the two UIs. They may carry a path: in Kubernetes both share one host,
+    # the portal under /portal (WP-014, D3). The OIDC callback is <origin>/api/v1/auth/callback
+    # (same origin as the UI, D-009); after login the browser lands on the returnTo path, else on
+    # the UI's own base path.
     console_url: str = "http://localhost:5173"
     portal_url: str = "http://localhost:5174"
 
@@ -168,8 +176,12 @@ class Settings(BaseSettings):
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"
-    # Worker metrics (WP-007); `console` prints them periodically. Prometheus export: WP-014.
-    metrics_exporter: TraceExporter = "none"
+    # Metrics (WP-007, WP-014): `console` prints them periodically; `prometheus` serves them on
+    # an internal port (`metrics_host:metrics_port/metrics`, never routed publicly), together
+    # with the workers' /healthz and /readyz probes.
+    metrics_exporter: MetricsExporter = "none"
+    metrics_host: str = "127.0.0.1"
+    metrics_port: int = Field(default=9464, ge=1, le=65535)
 
     @model_validator(mode="after")
     def _production_requires_backing_services(self) -> Self:

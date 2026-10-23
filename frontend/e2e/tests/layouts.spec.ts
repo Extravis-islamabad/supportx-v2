@@ -15,14 +15,20 @@ const LAYOUTS = [
   { code: 'side_compact', label: 'Compact side bar', nav: 'nav-compact' },
 ] as const;
 
-/** Do something in the Appearance popover, then close it (it toggles; Escape does not). */
+/**
+ * Do something in the Appearance popover, then close it (it toggles; Escape does not). A layout or
+ * language change re-renders the shell, and a click landing during that re-render is lost, so
+ * closing retries until the popover is gone (seen on the k3d cluster, WP-014).
+ */
 async function inAppearance(page: Page, action: () => Promise<void>): Promise<void> {
   const panel = page.getByTestId('nav-layout');
   if (!(await panel.isVisible())) await page.getByTestId('appearance-menu').click();
   await expect(panel).toBeVisible();
   await action();
-  if (await panel.isVisible()) await page.getByTestId('appearance-menu').click();
-  await expect(panel).toBeHidden();
+  await expect(async () => {
+    if (await panel.isVisible()) await page.getByTestId('appearance-menu').click();
+    await expect(panel).toBeHidden({ timeout: 1_000 });
+  }).toPass({ timeout: 10_000 });
 }
 
 async function chooseLayout(page: Page, label: string): Promise<void> {
@@ -91,8 +97,11 @@ test('three layouts: same menus, persisted server-side, live on another session,
     await expectAccessible(a, 'top bar, Arabic');
     await a.screenshot({ path: 'test-results/layout-top-ar.png' });
   } finally {
-    // Back to the default for the rest of the suite (and in English, which is not stored).
-    await chooseLayout(a, 'شريط علوي').catch(() => undefined);
+    // Back to the default for the rest of the suite, whatever the language at this point: the
+    // top bar is the first option in every language.
+    await inAppearance(a, async () => {
+      await a.getByTestId('nav-layout').getByRole('radio').first().click({ force: true });
+    }).catch(() => undefined);
     await contextA.close();
     await contextB.close();
   }

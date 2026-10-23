@@ -71,8 +71,8 @@ jobs:
       - name: Report all findings
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
-            fs --scanners vuln,secret,misconfig --exit-code 0 /repo
+            fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --exit-code 0 /repo
       - name: Fail on high/critical
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
-            fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 1 /repo
+            fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --severity HIGH,CRITICAL --exit-code 1 /repo

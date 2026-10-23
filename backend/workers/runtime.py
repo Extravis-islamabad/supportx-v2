@@ -10,6 +10,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 
 from app.core.config import Settings
 from app.core.logging import configure_logging, get_logger
+from app.core.ops_server import OpsServer
 from workers.metrics import METER_NAME, build_meter_provider
 
 log = get_logger(__name__)
@@ -26,6 +27,25 @@ def meter(settings: Settings) -> tuple[MeterProvider, Meter]:
     """Meter provider for this process, and the events meter."""
     provider = build_meter_provider(settings)
     return provider, provider.get_meter(METER_NAME)
+
+
+async def start_ops(settings: Settings, ready: Callable[[], bool]) -> OpsServer | None:
+    """With Prometheus export on: /metrics, /healthz and /readyz on the internal metrics port.
+
+    Started before the worker connects anywhere, so liveness holds during a slow start while
+    readiness waits for `ready()` (WP-014: Kubernetes probes and scraping).
+    """
+    if settings.metrics_exporter != "prometheus":
+        return None
+    server = OpsServer(settings.metrics_host, settings.metrics_port, ready=ready)
+    await server.start()
+    return server
+
+
+async def stop_ops(server: OpsServer | None) -> None:
+    """Stop the operations endpoint if one was started."""
+    if server is not None:
+        await server.stop()
 
 
 async def pause(stop: asyncio.Event, seconds: float) -> None:
