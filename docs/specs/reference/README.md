@@ -33,3 +33,4 @@ same way.
 | [sdp-area-02b-new-request-form.md](sdp-area-02b-new-request-form.md) | Requests: new request form, templates, first test records |
 | [sdp-area-02c-request-detail.md](sdp-area-02c-request-detail.md) | Requests: detail page actions (notes, worklog, tasks, assign, link, merge, close, cancel) |
 | [sdp-area-03-service-catalog-portal.md](sdp-area-03-service-catalog-portal.md) | Service catalog and self-service portal |
+| [sdp-area-04-problems.md](sdp-area-04-problems.md) | Problems: list, form, detail tabs, known errors, closure, templates |
