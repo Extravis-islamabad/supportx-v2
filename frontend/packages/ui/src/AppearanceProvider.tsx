@@ -1,58 +1,92 @@
-import { App as AntApp, ConfigProvider, theme } from 'antd';
+import { App as AntApp, ConfigProvider } from 'antd';
+import type { Locale as AntLocale } from 'antd/es/locale';
+import arEG from 'antd/locale/ar_EG';
+import enUS from 'antd/locale/en_US';
+import urPK from 'antd/locale/ur_PK';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-import { isRtlLocale, type Locale } from '@supportx/labels';
+import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
-import { AppearanceContext, type Appearance, type Direction, type ThemeMode } from './appearance';
-import { brandTokens } from './tokens';
+import { AppearanceContext, type Appearance, type Direction } from './appearance';
+import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
+
+const ANT_LOCALES: Record<Locale, AntLocale> = { en: enUS, ar: arEG, ur: urPK };
+const MODE_STORAGE_KEY = 'supportx.theme_mode';
 
 export interface AppearanceProviderProps {
   children: ReactNode;
   initialMode?: ThemeMode;
   initialLocale?: Locale;
+  /** Per-tenant branding (WP-017); the Extravis default otherwise. */
+  branding?: Partial<Branding>;
 }
 
-/** Wires Ant Design's ConfigProvider to light/dark theme tokens, text direction and locale. */
+/** Remembered choice, else the OS preference. Storage may be unavailable (private mode). */
+function preferredMode(): ThemeMode {
+  try {
+    const stored = window.localStorage.getItem(MODE_STORAGE_KEY);
+    if (stored !== null && (THEME_MODES as readonly string[]).includes(stored)) {
+      return stored as ThemeMode;
+    }
+  } catch {
+    // ignore: the OS preference is a fine default
+  }
+  if (window.matchMedia('(prefers-contrast: more)').matches) return 'high_contrast';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * Theme (light / dark / high contrast, brand seeds), text direction and language for everything
+ * inside: Ant Design's ConfigProvider (+ its own locale), the labels provider and <html dir lang>.
+ */
 export function AppearanceProvider({
   children,
-  initialMode = 'light',
+  initialMode,
   initialLocale = 'en',
+  branding,
 }: AppearanceProviderProps) {
-  const [mode, setMode] = useState<ThemeMode>(initialMode);
+  const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
   const [direction, setDirection] = useState<Direction>(isRtlLocale(initialLocale) ? 'rtl' : 'ltr');
 
   useEffect(() => {
     document.documentElement.dir = direction;
     document.documentElement.lang = locale;
-  }, [direction, locale]);
+    document.documentElement.dataset.theme = mode;
+  }, [direction, locale, mode]);
 
+  const brand = useMemo(() => ({ ...DEFAULT_BRANDING, ...branding }), [branding]);
   const appearance = useMemo<Appearance>(
     () => ({
       mode,
       direction,
       locale,
-      setMode,
+      branding: brand,
+      setMode: (next) => {
+        setModeState(next);
+        try {
+          window.localStorage.setItem(MODE_STORAGE_KEY, next);
+        } catch {
+          // not persisted: still applied for this visit
+        }
+      },
       setDirection,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale],
+    [mode, direction, locale, brand],
   );
+  const themeConfig = useMemo(() => buildTheme(mode, brand), [mode, brand]);
 
   return (
     <AppearanceContext.Provider value={appearance}>
-      <ConfigProvider
-        direction={direction}
-        theme={{
-          algorithm: mode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm,
-          token: brandTokens,
-        }}
-      >
-        <AntApp>{children}</AntApp>
-      </ConfigProvider>
+      <LabelsProvider locale={locale}>
+        <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
+          <AntApp>{children}</AntApp>
+        </ConfigProvider>
+      </LabelsProvider>
     </AppearanceContext.Provider>
   );
 }

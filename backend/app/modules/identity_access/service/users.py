@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import Boolean, Row, func, literal_column, select
+from sqlalchemy import Boolean, Row, case, func, literal_column, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -124,22 +124,31 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context
             "updated_at": now,
         }
         before = await _existing_row(session, tenant_id, identity)
-        statement = (
-            insert(User)
-            .values(
-                id=new_id(),
-                tenant_id=tenant_id,
-                external_subject=identity.subject,
-                created_at=now,
-                version=1,
+        upsert = insert(User).values(
+            id=new_id(),
+            tenant_id=tenant_id,
+            external_subject=identity.subject,
+            created_at=now,
+            version=1,
+            **profile,
+        )
+        # The version moves only when a field the record shows changes (name, email, locale,
+        # type). A plain sign-in (last_login_at) must not make an open edit form stale: signing
+        # in on a second device would otherwise turn the next save into a 409 (found in WP-010).
+        synced_changed = or_(
+            *(
+                getattr(User, name).is_distinct_from(getattr(upsert.excluded, name))
+                for name in SYNCED_FIELDS
+            )
+        )
+        statement = upsert.on_conflict_do_update(
+            index_elements=[User.tenant_id, User.external_subject],
+            set_={
                 **profile,
-            )
-            .on_conflict_do_update(
-                index_elements=[User.tenant_id, User.external_subject],
-                set_={**profile, "version": User.version + 1},
-            )
-            # xmax = 0 only for a freshly inserted row: tells "created" from "updated".
-            .returning(User.id, User.status, User.version, literal_column("xmax = 0", Boolean))
+                "version": case((synced_changed, User.version + 1), else_=User.version),
+            },
+        ).returning(  # xmax = 0 only for a freshly inserted row: tells "created" from "updated".
+            User.id, User.status, User.version, literal_column("xmax = 0", Boolean)
         )
         try:
             user_id, status, version, inserted = (await session.execute(statement)).one()

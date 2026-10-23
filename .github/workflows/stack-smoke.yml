@@ -1,7 +1,7 @@
 # Starts the local dev stack (core profile, which includes Keycloak) exactly as a developer does,
 # then proves it end to end: `make dev-check`, migrations + RLS guard, the backend integration
-# tests against the real Keycloak/Valkey/PgBouncer, and the Playwright login journey in a real
-# browser (WP-002, WP-006). The .env is generated per run by `make dev-init` with throwaway random
+# tests against the real Keycloak/Valkey/PgBouncer, and the Playwright journeys (login, shell,
+# users, profile conflicts, read-only mode, axe accessibility) in a real browser (WP-002/006/010). The .env is generated per run by `make dev-init` with throwaway random
 # secrets; nothing secret is stored in the repo or in GitHub.
 name: Stack smoke
 
@@ -13,9 +13,10 @@ on:
       - "backend/app/modules/identity_access/**"
       - "backend/migrations/**"
       - "backend/tests/integration/**"
+      - "backend/app/modules/licensing/**"
+      - "backend/tooling/**"
       - "frontend/apps/**"
-      - "frontend/packages/api-client/**"
-      - "frontend/packages/ui/**"
+      - "frontend/packages/**"
       - "frontend/e2e/**"
       - ".github/workflows/stack-smoke.yml"
   schedule:
@@ -55,17 +56,21 @@ jobs:
       - name: Backend integration tests (real Keycloak, Valkey, PgBouncer)
         working-directory: backend
         run: uv run pytest -m integration --no-cov -q
-      - name: Start the API and the console
+      - name: Start the API, the event workers and the console
         run: |
           (cd backend && nohup uv run uvicorn app.main:create_app --factory \
             --host 127.0.0.1 --port 8000 --no-access-log > ../api.log 2>&1 &)
+          # Plan changes (read-only journey) reach the API's entitlement cache through the
+          # outbox relay and the consumer worker (WP-009).
+          (cd backend && nohup uv run python -m workers.outbox_relay > ../relay.log 2>&1 &)
+          (cd backend && nohup uv run python -m workers.consumers > ../consumers.log 2>&1 &)
           (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
           for _ in $(seq 1 60); do
             curl -fsS http://localhost:5173/api/v1/ready >/dev/null && break
             sleep 2
           done
           curl -fsS http://localhost:5173/api/v1/ready
-      - name: Playwright (login journey in Chromium)
+      - name: Playwright (console journeys and accessibility in Chromium)
         working-directory: frontend
         run: |
           pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
@@ -74,7 +79,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           make dev-ps
-          tail -n 200 api.log console.log || true
+          tail -n 200 api.log relay.log consumers.log console.log || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
             --profile full logs --no-color --tail=200 keycloak postgres pgbouncer
       - name: Upload Playwright report

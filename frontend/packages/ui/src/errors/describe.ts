@@ -1,0 +1,50 @@
+import { ApiError } from '@supportx/api-client';
+import type { LabelInput, LabelParams } from '@supportx/labels';
+
+type Translate = (key: LabelInput, params?: LabelParams) => string;
+
+export interface ErrorDescription {
+  title: string;
+  /** Extra explanation (feature name, licence reason), already translated. */
+  detail?: string;
+  /** Support reference (request ID), when there is one. */
+  reference: string | null;
+}
+
+/**
+ * Turn any error into translated text. Never returns a code, JSON or stack trace (rule d): an
+ * unknown error becomes the generic "something went wrong" message.
+ */
+export function describeError(error: unknown, t: Translate): ErrorDescription {
+  if (!(error instanceof ApiError)) {
+    return { title: t('errors.internal_error'), reference: null };
+  }
+  const reference = error.requestId;
+  if (error.kind === 'network') {
+    return { title: t('errors.network_error'), reference };
+  }
+  const params = error.params;
+  switch (error.code) {
+    case 'entitlement_required': {
+      const feature = typeof params.feature === 'string' ? params.feature : null;
+      return {
+        title: t('errors.entitlement_required'),
+        detail:
+          feature === null
+            ? undefined
+            : t('errors.entitlement_required.detail', { feature: t(`feature.${feature}`) }),
+        reference,
+      };
+    }
+    case 'read_only_mode': {
+      const reason = typeof params.reason === 'string' ? params.reason : 'no_entitlement';
+      return {
+        title: t('errors.read_only_mode'),
+        detail: t(`entitlement_reason.${reason}`),
+        reference,
+      };
+    }
+    default:
+      return { title: t(error.messageKey), reference };
+  }
+}

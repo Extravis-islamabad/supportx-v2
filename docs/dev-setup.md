@@ -45,6 +45,23 @@ readable only by you. Look there whenever you need a password (see the table bel
 You can switch between core and full at any time: `make dev-up` after `make dev-up-full` leaves
 the full services running. Use `make dev-down` to stop everything.
 
+### Running the console and portal (WP-010)
+
+```bash
+make backend-dev                                     # API on 127.0.0.1:8000
+make worker-relay & make worker-consumers            # events (plan changes, cache refresh)
+cd frontend && pnpm --filter @supportx/console dev   # http://localhost:5173
+cd frontend && pnpm --filter @supportx/portal dev    # http://localhost:5174
+```
+
+Sign in with the dev users from section 4. Things to try: the sidebar and **Ctrl+K**;
+**Appearance** (light / dark / high contrast, right-to-left, language); the tenant switcher
+(multi@demo.test belongs to both companies); **Admin › Users** (as admin@demo.test); **My
+profile** in the user menu (open it in two browsers and save in both to see the conflict
+dialog); `/dev/components` (development builds only: chart, every error message). Licence states
+are driven with `make dev-subscription` (see "Plans and licence limits"). Playwright: `make e2e`
+(frontend/e2e/README.md). How the frontend is built: docs/architecture/frontend.md.
+
 ## 4. Services, ports and logins
 
 All ports are bound to `127.0.0.1` only, so nothing is reachable from your network. They are in

@@ -81,6 +81,9 @@ Ed25519 licence signatures and field-level encryption); `openapi-typescript` (de
 **Approved additions (D-023):** `opentelemetry-exporter-prometheus` and `prometheus_client`
 (Apache-2.0) for the Prometheus scrape endpoint of the API and workers (WP-014).
 
+**Approved additions (D-026):** `react-router` (7.x while on React 18), `openapi-fetch` (typed API
+client), `@axe-core/playwright` (test-only accessibility checks).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

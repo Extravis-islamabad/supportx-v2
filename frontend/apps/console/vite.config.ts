@@ -1,8 +1,11 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
+import { codeSplitting } from '../../vite.chunks';
+
 export default defineConfig({
   plugins: [react()],
+  build: { rolldownOptions: { output: { codeSplitting } } },
   server: {
     port: 5173,
     strictPort: true,

@@ -1,49 +1,35 @@
-import { vi } from 'vitest';
-
+import {
+  fakeApi,
+  fakeEntitlements,
+  fakeSession,
+  fakeUser,
+  type FakeRoute,
+} from '@supportx/api-client/testing';
 import type { MeResponse } from '@supportx/api-client';
 
-/** A session as GET /api/v1/auth/me returns it (typed by the generated schema). */
-export function session(overrides: Partial<MeResponse['user']> = {}): MeResponse {
-  return {
-    user: {
-      id: '01900000-0000-7000-8000-000000000101',
-      email: 'tech@demo.test',
-      display_name: 'Tariq Technician',
-      locale: 'en',
-      user_type: 'technician',
-      roles: ['technician'],
-      ...overrides,
-    },
-    tenant: { id: '01900000-0000-7000-8000-00000000de30', name: 'Demo Company' },
-    tenants: [{ id: '01900000-0000-7000-8000-00000000de30', name: 'Demo Company' }],
-    csrf_token: 'csrf-from-session',
-  };
-}
+export { fakeEntitlements, fakeSession, fakeUser, problem } from '@supportx/api-client/testing';
 
-export interface Call {
-  url: string;
-  method: string;
-  headers: Headers;
-}
+const ME = '/api/v1/users/01900000-0000-7000-8000-000000000101';
 
-/** Stub fetch: /auth/me answers with `me` (or 401 when null); everything else 200 or 204. */
-export function stubApi(me: MeResponse | null) {
-  const calls: Call[] = [];
-  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    const url = input instanceof Request ? input.url : input.toString();
-    calls.push({ url, method: init?.method ?? 'GET', headers: new Headers(init?.headers) });
-    if (url.endsWith('/auth/me')) {
-      return Promise.resolve(
-        me === null
-          ? new Response(JSON.stringify({ code: 'unauthenticated' }), { status: 401 })
-          : new Response(JSON.stringify(me), { status: 200 }),
-      );
-    }
-    if (url.endsWith('/auth/logout')) {
-      return Promise.resolve(new Response(null, { status: 204 }));
-    }
-    return Promise.resolve(new Response('{}', { status: 200 }));
+/**
+ * The console's API: a signed-in technician on an active Enterprise plan unless overridden.
+ * `me: null` = no session (401).
+ */
+export function consoleApi({
+  me = fakeSession(),
+  routes = {},
+}: { me?: MeResponse | null; routes?: Record<string, FakeRoute> } = {}) {
+  return fakeApi({
+    'GET /api/v1/auth/me':
+      me === null
+        ? { status: 401, body: { code: 'unauthenticated', message_key: 'errors.unauthenticated' } }
+        : { body: me },
+    'POST /api/v1/auth/logout': { status: 204 },
+    'GET /api/v1/entitlements': { body: fakeEntitlements() },
+    'GET /api/v1/health': { body: { status: 'ok', version: '0.1.0' } },
+    [`GET ${ME}`]: { body: fakeUser(), headers: { ETag: '"3"' } },
+    ...routes,
   });
-  vi.stubGlobal('fetch', fetchMock);
-  return calls;
 }
+
+export const ME_PATH = ME;
