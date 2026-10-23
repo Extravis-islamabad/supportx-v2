@@ -302,4 +302,86 @@ Fields shown in the form are laid out in three sections: Submission Stage, CSI S
 - Real links to incidents, problems, assets and releases.
 - Approvals and CAB voting (blocked by the missing mail server).
 
-=== END OF AREA 5 ===
+# Area 5b: Follow-up on Changes (add at the end of the Area 5 report)
+
+## 5b-1. Emergency, Standard and Normal changes compared
+
+Test records: **CH-9** "ZZ-CLAUDE-TEST change emergency" (Emergency Template) and **CH-10** "ZZ-CLAUDE-TEST change standard" (Standard Change Template). CH-8 is the Normal/General baseline.
+
+| Aspect | CH-8 Normal (General Template) | CH-9 Emergency | CH-10 Standard |
+|---|---|---|---|
+| Workflow picked on create | General Change Workflow (chosen by me) | Emergency Change Workflow, **pre-filled** | Workflow blank; I chose "Standard Change Workflow" |
+| Change Type default | empty | empty (the template's "Emergency" label is a form category, not a Change Type) | **pre-set to Standard** |
+| Submission form fields | 13 fields (Requester, Site, Type, Group, Retrospective, Owner, Impact, Manager, Urgency, Priority, Risk, Stage, Status, Comment) | Same as Normal | **Reduced:** Requester, Type, Risk, Site, Group, Owner, Manager, Stage, Status, Comment. No Impact, Urgency, Priority or Retrospective. |
+| Stages | 8: Submission, Planning, CAB Evaluation, Implementation, UAT, Release, Review, Close | **6**: Submission, Implementation, UAT, Release, Review, Close (no Planning, no CAB) | **4**: Submission, Implementation, Review, Close |
+| Approval Status after save | "-" | "-" | **"Approved" (green tick) immediately** |
+| Required fields | Title only | Title only | Title only |
+| Initial status | Requested / Submission | Requested / Submission | Requested / Submission |
+
+**Emergency workflow (read-only diagram).**
+- The stage statuses are:
+  - Submission: Accepted, Rejected, Requested
+  - Implementation: Completed, In Progress
+  - UAT: In Progress, Accepted, Rejected
+  - Release: In Progress, Completed, Cancelled
+  - Review: Completed, Failed, In Progress
+  - Close: Cancelled, Completed, In Progress, then End
+- It has no approval node, so nothing blocks it on the missing mail server. The only difference from Normal is that Planning and CAB are skipped. Submission "Accepted" goes straight to Implementation.
+
+**Standard workflow (read-only diagram).** This is the richest flow seen so far, and it shows several node types for Area 12:
+- Start, then Stage 1 Submission.
+- A **decision node** "Is Change Standard?". The Yes branch continues; the No branch goes to Stage 4 Close, Cancelled.
+- A **notification (mail) node** "Notify Backup Server Schedule", with a message template that uses merge fields (a scheduled start time and the change ID).
+- Stage 2 Implementation (In Progress, Back Out, Completed), with two **task nodes** chained after it: "Initiate Server Backup" then "Review Server Backup". Each task node has Completed and Overdue exits.
+- Stage 3 Review (In Progress, Failed, Completed), followed by an **approval node** "Review Approval" (Approved / Rejected).
+- Stage 4 Close (Completed, Cancelled), then End.
+- This workflow is tailored to a database/server backup scenario in the seed data, not generic.
+
+**Behaviour observed when CH-10 was saved.**
+- The workflow ran the notification node immediately, and it **failed** because the mail server is not configured. The Workflow button turned red with "Execution Status: Failed or Stopped", node "Notify Backup Server Schedule", and the message "Failed to send notification. Check mail server configuration or validate user email."
+- The change was not rolled back or blocked and remains Requested / Submission. So a failed mail node stalls the flow silently.
+- The yellow dot on CH-9's Workflow button means the flow is waiting at its current status.
+
+**Does Standard skip anything?** Yes. It skips Planning, CAB Evaluation, UAT, Release and the Impact/Urgency/Priority fields. Approval is granted at creation, and approval runs again only in Review.
+
+## 5b-2. What the green shield means
+
+Setup > Customization > Change Management > Change Type. Opening Edit on the **Standard** type shows: Name (required), Description ("routine, low-impact changes that don't require a formal approval"), Color (required), and a **Pre Approval** toggle. The toggle is **on** for Standard. The green shield in the list simply shows this toggle. The other four types have it off (grey shield).
+
+Pre Approval is therefore a per-type flag that sets the change's approval status to Approved on creation. I closed the dialog with Cancel and saved nothing.
+
+## 5b-3. Linking test records (and what each side shows)
+
+| Link made | From | Shown on the other side | Status change? |
+|---|---|---|---|
+| CH-9 as **child** of CH-8 (Associations > Linked Changes > Attach > Child Changes). The dialog is "Link Child Changes", with an Open Changes list, a comments box and an Associate button. | CH-8 shows a purple **"Parent Change"** badge, a "Linked Child Changes" list with Attach/Detach, and the right-panel count "Linked Child Changes = 1" | CH-9 shows a blue **"Child Change"** badge and "Linked Parent Change = 1" | None. Both stay Requested / Submission (CH-8 kept "Submitted for Authorization"). |
+| Request #41 attached to CH-8 as "Requests that Initiated Change" (Planning > Associations) | CH-8 list shows #41 with subject, requester, technician, due date, status; count = 1. History shows "Request Attached". | Request #41's right panel shows "Changes Caused by Request: 1 Change Associated" (the same link, named from the request's side) | None. #41 stays Open. **Request #41's own History did not record the link.** |
+| Problem "ZZ-CLAUDE-TEST problem 1" (PB-5) attached under "Associated Problems" | CH-8 list shows it with Title, Created By, Category, Priority, Status, Incidents, Tasks; History shows "Problem Attached" | PB-5 right panel now shows "Associated Changes: 1" | None. PB-5 stays Open. |
+
+Other notes.
+- CH-8's History now has three new entries: "Change Linked", "Request Attached", "Problem Attached". Only the change side keeps history for these links; the request side does not.
+- The right panel on a change shows seven counters, including "Associated Releases" (see Area 6).
+- Links can only be undone with Detach buttons. I did not detach anything.
+- The attach dialogs let you pick from "Open Changes/Requests/Problems" views with a search box and column chooser.
+- No asset link was made (not requested). The only asset link is the "Assets Involved" field on the change form.
+- Linking a change to an incident was done through the request link above (incidents and service requests share the Requests module).
+
+## 5b-4. Freeze Windows, Maintenance Windows and Closure Codes
+
+**Setup > Automation > Conflict Detection** (two tabs: Freeze Windows, Maintenance Windows). Direct URLs work: `AdminDetails.cc?forwardTo=freeze_windows` and `...maintenance_windows`. Both list a "Show: Active" filter and have the same form layout.
+
+- **Freeze Window form ("New Change Freeze Window"):**
+  - Name (required), Description.
+  - Applicable for: Services (with required "Affected Services"), Sites, or All Changes.
+  - **Apply to** (radio): Release Schedule, Downtime Schedule, or Change Creation. (So freeze windows *can* guard schedules, not only creation. The seeded window just uses Change Creation.)
+  - Conditions: "Based on conditions" (column/operator/value rows) or "Without condition".
+  - Schedule Window: From, To, All Day, Frequency (starts at "Once", with recurring options).
+  - Save/Cancel (cancelled).
+- **Seeded freeze window:** "Restrict Change Creation on Weekends", All Changes, every 1 week on Sat, ends never, next Oct 24 to 25, 2026, active toggle on.
+- **Maintenance Window form:** the same as the freeze form, except "Apply to" has only Release Schedule and Downtime Schedule (no Change Creation).
+- **Seeded maintenance window:** "Maintenance Window on every Christmas holiday", All Changes, every 1 year on 24 Dec, next Dec 24 to Dec 31, 2026 (spans 8 days).
+- **Closure Code tab** (5 values, with descriptions): Closed - Approved, Closed - Canceled, Closed - Completed, Closed - Deferred, Closed - Rejected.
+
+**5b test records:** CH-9 (emergency), CH-10 (standard). Nothing saved in Setup. Cleanup was not done (left in place).
+
+=== END OF AREA 5 (including 5b) ===
