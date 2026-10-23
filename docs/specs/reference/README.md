@@ -36,3 +36,4 @@ same way.
 | [sdp-area-04-problems.md](sdp-area-04-problems.md) | Problems: list, form, detail tabs, known errors, closure, templates |
 | [sdp-area-05-changes.md](sdp-area-05-changes.md) | Changes: list, calendar, form, stages and workflow, scheduler, CAB, templates (5b: emergency/standard, links, freeze windows) |
 | [sdp-area-06-releases-projects.md](sdp-area-06-releases-projects.md) | Releases and projects |
+| [sdp-area-07-assets-cmdb-purchase.md](sdp-area-07-assets-cmdb-purchase.md) | Assets, CMDB, contracts and purchase |
