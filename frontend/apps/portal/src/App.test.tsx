@@ -7,15 +7,21 @@ import { fakeApi, fakeEntitlements, fakeSession } from '@supportx/api-client/tes
 import { App } from './App';
 
 let restore: () => void = () => undefined;
-function api(me: MeResponse | null, entitlements = fakeEntitlements()) {
+function api(
+  me: MeResponse | null,
+  entitlements = fakeEntitlements(),
+  feed: unknown = { items: [], next_change_in_seconds: null },
+) {
   const fake = fakeApi({
     'GET /api/v1/auth/me':
       me === null
         ? { status: 401, body: { code: 'unauthenticated', message_key: 'errors.unauthenticated' } }
         : { body: me },
     'GET /api/v1/entitlements': { body: entitlements },
+    'GET /api/v1/announcements/feed': { body: feed },
   });
   restore = fake.restore;
+  return fake;
 }
 const REQUESTER = fakeSession({
   display_name: 'Yusra Requester',
@@ -40,6 +46,33 @@ describe('portal', () => {
     fireEvent.click(await screen.findByText('My requests'));
     expect(await screen.findByRole('heading', { name: 'My requests' })).toBeDefined();
     expect(screen.queryByTestId('tenant-switcher')).toBeNull();
+  });
+
+  it('home lists the announcements live for the requester, in words, from the portal', async () => {
+    const fake = api(REQUESTER, fakeEntitlements(), {
+      items: [
+        {
+          kind: 'public',
+          id: 'a1',
+          display_id: 'ANN-1',
+          title: 'Mail outage',
+          body: 'Mail is down.\nWe are on it.',
+          severity: 'critical',
+          show_as_banner: true,
+          published_at: '2026-10-23T10:00:00Z',
+          publish_until: null,
+          visibility: 'live',
+          next_change_in_seconds: null,
+        },
+      ],
+      next_change_in_seconds: null,
+    });
+    render(<App />);
+    expect(await screen.findByText('Critical: Mail outage')).toBeDefined();
+    // The full text is on the home page, so no banner repeats it there.
+    expect(screen.queryByTestId('announcement-banners')).toBeNull();
+    const call = fake.find('GET', '/api/v1/announcements/feed')[0];
+    expect(call?.headers.get('X-SupportX-Client')).toBe('portal');
   });
 
   it('uses the portal login when there is no session', async () => {

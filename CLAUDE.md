@@ -134,8 +134,9 @@ Python always runs through `uv run` (Python 3.12). Never use the system `python3
 
 Modules (§6.1): identity_access, organization, work_items, service_catalog, knowledge, sla,
 automation, assets, cmdb, procurement, projects, esm, monitoring_integrations, discovery,
-notifications, analytics, ai, integrations, metadata, licensing, audit. Do not invent new modules
-without an ADR.
+notifications, analytics, ai, integrations, metadata, licensing, audit; plus announcements
+(ADR-024, the walking skeleton and module template: docs/architecture/module-template.md). Do not
+invent new modules without an ADR.
 
 Layering inside each module (§6.3): `api → service → domain`, `infra` implements ports. Domain is
 pure Python, no I/O. Routers hold no business logic. Services own the transaction, permission

@@ -67,12 +67,16 @@ jobs:
           # Live screens (WP-011): domain events → Centrifugo through the fan-out worker.
           (cd backend && nohup uv run python -m workers.realtime_fanout > ../fanout.log 2>&1 &)
           (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
+          # The portal (WP-012: requesters' announcements and banners) on its own port.
+          (cd frontend && nohup pnpm --filter @supportx/portal dev > ../portal.log 2>&1 &)
           for _ in $(seq 1 60); do
-            curl -fsS http://localhost:5173/api/v1/ready >/dev/null && break
+            curl -fsS http://localhost:5173/api/v1/ready >/dev/null &&
+              curl -fsS http://localhost:5174/api/v1/ready >/dev/null && break
             sleep 2
           done
           curl -fsS http://localhost:5173/api/v1/ready
-      - name: Playwright (console journeys and accessibility in Chromium)
+          curl -fsS http://localhost:5174/api/v1/ready
+      - name: Playwright (console and portal journeys, accessibility, in Chromium)
         working-directory: frontend
         run: |
           pnpm --filter @supportx/e2e exec playwright install --with-deps chromium
@@ -81,7 +85,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           make dev-ps
-          tail -n 200 api.log relay.log consumers.log fanout.log console.log || true
+          tail -n 200 api.log relay.log consumers.log fanout.log console.log portal.log || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
             --profile full logs --no-color --tail=200 keycloak postgres pgbouncer centrifugo
       - name: Upload Playwright report

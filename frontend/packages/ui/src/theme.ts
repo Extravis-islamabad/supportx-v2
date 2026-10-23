@@ -62,12 +62,16 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
           colorTextTertiary: 'rgba(255, 255, 255, 0.68)',
           colorTextDescription: 'rgba(255, 255, 255, 0.68)',
           colorTextPlaceholder: 'rgba(255, 255, 255, 0.6)',
+          // Danger buttons and links show their text in colorError (WP-012, axe).
+          colorError: '#ff7875',
         }
       : {
           colorTextSecondary: 'rgba(0, 0, 0, 0.68)',
           colorTextTertiary: 'rgba(0, 0, 0, 0.62)',
           colorTextDescription: 'rgba(0, 0, 0, 0.62)',
           colorTextPlaceholder: 'rgba(0, 0, 0, 0.58)',
+          // Ant Design's #ff4d4f is about 3.3:1 on white as button text; this red is about 5:1.
+          colorError: '#cf1322',
         };
   if (mode !== 'dark') {
     return {

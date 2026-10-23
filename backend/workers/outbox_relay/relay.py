@@ -10,7 +10,7 @@ Loop, per relay process:
    publish each to `events.<tenant>.<event_type>` with `Nats-Msg-Id = event_id`, wait for every
    JetStream acknowledgement, then set `published_at` on exactly the acknowledged rows and commit.
 3. Repeat until the outbox is empty; purge published rows older than the retention period once
-   per purge interval.
+   per purge interval, together with expired idempotency keys and old consumer records (WP-012).
 
 Crash anywhere before the commit in step 2 → the rows stay unpublished and the next relay
 publishes them again. JetStream drops the repeat because it has seen that Nats-Msg-Id within
@@ -71,6 +71,21 @@ WHERE id IN (
     LIMIT $2
 )
 """
+# Housekeeping of two other tables (WP-012, migration 0010). The relay's RLS policies there only
+# show it expired keys and consumer records older than 7 days, so these can never remove anything
+# younger, whatever the retention setting says.
+PURGE_EXPIRED_KEYS_CHUNK = """
+DELETE FROM idempotency_keys
+WHERE ctid IN (SELECT ctid FROM idempotency_keys WHERE expires_at < now() LIMIT $1)
+"""
+PURGE_PROCESSED_CHUNK = """
+DELETE FROM processed_events
+WHERE ctid IN (
+    SELECT ctid FROM processed_events
+    WHERE created_at < now() - make_interval(secs => $1)
+    LIMIT $2
+)
+"""
 PURGE_CHUNK_SIZE = 5000
 RECONNECT_DELAY_SECONDS = 2.0
 _RECOVERABLE = (OSError, asyncpg.PostgresConnectionError, asyncpg.InterfaceError)
@@ -96,6 +111,7 @@ class OutboxRelay:
         publish_timeout: float,
         retention: timedelta,
         purge_interval: float,
+        processed_retention: timedelta = timedelta(days=30),
         metrics: RelayMetrics | None = None,
     ) -> None:
         self.dsn = dsn
@@ -106,6 +122,7 @@ class OutboxRelay:
         self.publish_timeout = publish_timeout
         self.retention = retention
         self.purge_interval = purge_interval
+        self.processed_retention = processed_retention
         self.metrics = metrics or RelayMetrics()
         self._pool: asyncpg.Pool | None = None
         self._listener: asyncpg.Connection | None = None
@@ -251,12 +268,40 @@ class OutboxRelay:
     # --- housekeeping ---------------------------------------------------------------------------
 
     async def maybe_purge(self) -> int:
-        """Delete published rows older than the retention, at most once per purge interval."""
+        """Purge (outbox and housekeeping) at most once per purge interval; returns outbox rows."""
         now = time.monotonic()
         if self._last_purge and now - self._last_purge < self.purge_interval:
             return 0
         self._last_purge = now
-        return await self.purge()
+        purged = await self.purge()
+        await self.purge_housekeeping()
+        return purged
+
+    async def _delete_in_chunks(self, statement: str, *args: object) -> int:
+        total = 0
+        while True:
+            async with self.pool.acquire() as conn:
+                status = await conn.execute(statement, *args, PURGE_CHUNK_SIZE)
+            deleted = int(status.rsplit(" ", 1)[-1])
+            total += deleted
+            if deleted < PURGE_CHUNK_SIZE:
+                return total
+
+    async def purge_housekeeping(self) -> dict[str, int]:
+        """Delete expired idempotency keys and consumer records older than their retention."""
+        purged = {
+            "idempotency_keys": await self._delete_in_chunks(PURGE_EXPIRED_KEYS_CHUNK),
+            "processed_events": await self._delete_in_chunks(
+                PURGE_PROCESSED_CHUNK, self.processed_retention.total_seconds()
+            ),
+        }
+        if any(purged.values()):
+            log.info(
+                "housekeeping_purged",
+                retention_days=self.processed_retention.total_seconds() / 86400,
+                **purged,
+            )
+        return purged
 
     async def purge(self) -> int:
         """Delete every published row older than the retention period, in chunks."""

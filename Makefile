@@ -5,7 +5,8 @@
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard dev-subscription e2e \
 	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
-	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test
+	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
+	frontend-install-check
 
 BACKEND := cd backend &&
 FRONTEND := cd frontend &&
@@ -33,7 +34,7 @@ typecheck: backend-typecheck frontend-typecheck ## Type-check everything (mypy s
 
 test: backend-test frontend-test ## Run all tests (pytest, Vitest)
 
-check: lint typecheck test ## lint + typecheck + test for everything
+check: frontend-install-check lint typecheck test ## Lockfile install as CI does, then lint + typecheck + test
 
 format: ## Auto-format and auto-fix everything
 	$(BACKEND) uv run ruff format . && uv run ruff check --fix .
@@ -158,6 +159,11 @@ backend-typecheck:
 
 backend-test:
 	$(BACKEND) uv run pytest
+
+# Exactly CI's install (WP-012 follow-up d): fails here, not after a push, when the lockfile or
+# pnpm's build-script approvals (pnpm-workspace.yaml allowBuilds) are out of date.
+frontend-install-check:
+	$(FRONTEND) CI=true pnpm install --frozen-lockfile
 
 frontend-lint:
 	$(FRONTEND) pnpm lint && pnpm format:check

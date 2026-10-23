@@ -140,6 +140,153 @@
     "type": "object"
   },
   "events": {
+    "announcements.announcement.created": {
+      "1": {
+        "description": "A new announcement was saved (always as a draft).",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "status"
+        ],
+        "title": "AnnouncementCreated",
+        "type": "object"
+      }
+    },
+    "announcements.announcement.deleted": {
+      "1": {
+        "description": "Moved to the trash (soft delete).",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "status"
+        ],
+        "title": "AnnouncementDeleted",
+        "type": "object"
+      }
+    },
+    "announcements.announcement.restored": {
+      "1": {
+        "description": "Taken back out of the trash.",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "status"
+        ],
+        "title": "AnnouncementRestored",
+        "type": "object"
+      }
+    },
+    "announcements.announcement.status_changed": {
+      "1": {
+        "description": "Published, unpublished, archived or reopened.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "from_status": {
+            "title": "From Status",
+            "type": "string"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "action",
+          "from_status",
+          "to_status"
+        ],
+        "title": "AnnouncementStatusChanged",
+        "type": "object"
+      }
+    },
+    "announcements.announcement.updated": {
+      "1": {
+        "description": "Fields changed (names only); `status` is the (unchanged) status at the time.",
+        "properties": {
+          "announcement_id": {
+            "format": "uuid",
+            "title": "Announcement Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "announcement_id",
+          "status",
+          "changed_fields"
+        ],
+        "title": "AnnouncementUpdated",
+        "type": "object"
+      }
+    },
+    "announcements.settings.changed": {
+      "1": {
+        "description": "The module's tenant settings changed (e.g. the four-eyes rule).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "AnnouncementSettingsChanged",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",

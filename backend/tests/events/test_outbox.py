@@ -223,8 +223,10 @@ async def test_relay_reads_every_tenant_and_marks_only_delivery_columns(
         await relay.close()
 
 
+# processed_events and idempotency_keys are housekeeping tables the relay purges (WP-012): it may
+# see and delete only expired rows there, tested in tests/events/test_housekeeping.py.
 @pytest.mark.parametrize(
-    "table", ["users", "tenants", "processed_events", "display_id_sequences", "probe_items"]
+    "table", ["users", "tenants", "announcements", "display_id_sequences", "probe_items"]
 )
 async def test_relay_cannot_read_any_business_table(
     migrated_db: db_testing.ThrowawayDatabase, table: str

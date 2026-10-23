@@ -3,7 +3,14 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { useLogout, useSession } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
-import { AppHeader, ConnectivityBanner, LicenceBanners, useLabel } from '@supportx/ui';
+import {
+  AnnouncementBanners,
+  AppHeader,
+  ConnectivityBanner,
+  LicenceBanners,
+  useLabel,
+  useLicence,
+} from '@supportx/ui';
 
 const NAV: { path: string; labelKey: LabelKey }[] = [
   { path: '/', labelKey: 'nav.home' },
@@ -18,6 +25,7 @@ export function PortalLayout() {
   const { pathname } = useLocation();
   const session = useSession().data;
   const logout = useLogout();
+  const licence = useLicence();
   if (session === undefined || session === null) return null;
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -35,6 +43,10 @@ export function PortalLayout() {
       </nav>
       <ConnectivityBanner />
       <LicenceBanners />
+      {/* The full text is on the home page; banners there would only repeat it. */}
+      {pathname !== '/' && (
+        <AnnouncementBanners enabled={licence.has('incident')} onOpen={() => void navigate('/')} />
+      )}
       <Layout.Content
         id="main"
         style={{ padding: 32, maxWidth: 1100, width: '100%', marginInline: 'auto' }}

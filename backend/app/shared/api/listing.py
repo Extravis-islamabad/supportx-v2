@@ -26,8 +26,9 @@ import secrets
 import uuid
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, tzinfo
 from typing import Annotated, Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import Depends, Query, Request
 from pydantic import BaseModel, Field
@@ -294,6 +295,24 @@ def _invalid(
     )
 
 
+TIME_ZONE_HEADER = "X-Time-Zone"
+
+
+def request_zone(request: Request) -> tzinfo:
+    """The requester's time zone (IANA name in X-Time-Zone, sent by our apps); UTC otherwise.
+
+    Only used for calendar boundaries in filters, never for access decisions, so an unknown or
+    missing value simply falls back to UTC.
+    """
+    name = request.headers.get(TIME_ZONE_HEADER, "").strip()
+    if not name or len(name) > 64:  # noqa: PLR2004 - IANA names are short
+        return UTC
+    try:
+        return ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        return UTC
+
+
 def _route_path(request: Request) -> str:
     """`GET /api/v1/users` (the route template, not the concrete URL)."""
     route = request.scope.get("route")
@@ -360,7 +379,8 @@ def list_query(resource: ResourceFields) -> Any:  # noqa: ANN401 - returns a Fas
         for name, value in request.query_params.multi_items():
             if name not in RESERVED_PARAMETERS:
                 simple.setdefault(name, []).append(value)
-        now = datetime.now(UTC)
+        # Calendar filters ("today", "this week") use the requester's time zone (WP-012).
+        now = datetime.now(request_zone(request))
         tree = parse_filter_json(filter_) if filter_ is not None else None
         where = and_(
             compile_simple(simple, resource),

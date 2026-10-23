@@ -44,12 +44,15 @@ class PermissionSpec:
 
     `feature` ties it to the licence (WP-009): a tenant without the feature never holds it,
     whatever its roles say. `scopes` lists the scopes a role may grant it with; the first is the
-    broadest. Labels live in frontend/packages/labels (`permission.<key>`, `.description`).
+    broadest. `defaults` gives it to the built-in technician / requester roles, so a module owns
+    its role defaults (the tenant admin holds everything anyway). Labels live in
+    frontend/packages/labels (`permission.<key>`, `.description`).
     """
 
     key: str
     feature: str | None = None
     scopes: tuple[Scope, ...] = ("all",)
+    defaults: tuple[tuple[str, Scope], ...] = ()  # (system role, scope), e.g. ("technician", "all")
 
     @property
     def module(self) -> str:

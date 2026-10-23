@@ -49,6 +49,15 @@ export function useChannel(channel: string | null, onMessage: Listener): void {
 }
 
 /**
+ * Follow the tenant-wide channel: signals for everyone in the tenant ("announcements changed",
+ * "plan changed"). They never carry IDs: the listener refetches and the API filters.
+ */
+export function useTenantChannel(onMessage: Listener): void {
+  const context = useContext(RealtimeContext);
+  useChannel(context === null ? null : `t:${context.tenantId}:broadcast`, onMessage);
+}
+
+/**
  * Follow a list (`users`, `roles`…): the API says which channels this user may join (one per
  * audience: everyone, their sites, their groups, their own records), then all are followed.
  */

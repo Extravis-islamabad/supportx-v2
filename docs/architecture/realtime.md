@@ -80,6 +80,16 @@ them open. `<html data-realtime-status data-realtime-transport>` shows the state
 
 Then add a two-browser Playwright test: change in one, assert the other updates without a reload.
 
+**Content that changes by the clock** (a publish window, later SLA timers): store the times,
+compute the state per request, and return `next_change_in_seconds` (relative to the server's
+clock). Screens call `useRefetchAfter(seconds, query.dataUpdatedAt, refetch)` and refresh at that
+moment; nothing has to run on the server at the boundary (ADR-024).
+
+**Audiences you cannot name on a channel** (everyone a record is *addressed to*, e.g. banners for
+the requesters of some sites): publish an ID-free message on the tenant `broadcast`
+(`announcements.feed_changed`), only when something they could see changed, and let screens
+refetch; the API filters by audience. See `app/modules/announcements/service/realtime.py`.
+
 ## Operating it
 
 - Run: `make worker-fanout` (dev), the `realtime_fanout` deployment later (WP-014).

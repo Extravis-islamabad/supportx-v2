@@ -1,3 +1,4 @@
+import type { AnnouncementsQuery } from './announcements';
 import type { UsersQuery } from './users';
 
 /**
@@ -18,6 +19,14 @@ export const queryKeys = {
     role: (id: string) => ['access', 'roles', id] as const,
     user: (id: string) => ['access', 'user', id] as const,
     units: (kind: 'sites' | 'groups') => ['access', kind] as const,
+  },
+  announcements: {
+    all: ['announcements'] as const,
+    list: (query: AnnouncementsQuery) => ['announcements', 'list', query] as const,
+    detail: (id: string) => ['announcements', 'detail', id] as const,
+    history: (id: string) => ['announcements', 'history', id] as const,
+    feed: ['announcements', 'feed'] as const,
+    settings: ['announcements', 'settings'] as const,
   },
   users: {
     all: ['users'] as const,

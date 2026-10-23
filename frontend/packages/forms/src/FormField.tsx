@@ -12,25 +12,26 @@ import { useLabels, type LabelKey, type LabelParams } from '@supportx/labels';
 
 import { parseFieldMessage } from './serverErrors';
 
-export interface FormFieldProps<T extends FieldValues> {
+export interface FormFieldProps<T extends FieldValues, N extends Path<T> = Path<T>> {
   control: Control<T>;
-  name: Path<T>;
+  name: N;
   labelKey: LabelKey;
   helpKey?: LabelKey;
-  render: (field: ControllerRenderProps<T, Path<T>> & { id: string }) => ReactElement;
+  /** Gets the field's own value type (a boolean field's `value` is a boolean). */
+  render: (field: ControllerRenderProps<T, N> & { id: string }) => ReactElement;
 }
 
 /**
  * One form field: Ant Design label + control + the field's error shown inline under it,
  * translated (CLAUDE.md rule d), whether it came from Zod or from the API.
  */
-export function FormField<T extends FieldValues>({
+export function FormField<T extends FieldValues, N extends Path<T> = Path<T>>({
   control,
   name,
   labelKey,
   helpKey,
   render,
-}: FormFieldProps<T>) {
+}: FormFieldProps<T, N>) {
   const t = useLabels();
   const id = `field-${name}`;
   return (

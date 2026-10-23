@@ -9,5 +9,5 @@ export {
   type FieldMessage,
 } from './serverErrors';
 export { zodResolver } from '@hookform/resolvers/zod';
-export { useForm, type SubmitHandler } from 'react-hook-form';
+export { useForm, type SubmitHandler, type UseFormReturn } from 'react-hook-form';
 export { z } from 'zod';

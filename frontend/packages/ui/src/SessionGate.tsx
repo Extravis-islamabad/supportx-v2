@@ -1,7 +1,14 @@
 import { Button, Flex, Result, Spin } from 'antd';
 import { useEffect, type ReactNode } from 'react';
 
-import { loginUrl, useSession, type App, type MeResponse } from '@supportx/api-client';
+import {
+  loginUrl,
+  setClientApp,
+  setPreferredTimeZone,
+  useSession,
+  type App,
+  type MeResponse,
+} from '@supportx/api-client';
 import { label, LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
@@ -38,7 +45,17 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
   const session = useSession();
   const me = session.data;
   const userLocale = me?.user.locale;
+  const userZone = me?.user.time_zone ?? null;
   const loginError = loginErrorCode();
+
+  // Every call says which app made it (history shows "UI") and in which time zone the user
+  // lives ("today" in filters): the profile's zone, else the browser's.
+  useEffect(() => {
+    setClientApp(app);
+  }, [app]);
+  useEffect(() => {
+    setPreferredTimeZone(userZone);
+  }, [userZone]);
 
   useEffect(() => {
     if (session.isSuccess && me === null && loginError === null) {

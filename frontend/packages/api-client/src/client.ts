@@ -7,6 +7,10 @@ export const API_BASE = '/api/v1';
 export const CSRF_HEADER = 'X-CSRF-Token';
 export const REQUEST_ID_HEADER = 'X-Request-ID';
 export const IDEMPOTENCY_HEADER = 'Idempotency-Key';
+/** Which app made the call: the field history records "UI" for these, "API" for the rest. */
+export const CLIENT_HEADER = 'X-SupportX-Client';
+/** The user's time zone (IANA): "today" and "this week" in filters are the user's (WP-012). */
+export const TIME_ZONE_HEADER = 'X-Time-Zone';
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const CONDITIONAL_METHODS = new Set(['PUT', 'PATCH', 'DELETE']);
 
@@ -18,6 +22,29 @@ let csrfToken: string | null = null;
 
 export function setCsrfToken(token: string | null): void {
   csrfToken = token;
+}
+
+let clientApp: App | null = null;
+let preferredTimeZone: string | null = null;
+
+/** Set once by the app shell (SessionGate): every call then says which app it comes from. */
+export function setClientApp(app: App | null): void {
+  clientApp = app;
+}
+
+/** The user's profile time zone; null falls back to the browser's. */
+export function setPreferredTimeZone(zone: string | null): void {
+  preferredTimeZone = zone;
+}
+
+/** The zone sent with every call (profile preference, else the browser's, else none). */
+export function currentTimeZone(): string | undefined {
+  if (preferredTimeZone !== null && preferredTimeZone !== '') return preferredTimeZone;
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return undefined;
+  }
 }
 
 /** Latest ETag seen per resource path (GET or write response), sent back as If-Match. */
@@ -62,6 +89,7 @@ function randomId(): string {
 /**
  * Everything every call needs, so screens never handle it:
  * - X-Request-ID on every request (the support reference when something fails);
+ * - X-SupportX-Client (console / portal) and X-Time-Zone on every request;
  * - the CSRF header on state-changing methods;
  * - Idempotency-Key on POST unless the caller set one (a retried action must reuse its key);
  * - If-Match on PUT/PATCH/DELETE from the last ETag seen for that path, unless set explicitly;
@@ -71,6 +99,11 @@ const conventions: Middleware = {
   onRequest({ request }) {
     if (!request.headers.has(REQUEST_ID_HEADER)) request.headers.set(REQUEST_ID_HEADER, randomId());
     request.headers.set('Accept', 'application/json');
+    if (clientApp !== null) request.headers.set(CLIENT_HEADER, clientApp);
+    const zone = currentTimeZone();
+    if (zone !== undefined && !request.headers.has(TIME_ZONE_HEADER)) {
+      request.headers.set(TIME_ZONE_HEADER, zone);
+    }
     if (UNSAFE_METHODS.has(request.method) && csrfToken !== null) {
       request.headers.set(CSRF_HEADER, csrfToken);
     }

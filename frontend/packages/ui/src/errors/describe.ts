@@ -44,6 +44,16 @@ export function describeError(error: unknown, t: Translate): ErrorDescription {
         reference,
       };
     }
+    case 'cannot_publish':
+    case 'permission_denied': {
+      // Why exactly (WP-012): the four-eyes rule, a missing audience, an ended window …
+      const reason = typeof params.reason === 'string' ? params.reason : null;
+      return {
+        title: t(error.messageKey),
+        detail: reason === null ? undefined : t(`action_reason.${reason}`),
+        reference,
+      };
+    }
     default:
       return { title: t(error.messageKey), reference };
   }

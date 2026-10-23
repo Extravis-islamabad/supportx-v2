@@ -37,7 +37,7 @@ from app.modules.identity_access.domain.permissions import (
     RESERVED_PERMISSIONS,
     Catalogue,
 )
-from app.modules.identity_access.domain.policy import Subject
+from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import EVENTS
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.oidc import OidcClient
@@ -45,9 +45,12 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import directory
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
+from app.modules.identity_access.service.directory import display_names, user_names
 from app.modules.identity_access.service.policy import (
+    FieldRule,
     PolicyService,
     ResourceType,
+    SodRule,
     ValkeySubjectCache,
     authorize,
     authorize_stored,
@@ -172,14 +175,19 @@ module = ModuleSpec(
 AUTHZ_CACHE_TTL_SECONDS = 300
 
 __all__ = [
+    "FieldRule",
     "PolicyService",
+    "RecordFacts",
     "ResourceType",
+    "SodRule",
     "Subject",
     "UserType",
     "authorize",
     "authorize_stored",
+    "display_names",
     "module",
     "require",
     "scope_filter",
+    "user_names",
     "visible",
 ]

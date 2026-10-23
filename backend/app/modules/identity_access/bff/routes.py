@@ -69,6 +69,10 @@ class UserOut(BaseModel):
     nav_layout: NavLayout = Field(
         default=NavLayout.TOP, description="The user's navigation layout preference."
     )
+    time_zone: str | None = Field(
+        default=None,
+        description="The user's time zone preference (IANA); null: use the browser's.",
+    )
 
 
 class TenantOut(BaseModel):
@@ -185,8 +189,13 @@ async def _describe(request: Request, session: Session) -> MeResponse:
     if database is not None:
         context = TenantContext(session.tenant_uuid, session.user_uuid)
         async with database.tenant_session(context) as db:
-            layout = await db.scalar(select(User.nav_layout).where(User.id == session.user_uuid))
-        described["user"]["nav_layout"] = layout or NavLayout.TOP
+            row = (
+                await db.execute(
+                    select(User.nav_layout, User.time_zone).where(User.id == session.user_uuid)
+                )
+            ).first()
+        described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.TOP
+        described["user"]["time_zone"] = row.time_zone if row else None
     policy: PolicyService | None = getattr(request.app.state, "policy", None)
     if policy is None:
         described["user"]["roles"] = []

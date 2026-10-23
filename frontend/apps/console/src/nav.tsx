@@ -6,6 +6,7 @@ import {
   ClusterOutlined,
   HomeOutlined,
   InboxOutlined,
+  NotificationOutlined,
   RocketOutlined,
   SettingOutlined,
   SwapOutlined,
@@ -74,6 +75,14 @@ export const NAV: readonly NavItem[] = [
     icon: <BookOutlined />,
     feature: 'knowledge',
     permissions: ['knowledge.view'],
+  },
+  {
+    key: 'announcements',
+    path: '/announcements',
+    labelKey: 'nav.announcements',
+    icon: <NotificationOutlined />,
+    feature: 'incident',
+    permissions: ['announcements.view'],
   },
   {
     key: 'reports',

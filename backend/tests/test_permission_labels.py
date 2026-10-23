@@ -29,10 +29,7 @@ def required_keys() -> set[str]:
     keys |= {f"role.{role}" for role in SYSTEM_ROLES} | {
         f"role.{role}.description" for role in SYSTEM_ROLES
     }
-    keys |= {
-        f"permission_reason.{r}"
-        for r in ("no_permission", "not_entitled", "out_of_scope", "condition_not_met")
-    }
+    # Refusal reasons (`action_reason.<code>`) are checked in test_action_reason_labels.py.
     return keys
 
 

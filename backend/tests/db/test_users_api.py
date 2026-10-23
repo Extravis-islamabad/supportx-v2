@@ -363,7 +363,12 @@ async def test_patch_needs_if_match_and_rejects_stale_versions(directory: Direct
     )
     assert stale.status_code == 409
     assert stale.json()["code"] == "version_conflict"
-    assert stale.json()["params"] == {"expected_version": 1, "current_version": 2}
+    params = stale.json()["params"]
+    assert (params["expected_version"], params["current_version"]) == (1, 2)
+    # Who changed what since version 1 (WP-012): Aisha herself, from another tab.
+    assert params["changed_by"] == "Aisha Tech"
+    assert params["changed_fields"].split(",") == ["signature", "time_zone"]
+    assert params["changed_at"]
 
     bad = await directory.client.patch(path, json={}, headers={**headers, "If-Match": "*"})
     assert (bad.status_code, bad.json()["code"]) == (400, "invalid_etag")

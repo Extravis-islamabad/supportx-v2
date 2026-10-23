@@ -107,6 +107,10 @@ class Settings(BaseSettings):
     relay_publish_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
     outbox_retention_hours: int = Field(default=72, ge=1)
     outbox_purge_interval_seconds: int = Field(default=3600, ge=10)
+    # Consumer idempotency records (processed_events) are kept this long, then the relay deletes
+    # them (WP-012). Never below 7 days, the event stream's maximum age: a redelivery could still
+    # need them (the database enforces the same floor, migration 0010).
+    processed_events_retention_days: int = Field(default=30, ge=7)
     consumer_max_attempts: int = Field(default=5, ge=1, le=100)
     consumer_backoff_initial_seconds: float = Field(default=1.0, gt=0)
     consumer_backoff_max_seconds: float = Field(default=60.0, gt=0)

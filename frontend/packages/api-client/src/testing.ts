@@ -41,8 +41,12 @@ const TECHNICIAN: Grant[] = [
   ['knowledge.view', 'all'],
   ['knowledge.manage', 'group'],
   ['reports.view', 'all'],
+  ['announcements.view', 'all'],
+  ['announcements.manage', 'own'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  ['announcements.manage', 'all'],
+  ['announcements.publish', 'all'],
   ['users.manage', 'all'],
   ['roles.view', 'all'],
   ['roles.manage', 'all'],
@@ -80,6 +84,46 @@ export function fakePermissions(
     scopes: [scope],
     conditional: false,
   }));
+}
+
+/** An announcement as staff see it (GET /announcements/{id}): a draft unless overridden. */
+export function fakeAnnouncement(
+  overrides: Partial<components['schemas']['AnnouncementOut']> = {},
+): components['schemas']['AnnouncementOut'] {
+  return {
+    kind: 'staff',
+    id: '01900000-0000-7000-8000-00000000a001',
+    display_id: 'ANN-1',
+    title: 'Mail outage',
+    body: 'Mail is down.\nWe are on it.',
+    severity: 'warning',
+    status: 'draft',
+    audience: 'everyone',
+    site_ids: [],
+    group_ids: [],
+    owner_id: '01900000-0000-7000-8000-000000000101',
+    show_as_banner: true,
+    publish_from: null,
+    publish_until: null,
+    published_at: null,
+    published_by: null,
+    created_at: '2026-10-23T09:00:00Z',
+    created_by: '01900000-0000-7000-8000-000000000101',
+    updated_at: '2026-10-23T09:00:00Z',
+    updated_by: '01900000-0000-7000-8000-000000000101',
+    version: 1,
+    visibility: 'hidden',
+    next_change_in_seconds: null,
+    actions: [
+      { action: 'publish', allowed: true, reason: null },
+      { action: 'unpublish', allowed: false, reason: 'not_from_status' },
+      { action: 'archive', allowed: true, reason: null },
+      { action: 'reopen', allowed: false, reason: 'not_from_status' },
+    ],
+    history_count: 1,
+    can_manage: true,
+    ...overrides,
+  };
 }
 
 /** A session as GET /api/v1/auth/me returns it (a technician unless overridden). */

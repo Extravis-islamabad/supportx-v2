@@ -2,14 +2,14 @@
 
 ## Current status
 
-- **Stage:** 0 — Foundation (architecture.md §17). In progress: 12 of 16 work packages done.
-- **Last completed:** WP-011 (realtime pipeline end to end), 2026-10-23. Before it: WP-016.
-- **Next work package:** WP-012 (walking skeleton; now unblocked). WP-015 (clickable prototype)
-  is also unblocked.
+- **Stage:** 0 — Foundation (architecture.md §17). In progress: 13 of 16 work packages done.
+- **Last completed:** WP-012 (walking skeleton: announcements), 2026-10-23. Before it: WP-011.
+- **Next work package:** WP-015 (clickable prototype; unblocked). WP-013 needs the Rust toolchain
+  installed, WP-014 needs k3d (neither is on the dev machine).
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
-- **Blockers:** None for WP-012. WP-014 needs k3d installed (D-003; Homebrew is not installed
-  either).
+- **Blockers:** None for WP-015. WP-013 needs Rust (rustc/cargo) installed; WP-014 needs k3d
+  installed (D-003; Homebrew is not installed either).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
 
@@ -17,6 +17,10 @@
 
 1. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
    download, or install Homebrew first? Blocks WP-014.
+2. **Rich-text editor library** (D-033): needed before the Knowledge module (articles with
+   formatting, images, tables; output sanitised server-side, §11). Candidates to evaluate for
+   licence (on-prem redistribution), RTL, accessibility and bundle size. Announcements stay plain
+   text until then.
 
 ### Open items
 
@@ -164,7 +168,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   messages.
 - **Depends on:** WP-006, WP-007, WP-010
 
-### [ ] WP-012 — Walking skeleton: one demo entity through every rule
+### [x] WP-012 — Walking skeleton: one demo entity through every rule (done 2026-10-23)
 - **Goal:** A reference implementation future modules copy.
 - **Scope:** A minimal throwaway-safe entity (e.g. `announcements` in a sandbox module) with the full
   four-layer shape: RLS table, CRUD API with version/ETag and idempotency, outbox events, entitlement
@@ -173,6 +177,8 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
   other without refresh; stale edit shows a 409 conflict message; tenant B never sees tenant A's
   records; no raw codes on screen.
 - **Depends on:** WP-006, WP-007, WP-008, WP-009, WP-011, WP-016 (D-025)
+- **Built (D-032..D-034, ADR-024):** module `announcements` (not a sandbox: a real, low-risk
+  feature), template checklist in `docs/architecture/module-template.md`.
 
 ### [ ] WP-013 — Licence core prototype (Rust)
 - **Goal:** De-risk ADR-009 early.
@@ -245,7 +251,64 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
+### [ ] WP-018 — Tamper-evident audit log (D-034; planning only)
+- **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
+- **Scope:** Append-only audit records for privileged actions and record changes (built on the
+  WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
+  periodic anchors, a verification tool and an export for auditors; retention and archiving
+  (partitioning of `field_changes` and the audit table); GDPR erasure that keeps the chain
+  verifiable.
+- **Acceptance:** Editing or deleting any stored audit row is detected by the verifier; export
+  of a tenant's log for a date range; retention job tested on 10M rows.
+- **Depends on:** WP-012, WP-014
+
 ## Session log (newest first)
+
+### 2026-10-23 — WP-012 walking skeleton (announcements)
+- Decisions: D-032 (announcements in a new module, licensed by `incident`, banners in console and
+  portal, four-eyes off by default, reasons on unpublish/archive, live publish window, checklist
+  not scaffold), D-033 (plain-text body; Urdu for new strings; rich-text editor question before
+  Knowledge), D-034 (field history now, hash-chained audit log = WP-018). ADR-024.
+- Shared platform pieces: field history (`app/shared/history`, table `field_changes`, migration
+  0008; source `ui`/`api` from `X-SupportX-Client`; reasons; history paging; 409s explained with
+  `changed_fields` / `changed_by` / `changed_at`); status machines with a fixed action order
+  (`app/shared/domain`); `PermissionSpec.defaults` (modules own their built-in role defaults);
+  users' calendar filters in their time zone (`X-Time-Zone`, profile zone in `/auth/me`).
+- Module `announcements` (migration 0009): RLS tables incl. audience links (same-tenant FKs) and
+  tenant settings; service with scope checks before and after every write, history and outbox in
+  the same transaction; API (list with DSL, trash, feed, settings, CRUD, publish / unpublish /
+  archive / reopen with reasons, restore, history); action states with reasons and `can_manage`;
+  requester read path (live-for-me public view, everything else 404); four-eyes as a SoD rule.
+- Live: staff list and record channels (presence); ID-free tenant broadcast for banners and the
+  portal; scheduled windows go live by a client timer from `next_change_in_seconds` (no
+  scheduler). Console: list (filters, sort, trash, four-eyes switch), record (fixed actions,
+  disabled with tooltip reasons, reason dialog, edit form with live notice and 409 "who changed
+  what", History tab), create; banners in console and portal; portal home lists the feed.
+- Follow-ups done: (a)+(b) relay purges expired idempotency keys and consumer records > 30 days
+  (min 7, enforced by relay-only RLS policies, migration 0010); (c) time zone; (d) `make check`
+  runs `CI=true pnpm install --frozen-lockfile` first; profile PATCH writes history and its 409
+  says who changed what.
+- Found on the way: a transition read the status after the repository had updated the same
+  object (history said "draft → draft") → status kept before the update; generic OpenAPI enum
+  names (`Status`, `Action`) would collide across modules → `Announcement…`; field codes passed
+  through a helper were invisible to the label check (`errors.field.required` had no label) →
+  written out literally; `permission_reason.*` and the new reasons merged into
+  `action_reason.*` (checked by `tests/test_action_reason_labels.py`); axe: Ant Design's gold
+  tag and default danger text fail contrast → severity as a dot + text, theme `colorError`
+  darkened (light) / lightened (dark) for every danger control.
+- Tests: backend 798 (announcements API 25 incl. 10k performance, domain 21, status machine 6,
+  housekeeping 2, fixture tool, labels); Vitest 138; Playwright 24 journeys (6 new: two-browser
+  live + 409 + reasons, scheduled publish 1 min ahead on a second browser, requester visibility in
+  Arabic RTL, site-scoped technician, tenant isolation, axe light/dark/RTL). 10,000 rows: p95
+  9.2–11.8 ms for every list and the feed.
+- Dev data: migrations 0008–0010 applied to the dev database (new tables and policies only); the
+  fan-out and consumer workers restarted to load the module; the suite's E2E records are
+  hard-deleted by `tooling/e2e_fixtures.py delete` (also run once by hand: 10 history rows of the
+  suite user `e2e.tech`).
+- Follow-ups: owner picker in the form (API supports `owner_id`); portal announcement page;
+  hard-delete of the suite's soft-deleted "E2E" roles (22 rows from WP-016/WP-012 runs) in
+  teardown; delete API for sites/groups; layer contracts for the older modules; history for
+  role and unit changes; `field_changes` partitioning with WP-018.
 
 ### 2026-10-23 — WP-011 realtime pipeline end to end
 - Decisions: D-030 (`centrifuge` client approved), D-031 (navigation layout as a server-side user

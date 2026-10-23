@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '../..');
 
+/** The portal dev server (`pnpm --filter @supportx/portal dev`); the console is the baseURL. */
+export const PORTAL_URL = process.env.SUPPORTX_PORTAL_URL ?? 'http://localhost:5174';
+
 export function stackEnv(): Record<string, string> {
   const text = readFileSync(resolve(REPO, 'deploy/compose/.env'), 'utf8');
   return Object.fromEntries(

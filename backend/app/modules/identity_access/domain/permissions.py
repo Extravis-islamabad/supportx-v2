@@ -76,8 +76,9 @@ ADMIN_PERMISSIONS = frozenset(
     }
 )
 
-# The technician and requester system roles, as (permission, scope). The tenant admin holds
-# every catalogue permission at its broadest scope (computed, so new modules are included).
+# The technician and requester system roles, as (permission, scope), for the permissions of this
+# module and the reserved ones. Built modules add theirs with PermissionSpec.defaults. The tenant
+# admin holds every catalogue permission at its broadest scope (computed, so modules are included).
 SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyType(
     {
         TECHNICIAN: (
@@ -141,11 +142,15 @@ class Catalogue:
                 msg = f"permission {spec.key!r} names unknown feature {spec.feature!r}"
                 raise CatalogueError(msg)
             found[spec.key] = spec
-        for role, grants in SYSTEM_ROLE_GRANTS.items():
-            for key, scope in grants:
-                if key not in found or scope not in found[key].scopes:
-                    msg = f"system role {role!r} grants {key!r} at {scope!r}, not in the catalogue"
-                    raise CatalogueError(msg)
+        declared = [(r, spec.key, s) for spec in found.values() for r, s in spec.defaults]
+        listed = [(r, key, s) for r, grants in SYSTEM_ROLE_GRANTS.items() for key, s in grants]
+        for role, key, scope in listed + declared:
+            if role not in SYSTEM_ROLE_GRANTS:
+                msg = f"permission {key!r} gives a default to unknown system role {role!r}"
+                raise CatalogueError(msg)
+            if key not in found or scope not in found[key].scopes:
+                msg = f"system role {role!r} grants {key!r} at {scope!r}, not in the catalogue"
+                raise CatalogueError(msg)
         return cls(MappingProxyType(dict(sorted(found.items()))))
 
     def get(self, key: str) -> PermissionSpec | None:
@@ -156,7 +161,13 @@ class Catalogue:
         """(permission, scope) pairs of a system role; the admin gets everything, broadest."""
         if role == TENANT_ADMIN:
             return tuple((key, spec.scopes[0]) for key, spec in self.permissions.items())
-        return SYSTEM_ROLE_GRANTS.get(role, ())
+        declared = tuple(
+            (key, scope)
+            for key, spec in self.permissions.items()
+            for granted_to, scope in spec.defaults
+            if granted_to == role
+        )
+        return SYSTEM_ROLE_GRANTS.get(role, ()) + declared
 
 
 def covers(held: Scope, wanted: Scope) -> bool:
