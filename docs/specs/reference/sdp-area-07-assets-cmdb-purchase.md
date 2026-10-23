@@ -226,4 +226,220 @@ This is the Enterprise trial. Asset, CMDB (53 CI types, business views, baseline
 - Request #42 "ZZ-CLAUDE-TEST incident from asset 1".
 - No vendors, groups, audits or consumables were saved. Earlier-area records are unchanged and PB-6 is still in trash.
 
-=== END OF AREA 7 ===
+# Area 7, follow-up 7b (append to the end of the Area 7 report)
+
+Everything below was viewed only, except where a test record is noted.
+
+## 7b.1 Setup > Customization > Asset Management
+
+**Navigation path:** Setup (gear) > Customization > Asset Management. Tabs: Product Type, Product, Service Type, Service, Vendor, Software Type, Software Category, Software License Types, Software Manufacturers, Asset State, Asset Acknowledgement, Configurations. The tab strip shifts and overflows into a "..." menu.
+
+**Product Type.** A tree of 39 types under "All Assets". Columns: Name, Type, Category, Description, Workflow/Life Cycle. Buttons: New Product Type, Expand/Collapse Tree.
+- Asset-class types: Access Point, Computer, Keyboard (Component, Non-IT), Mobile, Printer, Projector (Non-IT), Router, Scanner (Non-IT), Switch.
+- Consumable types (IT, workflow "Not applicable"): Blank Plastic Cards, Cable Tie, Cleaning Sheets, Cooling Pad, Fax Paper Roll, HDMI Cable, Inkjet Cartridge, Laptop Bag, Laptop Stickers, Motherboard Battery, Mouse Pad, Network Cable, Printer Ribbon for Plastic Cards, Ribbon, Sleeve, Stand, Toner Cartridge, USB Extension Cable, VGA Cable.
+- Software type (IT, bound to the "Commercial Software License" workflow).
+
+New Product Type form (two tabs: Details, and Fields, which is disabled until the first save):
+
+| Field | Type | Required | Options | Notes |
+|---|---|---|---|---|
+| Product Type | text | yes | | |
+| Icon | icon picker | no | Select Icon | |
+| API Name | text | yes | | Fixed prefix `custom_asset_` |
+| Parent Product Type | tree select | yes | existing types | |
+| Category | select | yes | IT, Non-IT | |
+| Type | select | yes | Asset, Component, Consumable | |
+| Description | text area | no | | |
+
+**Product.** Columns: Product Name, Type, Product Type, Manufacturer. Buttons: New Product, Configure Depreciation, Delete; a gear per row; paged.
+
+| Field (New Product) | Type | Required | Notes |
+|---|---|---|---|
+| Product Type | select | yes | |
+| Product Name | text | yes | |
+| Manufacturer | text/select | no | |
+| Part No. | text | no | |
+| Cost | money (default 0.00 $) | no | Has an info icon |
+| GL Code | select | no | |
+| Product Visibility | checkbox | no | "Do not show in purchase order" |
+| Description | rich text | no | |
+
+The list includes ZZ-CLAUDE-TEST software 1 (Software / Others), plus network gear and phones such as the Cisco, TP-Link, HP, Aruba, NETGEAR, One Plus and iPhone entries.
+
+**Service Type.** Five types: Others, Training/Consultancy, Labour, Infrastructure, Annual Maintenance Service. Columns: Name, Description. Button: Add Service Type.
+
+**Service.** One service, "Training Service" (type Training/Consultancy). Columns: Name, Description, Part No, Service Type, GL Code.
+- Add Service form: Name*, Service Type*, Part No, GL Code, Description, Disable (checkbox).
+
+**Vendor.** Covered in the Area 7 report. Existing vendors: Lenovo, Apple, HP, DELL.
+
+**Software Type.** Six: Excluded (not managed), Freeware, Managed, Prohibited, Shareware, Unidentified. Button: New Software Type. Each row has edit and delete icons.
+
+**Software Category.** Nine: Accounting, Database, Development, Game, Graphics, Internet, Multimedia, Operating System, Others. Button: New Software Category.
+
+**Software License Types.** The list is filtered by manufacturer (Adobe Systems, Inc. by default).
+
+| License type | Track by | Installations allowed | Perpetual |
+|---|---|---|---|
+| Individual | Computer | Single | no |
+| Volume | Computer | Volume | no |
+| Enterprise (Perpetual) | Computer | Unlimited | yes |
+| Enterprise Subscription | Computer | Unlimited | no |
+| OEM | Computer | OEM | no |
+| Client Access License | CAL | | |
+| Concurrent License | User | Single | |
+| Node Locked | Computer | Single | |
+| Named User License | User | Single | |
+| Trial License | Computer | Volume | |
+
+New License Type dialog:
+- License Type*
+- Manufacturer* (select, with an add button)
+- Track By* (Computer, User)
+- Installations Allowed* (Multiple, OEM, Single, Unlimited)
+- Is Perpetual (checkbox)
+- Is Free License (checkbox)
+- License Option* (an add/remove list of options)
+
+**Software Manufacturers.** Four: Others, Symantec Corporation, Adobe Systems, Inc., Microsoft Corporation. Columns: Display Name, Name, Description. Buttons: New Manufacturer, Reconcile, Delete.
+
+**Asset State.** Five: Disposed, Expired, In Repair, In Use, In Store. Columns: Asset State, Description. Button: New Asset State.
+
+**Asset Acknowledgement.** One checkbox, "Enable Asset Acknowledgement" (currently off). The help text says acknowledgements are set for specific product types, assigned users confirm receipt, and asset notifications must also be enabled.
+
+**Configurations.**
+- "Calculate Asset Age based on" (select; currently Acquisition Date).
+- An Asset Age Format table with Years, Months and Days checkboxes, each with a display-word select, and a live preview ("1 years 10 months 16 days").
+
+**Related Setup pages viewed:**
+- **Asset Auto Assign:** an enable switch, the number of consecutive scans with the same last-login email before auto-assigning (default 2), a fallback field to use when no email is collected, and an exclusion list.
+- **Fine-Grained Access** (Asset/CMDB switcher): currently empty. The New form has Name*, Description, Technicians*, Product Type (specific or all) and an Advanced Criteria checkbox.
+- **Asset Life Cycles:** one entry, "Sample Asset lifecycle" (published, status off, applies to nothing). The New form has Name*, Description, Applies to (sub-module), then Next.
+
+## 7b.2 Software "ZZ-CLAUDE-TEST software 1" and its licence
+
+**Software list** (`/ui/software`, under Assets). Views: Zero Installation Software, All Software, Software Suite. Columns: Name, Type, Is Software Suite, Category, Manufacturer. Toolbar: New (New Software, New Software Suite), Delete, Actions (Modify Category, Modify Manufacturer), Move To (site). Sub-lists: Software, Agreements, Licenses, Service Packs.
+
+**Header.** A Site selector (All Sites) and a "Compliance Type" dropdown. It currently shows Compliant, with a popover reading Installations Allowed 1, Installations 1, Licensed Installations 1.
+
+**Tabs:** Details, License Agreements, Installations, then an overflow (Licenses, Usages, History). The strip reorders itself around the last tab opened.
+
+**Details tab.**
+- Fields: Product, Cost, Version, Manufacturer (Others), Category (Development), Description (editable), Software images (Add), Software Type (Managed).
+- Right panel, Installations Summary: Licensed 1, Unlicensed 0, All 1.
+- Right panel, Licenses Summary: Purchased 1, Installations Allowed 1, Downgrade 0, Allocated 1, Allocated to Downgrades 0, Available 0.
+- Actions menu: Modify Software Type, Convert as Software Suite, New License Agreement, New Software License (Standard or Upgrade), Notification > Email users. I did not click Email users.
+
+**License Agreements tab.** Filter "All Agreements". Columns: Agreement Number, Manufacturer, Acquisition Date, Expiry Date, Expire In, PO #, Status. Empty.
+
+**Installations tab.** Sub-tabs: All, Licensed Installations, Unlicensed Installations. Buttons: Add Software Installations, Remove Software Installations. Columns: Computer, Version, User, License. One row: ZZ-CLAUDE-TEST asset 1, user the trial admin.
+
+**Licenses tab.**
+- Buttons: Auto Allocate License; under Purchased Licenses (sub-tabs All, Individual): New Standard License, New Upgrade License, Delete, Move License to Site.
+- Columns: License Name, License Type, License Option, Installations Allowed, Allocated, License Key, Site, Region, Status, Organization License.
+- The one row: ZZ-CLAUDE-TEST license 1, Individual, Full Packaged Product (FPP), allowed 1, allocated 1, Base Site, Active, Organization License = No.
+- Below it, "Available for allocation / Downgrade Licenses" shows 0 and 0.
+
+**Usages tab.** Sub-tabs: All, Users, Departments. Columns: User, Department, Computer, Email Id, Phone. One row: me, on ZZ-CLAUDE-TEST asset 1.
+
+**History tab.** Filters: All, Installed, Updated, Uninstalled ("this week" by default). Columns: Discovered Date, Computer, User, Department, Operation. Entries: Installed (08:23 PM), License Allocated (08:24 PM).
+
+**New Standard License form** (opened, not saved):
+
+| Field | Type | Required | Options / default |
+|---|---|---|---|
+| Manufacturer | select + add | yes | default Others |
+| License Name | text | no | |
+| License Type | select | yes | default Individual (list above) |
+| License Option | select + add | yes | Full Packaged Product (FPP), Others |
+| Vendor | select + add | no | |
+| License Key(s) | text | no | |
+| Organization License | Yes/No | no | default No |
+| Allocated To Site | select | no | Base Site |
+| Renewal Type | select | no | Monthly, Quarterly, Biannual, Annual, Custom |
+| Acquisition Date | date | no | |
+| Expiry Date | date | no | |
+| Purchase Cost | money | no | default 0.0 |
+| Purchased For | text | no | |
+| Description | text | no | |
+
+There is also a "Downgrade Rights" section: a table of Software and License Key rows naming installations this licence may be used for.
+
+**Compliance.** There is no standalone compliance screen. Compliance shows as the header dropdown (Compliant, Under Licensed and so on) plus the Installations and Licenses summaries. The Under Licensed to Compliant flip on Auto Allocate License is in the Area 7 report.
+
+## 7b.3 Asset detail page of "ZZ-CLAUDE-TEST asset 1"
+
+Tabs: Details, Hardware, Software, Relationships, Financials, Contracts, History, plus overflow.
+
+**Details tab.**
+- Name, Product (Precision 5560).
+- Computer: Model, Manufacturer, Last Logged In User, Domain, Service Tag, BIOS Version, BIOS Date, BIOS Manufacturer, SMBIOS Version.
+- Operating System: OS, Version, Build Number, Service Pack, Product ID.
+- Memory: Physical, Virtual.
+- Keyboard: Type, Manufacturer, Serial.
+- Mouse: Type, Serial, Buttons, Manufacturer.
+- Asset Details: Serial Number (ZZ-SN-0001), Asset Tag (ZZ-TAG-0001), Product Manufacturer, Barcode/QR, Vendor, Discovered Serial, Purchase Cost (1200.00 $), Part No., Expiry Date, Acquisition Date, Location, Warranty Expiry Date, Last Updated By/Time, Region, Created By/Time.
+- Asset State block: State (In Use), User, Associated to Asset, Department, Site (Base Site), "Retain associated asset/user/department's site" (Yes), State Comments.
+
+**Hardware tab.** Every section is empty for this manual asset.
+- **Computer Details:** Computer System; Operating System (this adds Language and License Type); Memory.
+- **Processor table:** S.No, Processor, CPU Stepping, Manufacturer, Number of cores, Clock Speed (MHz), with a Total Processors count.
+- **Installed Memory Modules:** Socket, Capacity, Module Tag, Bank Label.
+- **Network Details > Network Adapters:** IP Address, MAC Address, NIC Name, DHCP, DHCP Server, DNS Hostname, Type.
+- **Disks and Drives:**
+  - Hard Disks: Model, Serial Number, Manufacturer, Capacity.
+  - Logical Drives: Drive, Drive Type, File Type, Serial Number, Capacity, Free Space, Drive Usage.
+  - Physical Drives: Drive Name, Drive Type, Manufacturer, Driver Version, Driver Provider.
+- **Printer Details > Printers:** Name, Server, Model, Type, Default, Location.
+- **Other Details:** Keyboard, Mouse, Sound Card, Monitors (Monitor Type, Serial Number, Manufacturer, Max Resolution), Video Cards (Chipset, Video Card Memory, Video Card), Ports (Port Name, Port Status), USB Controllers (Name).
+
+**Software tab.**
+- Type filter: All Software Types, Excluded, Freeware, Managed, Prohibited, Shareware, UnIdentified, Suite Software.
+- Buttons: Add Software Installations, Delete.
+- Columns: Software, Version, License Key, Product ID, Type, Category, Installed On, Added By.
+- One row: ZZ-CLAUDE-TEST software 1, Managed, Development, added by me.
+
+**Relationships tab.** A diagram with the asset in the centre, an "Assigned To" user node, and connected groups (Assets, Business Services, Components and so on), each with a "+". An Add Relationship dropdown sits above it.
+
+**Financials tab.**
+- **Costs sub-tab:** summary cards for Purchase Cost 1200.00 $, Current Book Value 0.00 $, Operational Cost 0.00 $, Total Cost of Ownership 1200.00 $. Below is a cost table (Date, Cost Factor, Description, Cost, with edit and delete icons) and Total and TCO lines. The first row is the purchase cost dated Oct 23, 2026.
+  - **Add Cost dialog:** Cost Factor* (grouped: Purchase Cost; Operational Cost with Move/Change Cost, Others, Service Cost, Contract Cost; Disposal Cost), Amount*, Date*, Description.
+- **Depreciation sub-tab:** shows Purchase Cost 1200.00 and Acquisition Date "-", with a prompt to configure depreciation.
+  - **Configure Depreciation dialog (not saved):** Purchase Cost*, Acquisition Date*, a radio between "use data configured for product Precision 5560" and "for this asset", and Depreciation Method* (Declining Balance, Double Declining Balance, Straight Line, Sum Of The Years Digit).
+
+**History tab.** Sub-tabs: History, State History, Assignment History, with a text filter, date picker and an "All" filter. Newest first:
+1. 08:24 PM, Software License Allocated.
+2. 08:23 PM, Updated "Installed Software [ZZ-CLAUDE-TEST software 1]".
+3. 08:18 PM, Updated "State from In Store to In Use; User from None to the trial admin".
+4. 08:16 PM, Created.
+
+The creation of request #42 from this asset did not appear in the history.
+
+## 7b.4 "Precision 3570 - PO# 5[1]" after loan return
+
+State is In Store. It links to Purchase Order 5 (ZZ-CLAUDE-TEST PO 1). Age is 0 years 0 months 0 days. Life cycle and Workflow are both "Not Assigned".
+
+## 7b.5 Linking assets to a problem and a change
+
+- **PB-5:** Edit > Assets Involved > "More Assets" opens a "Select Assets Involved" picker. After Save, the problem shows "Assets Involved: ZZ-CLAUDE-TEST asset 1". The picker has:
+  - a Product Type filter (All Assets) and a Site filter (All Sites);
+  - a search icon that opens per-column filters (type in the Name filter, press Enter);
+  - columns Name, Product Type, Product, AssetTag, Barcode/QR code, Serial Number, Discovered Serial Number;
+  - paging (22 assets) and Select/Cancel.
+- **CH-8:** the same picker and the same result on the Details page. CH-8 also showed a workflow popup, "General Change Workflow, Execution Status Violated, Change is not following workflow now". I closed it.
+- **Asset side:** the right panel now has "Associated Requests" (1 pending, 1 total) and "Associated Problems" (1 pending, 1 total). **No Changes counter appeared**, so the change link is not visible from the asset's right panel. This looks like a gap or inconsistency.
+
+## 7b.6 Dialogs on ZZ-CLAUDE-TEST asset 1
+
+- **Copy Asset:** a single field, "Number of Copies*", with Copy/Cancel. I made one copy, "Copy of ZZ-CLAUDE-TEST asset 1 - 22" (Workstation, In Store, same product and serial). It remains in the instance.
+- **Modify Product:** Product Type (Workstation, clearable) and Product* (Precision 5560), with Save/Cancel. Cancelled.
+- **Modify State** (opened by mistake on the list, cancelled): State* (default In Store), Site (Base Site), State Comments.
+- **Reconcile** (list Actions menu):
+  - With one asset selected it alerts "Please select two assets to reconcile".
+  - With two selected, a "Reconcile Confirm" dialog says it merges duplicates, keeps one and deletes the other. A discovered asset wins over a PO-created one; otherwise the latest wins. I clicked No, so nothing merged.
+
+The workstation list Actions menu is longer than the All Assets one: Scan Now (not clicked) comes first, then Add to Group, Configure Depreciation, Assign to Department, Assign to Site, Modify State, Modify Product, Reconcile, Mark as Loanable and more.
+
+**New test record in 7b:** "Copy of ZZ-CLAUDE-TEST asset 1 - 22".
+
+=== END OF AREA 7 (including 7b) ===
