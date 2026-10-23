@@ -6,9 +6,10 @@ Also the authorization policy layer (WP-016, architecture.md §11.2): permission
 assignments and the one policy service the API, search, realtime and AI agents use.
 
 Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
-`authorize_stored`, `scope_filter`, `visible`, `require`. Sessions reach the rest of the app only
-as the `TenantContext` resolved by app.core.tenancy; routes declare permissions with
-app.core.authorization.require_permission.
+`authorize_stored`, `scope_filter`, `visible`, `require`, and `get_policy` (FastAPI dependency
+giving the policy service, e.g. who holds a permission, for owner pickers). Sessions reach the
+rest of the app only as the `TenantContext` resolved by app.core.tenancy; routes declare
+permissions with app.core.authorization.require_permission.
 """
 
 import uuid
@@ -26,6 +27,7 @@ from app.core.authorization import (
 )
 from app.core.modules import ModuleRegistry, ModuleSpec
 from app.core.tenancy import SESSION_RESOLVER_STATE
+from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
@@ -185,6 +187,7 @@ __all__ = [
     "authorize",
     "authorize_stored",
     "display_names",
+    "get_policy",
     "module",
     "require",
     "scope_filter",

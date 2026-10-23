@@ -14,7 +14,7 @@ import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol
 
 from sqlalchemy import ColumnElement, Select, and_, delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -84,6 +84,29 @@ from app.shared.history import (
     history_page,
     record_changes,
 )
+
+
+class PermissionHolders(Protocol):
+    """Who holds a permission (identity_access policy service): owners must be able to manage."""
+
+    async def holders(
+        self,
+        session: AsyncSession,
+        tenant_id: uuid.UUID,
+        permission: str,
+        *,
+        search: str | None = ...,
+        limit: int = ...,
+    ) -> list[tuple[uuid.UUID, str]]:
+        """Active users holding the permission: (id, display name)."""
+        ...
+
+    async def user_holds(
+        self, session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID, permission: str
+    ) -> bool:
+        """Whether one user holds the permission."""
+        ...
+
 
 RECORD_TYPE = "announcement"
 DISPLAY_PREFIX = "ANN"
@@ -533,14 +556,19 @@ def _check(values: Mapping[str, Any], *, creating: bool) -> Draft:  # noqa: C901
     return Draft(clean)
 
 
-async def _check_references(
+async def _check_references(  # noqa: PLR0913, PLR0917 - every reference the draft makes
     session: AsyncSession,
+    subject: Subject,
+    holders: PermissionHolders,
     audience: str,
     site_ids: list[uuid.UUID],
     group_ids: list[uuid.UUID],
     owner_id: uuid.UUID | None,
 ) -> None:
-    """Sites, groups and the owner must exist in this tenant; the audience must match its units."""
+    """Sites, groups and the owner must exist in this tenant; the audience must match its units.
+
+    A new owner must be someone who may manage announcements (the owner picker lists only them).
+    """
     errors: list[FieldError] = []
     if owner_id is not None and str(owner_id) not in await user_names(session, [str(owner_id)]):
         errors.append(
@@ -548,6 +576,16 @@ async def _check_references(
                 field="body.owner_id",
                 code="unknown_value",
                 message_key="errors.field.unknown_value",
+            )
+        )
+    elif owner_id is not None and not await holders.user_holds(
+        session, subject.tenant_id, owner_id, MANAGE
+    ):
+        errors.append(
+            FieldError(
+                field="body.owner_id",
+                code="owner_not_allowed",
+                message_key="errors.field.owner_not_allowed",
             )
         )
     for name, kind, ids in (("site_ids", "site", site_ids), ("group_ids", "group", group_ids)):
@@ -652,6 +690,33 @@ async def _names(session: AsyncSession, ids: Sequence[str]) -> list[str]:
     return await display_names(session, ids)
 
 
+async def owner_candidates(  # noqa: PLR0913 - keyword-only search options
+    session: AsyncSession,
+    subject: Subject,
+    holders: PermissionHolders,
+    *,
+    search: str | None,
+    limit: int,
+    include: Sequence[uuid.UUID] = (),
+) -> list[tuple[uuid.UUID, str]]:
+    """People who may own an announcement (they may manage announcements), by name.
+
+    `include` (e.g. the current owner) comes first by name even when not in this page, so a
+    picker can always show who is selected; it is only ever names, as in record history.
+    """
+    if not subject.holds(MANAGE):
+        raise PermissionDenied(params={"permission": MANAGE, "reason": NO_PERMISSION})
+    found = await holders.holders(session, subject.tenant_id, MANAGE, search=search, limit=limit)
+    names = await user_names(session, [str(user_id) for user_id in include])
+    listed = {user_id for user_id, _ in found}
+    first = [
+        (user_id, names[str(user_id)])
+        for user_id in dict.fromkeys(include)
+        if str(user_id) in names and user_id not in listed
+    ]
+    return first + found
+
+
 async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID) -> Conflict:
     return await explain_conflict(
         session,
@@ -663,7 +728,11 @@ async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID
 
 
 async def create(
-    session: AsyncSession, subject: Subject, values: Mapping[str, Any], source: Source
+    session: AsyncSession,
+    subject: Subject,
+    values: Mapping[str, Any],
+    source: Source,
+    holders: PermissionHolders,
 ) -> AnnouncementView:
     """A new draft. The writer must be able to manage it afterwards (scope)."""
     if not subject.holds(MANAGE):
@@ -672,7 +741,9 @@ async def create(
     audience = draft.get("audience", AnnouncementAudience.EVERYONE)
     sites = draft.get("site_ids", [])
     groups = draft.get("group_ids", [])
-    await _check_references(session, audience, sites, groups, draft.get("owner_id"))
+    await _check_references(
+        session, subject, holders, audience, sites, groups, draft.get("owner_id")
+    )
     window = Window(draft.get("publish_from"), draft.get("publish_until"))
     if window.problems():
         raise ValidationFailed(
@@ -741,6 +812,7 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
     expected_version: int,
     values: Mapping[str, Any],
     source: Source,
+    holders: PermissionHolders,
 ) -> AnnouncementView:
     """Edit fields (never the status). Unchanged input: no new version, no event."""
     record = await _staff_record(session, subject, MANAGE, announcement_id)
@@ -750,7 +822,17 @@ async def update(  # noqa: PLR0913 - the record, the version and the change, exp
     new_sites = draft.pop("site_ids", sites)
     new_groups = draft.pop("group_ids", groups)
     audience = draft.get("audience", record.audience)
-    await _check_references(session, audience, new_sites, new_groups, draft.get("owner_id"))
+    # An unchanged owner is not re-checked: losing the permission must not block other edits.
+    new_owner = draft.get("owner_id")
+    await _check_references(
+        session,
+        subject,
+        holders,
+        audience,
+        new_sites,
+        new_groups,
+        None if new_owner == record.owner_id else new_owner,
+    )
     window = Window(
         draft.get("publish_from", record.publish_from),
         draft.get("publish_until", record.publish_until),

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md \u00a79.2).",
+  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md §9.2).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -15,7 +15,8 @@
     "@ant-design/icons": "^5.6.1",
     "@supportx/api-client": "workspace:*",
     "@supportx/labels": "workspace:*",
-    "@supportx/realtime": "workspace:*"
+    "@supportx/realtime": "workspace:*",
+    "dayjs": "catalog:"
   },
   "peerDependencies": {
     "@tanstack/react-query": "catalog:",
@@ -24,15 +25,15 @@
   },
   "devDependencies": {
     "@tanstack/react-query": "catalog:",
-    "@types/react": "catalog:",
-    "antd": "catalog:",
-    "react": "catalog:",
-    "typescript": "catalog:",
-    "react-dom": "catalog:",
-    "@types/react-dom": "catalog:",
-    "jsdom": "catalog:",
-    "@testing-library/react": "catalog:",
     "@testing-library/dom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "antd": "catalog:",
+    "jsdom": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "typescript": "catalog:",
     "vitest": "catalog:"
   }
 }

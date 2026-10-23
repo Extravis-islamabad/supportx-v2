@@ -3,7 +3,8 @@
 ## Current status
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 13 of 16 work packages done.
-- **Last completed:** WP-012 (walking skeleton: announcements), 2026-10-23. Before it: WP-011.
+- **Last completed:** WP-012b (WP-012 follow-ups: date pickers, owner picker, E2E role teardown),
+  2026-10-24. Before it: WP-012.
 - **Next work package:** WP-015 (clickable prototype; unblocked). WP-013 needs the Rust toolchain
   installed, WP-014 needs k3d (neither is on the dev machine).
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
@@ -17,10 +18,9 @@
 
 1. How k3d gets installed on the dev machine (no Homebrew): official install script, binary
    download, or install Homebrew first? Blocks WP-014.
-2. **Rich-text editor library** (D-033): needed before the Knowledge module (articles with
-   formatting, images, tables; output sanitised server-side, §11). Candidates to evaluate for
-   licence (on-prem redistribution), RTL, accessibility and bundle size. Announcements stay plain
-   text until then.
+
+Resolved 2026-10-24: rich-text editor = Tiptap with server-side sanitising, built with the
+Knowledge module (D-036).
 
 ### Open items
 
@@ -264,6 +264,32 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
 
 ## Session log (newest first)
 
+### 2026-10-24 — WP-012b WP-012 follow-ups
+- Decisions: D-035 (dayjs approved as a direct dependency; one shared date-time field in the
+  user's profile time zone), D-036 (rich-text editor = Tiptap + server-side sanitising, with
+  Knowledge; open question 2 closed).
+- Dates: `DateTimeField` / `DateTimeRangeField` in `packages/ui/src/dates` (Ant Design
+  DatePicker / RangePicker; zone from `/auth/me`, else the browser's, else UTC; ISO instants in
+  and out; zone note under the field; picker "Now" hidden because it uses the browser clock).
+  Zone conversion via `Intl` (`zone.ts`), not the dayjs timezone plugin (DST bugs with pickers;
+  Arabic digits in formatted strings). dayjs locale follows the UI language (en/ar/ur). The
+  announcement form's native `datetime-local` inputs replaced; module-template.md updated.
+- Owner picker: `PolicyService.holders` / `user_holds` (identity_access; SQL narrows by granting
+  roles incl. unmapped defaults, each confirmed with the user's compiled subject so licence
+  entitlement applies); `get_policy` exported; `GET /announcements/owner-candidates?search=&
+  include=&limit=` (needs `announcements.manage`; `include` names the current owner first); create
+  and edit refuse an owner without `announcements.manage` (`owner_not_allowed`; an unchanged owner
+  is not re-checked). Console: searchable owner select, author preselected, refetched on open.
+- Teardown: `tooling/e2e_fixtures.py delete` also hard-deletes custom roles named "E2E …" that are
+  already soft-deleted (their permissions cascade; live, system and other roles untouched).
+- Fixed on the way: `test_today_follows_the_users_time_zone` failed between 19:00 and 10:00 UTC
+  (it assumed Karachi midnight is before Honolulu's day starts); it now picks an instant that is
+  today in Karachi but not in Honolulu at any time of day.
+- Dev data: 23 soft-deleted "E2E …" custom roles (Demo Company; 0 holders) and their 43 permission
+  rows hard-deleted, nothing else (no other suite records matched).
+- Follow-ups: owner candidates do not update live while the picker stays open (refetched on
+  every open); portal announcement page; delete API for sites/groups (from WP-012).
+
 ### 2026-10-23 — WP-012 walking skeleton (announcements)
 - Decisions: D-032 (announcements in a new module, licensed by `incident`, banners in console and
   portal, four-eyes off by default, reasons on unpublish/archive, live publish window, checklist
@@ -305,9 +331,8 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
   fan-out and consumer workers restarted to load the module; the suite's E2E records are
   hard-deleted by `tooling/e2e_fixtures.py delete` (also run once by hand: 10 history rows of the
   suite user `e2e.tech`).
-- Follow-ups: owner picker in the form (API supports `owner_id`); portal announcement page;
-  hard-delete of the suite's soft-deleted "E2E" roles (22 rows from WP-016/WP-012 runs) in
-  teardown; delete API for sites/groups; layer contracts for the older modules; history for
+- Follow-ups: ~~owner picker in the form~~ and ~~E2E role teardown~~ (done in WP-012b); portal
+  announcement page; delete API for sites/groups; layer contracts for the older modules; history for
   role and unit changes; `field_changes` partitioning with WP-018.
 
 ### 2026-10-23 — WP-011 realtime pipeline end to end

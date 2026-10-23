@@ -30,6 +30,8 @@ export const schema = z
     show_as_banner: z.boolean(),
     publish_from: z.string().nullable(),
     publish_until: z.string().nullable(),
+    // null on a new announcement: the API makes the author the owner.
+    owner_id: z.string().nullable(),
   })
   .refine(
     (v) => v.publish_from === null || v.publish_until === null || v.publish_until > v.publish_from,
@@ -46,6 +48,7 @@ export const FIELDS = [
   'show_as_banner',
   'publish_from',
   'publish_until',
+  'owner_id',
 ] as const;
 export type Field = (typeof FIELDS)[number];
 
@@ -59,6 +62,7 @@ export const EMPTY: Values = {
   show_as_banner: true,
   publish_from: null,
   publish_until: null,
+  owner_id: null,
 };
 
 export function valuesOf(item: Announcement): Values {
@@ -72,6 +76,7 @@ export function valuesOf(item: Announcement): Values {
     show_as_banner: item.show_as_banner,
     publish_from: item.publish_from,
     publish_until: item.publish_until,
+    owner_id: item.owner_id,
   };
 }
 
@@ -87,5 +92,7 @@ export function bodyOf(values: Values, fields: readonly Field[] = FIELDS) {
     sent.add('site_ids');
     sent.add('group_ids');
   }
+  // No owner chosen yet: leave it out (the API refuses an explicit null).
+  if (clean.owner_id === null) sent.delete('owner_id');
   return Object.fromEntries([...sent].map((name) => [name, clean[name]])) as Partial<Values>;
 }
