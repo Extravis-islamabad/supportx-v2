@@ -43,6 +43,17 @@ const TECHNICIAN: Grant[] = [
   ['reports.view', 'all'],
   ['announcements.view', 'all'],
   ['announcements.manage', 'own'],
+  // D-052: technicians work on incidents at group scope (their groups, assigned, site queue).
+  ['incidents.view', 'group'],
+  ['incidents.create', 'all'],
+  ['incidents.edit', 'group'],
+  ['incidents.assign', 'group'],
+  ['incidents.take', 'group'],
+  ['incidents.change_priority', 'group'],
+  ['incidents.resolve', 'group'],
+  ['incidents.close', 'group'],
+  ['incidents.reopen', 'group'],
+  ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
   ['announcements.manage', 'all'],
@@ -58,6 +69,11 @@ const ADMIN_EXTRA: Grant[] = [
   ['releases.manage', 'all'],
   ['cmdb.manage', 'all'],
   ['problems.manage', 'all'],
+  ['incidents.view', 'all'],
+  ['incidents.edit', 'all'],
+  ['incidents.assign', 'all'],
+  ['incidents.assign_outside_group', 'all'],
+  ['incidents.delete', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
@@ -287,5 +303,130 @@ export function fakeApi(routes: Record<string, FakeRoute>) {
     restore: () => {
       globalThis.fetch = original;
     },
+  };
+}
+
+type Incident = components['schemas']['WorkItemOut'];
+type IncidentCatalogue = components['schemas']['WorkItemCatalogueOut'];
+
+const INCIDENT_ACTIONS = [
+  'start_work',
+  'wait_requester',
+  'wait_third_party',
+  'resume',
+  'resolve',
+  'close',
+  'reopen',
+  'cancel',
+  'undo_cancel',
+] as const;
+const FROM_NEW = new Set(['start_work', 'resolve', 'cancel']);
+
+/** An incident as staff see it (GET /incidents/{id}): new, unassigned, at a site, P3 default. */
+export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
+  const requester = '01900000-0000-7000-8000-0000000002a1';
+  return {
+    id: '01900000-0000-7000-8000-00000000c001',
+    type: 'incident',
+    display_id: 'INC-7',
+    subject: 'Mail is down',
+    description: '<p>Since <strong>9:00</strong>.</p>',
+    requester_id: requester,
+    on_behalf_of_id: null,
+    channel: 'phone',
+    site_id: null,
+    group_id: null,
+    technician_id: null,
+    category_id: null,
+    impact: null,
+    urgency: null,
+    priority: 'p3',
+    priority_source: 'default',
+    status: 'new',
+    status_category: 'open',
+    status_reason_code: null,
+    status_reason_text: null,
+    status_changed_at: '2026-10-24T09:00:00Z',
+    tags: [],
+    first_assigned_at: null,
+    first_responded_at: null,
+    resolved_at: null,
+    closed_at: null,
+    last_reopened_at: null,
+    reopen_count: 0,
+    reassignment_count: 0,
+    paused_seconds: 0,
+    paused_since: null,
+    sla_policy_id: null,
+    first_response_due_at: null,
+    resolution_due_at: null,
+    created_at: '2026-10-24T09:00:00Z',
+    created_by: requester,
+    updated_at: '2026-10-24T09:00:00Z',
+    updated_by: requester,
+    version: 1,
+    actions: INCIDENT_ACTIONS.map((action) => ({
+      action,
+      allowed: FROM_NEW.has(action),
+      reason: FROM_NEW.has(action) ? null : 'not_from_status',
+      reason_mode: action === 'cancel' ? 'required' : 'none',
+      reason_list: action === 'cancel' ? 'cancel' : null,
+    })),
+    operations: ['edit', 'assign', 'take', 'change_priority', 'delete'].map((action) => ({
+      action,
+      allowed: action !== 'delete',
+      reason: action === 'delete' ? 'no_permission' : null,
+      reason_mode: 'none',
+      reason_list: null,
+    })),
+    history_count: 1,
+    people: { [requester]: { display_name: 'Rana Requester', email: 'rana@demo.test' } },
+    visible: true,
+    ...overrides,
+  };
+}
+
+/** GET /incidents/settings: the Appendix A defaults. */
+export function fakeIncidentCatalogue(): IncidentCatalogue {
+  const impacts = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
+  const urgencies = ['low', 'medium', 'high', 'critical'] as const;
+  const rows = [
+    ['p4', 'p4', 'p3', 'p3'],
+    ['p4', 'p3', 'p3', 'p2'],
+    ['p3', 'p3', 'p2', 'p1'],
+    ['p3', 'p2', 'p1', 'p1'],
+  ] as const;
+  return {
+    prefix: 'INC',
+    default_priority: 'p3',
+    auto_status_on_assign: true,
+    version: 1,
+    statuses: [
+      ['new', 'open'],
+      ['assigned', 'open'],
+      ['in_progress', 'open'],
+      ['awaiting_requester', 'paused'],
+      ['resolved', 'resolved'],
+      ['closed', 'closed'],
+      ['canceled', 'canceled'],
+    ].map(([code, category]) => ({
+      code: code ?? '',
+      category: category as IncidentCatalogue['statuses'][number]['category'],
+      colour: '#1677ff',
+      labels: null,
+      system: false,
+      disabled: false,
+    })),
+    actions: [...INCIDENT_ACTIONS],
+    transitions: [],
+    scales: [],
+    matrix: impacts.flatMap((impact, i) =>
+      urgencies.map((urgency, j) => ({ impact, urgency, priority: rows[i]?.[j] ?? 'p3' })),
+    ),
+    reasons: [
+      { list: 'cancel', code: 'duplicate', labels: null },
+      { list: 'cancel', code: 'other', labels: null },
+      { list: 'reassign', code: 'wrong_group', labels: null },
+    ],
   };
 }

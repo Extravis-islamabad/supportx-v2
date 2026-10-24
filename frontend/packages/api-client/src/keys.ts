@@ -1,4 +1,5 @@
 import type { AnnouncementsQuery } from './announcements';
+import type { IncidentsQuery } from './incidents';
 import type { UsersQuery } from './users';
 
 /**
@@ -29,6 +30,17 @@ export const queryKeys = {
     settings: ['announcements', 'settings'] as const,
     ownerCandidates: (search: string, include: string | null) =>
       ['announcements', 'owner-candidates', search, include] as const,
+  },
+  incidents: {
+    all: ['incidents'] as const,
+    list: (query: IncidentsQuery) => ['incidents', 'list', query] as const,
+    views: ['incidents', 'views'] as const,
+    detail: (id: string) => ['incidents', 'detail', id] as const,
+    history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,
+    catalogue: ['incidents', 'catalogue'] as const,
+    categories: ['incidents', 'categories'] as const,
+    assignees: (groupId: string | null, search: string) =>
+      ['incidents', 'assignees', groupId, search] as const,
   },
   users: {
     all: ['users'] as const,

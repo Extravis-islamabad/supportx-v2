@@ -16,19 +16,17 @@ const LAYOUTS = [
 ] as const;
 
 /**
- * Do something in the Appearance popover, then close it (it toggles; Escape does not). A layout or
- * language change re-renders the shell, and a click landing during that re-render is lost, so
- * closing retries until the popover is gone (seen on the k3d cluster, WP-014).
+ * Do something in the Appearance popover, then close it with one click on its button (it
+ * toggles). A layout or language change used to lose that click (WP-014); the popover now keeps
+ * its state across the re-render (packages/ui AppHeader), so no retry is needed.
  */
 async function inAppearance(page: Page, action: () => Promise<void>): Promise<void> {
   const panel = page.getByTestId('nav-layout');
   if (!(await panel.isVisible())) await page.getByTestId('appearance-menu').click();
   await expect(panel).toBeVisible();
   await action();
-  await expect(async () => {
-    if (await panel.isVisible()) await page.getByTestId('appearance-menu').click();
-    await expect(panel).toBeHidden({ timeout: 1_000 });
-  }).toPass({ timeout: 10_000 });
+  await page.getByTestId('appearance-menu').click();
+  await expect(panel).toBeHidden();
 }
 
 async function chooseLayout(page: Page, label: string): Promise<void> {

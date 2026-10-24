@@ -1,4 +1,5 @@
 import {
+  AlertOutlined,
   AppstoreOutlined,
   BarChartOutlined,
   BookOutlined,
@@ -20,6 +21,14 @@ import { ADMIN_PERMISSIONS, type NavItem } from '@supportx/ui';
  */
 export const NAV: readonly NavItem[] = [
   { key: 'home', path: '/', labelKey: 'nav.home', icon: <HomeOutlined /> },
+  {
+    key: 'incidents',
+    path: '/incidents',
+    labelKey: 'nav.incidents',
+    icon: <AlertOutlined />,
+    feature: 'incident',
+    permissions: ['incidents.view'],
+  },
   {
     key: 'requests',
     path: '/requests',
