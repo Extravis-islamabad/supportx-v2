@@ -35,7 +35,7 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query
 from app.shared.api.ratelimit import rate_limit
-from app.shared.history import ChangeKind, HistoryEntry, Source, source_of
+from app.shared.history import HistoryEntry, source_of
 
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
@@ -271,6 +271,12 @@ class FeedOut(BaseModel):
     )
 
 
+# The codes an announcement's history can hold. Work items added more history kinds and sources
+# (ADR-026); announcements never produce them, so their published contract stays as it was.
+AnnouncementChangeKind = Literal["created", "updated", "status", "deleted", "restored"]
+AnnouncementChangeSource = Literal["ui", "api", "rule", "workflow", "ai_agent", "system", "import"]
+
+
 class FieldChangeOut(BaseModel):
     """One field of one save. Values are codes, IDs, text or ISO times; the UI labels them."""
 
@@ -283,12 +289,12 @@ class HistoryEntryOut(BaseModel):
     """One save."""
 
     version: int
-    kind: ChangeKind
+    kind: AnnouncementChangeKind
     occurred_at: datetime
     actor_type: Literal["user", "system"]
     actor_id: str | None
     actor_name: str | None
-    source: Source
+    source: AnnouncementChangeSource
     reason: str | None
     changes: list[FieldChangeOut]
 
@@ -297,12 +303,12 @@ class HistoryEntryOut(BaseModel):
         """From a history entry plus resolved actor names."""
         return cls(
             version=entry.version,
-            kind=entry.kind,
+            kind=entry.kind,  # type: ignore[arg-type]  # announcements write only these kinds
             occurred_at=entry.occurred_at,
             actor_type="user" if entry.actor_type == "user" else "system",
             actor_id=entry.actor_id,
             actor_name=names.get(entry.actor_id or ""),
-            source=entry.source,
+            source=entry.source,  # type: ignore[arg-type]  # ... and only these sources
             reason=entry.reason,
             changes=[FieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes],
         )

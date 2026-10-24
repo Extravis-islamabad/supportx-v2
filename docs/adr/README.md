@@ -32,3 +32,4 @@ Owner: the product owner owns all ADRs until a tech lead is appointed (D-007).
 | [ADR-023](ADR-023-realtime-pipeline.md) | Realtime pipeline: per-channel tokens, module-declared routes, windowed fan-out | Accepted | Haider (Product Owner) |
 | [ADR-024](ADR-024-announcements-walking-skeleton.md) | Announcements walking skeleton: shared field history, status machines, clock-driven visibility | Accepted | Haider (Product Owner) |
 | [ADR-025](ADR-025-deployment-helm-k8s.md) | Deployment: one Helm chart, CloudNativePG, Gateway API, migrate Job per revision, one host with paths | Accepted | Haider (Product Owner) |
+| [ADR-026](ADR-026-work-item-engine.md) | Work item engine: shared table, types as registry entries, tenant life cycles, type-keyed counters, history children and automation trace | Accepted | Haider (Product Owner) |

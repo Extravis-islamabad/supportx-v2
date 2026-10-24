@@ -48,6 +48,19 @@ ENUM_PREFIXES: dict[str, str] = {
     "UserDetail.status": "user_status",
     "UserOut.locale": "locale",
     "UserType": "user_type",
+    "Channel": "work_item_channel",
+    "Impact": "impact",
+    "Priority": "priority",
+    "PrioritySource": "priority_source",
+    "ReasonList": "reason_list",
+    "ReasonMode": "reason_mode",
+    "Scale": "scale",
+    "StatusCategory": "status_category",
+    "Urgency": "urgency",
+    "WorkItemAction": "work_item_action",
+    "WorkItemHistoryEntryOut.actor_type": "actor_type",
+    "WorkItemHistoryEntryOut.kind": "change_kind",
+    "WorkItemHistoryEntryOut.source": "change_source",
 }
 
 

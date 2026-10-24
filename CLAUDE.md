@@ -98,7 +98,12 @@ private registries (D-038).
 
 **Approved additions (D-035, D-036):** `dayjs` (Ant Design 5's date library, used directly by
 the shared `DateTimeField`); Tiptap (MIT) as the rich-text editor, with server-side HTML
-sanitising, to be added with the Knowledge module (not yet installed).
+sanitising.
+
+**Approved additions (D-051):** `nh3` (server-side HTML sanitiser, installed in WP-020) and
+`@tiptap/react`, `@tiptap/pm`, `@tiptap/starter-kit` plus the link, table and placeholder
+extensions (MIT, no Tiptap Pro; added with the WP-020 screens). Later: `aioboto3` for WP-022
+(D-054).
 
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,

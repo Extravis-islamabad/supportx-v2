@@ -606,6 +606,420 @@
         "title": "SupportGroupChanged",
         "type": "object"
       }
+    },
+    "work_items.settings.changed": {
+      "1": {
+        "description": "A type's configuration changed (prefix, default priority, categories ...).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "changed_fields"
+        ],
+        "title": "WorkItemSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.assigned": {
+      "1": {
+        "$defs": {
+          "Audience": {
+            "description": "Where a record was visible: its group, site, people and whether it was unassigned.",
+            "properties": {
+              "group_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Group Id"
+              },
+              "site_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Site Id"
+              },
+              "technician_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Technician Id"
+              },
+              "unassigned": {
+                "default": false,
+                "title": "Unassigned",
+                "type": "boolean"
+              }
+            },
+            "title": "Audience",
+            "type": "object"
+          }
+        },
+        "description": "The group or technician changed (assign, reassign, take, unassign).",
+        "properties": {
+          "audience_before": {
+            "$ref": "#/$defs/Audience"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "technician_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Technician Id"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "group_id",
+          "technician_id",
+          "audience_before"
+        ],
+        "title": "WorkItemAssigned",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.created": {
+      "1": {
+        "description": "A new work item was saved.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category"
+        ],
+        "title": "WorkItemCreated",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.deleted": {
+      "1": {
+        "description": "Moved to the trash (soft delete).",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category"
+        ],
+        "title": "WorkItemDeleted",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.restored": {
+      "1": {
+        "description": "Taken back out of the trash.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category"
+        ],
+        "title": "WorkItemRestored",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.status_changed": {
+      "1": {
+        "description": "A status action ran (by a person, or automatically after an assignment).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "from_status": {
+            "title": "From Status",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "action",
+          "from_status",
+          "to_status"
+        ],
+        "title": "WorkItemStatusChanged",
+        "type": "object"
+      }
+    },
+    "work_items.work_item.updated": {
+      "1": {
+        "$defs": {
+          "Audience": {
+            "description": "Where a record was visible: its group, site, people and whether it was unassigned.",
+            "properties": {
+              "group_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Group Id"
+              },
+              "site_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Site Id"
+              },
+              "technician_id": {
+                "anyOf": [
+                  {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "title": "Technician Id"
+              },
+              "unassigned": {
+                "default": false,
+                "title": "Unassigned",
+                "type": "boolean"
+              }
+            },
+            "title": "Audience",
+            "type": "object"
+          }
+        },
+        "description": "Fields changed (names only).",
+        "properties": {
+          "audience_before": {
+            "$ref": "#/$defs/Audience"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "type",
+          "display_id",
+          "status",
+          "status_category",
+          "changed_fields",
+          "audience_before"
+        ],
+        "title": "WorkItemUpdated",
+        "type": "object"
+      }
     }
   },
   "format": 1

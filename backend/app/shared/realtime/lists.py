@@ -9,6 +9,10 @@ only ever reaches people who may see the records it names (architecture.md §8.2
     t:{tenant}:user:{user}                  `own` scope: the user's own records
     t:{tenant}:queue:{list}.signal          holders whose grants carry an attribute rule:
                                             "this list changed", never which records
+    t:{tenant}:queue:{list}.unassigned.{site}
+                                            lists that set `unassigned_by_site`: holders at
+                                            `group` scope who belong to that site (the site's
+                                            unassigned queue, D-052)
 
 The fan-out publishes each change to every audience the record belongs to; the list screen
 refetches through the API, where the rule and scopes are applied again.
@@ -53,6 +57,12 @@ class LiveList:
 
     name: str
     permission: str
+    # Group-scoped holders also follow the unassigned queue of their sites (work items, D-052).
+    unassigned_by_site: bool = False
+
+    def unassigned(self, tenant_id: uuid.UUID, site: uuid.UUID) -> Channel:
+        """The channel of one site's unassigned records."""
+        return Channel(tenant_id, QUEUE, f"{self.name}.unassigned.{site}")
 
     def channels_for(self, subject: ScopedSubject, tenant_id: uuid.UUID) -> list[Channel]:
         """The channels `subject` joins to follow this list (empty: no access)."""
@@ -66,6 +76,8 @@ class LiveList:
                 found += [queue(tenant_id, self.name, site=s) for s in sorted(subject.site_ids)]
             elif grant.scope == "group":
                 found += [queue(tenant_id, self.name, group=g) for g in sorted(subject.group_ids)]
+                if self.unassigned_by_site:
+                    found += [self.unassigned(tenant_id, s) for s in sorted(subject.site_ids)]
             elif grant.scope == "own":
                 found.append(personal(tenant_id, subject.user_id))
         if len(plain) < len(grants):
@@ -98,14 +110,17 @@ class LiveList:
         sites: Iterable[uuid.UUID] = (),
         groups: Iterable[uuid.UUID] = (),
         owners: Iterable[uuid.UUID] = (),
+        unassigned_sites: Iterable[uuid.UUID] = (),
         actor_id: str | None = None,
     ) -> list[Publication]:
-        """One coalescable message per audience the record belongs to."""
+        """One coalescable message per audience the record belongs to (or just left)."""
         ids = (str(record_id),)
         channels = [queue(tenant_id, self.name)]
         channels += [queue(tenant_id, self.name, site=s) for s in sites]
         channels += [queue(tenant_id, self.name, group=g) for g in groups]
         channels += [personal(tenant_id, o) for o in owners]
+        channels += [self.unassigned(tenant_id, s) for s in unassigned_sites]
+        channels = list({c.name: c for c in channels}.values())
         found = [
             Publication(c, event_type, ids=ids, actor_id=actor_id, coalesce=True) for c in channels
         ]

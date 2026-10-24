@@ -1,0 +1,32 @@
+"""Work items module (architecture.md §6.1, §6.2; WP-020; ADR-026).
+
+The one engine for every ticket-like record. A type (incident now; service request, problem,
+change and release later) is a registry entry in `domain/types.py` with its own API path, licence
+feature and permission namespace, served by the same services, tables and realtime channels.
+
+Licensing: no module-wide feature; each type's router is guarded by its own feature
+(`router_features`: `incident` for incidents), so a plan with problems but not changes gets
+exactly those routes.
+
+Public interface for other modules: none yet (notes, tasks, links and the SLA module will use
+the work item service through here in WP-020b+).
+"""
+
+from app.core.modules import ModuleSpec
+from app.modules.work_items.api.routes import build_router
+from app.modules.work_items.domain.types import TYPES
+from app.modules.work_items.events import EVENTS
+from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.realtime import CHANNELS, ROUTES
+
+module = ModuleSpec(
+    name="work_items",
+    routers=[build_router(wtype) for wtype in TYPES.values()],
+    router_features=[wtype.feature for wtype in TYPES.values()],
+    events=EVENTS,
+    permissions=tuple(spec for wtype in TYPES.values() for spec in permissions(wtype)),
+    channels=CHANNELS,
+    realtime=ROUTES,
+)
+
+__all__ = ["module"]
