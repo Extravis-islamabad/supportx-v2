@@ -616,8 +616,8 @@ built-in role to make a custom one, and compare two roles side by side. Built-in
 be changed or deleted; custom roles can.
 
 - **Decision:** BETTER. ServiceDesk Plus built-in roles cannot be opened at all.
-- **Source:** sdp-area-11 §Screens (roles list: edit and delete greyed out, names not; sdp-area-15 §Roles and permissions matrix (the change manager role cannot be opened), §Weak spots
-  clickable), §Weak spots, §Limits; REQ-WI-015; ADR-022 (immutable system roles)
+- **Source:** sdp-area-11 §Screens (roles list: edit and delete greyed out, names not
+  clickable), §Weak spots, §Limits; REQ-WI-015; ADR-022 (immutable system roles); sdp-area-15 §Roles and permissions matrix (the change manager role cannot be opened), §Weak spots
 - **SDP weak spot fixed:** an admin cannot see what the built-in admin or change manager roles
   grant without trial and error.
 - **Priority:** MVP · **Edition:** Essentials
@@ -670,8 +670,8 @@ A site administrator manages people, groups, departments and site settings for t
 only, and cannot change tenant-wide settings. Their grants carry the site scope.
 
 - **Decision:** SAME. ServiceDesk Plus has a site administrator role.
-- **Source:** sdp-area-11 §Fields (enable administrator privileges for the selected sites;; sdp-area-15 §Dashboards, Site Admin and Change Manager (site admin cannot create requesters)
-  site administrator role as configured)
+- **Source:** sdp-area-11 §Fields (enable administrator privileges for the selected sites;
+  site administrator role as configured); sdp-area-15 §Dashboards, Site Admin and Change Manager (site admin cannot create requesters)
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A site administrator for Riyadh can edit a Riyadh department and gets 404 for a Jeddah
@@ -2236,9 +2236,9 @@ third party to use SupportX.
 
 - **Decision:** BETTER. The vendor requires a third-party vendor account before a technician or
   requester can sign in; invitations must be accepted in that account first.
-- **Source:** product owner observation (login, invitation and MFA), finding (a); sdp-area-11; sdp-area-15 §Sign-in, invitation and MFA
+- **Source:** product owner observation (login, invitation and MFA), finding (a); sdp-area-11
   §Fields (login requires the user to exist in the vendor's organisation and accept an
-  invitation), §Edition notes; sdp-area-14 §Weak spots
+  invitation), §Edition notes; sdp-area-14 §Weak spots; sdp-area-15 §Sign-in, invitation and MFA
 - **SDP weak spot fixed:** a third-party vendor account is required to sign in.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -2256,8 +2256,8 @@ methods the tenant has enabled. An unknown address shows the default product bra
 
 - **Decision:** BETTER. The vendor's sign-in and invitation pages carry the vendor's brand,
   not the customer's.
-- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;; sdp-area-15 §Sign-in, invitation and MFA
-  WP-017
+- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;
+  WP-017; sdp-area-15 §Sign-in, invitation and MFA
 - **SDP weak spot fixed:** sign-in and invitations are vendor-branded rather than
   tenant-branded.
 - **Priority:** MVP · **Edition:** Essentials
@@ -2320,8 +2320,8 @@ metadata or enter its sign-in address, sign-out address and certificate; map att
 the new set-up before it is switched on.
 
 - **Decision:** SAME. ServiceDesk Plus configures SAML in its separate directory console.
-- **Source:** architecture §11.1 (SAML 2.0); sdp-area-14 §Screens (SAML authentication:; D-059
-  login URL, logout URL, certificate); D-010
+- **Source:** architecture §11.1 (SAML 2.0); sdp-area-14 §Screens (SAML authentication:
+  login URL, logout URL, certificate); D-010; D-059
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A test sign-in with a wrong certificate fails with a plain reason and leaves the set-up
@@ -2337,8 +2337,8 @@ standard provider: issuer, client ID and secret, scopes and claim mapping, with 
 switching on.
 
 - **Decision:** SAME.
-- **Source:** architecture §11.1 (OIDC: Entra ID, Okta, Google); sdp-area-14 §Screens; D-059
-  (integrations: Microsoft Entra ID)
+- **Source:** architecture §11.1 (OIDC: Entra ID, Okta, Google); sdp-area-14 §Screens
+  (integrations: Microsoft Entra ID); D-059
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Entra ID sign-in works for a tenant after entering the issuer, client ID and secret.
@@ -2394,8 +2394,8 @@ Keycloak's user federation, with optional Kerberos for seamless desktop sign-in.
 people and their details in is done by the directory sync connector (file 12).
 
 - **Decision:** SAME. ServiceDesk Plus offers an AD provisioning app and points to SAML.
-- **Source:** architecture §11.1 (LDAP/Active Directory); sdp-area-14 §Screens (Active; D-062 (on-prem directory sign-in comes with directory sync)
-  Directory settings)
+- **Source:** architecture §11.1 (LDAP/Active Directory); sdp-area-14 §Screens (Active
+  Directory settings); D-062 (on-prem directory sign-in comes with directory sync)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A person with an AD account signs in with their AD password on an on-prem install.
@@ -2490,8 +2490,8 @@ language and wording (template in REQ-ADM-068). The link leads to the tenant's s
 to set a password or use single sign-on.
 
 - **Decision:** BETTER. The vendor's invitations are vendor-branded.
-- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;; sdp-area-15 §Sign-in, invitation and MFA
-  sdp-area-11 §Edition notes (login relies on vendor accounts and invitations)
+- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;
+  sdp-area-11 §Edition notes (login relies on vendor accounts and invitations); sdp-area-15 §Sign-in, invitation and MFA
 - **SDP weak spot fixed:** invitations carry the vendor's brand rather than the tenant's.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -2555,8 +2555,8 @@ any authenticator app they choose. Enrolment shows a QR code and a typed key, an
 with a first code.
 
 - **Decision:** BETTER. The vendor's MFA forces its own authenticator app.
-- **Source:** product owner observation (login, invitation and MFA), finding (d); architecture; sdp-area-15 §Sign-in, invitation and MFA
-  §11.1 (MFA: TOTP, WebAuthn); sdp-area-14 §Weak spots (2FA outside the product)
+- **Source:** product owner observation (login, invitation and MFA), finding (d); architecture
+  §11.1 (MFA: TOTP, WebAuthn); sdp-area-14 §Weak spots (2FA outside the product); sdp-area-15 §Sign-in, invitation and MFA
 - **SDP weak spot fixed:** MFA forces the vendor's own authenticator app.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -2987,8 +2987,8 @@ The audit log records at least:
   closed records, due date changes).
 
 - **Decision:** SAME.
-- **Source:** architecture §7.4, §11 ("every privileged action is audited"); CLAUDE.md §8;; D-058 (audit log, WP-018, at MVP)
-  REQ-WI-021; sdp-area-14 §Screens (audit log: "modified trigger (disable)")
+- **Source:** architecture §7.4, §11 ("every privileged action is audited"); CLAUDE.md §8;
+  REQ-WI-021; sdp-area-14 §Screens (audit log: "modified trigger (disable)"); D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A test performs each listed action once and finds exactly one audit entry for each.
@@ -3004,8 +3004,8 @@ outcome (done, refused, failed); IP address, client (console, portal, API, mobil
 ID. No internal operation codes are shown.
 
 - **Decision:** BETTER. ServiceDesk Plus shows an internal operation code in each entry.
-- **Source:** sdp-area-14 §Screens (audit log entry: time, operation, object, internal operation; D-058 (audit log, WP-018, at MVP)
-  code, who, client icon, log ID, related application logs); architecture §9.5
+- **Source:** sdp-area-14 §Screens (audit log entry: time, operation, object, internal operation
+  code, who, client icon, log ID, related application logs); architecture §9.5; D-058 (audit log, WP-018, at MVP)
 - **SDP weak spot fixed:** entries show an internal operation code next to the operation.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -3022,8 +3022,8 @@ the admin switches on. Everyday reads of records are not logged here.
 
 - **Decision:** SAME. ServiceDesk Plus logs reads of settings pages ("accessed instance
   settings").
-- **Source:** sdp-area-14 §Screens (audit log records reads), §Behaviour (reading a page is; D-058 (audit log, WP-018, at MVP)
-  logged)
+- **Source:** sdp-area-14 §Screens (audit log records reads), §Behaviour (reading a page is
+  logged); D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Opening the single sign-on settings page writes one read entry.
@@ -3050,8 +3050,8 @@ change (REQ-WI-003), and the record's history shows that an audit entry exists f
 privileged changes.
 
 - **Decision:** NEW.
-- **Source:** architecture §7.4 (history and audit); ADR-024 (field history is not the audit; D-058 (audit log, WP-018, at MVP)
-  log)
+- **Source:** architecture §7.4 (history and audit); ADR-024 (field history is not the audit
+  log); D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Changing a due date on an incident creates one history entry and one audit entry that
@@ -3066,8 +3066,8 @@ client and time range (today, last 7 or 30 days, this or last month, custom), sa
 searches, and page through results without limits. New entries appear live at the top.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-14 §Screens (audit log filters: criteria builder, date filter, sort, load; D-058 (audit log, WP-018, at MVP)
-  more)
+- **Source:** sdp-area-14 §Screens (audit log filters: criteria builder, date filter, sort, load
+  more); D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Filtering by actor and last 7 days returns only that actor's entries in that range.
@@ -3094,8 +3094,8 @@ export includes the chain values and a verification result, so an outside audito
 it has not been changed. Exports are audited.
 
 - **Decision:** SAME. ServiceDesk Plus offers a download.
-- **Source:** architecture §7.4 (exportable for compliance evidence); PROGRESS WP-018;; D-058 (audit log, WP-018, at MVP)
-  sdp-area-14 §Actions (audit log download)
+- **Source:** architecture §7.4 (exportable for compliance evidence); PROGRESS WP-018;
+  sdp-area-14 §Actions (audit log download); D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Exporting one month of entries gives a file whose chain values verify with the published
@@ -3135,8 +3135,8 @@ platform minimum (Appendix A). Older entries move to archive storage with their 
 and can be restored for an investigation. Monthly partitions keep the log fast at scale.
 
 - **Decision:** NEW. ServiceDesk Plus shows no audit retention setting.
-- **Source:** sdp-area-14 §Weak spots (no retention setting for audit, system or PII logs);; D-058 (audit log, WP-018, at MVP)
-  architecture §7.3 (partitioning); PROGRESS WP-018 (retention and archiving)
+- **Source:** sdp-area-14 §Weak spots (no retention setting for audit, system or PII logs);
+  architecture §7.3 (partitioning); PROGRESS WP-018 (retention and archiving); D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. The retention job moves entries older than the period to archive, tested on 10 million
@@ -3149,8 +3149,8 @@ When a person is erased (REQ-ADM-101), personal data in audit entries is replace
 pseudonym in a way that keeps the chain verifiable, and the erasure itself is recorded.
 
 - **Decision:** NEW.
-- **Source:** PROGRESS WP-018 (GDPR erasure that keeps the chain verifiable); architecture; D-058 (audit log, WP-018, at MVP)
-  §11.3
+- **Source:** PROGRESS WP-018 (GDPR erasure that keeps the chain verifiable); architecture
+  §11.3; D-058 (audit log, WP-018, at MVP)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. After erasing a person, their name and email appear in no audit entry, and verification
