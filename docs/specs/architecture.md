@@ -755,7 +755,7 @@ Authorisation combines role-based and attribute-based rules, evaluated in one po
 | **Field**                 | Salary or PII fields hidden or masked for roles without permission.                         |
 | **Segregation of duties** | The requester of a change cannot approve it; conflicts flagged at role design time.         |
 
-Compiled permissions per user are cached in Redis and invalidated by events. PostgreSQL RLS remains the final tenant boundary beneath the application rules.
+Compiled permissions per user are cached in Valkey (D-004) and invalidated by events. PostgreSQL RLS remains the final tenant boundary beneath the application rules.
 
 ## 11.3 Data protection
 
@@ -1033,8 +1033,8 @@ Reaching and exceeding ServiceDesk Plus scope is a multi-year programme. The roa
 |--------------------------------|-----------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **Stage 0: Foundation**        | Months 0 to 3         | ADRs signed off; repo, CI/CD, environments; identity, tenancy and RLS; outbox and event bus; realtime pipeline; design system; licence core prototype.            | Clickable prototype of console and portal.                                                                                                                            |
 | **Stage 1: Core service desk** | Months 3 to 12        | Work item engine, metadata engine, rules and SLA on Temporal, notifications, email ingestion, search, dashboards v1, licensing v1, single-node and HA installers. | Incident, request, portal, knowledge, SLA, catalog basics. Replace the current Extravis support channel (internal go-live).                                           |
-| **Stage 2: ITIL depth**        | Year 2                | Visual workflow designer, analytics with ClickHouse, report builder, AI gateway v1, MonetX connector, discovery agent and probes, mobile app.                     | Problem, change, release, full catalog, CMDB, ITAM, major incident, wallboards. First external customers.                                                             |
-| **Stage 3: Beyond SDP**        | Year 3                | Agent framework, sandbox and config-as-code, multi-cell SaaS, air-gapped bundle, compliance evidence engine.                                                      | ESM (HR, facilities), projects, procurement, MSP billing, AI agents, regional compliance packs, ServiceDesk Plus migration tool. Feature parity plus differentiators. |
+| **Stage 2: ITIL depth**        | Year 2                | Visual workflow designer, analytics with ClickHouse, report builder, AI gateway v1, MonetX connector, discovery agent and probes, mobile app.                     | Problem, change, release, full catalog, CMDB, ITAM (with vendors, the product catalogue and basic contracts, D-067), major incident, wallboards. First external customers.                                                             |
+| **Stage 3: Beyond SDP**        | Year 3                | Agent framework, sandbox and config-as-code, multi-cell SaaS, air-gapped bundle, compliance evidence engine.                                                      | ESM (HR, facilities), projects, procurement (purchase orders, D-067), MSP billing, AI agents, regional compliance packs, ServiceDesk Plus migration tool. Feature parity plus differentiators. |
 
 ## 17.1 Recommended core team
 

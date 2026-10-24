@@ -77,11 +77,11 @@ management with department desks (§2.15, §7.2). Rules, ID scheme and field mea
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 6 | 6 | 22 | 34 |
-| BETTER | 8 | 15 | 26 | 49 |
+| SAME | 7 | 5 | 22 | 34 |
+| BETTER | 10 | 13 | 26 | 49 |
 | NEW | 3 | 24 | 24 | 51 |
 | SKIP | 0 | 2 | 5 | 7 |
-| **Total** | **17** | **47** | **77** | **141** |
+| **Total** | **20** | **44** | **77** | **141** |
 
 Edition (lowest edition that includes it): Essentials 67, Professional 31, Enterprise 43. By prefix: REQ-INT 100, REQ-ESM 41.
 
@@ -149,9 +149,9 @@ Edition (lowest edition that includes it): Essentials 67, Professional 31, Enter
 | [REQ-INT-060](#req-int-060--outlook-add-in-and-actionable-messages) | Outlook add-in and actionable messages | SAME | LATER | Essentials |
 | [REQ-INT-061](#req-int-061--google-chat) | Google Chat | NEW | LATER | Essentials |
 | [REQ-INT-062](#req-int-062--on-call-tools) | On-call tools | NEW | LATER | Professional |
-| [REQ-INT-063](#req-int-063--sync-users-and-groups-from-entra-id) | Sync users and groups from Entra ID | SAME | V1 | Essentials |
-| [REQ-INT-064](#req-int-064--leavers-are-disabled-never-deleted) | Leavers are disabled, never deleted | BETTER | V1 | Essentials |
-| [REQ-INT-065](#req-int-065--active-directory-and-ldap-sync) | Active Directory and LDAP sync | BETTER | V1 | Essentials |
+| [REQ-INT-063](#req-int-063--sync-users-and-groups-from-entra-id) | Sync users and groups from Entra ID | SAME | MVP | Essentials |
+| [REQ-INT-064](#req-int-064--leavers-are-disabled-never-deleted) | Leavers are disabled, never deleted | BETTER | MVP | Essentials |
+| [REQ-INT-065](#req-int-065--active-directory-and-ldap-sync) | Active Directory and LDAP sync | BETTER | MVP | Essentials |
 | [REQ-INT-066](#req-int-066--provisioning-by-scim) | Provisioning by SCIM | NEW | LATER | Essentials |
 | [REQ-INT-067](#req-int-067--directory-actions-for-fulfilment) | Directory actions for fulfilment | BETTER | LATER | Professional |
 | [REQ-INT-068](#req-int-068--self-service-password-reset-and-unlock) | Self-service password reset and unlock | BETTER | LATER | Professional |
@@ -1130,7 +1130,7 @@ follow the recipient's language and the record's permissions; a person never get
 a record they cannot see.
 
 - **Decision:** SAME.
-- **Source:** architecture §6.8 (channel adapters: Teams, Slack); REQ-NTF-001; REQ-NTF-010
+- **Source:** architecture §6.8 (channel adapters: Teams, Slack); REQ-NTF-001; REQ-NTF-010; D-062 (Teams notifications V1)
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Assigning an incident to a linked technician sends a Teams card within 10 seconds.
@@ -1217,8 +1217,8 @@ group mapping, and changes by delta every interval. Sign-in itself goes through 
 (file 11).
 
 - **Decision:** SAME.
-- **Source:** sdp-area-14 §Screens (integrations: Entra ID, Entra ID user sync); architecture §2.14 (identity), §11.1; product-plan Appendix B (identity P0)
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** sdp-area-14 §Screens (integrations: Entra ID, Entra ID user sync); architecture §2.14 (identity), §11.1; product-plan Appendix B (identity P0); D-062
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A new user in a synced Entra group appears in SupportX by the next sync with mapped
      department and manager.
@@ -1234,10 +1234,10 @@ erasure (file 11).
 
 - **Decision:** BETTER. The vendor's default deletes the user when they are removed from the
   directory.
-- **Source:** sdp-area-13 §Advanced Portal Settings (directory sync: removed user is deleted by default); CLAUDE.md §6 (soft delete)
+- **Source:** sdp-area-13 §Advanced Portal Settings (directory sync: removed user is deleted by default); CLAUDE.md §6 (soft delete); D-062
 - **SDP weak spot fixed:** removing a user in the directory deletes them in the help desk by
   default.
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Disabling a user in Entra disables their SupportX login by the next sync; their incidents
      still show them as requester.
@@ -1252,9 +1252,9 @@ REQ-INT-063. On-prem installs connect directly; SaaS tenants connect through the
 
 - **Decision:** BETTER. The vendor needs a downloaded provisioning app and has no directory
   sync in its main product.
-- **Source:** sdp-area-14 §Screens (ESM directory: Active Directory settings, provisioning app); sdp-area-11 §Behaviour (no LDAP or AD user sync found); architecture §2.14 (identity), §11.1
+- **Source:** sdp-area-14 §Screens (ESM directory: Active Directory settings, provisioning app); sdp-area-11 §Behaviour (no LDAP or AD user sync found); architecture §2.14 (identity), §11.1; D-062
 - **SDP weak spot fixed:** no LDAP or AD user sync in set-up.
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A SaaS tenant syncs 5,000 AD users through the relay agent with no inbound firewall rule.
   2. LDAPS is used by default; plain LDAP needs an admin choice recorded in the audit log.
@@ -1848,7 +1848,7 @@ Adding a desk needs no new install, URL, licence key or user import.
 
 - **Decision:** BETTER. The vendor creates each desk as a separate instance with its own URL,
   its own settings and users added per instance, managed from a separate directory console.
-- **Source:** sdp-area-14 §Screens (instances and ESM: new instance form, instance types, ESM directory, service instances), §Weak spots (directory end-of-support notice); architecture §2.15 (ESM), §7.2 (desks are partitions inside a tenant), §6.1 (esm); product-plan §5 (ESM: one data model, unlimited desks), §8 (multi-tenant data model)
+- **Source:** sdp-area-14 §Screens (instances and ESM: new instance form, instance types, ESM directory, service instances), §Weak spots (directory end-of-support notice); architecture §2.15 (ESM), §7.2 (desks are partitions inside a tenant), §6.1 (esm); product-plan §5 (ESM: one data model, unlimited desks), §8 (multi-tenant data model); D-061
 - **SDP weak spot fixed:** separate instances per function, each with its own URL and user
   membership, and a directory console that is being retired.
 - **Priority:** LATER · **Edition:** Enterprise
@@ -1867,7 +1867,7 @@ migration.
 
 - **Decision:** NEW. Designs the desk partition into the engine from the start (architecture
   §7.2).
-- **Source:** architecture §7.2 (department partitions in the core data model); product-plan §8 (multi-tenant data model: tenant, department and site partitioning)
+- **Source:** architecture §7.2 (department partitions in the core data model); product-plan §8 (multi-tenant data model: tenant, department and site partitioning); D-061
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A new tenant has one IT desk, and every incident created is in it.
@@ -2548,9 +2548,13 @@ days.
    REQ-INT-050 to REQ-INT-055.
 2. **Directory sync at MVP?** Entra ID and AD sync (REQ-INT-063, REQ-INT-065) are set to V1.
    Does the internal go-live or the design partner need them at MVP?
+   *Answered:* D-062: Entra ID and on-prem AD/LDAP sync are MVP (REQ-INT-063 to 065). A SaaS
+   tenant syncing an on-prem directory needs the relay agent (REQ-INT-087, V1); see the MVP
+   build plan.
 3. **Teams and Slack timing.** Notifications to Teams and Slack are V1 (REQ-INT-057); actions
    from chat are LATER, matching REQ-SR-040 and REQ-INC-032. product-plan Appendix B lists
    collaboration as P0. Move Teams notifications to MVP?
+   *Answered:* D-062: Teams notifications stay V1.
 4. **The intranet relay agent** (answers file 03 open question 11). REQ-INT-087 sets it to V1,
    Essentials, and suggests it is the same component as the discovery site probe. Agree?
 5. **Edition of extensions.** Extensions and custom widgets (REQ-INT-088 to REQ-INT-091) are
@@ -2560,6 +2564,7 @@ days.
 7. **Desks below Enterprise.** product-plan offers unlimited desks in Enterprise only, while
    architecture §13.1 counts desks as a limit. Proposal: Essentials and Professional have one
    desk (IT); Enterprise unlimited. Or allow one or two extra desks in Professional?
+   *Answered:* D-061: one IT desk in Essentials and Professional, unlimited desks in Enterprise.
 8. **HR retention default.** REQ-ESM-028 starts with no automatic anonymisation and prompts the
    admin. Do you want a default period (for example 7 years after closure)?
 9. **Visitor management** (REQ-ESM-033) is new and not named in architecture §2.15. Keep it in
@@ -2567,6 +2572,9 @@ days.
 10. **Where MSP lives.** The file list has no home for MSP multi-customer support (customer
     portals, contracts, billing); REQ-CON-016 points to "file 12 or a later file". This file
     covers only the customer scope of MonetX (REQ-INT-045). Add a file 13 for MSP?
+    *Answered:* D-063: MSP multi-customer support and billing are LATER; no file 13 for now
+    (noted in the README).
 11. **Desk partition at MVP.** REQ-ESM-002 asks the engine to carry a desk on every record from
     MVP, with one IT desk, so ESM needs no migration later. This touches file 01 (display IDs,
     lists). Agree?
+    *Answered:* D-061: agreed; every record belongs to a desk from MVP (REQ-ESM-002).

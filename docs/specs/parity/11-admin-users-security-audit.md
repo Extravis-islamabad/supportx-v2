@@ -87,11 +87,11 @@ sign-in and security (architecture.md §11), and for the audit log and the other
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 23 | 36 | 8 | 67 |
-| BETTER | 29 | 25 | 2 | 56 |
-| NEW | 10 | 40 | 5 | 55 |
+| SAME | 28 | 31 | 8 | 67 |
+| BETTER | 31 | 23 | 2 | 56 |
+| NEW | 16 | 34 | 5 | 55 |
 | SKIP | 0 | 0 | 1 | 1 |
-| **Total** | **62** | **101** | **16** | **179** |
+| **Total** | **75** | **88** | **16** | **179** |
 
 Edition (lowest edition that includes it): Essentials 161, Professional 10, Enterprise 8. By prefix: REQ-ADM 113, REQ-SEC 47, REQ-AUD 19.
 
@@ -221,7 +221,7 @@ Edition (lowest edition that includes it): Essentials 161, Professional 10, Ente
 | [REQ-SEC-009](#req-sec-009--enforce-single-sign-on-keep-a-break-glass-account) | Enforce single sign-on, keep a break-glass account | BETTER | V1 | Essentials |
 | [REQ-SEC-010](#req-sec-010--verified-email-domains) | Verified email domains | SAME | V1 | Essentials |
 | [REQ-SEC-011](#req-sec-011--expiring-certificates-and-secrets) | Expiring certificates and secrets | NEW | V1 | Essentials |
-| [REQ-SEC-012](#req-sec-012--directory-sign-in-on-prem) | Directory sign-in on-prem | SAME | V1 | Essentials |
+| [REQ-SEC-012](#req-sec-012--directory-sign-in-on-prem) | Directory sign-in on-prem | SAME | MVP | Essentials |
 | [REQ-SEC-013](#req-sec-013--first-sign-in-creates-the-person) | First sign-in creates the person | NEW | MVP | Essentials |
 | [REQ-SEC-014](#req-sec-014--roles-from-identity-provider-groups) | Roles from identity provider groups | NEW | V1 | Essentials |
 | [REQ-SEC-015](#req-sec-015--dedicated-identity-realm) | Dedicated identity realm | NEW | V1 | Enterprise |
@@ -257,19 +257,19 @@ Edition (lowest edition that includes it): Essentials 161, Professional 10, Ente
 | [REQ-SEC-045](#req-sec-045--vendor-support-access-with-consent) | Vendor support access with consent | NEW | V1 | Essentials |
 | [REQ-SEC-046](#req-sec-046--application-security-baseline) | Application security baseline | NEW | MVP | Essentials |
 | [REQ-SEC-047](#req-sec-047--mobile-app-access-policy) | Mobile app access policy | NEW | V1 | Essentials |
-| [REQ-AUD-001](#req-aud-001--tamper-evident-audit-log) | Tamper-evident audit log | BETTER | V1 | Essentials |
-| [REQ-AUD-002](#req-aud-002--what-is-audited) | What is audited | SAME | V1 | Essentials |
-| [REQ-AUD-003](#req-aud-003--what-an-entry-shows) | What an entry shows | BETTER | V1 | Essentials |
-| [REQ-AUD-004](#req-aud-004--reads-of-sensitive-settings-and-data) | Reads of sensitive settings and data | SAME | V1 | Essentials |
-| [REQ-AUD-005](#req-aud-005--refused-and-failed-attempts) | Refused and failed attempts | NEW | V1 | Essentials |
-| [REQ-AUD-006](#req-aud-006--audit-and-field-history-linked) | Audit and field history linked | NEW | V1 | Essentials |
-| [REQ-AUD-007](#req-aud-007--search-and-filters) | Search and filters | SAME | V1 | Essentials |
-| [REQ-AUD-008](#req-aud-008--who-may-read-the-audit-log) | Who may read the audit log | NEW | V1 | Essentials |
-| [REQ-AUD-009](#req-aud-009--export-for-auditors) | Export for auditors | SAME | V1 | Essentials |
-| [REQ-AUD-010](#req-aud-010--verify-the-chain) | Verify the chain | NEW | V1 | Essentials |
+| [REQ-AUD-001](#req-aud-001--tamper-evident-audit-log) | Tamper-evident audit log | BETTER | MVP | Essentials |
+| [REQ-AUD-002](#req-aud-002--what-is-audited) | What is audited | SAME | MVP | Essentials |
+| [REQ-AUD-003](#req-aud-003--what-an-entry-shows) | What an entry shows | BETTER | MVP | Essentials |
+| [REQ-AUD-004](#req-aud-004--reads-of-sensitive-settings-and-data) | Reads of sensitive settings and data | SAME | MVP | Essentials |
+| [REQ-AUD-005](#req-aud-005--refused-and-failed-attempts) | Refused and failed attempts | NEW | MVP | Essentials |
+| [REQ-AUD-006](#req-aud-006--audit-and-field-history-linked) | Audit and field history linked | NEW | MVP | Essentials |
+| [REQ-AUD-007](#req-aud-007--search-and-filters) | Search and filters | SAME | MVP | Essentials |
+| [REQ-AUD-008](#req-aud-008--who-may-read-the-audit-log) | Who may read the audit log | NEW | MVP | Essentials |
+| [REQ-AUD-009](#req-aud-009--export-for-auditors) | Export for auditors | SAME | MVP | Essentials |
+| [REQ-AUD-010](#req-aud-010--verify-the-chain) | Verify the chain | NEW | MVP | Essentials |
 | [REQ-AUD-011](#req-aud-011--stream-to-a-security-monitoring-system) | Stream to a security monitoring system | NEW | V1 | Professional |
-| [REQ-AUD-012](#req-aud-012--audit-retention-and-archive) | Audit retention and archive | NEW | V1 | Essentials |
-| [REQ-AUD-013](#req-aud-013--erasure-keeps-the-chain-verifiable) | Erasure keeps the chain verifiable | NEW | V1 | Essentials |
+| [REQ-AUD-012](#req-aud-012--audit-retention-and-archive) | Audit retention and archive | NEW | MVP | Essentials |
+| [REQ-AUD-013](#req-aud-013--erasure-keeps-the-chain-verifiable) | Erasure keeps the chain verifiable | NEW | MVP | Essentials |
 | [REQ-AUD-014](#req-aud-014--ai-agent-actions-in-the-audit-log) | AI agent actions in the audit log | NEW | V1 | Essentials |
 | [REQ-AUD-015](#req-aud-015--sign-in-log) | Sign-in log | NEW | V1 | Essentials |
 | [REQ-AUD-016](#req-aud-016--system-log) | System log | BETTER | V1 | Essentials |
@@ -2320,7 +2320,7 @@ metadata or enter its sign-in address, sign-out address and certificate; map att
 the new set-up before it is switched on.
 
 - **Decision:** SAME. ServiceDesk Plus configures SAML in its separate directory console.
-- **Source:** architecture §11.1 (SAML 2.0); sdp-area-14 §Screens (SAML authentication:
+- **Source:** architecture §11.1 (SAML 2.0); sdp-area-14 §Screens (SAML authentication:; D-059
   login URL, logout URL, certificate); D-010
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -2337,7 +2337,7 @@ standard provider: issuer, client ID and secret, scopes and claim mapping, with 
 switching on.
 
 - **Decision:** SAME.
-- **Source:** architecture §11.1 (OIDC: Entra ID, Okta, Google); sdp-area-14 §Screens
+- **Source:** architecture §11.1 (OIDC: Entra ID, Okta, Google); sdp-area-14 §Screens; D-059
   (integrations: Microsoft Entra ID)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -2394,9 +2394,9 @@ Keycloak's user federation, with optional Kerberos for seamless desktop sign-in.
 people and their details in is done by the directory sync connector (file 12).
 
 - **Decision:** SAME. ServiceDesk Plus offers an AD provisioning app and points to SAML.
-- **Source:** architecture §11.1 (LDAP/Active Directory); sdp-area-14 §Screens (Active
+- **Source:** architecture §11.1 (LDAP/Active Directory); sdp-area-14 §Screens (Active; D-062 (on-prem directory sign-in comes with directory sync)
   Directory settings)
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A person with an AD account signs in with their AD password on an on-prem install.
   2. A disabled AD account cannot sign in at its next attempt.
@@ -2583,7 +2583,7 @@ a short enrolment grace period (Appendix A). By default, MFA is required for adm
 and optional for others.
 
 - **Decision:** BETTER. The policy is set in the product, per role.
-- **Source:** architecture §11.1; sdp-area-14 §Weak spots (2FA outside the product); sdp-area-15 §Sign-in, invitation and MFA
+- **Source:** architecture §11.1; sdp-area-14 §Weak spots (2FA outside the product); sdp-area-15 §Sign-in, invitation and MFA; D-060
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Giving someone the tenant administrator role makes them enrol at next sign-in.
@@ -2962,8 +2962,8 @@ and the chain is anchored at regular intervals, so changing or removing any entr
 detected. The application can only add and read entries.
 
 - **Decision:** BETTER. ServiceDesk Plus has an audit log; ours is provably unchanged.
-- **Source:** architecture §7.4; D-034; PROGRESS WP-018; sdp-area-14 §Screens (audit log)
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** architecture §7.4; D-034; PROGRESS WP-018; sdp-area-14 §Screens (audit log); D-058 (audit log, WP-018, at MVP)
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Changing one stored entry directly in the database makes verification fail and name the
      first broken entry (REQ-AUD-010).
@@ -2987,9 +2987,9 @@ The audit log records at least:
   closed records, due date changes).
 
 - **Decision:** SAME.
-- **Source:** architecture §7.4, §11 ("every privileged action is audited"); CLAUDE.md §8;
+- **Source:** architecture §7.4, §11 ("every privileged action is audited"); CLAUDE.md §8;; D-058 (audit log, WP-018, at MVP)
   REQ-WI-021; sdp-area-14 §Screens (audit log: "modified trigger (disable)")
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A test performs each listed action once and finds exactly one audit entry for each.
   2. A new admin action without an audit entry fails an architecture test that checks every
@@ -3004,10 +3004,10 @@ outcome (done, refused, failed); IP address, client (console, portal, API, mobil
 ID. No internal operation codes are shown.
 
 - **Decision:** BETTER. ServiceDesk Plus shows an internal operation code in each entry.
-- **Source:** sdp-area-14 §Screens (audit log entry: time, operation, object, internal operation
+- **Source:** sdp-area-14 §Screens (audit log entry: time, operation, object, internal operation; D-058 (audit log, WP-018, at MVP)
   code, who, client icon, log ID, related application logs); architecture §9.5
 - **SDP weak spot fixed:** entries show an internal operation code next to the operation.
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. An entry for a role change shows the role, the grants added and removed, the actor, and
      the IP address.
@@ -3022,9 +3022,9 @@ the admin switches on. Everyday reads of records are not logged here.
 
 - **Decision:** SAME. ServiceDesk Plus logs reads of settings pages ("accessed instance
   settings").
-- **Source:** sdp-area-14 §Screens (audit log records reads), §Behaviour (reading a page is
+- **Source:** sdp-area-14 §Screens (audit log records reads), §Behaviour (reading a page is; D-058 (audit log, WP-018, at MVP)
   logged)
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Opening the single sign-on settings page writes one read entry.
   2. Opening an incident does not write an audit entry.
@@ -3036,8 +3036,8 @@ Attempts to perform an audited action that are refused (permission, licence, ste
 or that fail are logged with the reason code, so probing is visible.
 
 - **Decision:** NEW.
-- **Source:** architecture §7.4, §11.2
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** architecture §7.4, §11.2; D-058 (audit log, WP-018, at MVP)
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A technician trying to open the roles API gets 403 and an audit entry with outcome
      "refused".
@@ -3050,9 +3050,9 @@ change (REQ-WI-003), and the record's history shows that an audit entry exists f
 privileged changes.
 
 - **Decision:** NEW.
-- **Source:** architecture §7.4 (history and audit); ADR-024 (field history is not the audit
+- **Source:** architecture §7.4 (history and audit); ADR-024 (field history is not the audit; D-058 (audit log, WP-018, at MVP)
   log)
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Changing a due date on an incident creates one history entry and one audit entry that
      link to each other.
@@ -3066,9 +3066,9 @@ client and time range (today, last 7 or 30 days, this or last month, custom), sa
 searches, and page through results without limits. New entries appear live at the top.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-14 §Screens (audit log filters: criteria builder, date filter, sort, load
+- **Source:** sdp-area-14 §Screens (audit log filters: criteria builder, date filter, sort, load; D-058 (audit log, WP-018, at MVP)
   more)
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Filtering by actor and last 7 days returns only that actor's entries in that range.
   2. A search over 10 million entries returns the first page in under 2 seconds.
@@ -3081,8 +3081,8 @@ and tenant administrators. Nobody, including tenant administrators and Extravis 
 change or delete entries. Reading the log is itself audited (REQ-AUD-004).
 
 - **Decision:** NEW.
-- **Source:** architecture §7.4, §11.2
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** architecture §7.4, §11.2; D-058 (audit log, WP-018, at MVP)
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A service desk manager without the permission gets 404 on the audit log pages and API.
   2. No API exists to change or delete an audit entry.
@@ -3094,9 +3094,9 @@ export includes the chain values and a verification result, so an outside audito
 it has not been changed. Exports are audited.
 
 - **Decision:** SAME. ServiceDesk Plus offers a download.
-- **Source:** architecture §7.4 (exportable for compliance evidence); PROGRESS WP-018;
+- **Source:** architecture §7.4 (exportable for compliance evidence); PROGRESS WP-018;; D-058 (audit log, WP-018, at MVP)
   sdp-area-14 §Actions (audit log download)
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Exporting one month of entries gives a file whose chain values verify with the published
      verification tool.
@@ -3109,8 +3109,8 @@ schedule (Appendix A). A failed verification alerts the tenant's security admins
 operations, and names the first broken entry.
 
 - **Decision:** NEW.
-- **Source:** architecture §7.4; PROGRESS WP-018 (verification tool)
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** architecture §7.4; PROGRESS WP-018 (verification tool); D-058 (audit log, WP-018, at MVP)
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A verification of a clean range reports success with the number of entries checked.
   2. A broken chain sends one alert and shows the first broken entry's time and ID.
@@ -3135,9 +3135,9 @@ platform minimum (Appendix A). Older entries move to archive storage with their 
 and can be restored for an investigation. Monthly partitions keep the log fast at scale.
 
 - **Decision:** NEW. ServiceDesk Plus shows no audit retention setting.
-- **Source:** sdp-area-14 §Weak spots (no retention setting for audit, system or PII logs);
+- **Source:** sdp-area-14 §Weak spots (no retention setting for audit, system or PII logs);; D-058 (audit log, WP-018, at MVP)
   architecture §7.3 (partitioning); PROGRESS WP-018 (retention and archiving)
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. The retention job moves entries older than the period to archive, tested on 10 million
      rows.
@@ -3149,9 +3149,9 @@ When a person is erased (REQ-ADM-101), personal data in audit entries is replace
 pseudonym in a way that keeps the chain verifiable, and the erasure itself is recorded.
 
 - **Decision:** NEW.
-- **Source:** PROGRESS WP-018 (GDPR erasure that keeps the chain verifiable); architecture
+- **Source:** PROGRESS WP-018 (GDPR erasure that keeps the chain verifiable); architecture; D-058 (audit log, WP-018, at MVP)
   §11.3
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. After erasing a person, their name and email appear in no audit entry, and verification
      still succeeds.
@@ -3338,7 +3338,7 @@ acknowledgement off.
 | Lock-out | 5 failures in 15 minutes locks for 15 minutes, doubling on repeat | |
 | Password reset link (REQ-SEC-006) | single use, 60 minutes | at most 24 hours |
 | Invitation link (REQ-SEC-020) | single use, 7 days | at most 30 days |
-| MFA (REQ-SEC-024) | required for tenant, security and site administrators and auditors; optional for others | |
+| MFA (REQ-SEC-024) | required for administrators (tenant, security and site), auditors and technicians; optional for requesters; changeable per role (D-060) | |
 | MFA enrolment grace | 7 days | at most 30 days |
 | Console session (REQ-SEC-029) | 60 minutes idle, 12 hours absolute | absolute at most 7 days |
 | Portal session | 30 minutes idle, 12 hours absolute | absolute at most 30 days |
@@ -3383,15 +3383,20 @@ export.
 1. **Audit log at MVP?** The tamper-evident audit log (REQ-AUD-001 to REQ-AUD-010) is set to
    V1, in line with REQ-WI-021 and D-034. WP-018 is planned in Stage 1. Should the design
    partner customer get it at go-live (MVP)?
+   *Answered:* D-058: the audit log (WP-018) is MVP: REQ-AUD-001 to 010, 012, 013 and
+   REQ-WI-021.
 2. **Single sign-on edition.** SAML and OpenID Connect single sign-on (REQ-SEC-007,
    REQ-SEC-008) are set to Essentials and MVP, since product-plan §10 lists SSO in Phase 1
    and every tender asks for it. Many vendors charge for SSO. Keep it in Essentials?
+   *Answered:* D-059: SAML and OpenID Connect single sign-on are Essentials, MVP.
 3. **Field-level encryption and masking edition.** Field-level encryption (REQ-SEC-040),
    masking (REQ-ADM-103), field access rules (REQ-ADM-026) and the personal data access log
    (REQ-AUD-017) are Professional, matching REQ-WI-016. product-plan lists field-level
    encryption as a P0 security baseline. Should any of them be Essentials?
 4. **MFA by default.** Appendix A requires MFA for administrators and auditors and leaves it
    optional for technicians. Should MFA be required for every technician in a new tenant?
+   *Answered:* D-060: required by default for administrators, auditors and technicians; optional
+   for requesters; an admin can change it per role.
 5. **Vendor support access.** REQ-SEC-045 lets Extravis support see tenant data only with a
    time-limited grant from a tenant admin. Is that acceptable for Extravis's own support
    operations on SaaS, including during an outage?
