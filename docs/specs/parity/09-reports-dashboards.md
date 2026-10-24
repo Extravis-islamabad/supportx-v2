@@ -2192,8 +2192,8 @@ stay readable, and drill-down opens the record list. The mobile app shows the ho
 and personal counters.
 
 - **Decision:** SAME. ServiceDesk Plus offers mobile apps.
-- **Source:** sdp-area-01 §Screens (profile drawer: mobile apps); architecture §9.1 (mobile; D-065
-  apps)
+- **Source:** sdp-area-01 §Screens (profile drawer: mobile apps); architecture §9.1 (mobile
+  apps); D-065
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. The service desk dashboard on a 375-pixel-wide screen shows every widget with no
