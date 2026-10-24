@@ -455,7 +455,7 @@ async def test_req_inc_011_default_priority_and_no_sla_marker(world: World) -> N
 # --- D-052 visibility (technician default scope: group) -------------------------------------------
 
 
-async def test_d040_technician_sees_groups_assigned_and_site_queue_and_404_outside(
+async def test_d052_technician_sees_groups_assigned_and_site_queue_and_404_outside(
     world: World,
 ) -> None:
     a = world.a
@@ -495,7 +495,7 @@ async def test_d040_technician_sees_groups_assigned_and_site_queue_and_404_outsi
     )
 
 
-async def test_d041_handing_out_of_reach_needs_confirmation_and_is_recorded(world: World) -> None:
+async def test_d053_handing_out_of_reach_needs_confirmation_and_is_recorded(world: World) -> None:
     a = world.a
     item = await world.create(a, a.tech_a, group_id=str(a.ga))
     warned = await world.assign(a, a.tech_a, item, group=a.gb, reason_code="wrong_group")

@@ -952,7 +952,7 @@ serial number. It can offer the requester's own assets first. The linked records
 incident in their own associations.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-02b §Fields (assets); sdp-area-07 §Behaviour (links to requests); D-044 (REQ-WI-025 in Essentials)
+- **Source:** sdp-area-02b §Fields (assets); sdp-area-07 §Behaviour (links to requests); D-044 (REQ-WI-025 in Essentials); REQ-AST-044 (asset-side counters)
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. Adding an asset to an incident shows the incident in the asset's associations, live.
@@ -1178,7 +1178,7 @@ From an asset or configuration item, a user can raise an incident. It opens the 
 with that item and its user already filled in.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-07 §Actions (raise request from asset, create incident from CI), §Behaviour; D-044 (REQ-WI-025 in Essentials)
+- **Source:** sdp-area-07 §Actions (raise request from asset, create incident from CI), §Behaviour; D-044 (REQ-WI-025 in Essentials); REQ-AST-044
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. Raising from an asset fills the asset and its assigned user as requester.
@@ -2218,7 +2218,7 @@ transition. Without leaving the resolution editor they can search the knowledge 
 article in, or use a resolution template. They can also log a worklog in the same step.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-02c §Screens (resolution tab); sdp-area-08 §Behaviour (request to solution)
+- **Source:** sdp-area-02c §Screens (resolution tab); sdp-area-08 §Behaviour (request to solution); REQ-KB-063
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Resolving with a resolution sets the status to resolved, stamps the resolved time and
@@ -2233,7 +2233,7 @@ incident's subject, resolution and category. It goes into the knowledge approval
 and is linked to the incident.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-02c §Screens (save and add to solutions); sdp-area-08 §Behaviour
+- **Source:** sdp-area-02c §Screens (save and add to solutions); sdp-area-08 §Behaviour; REQ-KB-016, REQ-KB-027 (article from a resolution, approval)
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. "Save as knowledge" creates a draft article linked to the incident, not published.
@@ -2368,7 +2368,7 @@ confidence are shown on the reply, a technician can override it, and below a con
 threshold a person decides. It works with the local model on-prem.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-13 §Reopen settings (AI close or reopen from reply); architecture §2.1 (natural-language reopen), §2.10, §12
+- **Source:** sdp-area-13 §Reopen settings (AI close or reopen from reply); architecture §2.1 (natural-language reopen), §2.10, §12; REQ-AI-056 (shared email reply reading)
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A reply "thanks, all good" to a resolved incident does not reopen it and is marked
@@ -3088,7 +3088,7 @@ impact, cause, actions). AI drafts it from the incident timeline, monitoring dat
 changes, and a person edits and publishes it. Follow-up actions become tasks or problems.
 
 - **Decision:** BETTER. ServiceDesk Plus ships review drafting as an add-on extension.
-- **Source:** architecture §2.1 (post-incident review), §2.10 (PIR drafts); product-plan §5, §7.3 (PIR writer); D-043
+- **Source:** architecture §2.1 (post-incident review), §2.10 (PIR drafts); product-plan §5, §7.3 (PIR writer); D-043; REQ-AI-097 (review writer agent)
 - **Priority:** LATER · **Edition:** Professional
 - **Acceptance criteria:**
   1. Closing a major incident creates a review linked to it, pre-filled with its timeline.

@@ -46,7 +46,8 @@ actions and custom functions, life cycles and visual workflows, and the notifica
   - asset auto-assignment and contract renewal alerts (file 07, assets and contracts);
   - SLA reports, dashboards and wallboards (file 09, reports and dashboards);
   - SLA breach prediction, the SLA guardian agent and AI workflow drafting models (file 10, AI);
-  - sites, departments, groups, roles, mail servers, surveys and data archive (file 11, admin);
+  - sites, departments, groups, roles, surveys and data archive (file 11, admin); mail servers
+    and mailbox connections (file 12, REQ-INT-050 to REQ-INT-055);
   - Teams, Slack and WhatsApp channels, inbound webhooks, the API and extensions (file 12,
     integrations).
 - **Monitoring is out of scope** (ADR-017, D-001). Rules and workflows may react to incidents
@@ -930,7 +931,7 @@ them, through the same actions as escalations and with the same permissions and 
 file only provides the data and the actions it needs.
 
 - **Decision:** NEW. ServiceDesk Plus has no breach prediction.
-- **Source:** product-plan §7.3 (SLA guardian agent), §5 (breach prediction); architecture §12
+- **Source:** product-plan §7.3 (SLA guardian agent), §5 (breach prediction); architecture §12; REQ-AI-100 (SLA guardian agent)
 - **Priority:** LATER · **Edition:** Professional
 - **Acceptance criteria:**
   1. The SLA engine exposes, through the public API, each open target's due time, time left,
@@ -2312,7 +2313,7 @@ Modules never send mail or messages themselves.
 #### REQ-NTF-002 — Email channel
 
 Email notifications go out through the tenant's outgoing mail set-up (SMTP or Microsoft Graph or
-the Gmail API, file 11), as HTML with a plain-text part. They carry the record's thread token
+the Gmail API; mailbox connections are REQ-INT-050 to REQ-INT-055 in file 12), as HTML with a plain-text part. They carry the record's thread token
 so replies thread into the record (REQ-INC-024), and standard headers that mark them as
 automatic.
 
@@ -2893,6 +2894,7 @@ nodes per workflow; maximum 100 rounds per loop; maximum 10,000 steps per instan
 11. **Intranet webhooks from SaaS.** ServiceDesk Plus can call intranet endpoints from its cloud.
     Reaching a customer's internal system from SaaS needs a relay agent on their network
     (file 12). Is that in scope, and when?
+    *Proposed answer in file 12:* the intranet relay agent (REQ-INT-087), V1.
 12. **Runbook actions on network devices.** Product-plan §6 describes runbooks on endpoints
     and network devices "via AgentX agents and MonetX". D-001 makes MonetX read-only, so
     REQ-RUL-032 covers AgentX endpoints only. Should device actions through MonetX stay out, or
