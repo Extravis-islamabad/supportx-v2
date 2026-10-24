@@ -34,6 +34,7 @@ from app.shared.history.history import (
     history_entries,
     history_page,
     record_changes,
+    recorded_change_ids,
     source_of,
 )
 
@@ -54,5 +55,6 @@ __all__ = [
     "history_entries",
     "history_page",
     "record_changes",
+    "recorded_change_ids",
     "source_of",
 ]

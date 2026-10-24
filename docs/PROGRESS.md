@@ -9,8 +9,9 @@
 - **Next work package:** WP-020b (conversation, notes and followers), then the sequence below
   (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
-  branch, if any, is left for the product owner).
+- **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
+  WP-018 audit log (worktree `../supportx-v2-wp018`, branch `feat/wp-018-audit-log`), session 1 of
+  3 done.
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
@@ -313,7 +314,22 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [ ] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; planning only)
+### [~] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-075; ADR-027; in progress)
+Plan: ~/Desktop/wp-018-plan.md (approved with D-075). Three sessions.
+- [x] Session 1 (backend core): module `audit`, migration 0013 (partitioned `audit_entries`,
+  queue, chain, personal data, anchors, settings, verification runs; definer functions
+  `audit_seal`, `audit_erase_subject`, `audit_tenant_ids`, `audit_ensure_partitions`),
+  `audited` / `audit_read` route dependencies, refused-attempt observer and probing alert,
+  sealing consumer, module schedules in the consumers worker (seal sweep, anchors, daily and
+  weekly verification, partitions), Ed25519 anchors with key rotation, verification, erasure,
+  Auditor system role, API (`/audit/entries`, `/audit/status`, `/audit/verification-runs`,
+  `/audit/settings`), wiring of every existing privileged route and sign-in, labels en/ar/ur,
+  ADR-027, D-075.
+- [ ] Session 2: screens (list, filters, live pill, drawer, history link, integrity panel,
+  settings), storage component (aioboto3) and SeaweedFS in the chart, export (JSONL/CSV +
+  signed manifest) and the offline verifier, realtime channel, signing key in the chart.
+- [ ] Session 3: retention and archive with RLS cut-off, restore for investigations, 10M-row
+  nightly suite, `docs/architecture/audit.md`, demo, PR.
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
@@ -325,6 +341,20 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-24 — WP-018 session 1 (backend core of the audit log)
+
+- **Built:** see the WP-018 entry above. Decisions D-075 (product owner answers to the plan),
+  ADR-027. The chain is written by the migrator-owned definer function `audit_seal()` instead of
+  a separate `supportx_audit` login role (stronger, one less credential).
+- **Core changes:** `app/core/errors.py` error observers (`register_error_observer`),
+  `ModuleSpec.schedules` + `app/shared/schedules.py`, `recorded_change_ids()` in field history,
+  `SUPPORTX_AUDIT_*` and `SUPPORTX_WORKER_SCHEDULES_ENABLED` settings, Auditor system role
+  (`identity_access`), `migrations/env.py` skips audit partitions.
+- **Not audited yet, with reason:** edits of closed incidents (closed records are read-only, 409
+  `record_closed`) and due-date overrides (come with SLA, WP-025); their actions are catalogued.
+- **Tests:** backend 876 → all green plus 25 domain, 20 API, 5 job, 4 route-table and 1 BFF audit
+  tests. Lane A has not merged a migration since 0012, so ours stays 0013 for now.
 
 ### 2026-10-24 — MVP build plan v0.2: decisions D-070 to D-074, two lanes (docs only)
 

@@ -44,6 +44,8 @@ def worker_env(monkeypatch: pytest.MonkeyPatch, bus_settings: Settings) -> None:
         "SUPPORTX_DEV_EVENT_LOGGER": "true",
         "SUPPORTX_HEARTBEAT_INTERVAL_SECONDS": "0.2",
         "SUPPORTX_RELAY_POLL_INTERVAL_SECONDS": "0.5",
+        # Audit schedules would seal other tests' entries and add stream messages (WP-018).
+        "SUPPORTX_WORKER_SCHEDULES_ENABLED": "false",
     }.items():
         monkeypatch.setenv(name, value)
 

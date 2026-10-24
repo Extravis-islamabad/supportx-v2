@@ -13,6 +13,7 @@ from app.shared.events import ConsumerSpec, EventRegistry, install_registry
 from app.shared.events.consumers import consumers_from_modules
 from workers import bus, runtime
 from workers.consumers.runner import ConsumerRunner, RetryPolicy
+from workers.consumers.schedules import run_schedule, schedules_from_modules
 from workers.heartbeat import Heartbeat
 from workers.metrics import ConsumerMetrics
 
@@ -75,8 +76,18 @@ async def main(stop: asyncio.Event) -> None:
             await runtime.pause(stop, settings.heartbeat_interval_seconds)
         await beat
 
+    schedules = (
+        schedules_from_modules(discover_modules())
+        if database is not None and settings.worker_schedules_enabled
+        else []
+    )
+    log.info("schedules_ready", schedules=[spec.name for spec in schedules])
     try:
-        await asyncio.gather(observe(), *(runner.run(stop) for runner in runners))
+        await asyncio.gather(
+            observe(),
+            *(runner.run(stop) for runner in runners),
+            *(run_schedule(spec, database, settings, stop) for spec in schedules if database),
+        )
     finally:
         await connected.close()
         if database is not None:

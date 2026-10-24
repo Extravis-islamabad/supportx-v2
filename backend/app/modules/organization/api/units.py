@@ -4,7 +4,7 @@ Basic level: enough to give users the `site` and `group` scopes. Full admin scre
 """
 
 import uuid
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Response, status
 from pydantic import BaseModel, Field
@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.modules.audit import AuditNote, audited
 from app.modules.organization.service import units
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -70,17 +71,27 @@ def build_router(kind: Literal["site", "group"]) -> APIRouter:
         responses={201: {"model": UnitOut, "description": "Created (or replayed)."}},
     )
     async def create_unit(
-        body: UnitIn, session: TenantSession, idempotency: Idempotency
+        body: UnitIn,
+        session: TenantSession,
+        idempotency: Idempotency,
+        note: Annotated[AuditNote, audited(f"{kind}.created", object_type=kind)],
     ) -> Response:
         """Create one (Idempotency-Key supported)."""
+        note.skip = True  # a replay creates nothing
 
         async def operation() -> Created:
             created = _out(await units.create_unit(session, kind, body.name))
+            note.skip = False
+            note.object_id = str(created.id)
             return Created(created, {"ETag": f'"{created.version}"'})
 
         return await idempotency.run(body, operation)
 
-    @router.patch("/{unit_id}", summary=f"Rename a {kind}", dependencies=[manage])
+    @router.patch(
+        "/{unit_id}",
+        summary=f"Rename a {kind}",
+        dependencies=[manage, audited(f"{kind}.renamed", object_type=kind, object_param="unit_id")],
+    )
     async def rename_unit(
         unit_id: uuid.UUID,
         body: UnitIn,
@@ -97,7 +108,15 @@ def build_router(kind: Literal["site", "group"]) -> APIRouter:
         "/{unit_id}/members/{user_id}",
         summary=f"Add a member to a {kind}",
         status_code=status.HTTP_204_NO_CONTENT,
-        dependencies=[manage],
+        dependencies=[
+            manage,
+            audited(
+                f"{kind}.member_added",
+                object_type=kind,
+                object_param="unit_id",
+                detail_params=("user_id",),
+            ),
+        ],
     )
     async def add_member(
         unit_id: uuid.UUID, user_id: uuid.UUID, session: TenantSession
@@ -110,7 +129,15 @@ def build_router(kind: Literal["site", "group"]) -> APIRouter:
         "/{unit_id}/members/{user_id}",
         summary=f"Remove a member from a {kind}",
         status_code=status.HTTP_204_NO_CONTENT,
-        dependencies=[manage],
+        dependencies=[
+            manage,
+            audited(
+                f"{kind}.member_removed",
+                object_type=kind,
+                object_param="unit_id",
+                detail_params=("user_id",),
+            ),
+        ],
     )
     async def remove_member(
         unit_id: uuid.UUID, user_id: uuid.UUID, session: TenantSession

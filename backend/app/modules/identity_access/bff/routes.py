@@ -14,6 +14,7 @@ from app.core.entitlements import entitlement_exempt
 from app.core.errors import ServiceUnavailable, Unauthenticated
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.audit import RequestFacts, record_alone
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import NavLayout, UserType
 from app.modules.identity_access.domain.session import Session
@@ -167,9 +168,32 @@ async def callback(
         query = urlencode({"auth_error": failure.problem.instance_code})
         target = f"{auth.base_url(failure.app)}/?{query}"
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    await _audit_session(request, result.session, "session.signed_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, auth.settings, result.session_id)
     return response
+
+
+async def _audit_session(request: Request, session: Session, action_code: str) -> None:
+    """Audit a sign-in, sign-out or tenant switch (REQ-AUD-002) in its own transaction.
+
+    A failure to write the entry is logged as an error but does not lock people out.
+    """
+    database: Database | None = getattr(request.app.state, "db", None)
+    if database is None:
+        return
+    context = TenantContext(uuid.UUID(session.tenant_id), uuid.UUID(session.user_id))
+    try:
+        await record_alone(
+            database,
+            context,
+            action_code=action_code,
+            facts=RequestFacts.of(request, client=session.client),
+            object_type="user",
+            object_id=session.user_id,
+        )
+    except Exception:
+        log.exception("audit_session_entry_failed", action=action_code)
 
 
 @router.get("/me", summary="Current session")
@@ -238,6 +262,7 @@ async def logout(found: CurrentSession, auth: Auth, request: Request) -> Respons
     """End this session and the Keycloak session; clears the cookie."""
     session_id, session = found
     await auth.logout(session_id, session)
+    await _audit_session(request, session, "session.signed_out")
     await _end_realtime(request, session)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     clear_session_cookie(response, auth.settings)
@@ -257,6 +282,7 @@ async def switch_tenant(
     """Make another of the user's tenants active. Issues a new session ID and CSRF token."""
     session_id, session = found
     new_id, switched = await auth.switch_tenant(session_id, session, body.tenant_id)
+    await _audit_session(request, switched, "session.tenant_switched")
     set_session_cookie(response, auth.settings, new_id)
     await _end_realtime(request, session)  # the old tenant's connection
     return await _describe(request, switched)

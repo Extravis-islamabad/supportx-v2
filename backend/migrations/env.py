@@ -5,6 +5,7 @@ SUPPORTX_MIGRATION_DATABASE_URL from settings. The application role never runs m
 """
 
 import asyncio
+import re
 
 from alembic import context
 from sqlalchemy.engine import Connection
@@ -21,6 +22,15 @@ from app.shared.db.models import Base
 # Importing every module registers its tables on Base.metadata (for autogenerate and checks).
 discover_modules()
 target_metadata = Base.metadata
+
+
+# Monthly partitions of audit_entries (and its default partition) are created at run time by
+# audit_ensure_partitions() (migration 0013, ADR-027); they are not models.
+_PARTITION = re.compile(r"^audit_entries_(p\d{6}|default)$")
+
+
+def _include_name(name: str | None, type_: str, _parent_names: object) -> bool:
+    return not (type_ == "table" and name is not None and _PARTITION.fullmatch(name))
 
 
 def _database_url() -> str:
@@ -40,6 +50,7 @@ def _configure(connection: Connection) -> None:
         target_metadata=target_metadata,
         compare_type=True,
         compare_server_default=True,
+        include_name=_include_name,
         transaction_per_migration=True,
     )
     with context.begin_transaction():

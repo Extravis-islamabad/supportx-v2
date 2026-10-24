@@ -83,7 +83,7 @@ def _refresh(session: AsyncSession, policy: PolicyService) -> None:
 
 
 async def ensure_system_roles(session: AsyncSession) -> dict[str, uuid.UUID]:
-    """Create the tenant's three system roles if missing; returns key → role ID."""
+    """Create the tenant's system roles if missing; returns key → role ID."""
     tenant_id = _tenant(session)
     for key in SYSTEM_ROLES:
         await session.execute(

@@ -6,7 +6,7 @@ Clients never see exception names, internal messages or stack traces: unexpected
 a generic `internal_error` and the details go to the server log only.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from http import HTTPStatus
 from typing import Any, ClassVar
 
@@ -248,10 +248,41 @@ _HTTP_STATUS_CODES: Mapping[int, str] = {
 }
 
 
+# --- error observers -------------------------------------------------------------------------
+# Core cannot import modules, so modules that must react to refused or failed requests register
+# here at startup. The audit module logs refused and failed attempts at audited routes this way
+# (REQ-AUD-005; ADR-027). Observers run after the request's transaction has rolled back, must
+# not raise, and must be quick: they delay the error response.
+
+ErrorObserver = Callable[[Request, int, str], Awaitable[None]]
+_error_observers: list[ErrorObserver] = []
+
+
+def register_error_observer(observer: ErrorObserver) -> None:
+    """Call `observer(request, status, code)` for every error response."""
+    _error_observers.append(observer)
+
+
+def unregister_error_observer(observer: ErrorObserver) -> None:
+    """Undo `register_error_observer` (app shutdown)."""
+    if observer in _error_observers:
+        _error_observers.remove(observer)
+
+
+async def notify_error(request: Request, status: int, code: str) -> None:
+    """Tell every observer about an error response; an observer's failure is only logged."""
+    for observer in _error_observers:
+        try:
+            await observer(request, status, code)
+        except Exception:
+            log.warning("error_observer_failed", code=code, exc_info=True)
+
+
 async def _app_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)  # noqa: S101 - registered for AppError only
     if exc.status >= HTTPStatus.INTERNAL_SERVER_ERROR:
         log.error("app_error", code=exc.instance_code, status=exc.status.value)
+    await notify_error(request, exc.status.value, exc.instance_code)
     return problem_response(
         problem(
             exc.status,
@@ -267,6 +298,7 @@ async def _app_error_handler(request: Request, exc: Exception) -> JSONResponse:
 
 async def _validation_error_handler(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, RequestValidationError)  # noqa: S101 - registered for this type only
+    await notify_error(request, HTTPStatus.UNPROCESSABLE_ENTITY.value, "validation_failed")
     return problem_response(
         problem(
             HTTPStatus.UNPROCESSABLE_ENTITY,

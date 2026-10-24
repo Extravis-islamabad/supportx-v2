@@ -173,6 +173,22 @@ class Settings(BaseSettings):
     realtime_coalesce_ms: int = Field(default=250, ge=0, le=5000)
     realtime_tenant_publications_per_second: float = Field(default=200.0, gt=0)
 
+    # Audit log (WP-018, ADR-027, docs/architecture/audit.md). Anchors (signed checkpoints of each
+    # tenant's chain) are signed with an Ed25519 installation key, "<key id>:<base64 32-byte
+    # seed>", mounted only into the consumers worker. Rotation: set the new key here and move the
+    # old key's public half to `audit_trusted_keys` ("<key id>:<base64 public key>, ..."), so
+    # checkpoints signed before stay verifiable. No key: anchoring is off and the integrity panel
+    # says so (never silently). An HSM or KMS signer can replace the key later (ADR-027).
+    audit_signing_key: SecretStr | None = None
+    audit_trusted_keys: str = Field(default="", max_length=4000)
+    audit_seal_batch_size: int = Field(default=500, ge=1, le=5000)
+    audit_anchor_interval_seconds: int = Field(default=3600, ge=60, le=86400)
+    # An entry still unsealed after this long raises an alert (product owner: 5 minutes).
+    audit_unsealed_alert_seconds: int = Field(default=300, ge=30, le=86400)
+    # Module schedules (sealing sweep, anchors, verification, partitions) run in the consumers
+    # worker. Off only for tests that count exact stream messages.
+    worker_schedules_enabled: bool = True
+
     # OpenTelemetry: tracing is always set up; spans are exported only when an exporter is chosen.
     tracing_enabled: bool = True
     trace_exporter: TraceExporter = "none"

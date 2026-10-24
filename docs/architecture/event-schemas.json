@@ -287,6 +287,156 @@
         "type": "object"
       }
     },
+    "audit.alert.raised": {
+      "1": {
+        "description": "Something security admins must see: a broken chain, overdue sealing, probing.\n\nREQ-AUD-005, REQ-AUD-010. The notification engine (WP-023) will deliver it; until then the\nconsole shows a banner and operations get a metric alert (D-075).",
+        "properties": {
+          "actor_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Actor Id"
+          },
+          "alert": {
+            "title": "Alert",
+            "type": "string"
+          },
+          "entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Entry Id"
+          }
+        },
+        "required": [
+          "alert"
+        ],
+        "title": "AuditAlertRaised",
+        "type": "object"
+      }
+    },
+    "audit.entries.sealed": {
+      "1": {
+        "description": "Entries from `from_seq` to `to_seq` joined the chain; open audit screens refresh.",
+        "properties": {
+          "from_seq": {
+            "title": "From Seq",
+            "type": "integer"
+          },
+          "to_seq": {
+            "title": "To Seq",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "from_seq",
+          "to_seq"
+        ],
+        "title": "AuditEntriesSealed",
+        "type": "object"
+      }
+    },
+    "audit.entry.recorded": {
+      "1": {
+        "description": "An entry was written; wakes the sealer (it seals everything queued for the tenant).",
+        "properties": {
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entry_id"
+        ],
+        "title": "AuditEntryRecorded",
+        "type": "object"
+      }
+    },
+    "audit.settings.changed": {
+      "1": {
+        "description": "The tenant's audit settings changed (field names only).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "AuditSettingsChanged",
+        "type": "object"
+      }
+    },
+    "audit.verification.completed": {
+      "1": {
+        "description": "A verification run finished (`status`: passed, failed or error).",
+        "properties": {
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Problem"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status"
+        ],
+        "title": "AuditVerificationCompleted",
+        "type": "object"
+      }
+    },
+    "audit.verification.requested": {
+      "1": {
+        "description": "Someone asked for a verification now; the worker runs it (it can take minutes).",
+        "properties": {
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "AuditVerificationRequested",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",
