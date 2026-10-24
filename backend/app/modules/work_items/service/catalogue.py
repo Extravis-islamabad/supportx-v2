@@ -90,6 +90,8 @@ class Catalogue:
     default_priority: str
     auto_status_on_assign: bool
     settings_version: int
+    default_impact: str | None
+    default_urgency: str | None
     lifecycle: Lifecycle
     statuses: list[StatusInfo]
     matrix: Mapping[tuple[str, str], str]
@@ -271,6 +273,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         default_priority=settings.default_priority,
         auto_status_on_assign=settings.auto_status_on_assign,
         settings_version=settings.version,
+        default_impact=settings.default_impact,
+        default_urgency=settings.default_urgency,
         lifecycle=lifecycle,
         statuses=[
             StatusInfo(s.code, s.category, s.colour, s.labels, s.system, s.disabled_at is not None)

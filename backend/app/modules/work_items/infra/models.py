@@ -56,11 +56,22 @@ class WorkItemTypeSettings(TenantKeyed, Base):
         CheckConstraint(TYPE_CHECK, name="type_code"),
         CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),
         CheckConstraint(_codes("default_priority", Priority), name="default_priority_code"),
+        CheckConstraint(
+            "default_impact IS NULL OR " + _codes("default_impact", Impact),
+            name="default_impact_code",
+        ),
+        CheckConstraint(
+            "default_urgency IS NULL OR " + _codes("default_urgency", Urgency),
+            name="default_urgency_code",
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
     prefix: Mapped[str] = mapped_column(String(6))
     default_priority: Mapped[str] = mapped_column(String(10))
+    # What the create form starts with (D-070); NULL: no default, the form starts empty.
+    default_impact: Mapped[str | None] = mapped_column(String(30), server_default="team")
+    default_urgency: Mapped[str | None] = mapped_column(String(30), server_default="medium")
     auto_status_on_assign: Mapped[bool] = mapped_column(Boolean, server_default="true")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())

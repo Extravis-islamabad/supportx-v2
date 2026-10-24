@@ -2535,6 +2535,23 @@
             ],
             "title": "Time Zone"
           },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "enum": [
+                  "en",
+                  "ar",
+                  "ur"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Language picked in the app; null: Keycloak's `locale`.",
+            "title": "Ui Locale"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -2584,6 +2601,7 @@
             "type": "string"
           },
           "locale": {
+            "description": "UI language: the one picked in the app, else the identity provider's.",
             "enum": [
               "en",
               "ar",
@@ -2718,6 +2736,19 @@
             ],
             "description": "IANA, e.g. Asia/Dubai.",
             "title": "Time Zone"
+          },
+          "ui_locale": {
+            "anyOf": [
+              {
+                "maxLength": 8,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "UI language (en, ar, ur); null: follow the identity provider's locale.",
+            "title": "Ui Locale"
           }
         },
         "title": "UserPreferencesPatch",
@@ -2942,8 +2973,30 @@
             "title": "Auto Status On Assign",
             "type": "boolean"
           },
+          "default_impact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Impact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the create form starts with."
+          },
           "default_priority": {
             "$ref": "#/components/schemas/Priority"
+          },
+          "default_urgency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Urgency"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the create form starts with."
           },
           "matrix": {
             "items": {
@@ -2992,6 +3045,8 @@
         "required": [
           "prefix",
           "default_priority",
+          "default_impact",
+          "default_urgency",
           "auto_status_on_assign",
           "version",
           "statuses",
@@ -3348,6 +3403,14 @@
               }
             ],
             "title": "Next Cursor"
+          },
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "description": "People named in changed values, by user ID.",
+            "title": "People",
+            "type": "object"
           }
         },
         "required": [
@@ -4436,6 +4499,17 @@
             ],
             "title": "Auto Status On Assign"
           },
+          "default_impact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Impact"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: no default."
+          },
           "default_priority": {
             "anyOf": [
               {
@@ -4445,6 +4519,17 @@
                 "type": "null"
               }
             ]
+          },
+          "default_urgency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Urgency"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: no default."
           },
           "prefix": {
             "anyOf": [
@@ -4536,6 +4621,19 @@
         "additionalProperties": false,
         "description": "The reason, when the transition asks for one.",
         "properties": {
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Start work on an unassigned record: which of your groups (as with Take).",
+            "title": "Group Id"
+          },
           "reason_code": {
             "anyOf": [
               {
@@ -8292,7 +8390,7 @@
     },
     "/api/v1/incidents/{record_id}/actions/{action}": {
       "post": {
-        "description": "Only the actions the life cycle allows from the current status; some need a reason.",
+        "description": "Only the actions the life cycle allows from the current status; some need a reason.\n\nStart work on an unassigned record takes it for you first (`group_id` as with Take).",
         "operationId": "act_api_v1_incidents__record_id__actions__action__post",
         "parameters": [
           {
