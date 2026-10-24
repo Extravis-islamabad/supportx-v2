@@ -21,8 +21,8 @@ engine comes first, because every ticket-like module reuses it (architecture.md 
 
 | # | File | Module | ID prefixes | Draws on reference areas | Requirements (MVP / V1 / LATER) |
 |---|---|---|---|---|---|
-| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **176** (84 / 76 / 16) |
-| 02 | [02-service-requests-catalog-portal.md](02-service-requests-catalog-portal.md) | Service requests, service catalog, requester portal | SR, CAT, PRT | 03, 02a-c, 12, 13 (requester portal, approval settings), 10 and 14 (chatbot entry) | **127** (60 / 51 / 16) |
+| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **179** (87 / 76 / 16) |
+| 02 | [02-service-requests-catalog-portal.md](02-service-requests-catalog-portal.md) | Service requests, service catalog, requester portal | SR, CAT, PRT | 03, 02a-c, 12, 13 (requester portal, approval settings), 10 and 14 (chatbot entry) | **128** (61 / 51 / 16) |
 | 03 | [03-sla-assignment-rules-workflows-notifications.md](03-sla-assignment-rules-workflows-notifications.md) | SLA and OLA, operating hours, auto-assignment, business rules, triggers and schedules, custom actions, life cycles and visual workflows, notification engine | SLA, ASG, RUL, WF, NTF | 12 (incl. 12b), 13, 11 (sites, operating hours), 02c, 14 (custom functions) | **146** (60 / 73 / 13) |
 | 04 | [04-problems.md](04-problems.md) | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | **81** (0 / 74 / 7) |
 | 05 | [05-changes.md](05-changes.md) | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | **118** (0 / 100 / 18) |
@@ -48,10 +48,11 @@ Notes on the table:
   set-up and the MCP server are specified in file 10 (architecture §6.1 places the MCP server
   in `integrations`; file 12 lists it as an API surface, REQ-INT-093). Mailbox connections are
   file 12 (REQ-INT-050 to REQ-INT-055); announcements authoring is file 11.
-- **Gaps in the research.** Area 14 (data administration, integrations, ESM instances) is in
-  `docs/specs/reference/` (D-039). Area 15 (multi-user assignment, requester-side views) is
-  not there yet. ESM has no research area of its own beyond Area 14's instance and directory
-  screens; file 12 relies on architecture.md §2.15 for it.
+- **Gaps in the research.** Areas 14 (D-039) and 15 (role-based walkthrough, requester-side
+  views, sign-in, invitation and MFA) are in `docs/specs/reference/`. ESM has no research area
+  of its own beyond Area 14's instance and directory screens; file 12 relies on architecture.md
+  §2.15 for it. Still open from Area 15: the SLA pause retest, a delivered line manager
+  approval, CAB approval, per-role dashboards and surveys.
 - **Counts** for each file are kept in that file's summary table, which is the source of
   truth. This index repeats them when a file is added or changed.
 

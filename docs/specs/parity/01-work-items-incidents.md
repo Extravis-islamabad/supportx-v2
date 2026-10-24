@@ -47,12 +47,12 @@ applied (D-039 to D-050). **Owner:** Haider (Product Owner).
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
 | SAME | 36 | 45 | 8 | 89 |
-| BETTER | 41 | 18 | 2 | 61 |
+| BETTER | 44 | 18 | 2 | 64 |
 | NEW | 7 | 13 | 4 | 24 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **84** | **76** | **16** | **176** |
+| **Total** | **87** | **76** | **16** | **179** |
 
-Edition (lowest edition that includes it): Essentials 164, Professional 12, Enterprise 0. By prefix: REQ-WI 26, REQ-INC 150.
+Edition (lowest edition that includes it): Essentials 167, Professional 12, Enterprise 0. By prefix: REQ-WI 27, REQ-INC 152.
 
 | ID | Title | Decision | Priority | Edition |
 |---|---|---|---|---|
@@ -82,6 +82,7 @@ Edition (lowest edition that includes it): Essentials 164, Professional 12, Ente
 | [REQ-WI-024](#req-wi-024--list-speed-at-scale) | List speed at scale | NEW | V1 | Essentials |
 | [REQ-WI-025](#req-wi-025--features-outside-the-edition-disabled-with-a-hint-or-hidden) | Features outside the edition: disabled with a hint, or hidden | NEW | V1 | Essentials |
 | [REQ-WI-026](#req-wi-026--stages-that-group-statuses) | Stages that group statuses | BETTER | V1 | Professional |
+| [REQ-WI-027](#req-wi-027--people-can-be-told-apart-in-every-picker) | People can be told apart in every picker | BETTER | MVP | Essentials |
 | [REQ-INC-001](#req-inc-001--incident-record-and-core-fields) | Incident record and core fields | SAME | MVP | Essentials |
 | [REQ-INC-002](#req-inc-002--the-type-decides-the-form-and-the-behaviour) | The type decides the form and the behaviour | BETTER | MVP | Essentials |
 | [REQ-INC-003](#req-inc-003--requester-on-behalf-of-and-requester-context) | Requester, on behalf of, and requester context | SAME | MVP | Essentials |
@@ -138,6 +139,7 @@ Edition (lowest edition that includes it): Essentials 164, Professional 12, Ente
 | [REQ-INC-054](#req-inc-054--take-ownership) | Take ownership | BETTER | MVP | Essentials |
 | [REQ-INC-055](#req-inc-055--reassign-with-a-record-of-why) | Reassign with a record of why | SAME | MVP | Essentials |
 | [REQ-INC-056](#req-inc-056--followers-and-sharing) | Followers and sharing | SAME | V1 | Essentials |
+| [REQ-INC-151](#req-inc-151--the-escalating-technician-can-keep-following) | The escalating technician can keep following | BETTER | MVP | Essentials |
 | [REQ-INC-057](#req-inc-057--one-conversation-timeline) | One conversation timeline | SAME | MVP | Essentials |
 | [REQ-INC-058](#req-inc-058--reply-reply-to-all-forward) | Reply, reply to all, forward | BETTER | MVP | Essentials |
 | [REQ-INC-059](#req-inc-059--delivery-status-of-outgoing-messages) | Delivery status of outgoing messages | NEW | MVP | Essentials |
@@ -188,6 +190,7 @@ Edition (lowest edition that includes it): Essentials 164, Professional 12, Ente
 | [REQ-INC-103](#req-inc-103--satisfaction-survey-after-closing) | Satisfaction survey after closing | SAME | V1 | Essentials |
 | [REQ-INC-104](#req-inc-104--incident-list-with-chosen-columns) | Incident list with chosen columns | SAME | MVP | Essentials |
 | [REQ-INC-105](#req-inc-105--built-in-views) | Built-in views | SAME | MVP | Essentials |
+| [REQ-INC-152](#req-inc-152--default-views-never-hide-records-silently) | Default views never hide records silently | BETTER | MVP | Essentials |
 | [REQ-INC-106](#req-inc-106--custom-views-and-the-filter-builder) | Custom views and the filter builder | BETTER | MVP | Essentials |
 | [REQ-INC-107](#req-inc-107--share-views-and-mark-favourites) | Share views and mark favourites | SAME | V1 | Essentials |
 | [REQ-INC-108](#req-inc-108--quick-time-range) | Quick time range | SAME | MVP | Essentials |
@@ -686,6 +689,26 @@ releases (file 06) use it, and other types may.
   2. Saving a stage without exactly one completing status is refused.
   3. The stage rail on a record changes live when another user moves the record to a new
      stage.
+
+#### REQ-WI-027 — People can be told apart in every picker
+
+Wherever a person is picked (assignee, requester, approver, follower, mention, owner), each
+entry shows enough to tell people apart: name, photo or initials, and a second line with their
+group or department, site and the start of their email or login. When two active people share
+a display name, the picker always shows the second line, and the admin is warned when creating
+or renaming a person with a name already in use.
+
+- **Decision:** BETTER. In ServiceDesk Plus three different technicians showed the same display
+  name in every picker and could only be told apart by choosing the group first.
+- **Source:** sdp-area-15 §Setup and licences, §Weak spots
+- **SDP weak spot fixed:** identical display names make pickers unusable.
+- **Priority:** MVP · **Edition:** Essentials
+- **Acceptance criteria:**
+  1. Two technicians both named "Sara Khan" show different second lines (group, site, login)
+     in the assignee picker.
+  2. Creating a person whose display name is already in use shows a warning naming the other
+     person; saving is still allowed.
+  3. The second line never shows data the picking user may not see (REQ-WI-016).
 
 ---
 
@@ -1578,11 +1601,12 @@ the prompt opens before the move completes.
 A user assigns an incident to a group and, optionally, a technician. The technician list shows
 only members of the chosen group, with each person's availability and current open load. It
 can be searched and limited to people available now. Assignment and auto-assignment rules live
-in file 03.
+in file 03: auto-assignment always picks the group first and then a member of that group
+(REQ-ASG-001, REQ-ASG-002), for incidents and service requests alike.
 
 - **Decision:** BETTER. In ServiceDesk Plus the technician list is not filtered by the chosen
   group, and the "online only" switch is hidden inside the list.
-- **Source:** sdp-area-02c §Fields (assign), §Weak spots; sdp-area-04 §Weak spots; sdp-area-02b §Weak spots
+- **Source:** sdp-area-02c §Fields (assign), §Weak spots; sdp-area-04 §Weak spots; sdp-area-02b §Weak spots; sdp-area-15 §Assignment and SLA behaviour (round robin ignores groups), §Weak spots
 - **SDP weak spot fixed:** the technician picker ignores the chosen group.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -1636,6 +1660,29 @@ tenant allows it.
   1. A follower receives notifications for public replies and status changes.
   2. A user the incident is shared with can open it, even though their scope would not show it.
   3. Removing a share removes access at once, including on open screens.
+
+#### REQ-INC-151 — The escalating technician can keep following
+
+When a technician hands an incident to another group or person (escalation), they can keep
+following it: by default they are added as a follower with read access to that incident and can
+add private notes, even though the incident is now outside their normal scope. The hand-over
+dialog shows this choice ("keep following", on by default, tenant setting). Without it, the
+warning that they will lose sight of the incident still applies (D-053).
+
+- **Decision:** BETTER. In ServiceDesk Plus an L1 technician lost all access to a request the
+  moment it was escalated to L2, so they could not follow up on it.
+- **Source:** sdp-area-15 §Request lifecycle per role (step 4), §Blocked actions, §Weak spots; D-053; REQ-INC-056
+- **SDP weak spot fixed:** a technician cannot follow up on what they escalated.
+- **Priority:** MVP · **Edition:** Essentials
+- **Acceptance criteria:**
+  1. An L1 technician who escalates an incident to the L2 group with "keep following" on can
+     still open it, sees its updates live and gets follower notifications.
+  2. That technician cannot edit fields, change status or reassign the incident unless their
+     own scope allows it.
+  3. With "keep following" off, the hand-over warning is shown and the technician loses access
+     after confirming.
+  4. The follower grant is recorded in history and can be removed by the technician or by the
+     assignee.
 
 ---
 
@@ -2472,6 +2519,28 @@ Views can be filtered by type (incidents, service requests, or both).
      each one.
   2. Counts next to each view update live.
   3. The type filter applies to every view.
+
+#### REQ-INC-152 — Default views never hide records silently
+
+The view a person lands on by default shows all their relevant open work: every open status
+category (including in progress and paused) and every work item type they handle (incidents and
+service requests). Whenever a view, a type toggle or a saved filter leaves records out, the
+list says so in plain words with the number left out and one click to show them. This applies
+to technicians in the console and requesters in the portal.
+
+- **Decision:** BETTER. In ServiceDesk Plus a technician's default open view hid in-progress
+  requests, and a requester's default list showed service requests only, so a newly logged
+  incident looked missing.
+- **Source:** sdp-area-15 §Request lifecycle per role (view behaviour), §Weak spots; REQ-INC-147
+- **SDP weak spot fixed:** default list filters hide in-progress records and incidents.
+- **Priority:** MVP · **Edition:** Essentials
+- **Acceptance criteria:**
+  1. A requester who has just logged an incident sees it in their default portal list without
+     changing any filter.
+  2. A technician's default open view includes records in progress and awaiting a third party.
+  3. A view that leaves records out because of a type or status filter shows "N more hidden by
+     this filter" with a link that removes the filter.
+  4. A test checks every built-in default view against the definition above.
 
 #### REQ-INC-106 — Custom views and the filter builder
 
