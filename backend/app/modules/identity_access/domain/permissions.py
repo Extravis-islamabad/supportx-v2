@@ -76,6 +76,7 @@ ADMIN_PERMISSIONS = frozenset(
         "groups.manage",
         "settings.manage",
         "licence.manage",
+        "audit.view",
     }
 )
 

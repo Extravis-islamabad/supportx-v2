@@ -25,6 +25,8 @@ ENUM_PREFIXES: dict[str, str] = {
     "AuditCategory": "audit_category",
     "AuditClient": "audit_client",
     "AuditOutcome": "audit_outcome",
+    "ExportFilter": "audit_export_filter",
+    "AuditExportIn.format": "audit_export_format",
     "ReadCategory": "audit_read_category",
     "AnnouncementAction": "announcement_action",
     "AnnouncementAudience": "announcement_audience",

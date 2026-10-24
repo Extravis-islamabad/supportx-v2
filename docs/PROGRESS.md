@@ -10,7 +10,7 @@
   (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
-  WP-018 audit log (worktree `../supportx-v2-wp018`, branch `feat/wp-018-audit-log`), session 1 of
+  WP-018 audit log (worktree `../supportx-v2-wp018`, branch `feat/wp-018-audit-log`), session 2 of
   3 done.
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
@@ -325,9 +325,15 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-075). Three sessions.
   Auditor system role, API (`/audit/entries`, `/audit/status`, `/audit/verification-runs`,
   `/audit/settings`), wiring of every existing privileged route and sign-in, labels en/ar/ur,
   ADR-027, D-075.
-- [ ] Session 2: screens (list, filters, live pill, drawer, history link, integrity panel,
-  settings), storage component (aioboto3) and SeaweedFS in the chart, export (JSONL/CSV +
-  signed manifest) and the offline verifier, realtime channel, signing key in the chart.
+- [x] Session 2: shared storage component (`app/shared/storage`, aioboto3, S3 API only) and a
+  minimal single-node SeaweedFS 4.48 in the Helm chart (dev and single-node profiles; smoke-
+  tested on k3d in a throwaway namespace, auth enforced); exports (JSONL/CSV, signed manifest,
+  standalone `verify_export.py`, 7-day expiry, visible failures), saved searches, realtime list
+  channel, history link on incidents (REQ-AUD-006), console screens (Admin › Audit log: log with
+  filters and the live "new entries" pill, entry drawer, integrity panel, exports, settings) and
+  the console banner; signing key and storage keys in the chart and `deploy/scripts/secrets.sh`
+  (missing keys are added to an existing Secret, existing values never changed); CI runs
+  SeaweedFS for the export tests.
 - [ ] Session 3: retention and archive with RLS cut-off, restore for investigations, 10M-row
   nightly suite, `docs/architecture/audit.md`, demo, PR.
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
@@ -341,6 +347,16 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-075). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-24 — WP-018 session 2 (storage, exports, screens)
+
+- **Built:** see the WP-018 entry. New dependencies: `aioboto3` (approved D-054/D-075; pulls
+  aiobotocore, Apache-2.0) and the dev type stubs `types-aioboto3[s3]` (MIT, D-012 helper).
+- **Shared changes:** `useDateTime().formatExact` (to the second), `audit.view` opens the Admin
+  area, admins' fake permissions include the audit permissions, `/audit/status` in the console
+  test API.
+- **Tests:** backend 937 passed (94.68 %), including 6 export tests on SeaweedFS and MinIO;
+  console 55 (6 new audit screen tests); chart lint for all five profiles.
 
 ### 2026-10-24 — WP-018 session 1 (backend core of the audit log)
 

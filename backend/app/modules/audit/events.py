@@ -68,6 +68,28 @@ class AuditAlertRaised(DomainEvent):
     actor_id: uuid.UUID | None = None
 
 
+class AuditExportRequested(DomainEvent):
+    """An auditor asked for an export; the worker builds it."""
+
+    event_type: ClassVar[str] = "audit.export.requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "audit_export"
+
+    export_id: uuid.UUID
+
+
+class AuditExportFinished(DomainEvent):
+    """An export is ready or failed (`problem` names why)."""
+
+    event_type: ClassVar[str] = "audit.export.finished"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "audit_export"
+
+    export_id: uuid.UUID
+    status: str
+    problem: str | None = None
+
+
 class AuditSettingsChanged(DomainEvent):
     """The tenant's audit settings changed (field names only)."""
 
@@ -84,5 +106,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AuditVerificationRequested,
     AuditVerificationCompleted,
     AuditAlertRaised,
+    AuditExportRequested,
+    AuditExportFinished,
     AuditSettingsChanged,
 )

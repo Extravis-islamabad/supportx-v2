@@ -10,7 +10,9 @@ Public interface for other modules:
 * `audit_read(ReadCategory.X, ...)`: route dependency for sensitive reads;
 * `record_alone(database, context, action_code=..., facts=...)`: entries outside a route
   transaction (sign-in);
-* `erase_subject(session, user_id)`: personal-data erasure that keeps the chain verifiable.
+* `erase_subject(session, user_id)`: personal-data erasure that keeps the chain verifiable;
+* `entries_for_changes(session, change_ids)`: which field-history saves have an audit entry
+  (record history shows the link only to holders of `audit.view`, REQ-AUD-006).
 """
 
 from fastapi import FastAPI
@@ -25,11 +27,15 @@ from app.modules.audit.service.erasure import erase_subject
 from app.modules.audit.service.jobs import (
     anchor_all,
     ensure_partitions,
+    expire_all_exports,
     on_entry_recorded,
+    on_export_requested,
     on_verification_requested,
     seal_sweep,
     verify_due,
 )
+from app.modules.audit.service.queries import entries_for_changes
+from app.modules.audit.service.realtime import CHANNELS, ROUTES
 from app.modules.audit.service.recording import (
     AuditNote,
     RequestFacts,
@@ -70,11 +76,19 @@ module = ModuleSpec(
     on_shutdown=[_shutdown],
     events=EVENTS,
     permissions=PERMISSIONS,
+    channels=CHANNELS,
+    realtime=ROUTES,
     consumers=[
         ConsumerSpec(
             name="audit__seal",
             event_types=("audit.entry.recorded",),
             handler=on_entry_recorded,
+        ),
+        ConsumerSpec(
+            name="audit__export",
+            event_types=("audit.export.requested",),
+            handler=on_export_requested,
+            ack_wait_seconds=900,
         ),
         ConsumerSpec(
             name="audit__verify_on_demand",
@@ -88,6 +102,7 @@ module = ModuleSpec(
         ScheduleSpec("audit__anchor", 300, anchor_all),
         ScheduleSpec("audit__verify", 900, verify_due),
         ScheduleSpec("audit__partitions", 86400, ensure_partitions),
+        ScheduleSpec("audit__exports_expire", 3600, expire_all_exports),
     ],
 )
 
@@ -99,6 +114,7 @@ __all__ = [
     "RequestFacts",
     "audit_read",
     "audited",
+    "entries_for_changes",
     "erase_subject",
     "module",
     "record_alone",

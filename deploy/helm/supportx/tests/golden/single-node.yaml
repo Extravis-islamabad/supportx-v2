@@ -207,6 +207,36 @@ spec:
 
 ---
 # Source: supportx/templates/networkpolicies.yaml
+# SeaweedFS (S3 API): only SupportX's own pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-seaweedfs-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: seaweedfs
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: supportx
+              app.kubernetes.io/name: supportx
+      ports:
+        - {port: 8333, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
 # other instances (replication) and the CloudNativePG operator (instance manager on 8000).
 apiVersion: networking.k8s.io/v1
@@ -558,6 +588,11 @@ data:
   SUPPORTX_METRICS_HOST: "0.0.0.0"
   SUPPORTX_METRICS_PORT: "9464"
   SUPPORTX_ENTITLEMENT_PROVIDER: "subscription"
+  # Object storage (S3 API, D-016): the release's SeaweedFS or an external S3 (WP-018).
+  SUPPORTX_OBJECT_STORAGE_ENDPOINT: "http://supportx-seaweedfs:8333"
+  SUPPORTX_OBJECT_STORAGE_BUCKET: "supportx"
+  SUPPORTX_OBJECT_STORAGE_REGION: "us-east-1"
+  SUPPORTX_AUDIT_TRUSTED_KEYS: ""
 
 ---
 # Source: supportx/templates/keycloak.yaml
@@ -957,6 +992,30 @@ spec:
     - {name: http, port: 8080, targetPort: http}
 
 ---
+# Source: supportx/templates/seaweedfs.yaml
+# Minimal single-node SeaweedFS (S3 API) for on-prem installs (ADR-012, D-075; WP-018). One pod
+# runs master, volume, filer and the S3 gateway; data on one volume. HA object storage, backups and
+# lifecycle rules come with WP-014b. Credentials: the app Secret's `seaweedfs-s3-config`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-seaweedfs
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: seaweedfs
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  selector:
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: seaweedfs
+  ports:
+    - {name: s3, port: 8333, targetPort: s3}
+
+---
 # Source: supportx/templates/web.yaml
 apiVersion: v1
 kind: Service
@@ -1175,7 +1234,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -1241,6 +1300,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_OBJECT_STORAGE_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-access-key}}
+            - name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-secret-key}}
             - name: SUPPORTX_SERVICE_NAME
               value: supportx-api
           ports:
@@ -1605,7 +1668,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -1673,6 +1736,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_OBJECT_STORAGE_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-access-key}}
+            - name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-secret-key}}
             - name: SUPPORTX_SERVICE_NAME
               value: "supportx-relay"
             # The relay reads the outbox as supportx_relay, straight to PostgreSQL (LISTEN/NOTIFY).
@@ -1747,7 +1814,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -1815,8 +1882,15 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_OBJECT_STORAGE_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-access-key}}
+            - name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-secret-key}}
             - name: SUPPORTX_SERVICE_NAME
               value: "supportx-consumers"
+            # Signs the audit log's anchors (ADR-027); only this worker holds the key.
+            - name: SUPPORTX_AUDIT_SIGNING_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: audit-signing-key}}
           ports:
             - {name: metrics, containerPort: 9464}
           startupProbe:
@@ -1884,7 +1958,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: d863adcfd2d4d503f2015424d0380d88450d92856c053f5e1c4e0b956c921014
+        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -1952,6 +2026,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-token-secret}}
+            - name: SUPPORTX_OBJECT_STORAGE_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-access-key}}
+            - name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
+              valueFrom: {secretKeyRef: {name: supportx-app, key: s3-secret-key}}
             - name: SUPPORTX_SERVICE_NAME
               value: "supportx-fanout"
           ports:
@@ -2162,6 +2240,100 @@ spec:
       resources:
         requests:
           storage: 20Gi
+
+---
+# Source: supportx/templates/seaweedfs.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: supportx-seaweedfs
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: seaweedfs
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  serviceName: supportx-seaweedfs
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: seaweedfs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: seaweedfs
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+    spec:
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000               # the image's `seaweed` user
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: seaweedfs
+          image: chrislusf/seaweedfs:4.48
+          command: ["weed"]
+          args:
+            - server
+            - -dir=/data
+            - -ip.bind=0.0.0.0
+            - -s3
+            - -s3.port=8333
+            - -s3.config=/etc/seaweedfs/s3.json
+            - -master.volumeSizeLimitMB=1024
+          ports:
+            - {name: s3, containerPort: 8333}
+          readinessProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: s3}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "1"
+              memory: 512Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: config, mountPath: /etc/seaweedfs, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          secret:
+            secretName: supportx-app
+            items:
+              - {key: seaweedfs-s3-config, path: s3.json}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 20Gi
 
 ---
 # Source: supportx/templates/migrate-job.yaml

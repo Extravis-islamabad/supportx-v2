@@ -18,6 +18,8 @@ import {
   visibleNav,
 } from '@supportx/ui';
 
+import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
+
 import { NAV } from './nav';
 
 /** Console frame: sidebar, header (tenant switcher, user menu), banners, command palette. */
@@ -89,6 +91,7 @@ export function ConsoleLayout() {
         <>
           <ConnectivityBanner />
           <LicenceBanners />
+          <AuditAlertBanner />
           <AnnouncementBanners
             enabled={licence.has('incident')}
             onOpen={(id) => void navigate(`/announcements/${id}`)}

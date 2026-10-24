@@ -53,6 +53,11 @@ spec:
             - name: SUPPORTX_RELAY_DATABASE_URL
               value: "postgresql://supportx_relay:$(SUPPORTX_SECRET_RELAY_DB_PASSWORD)@{{ include "supportx.dbHost" $ }}:{{ include "supportx.dbPort" $ }}/{{ $.Values.postgresql.database }}"
             {{- end }}
+            {{- if eq $w.component "consumers" }}
+            # Signs the audit log's anchors (ADR-027); only this worker holds the key.
+            - name: SUPPORTX_AUDIT_SIGNING_KEY
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: audit-signing-key}}
+            {{- end }}
           ports:
             - {name: metrics, containerPort: 9464}
           startupProbe:

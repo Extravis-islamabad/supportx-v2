@@ -896,6 +896,14 @@
             "title": "Module",
             "type": "string"
           },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Names of the people this entry mentions (by user ID), looked up now.",
+            "title": "Names",
+            "type": "object"
+          },
           "object_id": {
             "anyOf": [
               {
@@ -906,6 +914,18 @@
               }
             ],
             "title": "Object Id"
+          },
+          "object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name of a person the entry is about, if any.",
+            "title": "Object Name"
           },
           "object_type": {
             "anyOf": [
@@ -922,6 +942,18 @@
             "format": "date-time",
             "title": "Occurred At",
             "type": "string"
+          },
+          "on_behalf_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On Behalf Id"
           },
           "outcome": {
             "$ref": "#/components/schemas/AuditOutcome"
@@ -1002,8 +1034,10 @@
           "actor_type",
           "actor_id",
           "actor_name",
+          "on_behalf_id",
           "object_type",
           "object_id",
+          "object_name",
           "details",
           "client",
           "request_id",
@@ -1013,7 +1047,8 @@
           "prev_hash",
           "chain_hash",
           "sealed_at",
-          "personal"
+          "personal",
+          "names"
         ],
         "title": "AuditEntryDetailOut",
         "type": "object"
@@ -1097,6 +1132,18 @@
             ],
             "title": "Object Id"
           },
+          "object_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Name of a person the entry is about, if any.",
+            "title": "Object Name"
+          },
           "object_type": {
             "anyOf": [
               {
@@ -1112,6 +1159,18 @@
             "format": "date-time",
             "title": "Occurred At",
             "type": "string"
+          },
+          "on_behalf_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "On Behalf Id"
           },
           "outcome": {
             "$ref": "#/components/schemas/AuditOutcome"
@@ -1162,8 +1221,10 @@
           "actor_type",
           "actor_id",
           "actor_name",
+          "on_behalf_id",
           "object_type",
           "object_id",
+          "object_name",
           "details",
           "client",
           "request_id",
@@ -1218,6 +1279,218 @@
           "has_more"
         ],
         "title": "AuditEntryPage",
+        "type": "object"
+      },
+      "AuditExportIn": {
+        "additionalProperties": false,
+        "description": "What to export: a time range, a format and optional filters (exact matches).",
+        "properties": {
+          "filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Without filters the export proves completeness.",
+            "propertyNames": {
+              "$ref": "#/components/schemas/ExportFilter"
+            },
+            "title": "Filters",
+            "type": "object"
+          },
+          "format": {
+            "default": "jsonl",
+            "enum": [
+              "jsonl",
+              "csv"
+            ],
+            "title": "Format",
+            "type": "string"
+          },
+          "range_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range From"
+          },
+          "range_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range To"
+          }
+        },
+        "title": "AuditExportIn",
+        "type": "object"
+      },
+      "AuditExportOut": {
+        "description": "An export and where it stands.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "entries": {
+            "title": "Entries",
+            "type": "integer"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "filters": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Filters",
+            "type": "object"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "format": {
+            "title": "Format",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it failed; labels: `errors.<code>`.",
+            "title": "Problem"
+          },
+          "range_from": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range From"
+          },
+          "range_to": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range To"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes"
+          },
+          "status": {
+            "description": "running | ready | failed | expired",
+            "title": "Status",
+            "type": "string"
+          },
+          "verification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The server's own verification: passed | failed",
+            "title": "Verification"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "format",
+          "range_from",
+          "range_to",
+          "filters",
+          "entries",
+          "size_bytes",
+          "sha256",
+          "verification",
+          "problem",
+          "requested_by",
+          "created_at",
+          "finished_at",
+          "expires_at"
+        ],
+        "title": "AuditExportOut",
         "type": "object"
       },
       "AuditOutcome": {
@@ -1441,6 +1714,66 @@
           "finished_at"
         ],
         "title": "AuditRunOut",
+        "type": "object"
+      },
+      "AuditSavedSearchIn": {
+        "additionalProperties": false,
+        "description": "A search to keep (the list's query parameters).",
+        "properties": {
+          "name": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "query": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Query parameters of /audit/entries.",
+            "title": "Query",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name",
+          "query"
+        ],
+        "title": "AuditSavedSearchIn",
+        "type": "object"
+      },
+      "AuditSavedSearchOut": {
+        "description": "A saved search of yours.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "query": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Query",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "query",
+          "created_at"
+        ],
+        "title": "AuditSavedSearchOut",
         "type": "object"
       },
       "AuditSettingsIn": {
@@ -1901,6 +2234,20 @@
         ],
         "title": "EntitlementsResponse",
         "type": "object"
+      },
+      "ExportFilter": {
+        "description": "Fields an export can be filtered on (exact match).",
+        "enum": [
+          "action",
+          "category",
+          "outcome",
+          "actor_id",
+          "object_type",
+          "object_id",
+          "client"
+        ],
+        "title": "ExportFilter",
+        "type": "string"
       },
       "FailureReason": {
         "description": "Why a check failed. Stable codes only: raw exception text never leaves the server.",
@@ -4138,6 +4485,19 @@
             ],
             "title": "Actor Type",
             "type": "string"
+          },
+          "audit_entry_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The audit entry of this save; only for holders of audit.view (REQ-AUD-006).",
+            "title": "Audit Entry Id"
           },
           "automation": {
             "anyOf": [
@@ -7590,6 +7950,465 @@
           }
         },
         "summary": "One audit entry",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/audit/exports": {
+      "get": {
+        "description": "The latest 20, newest first.",
+        "operationId": "list_exports_api_v1_audit_exports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditExportOut"
+                  },
+                  "title": "Response List Exports Api V1 Audit Exports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such entry or run."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Audit exports",
+        "tags": [
+          "audit"
+        ]
+      },
+      "post": {
+        "description": "Built in the background; follow it in the export list. 503 if storage is missing.",
+        "operationId": "start_export_api_v1_audit_exports_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditExportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditExportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such entry or run."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Export the audit log",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/audit/exports/{export_id}/download": {
+      "get": {
+        "description": "The zip (manifest, signature, data, verifier). Downloading is audited.",
+        "operationId": "download_export_api_v1_audit_exports__export_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "export_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Export Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {}
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such entry or run."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Download an export",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/audit/saved-searches": {
+      "get": {
+        "description": "Only your own.",
+        "operationId": "list_saved_api_v1_audit_saved_searches_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AuditSavedSearchOut"
+                  },
+                  "title": "Response List Saved Api V1 Audit Saved Searches Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such entry or run."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your saved audit searches",
+        "tags": [
+          "audit"
+        ]
+      },
+      "post": {
+        "description": "Keep the current filters under a name (at most 50 per person).",
+        "operationId": "create_saved_api_v1_audit_saved_searches_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AuditSavedSearchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditSavedSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such entry or run."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save an audit search",
+        "tags": [
+          "audit"
+        ]
+      }
+    },
+    "/api/v1/audit/saved-searches/{search_id}": {
+      "delete": {
+        "description": "Only your own; someone else's is 404.",
+        "operationId": "delete_saved_api_v1_audit_saved_searches__search_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "search_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Search Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such entry or run."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Delete a saved audit search",
         "tags": [
           "audit"
         ]

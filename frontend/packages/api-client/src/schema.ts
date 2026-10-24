@@ -310,6 +310,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit/exports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit exports
+         * @description The latest 20, newest first.
+         */
+        get: operations["list_exports_api_v1_audit_exports_get"];
+        put?: never;
+        /**
+         * Export the audit log
+         * @description Built in the background; follow it in the export list. 503 if storage is missing.
+         */
+        post: operations["start_export_api_v1_audit_exports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/exports/{export_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download an export
+         * @description The zip (manifest, signature, data, verifier). Downloading is audited.
+         */
+        get: operations["download_export_api_v1_audit_exports__export_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/saved-searches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your saved audit searches
+         * @description Only your own.
+         */
+        get: operations["list_saved_api_v1_audit_saved_searches_get"];
+        put?: never;
+        /**
+         * Save an audit search
+         * @description Keep the current filters under a name (at most 50 per person).
+         */
+        post: operations["create_saved_api_v1_audit_saved_searches_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/saved-searches/{search_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a saved audit search
+         * @description Only your own; someone else's is 404.
+         */
+        delete: operations["delete_saved_api_v1_audit_saved_searches__search_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/audit/settings": {
         parameters: {
             query?: never;
@@ -1583,8 +1671,20 @@ export interface components {
             id: string;
             /** Module */
             module: string;
+            /**
+             * Names
+             * @description Names of the people this entry mentions (by user ID), looked up now.
+             */
+            names: {
+                [key: string]: string;
+            };
             /** Object Id */
             object_id: string | null;
+            /**
+             * Object Name
+             * @description Name of a person the entry is about, if any.
+             */
+            object_name: string | null;
             /** Object Type */
             object_type: string | null;
             /**
@@ -1592,6 +1692,8 @@ export interface components {
              * Format: date-time
              */
             occurred_at: string;
+            /** On Behalf Id */
+            on_behalf_id: string | null;
             outcome: components["schemas"]["AuditOutcome"];
             /** Personal */
             personal: components["schemas"]["AuditPersonalOut"][];
@@ -1647,6 +1749,11 @@ export interface components {
             module: string;
             /** Object Id */
             object_id: string | null;
+            /**
+             * Object Name
+             * @description Name of a person the entry is about, if any.
+             */
+            object_name: string | null;
             /** Object Type */
             object_type: string | null;
             /**
@@ -1654,6 +1761,8 @@ export interface components {
              * Format: date-time
              */
             occurred_at: string;
+            /** On Behalf Id */
+            on_behalf_id: string | null;
             outcome: components["schemas"]["AuditOutcome"];
             /** Reason Code */
             reason_code: string | null;
@@ -1684,6 +1793,82 @@ export interface components {
              * @description Pass as `cursor` for the next page.
              */
             next_cursor: string | null;
+        };
+        /**
+         * AuditExportIn
+         * @description What to export: a time range, a format and optional filters (exact matches).
+         */
+        AuditExportIn: {
+            /**
+             * Filters
+             * @description Without filters the export proves completeness.
+             */
+            filters?: {
+                [key: string]: string;
+            };
+            /**
+             * Format
+             * @default jsonl
+             * @enum {string}
+             */
+            format: "jsonl" | "csv";
+            /** Range From */
+            range_from?: string | null;
+            /** Range To */
+            range_to?: string | null;
+        };
+        /**
+         * AuditExportOut
+         * @description An export and where it stands.
+         */
+        AuditExportOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Entries */
+            entries: number;
+            /** Expires At */
+            expires_at: string | null;
+            /** Filters */
+            filters: {
+                [key: string]: string;
+            };
+            /** Finished At */
+            finished_at: string | null;
+            /** Format */
+            format: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Problem
+             * @description Why it failed; labels: `errors.<code>`.
+             */
+            problem: string | null;
+            /** Range From */
+            range_from: string | null;
+            /** Range To */
+            range_to: string | null;
+            /** Requested By */
+            requested_by: string | null;
+            /** Sha256 */
+            sha256: string | null;
+            /** Size Bytes */
+            size_bytes: number | null;
+            /**
+             * Status
+             * @description running | ready | failed | expired
+             */
+            status: string;
+            /**
+             * Verification
+             * @description The server's own verification: passed | failed
+             */
+            verification: string | null;
         };
         /**
          * AuditOutcome
@@ -1764,6 +1949,43 @@ export interface components {
             status: string;
             /** Unsealed Overdue */
             unsealed_overdue: number;
+        };
+        /**
+         * AuditSavedSearchIn
+         * @description A search to keep (the list's query parameters).
+         */
+        AuditSavedSearchIn: {
+            /** Name */
+            name: string;
+            /**
+             * Query
+             * @description Query parameters of /audit/entries.
+             */
+            query: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * AuditSavedSearchOut
+         * @description A saved search of yours.
+         */
+        AuditSavedSearchOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Query */
+            query: {
+                [key: string]: string;
+            };
         };
         /**
          * AuditSettingsIn
@@ -1928,6 +2150,12 @@ export interface components {
              */
             writable: boolean;
         };
+        /**
+         * ExportFilter
+         * @description Fields an export can be filtered on (exact match).
+         * @enum {string}
+         */
+        ExportFilter: "action" | "category" | "outcome" | "actor_id" | "object_type" | "object_id" | "client";
         /**
          * FailureReason
          * @description Why a check failed. Stable codes only: raw exception text never leaves the server.
@@ -2893,6 +3121,11 @@ export interface components {
              * @enum {string}
              */
             actor_type: "user" | "system";
+            /**
+             * Audit Entry Id
+             * @description The audit entry of this save; only for holders of audit.view (REQ-AUD-006).
+             */
+            audit_entry_id?: string | null;
             /**
              * Automation
              * @description Set when automation made the change, e.g. {kind: matrix}.
@@ -4633,6 +4866,397 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AuditEntryDetailOut"];
                 };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such entry or run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_exports_api_v1_audit_exports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such entry or run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    start_export_api_v1_audit_exports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditExportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditExportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such entry or run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    download_export_api_v1_audit_exports__export_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                export_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such entry or run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_saved_api_v1_audit_saved_searches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditSavedSearchOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such entry or run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_saved_api_v1_audit_saved_searches_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuditSavedSearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditSavedSearchOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such entry or run. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_saved_api_v1_audit_saved_searches__search_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                search_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Not signed in. */
             401: {

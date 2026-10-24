@@ -105,5 +105,12 @@ def test_no_route_changes_or_deletes_audit_entries() -> None:
         for method, path, _dependant, _endpoint in api_routes(app)
         if path.startswith("/api/v1/audit") and method != "GET"
     )
-    # The only writes: ask for a verification, change settings. Never an entry.
-    assert writes == ["POST /api/v1/audit/verification-runs", "PUT /api/v1/audit/settings"]
+    # The only writes: ask for a verification or an export, change settings, keep or drop your
+    # own saved searches. Never an entry.
+    assert writes == [
+        "DELETE /api/v1/audit/saved-searches/{search_id}",
+        "POST /api/v1/audit/exports",
+        "POST /api/v1/audit/saved-searches",
+        "POST /api/v1/audit/verification-runs",
+        "PUT /api/v1/audit/settings",
+    ]

@@ -36,6 +36,12 @@ values=(
   "SUPPORTX_CENTRIFUGO_API_URL=http://127.0.0.1:${CENTRIFUGO_PORT}"
   "SUPPORTX_CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}"
   "SUPPORTX_CENTRIFUGO_TOKEN_SECRET=${CENTRIFUGO_TOKEN_HMAC_SECRET}"
+  # Object storage (WP-018): the dev stack's MinIO through the S3 API (D-016).
+  "SUPPORTX_OBJECT_STORAGE_ENDPOINT=http://127.0.0.1:${MINIO_API_PORT}"
+  "SUPPORTX_OBJECT_STORAGE_ACCESS_KEY=${MINIO_ROOT_USER}"
+  "SUPPORTX_OBJECT_STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}"
+  # Audit anchors (ADR-027): a dev-only signing key derived from the dev session secret.
+  "SUPPORTX_AUDIT_SIGNING_KEY=dev-1:$(printf '%s' "audit-anchor:${SESSION_SECRET}" | openssl dgst -sha256 -binary | base64)"
 )
 
 umask 077

@@ -14,11 +14,34 @@ APP_SECRET="supportx-app"
 KEYCLOAK_DB_SECRET="supportx-db-keycloak"
 
 rand() { openssl rand -hex "${1:-32}"; }
+# Audit anchor-signing key (WP-018, ADR-027): "<key id>:<base64 32-byte Ed25519 seed>".
+signing_key() { printf 'k%s:%s' "$(date -u +%Y%m%d)" "$(openssl rand -base64 32)"; }
+# SeaweedFS S3 identity (WP-018): the access key pair the app uses, as SeaweedFS's s3.json.
+s3_config() {
+  printf '{"identities":[{"name":"supportx","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' "$1" "$2"
+}
 
 kubectl get namespace "$NAMESPACE" >/dev/null 2>&1 || kubectl create namespace "$NAMESPACE" >/dev/null
 
+S3_ACCESS="$(rand 12)"
+S3_SECRET="$(rand 24)"
+
 if kubectl -n "$NAMESPACE" get secret "$APP_SECRET" >/dev/null 2>&1; then
-  echo "secret $NAMESPACE/$APP_SECRET exists: left unchanged"
+  # Existing values are never changed. Keys added by later work packages are filled in once.
+  add_missing() {
+    if [ -z "$(kubectl -n "$NAMESPACE" get secret "$APP_SECRET" -o "jsonpath={.data.$1}")" ]; then
+      kubectl -n "$NAMESPACE" patch secret "$APP_SECRET" --type merge \
+        -p "{\"stringData\":{\"$1\":$(printf '%s' "$2" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))')}}" >/dev/null
+      echo "secret $NAMESPACE/$APP_SECRET: added $1"
+    fi
+  }
+  if [ -z "$(kubectl -n "$NAMESPACE" get secret "$APP_SECRET" -o 'jsonpath={.data.s3-access-key}')" ]; then
+    add_missing s3-access-key "$S3_ACCESS"
+    add_missing s3-secret-key "$S3_SECRET"
+    add_missing seaweedfs-s3-config "$(s3_config "$S3_ACCESS" "$S3_SECRET")"
+  fi
+  add_missing audit-signing-key "$(signing_key)"
+  echo "secret $NAMESPACE/$APP_SECRET exists: existing values left unchanged"
 else
   kubectl -n "$NAMESPACE" create secret generic "$APP_SECRET" \
     --from-literal=app-db-password="$(rand 24)" \
@@ -31,7 +54,11 @@ else
     --from-literal=oidc-portal-secret="$(rand 24)" \
     --from-literal=keycloak-admin-password="$(rand 16)" \
     --from-literal=nats-password="$(rand 24)" \
-    --from-literal=valkey-password="$(rand 24)" >/dev/null
+    --from-literal=valkey-password="$(rand 24)" \
+    --from-literal=s3-access-key="$S3_ACCESS" \
+    --from-literal=s3-secret-key="$S3_SECRET" \
+    --from-literal=seaweedfs-s3-config="$(s3_config "$S3_ACCESS" "$S3_SECRET")" \
+    --from-literal=audit-signing-key="$(signing_key)" >/dev/null
   echo "secret $NAMESPACE/$APP_SECRET created"
 fi
 

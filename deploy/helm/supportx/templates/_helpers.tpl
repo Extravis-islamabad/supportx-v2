@@ -135,6 +135,10 @@ securityContext:
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: centrifugo-api-key}}
 - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: centrifugo-token-secret}}
+- name: SUPPORTX_OBJECT_STORAGE_ACCESS_KEY
+  valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: s3-access-key}}
+- name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
+  valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: s3-secret-key}}
 {{- end -}}
 
 {{/* Common pod parts for the API and workers. */}}

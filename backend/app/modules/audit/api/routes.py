@@ -10,7 +10,8 @@ administrators), and every settings change is audited with its old and new value
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from enum import StrEnum
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -33,8 +34,8 @@ from app.modules.audit.domain.catalogue import (
 )
 from app.modules.audit.events import AuditVerificationRequested
 from app.modules.audit.infra.models import AuditVerificationRun
-from app.modules.audit.service import queries
-from app.modules.audit.service.jobs import signer_from
+from app.modules.audit.service import exports, queries, saved
+from app.modules.audit.service.jobs import signer_from, storage_or_none
 from app.modules.audit.service.recording import AuditNote, audit_read, audited
 from app.modules.audit.service.settings import AuditSettingsView, load_settings, update_settings
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -44,6 +45,20 @@ from app.shared.clock import system_clock
 from app.shared.events import record_event
 from app.shared.history import source_of
 from app.shared.ids import new_id
+from app.shared.storage import StorageNotConfigured
+
+
+class ExportFilter(StrEnum):
+    """Fields an export can be filtered on (exact match)."""
+
+    ACTION = "action"
+    CATEGORY = "category"
+    OUTCOME = "outcome"
+    ACTOR_ID = "actor_id"
+    OBJECT_TYPE = "object_type"
+    OBJECT_ID = "object_id"
+    CLIENT = "client"
+
 
 VIEW = "audit.view"
 EXPORT = "audit.export"
@@ -82,6 +97,7 @@ def _hidden(permission: str) -> Any:  # noqa: ANN401 - a FastAPI dependency
 View = Annotated[Any, Depends(_hidden(VIEW))]
 Verify = Annotated[Any, Depends(_hidden(VERIFY))]
 Manage = Annotated[Any, Depends(_hidden(MANAGE))]
+Export = Annotated[Any, Depends(_hidden(EXPORT))]
 EntriesQuery = Annotated[ListQuery, Depends(list_query(queries.ENTRY_FIELDS))]
 
 
@@ -101,8 +117,10 @@ class AuditEntryOut(BaseModel):
     actor_type: AuditActorType
     actor_id: uuid.UUID | None
     actor_name: str | None = Field(description="Null for system actors and erased people.")
+    on_behalf_id: uuid.UUID | None
     object_type: str | None
     object_id: str | None
+    object_name: str | None = Field(description="Name of a person the entry is about, if any.")
     details: dict[str, Any]
     client: AuditClient
     request_id: str | None
@@ -127,6 +145,9 @@ class AuditEntryDetailOut(AuditEntryOut):
     chain_hash: str | None
     sealed_at: datetime | None
     personal: list[AuditPersonalOut]
+    names: dict[str, str] = Field(
+        description="Names of the people this entry mentions (by user ID), looked up now."
+    )
 
 
 class AuditEntryPage(Page[AuditEntryOut]):
@@ -208,6 +229,77 @@ async def _names(session: TenantSession, ids: list[uuid.UUID | None]) -> dict[st
     return await user_names(session, wanted) if wanted else {}
 
 
+class AuditExportIn(BaseModel):
+    """What to export: a time range, a format and optional filters (exact matches)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    format: Literal["jsonl", "csv"] = "jsonl"
+    range_from: datetime | None = None
+    range_to: datetime | None = None
+    filters: dict[ExportFilter, str] = Field(
+        default_factory=dict, description="Without filters the export proves completeness."
+    )
+
+
+class AuditExportOut(BaseModel):
+    """An export and where it stands."""
+
+    id: uuid.UUID
+    status: str = Field(description="running | ready | failed | expired")
+    format: str
+    range_from: datetime | None
+    range_to: datetime | None
+    filters: dict[str, str]
+    entries: int
+    size_bytes: int | None
+    sha256: str | None
+    verification: str | None = Field(description="The server's own verification: passed | failed")
+    problem: str | None = Field(description="Why it failed; labels: `errors.<code>`.")
+    requested_by: uuid.UUID | None
+    created_at: datetime
+    finished_at: datetime | None
+    expires_at: datetime | None
+
+
+class AuditSavedSearchIn(BaseModel):
+    """A search to keep (the list's query parameters)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=100)
+    query: dict[str, str] = Field(description="Query parameters of /audit/entries.")
+
+
+class AuditSavedSearchOut(BaseModel):
+    """A saved search of yours."""
+
+    id: uuid.UUID
+    name: str
+    query: dict[str, str]
+    created_at: datetime
+
+
+def _as_uuid(value: object) -> uuid.UUID | None:
+    try:
+        return uuid.UUID(str(value))
+    except ValueError:
+        return None
+
+
+def _people(entry: Any) -> list[uuid.UUID | None]:  # noqa: ANN401 - AuditEntry row
+    """The actor, and the object when it is a person."""
+    found = [entry.actor_id, entry.on_behalf_id]
+    if entry.object_type == "user":
+        found.append(_as_uuid(entry.object_id))
+    return found
+
+
+def _mentioned(entry: Any) -> list[uuid.UUID | None]:  # noqa: ANN401 - AuditEntry row
+    """IDs in the details that may be people (names are looked up; unknown IDs drop out)."""
+    return [_as_uuid(v) for v in entry.details.values() if isinstance(v, str)]
+
+
 def _entry(view: queries.EntryView, names: dict[str, str]) -> AuditEntryOut:
     e = view.entry
     return AuditEntryOut(
@@ -221,8 +313,10 @@ def _entry(view: queries.EntryView, names: dict[str, str]) -> AuditEntryOut:
         actor_type=AuditActorType(e.actor_type),
         actor_id=e.actor_id,
         actor_name=names.get(str(e.actor_id)) if e.actor_id else None,
+        on_behalf_id=e.on_behalf_id,
         object_type=e.object_type,
         object_id=e.object_id,
+        object_name=names.get(e.object_id or "") if e.object_type == "user" else None,
         details=dict(e.details),
         client=AuditClient(e.client),
         request_id=e.request_id,
@@ -265,7 +359,7 @@ async def list_entries(
     """Newest first by default; filter by actor, action, outcome, object, client, time range."""
     del subject
     views, page = await queries.list_entries(session, query)
-    names = await _names(session, [v.entry.actor_id for v in views])
+    names = await _names(session, [i for v in views for i in _people(v.entry)])
     return AuditEntryPage(
         items=[_entry(v, names) for v in views],
         next_cursor=page.next_cursor,
@@ -366,7 +460,7 @@ async def get_entry(
     """An entry with its chain position, hashes and personal values (IP address, client)."""
     del subject
     detail = await queries.get_entry(session, entry_id)
-    names = await _names(session, [detail.view.entry.actor_id])
+    names = await _names(session, [*_people(detail.view.entry), *_mentioned(detail.view.entry)])
     base = _entry(detail.view, names).model_dump()
     return AuditEntryDetailOut(
         **base,
@@ -378,6 +472,7 @@ async def get_entry(
             AuditPersonalOut(subject_id=uuid.UUID(subject_id), **data)
             for subject_id, data in sorted(detail.personal.items())
         ],
+        names=names,
     )
 
 
@@ -422,3 +517,114 @@ def _seconds(value: int) -> Any:  # noqa: ANN401 - timedelta
     from datetime import timedelta  # noqa: PLC0415
 
     return timedelta(seconds=value)
+
+
+# --- exports (REQ-AUD-009) -------------------------------------------------------------------
+
+
+@router.post("/exports", summary="Export the audit log", status_code=status.HTTP_202_ACCEPTED)
+async def start_export(
+    request: Request,
+    body: AuditExportIn,
+    session: TenantSession,
+    subject: Export,
+    note: Annotated[AuditNote, audited("audit.export_requested", object_type="audit_export")],
+) -> AuditExportOut:
+    """Built in the background; follow it in the export list. 503 if storage is missing."""
+    del subject
+    if body.range_from and body.range_to and body.range_to <= body.range_from:
+        raise ValidationFailed(
+            errors=[
+                FieldError(
+                    field="body.range_to",
+                    code="range_end_before_start",
+                    message_key="errors.field.range_end_before_start",
+                )
+            ]
+        )
+    row = await exports.request_export(
+        session,
+        exports.ExportRequest(
+            format=body.format,
+            range_from=body.range_from,
+            range_to=body.range_to,
+            filters={k.value: v for k, v in body.filters.items()},
+        ),
+        storage_ready=storage_or_none(request.app.state.settings) is not None,
+    )
+    note.object_id = str(row.id)
+    note.details = {"format": body.format, "filtered": bool(body.filters)}
+    return AuditExportOut.model_validate(row, from_attributes=True)
+
+
+@router.get("/exports", summary="Audit exports")
+async def list_exports(session: TenantSession, subject: Export) -> list[AuditExportOut]:
+    """The latest 20, newest first."""
+    del subject
+    return [
+        AuditExportOut.model_validate(row, from_attributes=True)
+        for row in await exports.list_exports(session)
+    ]
+
+
+@router.get(
+    "/exports/{export_id}/download",
+    summary="Download an export",
+    response_class=Response,
+    responses={200: {"content": {"application/zip": {}}}, 409: {"model": ProblemDetail}},
+)
+async def download_export(
+    request: Request,
+    export_id: uuid.UUID,
+    session: TenantSession,
+    subject: Export,
+    note: Annotated[
+        AuditNote,
+        audited("audit.export_downloaded", object_type="audit_export", object_param="export_id"),
+    ],
+) -> Response:
+    """The zip (manifest, signature, data, verifier). Downloading is audited."""
+    del subject
+    storage = storage_or_none(request.app.state.settings)
+    if storage is None:
+        raise StorageNotConfigured
+    row, data = await exports.download(session, storage, export_id)
+    note.details = {"sha256": row.sha256}
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="supportx-audit-{row.id}.zip"',
+            "X-Content-SHA256": row.sha256 or "",
+        },
+    )
+
+
+# --- saved searches (REQ-AUD-007) ------------------------------------------------------------
+
+
+@router.get("/saved-searches", summary="Your saved audit searches")
+async def list_saved(session: TenantSession, subject: View) -> list[AuditSavedSearchOut]:
+    """Only your own."""
+    rows = await saved.list_saved(session, subject.user_id)
+    return [AuditSavedSearchOut.model_validate(r, from_attributes=True) for r in rows]
+
+
+@router.post("/saved-searches", summary="Save an audit search", status_code=status.HTTP_201_CREATED)
+async def create_saved(
+    body: AuditSavedSearchIn, session: TenantSession, subject: View
+) -> AuditSavedSearchOut:
+    """Keep the current filters under a name (at most 50 per person)."""
+    row = await saved.create_saved(session, subject.user_id, body.name, body.query)
+    return AuditSavedSearchOut.model_validate(row, from_attributes=True)
+
+
+@router.delete(
+    "/saved-searches/{search_id}",
+    summary="Delete a saved audit search",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_saved(search_id: uuid.UUID, session: TenantSession, subject: View) -> Response:
+    """Only your own; someone else's is 404."""
+    await saved.delete_saved(session, subject.user_id, search_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

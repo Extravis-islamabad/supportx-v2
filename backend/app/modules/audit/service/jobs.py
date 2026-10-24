@@ -27,10 +27,12 @@ from app.modules.audit.domain.catalogue import AuditActorType, AuditOutcome
 from app.modules.audit.events import AuditAlertRaised
 from app.modules.audit.infra.models import AuditEntry, AuditVerificationRun
 from app.modules.audit.infra.signing import AnchorSigner, LocalSigner, trusted_keys
+from app.modules.audit.service.exports import build_export, expire_exports
 from app.modules.audit.service.integrity import anchor, seal, unsealed_overdue, verify
 from app.modules.audit.service.recording import WORKER, record
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope, record_event
+from app.shared.storage import ObjectStorage, StorageNotConfigured, storage_from
 
 log = get_logger(__name__)
 PARTITION_MONTHS_AHEAD = 24
@@ -54,6 +56,14 @@ def signer_from(settings: Settings) -> AnchorSigner | None:
 def trusted_from(settings: Settings) -> dict[str, bytes]:
     """Public keys a verification accepts: the active key and every retired one."""
     return trusted_keys(settings.audit_trusted_keys, signer_from(settings))
+
+
+def storage_or_none(settings: Settings) -> ObjectStorage | None:
+    """The configured object store, or None (exports then fail visibly)."""
+    try:
+        return storage_from(settings)
+    except StorageNotConfigured:
+        return None
 
 
 async def tenant_ids(database: Database) -> list[uuid.UUID]:
@@ -82,6 +92,29 @@ async def on_verification_requested(envelope: EventEnvelope, session: AsyncSessi
         run_id=uuid.UUID(str(envelope.payload["run_id"])),
         unsealed_limit=timedelta(seconds=settings.audit_unsealed_alert_seconds),
     )
+
+
+async def on_export_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: build an export requested through the API."""
+    assert session is not None  # noqa: S101 - transactional consumer
+    from app.core.config import get_settings  # noqa: PLC0415 - the worker's own settings
+
+    settings = get_settings()
+    await build_export(
+        session,
+        uuid.UUID(str(envelope.payload["export_id"])),
+        storage=storage_or_none(settings),
+        signer=signer_from(settings),
+        trusted_keys=trusted_from(settings),
+    )
+
+
+async def expire_all_exports(database: Database, settings: Settings) -> None:
+    """Delete export files older than 7 days, every tenant."""
+    storage = storage_or_none(settings)
+    for tenant in await tenant_ids(database):
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            await expire_exports(session, storage)
 
 
 async def seal_sweep(database: Database, settings: Settings) -> None:

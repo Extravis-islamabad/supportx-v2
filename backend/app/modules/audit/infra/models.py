@@ -39,6 +39,8 @@ ACTOR_TYPES = (
 CLIENTS = "('console', 'portal', 'mobile', 'api', 'worker')"
 RUN_KINDS = "('daily', 'weekly', 'on_demand')"
 RUN_STATUSES = "('running', 'passed', 'failed', 'error')"
+EXPORT_STATUSES = "('running', 'ready', 'failed', 'expired')"
+EXPORT_FORMATS = "('jsonl', 'csv')"
 
 
 class AuditEntry(TenantKeyed, Base):
@@ -210,3 +212,45 @@ class AuditVerificationRun(UuidPrimaryKey, TenantScoped, Base):
     requested_by: Mapped[uuid.UUID | None]
     started_at: Mapped[datetime]
     finished_at: Mapped[datetime | None]
+
+
+class AuditExport(UuidPrimaryKey, TenantScoped, Base):
+    """An export for auditors (REQ-AUD-009): built in the background, kept for 7 days."""
+
+    __tablename__ = "audit_exports"
+    __table_args__ = (
+        Index("ix_audit_exports_tenant_created", "tenant_id", "created_at"),
+        CheckConstraint(f"status IN {EXPORT_STATUSES}", name="status_code"),
+        CheckConstraint(f"format IN {EXPORT_FORMATS}", name="format_code"),
+    )
+
+    status: Mapped[str] = mapped_column(String(20))
+    format: Mapped[str] = mapped_column(String(10))
+    range_from: Mapped[datetime | None]
+    range_to: Mapped[datetime | None]
+    filters: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    requested_by: Mapped[uuid.UUID | None]
+    entries: Mapped[int] = mapped_column(server_default="0")
+    object_key: Mapped[str | None] = mapped_column(String(300))
+    size_bytes: Mapped[int | None]
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    verification: Mapped[str | None] = mapped_column(String(20))
+    problem: Mapped[str | None] = mapped_column(String(60))
+    created_at: Mapped[datetime]
+    finished_at: Mapped[datetime | None]
+    expires_at: Mapped[datetime | None]
+
+
+class AuditSavedSearch(UuidPrimaryKey, TenantScoped, Base):
+    """A search an auditor saved for themselves (REQ-AUD-007)."""
+
+    __tablename__ = "audit_saved_searches"
+    __table_args__ = (
+        Index("ix_audit_saved_searches_tenant_owner", "tenant_id", "owner_id"),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 100", name="name_length"),
+    )
+
+    owner_id: Mapped[uuid.UUID]
+    name: Mapped[str] = mapped_column(String(100))
+    query: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())

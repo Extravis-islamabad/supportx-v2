@@ -5,6 +5,7 @@ description = "SupportX v2 Core API (modular monolith) and workers"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "aioboto3>=15.5.0",
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
     "cryptography>=50.0.2",
@@ -40,6 +41,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1",
+    "types-aioboto3[s3]>=15.5.0",
 ]
 
 [tool.ruff]

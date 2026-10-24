@@ -4,6 +4,8 @@ import { useTimeZone } from './time';
 export interface DateTimeFormatter {
   /** Absolute date and time in the user's zone and language, e.g. "24 Oct 2026, 14:05". */
   format: (iso: string | null | undefined) => string;
+  /** The same to the second, e.g. "24 Oct 2026, 14:05:09" (audit entries, REQ-AUD-003). */
+  formatExact: (iso: string | null | undefined) => string;
   /** The same instant relative to now, e.g. "in 40 minutes" / "3 hours ago". */
   relative: (iso: string | null | undefined, now?: number) => string;
   zone: string;
@@ -32,10 +34,16 @@ export function useDateTime(): DateTimeFormatter {
     timeStyle: 'short',
     timeZone: zone,
   });
+  const exact = new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    timeZone: zone,
+  });
   const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' });
   return {
     zone,
     format: (iso) => (iso == null || iso === '' ? '' : absolute.format(new Date(iso))),
+    formatExact: (iso) => (iso == null || iso === '' ? '' : exact.format(new Date(iso))),
     relative: (iso, now = Date.now()) => {
       if (iso == null || iso === '') return '';
       const seconds = Math.round((new Date(iso).getTime() - now) / 1000);

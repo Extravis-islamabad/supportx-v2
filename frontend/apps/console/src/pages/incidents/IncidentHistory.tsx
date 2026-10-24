@@ -1,5 +1,7 @@
 import { Button, Empty, Flex, Segmented, Skeleton, Tag, Timeline, Typography } from 'antd';
+import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router';
 
 import {
   useIncidentCatalogue,
@@ -102,6 +104,14 @@ export function IncidentHistory({ id }: { id: string }) {
                 <Typography.Text strong>{t(`change_kind.${entry.kind}`)}</Typography.Text>{' '}
                 {entry.automation !== null && (
                   <Tag data-testid="inc-history-automatic">{t('incidents.history.automatic')}</Tag>
+                )}
+                {entry.audit_entry_id != null && (
+                  <Link
+                    to={`/admin/audit?entry=${entry.audit_entry_id}`}
+                    data-testid="inc-history-audited"
+                  >
+                    <Tag icon={<SafetyCertificateOutlined />}>{t('incidents.history.audited')}</Tag>
+                  </Link>
                 )}
                 <Typography.Text type="secondary">
                   {t('history.by', {

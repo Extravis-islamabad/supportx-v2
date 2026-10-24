@@ -173,6 +173,16 @@ class Settings(BaseSettings):
     realtime_coalesce_ms: int = Field(default=250, ge=0, le=5000)
     realtime_tenant_publications_per_second: float = Field(default=200.0, gt=0)
 
+    # Object storage (S3 API only, D-016; WP-018 adds it, WP-022 reuses it). On-prem: SeaweedFS from
+    # the Helm chart; SaaS: the cloud provider's S3; dev: MinIO from Compose. Not configured:
+    # features that need it answer 503 `storage_not_configured` (never silently).
+    object_storage_endpoint: str | None = None
+    object_storage_region: str = "us-east-1"
+    object_storage_access_key: SecretStr | None = None
+    object_storage_secret_key: SecretStr | None = None
+    object_storage_bucket: str = Field(default="supportx", pattern=r"^[a-z0-9][a-z0-9.-]{2,62}$")
+    object_storage_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
+
     # Audit log (WP-018, ADR-027, docs/architecture/audit.md). Anchors (signed checkpoints of each
     # tenant's chain) are signed with an Ed25519 installation key, "<key id>:<base64 32-byte
     # seed>", mounted only into the consumers worker. Rotation: set the new key here and move the

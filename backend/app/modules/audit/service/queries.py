@@ -211,3 +211,15 @@ async def integrity_status(
         last_on_demand=on_demand,
         alert=alert,
     )
+
+
+async def entries_for_changes(
+    session: AsyncSession, change_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, uuid.UUID]:
+    """Change ID → audit entry ID, for the history entries that have an audit entry."""
+    if not change_ids:
+        return {}
+    rows = await session.execute(
+        select(AuditEntry.change_id, AuditEntry.id).where(AuditEntry.change_id.in_(change_ids))
+    )
+    return {row.change_id: row.id for row in rows}

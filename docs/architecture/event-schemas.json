@@ -367,6 +367,57 @@
         "type": "object"
       }
     },
+    "audit.export.finished": {
+      "1": {
+        "description": "An export is ready or failed (`problem` names why).",
+        "properties": {
+          "export_id": {
+            "format": "uuid",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Problem"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id",
+          "status"
+        ],
+        "title": "AuditExportFinished",
+        "type": "object"
+      }
+    },
+    "audit.export.requested": {
+      "1": {
+        "description": "An auditor asked for an export; the worker builds it.",
+        "properties": {
+          "export_id": {
+            "format": "uuid",
+            "title": "Export Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id"
+        ],
+        "title": "AuditExportRequested",
+        "type": "object"
+      }
+    },
     "audit.settings.changed": {
       "1": {
         "description": "The tenant's audit settings changed (field names only).",

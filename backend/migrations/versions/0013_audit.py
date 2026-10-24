@@ -8,7 +8,8 @@ Tables (all tenant-scoped with RLS):
 - audit_personal: personal data outside the hash, one row per subject; INSERT and SELECT; only
   `audit_erase_subject()` deletes;
 - audit_anchors: signed checkpoints; INSERT and SELECT;
-- audit_settings, audit_verification_runs: SELECT, INSERT, UPDATE.
+- audit_settings, audit_verification_runs, audit_exports: SELECT, INSERT, UPDATE;
+- audit_saved_searches: a person's own saved searches; SELECT, INSERT, DELETE.
 
 Functions (EXECUTE for supportx_app only):
 - audit_seal(limit): seals up to `limit` queued entries of the current tenant, in order, under a
@@ -415,6 +416,67 @@ def upgrade() -> None:
     enable_tenant_rls("audit_verification_runs")
     grant_app("audit_verification_runs", ("SELECT", "INSERT", "UPDATE"))
 
+    op.create_table(
+        "audit_exports",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("format", sa.String(length=10), nullable=False),
+        sa.Column("range_from", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("range_to", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "filters",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default=sa.text("'{}'::jsonb"),
+            nullable=False,
+        ),
+        sa.Column("requested_by", sa.Uuid(), nullable=True),
+        sa.Column("entries", sa.BigInteger(), server_default="0", nullable=False),
+        sa.Column("object_key", sa.String(length=300), nullable=True),
+        sa.Column("size_bytes", sa.BigInteger(), nullable=True),
+        sa.Column("sha256", sa.String(length=64), nullable=True),
+        sa.Column("verification", sa.String(length=20), nullable=True),
+        sa.Column("problem", sa.String(length=60), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("finished_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "status IN ('running', 'ready', 'failed', 'expired')",
+            name=op.f("ck_audit_exports_status_code"),
+        ),
+        sa.CheckConstraint("format IN ('jsonl', 'csv')", name=op.f("ck_audit_exports_format_code")),
+        _tenant_fk("audit_exports"),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_audit_exports")),
+    )
+    op.create_index("ix_audit_exports_tenant_created", "audit_exports", ["tenant_id", "created_at"])
+    enable_tenant_rls("audit_exports")
+    grant_app("audit_exports", ("SELECT", "INSERT", "UPDATE"))
+
+    op.create_table(
+        "audit_saved_searches",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("owner_id", sa.Uuid(), nullable=False),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("query", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.CheckConstraint(
+            "length(btrim(name)) BETWEEN 1 AND 100",
+            name=op.f("ck_audit_saved_searches_name_length"),
+        ),
+        _tenant_fk("audit_saved_searches"),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_audit_saved_searches")),
+    )
+    op.create_index(
+        "ix_audit_saved_searches_tenant_owner",
+        "audit_saved_searches",
+        ["tenant_id", "owner_id"],
+    )
+    enable_tenant_rls("audit_saved_searches")
+    grant_app("audit_saved_searches", ("SELECT", "INSERT", "DELETE"))
+
     for statement in (SEAL, ERASE, TENANT_IDS, PARTITIONS):
         op.execute(statement)
     for function in FUNCTIONS:
@@ -433,6 +495,8 @@ def downgrade() -> None:
     for function in FUNCTIONS:
         op.execute(f"DROP FUNCTION IF EXISTS {function}")
     for table in (
+        "audit_saved_searches",
+        "audit_exports",
         "audit_verification_runs",
         "audit_settings",
         "audit_anchors",
