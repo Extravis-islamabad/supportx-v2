@@ -2,99 +2,166 @@
 
 Maps every MVP requirement in the parity files (after the Area 15 updates and decisions
 D-057 to D-068) to one work package, in build order. MVP is the Stage 1 internal go-live plus
-one design-partner customer (D-042). Rules and IDs: [README.md](README.md).
+one design-partner customer (D-042), both on-prem on a single node (D-070). Rules and IDs:
+[README.md](README.md).
 
-**Status:** Draft v0.1, 2026-10-24, for product owner review. **Owner:** Haider (Product Owner).
+**Status:** v0.2, 2026-10-24: product owner decisions D-070 to D-074 applied; WP-020 done.
+**Owner:** Haider (Product Owner).
 
 ## How to read this plan
 
 - **Order** starts from the WP-020 sequence agreed in the WP-020 plan (020, 020b to 020f,
   021 to 028) and continues from WP-029. Already-planned WP-017 (branding) and WP-018 (audit
-  log, MVP per D-058) keep their numbers and are placed where they fit.
+  log, MVP per D-058) keep their numbers.
 - **Sessions** are Claude Code sessions of the size used so far (one session ≈ one focused
-  day of work with tests). They are estimates, not commitments.
+  working day with tests). They are estimates, not commitments.
 - **Depends on** lists only work packages that are not yet done. Done: WP-006, WP-009,
-  WP-010, WP-012, WP-014, WP-016.
+  WP-010, WP-012, WP-014, WP-016, WP-020.
 - A work package is done when every acceptance criterion of its requirements has a passing
   test (README, "Acceptance criteria become tests"). Requirements of other priorities that a
   work package touches are not in its scope unless listed.
-- **Blocked on** flags a product owner decision the work package needs before or during it.
+- **Defaults to decide** lists the tenant defaults each work package settles in its own plan,
+  with the product owner, before building (D-074).
+
+## Decisions applied
+
+- **D-070:** the internal go-live and the design partner run on-prem, single node (the
+  design partner is pending confirmation). WP-014c (offline installer) is on the MVP path;
+  WP-014d (SaaS cell) moves after MVP.
+- **D-071:** on-prem installs connect to AD/LDAP directly; the relay agent (REQ-INT-087) stays
+  V1; SaaS supports Entra ID only at MVP.
+- **D-072:** no local AI model is fixed yet. Rules: permissive licence (Apache-2.0 or MIT),
+  good Arabic and English (Urdu a plus), runs on one 24 GB GPU, plus a smaller CPU-only
+  fallback. WP-037's plan proposes the model and sizing.
+- **D-073:** the first-run setup asks the technician-visibility question (D-052) with "group"
+  preselected.
+- **D-074:** the remaining flagged defaults are decided in each work package's own plan.
 
 ## Totals
 
 | Measure | Value |
 |---|---|
 | MVP requirements mapped | **397** of 397 (every one, exactly once; checked by script) |
-| Work packages with requirements | 31 |
-| Sessions, requirement work packages | 63 |
-| Sessions, platform work packages always needed (WP-013, WP-014b) | 4 |
-| **Sessions to MVP** | **67** |
-| Extra sessions depending on where the design partner runs (WP-014c on-prem, WP-014d SaaS) | up to 4 |
-| Critical path | **15 sessions**: WP-020 → WP-020c → WP-026 → WP-029 → WP-030 → WP-031 → WP-032 |
+| Work packages with requirements | 31 (1 done) |
+| Sessions left, requirement work packages | 62 |
+| Sessions, platform work packages (WP-013, WP-014b, WP-014c) | 6 |
+| **Sessions to MVP, one lane** | **68** (about 14 working weeks) |
+| **Calendar to MVP, two lanes** | **34 session-days** (about 7 working weeks) |
+| Critical path | **14 sessions**: WP-020c → WP-026 → WP-029 → WP-030 → WP-031 → WP-032 |
+| After MVP | WP-014d SaaS cell (2 sessions, D-070) |
 
 By file: 01 92, 02 61, 03 60, 08 38, 09 40, 10 11, 11 75, 12 20.
 
 ## Work packages in order
 
-| # | WP | Title | Requirements | Sessions | Depends on | Blocked on a decision |
-|---|---|---|---|---|---|---|
-| 1 | WP-020 | Work item engine and incident record | 40 | 1 | — | — |
-| 2 | WP-020b | Conversation, notes and followers | 5 | 2 | WP-020 | — |
-| 3 | WP-020c | Incident settings screens and templates | 6 | 2 | WP-020 | — |
-| 4 | WP-020d | Views, search in lists and bulk actions | 10 | 2 | WP-020 | — |
-| 5 | WP-020e | Tasks, worklogs (time) and links | 3 | 2 | WP-020b | — |
-| 6 | WP-020f | Resolution, closure, reopen and cancel | 9 | 2 | WP-020b | — |
-| 7 | WP-021 | People, sites, departments, groups and desks | 13 | 2 | WP-020 | yes |
-| 8 | WP-022 | Files and safe attachments | 1 | 1 | WP-020b | — |
-| 9 | WP-023 | Notification engine and in-app notifications | 17 | 2 | WP-020b, WP-021 | — |
-| 10 | WP-024 | Email channel: mailboxes, inbound and outbound | 12 | 2 | WP-023, WP-022 | — |
-| 11 | WP-025 | SLA v1 on Temporal | 26 | 3 | WP-020c, WP-021 | yes |
-| 12 | WP-026 | Custom fields for every module | 2 | 2 | WP-020c | — |
-| 13 | WP-027 | Search (OpenSearch) and record pickers | 1 | 1 | WP-020 | — |
-| 14 | WP-028 | Portal: shell, sign-in and requester incidents | 9 | 2 | WP-020f, WP-023 | — |
-| 15 | WP-029 | Business rules, triggers, routing and auto-assignment | 20 | 3 | WP-020c, WP-021, WP-026 | yes |
-| 16 | WP-030 | Service requests and the approval engine | 27 | 3 | WP-029, WP-025, WP-023 | yes |
-| 17 | WP-031 | Service catalog administration | 16 | 2 | WP-030, WP-026 | yes |
-| 18 | WP-032 | Portal: home, catalog, approvals inbox and preview | 9 | 2 | WP-028, WP-031 | — |
-| 19 | WP-033 | Knowledge base: authoring, versions, approval, visibility | 31 | 3 | WP-020, WP-022 | yes |
-| 20 | WP-034 | Knowledge search, suggestions and portal knowledge | 9 | 2 | WP-033, WP-027, WP-028 | — |
-| 21 | WP-035 | Reporting foundation and built-in reports | 19 | 3 | WP-025, WP-026 | yes |
-| 22 | WP-036 | Home page and live dashboards | 21 | 2 | WP-035 | — |
-| 23 | WP-037 | Minimal AI gateway and local model | 11 | 2 | WP-020 | yes |
-| 24 | WP-038 | AI on incidents: summary, reply drafts, similar incidents | 3 | 1 | WP-037, WP-020b | — |
-| 25 | WP-017 | Tenant branding and domains | 4 | 2 | — | — |
-| 26 | WP-039 | Identity: SSO, MFA, invitations, sessions, my account | 18 | 3 | WP-017, WP-023, WP-021 | — |
-| 27 | WP-040 | Connector framework and directory sync | 12 | 2 | WP-021, WP-039 | yes |
-| 28 | WP-041 | Public API: keys, scopes, documentation | 7 | 1 | WP-020 | — |
-| 29 | WP-042 | Admin setup, roles screens, preferences and licence page | 21 | 3 | WP-021, WP-013 | — |
-| 30 | WP-018 | Tamper-evident audit log | 13 | 2 | — | yes |
-| 31 | WP-043 | Security hardening and go-live readiness | 2 | 1 | WP-014b, WP-039 | — |
+| # | WP | Title | Requirements | Sessions | Depends on | Lane | Defaults to decide |
+|---|---|---|---|---|---|---|---|
+| 1 | WP-020 | Work item engine and incident record | 40 | done | — | done | — |
+| 2 | WP-020b | Conversation, notes and followers | 5 | 2 | — | A | — |
+| 3 | WP-020c | Incident settings screens and templates | 6 | 2 | — | A | — |
+| 4 | WP-020d | Views, search in lists and bulk actions | 10 | 2 | — | A | — |
+| 5 | WP-020e | Tasks, worklogs (time) and links | 3 | 2 | WP-020b | A | — |
+| 6 | WP-020f | Resolution, closure, reopen and cancel | 9 | 2 | WP-020b | A | — |
+| 7 | WP-021 | People, sites, departments, groups and desks | 13 | 2 | — | A | — |
+| 8 | WP-022 | Files and safe attachments | 1 | 1 | WP-020b | B | — |
+| 9 | WP-023 | Notification engine and in-app notifications | 17 | 2 | WP-020b, WP-021 | A | — |
+| 10 | WP-024 | Email channel: mailboxes, inbound and outbound | 12 | 2 | WP-023, WP-022 | A | — |
+| 11 | WP-025 | SLA v1 on Temporal | 26 | 3 | WP-020c, WP-021 | A | 2 |
+| 12 | WP-026 | Custom fields for every module | 2 | 2 | WP-020c | A | — |
+| 13 | WP-027 | Search (OpenSearch) and record pickers | 1 | 1 | — | B | — |
+| 14 | WP-028 | Portal: shell, sign-in and requester incidents | 9 | 2 | WP-020f, WP-023 | A | — |
+| 15 | WP-029 | Business rules, triggers, routing and auto-assignment | 20 | 3 | WP-020c, WP-021, WP-026 | A | 1 |
+| 16 | WP-030 | Service requests and the approval engine | 27 | 3 | WP-029, WP-025, WP-023 | A | 1 |
+| 17 | WP-031 | Service catalog administration | 16 | 2 | WP-030, WP-026 | A | 1 |
+| 18 | WP-032 | Portal: home, catalog, approvals inbox and preview | 9 | 2 | WP-028, WP-031 | A | — |
+| 19 | WP-033 | Knowledge base: authoring, versions, approval, visibility | 31 | 3 | WP-022 | B | 1 |
+| 20 | WP-034 | Knowledge search, suggestions and portal knowledge | 9 | 2 | WP-033, WP-027, WP-028 | B | — |
+| 21 | WP-035 | Reporting foundation and built-in reports | 19 | 3 | WP-025, WP-026 | B | 2 |
+| 22 | WP-036 | Home page and live dashboards | 21 | 2 | WP-035 | B | — |
+| 23 | WP-037 | Minimal AI gateway and local model | 11 | 2 | — | B | — |
+| 24 | WP-038 | AI on incidents: summary, reply drafts, similar incidents | 3 | 1 | WP-037, WP-020b | A | — |
+| 25 | WP-017 | Tenant branding and domains | 4 | 2 | — | B | — |
+| 26 | WP-039 | Identity: SSO, MFA, invitations, sessions, my account | 18 | 3 | WP-017, WP-023, WP-021 | B | — |
+| 27 | WP-040 | Connector framework and directory sync | 12 | 2 | WP-021, WP-039 | B | — |
+| 28 | WP-041 | Public API: keys, scopes, documentation | 7 | 1 | — | B | — |
+| 29 | WP-042 | Admin setup, roles screens, preferences and licence page | 21 | 3 | WP-021, WP-013 | B | — |
+| 30 | WP-018 | Tamper-evident audit log | 13 | 2 | — | B | 1 |
+| 31 | WP-043 | Security hardening and go-live readiness | 2 | 1 | WP-014b, WP-039 | B | — |
 
-Platform work packages on the path (no parity requirements of their own):
+Platform work packages (no parity requirements of their own):
 
-| WP | Title | Sessions | Depends on | Note |
-|---|---|---|---|---|
-| WP-013 | Licence core prototype (Rust) | 2 | — | Needed for the licence page and on-prem activation. |
-| WP-014b | Deployment part 2: HA, backups, monitoring | 2 | — | Needed before any production go-live. |
-| WP-014c | Deployment part 3: release pipeline and air-gapped install | 2 | WP-014b | Needed only if the design partner runs on-prem (decision needed). |
-| WP-014d | Deployment part 4: SaaS cell | 2 | WP-014b, WP-017 | Needed if the internal go-live or the design partner runs on SaaS (decision needed). |
+| WP | Title | Sessions | Depends on | Lane | Note |
+|---|---|---|---|---|---|
+| WP-013 | Licence core prototype (Rust) | 2 | — | B | Needed for the licence page and on-prem activation. |
+| WP-014b | Deployment part 2: HA, backups, monitoring | 2 | — | B | Needed before any production go-live. |
+| WP-014c | Deployment part 3: release pipeline and offline (air-gapped) installer | 2 | WP-014b | B | On the MVP path: the internal go-live and the design partner run on-prem, single node (D-070). |
+| WP-014d | Deployment part 4: SaaS cell | 2 | WP-014b, WP-017 | after MVP | After MVP (D-070). |
 
 ## Critical path
 
-The longest chain of dependent work is 15 sessions:
+The longest chain of dependent work is 14 sessions:
 
-WP-020 (1) → WP-020c (2) → WP-026 (2) → WP-029 (3) → WP-030 (3) → WP-031 (2) → WP-032 (2).
+WP-020c (2) → WP-026 (2) → WP-029 (3) → WP-030 (3) → WP-031 (2) → WP-032 (2).
 
-Everything else can run beside it when more than one session runs at a time. With one
-session at a time, the whole MVP takes 67 sessions
-(plus up to 4 for the design partner's deployment).
+## Two lanes
+
+Two sessions can run at the same time when they do not touch the same code. **Lane A** is
+the WP-020 chain: the work item engine, incidents, service requests, the catalog and the
+portal (modules `work_items`, `organization`, `notifications`, `sla`, `automation`,
+`service_catalog`, the console incident screens and `apps/portal`). **Lane B** takes the work
+that lives in other modules or outside the application: the audit log (`audit`), file storage
+and scanning, the search index (OpenSearch), the licence
+core (`licence-core/`, `licensing`), deployment (`deploy/`), the AI gateway (`ai`), branding,
+identity (`identity_access`), integrations, the public API, knowledge, reports and dashboards
+(`knowledge`, `analytics`), admin setup and go-live hardening.
+
+Rules that keep the lanes apart:
+
+- **One Alembic head.** Each lane merges latest `main` before its PR; if the other lane merged
+  a migration first, the later branch rebases its migration onto the new head (renumbers its
+  revision and `down_revision`). Never two heads on `main`.
+- **Shared files are touched by one lane at a time:** `backend/app/core/modules.py`, the
+  permission catalogue, `packages/labels` (merge conflicts are expected but small; the later
+  PR resolves them), the console navigation and `docs/PROGRESS.md`.
+- **Lane B waits for lane A** where it depends on it (for example knowledge needs files from
+  WP-022; reports need SLA and custom fields; identity needs notifications for invitations).
+  The schedule below already includes these waits.
+- Decision IDs: each lane takes the next free number on `main` when it records a decision.
+
+Schedule (session-days from now, start → end; a gap means the lane waits for the other):
+
+| Lane A | Days | Lane B | Days |
+|---|---|---|---|
+| WP-020b Conversation, notes and followers | 0–2 | WP-018 Tamper-evident audit log | 0–2 |
+| WP-020c Incident settings screens and templates | 2–4 | WP-022 Files and safe attachments | 2–3 |
+| WP-020d Views, search in lists and bulk actions | 4–6 | WP-027 Search (OpenSearch) and record pickers | 3–4 |
+| WP-020e Tasks, worklogs (time) and links | 6–8 | WP-013 Licence core prototype (Rust) | 4–6 |
+| WP-020f Resolution, closure, reopen and cancel | 8–10 | WP-014b Deployment part 2: HA, backups, monitoring | 6–8 |
+| WP-021 People, sites, departments, groups and desks | 10–12 | WP-014c Deployment part 3: release pipeline and offline (air-gapped) installer | 8–10 |
+| WP-023 Notification engine and in-app notifications | 12–14 | WP-037 Minimal AI gateway and local model | 10–12 |
+| WP-024 Email channel: mailboxes, inbound and outbound | 14–16 | WP-017 Tenant branding and domains | 12–14 |
+| WP-025 SLA v1 on Temporal | 16–19 | WP-041 Public API: keys, scopes, documentation | 14–15 |
+| WP-026 Custom fields for every module | 19–21 | WP-033 Knowledge base: authoring, versions, approval, visibility | 15–18 |
+| WP-028 Portal: shell, sign-in and requester incidents | 21–23 | WP-039 Identity: SSO, MFA, invitations, sessions, my account | 18–21 |
+| WP-029 Business rules, triggers, routing and auto-assignment | 23–26 | WP-040 Connector framework and directory sync | 21–23 |
+| WP-030 Service requests and the approval engine | 26–29 | WP-035 Reporting foundation and built-in reports | 23–26 |
+| WP-031 Service catalog administration | 29–31 | WP-036 Home page and live dashboards | 26–28 |
+| WP-032 Portal: home, catalog, approvals inbox and preview | 31–33 | WP-042 Admin setup, roles screens, preferences and licence page | 28–31 |
+| WP-038 AI on incidents: summary, reply drafts, similar incidents | 33–34 | WP-034 Knowledge search, suggestions and portal knowledge | 31–33 |
+|  |  | WP-043 Security hardening and go-live readiness | 33–34 |
+
+With two lanes the MVP takes about **34 session-days (about 7 working weeks)** instead
+of 68 (about 14 weeks) with one. Lane A is busy 34 days and lane B 34;
+lane B idles 0 days waiting for lane A work it depends on. The calendar assumes five
+sessions a week, no rework and product owner answers within a day; review time, holidays and
+the design partner's own testing come on top.
 
 ## Work package details
 
 ### WP-020 — Work item engine and incident record
 
-- **Sessions:** 1 · **Depends on:** nothing open · **Requirements:** 40
-- **Note:** In progress: session 1 (backend) done, session 2 (console screens, Tiptap) remaining; the sessions column counts remaining work. The WP-020 report must confirm each requirement listed here; any it does not finish moves to WP-020b.
+- **Sessions:** done · **Depends on:** nothing open · **Requirements:** 40
+- **Note:** Done 2026-10-24 (PR #42): engine, incidents API, console screens, Tiptap editor (D-069). Keeping a handed-over incident followed (REQ-INC-151) moved to WP-020b.
 
 | ID | Title | File |
 |---|---|---|
@@ -141,7 +208,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-020b — Conversation, notes and followers
 
-- **Sessions:** 2 · **Depends on:** WP-020 · **Requirements:** 5
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 5 · **Lane:** A
 - **Note:** Includes REQ-INC-151 (keep following after hand-over, D-068).
 
 | ID | Title | File |
@@ -154,7 +221,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-020c — Incident settings screens and templates
 
-- **Sessions:** 2 · **Depends on:** WP-020 · **Requirements:** 6
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 6 · **Lane:** A
 - **Note:** Matrix, scales, reasons, categories, prefixes (REQ-ADM-045), pick lists, templates; people pickers (REQ-WI-027). Admins edit values only at MVP (D-056).
 
 | ID | Title | File |
@@ -168,7 +235,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-020d — Views, search in lists and bulk actions
 
-- **Sessions:** 2 · **Depends on:** WP-020 · **Requirements:** 10
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 10 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -185,7 +252,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-020e — Tasks, worklogs (time) and links
 
-- **Sessions:** 2 · **Depends on:** WP-020b · **Requirements:** 3
+- **Sessions:** 2 · **Depends on:** WP-020b · **Requirements:** 3 · **Lane:** A
 - **Note:** Worklog time only; costs and billable time are V1 (D-047).
 
 | ID | Title | File |
@@ -196,7 +263,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-020f — Resolution, closure, reopen and cancel
 
-- **Sessions:** 2 · **Depends on:** WP-020b · **Requirements:** 9
+- **Sessions:** 2 · **Depends on:** WP-020b · **Requirements:** 9 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -212,9 +279,8 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-021 — People, sites, departments, groups and desks
 
-- **Sessions:** 2 · **Depends on:** WP-020 · **Requirements:** 13
-- **Note:** Adds the desk on every record from MVP (REQ-ESM-002, D-061).
-- **Blocked on:** D-052 open item: first-run choice "technicians see all incidents" vs the group default
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 13 · **Lane:** A
+- **Note:** Adds the desk on every record from MVP (REQ-ESM-002, D-061). The first-run setup asks the technician-visibility question with "group" preselected (D-073).
 
 | ID | Title | File |
 |---|---|---|
@@ -234,7 +300,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-022 — Files and safe attachments
 
-- **Sessions:** 1 · **Depends on:** WP-020b · **Requirements:** 1
+- **Sessions:** 1 · **Depends on:** WP-020b · **Requirements:** 1 · **Lane:** B
 - **Note:** aioboto3 (D-054); ClamAV scanning.
 
 | ID | Title | File |
@@ -243,7 +309,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-023 — Notification engine and in-app notifications
 
-- **Sessions:** 2 · **Depends on:** WP-020b, WP-021 · **Requirements:** 17
+- **Sessions:** 2 · **Depends on:** WP-020b, WP-021 · **Requirements:** 17 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -267,7 +333,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-024 — Email channel: mailboxes, inbound and outbound
 
-- **Sessions:** 2 · **Depends on:** WP-023, WP-022 · **Requirements:** 12
+- **Sessions:** 2 · **Depends on:** WP-023, WP-022 · **Requirements:** 12 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -286,10 +352,10 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-025 — SLA v1 on Temporal
 
-- **Sessions:** 3 · **Depends on:** WP-020c, WP-021 · **Requirements:** 26
+- **Sessions:** 3 · **Depends on:** WP-020c, WP-021 · **Requirements:** 26 · **Lane:** A
 - **Note:** Temporal comes in here (D-055).
-- **Blocked on:** Default working week (file 03 question 4)
-- **Blocked on:** Priority change rule default (file 03 question 5)
+- **Default to decide in the WP plan:** Default working week (file 03 question 4)
+- **Default to decide in the WP plan:** Priority change rule default (file 03 question 5)
 
 | ID | Title | File |
 |---|---|---|
@@ -322,7 +388,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-026 — Custom fields for every module
 
-- **Sessions:** 2 · **Depends on:** WP-020c · **Requirements:** 2
+- **Sessions:** 2 · **Depends on:** WP-020c · **Requirements:** 2 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -331,7 +397,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-027 — Search (OpenSearch) and record pickers
 
-- **Sessions:** 1 · **Depends on:** WP-020 · **Requirements:** 1
+- **Sessions:** 1 · **Depends on:** nothing open · **Requirements:** 1 · **Lane:** B
 - **Note:** Search index used later by knowledge, catalog and portal search.
 
 | ID | Title | File |
@@ -340,7 +406,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-028 — Portal: shell, sign-in and requester incidents
 
-- **Sessions:** 2 · **Depends on:** WP-020f, WP-023 · **Requirements:** 9
+- **Sessions:** 2 · **Depends on:** WP-020f, WP-023 · **Requirements:** 9 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -356,8 +422,8 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-029 — Business rules, triggers, routing and auto-assignment
 
-- **Sessions:** 3 · **Depends on:** WP-020c, WP-021, WP-026 · **Requirements:** 20
-- **Blocked on:** Business rule processing default: continue unless "stop" (file 03 question 6)
+- **Sessions:** 3 · **Depends on:** WP-020c, WP-021, WP-026 · **Requirements:** 20 · **Lane:** A
+- **Default to decide in the WP plan:** Business rule processing default: continue unless "stop" (file 03 question 6)
 
 | ID | Title | File |
 |---|---|---|
@@ -384,8 +450,8 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-030 — Service requests and the approval engine
 
-- **Sessions:** 3 · **Depends on:** WP-029, WP-025, WP-023 · **Requirements:** 27
-- **Blocked on:** Email approvals without sign-in (file 02 question 3)
+- **Sessions:** 3 · **Depends on:** WP-029, WP-025, WP-023 · **Requirements:** 27 · **Lane:** A
+- **Default to decide in the WP plan:** Email approvals without sign-in (file 02 question 3)
 
 | ID | Title | File |
 |---|---|---|
@@ -419,9 +485,9 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-031 — Service catalog administration
 
-- **Sessions:** 2 · **Depends on:** WP-030, WP-026 · **Requirements:** 16
+- **Sessions:** 2 · **Depends on:** WP-030, WP-026 · **Requirements:** 16 · **Lane:** A
 - **Note:** Starter catalog content (REQ-CAT-007) needs product owner review.
-- **Blocked on:** Catalog edition line: basics Essentials, advanced Professional (file 02 question 1)
+- **Default to decide in the WP plan:** Catalog edition line: basics Essentials, advanced Professional (file 02 question 1)
 
 | ID | Title | File |
 |---|---|---|
@@ -444,7 +510,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-032 — Portal: home, catalog, approvals inbox and preview
 
-- **Sessions:** 2 · **Depends on:** WP-028, WP-031 · **Requirements:** 9
+- **Sessions:** 2 · **Depends on:** WP-028, WP-031 · **Requirements:** 9 · **Lane:** A
 
 | ID | Title | File |
 |---|---|---|
@@ -460,8 +526,8 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-033 — Knowledge base: authoring, versions, approval, visibility
 
-- **Sessions:** 3 · **Depends on:** WP-020, WP-022 · **Requirements:** 31
-- **Blocked on:** Articles in review hidden from other technicians by default (file 08 question 2)
+- **Sessions:** 3 · **Depends on:** WP-022 · **Requirements:** 31 · **Lane:** B
+- **Default to decide in the WP plan:** Articles in review hidden from other technicians by default (file 08 question 2)
 
 | ID | Title | File |
 |---|---|---|
@@ -499,7 +565,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-034 — Knowledge search, suggestions and portal knowledge
 
-- **Sessions:** 2 · **Depends on:** WP-033, WP-027, WP-028 · **Requirements:** 9
+- **Sessions:** 2 · **Depends on:** WP-033, WP-027, WP-028 · **Requirements:** 9 · **Lane:** B
 
 | ID | Title | File |
 |---|---|---|
@@ -515,10 +581,10 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-035 — Reporting foundation and built-in reports
 
-- **Sessions:** 3 · **Depends on:** WP-025, WP-026 · **Requirements:** 19
+- **Sessions:** 3 · **Depends on:** WP-025, WP-026 · **Requirements:** 19 · **Lane:** B
 - **Note:** PostgreSQL views on single node; ClickHouse threshold is file 09 question 10.
-- **Blocked on:** Scheduled reports at MVP? (file 09 question 1)
-- **Blocked on:** Report builder edition (file 09 question 3)
+- **Default to decide in the WP plan:** Scheduled reports at MVP? (file 09 question 1)
+- **Default to decide in the WP plan:** Report builder edition (file 09 question 3)
 
 | ID | Title | File |
 |---|---|---|
@@ -544,7 +610,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-036 — Home page and live dashboards
 
-- **Sessions:** 2 · **Depends on:** WP-035 · **Requirements:** 21
+- **Sessions:** 2 · **Depends on:** WP-035 · **Requirements:** 21 · **Lane:** B
 
 | ID | Title | File |
 |---|---|---|
@@ -572,9 +638,8 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-037 — Minimal AI gateway and local model
 
-- **Sessions:** 2 · **Depends on:** WP-020 · **Requirements:** 11
-- **Note:** D-057. Masking and call logging are in scope even with the local model.
-- **Blocked on:** Local model choice and sizing (product-plan §11.2; file 10 question 9)
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 11 · **Lane:** B
+- **Note:** D-057. Masking and call logging are in scope even with the local model. The WP plan proposes the model and sizing within the rules of D-072: permissive licence (Apache-2.0 or MIT), good Arabic and English (Urdu a plus), runs on one 24 GB GPU, plus a smaller CPU-only fallback.
 
 | ID | Title | File |
 |---|---|---|
@@ -592,7 +657,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-038 — AI on incidents: summary, reply drafts, similar incidents
 
-- **Sessions:** 1 · **Depends on:** WP-037, WP-020b · **Requirements:** 3
+- **Sessions:** 1 · **Depends on:** WP-037, WP-020b · **Requirements:** 3 · **Lane:** A
 - **Note:** D-057.
 
 | ID | Title | File |
@@ -603,7 +668,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-017 — Tenant branding and domains
 
-- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 4
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 4 · **Lane:** B
 - **Note:** Already planned (D-027).
 
 | ID | Title | File |
@@ -615,7 +680,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-039 — Identity: SSO, MFA, invitations, sessions, my account
 
-- **Sessions:** 3 · **Depends on:** WP-017, WP-023, WP-021 · **Requirements:** 18
+- **Sessions:** 3 · **Depends on:** WP-017, WP-023, WP-021 · **Requirements:** 18 · **Lane:** B
 - **Note:** SAML/OIDC Essentials MVP (D-059); MFA defaults (D-060).
 
 | ID | Title | File |
@@ -641,9 +706,8 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-040 — Connector framework and directory sync
 
-- **Sessions:** 2 · **Depends on:** WP-021, WP-039 · **Requirements:** 12
-- **Note:** D-062.
-- **Blocked on:** A SaaS tenant syncing an on-prem AD/LDAP needs the relay agent (REQ-INT-087, V1): move it to MVP, or limit MVP to Entra ID on SaaS?
+- **Sessions:** 2 · **Depends on:** WP-021, WP-039 · **Requirements:** 12 · **Lane:** B
+- **Note:** D-062, D-071: on-prem installs connect to AD/LDAP directly; SaaS supports Entra ID only at MVP; the relay agent (REQ-INT-087) stays V1.
 
 | ID | Title | File |
 |---|---|---|
@@ -662,7 +726,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-041 — Public API: keys, scopes, documentation
 
-- **Sessions:** 1 · **Depends on:** WP-020 · **Requirements:** 7
+- **Sessions:** 1 · **Depends on:** nothing open · **Requirements:** 7 · **Lane:** B
 
 | ID | Title | File |
 |---|---|---|
@@ -676,7 +740,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-042 — Admin setup, roles screens, preferences and licence page
 
-- **Sessions:** 3 · **Depends on:** WP-021, WP-013 · **Requirements:** 21
+- **Sessions:** 3 · **Depends on:** WP-021, WP-013 · **Requirements:** 21 · **Lane:** B
 - **Note:** Announcements (REQ-ADM-077 to 084) mostly exist from WP-012; this verifies and closes gaps.
 
 | ID | Title | File |
@@ -705,9 +769,9 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-018 — Tamper-evident audit log
 
-- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 13
+- **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 13 · **Lane:** B
 - **Note:** MVP per D-058.
-- **Blocked on:** Audit retention minimum and default (file 11 question 6)
+- **Default to decide in the WP plan:** Audit retention minimum and default (file 11 question 6)
 
 | ID | Title | File |
 |---|---|---|
@@ -727,7 +791,7 @@ session at a time, the whole MVP takes 67 sessions
 
 ### WP-043 — Security hardening and go-live readiness
 
-- **Sessions:** 1 · **Depends on:** WP-014b, WP-039 · **Requirements:** 2
+- **Sessions:** 1 · **Depends on:** WP-014b, WP-039 · **Requirements:** 2 · **Lane:** B
 - **Note:** Encryption at rest and in transit, application security baseline, final checks.
 
 | ID | Title | File |
@@ -735,22 +799,18 @@ session at a time, the whole MVP takes 67 sessions
 | REQ-SEC-039 | Encryption in transit and at rest | 11 |
 | REQ-SEC-046 | Application security baseline | 11 |
 
-## Decisions needed from the product owner
+## Still open
 
-1. **WP-021:** D-052 open item: first-run choice "technicians see all incidents" vs the group default
-2. **WP-025:** Default working week (file 03 question 4)
-3. **WP-025:** Priority change rule default (file 03 question 5)
-4. **WP-029:** Business rule processing default: continue unless "stop" (file 03 question 6)
-5. **WP-030:** Email approvals without sign-in (file 02 question 3)
-6. **WP-031:** Catalog edition line: basics Essentials, advanced Professional (file 02 question 1)
-7. **WP-033:** Articles in review hidden from other technicians by default (file 08 question 2)
-8. **WP-035:** Scheduled reports at MVP? (file 09 question 1)
-9. **WP-035:** Report builder edition (file 09 question 3)
-10. **WP-037:** Local model choice and sizing (product-plan §11.2; file 10 question 9)
-11. **WP-040:** A SaaS tenant syncing an on-prem AD/LDAP needs the relay agent (REQ-INT-087, V1): move it to MVP, or limit MVP to Entra ID on SaaS?
-12. **WP-018:** Audit retention minimum and default (file 11 question 6)
-13. **Where the internal go-live and the design partner run** (SaaS or on-prem). This decides
-   whether WP-014c (air-gapped and on-prem release) or WP-014d (SaaS cell) is on the MVP path.
-14. **Allowance and local model sizing for the AI slice on SaaS** (D-049, D-064): the fair-use
-   allowance is pending the pricing decision; MVP uses the local model only, so it does not
-   block MVP, but the SaaS cell needs local model capacity.
+1. **Design partner confirmation** (D-070): the on-prem single-node assumption holds until the
+   partner is confirmed.
+2. **Fair-use allowance and SaaS AI capacity** (D-049, D-064): pending the pricing decision;
+   it does not affect MVP, which runs on-prem with the local model.
+3. **WP-025 plan:** Default working week (file 03 question 4) (D-074).
+4. **WP-025 plan:** Priority change rule default (file 03 question 5) (D-074).
+5. **WP-029 plan:** Business rule processing default: continue unless "stop" (file 03 question 6) (D-074).
+6. **WP-030 plan:** Email approvals without sign-in (file 02 question 3) (D-074).
+7. **WP-031 plan:** Catalog edition line: basics Essentials, advanced Professional (file 02 question 1) (D-074).
+8. **WP-033 plan:** Articles in review hidden from other technicians by default (file 08 question 2) (D-074).
+9. **WP-035 plan:** Scheduled reports at MVP? (file 09 question 1) (D-074).
+10. **WP-035 plan:** Report builder edition (file 09 question 3) (D-074).
+11. **WP-018 plan:** Audit retention minimum and default (file 11 question 6) (D-074).
