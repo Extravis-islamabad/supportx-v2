@@ -79,10 +79,21 @@ test.afterAll(async ({ browser }) => {
  */
 async function expectNoSidewaysScroll(page: Page, label: string): Promise<void> {
   await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), {
-      message: `${label}: page wider than the window`,
-      timeout: 3_000,
-    })
+    .poll(
+      () =>
+        page.evaluate(
+          // Overflow past the visible width (a reserved scrollbar gutter is not overflow).
+          () =>
+            Math.max(
+              0,
+              document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            ),
+        ),
+      {
+        message: `${label}: page wider than the window`,
+        timeout: 3_000,
+      },
+    )
     .toBe(0);
 }
 
