@@ -4,11 +4,10 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-014 (deployment part 1: images, Helm chart for dev and single-node, k3d,
-  CI), 2026-10-24. Before it: WP-012b.
-- **In progress:** WP-020 (work item engine + incidents), session 1 of 2 done (backend, on branch
-  `feat/wp-020-work-items-incidents`); session 2 (screens, Tiptap editor, e2e, two fixes) next.
-  Plan: ~/Desktop/wp-020-plan.md; sequence WP-020b..020f and WP-021..028 below.
+- **Last completed:** WP-020 (work item engine and incidents: API, screens, Tiptap editor),
+  2026-10-24. Before it: WP-014 (deployment part 1).
+- **Next work package:** WP-020b (conversation and notes), then the sequence below
+  (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
@@ -273,7 +272,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
-### [ ] WP-020 — Work item engine and incident record (ADR-026; D-051..D-056; in progress)
+### [x] WP-020 — Work item engine and incident record (ADR-026; D-051..D-057; done 2026-10-24)
 Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
 - [x] Session 1 (backend): module `work_items` (shared `work_items` table, type registry,
   per-tenant life cycle / scales / matrix / reasons / categories seeded on first use), incidents API
@@ -281,10 +280,14 @@ Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
   trash/restore, history, assignees, settings, categories), D-052 visibility, D-053 hand-over,
   events, realtime routes, permissions `incidents.*`, labels en/ar/ur, nh3 sanitiser, migrations
   0011–0012, ADR-026; 876 backend tests green (94.8 %), 100k-row list p95 9–66 ms.
-- [ ] Session 2: console screens (list with views, record with fixed tabs, create/edit, assign/take
-  dialogs, reasons, hand-over warning, history, trash), Tiptap `RichTextField`, `nav.incidents`,
-  Vitest + Playwright (two browsers, RTL, axe), relabel the reserved `requests.*` permissions as
-  service requests, Appearance popover fix (remove the e2e retry), Valkey chart test fix, PR.
+- [x] Session 2: console screens (list with views and a notice of what the view leaves out,
+  record with fixed actions and tabs, inline edit, create form, assign/take dialogs, reasons,
+  hand-over warning, history, trash), Tiptap `RichTextField` (lazy) and `RichTextView`,
+  `useDateTime`, `nav.incidents`, pickers with email as the second line, Vitest (13 new) and
+  Playwright (3 new; 27/27), reserved `requests.*` relabelled as service requests, Appearance
+  popover fix (e2e retry removed), Valkey chart test fix (our smoke pod checks auth; upstream pod
+  excluded from `helm test`).
+- V1 (D-057): keep following an incident after handing it over (needs followers, REQ-INC-056).
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation and notes · WP-020c incident settings screens and templates · WP-020d views
@@ -321,6 +324,31 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-24 — WP-020 session 2: incident screens, editor, two fixes
+
+- **Screens:** `apps/console/src/pages/incidents` (IncidentsPage, IncidentPage, NewIncidentPage,
+  StatusActions, assign/take/hand-over dialogs, IncidentHistory, pickers, tags, labels helpers);
+  routes `/incidents`, `/incidents/new`, `/incidents/:id`; nav item Incidents.
+- **Shared UI:** `packages/ui` RichTextField (Tiptap 3.31.4, lazy chunk), RichTextView,
+  `useDateTime`; high-contrast `colorError` darkened for danger buttons (axe). Tags use a coloured
+  dot plus normal text (coloured fills failed contrast).
+- **Backend:** people and assignees carry the email (`user_contacts`, Area 15 lesson);
+  e2e fixtures also remove the suite's incidents and groups.
+- **Fixes:** Appearance popover keeps its state across layout/language re-renders (store in
+  AppHeader; Vitest + e2e without retry). `helm test` excludes the upstream Valkey auth pod; our
+  smoke pod asserts NOAUTH without a password and PONG with it (verified on k3d, revision 7).
+- **Labels:** about 105 new keys in en/ar/ur; `requests.*` and `nav.requests` now say "service
+  requests".
+- **Tests:** backend 876 passed (94.8 %); frontend unit tests all green (incl. 10 incident tests,
+  3 popover tests); Playwright 27/27 on the Compose stack; chart lint OK; `make check` green.
+- **Dev data:** dev database migrated 0010 → 0012 (expand-only; no existing row changed). The demo
+  tenant's incident configuration was seeded on first use (Appendix A defaults). The e2e suite's
+  incidents and groups were removed by its teardown (0 left). Dev workers `worker-fanout` and
+  `worker-consumers` were restarted so they load the new module. k3d release upgraded to revision
+  7 (test template only, same images).
+- **Deviations:** following a handed-over incident is V1 (D-057); the language choice is a
+  per-browser setting, so the Arabic e2e checks navigate inside the app.
 
 ### 2026-10-24 — WP-020 session 1 (backend): work item engine + incidents API
 

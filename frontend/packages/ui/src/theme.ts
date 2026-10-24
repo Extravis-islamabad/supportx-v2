@@ -43,6 +43,9 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
         colorBorder: '#000000',
         colorBorderSecondary: '#000000',
         colorBgLayout: '#ffffff',
+        // Danger buttons show their text in colorError; Ant Design's default red is about 3.3:1
+        // on white, this one about 7.6:1 (axe on the incident page, WP-020).
+        colorError: '#a8071a',
         lineWidth: 2,
         controlOutlineWidth: 3,
       },

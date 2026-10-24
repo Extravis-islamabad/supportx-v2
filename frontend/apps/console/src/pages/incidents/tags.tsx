@@ -1,16 +1,17 @@
-import { EditOutlined } from '@ant-design/icons';
-import { Tag, Tooltip } from 'antd';
+import { EditOutlined, WarningOutlined } from '@ant-design/icons';
+import { Badge, Tag, Tooltip } from 'antd';
 
 import type { IncidentCatalogue, Priority } from '@supportx/api-client';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { statusLabel } from './labels';
 
+// A coloured dot plus normal text: coloured tag fills (gold, white on blue) fail WCAG contrast.
 const PRIORITY_COLOURS: Record<Priority, string> = {
-  p1: 'red',
-  p2: 'volcano',
-  p3: 'gold',
-  p4: 'default',
+  p1: '#cf1322',
+  p2: '#fa541c',
+  p3: '#faad14',
+  p4: '#8c8c8c',
 };
 
 export function StatusTag({
@@ -24,7 +25,8 @@ export function StatusTag({
   const { locale } = useAppearance();
   const colour = catalogue?.statuses.find((s) => s.code === status)?.colour;
   return (
-    <Tag color={colour} data-testid="inc-status" data-status={status}>
+    <Tag data-testid="inc-status" data-status={status}>
+      <Badge color={colour ?? '#8c8c8c'} style={{ marginInlineEnd: 6 }} />
       {statusLabel(t, catalogue, status, locale)}
     </Tag>
   );
@@ -34,7 +36,8 @@ export function StatusTag({
 export function PriorityTag({ priority, source }: { priority: Priority; source: string }) {
   const t = useLabel();
   return (
-    <Tag color={PRIORITY_COLOURS[priority]} data-testid="inc-priority" data-priority={priority}>
+    <Tag data-testid="inc-priority" data-priority={priority}>
+      <Badge color={PRIORITY_COLOURS[priority]} style={{ marginInlineEnd: 6 }} />
       {t(`priority.${priority}`)}
       {source === 'manual' && (
         <Tooltip title={t('priority_source.manual')}>
@@ -65,7 +68,7 @@ export function SlaTag({
   const t = useLabel();
   if (policyId === null) {
     return (
-      <Tag color="warning" data-testid="inc-no-sla">
+      <Tag icon={<WarningOutlined />} data-testid="inc-no-sla">
         {t('incidents.no_sla')}
       </Tag>
     );

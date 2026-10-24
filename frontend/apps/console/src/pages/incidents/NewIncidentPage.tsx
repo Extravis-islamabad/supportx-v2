@@ -5,6 +5,7 @@ import {
   Checkbox,
   Col,
   Form,
+  Input,
   Radio,
   Row,
   Select,
@@ -109,12 +110,7 @@ export function NewIncidentPage() {
             name="subject"
             labelKey="work_item.field.subject"
             render={(field) => (
-              <input
-                {...field}
-                className="ant-input"
-                maxLength={SUBJECT_MAX}
-                data-testid="inc-subject"
-              />
+              <Input {...field} maxLength={SUBJECT_MAX} data-testid="inc-subject" />
             )}
           />
           <Row gutter={16}>
@@ -315,12 +311,7 @@ export function NewIncidentPage() {
                   name="priority_reason"
                   labelKey="work_item.field.priority_reason"
                   render={(field) => (
-                    <input
-                      {...field}
-                      className="ant-input"
-                      maxLength={500}
-                      data-testid="inc-priority-reason"
-                    />
+                    <Input {...field} maxLength={500} data-testid="inc-priority-reason" />
                   )}
                 />
               </Col>

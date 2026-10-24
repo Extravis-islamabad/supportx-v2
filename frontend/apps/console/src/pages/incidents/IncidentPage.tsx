@@ -7,6 +7,7 @@ import {
   Card,
   Descriptions,
   Flex,
+  Input,
   Popconfirm,
   Result,
   Select,
@@ -534,9 +535,8 @@ function InlineEdit({
     switch (spec.kind) {
       case 'text':
         return (
-          <input
+          <Input
             id={id}
-            className="ant-input"
             aria-label={label}
             value={typeof value === 'string' ? value : ''}
             maxLength={250}
@@ -608,8 +608,7 @@ function InlineEdit({
               data-testid="inc-input-priority"
             />
             {value !== 'matrix' && (
-              <input
-                className="ant-input"
+              <Input
                 aria-label={t('work_item.field.priority_reason')}
                 placeholder={t('work_item.field.priority_reason')}
                 value={reason}

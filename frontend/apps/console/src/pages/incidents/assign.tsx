@@ -1,4 +1,4 @@
-import { App, Alert, Modal, Select, Space, Typography } from 'antd';
+import { App, Alert, Input, Modal, Select, Space, Typography } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -155,8 +155,7 @@ export function AssignDialog({
                 style={{ width: '100%' }}
                 data-testid="inc-assign-reason"
               />
-              <textarea
-                className="ant-input"
+              <Input.TextArea
                 aria-label={t('incidents.reason_text')}
                 placeholder={t('incidents.reason_text')}
                 rows={2}
