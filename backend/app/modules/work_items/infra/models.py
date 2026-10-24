@@ -69,7 +69,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
     prefix: Mapped[str] = mapped_column(String(6))
     default_priority: Mapped[str] = mapped_column(String(10))
-    # What the create form starts with (D-070); NULL: no default, the form starts empty.
+    # What the create form starts with (D-075); NULL: no default, the form starts empty.
     default_impact: Mapped[str | None] = mapped_column(String(30), server_default="team")
     default_urgency: Mapped[str | None] = mapped_column(String(30), server_default="medium")
     auto_status_on_assign: Mapped[bool] = mapped_column(Boolean, server_default="true")

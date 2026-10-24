@@ -153,3 +153,15 @@ describe('describeError', () => {
     );
   });
 });
+
+describe('C2: fonts per language', () => {
+  it('C2: Arabic never falls back to the tall Nastaliq face; Urdu gets taller lines', () => {
+    const arabic = String(buildTheme('light', {}, 'ar').token?.fontFamily);
+    expect(arabic).not.toMatch(/Nastaliq|Nastaleeq/);
+    expect(arabic).toMatch(/Naskh|Geeza|Noto Sans Arabic/);
+    const urdu = buildTheme('dark', {}, 'ur').token;
+    expect(String(urdu?.fontFamily)).toContain('Noto Nastaliq Urdu');
+    expect(urdu?.lineHeight).toBeGreaterThan(1.8);
+    expect(buildTheme('high_contrast', {}, 'ar').token?.fontFamily).toBe(arabic);
+  });
+});

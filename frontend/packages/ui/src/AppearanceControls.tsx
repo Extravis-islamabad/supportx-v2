@@ -1,7 +1,7 @@
 import { Segmented, Select, Space, Switch, Typography } from 'antd';
 
 import type { NavLayout } from '@supportx/api-client';
-import { LOCALES } from '@supportx/labels';
+import { LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
 import { NAV_LAYOUTS } from './shell/nav';
@@ -11,15 +11,29 @@ export interface AppearanceControlsProps {
   /** The user's navigation layout; with `onNavLayoutChange` the choice is offered (console). */
   navLayout?: NavLayout;
   onNavLayoutChange?: (layout: NavLayout) => void;
+  /** Store the language with the user (QA BUG-04); without it the choice lasts this visit. */
+  onLocaleChange?: (locale: Locale) => void;
+  /** One control per row: a narrow panel that leaves the page title visible (QA C5). */
+  vertical?: boolean;
 }
 
 /** Theme mode, navigation layout, RTL switch and language picker. */
-export function AppearanceControls({ navLayout, onNavLayoutChange }: AppearanceControlsProps) {
+export function AppearanceControls({
+  navLayout,
+  onNavLayoutChange,
+  onLocaleChange,
+  vertical = false,
+}: AppearanceControlsProps) {
   const { mode, direction, locale, setMode, setDirection, setLocale } = useAppearance();
   const t = useLabel();
 
   return (
-    <Space size="large" wrap>
+    <Space
+      size={vertical ? 'middle' : 'large'}
+      direction={vertical ? 'vertical' : 'horizontal'}
+      wrap={!vertical}
+      data-testid="appearance-controls"
+    >
       {navLayout !== undefined && onNavLayoutChange !== undefined && (
         <Space>
           <Typography.Text id="appearance-navigation-label">
@@ -57,7 +71,10 @@ export function AppearanceControls({ navLayout, onNavLayoutChange }: AppearanceC
         aria-label={t('appearance.language')}
         data-testid="language-select"
         value={locale}
-        onChange={setLocale}
+        onChange={(next: Locale) => {
+          setLocale(next);
+          onLocaleChange?.(next);
+        }}
         options={LOCALES.map((value) => ({ value, label: t(`locale.${value}`) }))}
         style={{ minWidth: 120 }}
       />

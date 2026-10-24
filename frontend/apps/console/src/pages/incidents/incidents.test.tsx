@@ -150,7 +150,9 @@ describe('One incident', () => {
     render(<App />);
     fireEvent.click(await screen.findByTestId('inc-action-cancel'));
     fireEvent.click(await screen.findByTestId('inc-reason-confirm'));
-    expect((await screen.findByTestId('inc-reason-error')).textContent).toBe('Choose a reason.');
+    expect((await screen.findByTestId('inc-reason-code-error')).textContent).toBe(
+      'Choose a reason.',
+    );
     expect(fake.find('POST', `${PATH}/actions/cancel`)).toHaveLength(0);
     fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-reason-code')));
     fireEvent.click(await screen.findByTitle('Duplicate'));
@@ -335,7 +337,9 @@ describe('helpers', () => {
       priority: 'p1',
       source: 'matrix',
     });
-    expect(previewPriority(catalogue, null, null)).toEqual({ priority: 'p3', source: 'default' });
+    // Blank impact or urgency: no priority is shown as known (form review, WP-020-FIX).
+    expect(previewPriority(catalogue, null, null)).toBeNull();
+    expect(previewPriority(catalogue, 'team', null)).toBeNull();
   });
 
   it('Area 15: duplicate display names are found case- and space-insensitively', () => {

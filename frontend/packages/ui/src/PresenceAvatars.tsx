@@ -25,14 +25,16 @@ function initials(name: string): string {
 export function PresenceAvatars({ viewers, selfUserId }: PresenceAvatarsProps) {
   const t = useLabel();
   const { token } = theme.useToken();
-  const people = new Map<string, string>();
+  // Shown name (tooltip, summary) and the person's own name (avatar initials): your other
+  // window says "You (another window)" but shows your initials, not "Y(" (QA BUG-13).
+  const people = new Map<string, { shown: string; own: string }>();
   for (const viewer of viewers) {
-    const name = viewer.userId === selfUserId ? t('presence.you_elsewhere') : viewer.name;
-    people.set(viewer.userId || viewer.clientId, name);
+    const shown = viewer.userId === selfUserId ? t('presence.you_elsewhere') : viewer.name;
+    people.set(viewer.userId || viewer.clientId, { shown, own: viewer.name });
   }
   if (people.size === 0) return null;
   const names = [...people.values()];
-  const summary = t('presence.viewing', { names: names.join(', ') });
+  const summary = t('presence.viewing', { names: names.map((n) => n.shown).join(', ') });
   return (
     <Flex align="center" gap={8} role="status" aria-label={summary} data-testid="presence">
       <Typography.Text type="secondary" aria-hidden>
@@ -40,10 +42,10 @@ export function PresenceAvatars({ viewers, selfUserId }: PresenceAvatarsProps) {
       </Typography.Text>
       <Avatar.Group max={{ count: 4 }} aria-hidden>
         {names.map((name) => (
-          <Tooltip key={name} title={name}>
+          <Tooltip key={name.shown} title={name.shown}>
             {/* Brand colour, like the header avatar: white on it passes WCAG AA in every mode. */}
             <Avatar size="small" style={{ background: token.colorPrimary }}>
-              {initials(name)}
+              {initials(name.own)}
             </Avatar>
           </Tooltip>
         ))}

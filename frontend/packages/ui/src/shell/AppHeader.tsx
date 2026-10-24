@@ -1,9 +1,21 @@
-import { DownOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
-import { Avatar, Button, Dropdown, Flex, Layout, Popover, Select, Typography, theme } from 'antd';
-import { useSyncExternalStore, type ReactNode } from 'react';
+import { BgColorsOutlined, DownOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  Avatar,
+  Button,
+  Dropdown,
+  Flex,
+  Grid,
+  Layout,
+  Popover,
+  Select,
+  Typography,
+  theme,
+  type MenuProps,
+} from 'antd';
+import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
 
 import type { MeResponse, NavLayout } from '@supportx/api-client';
-import type { LabelKey } from '@supportx/labels';
+import type { LabelKey, Locale } from '@supportx/labels';
 
 import { useLabel } from '../appearance';
 import { AppearanceControls } from '../AppearanceControls';
@@ -23,6 +35,8 @@ export interface AppHeaderProps {
   start?: ReactNode;
   /** Offer the navigation layout choice (console). */
   onNavLayoutChange?: (layout: NavLayout) => void;
+  /** Store the language the user picks (it follows them to every device, QA BUG-04). */
+  onLocaleChange?: (locale: Locale) => void;
 }
 
 /**
@@ -62,7 +76,13 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-/** Top bar: search (command palette), appearance, tenant (switcher), user menu. */
+/**
+ * Top bar: search (command palette), appearance, tenant (switcher), user menu.
+ *
+ * Below the md breakpoint (phones, 360 px and up) it collapses (QA BUG-07): search and
+ * appearance become icon buttons with accessible names, and the organisation (and its
+ * switcher) moves into the user menu, so the page never scrolls sideways.
+ */
 export function AppHeader({
   appName,
   session,
@@ -74,11 +94,49 @@ export function AppHeader({
   extra,
   start,
   onNavLayoutChange,
+  onLocaleChange,
 }: AppHeaderProps) {
   const t = useLabel();
   const { token } = theme.useToken();
+  const screens = Grid.useBreakpoint();
+  // Narrow only when a small breakpoint was measured: before the first measurement (and where
+  // nothing matches, as in tests without media queries) the header stays the wide one.
+  const narrow = screens.md === false && (screens.xs === true || screens.sm === true);
   const canSwitch = onSwitchTenant !== undefined && session.tenants.length > 1;
   const appearanceIsOpen = useAppearanceOpen();
+  // Escape closes the panel wherever the focus is inside it (QA BUG-15), not only on its button.
+  useEffect(() => {
+    if (!appearanceIsOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAppearanceOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [appearanceIsOpen]);
+  const tenantItems: MenuProps['items'] = narrow
+    ? [
+        {
+          key: 'tenant',
+          type: 'group',
+          label: session.tenant.name,
+          children: canSwitch
+            ? session.tenants
+                .filter((tenant) => tenant.id !== session.tenant.id)
+                .map((tenant) => ({
+                  key: `tenant-${tenant.id}`,
+                  label: t('auth.switch_to', { tenant: tenant.name }),
+                  disabled: switchingTenant,
+                  onClick: () => {
+                    onSwitchTenant(tenant.id);
+                  },
+                }))
+            : [],
+        },
+        { type: 'divider' },
+      ]
+    : [];
 
   return (
     <Layout.Header
@@ -86,8 +144,9 @@ export function AppHeader({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 16,
-        paddingInline: 24,
+        gap: narrow ? 8 : 16,
+        paddingInline: narrow ? 12 : 24,
+        minWidth: 0,
         background: token.colorBgContainer,
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
         lineHeight: 'normal',
@@ -98,17 +157,27 @@ export function AppHeader({
           {t(appName)}
         </Typography.Text>
       )}
-      {onOpenPalette !== undefined && (
-        <Button icon={<SearchOutlined />} onClick={onOpenPalette} data-testid="open-palette">
-          {t('palette.open')} <Typography.Text keyboard>{t('palette.shortcut')}</Typography.Text>
-        </Button>
-      )}
+      {onOpenPalette !== undefined &&
+        (narrow ? (
+          <Button
+            icon={<SearchOutlined />}
+            aria-label={t('palette.open')}
+            onClick={onOpenPalette}
+            data-testid="open-palette"
+          />
+        ) : (
+          <Button icon={<SearchOutlined />} onClick={onOpenPalette} data-testid="open-palette">
+            {t('palette.open')} <Typography.Text keyboard>{t('palette.shortcut')}</Typography.Text>
+          </Button>
+        ))}
       {extra}
       <Popover
         content={
           <AppearanceControls
             navLayout={onNavLayoutChange === undefined ? undefined : session.user.nav_layout}
             onNavLayoutChange={onNavLayoutChange}
+            onLocaleChange={onLocaleChange}
+            vertical
           />
         }
         trigger="click"
@@ -119,14 +188,13 @@ export function AppHeader({
         <Button
           data-testid="appearance-menu"
           aria-expanded={appearanceIsOpen}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setAppearanceOpen(false);
-          }}
+          aria-label={narrow ? t('appearance.title') : undefined}
+          icon={narrow ? <BgColorsOutlined /> : undefined}
         >
-          {t('appearance.title')}
+          {narrow ? null : t('appearance.title')}
         </Button>
       </Popover>
-      {canSwitch ? (
+      {narrow ? null : canSwitch ? (
         <Select
           data-testid="tenant-switcher"
           aria-label={t('auth.switch_tenant')}
@@ -147,6 +215,7 @@ export function AppHeader({
         trigger={['click']}
         menu={{
           items: [
+            ...tenantItems,
             ...(onProfile === undefined
               ? []
               : [
@@ -161,12 +230,19 @@ export function AppHeader({
           ],
         }}
       >
-        <Button type="text" data-testid="user-menu" style={{ height: 'auto', paddingBlock: 4 }}>
+        <Button
+          type="text"
+          data-testid="user-menu"
+          aria-label={narrow ? `${t('shell.menu')}: ${session.user.display_name}` : undefined}
+          style={{ height: 'auto', paddingBlock: 4, paddingInline: narrow ? 4 : undefined }}
+        >
           <Flex align="center" gap={8}>
             <Avatar aria-hidden style={{ background: token.colorPrimary }}>
               {initials(session.user.display_name)}
             </Avatar>
-            <Typography.Text data-testid="user-name">{session.user.display_name}</Typography.Text>
+            {!narrow && (
+              <Typography.Text data-testid="user-name">{session.user.display_name}</Typography.Text>
+            )}
             <DownOutlined aria-hidden />
           </Flex>
         </Button>

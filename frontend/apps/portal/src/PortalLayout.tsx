@@ -1,13 +1,14 @@
 import { Layout, Menu } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
-import { useLogout, useSession } from '@supportx/api-client';
+import { useLogout, useSession, useSetUiLocale } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
 import {
   AnnouncementBanners,
   AppHeader,
   ConnectivityBanner,
   LicenceBanners,
+  reportError,
   useLabel,
   useLicence,
 } from '@supportx/ui';
@@ -26,10 +27,18 @@ export function PortalLayout() {
   const session = useSession().data;
   const logout = useLogout();
   const licence = useLicence();
+  const setUiLocale = useSetUiLocale(session?.user.id ?? '');
   if (session === undefined || session === null) return null;
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <AppHeader appName="app.portal.name" session={session} onLogout={() => void logout()} />
+      <AppHeader
+        appName="app.portal.name"
+        session={session}
+        onLogout={() => void logout()}
+        onLocaleChange={(locale) => {
+          setUiLocale.mutate(locale, { onError: reportError });
+        }}
+      />
       <nav aria-label={t('nav.main')}>
         <Menu
           mode="horizontal"

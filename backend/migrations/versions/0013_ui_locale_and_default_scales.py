@@ -4,7 +4,7 @@
   identity provider's locale" (users.locale, refreshed from Keycloak on every login), so the
   choice survives reloads, logins and other devices without being overwritten by the next login.
 - work_item_type_settings.default_impact / default_urgency: the values the create form starts
-  with (D-070), so the priority shown is the matrix value, never a bare default next to two empty
+  with (D-075), so the priority shown is the matrix value, never a bare default next to two empty
   fields. Existing rows get the Appendix A defaults (team, medium = P3, the default priority).
 
 Additive with defaults (expand only; reversible).

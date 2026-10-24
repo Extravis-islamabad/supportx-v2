@@ -52,6 +52,7 @@ import { OperationButton } from './operations';
 import { IncidentHistory } from './IncidentHistory';
 import { categoryPath, personName } from './labels';
 import { CategoryPicker, SitePicker, UserPicker } from './pickers';
+import { SUBJECT_MAX } from './form';
 import { StatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 
@@ -105,6 +106,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const others = useRef<PresenceMember[]>([]);
   const editing = useRef(0);
   const [changedBy, setChangedBy] = useState<string | null>(null);
+  const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
   const viewers = useRecordChannel('wi', item.id, (event) => {
     void queryClient.invalidateQueries({
@@ -122,6 +124,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       void reload();
       return;
     }
+    behind.current = true;
     setChangedBy(others.current.find((v) => v.userId === event.by)?.name ?? t('live.someone'));
   });
   useEffect(() => {
@@ -143,7 +146,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             {item.display_id}
           </Typography.Text>
           <Typography.Title level={1} style={{ margin: 0 }} data-testid="inc-heading">
-            {item.subject}
+            {/* What people typed reads in its own direction, whatever the UI's (QA BUG-12). */}
+            <bdi dir="auto">{item.subject}</bdi>
           </Typography.Title>
           <Space size={4} wrap>
             <StatusTag status={item.status} catalogue={catalogue.data} />
@@ -160,7 +164,14 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               {item.status_reason_code === null
                 ? ''
                 : reasonLabel(t, catalogue.data, item.status_reason_code)}
-              {item.status_reason_text === null ? '' : ` — ${item.status_reason_text}`}
+              {item.status_reason_text === null ? (
+                ''
+              ) : (
+                <>
+                  {' — '}
+                  <bdi dir="auto">{item.status_reason_text}</bdi>
+                </>
+              )}
             </Typography.Text>
           )}
           <Typography.Text type="secondary" data-testid="inc-people">
@@ -186,6 +197,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               size="small"
               data-testid="live-change-reload"
               onClick={() => {
+                behind.current = false;
                 setChangedBy(null);
                 void reload();
               }}
@@ -237,6 +249,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       <AssignDialog
         item={item}
         open={assigning}
+        refresh={reload}
         onClose={() => {
           setAssigning(false);
         }}
@@ -253,6 +266,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                 reload={reload}
                 onEditing={(delta) => {
                   editing.current = Math.max(0, editing.current + delta);
+                  // Nobody edits any more: catch up with what changed meanwhile (QA BUG-09).
+                  if (editing.current === 0 && behind.current) {
+                    behind.current = false;
+                    setChangedBy(null);
+                    void reload();
+                  }
                 }}
               />
             ),
@@ -304,7 +323,7 @@ function Details({
     {
       key: 'subject',
       label: t('work_item.field.subject'),
-      view: item.subject,
+      view: <bdi dir="auto">{item.subject}</bdi>,
       edit: { kind: 'text', value: item.subject },
     },
     {
@@ -476,7 +495,7 @@ function InlineEdit({
     setError(null);
     onEditing(-1);
   };
-  const save = () => {
+  const save = (version = item.version) => {
     const changes: Record<string, unknown> =
       spec.kind === 'priority'
         ? value === 'matrix'
@@ -484,7 +503,7 @@ function InlineEdit({
           : { priority: value, priority_reason: reason }
         : { [field]: value };
     update.mutate(
-      { changes: changes, version: item.version },
+      { changes: changes, version },
       {
         onSuccess: () => {
           void message.success(t('incidents.saved'));
@@ -538,10 +557,16 @@ function InlineEdit({
           <Input
             id={id}
             aria-label={label}
+            dir="auto"
+            autoFocus
             value={typeof value === 'string' ? value : ''}
-            maxLength={250}
+            maxLength={SUBJECT_MAX}
+            showCount
             onChange={(event) => {
               setValue(event.target.value);
+            }}
+            onPressEnter={() => {
+              save();
             }}
             data-testid={`inc-input-${field}`}
           />
@@ -637,7 +662,13 @@ function InlineEdit({
     }
   })();
   return (
-    <Space direction="vertical" style={{ width: '100%' }}>
+    <Space
+      direction="vertical"
+      style={{ width: '100%' }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !update.isPending) close(); // QA BUG-11
+      }}
+    >
       {control}
       {error !== null && (
         <Typography.Text type="danger" role="alert" data-testid={`inc-error-${field}`}>
@@ -649,7 +680,9 @@ function InlineEdit({
           size="small"
           type="primary"
           loading={update.isPending}
-          onClick={save}
+          onClick={() => {
+            save();
+          }}
           data-testid={`inc-save-${field}`}
         >
           {t('actions.save')}
@@ -667,12 +700,19 @@ function InlineEdit({
           void reload().then(close);
         }}
         onKeepMine={() => {
+          // Keep mine = save mine on top of theirs, as the dialog says (QA BUG-09).
           setConflict(null);
-          void reload();
+          void reload().then((fresh) => {
+            if (isIncident(fresh)) save(fresh.version);
+          });
         }}
       />
     </Space>
   );
+}
+
+function isIncident(value: unknown): value is Incident {
+  return typeof value === 'object' && value !== null && 'version' in value;
 }
 
 function Description({
@@ -692,6 +732,23 @@ function Description({
   const [editing, setEditing] = useState(false);
   const [html, setHtml] = useState(item.description ?? '');
   const [conflict, setConflict] = useState<unknown>(null);
+  const save = (version: number) => {
+    update.mutate(
+      { changes: { description: html }, version },
+      {
+        onSuccess: () => {
+          void message.success(t('incidents.saved'));
+          setEditing(false);
+          onEditing(-1);
+        },
+        onError: (failure) => {
+          if (failure instanceof ApiError && failure.code === 'version_conflict')
+            setConflict(failure);
+          else reportError(failure);
+        },
+      },
+    );
+  };
   if (!editing) {
     return (
       <Space direction="vertical" style={{ width: '100%' }}>
@@ -735,20 +792,7 @@ function Description({
           loading={update.isPending}
           data-testid="inc-save-description"
           onClick={() => {
-            update.mutate(
-              { changes: { description: html }, version: item.version },
-              {
-                onSuccess: () => {
-                  void message.success(t('incidents.saved'));
-                  done();
-                },
-                onError: (failure) => {
-                  if (failure instanceof ApiError && failure.code === 'version_conflict')
-                    setConflict(failure);
-                  else reportError(failure);
-                },
-              },
-            );
+            save(item.version);
           }}
         >
           {t('actions.save')}
@@ -765,7 +809,9 @@ function Description({
         }}
         onKeepMine={() => {
           setConflict(null);
-          void reload();
+          void reload().then((fresh) => {
+            if (isIncident(fresh)) save(fresh.version);
+          });
         }}
       />
     </Space>

@@ -233,6 +233,15 @@ describe('RealtimeProvider and hooks', () => {
     expect(queryClient.getQueryState(queryKeys.entitlements)?.isInvalidated).toBe(true);
   });
 
+  it('BUG-13: leaving or reloading the page disconnects at once (no ghost viewer)', () => {
+    render(<div />, { wrapper });
+    expect(client.connected).toBe(true);
+    act(() => {
+      window.dispatchEvent(new Event('pagehide'));
+    });
+    expect(client.connected).toBe(false);
+  });
+
   it('an access-changed disconnect refreshes the session too', () => {
     queryClient.setQueryData(queryKeys.session, { stale: false });
     render(<div />, { wrapper });

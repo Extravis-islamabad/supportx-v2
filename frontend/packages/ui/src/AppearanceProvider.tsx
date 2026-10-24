@@ -39,6 +39,13 @@ function preferredMode(): ThemeMode {
 }
 
 /**
+ * Page-wide rules Ant Design leaves to the app. No browser margin round the page (the layout,
+ * and the sidebar's border, reach every edge: QA C3), and the scrollbar's place is kept when a
+ * dialog hides it, so nothing moves sideways when a dialog opens (QA C5).
+ */
+const PAGE_CSS = 'html { scrollbar-gutter: stable; } body { margin: 0; }';
+
+/**
  * Theme (light / dark / high contrast, brand seeds), text direction and language for everything
  * inside: Ant Design's ConfigProvider (+ its own locale), the labels provider and <html dir lang>.
  */
@@ -86,10 +93,11 @@ export function AppearanceProvider({
     }),
     [mode, direction, locale, brand],
   );
-  const themeConfig = useMemo(() => buildTheme(mode, brand), [mode, brand]);
+  const themeConfig = useMemo(() => buildTheme(mode, brand, locale), [mode, brand, locale]);
 
   return (
     <AppearanceContext.Provider value={appearance}>
+      <style>{PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
         <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
           <AntApp>{children}</AntApp>

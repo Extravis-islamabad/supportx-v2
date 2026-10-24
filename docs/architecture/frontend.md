@@ -57,7 +57,14 @@ the same keys.
   value is HTML; the server sanitises every stored value (`app/shared/richtext.py`, nh3) against
   the same allow-list the editor produces, and is the security boundary (D-036, D-051).
 - People in pickers always show their email as a second line, so equal names stay
-  distinguishable (Area 15 lesson).
+  distinguishable (Area 15 lesson). Every option carries an `aria-label` (its label, never a
+  code or ID: Ant Design's hidden accessibility list falls back to the value otherwise).
+- Text people typed (subjects, reasons, names in headings) is wrapped in `<bdi dir="auto">`
+  and typed into `dir="auto"` inputs, so it reads in its own direction in an RTL interface.
+- Writes on a record go out once: the incident hooks join a second click to the write already
+  on its way (`useSingleFlight`), and dialogs disable their buttons while pending.
+- The UI language is a stored user preference (`ui_locale`, like the navigation layout); the
+  theme sets fonts per language (Arabic in a Naskh face, Urdu in Nastaliq with taller lines).
 
 ## Theme and branding
 

@@ -12,13 +12,21 @@ import {
 import { reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { labelled } from './labels';
+import { GroupPicker } from './pickers';
 
 const REASON_MAX = 500;
+
+interface Pending {
+  action: IncidentAction;
+  reasonCode?: string;
+  reasonText?: string;
+}
 
 /**
  * Status actions in their one fixed order (REQ-WI-010, REQ-INC-046): an action the life cycle
  * does not allow now, or that the user may not run, stays in place, disabled, with the reason.
- * Actions that need a reason ask for it first (REQ-INC-047).
+ * Actions that need a reason ask for it first (REQ-INC-047). Start work on an unassigned
+ * incident takes it for the user; in several groups they choose which first (QA BUG-05).
  */
 export function StatusActions({
   item,
@@ -31,16 +39,34 @@ export function StatusActions({
   const { message } = App.useApp();
   const act = useIncidentAction(item.id);
   const [asking, setAsking] = useState<IncidentActionState | null>(null);
-  const run = (action: IncidentAction, reasonCode?: string, reasonText?: string) => {
+  // The action waiting for "which of your groups" (start work on an unassigned incident).
+  const [choosing, setChoosing] = useState<Pending | null>(null);
+  const [group, setGroup] = useState<string | null>(null);
+  const run = (pending: Pending, groupId?: string) => {
     act.mutate(
-      { action, version: item.version, reasonCode, reasonText },
+      { ...pending, version: item.version, groupId },
       {
         onSuccess: () => {
           setAsking(null);
-          void message.success(t(`incidents.done.${action}`));
+          setChoosing(null);
+          void message.success(t(`incidents.done.${pending.action}`));
         },
         onError: (error) => {
-          if (asking !== null && error instanceof ApiError && error.fieldErrors.length > 0) return;
+          if (
+            error instanceof ApiError &&
+            error.fieldErrors.some((e) => e.code === 'group_required')
+          ) {
+            setAsking(null);
+            setChoosing(pending);
+            return;
+          }
+          if (
+            (asking !== null || choosing !== null) &&
+            error instanceof ApiError &&
+            error.fieldErrors.length > 0
+          ) {
+            return; // shown in the dialog
+          }
           reportError(error);
         },
       },
@@ -53,12 +79,12 @@ export function StatusActions({
         const button = (
           <WriteButton
             key={action}
-            disabled={!state.allowed}
+            disabled={!state.allowed || act.isPending}
             type={action === 'resolve' ? 'primary' : 'default'}
             loading={act.isPending && act.variables.action === action}
             data-testid={`inc-action-${action}`}
             onClick={() => {
-              if (state.reason_mode === 'none') run(action);
+              if (state.reason_mode === 'none') run({ action });
               else setAsking(state);
             }}
           >
@@ -86,12 +112,48 @@ export function StatusActions({
             act.reset();
           }}
           onConfirm={(code, text) => {
-            run(asking.action as IncidentAction, code, text);
+            run({ action: asking.action as IncidentAction, reasonCode: code, reasonText: text });
           }}
         />
       )}
+      <Modal
+        open={choosing !== null}
+        title={t('incidents.start_choose_group')}
+        okText={t('work_item_action.start_work')}
+        cancelText={t('actions.cancel')}
+        confirmLoading={act.isPending}
+        okButtonProps={{ disabled: group === null, 'data-testid': 'inc-start-confirm' }}
+        onCancel={() => {
+          setChoosing(null);
+          act.reset();
+        }}
+        onOk={() => {
+          if (choosing !== null && group !== null) run(choosing, group);
+        }}
+        destroyOnHidden
+      >
+        <GroupPicker
+          value={group}
+          onChange={setGroup}
+          testId="inc-start-group"
+          ariaLabel={t('work_item.field.group_id')}
+        />
+      </Modal>
     </Flex>
   );
+}
+
+/** Title and buttons of the reason dialog; cancelling an incident needs its own words (BUG-06). */
+function dialogWords(t: (key: string) => string, action: string) {
+  if (action === 'cancel') {
+    return {
+      title: t('incidents.cancel_title'),
+      ok: t('incidents.cancel_confirm'),
+      dismiss: t('incidents.cancel_keep'),
+    };
+  }
+  const name = t(`work_item_action.${action}`);
+  return { title: name, ok: name, dismiss: t('actions.cancel') };
 }
 
 function ReasonDialog({
@@ -117,10 +179,10 @@ function ReasonDialog({
   const list = state.reason_list;
   const options = (catalogue?.reasons ?? [])
     .filter((r) => r.list === list)
-    .map((r) => ({
-      value: r.code,
-      label: labelled(r.labels, locale, () => t(`reason.${r.list}.${r.code}`)),
-    }));
+    .map((r) => {
+      const label = labelled(r.labels, locale, () => t(`reason.${r.list}.${r.code}`));
+      return { value: r.code, label, 'aria-label': label };
+    });
   const required = state.reason_mode === 'required';
   // The same rules the server applies; the server's field errors are shown too.
   const missingCode = required && list !== null && code === undefined;
@@ -128,13 +190,20 @@ function ReasonDialog({
     (required && list === null && text.trim() === '') || (code === 'other' && text.trim() === '');
   const server =
     error instanceof ApiError ? error.fieldErrors.map((e) => t(e.message_key, e.params)) : [];
-  const action = state.action;
+  const words = dialogWords(t, state.action);
+  // "Other" is only mentioned where there is a list to pick it from (QA C6).
+  const detailsLabel =
+    list !== null
+      ? t('incidents.reason_text')
+      : required
+        ? `${t('incidents.details')} *`
+        : t('incidents.reason_text_optional');
   return (
     <Modal
       open
-      title={t(`work_item_action.${action}`)}
-      okText={t(`work_item_action.${action}`)}
-      cancelText={t('actions.cancel')}
+      title={words.title}
+      okText={words.ok}
+      cancelText={words.dismiss}
       confirmLoading={pending}
       onCancel={onCancel}
       onOk={() => {
@@ -163,13 +232,19 @@ function ReasonDialog({
               status={touched && missingCode ? 'error' : undefined}
               data-testid="inc-reason-code"
             />
+            {touched && missingCode && (
+              <Typography.Text type="danger" role="alert" data-testid="inc-reason-code-error">
+                {t('incidents.reason_required')}
+              </Typography.Text>
+            )}
           </>
         )}
         <label htmlFor="inc-reason-text">
-          <Typography.Text>{t('incidents.reason_text')}</Typography.Text>
+          <Typography.Text>{detailsLabel}</Typography.Text>
         </label>
         <Input.TextArea
           id="inc-reason-text"
+          dir="auto"
           rows={3}
           maxLength={REASON_MAX}
           showCount
@@ -178,11 +253,13 @@ function ReasonDialog({
           onChange={(event) => {
             setText(event.target.value);
           }}
+          // The counter sits under the box; keep it clear of the buttons (QA C1).
+          style={{ marginBottom: 20 }}
           data-testid="inc-reason-text"
         />
-        {touched && (missingCode || missingText) && (
+        {touched && missingText && (
           <Typography.Text type="danger" role="alert" data-testid="inc-reason-error">
-            {t(missingCode ? 'incidents.reason_required' : 'incidents.reason_text_required')}
+            {t('incidents.reason_text_required')}
           </Typography.Text>
         )}
         {server.length > 0 && (
