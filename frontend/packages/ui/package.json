@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md §9.2).",
+  "description": "Design system: Ant Design theme tokens, appearance (light/dark, RTL, locale), wrapped components (architecture.md \u00a79.2).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -16,6 +16,14 @@
     "@supportx/api-client": "workspace:*",
     "@supportx/labels": "workspace:*",
     "@supportx/realtime": "workspace:*",
+    "@tiptap/core": "catalog:",
+    "@tiptap/extension-link": "catalog:",
+    "@tiptap/extension-placeholder": "catalog:",
+    "@tiptap/extension-table": "catalog:",
+    "@tiptap/extensions": "catalog:",
+    "@tiptap/pm": "catalog:",
+    "@tiptap/react": "catalog:",
+    "@tiptap/starter-kit": "catalog:",
     "dayjs": "catalog:"
   },
   "peerDependencies": {

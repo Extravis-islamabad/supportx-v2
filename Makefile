@@ -238,14 +238,18 @@ cluster-up: ## Create the local k3d cluster (k3s v1.36.5) and its prerequisites 
 cluster-secrets: ## Create the chart's Secrets with random values (never overwrites existing ones)
 	@bash deploy/scripts/secrets.sh $(NAMESPACE)
 
+# Our smoke pod checks Valkey auth itself; the upstream chart's auth test pod is excluded: our
+# NetworkPolicy refuses its connection, which it reads as "auth enforced" (WP-020).
+HELM_TEST = helm test supportx -n $(NAMESPACE) --logs --filter '!name=supportx-valkey-test-auth-existing'
+
 deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgrade the dev profile on k3d
 	k3d image import supportx-backend:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
-	helm test supportx -n $(NAMESPACE) --logs
+	$(HELM_TEST)
 
-cluster-test: ## helm test: the installed release answers on every internal route
-	helm test supportx -n $(NAMESPACE) --logs
+cluster-test: ## helm test: every internal route answers and Valkey enforces auth
+	$(HELM_TEST)
 
 cluster-e2e: ## Playwright journeys against the k3d cluster (ARGS="tests/login.spec.ts" for one file)
 	@bash deploy/k3d/e2e.sh $(ARGS)

@@ -40,9 +40,18 @@ def error_codes() -> set[str]:
     return codes
 
 
+# Modules that build field errors from (field, code) pairs list their codes in a FIELD_PROBLEMS set.
+_PROBLEM_SET = re.compile(
+    r"^FIELD_PROBLEMS = frozenset\(\s*\{(.*?)\}\s*\)", re.DOTALL | re.MULTILINE
+)
+_QUOTED = re.compile(r"\"([a-z][a-z0-9_]*)\"")
+
+
 def field_error_codes() -> set[str]:
     codes = set(FIELD_ERROR_CODES)
     for source in APP_DIR.rglob("*.py"):
+        for block in _PROBLEM_SET.findall(source.read_text(encoding="utf-8")):
+            codes |= set(_QUOTED.findall(block))
         if "tests" not in source.parts:
             codes |= set(_FIELD_ERROR.findall(source.read_text(encoding="utf-8")))
     return codes

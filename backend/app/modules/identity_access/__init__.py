@@ -6,10 +6,10 @@ Also the authorization policy layer (WP-016, architecture.md §11.2): permission
 assignments and the one policy service the API, search, realtime and AI agents use.
 
 Public interface for other modules: `UserType`, `Subject`, `ResourceType`, `authorize`,
-`authorize_stored`, `scope_filter`, `visible`, `require`, and `get_policy` (FastAPI dependency
-giving the policy service, e.g. who holds a permission, for owner pickers). Sessions reach the
-rest of the app only as the `TenantContext` resolved by app.core.tenancy; routes declare
-permissions with app.core.authorization.require_permission.
+`authorize_stored`, `scope_filter`, `visible`, `require`, `user_names`, `user_contacts`, and
+`get_policy` (FastAPI dependency giving the policy service, e.g. who holds a permission, for
+owner pickers). Sessions reach the rest of the app only as the `TenantContext` resolved by
+app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
 """
 
 import uuid
@@ -47,7 +47,11 @@ from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import directory
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
-from app.modules.identity_access.service.directory import display_names, user_names
+from app.modules.identity_access.service.directory import (
+    display_names,
+    user_contacts,
+    user_names,
+)
 from app.modules.identity_access.service.policy import (
     FieldRule,
     PolicyService,
@@ -191,6 +195,7 @@ __all__ = [
     "module",
     "require",
     "scope_filter",
+    "user_contacts",
     "user_names",
     "visible",
 ]

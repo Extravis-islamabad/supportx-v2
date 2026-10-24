@@ -7,6 +7,7 @@ SupportX {{ .Chart.AppVersion }} ({{ .Values.app.profile }} profile) is installi
 The API and workers wait for the migrate Job ({{ include "supportx.migrateJob" . }}):
   kubectl -n {{ .Release.Namespace }} logs job/{{ include "supportx.migrateJob" . }}
 Then check everything:
-  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }} \
+    --filter '!name={{ .Release.Name }}-valkey-test-auth-existing'
 
 INTERNAL/DEV images: not for customer distribution (D-038).

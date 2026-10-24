@@ -1,0 +1,282 @@
+"""Each tenant's work item configuration: seeded on first use, read for every write (WP-020).
+
+The Appendix A defaults (statuses and transitions, reason lists, impact / urgency / priority
+scales, the priority matrix, a starting category tree, the display prefix) are copied into the
+tenant's own rows the first time anything of a type is read or written, inside that transaction.
+Admins edit the copies (labels, colours, reasons, matrix, prefix, categories; WP-020c, D-056);
+structural life-cycle changes wait for the designer (REQ-INC-049).
+
+Seeding is idempotent and safe under concurrency: the type-settings row is inserted with ON
+CONFLICT DO NOTHING, and only the transaction that inserted it writes the rest, so two first
+requests at the same moment never seed twice (the second waits for the first's row lock).
+"""
+
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any
+
+from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.database import SESSION_TENANT_KEY
+from app.core.tenancy import TenantContext
+from app.modules.work_items.domain.classification import (
+    DEFAULT_COLOURS,
+    DEFAULT_MATRIX,
+    DEFAULT_PRIORITY,
+    SCALE_CODES,
+)
+from app.modules.work_items.domain.lifecycle import (
+    DEFAULT_REASONS,
+    Lifecycle,
+    ReasonList,
+    ReasonMode,
+    StatusCategory,
+    StatusDef,
+    TransitionDef,
+    WorkItemAction,
+)
+from app.modules.work_items.domain.types import DEFAULT_CATEGORIES, WorkItemType
+from app.modules.work_items.infra.models import (
+    WorkItemCategory,
+    WorkItemPriorityCell,
+    WorkItemReason,
+    WorkItemScaleValue,
+    WorkItemStatus,
+    WorkItemTransition,
+    WorkItemTypeSettings,
+)
+from app.shared.ids import new_id
+
+
+@dataclass(frozen=True)
+class StatusInfo:
+    """One status as screens show it."""
+
+    code: str
+    category: str
+    colour: str
+    labels: dict[str, str] | None
+    system: bool
+    disabled: bool
+
+
+@dataclass(frozen=True)
+class ScaleValue:
+    """One impact, urgency or priority value."""
+
+    scale: str
+    code: str
+    rank: int
+    colour: str | None
+    labels: dict[str, str] | None
+
+
+@dataclass(frozen=True)
+class ReasonInfo:
+    """One reason of a pick list."""
+
+    list: str
+    code: str
+    labels: dict[str, str] | None
+
+
+@dataclass(frozen=True)
+class Catalogue:
+    """Everything a write or a screen needs to know about one type's configuration."""
+
+    prefix: str
+    default_priority: str
+    auto_status_on_assign: bool
+    settings_version: int
+    lifecycle: Lifecycle
+    statuses: list[StatusInfo]
+    matrix: Mapping[tuple[str, str], str]
+    scales: list[ScaleValue]
+    reasons: list[ReasonInfo]
+
+    def reason_codes(self, reason_list: ReasonList | None) -> list[str]:
+        """Enabled codes of a pick list."""
+        if reason_list is None:
+            return []
+        return [r.code for r in self.reasons if r.list == reason_list]
+
+
+def _tenant(session: AsyncSession) -> Any:  # noqa: ANN401 - uuid of the session's tenant
+    context = session.info.get(SESSION_TENANT_KEY)
+    if not isinstance(context, TenantContext):  # pragma: no cover - every request has one
+        msg = "work item configuration needs a tenant session"
+        raise TypeError(msg)
+    return context.tenant_id
+
+
+async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
+    """Copy the defaults of `wtype` into the tenant's rows once (idempotent)."""
+    tenant = _tenant(session)
+    existing = await session.scalar(
+        select(WorkItemTypeSettings.type).where(WorkItemTypeSettings.type == wtype.code)
+    )
+    if existing is not None:
+        return
+    inserted = await session.scalar(
+        insert(WorkItemTypeSettings)
+        .values(
+            tenant_id=tenant,
+            type=wtype.code,
+            prefix=wtype.default_prefix,
+            default_priority=DEFAULT_PRIORITY,
+        )
+        .on_conflict_do_nothing()
+        .returning(WorkItemTypeSettings.type)
+    )
+    if inserted is None:  # another transaction seeded it first
+        return
+    rows: list[Any] = [
+        WorkItemStatus(
+            tenant_id=tenant,
+            type=wtype.code,
+            code=s.code,
+            category=s.category,
+            colour=s.colour,
+            sort_order=index,
+            system=s.system,
+        )
+        for index, s in enumerate(wtype.statuses)
+    ]
+    session.add_all(rows)
+    await session.flush()
+    session.add_all(
+        [
+            WorkItemTransition(
+                tenant_id=tenant,
+                type=wtype.code,
+                from_status=t.from_status,
+                action=t.action,
+                to_status=t.to_status,
+                reason_mode=t.reason_mode,
+                reason_list=t.reason_list,
+            )
+            for t in wtype.transitions
+        ]
+        + [
+            WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
+            for lst, codes in DEFAULT_REASONS.items()
+            for i, code in enumerate(codes)
+        ]
+        + [
+            WorkItemScaleValue(
+                tenant_id=tenant,
+                type=wtype.code,
+                scale=scale,
+                code=code,
+                rank=rank,
+                colour=DEFAULT_COLOURS.get(code),
+            )
+            for scale, codes in SCALE_CODES.items()
+            for rank, code in enumerate(codes, start=1)
+        ]
+        + [
+            WorkItemPriorityCell(
+                tenant_id=tenant, type=wtype.code, impact=impact, urgency=urgency, priority=p
+            )
+            for (impact, urgency), p in DEFAULT_MATRIX.items()
+        ]
+    )
+    for order, (code, children) in enumerate(DEFAULT_CATEGORIES.items()):
+        parent = WorkItemCategory(
+            id=new_id(),
+            tenant_id=tenant,
+            type=wtype.code,
+            level=1,
+            code=code,
+            sort_order=order,
+        )
+        session.add(parent)
+        for child_order, (child, items) in enumerate(children.items()):
+            node = WorkItemCategory(
+                id=new_id(),
+                tenant_id=tenant,
+                type=wtype.code,
+                parent_id=parent.id,
+                level=2,
+                code=child,
+                sort_order=child_order,
+            )
+            session.add(node)
+            for item_order, item in enumerate(items):
+                session.add(
+                    WorkItemCategory(
+                        tenant_id=tenant,
+                        type=wtype.code,
+                        parent_id=node.id,
+                        level=3,
+                        code=item,
+                        sort_order=item_order,
+                    )
+                )
+        await session.flush()
+    await session.flush()
+
+
+async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
+    """The tenant's configuration of `wtype` (seeding it first if needed)."""
+    await ensure_seeded(session, wtype)
+    settings = await session.scalar(
+        select(WorkItemTypeSettings).where(WorkItemTypeSettings.type == wtype.code)
+    )
+    if settings is None:  # pragma: no cover - ensure_seeded just made it
+        msg = "type settings missing after seeding"
+        raise RuntimeError(msg)
+    status_rows = list(
+        await session.scalars(
+            select(WorkItemStatus)
+            .where(WorkItemStatus.type == wtype.code)
+            .order_by(WorkItemStatus.sort_order, WorkItemStatus.code)
+        )
+    )
+    transition_rows = list(
+        await session.scalars(
+            select(WorkItemTransition).where(WorkItemTransition.type == wtype.code)
+        )
+    )
+    lifecycle = Lifecycle.build(
+        [StatusDef(s.code, StatusCategory(s.category), s.colour, s.system) for s in status_rows],
+        [
+            TransitionDef(
+                t.from_status,
+                WorkItemAction(t.action),
+                t.to_status,
+                ReasonMode(t.reason_mode),
+                ReasonList(t.reason_list) if t.reason_list else None,
+            )
+            for t in transition_rows
+        ],
+    )
+    cells = await session.scalars(
+        select(WorkItemPriorityCell).where(WorkItemPriorityCell.type == wtype.code)
+    )
+    scales = await session.scalars(
+        select(WorkItemScaleValue)
+        .where(WorkItemScaleValue.type == wtype.code)
+        .order_by(WorkItemScaleValue.scale, WorkItemScaleValue.rank)
+    )
+    reasons = await session.scalars(
+        select(WorkItemReason)
+        .where(WorkItemReason.type == wtype.code, WorkItemReason.disabled_at.is_(None))
+        .order_by(WorkItemReason.list, WorkItemReason.sort_order)
+    )
+    return Catalogue(
+        prefix=settings.prefix,
+        default_priority=settings.default_priority,
+        auto_status_on_assign=settings.auto_status_on_assign,
+        settings_version=settings.version,
+        lifecycle=lifecycle,
+        statuses=[
+            StatusInfo(s.code, s.category, s.colour, s.labels, s.system, s.disabled_at is not None)
+            for s in status_rows
+        ],
+        matrix={(c.impact, c.urgency): c.priority for c in cells},
+        scales=[ScaleValue(v.scale, v.code, v.rank, v.colour, v.labels) for v in scales],
+        reasons=[ReasonInfo(r.list, r.code, r.labels) for r in reasons],
+    )

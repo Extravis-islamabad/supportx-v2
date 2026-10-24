@@ -96,8 +96,9 @@ def validate_registry(registry: ModuleRegistry) -> dict[LimitKey, UsageCounter]:
     """Check every module's feature and counters against the catalogue; collect the counters."""
     counters: dict[LimitKey, UsageCounter] = {}
     for spec in registry.modules:
-        if spec.feature is not None and unknown_features({spec.feature}):
-            msg = f"module {spec.name!r} declares unknown feature {spec.feature!r}"
+        declared = {f for f in (spec.feature, *spec.router_features) if f is not None}
+        if declared and unknown_features(declared):
+            msg = f"module {spec.name!r} declares unknown features {sorted(declared)!r}"
             raise ModuleFeatureError(msg)
         for key, counter in spec.usage_counters.items():
             if key not in {limit.value for limit in LimitKey}:

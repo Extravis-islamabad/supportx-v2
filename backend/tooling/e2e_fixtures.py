@@ -5,11 +5,11 @@ more than one page to scroll through; `delete` removes exactly those rows again.
 tool creates are ever touched (CLAUDE.md rule h): they are matched by their reserved e-mail
 pattern. They are requesters, so they never take a technician seat. Refuses production.
 
-`delete` also removes what the suite itself created through the UI and API (WP-012), matched
-by the reserved "E2E " name prefix: announcements (with their field history and audience rows)
-and sites, in the two dev tenants; plus the field history of the suite's own users
-(`e2e.*@demo.test`, profile and layout saves). The API only soft-deletes, and history is
-append-only for the application; the suite must leave nothing.
+`delete` also removes what the suite itself created through the UI and API (WP-012, WP-020),
+matched by the reserved "E2E " name prefix: announcements (with their field history and audience
+rows), incidents (with their history), support groups and sites, in the two dev tenants; plus
+the field history of the suite's own users (`e2e.*@demo.test`, profile and layout saves). The API
+only soft-deletes, and history is append-only for the application; the suite must leave nothing.
 
 Custom roles named "E2E …" are hard-deleted only once the suite has soft-deleted them (WP-012b):
 a live role, a system role or any other name is never touched. Their permission rows cascade.
@@ -48,6 +48,25 @@ SUITE_RECORDS = (
         SUITE_USERS,
     ),
     ("announcements", "DELETE FROM announcements WHERE title LIKE $1", SUITE_PREFIX),
+    (
+        # Incidents the suite logged (WP-020), with their history.
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'work_item' AND record_id IN"
+            " (SELECT id FROM work_items WHERE subject LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
+    ("work_items", "DELETE FROM work_items WHERE subject LIKE $1", SUITE_PREFIX),
+    (
+        "group_members",
+        (
+            "DELETE FROM group_members WHERE group_id IN"
+            " (SELECT id FROM support_groups WHERE name LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
+    ("support_groups", "DELETE FROM support_groups WHERE name LIKE $1", SUITE_PREFIX),
     (
         "site_members",
         "DELETE FROM site_members WHERE site_id IN (SELECT id FROM sites WHERE name LIKE $1)",

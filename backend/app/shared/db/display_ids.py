@@ -15,6 +15,10 @@ Behaviour (documented contract):
   number. Gaps are still possible (e.g. a record created and later hard-deleted) and are allowed.
 - The lock is held until the caller commits, so keep record-creating transactions short.
 - The tenant always comes from the session context; RLS rejects any other tenant.
+
+Work items (ADR-026) key their counter by *type* (`WI_INCIDENT`), not by the prefix an admin may
+rename: `next_display_number` returns the bare number and the caller adds the current prefix, so
+a renamed prefix continues the numbering and old IDs keep their old prefix.
 """
 
 import re
@@ -32,6 +36,9 @@ from app.shared.db.models import Base
 
 PREFIX_PATTERN = r"^[A-Z]{2,6}$"
 _PREFIX = re.compile(PREFIX_PATTERN)
+# Counter keys: a display prefix (ANN) or an internal key such as WI_INCIDENT.
+KEY_PATTERN = r"^[A-Z][A-Z_]{1,39}$"
+_KEY = re.compile(KEY_PATTERN)
 
 
 class DisplayIdSequence(Base):
@@ -39,7 +46,7 @@ class DisplayIdSequence(Base):
 
     __tablename__ = "display_id_sequences"
     __table_args__ = (
-        CheckConstraint(f"prefix ~ '{PREFIX_PATTERN}'", name="prefix_format"),
+        CheckConstraint(f"prefix ~ '{KEY_PATTERN}'", name="prefix_format"),
         CheckConstraint("last_value > 0", name="last_value_positive"),
     )
 
@@ -62,6 +69,18 @@ async def next_display_id(session: AsyncSession, prefix: str) -> str:
     if not _PREFIX.fullmatch(prefix):
         msg = f"display ID prefix must be 2-6 capital letters, got {prefix!r}"
         raise ValueError(msg)
+    return format_display_id(prefix, await _next_value(session, prefix))
+
+
+async def next_display_number(session: AsyncSession, counter_key: str) -> int:
+    """Reserve the next number of a named counter (e.g. `WI_INCIDENT`) for the session's tenant."""
+    if not _KEY.fullmatch(counter_key):
+        msg = f"counter key must match {KEY_PATTERN}, got {counter_key!r}"
+        raise ValueError(msg)
+    return await _next_value(session, counter_key)
+
+
+async def _next_value(session: AsyncSession, key: str) -> int:
     context = session.info.get(SESSION_TENANT_KEY)
     if not isinstance(context, TenantContext):
         msg = "next_display_id needs a tenant session"
@@ -69,7 +88,7 @@ async def next_display_id(session: AsyncSession, prefix: str) -> str:
     sequence = DisplayIdSequence
     statement = (
         insert(sequence)
-        .values(tenant_id=context.tenant_id, prefix=prefix, last_value=1)
+        .values(tenant_id=context.tenant_id, prefix=key, last_value=1)
         .on_conflict_do_update(
             index_elements=[sequence.tenant_id, sequence.prefix],
             set_={"last_value": sequence.last_value + 1, "updated_at": func.now()},
@@ -80,4 +99,4 @@ async def next_display_id(session: AsyncSession, prefix: str) -> str:
     if value is None:  # pragma: no cover - RETURNING always yields a row for an upsert
         msg = "display ID upsert returned no row"
         raise RuntimeError(msg)
-    return format_display_id(prefix, int(value))
+    return int(value)

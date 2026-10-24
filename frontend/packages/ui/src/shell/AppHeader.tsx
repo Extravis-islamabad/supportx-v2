@@ -1,6 +1,6 @@
 import { DownOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Flex, Layout, Popover, Select, Typography, theme } from 'antd';
-import type { ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 
 import type { MeResponse, NavLayout } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
@@ -23,6 +23,34 @@ export interface AppHeaderProps {
   start?: ReactNode;
   /** Offer the navigation layout choice (console). */
   onNavLayoutChange?: (layout: NavLayout) => void;
+}
+
+/**
+ * Whether the Appearance popover is open, kept outside the header component. A layout change
+ * renders a different shell tree (the header remounts) and a language change re-renders the
+ * whole app; with the popover's own state, the panel and its trigger then disagreed and the
+ * first click after the change was lost (WP-014 follow-up). One store, so the popover keeps its
+ * state across those re-renders and a single click always toggles it.
+ */
+let appearanceOpen = false;
+const appearanceListeners = new Set<() => void>();
+
+function setAppearanceOpen(open: boolean): void {
+  if (open === appearanceOpen) return;
+  appearanceOpen = open;
+  appearanceListeners.forEach((listener) => {
+    listener();
+  });
+}
+
+function useAppearanceOpen(): boolean {
+  return useSyncExternalStore(
+    (listener) => {
+      appearanceListeners.add(listener);
+      return () => appearanceListeners.delete(listener);
+    },
+    () => appearanceOpen,
+  );
 }
 
 function initials(name: string): string {
@@ -50,6 +78,7 @@ export function AppHeader({
   const t = useLabel();
   const { token } = theme.useToken();
   const canSwitch = onSwitchTenant !== undefined && session.tenants.length > 1;
+  const appearanceIsOpen = useAppearanceOpen();
 
   return (
     <Layout.Header
@@ -84,8 +113,18 @@ export function AppHeader({
         }
         trigger="click"
         placement="bottomRight"
+        open={appearanceIsOpen}
+        onOpenChange={setAppearanceOpen}
       >
-        <Button data-testid="appearance-menu">{t('appearance.title')}</Button>
+        <Button
+          data-testid="appearance-menu"
+          aria-expanded={appearanceIsOpen}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setAppearanceOpen(false);
+          }}
+        >
+          {t('appearance.title')}
+        </Button>
       </Popover>
       {canSwitch ? (
         <Select

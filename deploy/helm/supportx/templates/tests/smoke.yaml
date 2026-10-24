@@ -1,5 +1,11 @@
 {{- $c := dict "root" . "component" "smoke-test" -}}
-# `helm test <release>`: the installed release answers on every internal route (WP-014).
+# `helm test <release>`: the installed release answers on every internal route (WP-014), and
+# Valkey enforces authentication (WP-020). Run it with
+#   helm test <release> --filter '!name=<release>-valkey-test-auth-existing'
+# The upstream Valkey chart's own test pod pings without a password from a pod our
+# NetworkPolicy does not admit: the refused connection then counts as "auth enforced", so it
+# would pass even with auth off. This pod carries our labels, so it reaches Valkey and tells a
+# NOAUTH answer apart from a connection that never happened.
 apiVersion: v1
 kind: Pod
 metadata:
@@ -18,10 +24,14 @@ spec:
     - name: smoke
       image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
       imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+      env:
+        - name: VALKEY_PASSWORD
+          valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: valkey-password}}
       command: ["python", "-c"]
       args:
         - |
-          import sys, httpx
+          import os, sys, httpx, valkey
+          from valkey.exceptions import AuthenticationError, ConnectionError, ResponseError
           rel = {{ .Release.Name | quote }}
           checks = [
               ("API ready", f"http://{rel}-api:8000/api/v1/ready", 200),
@@ -40,6 +50,31 @@ spec:
               ok = got == want
               failed += not ok
               print(f"{'ok  ' if ok else 'FAIL'} {name}: {got}")
+          {{- if .Values.valkey.enabled }}
+          host = f"{rel}-valkey"
+          # Without a password: Valkey must answer, and answer NOAUTH (an unreachable server fails).
+          try:
+              valkey.Valkey(host=host, port=6379, socket_timeout=5).ping()
+              got = "PONG without a password"
+          except (AuthenticationError, ResponseError) as exc:
+              got = "NOAUTH" if "auth" in str(exc).lower() else f"error {exc}"
+          except ConnectionError as exc:
+              got = f"unreachable ({exc})"
+          ok = got == "NOAUTH"
+          failed += not ok
+          print(f"{'ok  ' if ok else 'FAIL'} valkey auth without password: {got}")
+          # With the password: PONG.
+          try:
+              pong = valkey.Valkey(
+                  host=host, port=6379, password=os.environ["VALKEY_PASSWORD"], socket_timeout=5
+              ).ping()
+              got = "PONG" if pong else "no PONG"
+          except Exception as exc:  # noqa: BLE001 - every failure is a test failure here
+              got = f"{type(exc).__name__}"
+          ok = got == "PONG"
+          failed += not ok
+          print(f"{'ok  ' if ok else 'FAIL'} valkey auth with password: {got}")
+          {{- end }}
           sys.exit(1 if failed else 0)
       {{- include "supportx.containerSecurityContext" . | nindent 6 }}
       resources:

@@ -219,7 +219,7 @@ describe('menus follow permissions', () => {
         within(nav)
           .getAllByRole('menuitem')
           .map((item) => item.textContent),
-      ).toEqual(['Home', 'Requests', 'Knowledge']);
+      ).toEqual(['Home', 'Service requests', 'Knowledge']);
     });
   });
 
@@ -238,7 +238,7 @@ describe('menus follow permissions', () => {
         within(nav)
           .getAllByRole('menuitem')
           .map((item) => item.textContent),
-      ).toEqual(['Home', 'Requests', 'Knowledge', 'Reports']);
+      ).toEqual(['Home', 'Service requests', 'Knowledge', 'Reports']);
     });
   });
 });

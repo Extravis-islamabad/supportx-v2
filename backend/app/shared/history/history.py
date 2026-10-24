@@ -22,8 +22,33 @@ from app.shared.ids import new_id
 
 # Who made the change, as far as the server can tell. Informational, never a security control:
 # `ui` means the request came from our console/portal (they send CLIENT_HEADER).
-Source = Literal["ui", "api", "rule", "workflow", "ai_agent", "system", "import"]
-ChangeKind = Literal["created", "updated", "status", "deleted", "restored"]
+Source = Literal[
+    "ui",
+    "api",
+    "portal",
+    "email",
+    "rule",
+    "workflow",
+    "sla",
+    "ai_agent",
+    "integration",
+    "system",
+    "import",
+]
+# `child_*`: a part of the record (a note, a task, a link) was added, changed or removed; `field`
+# names the kind of part. Those saves do not bump the record's version (ADR-026).
+ChangeKind = Literal[
+    "created",
+    "updated",
+    "status",
+    "deleted",
+    "restored",
+    "child_added",
+    "child_changed",
+    "child_removed",
+]
+SOURCES: tuple[str, ...] = Source.__args__  # type: ignore[attr-defined]  # Literal members
+KINDS: tuple[str, ...] = ChangeKind.__args__  # type: ignore[attr-defined]  # Literal members
 CLIENT_HEADER = "X-SupportX-Client"
 _UI_CLIENTS = frozenset({"console", "portal", "mobile"})
 MAX_PAGE = 100
@@ -37,12 +62,17 @@ class FieldChange(UuidPrimaryKey, TenantScoped, Base):
     __tablename__ = "field_changes"
     __table_args__ = (
         Index(None, "tenant_id", "record_type", "record_id", "record_version"),
-        CheckConstraint(
-            "kind IN ('created', 'updated', 'status', 'deleted', 'restored')", name="kind_code"
+        Index(
+            "ix_field_changes_tenant_record_time",
+            "tenant_id",
+            "record_type",
+            "record_id",
+            "occurred_at",
+            "change_id",
         ),
+        CheckConstraint("kind IN (" + ", ".join(f"'{k}'" for k in KINDS) + ")", name="kind_code"),
         CheckConstraint(
-            "source IN ('ui', 'api', 'rule', 'workflow', 'ai_agent', 'system', 'import')",
-            name="source_code",
+            "source IN (" + ", ".join(f"'{s}'" for s in SOURCES) + ")", name="source_code"
         ),
         CheckConstraint("reason IS NULL OR char_length(reason) <= 500", name="reason_length"),
     )
@@ -61,6 +91,9 @@ class FieldChange(UuidPrimaryKey, TenantScoped, Base):
     reason: Mapped[str | None] = mapped_column(Text)
     request_id: Mapped[str | None] = mapped_column(String(64))
     occurred_at: Mapped[datetime]
+    # What automation made the change, when one did (ADR-026): {"kind": "matrix"} or
+    # {"kind": "rule", "id": ..., "name": ...}. NULL for people's own changes.
+    automation_ref: Mapped[JsonValue | None] = mapped_column(JSONB(none_as_null=True))
 
 
 @dataclass(frozen=True)
@@ -85,6 +118,7 @@ class HistoryEntry:
     source: Source
     reason: str | None
     changes: list[Change] = field(default_factory=list)
+    automation_ref: JsonValue | None = None
 
 
 @dataclass(frozen=True)
@@ -119,8 +153,12 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     changes: Iterable[Change],
     source: Source,
     reason: str | None = None,
+    automation_ref: JsonValue | None = None,
 ) -> uuid.UUID:
-    """Write one save's field changes (same transaction as the record). Returns the change ID."""
+    """Write one save's field changes (same transaction as the record). Returns the change ID.
+
+    `automation_ref` names the automation that made the change, if any (ADR-026).
+    """
     change_id = new_id()
     actor_type, actor_id = _actor(session)
     now = system_clock.now()
@@ -141,6 +179,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
             reason=reason,
             request_id=request_id,
             occurred_at=now,
+            automation_ref=automation_ref,
         )
         for change in changes
     ]
@@ -161,6 +200,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
                 reason=reason,
                 request_id=request_id,
                 occurred_at=now,
+                automation_ref=automation_ref,
             )
         ]
     context = session.info.get(SESSION_TENANT_KEY)
@@ -292,3 +332,82 @@ async def count_saves(session: AsyncSession, record_type: str, record_id: uuid.U
         )
     )
     return int(total or 0)
+
+
+HistoryCursor = tuple[datetime, uuid.UUID]
+Actors = Literal["all", "people", "automation"]
+
+
+async def history_entries(  # noqa: PLR0913 - keyword-only paging and filter options
+    session: AsyncSession,
+    record_type: str,
+    record_id: uuid.UUID,
+    *,
+    before: HistoryCursor | None = None,
+    limit: int = 25,
+    actors: Actors = "all",
+) -> tuple[list[HistoryEntry], HistoryCursor | None]:
+    """Saves of one record, newest first, in true order (ADR-026); plus the next cursor.
+
+    Ordered by the time each save was written (microseconds) and then its change ID, not by the
+    record version: parts of a record (notes, tasks, links) are saved without bumping the version,
+    and they still appear exactly where they happened. `actors`: people only (`actor_type`
+    user without automation), automation only, or both.
+    """
+    limit = max(1, min(limit, MAX_PAGE))
+    saves = (
+        select(FieldChange.occurred_at, FieldChange.change_id)
+        .where(FieldChange.record_type == record_type, FieldChange.record_id == record_id)
+        .group_by(FieldChange.occurred_at, FieldChange.change_id)
+        .order_by(FieldChange.occurred_at.desc(), FieldChange.change_id.desc())
+        .limit(limit + 1)
+    )
+    if actors == "people":
+        saves = saves.where(FieldChange.actor_type == "user", FieldChange.automation_ref.is_(None))
+    elif actors == "automation":
+        saves = saves.where(
+            (FieldChange.actor_type != "user") | FieldChange.automation_ref.is_not(None)
+        )
+    if before is not None:
+        at, change_id = before
+        saves = saves.where(
+            (FieldChange.occurred_at < at)
+            | ((FieldChange.occurred_at == at) & (FieldChange.change_id < change_id))
+        )
+    found = (await session.execute(saves)).all()
+    more = len(found) > limit
+    found = found[:limit]
+    if not found:
+        return [], None
+    change_ids = [row.change_id for row in found]
+    rows = (
+        await session.scalars(
+            select(FieldChange)
+            .where(
+                FieldChange.record_type == record_type,
+                FieldChange.record_id == record_id,
+                FieldChange.change_id.in_(change_ids),
+            )
+            .order_by(FieldChange.id)
+        )
+    ).all()
+    entries: dict[uuid.UUID, HistoryEntry] = {}
+    for row in rows:
+        entry = entries.get(row.change_id)
+        if entry is None:
+            entry = entries[row.change_id] = HistoryEntry(
+                change_id=row.change_id,
+                version=row.record_version,
+                kind=row.kind,  # type: ignore[arg-type]  # stored from ChangeKind
+                occurred_at=row.occurred_at,
+                actor_type=row.actor_type,
+                actor_id=row.actor_id,
+                source=row.source,  # type: ignore[arg-type]  # stored from Source
+                reason=row.reason,
+                automation_ref=row.automation_ref,
+            )
+        if row.field:
+            entry.changes.append(Change(row.field, row.old_value, row.new_value))
+    last = found[-1]
+    ordered = [entries[cid] for cid in change_ids if cid in entries]
+    return ordered, (last.occurred_at, last.change_id) if more else None

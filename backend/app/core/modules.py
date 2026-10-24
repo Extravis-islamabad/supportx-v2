@@ -48,6 +48,9 @@ class ModuleSpec:
     # then refused with 403 `entitlement_required` for tenants whose plan lacks it. None = core
     # platform module, available in every edition. Checked against the feature catalogue at startup.
     feature: str | None = None
+    # Instead of one feature for the module: one per router, in the order of `routers` (a module
+    # serving several licensed things, e.g. work_items: incidents, problems, changes ...).
+    router_features: Sequence[str | None] = ()
     # Permissions this module offers (WP-016): `users.view`, `changes.approve` ... Collected into
     # the permission catalogue; routes then use require_permission("<key>").
     permissions: Sequence[PermissionSpec] = ()
@@ -94,9 +97,12 @@ class ModuleRegistry:
         so a module is gated by declaring `feature=` and its routes need no code for it.
         """
         for spec in self.modules:
-            guard = Depends(route_guard(spec.feature))
-            for module_router in spec.routers:
-                router.include_router(module_router, dependencies=[guard])
+            features = list(spec.router_features) or [spec.feature] * len(spec.routers)
+            if len(features) != len(spec.routers):
+                msg = f"module {spec.name!r}: router_features must name one feature per router"
+                raise ModuleRegistrationError(msg)
+            for module_router, feature in zip(spec.routers, features, strict=True):
+                router.include_router(module_router, dependencies=[Depends(route_guard(feature))])
 
     async def start(self, app: FastAPI) -> None:
         """Run startup hooks in module order."""

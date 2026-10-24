@@ -4,7 +4,7 @@ import { SEEDED } from '../stack';
 import { expectAccessible, goToSection, navItems, signIn, signInAs } from './helpers';
 
 const SECTIONS = [
-  'Requests',
+  'Service requests',
   'Problems',
   'Changes',
   'Releases',

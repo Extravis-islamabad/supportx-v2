@@ -4,10 +4,11 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-014 (deployment part 1: images, Helm chart for dev and single-node, k3d,
-  CI), 2026-10-24. Before it: WP-012b.
-- **Next work package:** WP-015 (clickable prototype) or WP-013 (licence core; Rust 1.99.1 is now
-  installed). WP-014b (HA + backups) is unblocked as well.
+- **Last completed:** WP-020 (work item engine and incidents: API, screens, Tiptap editor),
+  2026-10-24. Before it: WP-014 (deployment part 1).
+- **Next work package:** WP-020b (conversation, notes and followers), then the sequence below
+  (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
+- **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
   branch, if any, is left for the product owner).
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
@@ -271,6 +272,32 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
+### [x] WP-020 — Work item engine and incident record (ADR-026; D-051..D-056, D-069; done 2026-10-24)
+Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
+- [x] Session 1 (backend): module `work_items` (shared `work_items` table, type registry,
+  per-tenant life cycle / scales / matrix / reasons / categories seeded on first use), incidents API
+  `/api/v1/incidents` (list + views + counts, create, get, lookup, edit, actions, assign, take,
+  trash/restore, history, assignees, settings, categories), D-052 visibility, D-053 hand-over,
+  events, realtime routes, permissions `incidents.*`, labels en/ar/ur, nh3 sanitiser, migrations
+  0011–0012, ADR-026; 876 backend tests green (94.8 %), 100k-row list p95 9–66 ms.
+- [x] Session 2: console screens (list with views and a notice of what the view leaves out,
+  record with fixed actions and tabs, inline edit, create form, assign/take dialogs, reasons,
+  hand-over warning, history, trash), Tiptap `RichTextField` (lazy) and `RichTextView`,
+  `useDateTime`, `nav.incidents`, pickers with email as the second line, Vitest (13 new) and
+  Playwright (3 new; 27/27), reserved `requests.*` relabelled as service requests, Appearance
+  popover fix (e2e retry removed), Valkey chart test fix (our smoke pod checks auth; upstream pod
+  excluded from `helm test`).
+- Open (D-068, REQ-INC-151, MVP): keep following an incident after handing it over; needs the
+  follower model, so it lands with WP-020b. The D-053 warning ships now.
+
+### Planned after WP-020 (sequence from the WP-020 plan)
+WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
+and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
+and departments · WP-022 files (aioboto3, D-054) · WP-023 notifications · WP-024 email channel ·
+WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom fields · WP-027 search ·
+WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-run setup must offer
+"technicians see all incidents" vs the group default.
+
 ### [ ] WP-017 — Tenant branding and domains (D-027; planning only)
 - **Goal:** Each tenant gets its own address and look without a redesign: the WP-010 theme
   already takes per-tenant seeds (`Branding` in `packages/ui/src/theme.ts`).
@@ -332,6 +359,57 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
   depend on email (REQ-SR-025); the change manager role can run a change end to end and every
   role is viewable (REQ-CHG-038, REQ-ADM-017); site admins create requesters (REQ-ADM-020).
 - No code changed.
+### 2026-10-24 — WP-020 session 2: incident screens, editor, two fixes
+
+- **Screens:** `apps/console/src/pages/incidents` (IncidentsPage, IncidentPage, NewIncidentPage,
+  StatusActions, assign/take/hand-over dialogs, IncidentHistory, pickers, tags, labels helpers);
+  routes `/incidents`, `/incidents/new`, `/incidents/:id`; nav item Incidents.
+- **Shared UI:** `packages/ui` RichTextField (Tiptap 3.31.4, lazy chunk), RichTextView,
+  `useDateTime`; high-contrast `colorError` darkened for danger buttons (axe). Tags use a coloured
+  dot plus normal text (coloured fills failed contrast).
+- **Backend:** people and assignees carry the email (`user_contacts`, Area 15 lesson);
+  e2e fixtures also remove the suite's incidents and groups.
+- **Fixes:** Appearance popover keeps its state across layout/language re-renders (store in
+  AppHeader; Vitest + e2e without retry). `helm test` excludes the upstream Valkey auth pod; our
+  smoke pod asserts NOAUTH without a password and PONG with it (verified on k3d, revision 7).
+- **Labels:** about 105 new keys in en/ar/ur; `requests.*` and `nav.requests` now say "service
+  requests".
+- **Tests:** backend 876 passed (94.8 %); frontend unit tests all green (incl. 10 incident tests,
+  3 popover tests); Playwright 27/27 on the Compose stack; chart lint OK; `make check` green.
+- **Dev data:** dev database migrated 0010 → 0012 (expand-only; no existing row changed). The demo
+  tenant's incident configuration was seeded on first use (Appendix A defaults). The e2e suite's
+  incidents and groups were removed by its teardown (0 left). Dev workers `worker-fanout` and
+  `worker-consumers` were restarted so they load the new module. k3d release upgraded to revision
+  7 (test template only, same images).
+- **Deviations:** following a handed-over incident (D-068) moves to WP-020b with followers
+  (D-069); the language choice is a per-browser setting, so the Arabic e2e checks navigate inside
+  the app.
+
+### 2026-10-24 — WP-020 session 1 (backend): work item engine + incidents API
+
+- **Stopped at:** backend complete and committed on `feat/wp-020-work-items-incidents` (pushed, no
+  PR yet). Next: session 2 (frontend + the two fixes), then the PR. Nothing in the frontend uses the
+  new API yet; no screen changed.
+- **Built:** `backend/app/modules/work_items` (domain: lifecycle, classification, types; infra:
+  tables; service: catalogue seeding, access/D-052, work items, settings, realtime; api: router
+  factory), `app/shared/richtext.py` (nh3), shared changes (history sources/kinds/automation_ref and
+  time-ordered paging; type-keyed display counters; `ResourceType.group_scope_extra`;
+  `LiveList(unassigned_by_site=…)`; `list_query(extra_parameters=…)`; `ModuleSpec.router_features`),
+  migrations 0011 (history, counters) and 0012 (work items), import-linter layers contract.
+- **Tests:** 876 passed, coverage 94.8 %; `tests/db/test_incidents_api.py` (30 tests incl. D-052
+  three rules + 404, D-053, realtime audiences, 100k-row perf), `work_items/tests/test_domain.py`
+  (24), `tests/test_richtext.py` (4). ruff, mypy strict, import-linter, OpenAPI diff (no breaking
+  change), event schema check green. Frontend lint/typecheck/unit tests green (no UI changes).
+- **Decisions:** D-051..D-056 recorded; ADR-026; CLAUDE.md §3 (nh3, Tiptap, aioboto3 later).
+- **Deviations from the plan:** no separate `work_item_lifecycles` table (one life cycle per type
+  until the designer); the record channel is `t:{tenant}:wi:{id}` as planned; the reserved
+  `requests.*` permissions stay (relabelled in session 2) because many policy tests use them;
+  WI-020 AC3 (purge after retention) deferred until the audit log (WP-018).
+- **Decision IDs:** main already held D-039..D-050 (parity answers, PR #34), so this session's
+  rows were renumbered D-051..D-056 and main was merged in; overlapping points cite main's D-040
+  (Tiptap timing), D-041 (editable defaults) and D-045 (per-type counters).
+- **Dev data:** none touched. Migrations ran only on throwaway `supportx_test_*` databases; the dev
+  database is still at 0010 (run `make db-migrate` to apply 0011–0012; expand-only).
 
 ### 2026-10-24 — Parity spec phase 2, batch 4 (docs only)
 
@@ -622,7 +700,7 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
 
 ### 2026-10-23 — WP-009 entitlement interface (+ planning: WP-016, D-025)
 - Part A: WP-016 "Authorization policy layer" (§11.2) added before WP-012 (WP-012 now depends on
-  it); D-025 records it and that D-030..D-039 are released. WP-008 session-log entry moved to its
+  it); D-025 records it and that D-030..D-051 are released. WP-008 session-log entry moved to its
   newest-first place.
 - `licensing` module (ADR-021, `docs/architecture/entitlements.md`): catalogue as code (3
   editions, 25 features, 5 counted limits, rate multipliers; en/ar labels CI-checked);

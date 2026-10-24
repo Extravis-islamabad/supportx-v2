@@ -86,6 +86,11 @@ class ResourceType:
     `owner_columns` define `own` (requester, assignee, the user themselves); `site_scope` and
     `group_scope` build the `site`/`group` predicates from the subject's memberships; `fields`
     is the filter-DSL allowlist that attribute conditions are compiled against.
+
+    `group_scope_extra` widens the `group` scope with records a group member must also reach,
+    built from the whole subject. Work items use it for the unassigned queue of the member's
+    sites (D-052): a technician at group scope sees their groups' records and the new,
+    unassigned records of their sites, so nobody's new ticket is invisible to everyone.
     """
 
     name: str
@@ -93,6 +98,7 @@ class ResourceType:
     owner_columns: Sequence[Any] = ()
     site_scope: ScopePredicate | None = None
     group_scope: ScopePredicate | None = None
+    group_scope_extra: Callable[[Subject], ColumnElement[bool] | None] | None = None
     field_rules: Mapping[str, FieldRule] = field(default_factory=lambda: MappingProxyType({}))
     sod_rules: Mapping[str, Sequence[SodRule]] = field(default_factory=lambda: MappingProxyType({}))
 
@@ -173,9 +179,14 @@ def _scope_predicate(
         return or_(*(column == subject.user_id for column in resource_type.owner_columns))
     builder = resource_type.site_scope if grant.scope == "site" else resource_type.group_scope
     ids = subject.site_ids if grant.scope == "site" else subject.group_ids
-    if builder is None or not ids:
+    parts = [builder(ids)] if builder is not None and ids else []
+    if grant.scope == "group" and resource_type.group_scope_extra is not None:
+        extra = resource_type.group_scope_extra(subject)
+        if extra is not None:
+            parts.append(extra)
+    if not parts:
         return None
-    return builder(ids)
+    return parts[0] if len(parts) == 1 else or_(*parts)
 
 
 async def authorize_stored(  # noqa: PLR0913, PLR0917 - the record is identified by model and id

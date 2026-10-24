@@ -91,6 +91,23 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
                     tenant,
                     name,
                 )
+        # Support groups (WP-020): "E2E …" groups and their members go; others stay.
+        for tenant in (seed_dev.DEMO_TENANT_ID, seed_dev.OTHER_TENANT_ID):
+            for name in ("E2E Desk", "Help desk"):
+                group = await conn.fetchval(
+                    "INSERT INTO support_groups (id, tenant_id, name)"
+                    " VALUES (gen_random_uuid(), $1, $2) RETURNING id",
+                    tenant,
+                    name,
+                )
+                if tenant == seed_dev.DEMO_TENANT_ID and name == "E2E Desk":
+                    await conn.execute(
+                        "INSERT INTO group_members (tenant_id, group_id, user_id)"
+                        " VALUES ($1, $2, $3)",
+                        tenant,
+                        group,
+                        owner,
+                    )
         # Roles: only a soft-deleted custom "E2E …" role goes (with its permissions).
         for key, name, deleted, system in (
             ("e2e_old", "E2E reports 1", True, False),
@@ -121,6 +138,9 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
     assert removed == {
         "field_changes": 2,
         "announcements": 1,
+        "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
+        "group_members": 1,
+        "support_groups": 2,
         "site_members": 0,
         "sites": 2,
         "user_roles": 0,
@@ -132,6 +152,7 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         titles = await conn.fetch("SELECT title FROM announcements")
         history = await conn.fetch("SELECT record_type, field FROM field_changes ORDER BY 1")
         sites = await conn.fetch("SELECT name FROM sites ORDER BY tenant_id")
+        groups = await conn.fetch("SELECT name FROM support_groups ORDER BY tenant_id")
         roles = await conn.fetch("SELECT name FROM roles ORDER BY name")
         grants = await conn.fetchval("SELECT count(*) FROM role_permissions")
     finally:
@@ -143,5 +164,6 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         ("user", "signature"),
     ]
     assert [r["name"] for r in sites] == ["Head office", "Head office"]
+    assert [r["name"] for r in groups] == ["Help desk", "Help desk"]
     assert [r["name"] for r in roles] == ["E2E reports 2", "E2E system", "Helpdesk"]
     assert grants == 3

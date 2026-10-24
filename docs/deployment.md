@@ -20,7 +20,7 @@ make cluster-up      # k3d cluster "supportx" (k3s v1.36.5) + CloudNativePG oper
 make deploy-dev      # build both images, import them, create secrets, install, helm test (~6 min first time)
 open http://supportx.localhost:8080            # console (sign in: admin@demo.test / Admin-Demo-2026!)
 open http://supportx.localhost:8080/portal/    # portal  (user@demo.test / User-Demo-2026!)
-make cluster-test    # helm test again: every internal route answers
+make cluster-test    # helm test again: every internal route answers, Valkey enforces auth
 make cluster-e2e     # all Playwright journeys against the cluster (ARGS="tests/login.spec.ts" for one)
 make chart-lint      # lint + render + kubeconform for every profile, golden-file check
 make cluster-down    # deletes the cluster and its data (asks for "yes")

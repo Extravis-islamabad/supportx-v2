@@ -35,7 +35,8 @@ describe('console shell', () => {
     const nav = await screen.findByRole('navigation', { name: 'Main navigation' });
     for (const name of [
       'Home',
-      'Requests',
+      'Incidents',
+      'Service requests',
       'Problems',
       'Changes',
       'Releases',
@@ -61,7 +62,8 @@ describe('console shell', () => {
     await waitFor(() => {
       expect(within(nav).queryByText('Problems')).toBeNull();
     });
-    expect(within(nav).getByText('Requests')).toBeDefined();
+    expect(within(nav).getByText('Incidents')).toBeDefined();
+    expect(within(nav).getByText('Service requests')).toBeDefined();
     unmount();
     restore();
 

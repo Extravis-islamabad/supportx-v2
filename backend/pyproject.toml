@@ -11,6 +11,7 @@ dependencies = [
     "fastapi>=0.160.0",
     "httpx>=0.28.1",
     "nats-py>=2.16.0",
+    "nh3>=0.3.7",
     "opentelemetry-api>=1.45.1",
     "opentelemetry-exporter-prometheus>=0.66b1",
     "opentelemetry-instrumentation-fastapi>=0.66b1",
@@ -137,6 +138,12 @@ layers = ["app.main", "app.modules", "app.shared", "app.core"]
 name = "announcements layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.announcements"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "work_items layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.work_items"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]

@@ -48,6 +48,17 @@ the same keys.
   the OpenAPI contract** has no English or Arabic label (`tests/test_enum_labels.py` maps each
   contract enum to its label prefix; a new enum must be added there).
 
+## Dates and rich text
+
+- Show instants only through `useDateTime()` (`format`, `relative`): profile time zone, UI
+  language, one source for absolute and relative times (REQ-WI-014). Enter them with
+  `DateTimeField` (D-035).
+- Rich text: `RichTextField` (Tiptap, lazy-loaded chunk) to edit, `RichTextView` to show. The
+  value is HTML; the server sanitises every stored value (`app/shared/richtext.py`, nh3) against
+  the same allow-list the editor produces, and is the security boundary (D-036, D-051).
+- People in pickers always show their email as a second line, so equal names stay
+  distinguishable (Area 15 lesson).
+
 ## Theme and branding
 
 `buildTheme(mode, branding)` in `packages/ui/src/theme.ts`. Modes: light, dark, high contrast

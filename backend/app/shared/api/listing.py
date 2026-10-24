@@ -344,8 +344,13 @@ class PageResult[RowT]:
     estimated_total: int | None
 
 
-def list_query(resource: ResourceFields) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
-    """FastAPI dependency: `query: Annotated[ListQuery, Depends(list_query(RESOURCE))]`."""
+def list_query(resource: ResourceFields, *, extra_parameters: frozenset[str] = frozenset()) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
+    """FastAPI dependency: `query: Annotated[ListQuery, Depends(list_query(RESOURCE))]`.
+
+    `extra_parameters` are query parameters the endpoint reads itself (e.g. `view`): they are
+    not simple filters, but they are part of the cursor's fingerprint, so a cursor of one view
+    cannot be replayed on another.
+    """
 
     async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
         request: Request,
@@ -376,8 +381,11 @@ def list_query(resource: ResourceFields) -> Any:  # noqa: ANN401 - returns a Fas
                 params={"max": settings.page_size_max},
             )
         simple: dict[str, list[str]] = {}
+        own: dict[str, list[str]] = {}
         for name, value in request.query_params.multi_items():
-            if name not in RESERVED_PARAMETERS:
+            if name in extra_parameters:
+                own.setdefault(name, []).append(value)
+            elif name not in RESERVED_PARAMETERS:
                 simple.setdefault(name, []).append(value)
         # Calendar filters ("today", "this week") use the requester's time zone (WP-012).
         now = datetime.now(request_zone(request))
@@ -388,7 +396,13 @@ def list_query(resource: ResourceFields) -> Any:  # noqa: ANN401 - returns a Fas
         )
         keys = parse_sort(sort, resource)
         fingerprint = hashlib.sha256(
-            json.dumps([tree, sorted(simple.items())], sort_keys=True, default=str).encode()
+            json.dumps(
+                [tree, sorted(simple.items()), sorted(own.items())]
+                if own
+                else [tree, sorted(simple.items())],
+                sort_keys=True,
+                default=str,
+            ).encode()
         ).hexdigest()
         scope = CursorScope(
             endpoint=_route_path(request),

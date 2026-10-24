@@ -12,6 +12,15 @@ catalog:
   antd: ^5.29.3
   # Ant Design 5's own date library; direct use approved in D-035.
   dayjs: ^1.11.23
+  # Rich-text editor (D-036, D-040, D-051): MIT, no Tiptap Pro. One pinned version for all parts.
+  '@tiptap/core': 3.31.4
+  '@tiptap/pm': 3.31.4
+  '@tiptap/react': 3.31.4
+  '@tiptap/starter-kit': 3.31.4
+  '@tiptap/extension-link': 3.31.4
+  '@tiptap/extension-table': 3.31.4
+  '@tiptap/extension-placeholder': 3.31.4
+  '@tiptap/extensions': 3.31.4
   '@tanstack/react-query': ^5.104.5
   typescript: ~5.9.3
   vite: ^8.0.0

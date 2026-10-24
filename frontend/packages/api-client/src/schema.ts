@@ -421,6 +421,306 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List incidents
+         * @description Records you may see. Filter with the DSL or simple parameters, a view and a tag.
+         */
+        get: operations["list_items_api_v1_incidents_get"];
+        put?: never;
+        /**
+         * Create an incident
+         * @description A new record. Send an Idempotency-Key: a retried request returns the same 201.
+         */
+        post: operations["create_api_v1_incidents_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/assignees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People who can be assigned
+         * @description Members of `group_id` (or everyone) who can work on these records, with open load.
+         */
+        get: operations["assignees_api_v1_incidents_assignees_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Category tree
+         * @description Every node, parents first; disabled nodes are marked, not hidden.
+         */
+        get: operations["categories_api_v1_incidents_categories_get"];
+        put?: never;
+        /**
+         * Add a category
+         * @description A new node (at most three levels).
+         */
+        post: operations["create_category_api_v1_incidents_categories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/categories/{category_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a category
+         * @description Rename or translate, set its default group, disable or enable.
+         */
+        patch: operations["patch_category_api_v1_incidents_categories__category_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/incidents/lookup/{value}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find by display ID
+         * @description `INC-12`, `inc-12` or `12`. Old prefixes keep working after a rename.
+         */
+        get: operations["lookup_api_v1_incidents_lookup__value__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Incident configuration
+         * @description Statuses, actions, transitions, scales, the matrix, reasons and the prefix.
+         */
+        get: operations["get_settings_api_v1_incidents_settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change incident settings
+         * @description Prefix, default priority and the automatic status moves on assignment.
+         */
+        patch: operations["patch_settings_api_v1_incidents_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/incidents/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Incidents in the trash
+         * @description Deleted records you may restore (needs the delete permission).
+         */
+        get: operations["trash_api_v1_incidents_trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Built-in incident views with counts
+         * @description Every built-in view in its fixed order, with how many records you see in it.
+         */
+        get: operations["views_api_v1_incidents_views_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an incident
+         * @description One record within your view scope (404 otherwise, even if it exists).
+         */
+        get: operations["get_api_v1_incidents__record_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Move to the trash
+         * @description Soft delete: recoverable from the trash with POST …/restore.
+         */
+        delete: operations["delete_api_v1_incidents__record_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Edit fields
+         * @description Change the fields you send. Needs If-Match. Priority by hand needs a reason.
+         */
+        patch: operations["edit_api_v1_incidents__record_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/actions/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a status action
+         * @description Only the actions the life cycle allows from the current status; some need a reason.
+         */
+        post: operations["act_api_v1_incidents__record_id__actions__action__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign or reassign
+         * @description Set group and technician. A move out of your reach needs `confirm_lose_access`.
+         */
+        post: operations["assign_api_v1_incidents__record_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History
+         * @description Every save, newest first, in true order: who, when, from where, what, why.
+         */
+        get: operations["history_api_v1_incidents__record_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore from the trash
+         * @description Take it out of the trash, as it was.
+         */
+        post: operations["restore_api_v1_incidents__record_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/take": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take it yourself
+         * @description You become the technician; with no group, your only group is set (or you choose).
+         */
+        post: operations["take_api_v1_incidents__record_id__take_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/groups": {
         parameters: {
             query?: never;
@@ -1118,6 +1418,12 @@ export interface components {
          */
         AnnouncementVisibility: "hidden" | "scheduled" | "live" | "ended";
         /**
+         * Channel
+         * @description Where a work item came from (REQ-INC-005). Set by the entry point, not by hand.
+         * @enum {string}
+         */
+        Channel: "phone" | "walk_up" | "email" | "portal" | "chat" | "virtual_agent" | "teams" | "slack" | "whatsapp" | "mobile_app" | "api" | "monetx" | "alert_webhook";
+        /**
          * CheckResponse
          * @description One dependency's readiness.
          */
@@ -1389,6 +1695,12 @@ export interface components {
             next_cursor: string | null;
         };
         /**
+         * Impact
+         * @description How widely it is felt, lowest first.
+         * @enum {string}
+         */
+        Impact: "one_person" | "team" | "department_or_site" | "organisation";
+        /**
          * LimitKey
          * @description A counted limit (architecture.md §13.1). End users (requesters) are never counted.
          * @enum {string}
@@ -1491,6 +1803,28 @@ export interface components {
             scopes: ("all" | "site" | "group" | "own")[];
         };
         /**
+         * PersonOut
+         * @description A person on a record: the name, and the email that tells two people of one name apart.
+         */
+        PersonOut: {
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email: string;
+        };
+        /**
+         * Priority
+         * @description P1 is the highest.
+         * @enum {string}
+         */
+        Priority: "p1" | "p2" | "p3" | "p4";
+        /**
+         * PrioritySource
+         * @description Where the current priority came from (shown as a marker, REQ-INC-010/011).
+         * @enum {string}
+         */
+        PrioritySource: "matrix" | "manual" | "default";
+        /**
          * ProblemDetail
          * @description RFC 9457 problem details, extended with SupportX's machine code and message key.
          */
@@ -1567,6 +1901,18 @@ export interface components {
             token: string;
         };
         /**
+         * ReasonList
+         * @description Pick lists of reasons (admin-editable values, seeded with defaults).
+         * @enum {string}
+         */
+        ReasonList: "pause" | "third_party" | "cancel" | "reopen" | "reassign";
+        /**
+         * ReasonMode
+         * @description Whether running a transition asks for a reason.
+         * @enum {string}
+         */
+        ReasonMode: "none" | "optional" | "required";
+        /**
          * RoleCreate
          * @description A new custom role.
          */
@@ -1639,6 +1985,12 @@ export interface components {
             version: number;
         };
         /**
+         * Scale
+         * @description The three ordered value lists of a work item type.
+         * @enum {string}
+         */
+        Scale: "impact" | "urgency" | "priority";
+        /**
          * SettingsIn
          * @description New settings.
          */
@@ -1665,6 +2017,12 @@ export interface components {
          * @enum {string}
          */
         StateReason: "expired" | "licence_mismatch" | "suspended" | "not_yet_valid" | "no_entitlement";
+        /**
+         * StatusCategory
+         * @description The fixed meaning of a status.
+         * @enum {string}
+         */
+        StatusCategory: "open" | "paused" | "resolved" | "closed" | "canceled";
         /**
          * SubscriptionTokenRequest
          * @description The channel to join, e.g. `t:<tenant>:users:<user id>`.
@@ -1772,6 +2130,12 @@ export interface components {
              */
             version: number;
         };
+        /**
+         * Urgency
+         * @description How fast it must be fixed, lowest first.
+         * @enum {string}
+         */
+        Urgency: "low" | "medium" | "high" | "critical";
         /**
          * UserAccessOut
          * @description Roles, sites and support groups of a user.
@@ -1926,6 +2290,638 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WorkItemAction
+         * @description Status actions in the one order the UI shows them (system actions last, never shown).
+         * @enum {string}
+         */
+        WorkItemAction: "start_work" | "wait_requester" | "wait_third_party" | "resume" | "resolve" | "close" | "reopen" | "cancel" | "undo_cancel" | "assign" | "unassign";
+        /**
+         * WorkItemActionStateOut
+         * @description An action as you may use it now. Disabled ones carry a reason code (labelled).
+         */
+        WorkItemActionStateOut: {
+            /** Action */
+            action: string;
+            /** Allowed */
+            allowed: boolean;
+            /** Reason */
+            reason?: string | null;
+            reason_list?: components["schemas"]["ReasonList"] | null;
+            /** @default none */
+            reason_mode: components["schemas"]["ReasonMode"];
+        };
+        /**
+         * WorkItemAssignIn
+         * @description New group and technician (either may be null). Moving between groups needs a reason.
+         */
+        WorkItemAssignIn: {
+            /**
+             * Confirm Lose Access
+             * @description You confirmed you will lose sight of it (D-053).
+             * @default false
+             */
+            confirm_lose_access: boolean;
+            /** Group Id */
+            group_id?: string | null;
+            /** Reason Code */
+            reason_code?: string | null;
+            /** Reason Text */
+            reason_text?: string | null;
+            /** Technician Id */
+            technician_id?: string | null;
+        };
+        /**
+         * WorkItemAssigneeOut
+         * @description Someone who can be assigned, with their open load.
+         */
+        WorkItemAssigneeOut: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Email
+             * @description Second line in pickers: two people may share a name.
+             */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Open Count */
+            open_count: number;
+        };
+        /**
+         * WorkItemCatalogueOut
+         * @description The tenant's configuration of this type (for forms, filters and labels).
+         */
+        WorkItemCatalogueOut: {
+            /**
+             * Actions
+             * @description User actions in their fixed order.
+             */
+            actions: components["schemas"]["WorkItemAction"][];
+            /** Auto Status On Assign */
+            auto_status_on_assign: boolean;
+            default_priority: components["schemas"]["Priority"];
+            /** Matrix */
+            matrix: components["schemas"]["WorkItemMatrixCellOut"][];
+            /** Prefix */
+            prefix: string;
+            /** Reasons */
+            reasons: components["schemas"]["WorkItemReasonOut"][];
+            /** Scales */
+            scales: components["schemas"]["WorkItemScaleValueOut"][];
+            /** Statuses */
+            statuses: components["schemas"]["WorkItemStatusOut"][];
+            /** Transitions */
+            transitions: components["schemas"]["WorkItemTransitionOut"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * WorkItemCategoryIn
+         * @description A new node: under `parent_id`, or a new top-level category.
+         */
+        WorkItemCategoryIn: {
+            /** Default Group Id */
+            default_group_id?: string | null;
+            /**
+             * Labels
+             * @description {"en": "...", "ar": "...", "ur": "..."}; en required.
+             */
+            labels: {
+                [key: string]: string;
+            };
+            /** Parent Id */
+            parent_id?: string | null;
+        };
+        /**
+         * WorkItemCategoryOut
+         * @description One node of the category tree.
+         */
+        WorkItemCategoryOut: {
+            /**
+             * Code
+             * @description Seeded nodes: labelled by the UI from this code.
+             */
+            code: string | null;
+            /** Default Group Id */
+            default_group_id: string | null;
+            /** Disabled */
+            disabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Labels
+             * @description Admin nodes: their own translations.
+             */
+            labels: {
+                [key: string]: string;
+            } | null;
+            /** Level */
+            level: number;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Sort Order */
+            sort_order: number;
+            /** Version */
+            version: number;
+        };
+        /**
+         * WorkItemCategoryPatch
+         * @description Rename / translate, default group, disable.
+         */
+        WorkItemCategoryPatch: {
+            /** Default Group Id */
+            default_group_id?: string | null;
+            /** Disabled */
+            disabled?: boolean | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+        };
+        /**
+         * WorkItemFieldChangeOut
+         * @description One field of one save. Values are codes, IDs, text or ISO times; the UI labels them.
+         */
+        WorkItemFieldChangeOut: {
+            /** Field */
+            field: string;
+            /** New */
+            new?: unknown;
+            /** Old */
+            old?: unknown;
+        };
+        /**
+         * WorkItemHistoryEntryOut
+         * @description One save: who, when (microseconds), from where, what, why, and which automation.
+         */
+        WorkItemHistoryEntryOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Actor Type
+             * @enum {string}
+             */
+            actor_type: "user" | "system";
+            /**
+             * Automation
+             * @description Set when automation made the change, e.g. {kind: matrix}.
+             */
+            automation: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Change Id
+             * Format: uuid
+             */
+            change_id: string;
+            /** Changes */
+            changes: components["schemas"]["WorkItemFieldChangeOut"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "created" | "updated" | "status" | "deleted" | "restored" | "child_added" | "child_changed" | "child_removed";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "ui" | "api" | "portal" | "email" | "rule" | "workflow" | "sla" | "ai_agent" | "integration" | "system" | "import";
+            /** Version */
+            version: number;
+        };
+        /**
+         * WorkItemHistoryOut
+         * @description Saves of one record, newest first.
+         */
+        WorkItemHistoryOut: {
+            /** Items */
+            items: components["schemas"]["WorkItemHistoryEntryOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+        };
+        /**
+         * WorkItemIn
+         * @description A new record. Group and technician need the assign permission.
+         */
+        WorkItemIn: {
+            /** Category Id */
+            category_id?: string | null;
+            /** @description Only phone or walk_up may be chosen; others are set for you. */
+            channel?: components["schemas"]["Channel"] | null;
+            /**
+             * Confirm Lose Access
+             * @description Confirm handing it to people you cannot see records of.
+             * @default false
+             */
+            confirm_lose_access: boolean;
+            /**
+             * Description
+             * @description Rich text (HTML), sanitised.
+             */
+            description?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            impact?: components["schemas"]["Impact"] | null;
+            /** On Behalf Of Id */
+            on_behalf_of_id?: string | null;
+            /** @description Set by hand (needs change_priority and a reason). */
+            priority?: components["schemas"]["Priority"] | null;
+            /** Priority Reason */
+            priority_reason?: string | null;
+            /**
+             * Requester Id
+             * Format: uuid
+             */
+            requester_id: string;
+            /**
+             * Site Id
+             * @description Default: the requester's site.
+             */
+            site_id?: string | null;
+            /** Subject */
+            subject: string;
+            /** Tags */
+            tags?: string[];
+            /** Technician Id */
+            technician_id?: string | null;
+            urgency?: components["schemas"]["Urgency"] | null;
+        };
+        /**
+         * WorkItemListItem
+         * @description One row of a list.
+         */
+        WorkItemListItem: {
+            /** Category Id */
+            category_id: string | null;
+            channel: components["schemas"]["Channel"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Display Id */
+            display_id: string;
+            /** Group Id */
+            group_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            priority: components["schemas"]["Priority"];
+            priority_source: components["schemas"]["PrioritySource"];
+            /**
+             * Requester Id
+             * Format: uuid
+             */
+            requester_id: string;
+            /** Resolution Due At */
+            resolution_due_at: string | null;
+            /** Site Id */
+            site_id: string | null;
+            /** Sla Policy Id */
+            sla_policy_id: string | null;
+            /** Status */
+            status: string;
+            status_category: components["schemas"]["StatusCategory"];
+            /** Status Reason Code */
+            status_reason_code: string | null;
+            /** Subject */
+            subject: string;
+            /** Tags */
+            tags: string[];
+            /** Technician Id */
+            technician_id: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * WorkItemMatrixCellOut
+         * @description impact x urgency → priority.
+         */
+        WorkItemMatrixCellOut: {
+            impact: components["schemas"]["Impact"];
+            priority: components["schemas"]["Priority"];
+            urgency: components["schemas"]["Urgency"];
+        };
+        /**
+         * WorkItemOut
+         * @description A work item as staff see it.
+         */
+        WorkItemOut: {
+            /**
+             * Actions
+             * @description Status actions, always in the same order.
+             */
+            actions: components["schemas"]["WorkItemActionStateOut"][];
+            /** Category Id */
+            category_id: string | null;
+            channel: components["schemas"]["Channel"];
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            /** Description */
+            description: string | null;
+            /** Display Id */
+            display_id: string;
+            /** First Assigned At */
+            first_assigned_at: string | null;
+            /** First Responded At */
+            first_responded_at: string | null;
+            /** First Response Due At */
+            first_response_due_at: string | null;
+            /** Group Id */
+            group_id: string | null;
+            /** History Count */
+            history_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            impact: components["schemas"]["Impact"] | null;
+            /** Last Reopened At */
+            last_reopened_at: string | null;
+            /** On Behalf Of Id */
+            on_behalf_of_id: string | null;
+            /**
+             * Operations
+             * @description edit, assign, take, change_priority, delete: whether you may, and why not.
+             */
+            operations: components["schemas"]["WorkItemActionStateOut"][];
+            /** Paused Seconds */
+            paused_seconds: number;
+            /** Paused Since */
+            paused_since: string | null;
+            /**
+             * People
+             * @description The people on the record, by user ID.
+             */
+            people: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
+            priority: components["schemas"]["Priority"];
+            priority_source: components["schemas"]["PrioritySource"];
+            /** Reassignment Count */
+            reassignment_count: number;
+            /** Reopen Count */
+            reopen_count: number;
+            /**
+             * Requester Id
+             * Format: uuid
+             */
+            requester_id: string;
+            /** Resolution Due At */
+            resolution_due_at: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Site Id */
+            site_id: string | null;
+            /**
+             * Sla Policy Id
+             * @description Null: no SLA applies (REQ-INC-011).
+             */
+            sla_policy_id: string | null;
+            /** Status */
+            status: string;
+            status_category: components["schemas"]["StatusCategory"];
+            /**
+             * Status Changed At
+             * Format: date-time
+             */
+            status_changed_at: string;
+            /** Status Reason Code */
+            status_reason_code: string | null;
+            /** Status Reason Text */
+            status_reason_text: string | null;
+            /** Subject */
+            subject: string;
+            /** Tags */
+            tags: string[];
+            /** Technician Id */
+            technician_id: string | null;
+            /** Type */
+            type: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Updated By */
+            updated_by: string | null;
+            urgency: components["schemas"]["Urgency"] | null;
+            /**
+             * Version
+             * @description Send it back as If-Match (the ETag) to change it.
+             */
+            version: number;
+            /**
+             * Visible
+             * @description False right after you handed it away (D-053): no more access.
+             * @default true
+             */
+            visible: boolean;
+        };
+        /**
+         * WorkItemPage
+         * @description One page of a list, with the display names of the people on it.
+         */
+        WorkItemPage: {
+            /**
+             * Estimated Total
+             * @description Only with include_total=true: matching rows, counted up to 10,000 (10,000 means 'at least').
+             */
+            estimated_total?: number | null;
+            /** Has More */
+            has_more: boolean;
+            /** Items */
+            items: components["schemas"]["WorkItemListItem"][];
+            /**
+             * Next Cursor
+             * @description Pass as `cursor` for the next page.
+             */
+            next_cursor: string | null;
+            /** People */
+            people?: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
+        };
+        /**
+         * WorkItemPatch
+         * @description Fields to change (only those sent). Not status, group or technician.
+         */
+        WorkItemPatch: {
+            /** Category Id */
+            category_id?: string | null;
+            channel?: components["schemas"]["Channel"] | null;
+            /**
+             * Confirm Lose Access
+             * @default false
+             */
+            confirm_lose_access: boolean;
+            /** Description */
+            description?: string | null;
+            impact?: components["schemas"]["Impact"] | null;
+            /** On Behalf Of Id */
+            on_behalf_of_id?: string | null;
+            /** @description A value sets it by hand (with a reason); null: back to the matrix. */
+            priority?: components["schemas"]["Priority"] | null;
+            /** Priority Reason */
+            priority_reason?: string | null;
+            /** Requester Id */
+            requester_id?: string | null;
+            /** Site Id */
+            site_id?: string | null;
+            /** Subject */
+            subject?: string | null;
+            /** Tags */
+            tags?: string[] | null;
+            urgency?: components["schemas"]["Urgency"] | null;
+        };
+        /**
+         * WorkItemReasonOut
+         * @description One reason of a pick list.
+         */
+        WorkItemReasonOut: {
+            /** Code */
+            code: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            } | null;
+            list: components["schemas"]["ReasonList"];
+        };
+        /**
+         * WorkItemScaleValueOut
+         * @description One impact, urgency or priority value.
+         */
+        WorkItemScaleValueOut: {
+            /** Code */
+            code: string;
+            /** Colour */
+            colour: string | null;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            } | null;
+            /** Rank */
+            rank: number;
+            scale: components["schemas"]["Scale"];
+        };
+        /**
+         * WorkItemSettingsPatch
+         * @description Type settings to change (only those sent). If-Match: the catalogue's `version`.
+         */
+        WorkItemSettingsPatch: {
+            /** Auto Status On Assign */
+            auto_status_on_assign?: boolean | null;
+            default_priority?: components["schemas"]["Priority"] | null;
+            /**
+             * Prefix
+             * @description 2-6 capital letters.
+             */
+            prefix?: string | null;
+        };
+        /**
+         * WorkItemStatusOut
+         * @description One status of the tenant's life cycle.
+         */
+        WorkItemStatusOut: {
+            category: components["schemas"]["StatusCategory"];
+            /** Code */
+            code: string;
+            /** Colour */
+            colour: string;
+            /** Disabled */
+            disabled: boolean;
+            /**
+             * Labels
+             * @description Admin overrides; null: shipped labels.
+             */
+            labels: {
+                [key: string]: string;
+            } | null;
+            /** System */
+            system: boolean;
+        };
+        /**
+         * WorkItemTakeIn
+         * @description Which of your groups, when it has none and you are in several.
+         */
+        WorkItemTakeIn: {
+            /** Group Id */
+            group_id?: string | null;
+        };
+        /**
+         * WorkItemTransitionIn
+         * @description The reason, when the transition asks for one.
+         */
+        WorkItemTransitionIn: {
+            /** Reason Code */
+            reason_code?: string | null;
+            /** Reason Text */
+            reason_text?: string | null;
+        };
+        /**
+         * WorkItemTransitionOut
+         * @description One allowed move.
+         */
+        WorkItemTransitionOut: {
+            action: components["schemas"]["WorkItemAction"];
+            /** From Status */
+            from_status: string;
+            reason_list: components["schemas"]["ReasonList"] | null;
+            reason_mode: components["schemas"]["ReasonMode"];
+            /**
+             * To Status
+             * @description Null: back to the status before canceling.
+             */
+            to_status: string | null;
+        };
+        /**
+         * WorkItemViewCountOut
+         * @description A built-in view and how many records you see in it (capped).
+         */
+        WorkItemViewCountOut: {
+            /**
+             * Capped
+             * @description True: more than `count`.
+             */
+            capped: boolean;
+            /** Count */
+            count: number;
+            /** View */
+            view: string;
         };
     };
     responses: never;
@@ -3370,6 +4366,1408 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_items_api_v1_incidents_get: {
+        parameters: {
+            query?: {
+                /** @description A built-in view (see /views). */
+                view?: string | null;
+                tag?: string | null;
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemPage"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_api_v1_incidents_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    assignees_api_v1_incidents_assignees_get: {
+        parameters: {
+            query?: {
+                group_id?: string | null;
+                search?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemAssigneeOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    categories_api_v1_incidents_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemCategoryOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_category_api_v1_incidents_categories_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemCategoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemCategoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_category_api_v1_incidents_categories__category_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                category_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemCategoryPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemCategoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    lookup_api_v1_incidents_lookup__value__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                value: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_incidents_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemCatalogueOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_settings_api_v1_incidents_settings_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemCatalogueOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    trash_api_v1_incidents_trash_get: {
+        parameters: {
+            query?: {
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemPage"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    views_api_v1_incidents_views_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemViewCountOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_api_v1_incidents__record_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_api_v1_incidents__record_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    edit_api_v1_incidents__record_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    act_api_v1_incidents__record_id__actions__action__post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                action: components["schemas"]["WorkItemAction"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WorkItemTransitionIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    assign_api_v1_incidents__record_id__assign_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemAssignIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    history_api_v1_incidents__record_id__history_get: {
+        parameters: {
+            query?: {
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                limit?: number;
+                /** @description people, automation or all */
+                actors?: "all" | "people" | "automation";
+            };
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemHistoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    restore_api_v1_incidents__record_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    take_api_v1_incidents__record_id__take_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["WorkItemTakeIn"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */
