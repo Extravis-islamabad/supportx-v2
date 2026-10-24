@@ -685,7 +685,7 @@ email reply to set the status (file 10).
 
 - **Decision:** BETTER. Acknowledgement works from the portal and the mobile app, not only by
   email, and a user can dispute.
-- **Source:** sdp-area-07 §Screens (acknowledgements), sdp-area-07 (7b) §7b.1 (asset acknowledgement setting); sdp-area-10 §Fields (asset acknowledgement AI feature); architecture §2.10 (email intent for asset acknowledgement), §2.11 (asset acknowledgement by user)
+- **Source:** sdp-area-07 §Screens (acknowledgements), sdp-area-07 (7b) §7b.1 (asset acknowledgement setting); sdp-area-10 §Fields (asset acknowledgement AI feature); architecture §2.10 (email intent for asset acknowledgement), §2.11 (asset acknowledgement by user); REQ-AI-056 (shared email reply reading)
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. Assigning a laptop of an acknowledged type creates a pending acknowledgement that the user

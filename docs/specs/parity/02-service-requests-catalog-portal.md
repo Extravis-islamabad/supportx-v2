@@ -904,7 +904,7 @@ address, and the decision follows the same rules as a link. Unclear replies are 
 the approver is asked to use the link or the app.
 
 - **Decision:** SAME. architecture lists email intent for approvals.
-- **Source:** architecture §2.10 (email intent for approvals); sdp-area-10 §Screens (predictive email features)
+- **Source:** architecture §2.10 (email intent for approvals); sdp-area-10 §Screens (predictive email features); REQ-AI-056 (shared email reply reading)
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A reply "Approved, thanks" from the approver's address approves the stage with channel
@@ -2317,7 +2317,7 @@ assistant's actions are set up in file 10.
 
 - **Decision:** SAME. ServiceDesk Plus has chatbot customisation (type, name, theme, avatar,
   welcome message, available to requesters, voice input, external sources).
-- **Source:** sdp-area-10 §Fields (chatbot customisation), §Weak spots (external sources not explained); sdp-area-14 §Screens (chatbot customisation preview)
+- **Source:** sdp-area-10 §Fields (chatbot customisation), §Weak spots (external sources not explained); sdp-area-14 §Screens (chatbot customisation preview); REQ-AI-077, REQ-AI-078 (scripted conversations)
 - **SDP weak spot fixed:** "search external sources" is offered with no explanation of what
   the sources are.
 - **Priority:** V1 · **Edition:** Essentials
@@ -2572,6 +2572,8 @@ approval stage.
 9. **Announcements authoring.** The portal shows announcements (REQ-PRT-009), and file 01 has
    "announce from an incident" (REQ-INC-129). No parity file owns the announcements module
    itself (audiences, types, scheduling, four-eyes publishing, D-032). Should file 11 own it?
+   *Proposed answer in file 11:* file 11 owns announcement authoring (REQ-ADM-077 to
+   REQ-ADM-084).
 10. **Requester-side research gap.** The research never signed in as a requester (Area 3
     could not; the planned Area 15 does not exist). The portal requirements come from the
     vendor's settings pages, its admin preview and our specs. Should a short requester-login
