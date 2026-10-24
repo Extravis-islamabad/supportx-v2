@@ -26,9 +26,9 @@ engine comes first, because every ticket-like module reuses it (architecture.md 
 | 04 | [04-problems.md](04-problems.md) | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | **81** (0 / 74 / 7) |
 | 05 | [05-changes.md](05-changes.md) | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | **118** (0 / 100 / 18) |
 | 06 | [06-releases-projects.md](06-releases-projects.md) | Release management; projects, milestones, Gantt, timesheets | REL, PRJ | 06 (incl. 6b) | **112** (0 / 54 / 58) |
-| 07 | 07-assets-cmdb-software-purchase-contracts.md | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | not yet written |
-| 08 | 08-knowledge.md | Knowledge base | KB | 08, 10 (solution assist and generator) | not yet written |
-| 09 | 09-reports-dashboards.md | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets) | not yet written |
+| 07 | [07-assets-cmdb-software-purchase-contracts.md](07-assets-cmdb-software-purchase-contracts.md) | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | **183** (0 / 145 / 38) |
+| 08 | [08-knowledge.md](08-knowledge.md) | Knowledge base | KB | 08, 10 (solution assist and generator), 03, 04 | **93** (38 / 50 / 5) |
+| 09 | [09-reports-dashboards.md](09-reports-dashboards.md) | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets), 10, 11, 13, 14 | **116** (40 / 61 / 15) |
 | 10 | 10-ai.md | AI gateway, AI administration, agents, chatbot, MCP | AI | 10, 14 (agents, chatbot, AI providers) | not yet written |
 | 11 | 11-admin-users-security-audit.md | Users, roles, groups, sites, customisation, settings, mail, surveys, data administration, login and MFA, security, audit | ADM, SEC, AUD | 11, 13, 14, 01 (preferences, navigation) | not yet written |
 | 12 | 12-integrations-esm.md | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, API, extensions; enterprise service management (department desks, HR, facilities) | INT, ESM | 14 (integrations, ESM), 13 (mail), 12 (webhooks), 10 (AI providers), 03 (ESM portal); architecture §2.14, §2.15 | not yet written |
