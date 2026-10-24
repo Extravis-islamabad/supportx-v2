@@ -1197,7 +1197,7 @@ list of downtime types.
 #### REQ-CHG-064 — Downtimes appear on the CIs
 
 Planned and actual downtimes of a change create downtime records on the CIs and services they
-affect (file 07). The CI shows scheduled, active and completed downtimes with a link to the
+affect (file 07, REQ-CMDB-020). The CI shows scheduled, active and completed downtimes with a link to the
 change.
 
 - **Decision:** SAME.
@@ -1479,7 +1479,7 @@ cannot close while children are open (REQ-CHG-096).
 #### REQ-CHG-082 — Impact analysis from the CMDB
 
 From a change, the user opens an impact view: starting from the change's CIs, it walks CMDB
-relationships by depth and direction (file 07) and shows the affected services, CIs, sites and
+relationships by depth and direction (file 07, REQ-CMDB-010) and shows the affected services, CIs, sites and
 an estimate of affected users. The user can add affected services to the change in one step.
 The impact summary is saved on the change when it enters CAB review.
 
