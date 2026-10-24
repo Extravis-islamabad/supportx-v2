@@ -47,12 +47,12 @@ applied (D-039 to D-050). **Owner:** Haider (Product Owner).
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
 | SAME | 36 | 45 | 8 | 89 |
-| BETTER | 41 | 17 | 2 | 60 |
+| BETTER | 41 | 18 | 2 | 61 |
 | NEW | 7 | 13 | 4 | 24 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **84** | **75** | **16** | **175** |
+| **Total** | **84** | **76** | **16** | **176** |
 
-Edition (lowest edition that includes it): Essentials 164, Professional 11, Enterprise 0. By prefix: REQ-WI 25, REQ-INC 150.
+Edition (lowest edition that includes it): Essentials 164, Professional 12, Enterprise 0. By prefix: REQ-WI 26, REQ-INC 150.
 
 | ID | Title | Decision | Priority | Edition |
 |---|---|---|---|---|
@@ -81,6 +81,7 @@ Edition (lowest edition that includes it): Essentials 164, Professional 11, Ente
 | [REQ-WI-023](#req-wi-023--accessible-to-wcag-22-aa) | Accessible to WCAG 2.2 AA | BETTER | MVP | Essentials |
 | [REQ-WI-024](#req-wi-024--list-speed-at-scale) | List speed at scale | NEW | V1 | Essentials |
 | [REQ-WI-025](#req-wi-025--features-outside-the-edition-disabled-with-a-hint-or-hidden) | Features outside the edition: disabled with a hint, or hidden | NEW | V1 | Essentials |
+| [REQ-WI-026](#req-wi-026--stages-that-group-statuses) | Stages that group statuses | BETTER | V1 | Professional |
 | [REQ-INC-001](#req-inc-001--incident-record-and-core-fields) | Incident record and core fields | SAME | MVP | Essentials |
 | [REQ-INC-002](#req-inc-002--the-type-decides-the-form-and-the-behaviour) | The type decides the form and the behaviour | BETTER | MVP | Essentials |
 | [REQ-INC-003](#req-inc-003--requester-on-behalf-of-and-requester-context) | Requester, on behalf of, and requester context | SAME | MVP | Essentials |
@@ -666,6 +667,25 @@ renders it.
   3. Changing the switch takes effect on open screens live, with no reload.
   4. No browser code decides availability from the edition name; it uses the action state from
      the server.
+
+#### REQ-WI-026 — Stages that group statuses
+
+A work item type can group its statuses into ordered stages, for example planning,
+implementation and review on a change. Each stage has a fixed meaning, its own dates, form
+section, tasks and approvals, and exactly one completing status. Every status keeps its status
+category (REQ-INC-044). The stage model is built once in the engine; changes (file 05) and
+releases (file 06) use it, and other types may.
+
+- **Decision:** BETTER. ServiceDesk Plus builds stages separately for changes and releases, and
+  release stages are weaker.
+- **Source:** architecture §2.4, §2.5, §6.2; sdp-area-05 §Screens; sdp-area-06 §Fields, §Weak spots
+- **Priority:** V1 · **Edition:** Professional
+- **Acceptance criteria:**
+  1. Changes and releases pass the same stage contract test suite (ordering, completing status,
+     stage dates, stage approvals).
+  2. Saving a stage without exactly one completing status is refused.
+  3. The stage rail on a record changes live when another user moves the record to a new
+     stage.
 
 ---
 
