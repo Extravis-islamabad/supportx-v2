@@ -20,12 +20,12 @@ engine comes first, because every ticket-like module reuses it (architecture.md 
 
 | # | File | Module | ID prefixes | Draws on reference areas | Requirements (MVP / V1 / LATER) |
 |---|---|---|---|---|---|
-| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **175** (84 / 75 / 16) |
+| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **176** (84 / 76 / 16) |
 | 02 | [02-service-requests-catalog-portal.md](02-service-requests-catalog-portal.md) | Service requests, service catalog, requester portal | SR, CAT, PRT | 03, 02a-c, 12, 13 (requester portal, approval settings), 10 and 14 (chatbot entry) | **127** (60 / 51 / 16) |
 | 03 | [03-sla-assignment-rules-workflows-notifications.md](03-sla-assignment-rules-workflows-notifications.md) | SLA and OLA, operating hours, auto-assignment, business rules, triggers and schedules, custom actions, life cycles and visual workflows, notification engine | SLA, ASG, RUL, WF, NTF | 12 (incl. 12b), 13, 11 (sites, operating hours), 02c, 14 (custom functions) | **146** (60 / 73 / 13) |
-| 04 | 04-problems.md | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | not yet written |
-| 05 | 05-changes.md | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | not yet written |
-| 06 | 06-releases-projects.md | Release management; projects, milestones, Gantt, timesheets | REL, PRJ | 06 (incl. 6b) | not yet written |
+| 04 | [04-problems.md](04-problems.md) | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | **81** (0 / 74 / 7) |
+| 05 | [05-changes.md](05-changes.md) | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | **118** (0 / 100 / 18) |
+| 06 | [06-releases-projects.md](06-releases-projects.md) | Release management; projects, milestones, Gantt, timesheets | REL, PRJ | 06 (incl. 6b) | **112** (0 / 54 / 58) |
 | 07 | 07-assets-cmdb-software-purchase-contracts.md | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | not yet written |
 | 08 | 08-knowledge.md | Knowledge base | KB | 08, 10 (solution assist and generator) | not yet written |
 | 09 | 09-reports-dashboards.md | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets) | not yet written |
@@ -42,7 +42,8 @@ Notes on the table:
   uses it. The approval engine (stages, parallel and conditional approvers, delegation,
   backups, reminders, safe one-time email links) is specified once in file 02 (REQ-SR-021 to
   REQ-SR-039) and built in the engine; incidents, changes and releases reuse it. The
-  notification engine is file 03 (REQ-NTF-*); each module lists only its own events.
+  notification engine is file 03 (REQ-NTF-*); each module lists only its own events. Stages
+  that group statuses (changes, releases) are one engine model (REQ-WI-026).
 - **Gaps in the research.** Area 14 (data administration, integrations, ESM instances) is in
   `docs/specs/reference/` (D-039). Area 15 (multi-user assignment, requester-side views) is
   not there yet. ESM has no research area of its own beyond Area 14's instance and directory
