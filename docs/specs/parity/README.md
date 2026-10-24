@@ -9,9 +9,10 @@ Order of authority, as everywhere in this repo: product owner decisions (`DECISI
 architecture.md, then product-plan.md. A requirement that conflicts with them is wrong and must
 be fixed here. The reference notes are input, not authority.
 
-**Status:** Phase 2, 2026-10-24. Module 01 is updated with the product owner's answers
-(D-039 to D-050); the other modules are added in batches, in build order. The module list was
-regrouped into twelve files by the product owner in Phase 2. **Owner:** Haider (Product Owner).
+**Status:** Phase 2 complete, 2026-10-24. All twelve module files are written (draft v0.1
+for product owner review; file 01 is v0.2 with the answers D-039 to D-050). The module list was
+regrouped into twelve files by the product owner in Phase 2. Open questions are at the end of
+each file. **Owner:** Haider (Product Owner).
 
 ## Modules in build order
 
@@ -29,9 +30,9 @@ engine comes first, because every ticket-like module reuses it (architecture.md 
 | 07 | [07-assets-cmdb-software-purchase-contracts.md](07-assets-cmdb-software-purchase-contracts.md) | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | **183** (0 / 145 / 38) |
 | 08 | [08-knowledge.md](08-knowledge.md) | Knowledge base | KB | 08, 10 (solution assist and generator), 03, 04 | **93** (38 / 50 / 5) |
 | 09 | [09-reports-dashboards.md](09-reports-dashboards.md) | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets), 10, 11, 13, 14 | **116** (40 / 61 / 15) |
-| 10 | 10-ai.md | AI gateway, AI administration, agents, chatbot, MCP | AI | 10, 14 (agents, chatbot, AI providers) | not yet written |
-| 11 | 11-admin-users-security-audit.md | Users, roles, groups, sites, customisation, settings, mail, surveys, data administration, login and MFA, security, audit | ADM, SEC, AUD | 11, 13, 14, 01 (preferences, navigation) | not yet written |
-| 12 | 12-integrations-esm.md | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, API, extensions; enterprise service management (department desks, HR, facilities) | INT, ESM | 14 (integrations, ESM), 13 (mail), 12 (webhooks), 10 (AI providers), 03 (ESM portal); architecture §2.14, §2.15 | not yet written |
+| 10 | [10-ai.md](10-ai.md) | AI gateway, AI administration, agents, chatbot, MCP | AI | 10, 14 (agents, chatbot, AI providers) | **108** (0 / 79 / 29) |
+| 11 | [11-admin-users-security-audit.md](11-admin-users-security-audit.md) | Users, roles, groups, sites, customisation, settings, mail, surveys, data administration, login and MFA, security, audit | ADM, SEC, AUD | 11, 13, 14, 01 (preferences, navigation); product owner observation (login, invitation, MFA) | **179** (62 / 101 / 16) |
+| 12 | [12-integrations-esm.md](12-integrations-esm.md) | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, API, extensions; enterprise service management (department desks, HR, facilities) | INT, ESM | 14 (integrations, ESM), 13 (mail), 12 (webhooks), 10 (AI providers), 03 (ESM portal); architecture §2.14, §2.15 | **141** (17 / 47 / 77) |
 
 Notes on the table:
 
@@ -43,7 +44,10 @@ Notes on the table:
   backups, reminders, safe one-time email links) is specified once in file 02 (REQ-SR-021 to
   REQ-SR-039) and built in the engine; incidents, changes and releases reuse it. The
   notification engine is file 03 (REQ-NTF-*); each module lists only its own events. Stages
-  that group statuses (changes, releases) are one engine model (REQ-WI-026).
+  that group statuses (changes, releases) are one engine model (REQ-WI-026). AI provider
+  set-up and the MCP server are specified in file 10 (architecture §6.1 places the MCP server
+  in `integrations`; file 12 lists it as an API surface, REQ-INT-093). Mailbox connections are
+  file 12 (REQ-INT-050 to REQ-INT-055); announcements authoring is file 11.
 - **Gaps in the research.** Area 14 (data administration, integrations, ESM instances) is in
   `docs/specs/reference/` (D-039). Area 15 (multi-user assignment, requester-side views) is
   not there yet. ESM has no research area of its own beyond Area 14's instance and directory
