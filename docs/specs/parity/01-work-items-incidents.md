@@ -3,7 +3,8 @@
 Parity requirements for the shared work item engine (architecture.md §6.2) and for incident
 management (architecture.md §2.1). Rules, ID scheme and field meanings: [README.md](README.md).
 
-**Status:** Draft v0.1, 2026-10-24, for product owner review. **Owner:** Haider (Product Owner).
+**Status:** Draft v0.2, 2026-10-24. The product owner's answers to the Phase 1 questions are
+applied (D-039 to D-050). **Owner:** Haider (Product Owner).
 
 ## Scope of this file
 
@@ -19,9 +20,9 @@ management (architecture.md §2.1). Rules, ID scheme and field meanings: [README
     status.
   - Catalog, service templates and the portal shell (file 02). The requester's view of an
     incident is here (REQ-INC-147).
-  - The knowledge base itself (file 09), dashboards and reports (file 10), AI administration
-    (file 11), users, roles, sites, mail servers and surveys (file 12), connector set-up
-    (file 13).
+  - The knowledge base itself (file 08), dashboards and reports (file 09), AI administration
+    (file 10), users, roles, sites, mail servers and surveys (file 11), connector set-up
+    (file 12).
 - **Monitoring is out of scope** (ADR-017, D-001). SupportX turns MonetX problems into
   incidents and reads health from MonetX, read-only. It never polls devices and never
   correlates or de-duplicates alerts (REQ-INC-146).
@@ -46,12 +47,12 @@ management (architecture.md §2.1). Rules, ID scheme and field meanings: [README
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
 | SAME | 36 | 45 | 8 | 89 |
-| BETTER | 41 | 17 | 2 | 60 |
-| NEW | 7 | 11 | 4 | 22 |
+| BETTER | 41 | 18 | 2 | 61 |
+| NEW | 7 | 13 | 4 | 24 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **84** | **73** | **16** | **173** |
+| **Total** | **84** | **76** | **16** | **176** |
 
-Edition (lowest edition that includes it): Essentials 162, Professional 11, Enterprise 0. By prefix: REQ-WI 24, REQ-INC 149.
+Edition (lowest edition that includes it): Essentials 164, Professional 12, Enterprise 0. By prefix: REQ-WI 26, REQ-INC 150.
 
 | ID | Title | Decision | Priority | Edition |
 |---|---|---|---|---|
@@ -79,6 +80,8 @@ Edition (lowest edition that includes it): Essentials 162, Professional 11, Ente
 | [REQ-WI-022](#req-wi-022--keyboard-shortcuts-and-command-palette) | Keyboard shortcuts and command palette | BETTER | V1 | Essentials |
 | [REQ-WI-023](#req-wi-023--accessible-to-wcag-22-aa) | Accessible to WCAG 2.2 AA | BETTER | MVP | Essentials |
 | [REQ-WI-024](#req-wi-024--list-speed-at-scale) | List speed at scale | NEW | V1 | Essentials |
+| [REQ-WI-025](#req-wi-025--features-outside-the-edition-disabled-with-a-hint-or-hidden) | Features outside the edition: disabled with a hint, or hidden | NEW | V1 | Essentials |
+| [REQ-WI-026](#req-wi-026--stages-that-group-statuses) | Stages that group statuses | BETTER | V1 | Professional |
 | [REQ-INC-001](#req-inc-001--incident-record-and-core-fields) | Incident record and core fields | SAME | MVP | Essentials |
 | [REQ-INC-002](#req-inc-002--the-type-decides-the-form-and-the-behaviour) | The type decides the form and the behaviour | BETTER | MVP | Essentials |
 | [REQ-INC-003](#req-inc-003--requester-on-behalf-of-and-requester-context) | Requester, on behalf of, and requester context | SAME | MVP | Essentials |
@@ -146,7 +149,7 @@ Edition (lowest edition that includes it): Essentials 162, Professional 11, Ente
 | [REQ-INC-065](#req-inc-065--first-response-is-stamped-automatically) | First response is stamped automatically | BETTER | MVP | Essentials |
 | [REQ-INC-066](#req-inc-066--extra-people-to-keep-informed) | Extra people to keep informed | SAME | V1 | Essentials |
 | [REQ-INC-067](#req-inc-067--worklogs) | Worklogs | BETTER | MVP | Essentials |
-| [REQ-INC-068](#req-inc-068--worklog-costs) | Worklog costs | SAME | V1 | Essentials |
+| [REQ-INC-068](#req-inc-068--worklog-costs-and-billable-time) | Worklog costs and billable time | SAME | V1 | Essentials |
 | [REQ-INC-069](#req-inc-069--personal-work-timer) | Personal work timer | BETTER | V1 | Essentials |
 | [REQ-INC-070](#req-inc-070--worklog-rules) | Worklog rules | SAME | V1 | Essentials |
 | [REQ-INC-071](#req-inc-071--time-analysis) | Time analysis | SAME | V1 | Essentials |
@@ -167,6 +170,7 @@ Edition (lowest edition that includes it): Essentials 162, Professional 11, Ente
 | [REQ-INC-086](#req-inc-086--parent-and-child-incidents) | Parent and child incidents | SAME | V1 | Essentials |
 | [REQ-INC-087](#req-inc-087--associations-with-other-records) | Associations with other records | BETTER | V1 | Professional |
 | [REQ-INC-088](#req-inc-088--merge-incidents-with-a-preview) | Merge incidents with a preview | BETTER | V1 | Essentials |
+| [REQ-INC-150](#req-inc-150--undo-a-merge) | Undo a merge | NEW | V1 | Essentials |
 | [REQ-INC-089](#req-inc-089--convert-between-incident-and-service-request) | Convert between incident and service request | SAME | V1 | Essentials |
 | [REQ-INC-090](#req-inc-090--resolve-with-a-resolution) | Resolve with a resolution | SAME | MVP | Essentials |
 | [REQ-INC-091](#req-inc-091--turn-a-resolution-into-knowledge) | Turn a resolution into knowledge | SAME | V1 | Essentials |
@@ -261,7 +265,7 @@ INC-1042 or SR-77. Each type has its own counter. An admin may change the prefix
 
 - **Decision:** BETTER. One shared, unprefixed counter for incidents and service requests makes
   IDs ambiguous in conversation and in email subjects.
-- **Source:** architecture §7.1; sdp-area-13 §Advanced Portal Settings
+- **Source:** architecture §7.1; sdp-area-13 §Advanced Portal Settings; D-045
 - **SDP weak spot fixed:** incident and service request IDs are plain numbers from one shared
   counter, and other modules each use their own prefix style.
 - **Priority:** MVP · **Edition:** Essentials
@@ -644,6 +648,45 @@ The incident list stays fast at scale. A 50-row page with filters and sort loads
      test.
   3. Every sortable list column has a supporting index, and CI checks for missing ones.
 
+#### REQ-WI-025 — Features outside the edition: disabled with a hint, or hidden
+
+When a capability is not in the tenant's edition, for example linking an incident to a problem
+in Essentials, its actions, tabs and fields show disabled with a short upgrade hint. A tenant
+admin can switch this to hide such capabilities completely. The server decides through the
+entitlement interface and returns the action state with a licence reason code; the browser only
+renders it.
+
+- **Decision:** NEW. ServiceDesk Plus hides or shows edition-locked features inconsistently.
+- **Source:** D-044; architecture §13.1; CLAUDE.md §5f; REQ-WI-010
+- **Priority:** V1 · **Edition:** Essentials
+- **Acceptance criteria:**
+  1. In an Essentials tenant, the link-to-problem action is shown disabled with an upgrade
+     hint, and the API refuses it with the licence problem code.
+  2. With the admin switch set to hide, the same action, tab and fields are absent from the
+     console and the portal.
+  3. Changing the switch takes effect on open screens live, with no reload.
+  4. No browser code decides availability from the edition name; it uses the action state from
+     the server.
+
+#### REQ-WI-026 — Stages that group statuses
+
+A work item type can group its statuses into ordered stages, for example planning,
+implementation and review on a change. Each stage has a fixed meaning, its own dates, form
+section, tasks and approvals, and exactly one completing status. Every status keeps its status
+category (REQ-INC-044). The stage model is built once in the engine; changes (file 05) and
+releases (file 06) use it, and other types may.
+
+- **Decision:** BETTER. ServiceDesk Plus builds stages separately for changes and releases, and
+  release stages are weaker.
+- **Source:** architecture §2.4, §2.5, §6.2; sdp-area-05 §Screens; sdp-area-06 §Fields, §Weak spots
+- **Priority:** V1 · **Edition:** Professional
+- **Acceptance criteria:**
+  1. Changes and releases pass the same stage contract test suite (ordering, completing status,
+     stage dates, stage approvals).
+  2. Saving a stage without exactly one completing status is refused.
+  3. The stage rail on a record changes live when another user moves the record to a new
+     stage.
+
 ---
 
 ## 2. The incident record and its classification
@@ -909,7 +952,7 @@ serial number. It can offer the requester's own assets first. The linked records
 incident in their own associations.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-02b §Fields (assets); sdp-area-07 §Behaviour (links to requests)
+- **Source:** sdp-area-02b §Fields (assets); sdp-area-07 §Behaviour (links to requests); D-044 (REQ-WI-025 in Essentials)
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. Adding an asset to an incident shows the incident in the asset's associations, live.
@@ -1135,7 +1178,7 @@ From an asset or configuration item, a user can raise an incident. It opens the 
 with that item and its user already filled in.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-07 §Actions (raise request from asset, create incident from CI), §Behaviour
+- **Source:** sdp-area-07 §Actions (raise request from asset, create incident from CI), §Behaviour; D-044 (REQ-WI-025 in Essentials)
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. Raising from an asset fills the asset and its assigned user as requester.
@@ -1150,15 +1193,16 @@ priority mapping and group. The connector only receives problems and reads from 
 correlation and de-duplication stay in MonetX.
 
 - **Decision:** NEW. ServiceDesk Plus needs OpManager for alarm-to-ticket.
-- **Source:** architecture §2.14, §6.8; ADR-017; D-001; product-plan §4.3 (pillar 3)
+- **Source:** architecture §2.14, §6.8; ADR-017; D-001; D-050; product-plan §4.3 (pillar 3)
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. A MonetX problem matching a policy creates exactly one incident with channel MonetX and
      the mapped priority.
   2. A repeat or updated delivery of the same problem updates that incident and never creates
      a second one.
-  3. A MonetX recovery resolves the incident with a system note; if a technician has taken it
-     over, it is not auto-resolved and the technician is notified instead (configurable).
+  3. By default, a MonetX recovery resolves the incident with a system note. If a technician
+     has taken it over, it stays open, gets a "source recovered" note and the assignee is
+     notified. Both behaviours are configurable per tenant (D-050).
   4. The connector makes no write call to MonetX and does no correlation itself.
 
 #### REQ-INC-031 — Generic alert webhook
@@ -1179,7 +1223,7 @@ behaviour as REQ-INC-030.
 
 Incidents can also be created from live chat, the virtual agent, Microsoft Teams, Slack,
 WhatsApp, phone systems (screen pop and call logging), the mobile app and the REST API. Each
-channel keeps its conversation threaded on the incident. Connector set-up is in file 13.
+channel keeps its conversation threaded on the incident. Connector set-up is in file 12.
 
 - **Decision:** SAME.
 - **Source:** architecture §2.1 (omnichannel logging), §2.14; product-plan §5 (unified inbox)
@@ -1717,10 +1761,11 @@ have; the author is warned if the person cannot see the incident.
 Descriptions, replies, notes and resolutions use one rich-text editor. It has formatting,
 lists, tables, links, code blocks, pasted screenshots and inline images, and works right to
 left. The server sanitises every stored value with an allow-list, and incoming email HTML is
-sanitised the same way.
+sanitised the same way. The editor and the sanitiser are built in the first incidents work
+package (D-040).
 
 - **Decision:** BETTER. One safe editor everywhere, with server-side sanitising.
-- **Source:** D-036; architecture §11, §11.4; sdp-area-02b §Fields (description editor)
+- **Source:** D-036; D-040; architecture §11, §11.4; sdp-area-02b §Fields (description editor)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A script tag or event handler in a description or inbound email is removed before storage.
@@ -1762,12 +1807,12 @@ CC addresses on the first email are added automatically (configurable).
 #### REQ-INC-067 — Worklogs
 
 Technicians log time on an incident. Each worklog has an owner (default: the user), a worklog
-type, a start and end time or a duration, a description, and a billable flag. Validation stays
+type, a start and end time or a duration and a description. Validation stays
 consistent: the end cannot be before the start, and the duration and the times agree. The
 incident shows total time, per technician and per type.
 
 - **Decision:** BETTER. ServiceDesk Plus accepts a worklog with an end time and no start time.
-- **Source:** sdp-area-02c §Fields (add worklog), §Behaviour, §Weak spots
+- **Source:** sdp-area-02c §Fields (add worklog), §Behaviour, §Weak spots; D-047
 - **SDP weak spot fixed:** a worklog saves with a blank start, and the end picker rewrites the
   time taken (sdp-area-06 6b §Weak spots).
 - **Priority:** MVP · **Edition:** Essentials
@@ -1776,18 +1821,20 @@ incident shows total time, per technician and per type.
   2. Entering a start and a duration fills the end time, and the other way round.
   3. The worklog tab shows totals per technician and per type, and updates live.
 
-#### REQ-INC-068 — Worklog costs
+#### REQ-INC-068 — Worklog costs and billable time
 
-Each worklog can carry technician cost (time × the technician's cost per hour) and other
-costs, in a currency with the exchange rate of the day. The incident shows its total cost.
-Only roles with permission see cost rates.
+Each worklog can be marked billable and can carry technician cost (time × the technician's
+cost per hour) and other costs, in a currency with the exchange rate of the day. The incident
+shows its total cost and its billable time. Only roles with permission see cost rates. Time
+itself is MVP (REQ-INC-067); costs and billable time are V1 (D-047).
 
 - **Decision:** SAME.
-- **Source:** sdp-area-02c §Fields (worklog currency and charges); sdp-area-11 §Fields (cost per hour, can view cost)
+- **Source:** sdp-area-02c §Fields (worklog currency and charges); sdp-area-11 §Fields (cost per hour, can view cost); D-047
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A 1.5-hour worklog by a technician costing 40 per hour shows a technician cost of 60.
   2. A user without the cost permission sees no rate or cost in the UI, API or export.
+  3. The incident shows billable and non-billable time totals separately.
 
 #### REQ-INC-069 — Personal work timer
 
@@ -2090,7 +2137,7 @@ create a problem or a change that is pre-filled and linked.
 
 - **Decision:** BETTER. ServiceDesk Plus names the same link differently on each side, and only
   one side keeps history.
-- **Source:** sdp-area-02b §Screens (associations); sdp-area-05 §Behaviour (5b); sdp-area-06 §Behaviour, §Weak spots; sdp-area-07 §Behaviour (7b); architecture §2.1 (relationships)
+- **Source:** sdp-area-02b §Screens (associations); sdp-area-05 §Behaviour (5b); sdp-area-06 §Behaviour, §Weak spots; sdp-area-07 §Behaviour (7b); architecture §2.1 (relationships); D-044 (REQ-WI-025 in Essentials)
 - **SDP weak spot fixed:** the same link is called something different on each record, and
   the request side records no history.
 - **Priority:** V1 · **Edition:** Professional
@@ -2112,9 +2159,11 @@ tasks, checklists, reminders, followers and links. Each merged source:
 - still opens by its old ID, with a clear redirect;
 - notifies its requester, if chosen.
 
+A merge can be undone (REQ-INC-150).
+
 - **Decision:** BETTER. ServiceDesk Plus explains the merge direction only in a confirmation,
   and the merged request vanishes from view.
-- **Source:** sdp-area-02a §Fields (merge dialog); sdp-area-02c §Automation (merge), §Behaviour (#39 state unverified), §Weak spots
+- **Source:** sdp-area-02a §Fields (merge dialog); sdp-area-02c §Automation (merge), §Behaviour (#39 state unverified), §Weak spots; D-046
 - **SDP weak spot fixed:** it is unclear what happened to the merged request, and the merge
   direction is easy to get wrong.
 - **Priority:** V1 · **Edition:** Essentials
@@ -2125,6 +2174,24 @@ tasks, checklists, reminders, followers and links. Each merged source:
   3. The target's timeline marks the moved entries with their original incident ID.
   4. Requester notification goes out only if chosen, and in the requester's language.
 
+
+#### REQ-INC-150 — Undo a merge
+
+A technician with permission can undo a merge. The source incident is restored to the status it
+had before the merge, and everything that moved with it (conversations, notes, attachments,
+worklogs, tasks, checklists, reminders, followers and links) moves back. Anything added to the
+target after the merge stays on the target. The undo, its actor and reason are recorded on both
+incidents.
+
+- **Decision:** NEW. ServiceDesk Plus cannot undo a merge.
+- **Source:** D-046; sdp-area-02c §Automation (merge), §Weak spots
+- **Priority:** V1 · **Edition:** Essentials
+- **Acceptance criteria:**
+  1. After merging A into B and undoing it, A is back in its previous status with its own
+     conversation, notes, attachments and worklogs, and B no longer shows them.
+  2. A note added to B after the merge stays on B after the undo.
+  3. Both incidents record the undo with actor, time and reason, and lists update live.
+  4. A user without the undo permission sees the action disabled with a reason.
 #### REQ-INC-089 — Convert between incident and service request
 
 A technician can convert an incident into a service request or the other way round when it
@@ -2162,7 +2229,7 @@ article in, or use a resolution template. They can also log a worklog in the sam
 #### REQ-INC-091 — Turn a resolution into knowledge
 
 From the resolution, a technician can save a knowledge article draft, pre-filled with the
-incident's subject, resolution and category. It goes into the knowledge approval flow (file 09)
+incident's subject, resolution and category. It goes into the knowledge approval flow (file 08)
 and is linked to the incident.
 
 - **Decision:** SAME.
@@ -2355,7 +2422,7 @@ The system suggests the flag and the technician can confirm or change it.
 
 When an incident closes, the requester can get a short satisfaction survey (one-click rating
 in the email and the portal, plus optional questions). Survey design and sending rules (every
-time, every Nth incident, per requester) are set in file 12. A low rating can notify the
+time, every Nth incident, per requester) are set in file 11. A low rating can notify the
 technician's lead.
 
 - **Decision:** SAME.
@@ -2785,9 +2852,10 @@ These incident events notify the right people:
 
 Each event can be switched on or off per tenant, with chosen recipients and channels (email,
 in-app, mobile push; Teams and Slack later). Defaults are on for the events in Appendix A.
+Templates ship in English and Arabic at MVP, and in Urdu at V1 (D-048).
 
 - **Decision:** BETTER. Same event coverage, with sensible defaults.
-- **Source:** sdp-area-12 (12b) §Screens (notification rules); sdp-area-11 §Fields (group notifications); architecture §6.8
+- **Source:** sdp-area-12 (12b) §Screens (notification rules); sdp-area-11 §Fields (group notifications); architecture §6.8; D-048
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. In a new tenant, creating an incident sends the requester an acknowledgement with no admin
@@ -2833,15 +2901,17 @@ English and Arabic (and Urdu from Stage 2). No one-time step that cannot be undo
 #### REQ-INC-133 — Notifications in the recipient's language
 
 Each notification goes out in the recipient's language and time zone (from their profile, or
-the site default). It is right to left for Arabic and Urdu.
+the site default). It is right to left for Arabic and Urdu. English and Arabic are available
+at MVP; Urdu follows at V1 (D-048).
 
 - **Decision:** NEW. ServiceDesk Plus generates templates in one language.
-- **Source:** architecture §6.8; D-006; product-plan §8 (internationalisation)
+- **Source:** architecture §6.8; D-006; D-048; product-plan §8 (internationalisation)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. An Arabic-speaking requester gets the acknowledgement in Arabic, laid out right to left,
      with times in their zone.
   2. A requester with no language set gets their site's default language.
+  3. From V1, a requester whose language is Urdu gets Urdu notifications, right to left.
 
 #### REQ-INC-134 — Notification log on the incident
 
@@ -2863,7 +2933,11 @@ whether delivery succeeded. The entries sit in the timeline under the system fil
 All AI on incidents runs through the AI gateway (architecture §12). It works with the local
 model on-prem and air-gapped, and with a chosen cloud model on SaaS, with the same permissions
 as the user. Every suggestion records whether a person accepted, edited or rejected it.
-Administration is in file 11.
+Administration is in file 10.
+
+Model access, pending a pricing decision (D-049): SaaS includes a fair-use allowance of cloud
+model usage; Enterprise tenants may bring their own key; on-prem and air-gapped installations
+use a local model.
 
 #### REQ-INC-135 — Classification suggestions
 
@@ -2970,7 +3044,7 @@ gets a visible marker everywhere. Similar open incidents can be attached as chil
 Ending the major status is recorded.
 
 - **Decision:** SAME.
-- **Source:** architecture §2.1 (major incident); sdp-area-02b §Fields (major incident template); sdp-area-12 (12b) §Behaviour (major incident life cycle)
+- **Source:** architecture §2.1 (major incident); sdp-area-02b §Fields (major incident template); sdp-area-12 (12b) §Behaviour (major incident life cycle); D-043
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Declaring major notifies the configured team and shows the major marker in lists live.
@@ -2999,7 +3073,7 @@ communications lead, resolvers), a link to the bridge call, linked changes from 
 hours on the affected services, and affected services from the CMDB.
 
 - **Decision:** NEW.
-- **Source:** product-plan §5 (native war room)
+- **Source:** product-plan §5 (native war room); D-043
 - **Priority:** LATER · **Edition:** Professional
 - **Acceptance criteria:**
   1. The war room timeline shows notes, status changes, updates and linked changes in order,
@@ -3014,7 +3088,7 @@ impact, cause, actions). AI drafts it from the incident timeline, monitoring dat
 changes, and a person edits and publishes it. Follow-up actions become tasks or problems.
 
 - **Decision:** BETTER. ServiceDesk Plus ships review drafting as an add-on extension.
-- **Source:** architecture §2.1 (post-incident review), §2.10 (PIR drafts); product-plan §5, §7.3 (PIR writer)
+- **Source:** architecture §2.1 (post-incident review), §2.10 (PIR drafts); product-plan §5, §7.3 (PIR writer); D-043
 - **Priority:** LATER · **Edition:** Professional
 - **Acceptance criteria:**
   1. Closing a major incident creates a review linked to it, pre-filled with its timeline.
@@ -3113,10 +3187,11 @@ notifications and an offline queue for changes made without signal are included.
 
 ---
 
-## Appendix A — Proposed defaults (for product owner approval)
+## Appendix A — Approved defaults
 
-These are the defaults a new tenant gets. Admins can change all of them. The requirements
-above refer to this appendix.
+These are the defaults a new tenant gets, approved by the product owner (D-041). They are seed
+data, not fixed behaviour: a tenant admin can change every one of them. The requirements above
+refer to this appendix.
 
 **Impact** (REQ-INC-008), lowest to highest: one person · a team · a department or site · the
 whole organisation.
@@ -3194,40 +3269,22 @@ unassigned for 30 minutes to the group; mention to the person mentioned.
 
 ## Open questions for the product owner
 
-1. **Reference Area 14 is missing.** The brief says Areas 1–14, but `docs/specs/reference/`
-   holds Areas 1–13 (with 12b inside Area 12). Area 13 says data administration (sandbox,
-   audit log, system log, import and export) belongs to Area 14. This file does not depend on
-   it. Is Area 14 still to come with Area 15, or did it go somewhere else?
-2. **Rich-text editor timing.** D-036 brings Tiptap with the Knowledge module, but incidents
-   come first in the build order and need rich text for descriptions, notes and replies
-   (REQ-INC-064). Should Tiptap and server-side sanitising move forward to the first incident
-   work package?
-3. **Defaults in Appendix A.** Please approve or change the priority matrix, statuses,
-   transitions, auto-close (3 business days), reopen window (7 days), closing-with-open-work
-   behaviour and notification defaults.
-4. **What "first customer pilot" means.** MVP here means the Stage 1 internal go-live (Extravis
-   support moves to SupportX, architecture §17) plus a design partner using email and the
-   portal. Is that right, or is the pilot an external customer with a larger MVP?
-5. **Major incident edition.** Declaring a major incident is set to Essentials. The war room,
-   status page and post-incident review are set to Professional. product-plan §9 does not say
-   either way. Agree?
-6. **Links to problems, changes and assets in Essentials.** Those modules are Professional
-   (product-plan §9), so REQ-INC-015, 029 and 087 are Professional. Should Essentials tenants
-   still see linking to modules they do not have, disabled with an upgrade hint? Or should
-   linking be hidden?
-7. **Separate counters per type** (INC-1 and SR-1, REQ-WI-002). ServiceDesk Plus shares one
-   counter between incidents and service requests. Separate counters per type is our proposal;
-   confirm.
-8. **Unmerge.** REQ-INC-088 keeps merged sources traceable but does not allow undoing a merge.
-   Do we need unmerge (more complex), and at what priority?
-9. **Worklog cost and billing.** Worklog costs (REQ-INC-068) are V1. Do Extravis support or the
-   pilot need billable time at MVP (for example for MSP customers)?
-10. **Urdu for notifications before Stage 2.** D-006 makes Urdu mandatory from Stage 2.
-    Requester-facing notification templates are the most visible text. Should they ship in Urdu
-    at MVP already?
-11. **AI in Essentials.** product-plan §9 puts AI assist in every tier. Is cloud model usage on
-    SaaS included in Essentials pricing, or bring-your-own-key only? This affects REQ-INC-135
-    to 137 on SaaS.
-12. **Auto-resolve of MonetX incidents** (REQ-INC-030). The proposed default auto-resolves on
-    recovery only if no technician has taken over the incident. Is that the behaviour you want
-    for NOC teams?
+None open. The Phase 1 questions were answered on 2026-10-24 and are recorded as decisions:
+
+1. Reference Area 14 is added as its own file (D-039).
+2. Tiptap and server-side sanitising move to the first incidents work package (D-040,
+   REQ-INC-064).
+3. The Appendix A defaults are approved; every default is editable per tenant (D-041).
+4. MVP is the Stage 1 internal go-live plus one design-partner customer (D-042).
+5. Declaring a major incident is Essentials; the war room and the post-incident review are
+   Professional (D-043, REQ-INC-141, 143, 144).
+6. Features outside the edition show disabled with an upgrade hint; an admin can hide them
+   (D-044, REQ-WI-025).
+7. Separate counters per type with an admin-editable prefix (D-045, REQ-WI-002).
+8. Undo merge is V1 (D-046, REQ-INC-150).
+9. Worklog time is MVP; costs and billable time are V1 (D-047, REQ-INC-067, 068).
+10. Notifications in English and Arabic at MVP, Urdu at V1 (D-048, REQ-INC-130, 133).
+11. AI model access: fair-use allowance on SaaS, bring your own key for Enterprise, local model
+    on-prem and air-gapped; pending a pricing decision (D-049, section 20).
+12. MonetX recovery auto-resolves by default; a technician's incident gets a "source
+    recovered" note and the assignee is notified instead; configurable (D-050, REQ-INC-030).

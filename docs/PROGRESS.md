@@ -22,7 +22,8 @@
 None.
 
 Resolved 2026-10-24: rich-text editor = Tiptap with server-side sanitising, built with the
-Knowledge module (D-036); k3d installed through Homebrew by the product owner; WP-014 plan
+first incidents work package (D-036, timing moved by D-040); parity phase 1 questions answered
+(D-039 to D-050); k3d installed through Homebrew by the product owner; WP-014 plan
 decisions D1-D13 (D-038).
 
 ### Open items
@@ -341,8 +342,41 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   until the designer); the record channel is `t:{tenant}:wi:{id}` as planned; the reserved
   `requests.*` permissions stay (relabelled in session 2) because many policy tests use them;
   WI-020 AC3 (purge after retention) deferred until the audit log (WP-018).
+- **Decision IDs:** main already held D-039..D-050 (parity answers, PR #34), so this session's
+  rows were renumbered D-051..D-056 and main was merged in; overlapping points cite main's D-040
+  (Tiptap timing), D-041 (editable defaults) and D-045 (per-type counters).
 - **Dev data:** none touched. Migrations ran only on throwaway `supportx_test_*` databases; the dev
   database is still at 0010 (run `make db-migrate` to apply 0011–0012; expand-only).
+
+### 2026-10-24 — Parity spec phase 2, batch 3 (docs only)
+
+- Added `07-assets-cmdb-software-purchase-contracts.md` (183: 0 MVP / 145 V1 / 38 LATER),
+  `08-knowledge.md` (93: 38 / 50 / 5) and `09-reports-dashboards.md` (116: 40 / 61 / 15).
+- File 05 now cites the CMDB downtime and impact requirements (REQ-CMDB-020, REQ-CMDB-010).
+- Spec gap found: architecture.md §6.1 puts products and vendors in `procurement` (Stage 3),
+  but assets need them at Stage 2 (file 07 open question 2). §11.2 still says "Redis"
+  (should be Valkey, D-004).
+- No code changed. Next: batch 4 (10 AI, 11 admin and security, 12 integrations and ESM).
+
+### 2026-10-24 — Parity spec phase 2, batch 2 (docs only)
+
+- Added `04-problems.md` (81: 0 MVP / 74 V1 / 7 LATER), `05-changes.md` (118: 0 / 100 / 18)
+  and `06-releases-projects.md` (112: 0 / 54 / 58). All Professional; Stage 2 and 3 modules
+  have no MVP items.
+- File 01: new REQ-WI-026 (stages that group statuses, one engine model for changes and
+  releases). Change and release approvals are built on the shared approval engine in file 02.
+- No code changed. Next: batch 3 (07 assets/CMDB, 08 knowledge, 09 reports).
+
+### 2026-10-24 — Parity spec phase 2, batch 1 (docs only)
+
+- Recorded the product owner's answers to the phase 1 questions as D-039 to D-050 and applied
+  them to `01-work-items-incidents.md` (now 175 requirements: new REQ-WI-025 locked features,
+  REQ-INC-150 undo merge) and to the parity README (module files regrouped into twelve, MVP =
+  Stage 1 internal go-live plus one design partner). D-036 timing amended by D-040 (Tiptap
+  with the first incidents work package); CLAUDE.md §3 updated.
+- Added `02-service-requests-catalog-portal.md` (127: 60 MVP / 51 V1 / 16 LATER) and
+  `03-sla-assignment-rules-workflows-notifications.md` (146: 60 / 73 / 13).
+- No code changed. Next: batch 2 (files 04 problems, 05 changes, 06 releases and projects).
 
 ### 2026-10-24 — Parity spec phase 1 (docs only)
 

@@ -9,8 +9,9 @@ Order of authority, as everywhere in this repo: product owner decisions (`DECISI
 architecture.md, then product-plan.md. A requirement that conflicts with them is wrong and must
 be fixed here. The reference notes are input, not authority.
 
-**Status:** Phase 1, 2026-10-24. The index and module 01 are written; the other modules follow
-in later phases. **Owner:** Haider (Product Owner).
+**Status:** Phase 2, 2026-10-24. Module 01 is updated with the product owner's answers
+(D-039 to D-050); the other modules are added in batches, in build order. The module list was
+regrouped into twelve files by the product owner in Phase 2. **Owner:** Haider (Product Owner).
 
 ## Modules in build order
 
@@ -19,20 +20,18 @@ engine comes first, because every ticket-like module reuses it (architecture.md 
 
 | # | File | Module | ID prefixes | Draws on reference areas | Requirements (MVP / V1 / LATER) |
 |---|---|---|---|---|---|
-| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **173** (84 / 73 / 16) |
-| 02 | 02-service-requests-catalog-portal.md | Service requests, service catalog, self-service portal | SR, CAT, PRT | 03, 02b, 12, 13 (requester portal, approval settings), 10 (chatbot) | not yet written |
-| 03 | 03-sla-assignment-rules.md | SLA and OLA, auto-assignment, business rules, triggers, notification rules, life cycle and visual workflow engine, operating hours | SLA, ASG, RUL, WF | 12 (incl. 12b), 13 (statuses, priority matrix), 11 (sites, operating hours), 02c (SLA by priority) | not yet written |
-| 04 | 04-problems.md | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions) | not yet written |
-| 05 | 05-changes.md | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates) | not yet written |
-| 06 | 06-releases.md | Release management | REL | 06 | not yet written |
-| 07 | 07-projects.md | Projects, milestones, Gantt, timesheets | PRJ | 06 (incl. 6b) | not yet written |
-| 08 | 08-assets-cmdb-purchase-contracts.md | Assets and software, CMDB, purchase, contracts | AST, CMDB, PUR, CON | 07 (incl. 7b), 11 (fine-grained access) | not yet written |
-| 09 | 09-knowledge.md | Knowledge base | KB | 08, 10 (solution assist and generator) | not yet written |
-| 10 | 10-reports-dashboards.md | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets) | not yet written |
-| 11 | 11-ai.md | AI gateway features, agents, chatbot, MCP | AI | 10 | not yet written |
-| 12 | 12-admin-settings.md | Users, roles, groups, sites, customisation, mail servers, surveys, data administration, preferences | ADM | 11, 13, 01 (preferences, navigation) | not yet written |
-| 13 | 13-integrations.md | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, MCP server | INT | 13 (mail), 12 (webhooks), 10 (AI providers); architecture.md §2.14 | not yet written |
-| 14 | 14-esm.md | Enterprise service management: department desks, HR, facilities, spaces and bookings | ESM | 03 (ESM portal entry only); architecture.md §2.15 | not yet written |
+| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **176** (84 / 76 / 16) |
+| 02 | [02-service-requests-catalog-portal.md](02-service-requests-catalog-portal.md) | Service requests, service catalog, requester portal | SR, CAT, PRT | 03, 02a-c, 12, 13 (requester portal, approval settings), 10 and 14 (chatbot entry) | **127** (60 / 51 / 16) |
+| 03 | [03-sla-assignment-rules-workflows-notifications.md](03-sla-assignment-rules-workflows-notifications.md) | SLA and OLA, operating hours, auto-assignment, business rules, triggers and schedules, custom actions, life cycles and visual workflows, notification engine | SLA, ASG, RUL, WF, NTF | 12 (incl. 12b), 13, 11 (sites, operating hours), 02c, 14 (custom functions) | **146** (60 / 73 / 13) |
+| 04 | [04-problems.md](04-problems.md) | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | **81** (0 / 74 / 7) |
+| 05 | [05-changes.md](05-changes.md) | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | **118** (0 / 100 / 18) |
+| 06 | [06-releases-projects.md](06-releases-projects.md) | Release management; projects, milestones, Gantt, timesheets | REL, PRJ | 06 (incl. 6b) | **112** (0 / 54 / 58) |
+| 07 | [07-assets-cmdb-software-purchase-contracts.md](07-assets-cmdb-software-purchase-contracts.md) | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | **183** (0 / 145 / 38) |
+| 08 | [08-knowledge.md](08-knowledge.md) | Knowledge base | KB | 08, 10 (solution assist and generator), 03, 04 | **93** (38 / 50 / 5) |
+| 09 | [09-reports-dashboards.md](09-reports-dashboards.md) | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets), 10, 11, 13, 14 | **116** (40 / 61 / 15) |
+| 10 | 10-ai.md | AI gateway, AI administration, agents, chatbot, MCP | AI | 10, 14 (agents, chatbot, AI providers) | not yet written |
+| 11 | 11-admin-users-security-audit.md | Users, roles, groups, sites, customisation, settings, mail, surveys, data administration, login and MFA, security, audit | ADM, SEC, AUD | 11, 13, 14, 01 (preferences, navigation) | not yet written |
+| 12 | 12-integrations-esm.md | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, API, extensions; enterprise service management (department desks, HR, facilities) | INT, ESM | 14 (integrations, ESM), 13 (mail), 12 (webhooks), 10 (AI providers), 03 (ESM portal); architecture §2.14, §2.15 | not yet written |
 
 Notes on the table:
 
@@ -40,10 +39,15 @@ Notes on the table:
   (architecture.md §6.1). Other files only refer to its ID. Examples: notes, tasks, worklogs,
   links and merge are engine features (REQ-WI and REQ-INC in file 01); problems and changes
   list only how they differ. The SLA engine is in file 03; file 01 says only how an incident
-  uses it.
-- **Gaps in the research.** Area 14 (data administration) and Area 15 (multi-user
-  assignment, requester-side views) are not in `docs/specs/reference/` yet. ESM has no
-  research area of its own. Files 12 and 14 will need them.
+  uses it. The approval engine (stages, parallel and conditional approvers, delegation,
+  backups, reminders, safe one-time email links) is specified once in file 02 (REQ-SR-021 to
+  REQ-SR-039) and built in the engine; incidents, changes and releases reuse it. The
+  notification engine is file 03 (REQ-NTF-*); each module lists only its own events. Stages
+  that group statuses (changes, releases) are one engine model (REQ-WI-026).
+- **Gaps in the research.** Area 14 (data administration, integrations, ESM instances) is in
+  `docs/specs/reference/` (D-039). Area 15 (multi-user assignment, requester-side views) is
+  not there yet. ESM has no research area of its own beyond Area 14's instance and directory
+  screens; file 12 relies on architecture.md §2.15 for it.
 - **Counts** for each file are kept in that file's summary table, which is the source of
   truth. This index repeats them when a file is added or changed.
 
@@ -68,8 +72,8 @@ Notes on the table:
 | **Decision** | `SAME`: parity, the same capability and outcome. `BETTER`: parity plus our improvement, and the requirement says what and why. `NEW`: ServiceDesk Plus lacks it. `SKIP`: deliberately not built, and the requirement says why and what replaces it. |
 | **Source** | Where it comes from. A reference file and section, for example `sdp-area-02c §Actions`, or `architecture §6.5`, `product-plan §7.3`, `ADR-017`, `D-001`. Section short names: §Screens, §Fields, §Actions, §Config, §Automation, §Behaviour, §Edition notes, §Weak spots (the "Weak spots / confusing UX" list), §Limits. Follow-up parts are written in brackets: `sdp-area-12 (12b) §Behaviour`. |
 | **SDP weak spot fixed** | Only when the requirement fixes one: the research finding, briefly, in our own words. |
-| **Priority** | `MVP`: needed for the first customer pilot (the Stage 1 go-live, architecture.md §17; see open question 4 in file 01). `V1`: needed for the first external release and a standard ITSM tender. `LATER`: after V1. |
-| **Edition** | The lowest edition that includes it: `Essentials`, `Professional` or `Enterprise` (product-plan.md §9). Higher editions include everything below. Editions are enforced only through the entitlement interface (CLAUDE.md §5f). |
+| **Priority** | `MVP`: needed for the Stage 1 internal go-live (architecture.md §17) plus one design-partner customer (D-042). `V1`: needed for the first external release and a standard ITSM tender. `LATER`: after V1. |
+| **Edition** | The lowest edition that includes it: `Essentials`, `Professional` or `Enterprise` (product-plan.md §9). Higher editions include everything below. Editions are enforced only through the entitlement interface (CLAUDE.md §5f). Features outside a tenant's edition show disabled with an upgrade hint, or are hidden if the admin chooses (D-044, REQ-WI-025). |
 | **Acceptance criteria** | Two to five numbered, testable statements. Each becomes at least one automated test (see below). |
 
 ### Acceptance criteria become tests
@@ -99,6 +103,8 @@ Notes on the table:
    de-duplication (ADR-017, D-001). Only the MonetX connector (receive problems, read health,
    problems and topology read-only) and the generic alert webhook are in scope.
 4. **Open questions** for the product owner go at the end of each module file.
+5. **Defaults are seed data.** Each file lists its proposed tenant defaults in an appendix.
+   Every default must be editable per tenant by an admin (D-041).
 
 **Cross-cutting lessons from the research.** Every module applies these. The engine
 requirements in file 01 implement them once:
