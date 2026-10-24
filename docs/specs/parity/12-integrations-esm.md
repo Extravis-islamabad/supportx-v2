@@ -2551,6 +2551,8 @@ days.
    *Answered:* D-062: Entra ID and on-prem AD/LDAP sync are MVP (REQ-INT-063 to 065). A SaaS
    tenant syncing an on-prem directory needs the relay agent (REQ-INT-087, V1); see the MVP
    build plan.
+   D-071: on-prem installs connect directly; SaaS supports Entra ID only at MVP; the relay
+   agent stays V1.
 3. **Teams and Slack timing.** Notifications to Teams and Slack are V1 (REQ-INT-057); actions
    from chat are LATER, matching REQ-SR-040 and REQ-INC-032. product-plan Appendix B lists
    collaboration as P0. Move Teams notifications to MVP?
