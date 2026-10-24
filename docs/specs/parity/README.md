@@ -58,6 +58,9 @@ Notes on the table:
 - **Counts** for each file are kept in that file's summary table, which is the source of
   truth. This index repeats them when a file is added or changed.
 
+**MVP build plan:** [mvp-build-plan.md](mvp-build-plan.md) maps every MVP requirement to a
+work package in build order, with sessions, dependencies and the critical path.
+
 ## ID scheme
 
 - **Format:** `REQ-<PREFIX>-<NNN>`, for example `REQ-INC-001`. `NNN` is three digits with
