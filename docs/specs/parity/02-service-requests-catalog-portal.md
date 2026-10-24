@@ -68,12 +68,12 @@ and field meanings: [README.md](README.md).
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
 | SAME | 33 | 26 | 10 | 69 |
-| BETTER | 26 | 11 | 0 | 37 |
+| BETTER | 27 | 11 | 0 | 38 |
 | NEW | 1 | 14 | 4 | 19 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **60** | **51** | **16** | **127** |
+| **Total** | **61** | **51** | **16** | **128** |
 
-Edition (lowest edition that includes it): Essentials 91, Professional 32, Enterprise 4. By prefix: REQ-SR 62, REQ-CAT 32, REQ-PRT 33.
+Edition (lowest edition that includes it): Essentials 92, Professional 32, Enterprise 4. By prefix: REQ-SR 63, REQ-CAT 32, REQ-PRT 33.
 
 | ID | Title | Decision | Priority | Edition |
 |---|---|---|---|---|
@@ -99,6 +99,7 @@ Edition (lowest edition that includes it): Essentials 91, Professional 32, Enter
 | [REQ-SR-020](#req-sr-020--links-to-purchase-requests-and-orders) | Links to purchase requests and orders | SAME | LATER | Professional |
 | [REQ-SR-021](#req-sr-021--approval-before-fulfilment) | Approval before fulfilment | SAME | MVP | Essentials |
 | [REQ-SR-022](#req-sr-022--approver-by-name-or-the-requesters-manager) | Approver by name or the requester's manager | BETTER | MVP | Essentials |
+| [REQ-SR-063](#req-sr-063--one-approver-model-for-requests-and-changes) | One approver model for requests and changes | BETTER | MVP | Essentials |
 | [REQ-SR-023](#req-sr-023--no-approval-waits-on-nobody) | No approval waits on nobody | BETTER | MVP | Essentials |
 | [REQ-SR-024](#req-sr-024--everyone-involved-sees-the-approval-progress) | Everyone involved sees the approval progress | BETTER | MVP | Essentials |
 | [REQ-SR-025](#req-sr-025--approve-or-reject-in-the-app) | Approve or reject in the app | SAME | MVP | Essentials |
@@ -622,6 +623,26 @@ licence or flag is needed.
   3. Changing a person's manager after submission does not move a pending approval; an admin
      can reassign it (REQ-SR-042).
 
+#### REQ-SR-063 — One approver model for requests and changes
+
+Requests, changes, releases, purchase orders and articles all use the same approver model: any
+person (requester or technician) who holds the approval permission for that kind of record
+(REQ-ADM-023) can be named as an approver, is picked from the same people picker (REQ-WI-027),
+and decides in the same places (REQ-SR-025). There is no hidden per-person flag and no rule that
+one kind of approver must be a requester and another a technician.
+
+- **Decision:** BETTER. In ServiceDesk Plus request approvers must be requester-type users with
+  a hidden "request approver" tick, while the change approver picker lists technicians only.
+- **Source:** sdp-area-15 §Setup and licences, §Approvals flow (change approvals), §Weak spots; sdp-area-11 §Fields (request approver checkbox)
+- **SDP weak spot fixed:** two incompatible approver models for requests and changes.
+- **Priority:** MVP · **Edition:** Essentials
+- **Acceptance criteria:**
+  1. The same line manager, a requester-only user, can be named as approver on a service
+     request and on a change, and decides both from the portal.
+  2. A technician with the approval permission can approve a service request.
+  3. The approver pickers for requests and changes use one API and return the same eligible
+     people for the same approval kind.
+
 #### REQ-SR-023 — No approval waits on nobody
 
 If a stage's approvers resolve to no active person (no manager on record, approver left the
@@ -651,7 +672,7 @@ see approvals unless the tenant hides them (Appendix A).
 
 - **Decision:** BETTER. In ServiceDesk Plus the approvals tab showed only a mail server error,
   and showing approvals to requesters is an off-by-default setting.
-- **Source:** sdp-area-02b §Weak spots (approvals tab shows only a mail error); sdp-area-13 §Requester Portal (show incident approvals to requesters); sdp-area-12 §Config (show approval status to requesters)
+- **Source:** sdp-area-02b §Weak spots (approvals tab shows only a mail error); sdp-area-13 §Requester Portal (show incident approvals to requesters); sdp-area-12 §Config (show approval status to requesters); sdp-area-15 §Approvals flow, §Weak spots (approvals fail silently)
 - **SDP weak spot fixed:** you cannot see what or whom an approval is waiting for.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -671,13 +692,16 @@ request summary, the requested-for person, the item and its form answers, quanti
 They approve or reject with a comment.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-01 §Screens (approvals drawer: my pending approvals); architecture §8.1 (approvals waiting on the user channel), §2.15 (my approvals in the portal)
+- **Source:** sdp-area-01 §Screens (approvals drawer: my pending approvals); architecture §8.1 (approvals waiting on the user channel), §2.15 (my approvals in the portal); sdp-area-15 §Approvals flow (no approval reached the approver without a mail server)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A new pending approval raises the approver's approvals count in the console and the
      portal within one second.
   2. Approving from the drawer records the decision and removes the entry live.
   3. A user who is not an approver of the stage gets 403 from the decision API.
+  4. With no mail server configured, a new approval still reaches the approver in the console
+     drawer, the portal inbox and in-app notifications, and the decision works; no approval step
+     depends on email.
 
 #### REQ-SR-026 — Approve by email with safe one-time links
 

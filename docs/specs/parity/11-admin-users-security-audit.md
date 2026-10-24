@@ -616,7 +616,7 @@ built-in role to make a custom one, and compare two roles side by side. Built-in
 be changed or deleted; custom roles can.
 
 - **Decision:** BETTER. ServiceDesk Plus built-in roles cannot be opened at all.
-- **Source:** sdp-area-11 §Screens (roles list: edit and delete greyed out, names not
+- **Source:** sdp-area-11 §Screens (roles list: edit and delete greyed out, names not; sdp-area-15 §Roles and permissions matrix (the change manager role cannot be opened), §Weak spots
   clickable), §Weak spots, §Limits; REQ-WI-015; ADR-022 (immutable system roles)
 - **SDP weak spot fixed:** an admin cannot see what the built-in admin or change manager roles
   grant without trial and error.
@@ -626,6 +626,8 @@ be changed or deleted; custom roles can.
   2. "Copy" creates an editable custom role with the same grants and a new name.
   3. Comparing two roles highlights grants that only one of them has.
   4. The API refuses edits to a built-in role with 409 and a reason code.
+  5. No role is ever unviewable: every role in the tenant, built-in, custom or created by an
+     import or migration, opens and can be compared with any other.
 
 #### REQ-ADM-018 — Roles a new tenant starts with
 
@@ -668,7 +670,7 @@ A site administrator manages people, groups, departments and site settings for t
 only, and cannot change tenant-wide settings. Their grants carry the site scope.
 
 - **Decision:** SAME. ServiceDesk Plus has a site administrator role.
-- **Source:** sdp-area-11 §Fields (enable administrator privileges for the selected sites;
+- **Source:** sdp-area-11 §Fields (enable administrator privileges for the selected sites;; sdp-area-15 §Dashboards, Site Admin and Change Manager (site admin cannot create requesters)
   site administrator role as configured)
 - **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -676,6 +678,7 @@ only, and cannot change tenant-wide settings. Their grants carry the site scope.
      department.
   2. A site administrator cannot give a role with tenant-wide scope.
   3. Tenant-wide settings pages are not listed in their setup.
+  4. A site administrator can create requesters and technicians for their sites.
 
 #### REQ-ADM-021 — No privilege escalation, no lock-out
 
@@ -2233,7 +2236,7 @@ third party to use SupportX.
 
 - **Decision:** BETTER. The vendor requires a third-party vendor account before a technician or
   requester can sign in; invitations must be accepted in that account first.
-- **Source:** product owner observation (login, invitation and MFA), finding (a); sdp-area-11
+- **Source:** product owner observation (login, invitation and MFA), finding (a); sdp-area-11; sdp-area-15 §Sign-in, invitation and MFA
   §Fields (login requires the user to exist in the vendor's organisation and accept an
   invitation), §Edition notes; sdp-area-14 §Weak spots
 - **SDP weak spot fixed:** a third-party vendor account is required to sign in.
@@ -2253,7 +2256,7 @@ methods the tenant has enabled. An unknown address shows the default product bra
 
 - **Decision:** BETTER. The vendor's sign-in and invitation pages carry the vendor's brand,
   not the customer's.
-- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;
+- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;; sdp-area-15 §Sign-in, invitation and MFA
   WP-017
 - **SDP weak spot fixed:** sign-in and invitations are vendor-branded rather than
   tenant-branded.
@@ -2487,7 +2490,7 @@ language and wording (template in REQ-ADM-068). The link leads to the tenant's s
 to set a password or use single sign-on.
 
 - **Decision:** BETTER. The vendor's invitations are vendor-branded.
-- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;
+- **Source:** product owner observation (login, invitation and MFA), finding (b); D-027;; sdp-area-15 §Sign-in, invitation and MFA
   sdp-area-11 §Edition notes (login relies on vendor accounts and invitations)
 - **SDP weak spot fixed:** invitations carry the vendor's brand rather than the tenant's.
 - **Priority:** MVP · **Edition:** Essentials
@@ -2503,7 +2506,7 @@ tenant chooses. They never show the inviter's personal or work email address, in
 the headers.
 
 - **Decision:** BETTER. The vendor's invitations expose the inviter's personal email address.
-- **Source:** product owner observation (login, invitation and MFA), finding (c)
+- **Source:** product owner observation (login, invitation and MFA), finding (c); sdp-area-15 §Sign-in, invitation and MFA
 - **SDP weak spot fixed:** the inviter's personal email address is exposed in invitations.
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
@@ -2552,7 +2555,7 @@ any authenticator app they choose. Enrolment shows a QR code and a typed key, an
 with a first code.
 
 - **Decision:** BETTER. The vendor's MFA forces its own authenticator app.
-- **Source:** product owner observation (login, invitation and MFA), finding (d); architecture
+- **Source:** product owner observation (login, invitation and MFA), finding (d); architecture; sdp-area-15 §Sign-in, invitation and MFA
   §11.1 (MFA: TOTP, WebAuthn); sdp-area-14 §Weak spots (2FA outside the product)
 - **SDP weak spot fixed:** MFA forces the vendor's own authenticator app.
 - **Priority:** MVP · **Edition:** Essentials
@@ -2580,7 +2583,7 @@ a short enrolment grace period (Appendix A). By default, MFA is required for adm
 and optional for others.
 
 - **Decision:** BETTER. The policy is set in the product, per role.
-- **Source:** architecture §11.1; sdp-area-14 §Weak spots (2FA outside the product)
+- **Source:** architecture §11.1; sdp-area-14 §Weak spots (2FA outside the product); sdp-area-15 §Sign-in, invitation and MFA
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Giving someone the tenant administrator role makes them enrol at next sign-in.

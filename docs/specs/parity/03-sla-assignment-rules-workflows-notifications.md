@@ -971,7 +971,7 @@ for tasks.
 
 - **Decision:** BETTER. ServiceDesk Plus has one global page for all groups, for incidents (and
   optionally service requests) only.
-- **Source:** sdp-area-12 §Screens (technician auto assign), §Fields (auto-assign fields), §Weak spots; sdp-area-11 §Config (no auto-assign on the group form); architecture §2.1 (assignment)
+- **Source:** sdp-area-12 §Screens (technician auto assign), §Fields (auto-assign fields), §Weak spots; sdp-area-11 §Config (no auto-assign on the group form); architecture §2.1 (assignment); sdp-area-15 §Assignment and SLA behaviour, §Weak spots
 - **SDP weak spot fixed:** auto-assignment has no per-group set-up and covers incidents only
   unless a box is ticked.
 - **Priority:** MVP · **Edition:** Essentials
@@ -981,6 +981,9 @@ for tasks.
   2. A group with auto-assignment off leaves records unassigned in the group queue.
   3. Moving an incident to group A with no technician assigns one when "also on move" is on.
   4. History names the method and the group's set-up used (REQ-WI-004).
+  5. Auto-assignment never picks a technician outside the record's group; a record with no group
+     is routed to a group first (REQ-ASG-001), and service requests are covered by default, not
+     only incidents.
 
 #### REQ-ASG-003 — Round robin
 
@@ -988,7 +991,7 @@ Round robin gives each new record to the next available member of the group in t
 order is kept per group and is safe when many records arrive at the same moment.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-12 §Fields (auto-assign model), (12b) §Behaviour (round robin picked a technician)
+- **Source:** sdp-area-12 §Fields (auto-assign model), (12b) §Behaviour (round robin picked a technician); sdp-area-15 §Assignment and SLA behaviour (round robin over every technician, ignoring groups)
 - **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Nine incidents arriving for a group of three available technicians give each of them

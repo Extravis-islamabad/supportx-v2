@@ -809,12 +809,16 @@ role exists, and admins can read and copy every built-in role to see what it gra
 
 - **Decision:** BETTER. ServiceDesk Plus built-in roles, including its change manager role, cannot
   be opened.
-- **Source:** sdp-area-11 §Fields (role matrix, roles list), §Weak spots; architecture §11.2 (module and action)
+- **Source:** sdp-area-11 §Fields (role matrix, roles list), §Weak spots; architecture §11.2 (module and action); sdp-area-15 §Approvals flow (change manager could not move a change forward), §Dashboards, Site Admin and Change Manager, §Weak spots
 - **SDP weak spot fixed:** an admin cannot see what the built-in change manager role grants.
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. An admin can open the built-in change manager role and see every permission it holds.
   2. A technician without "override freeze window" cannot override one; the API returns 403.
+  3. A user holding only the built-in change manager role can move a change through every stage
+     to closure (approvals permitting) without a permission error.
+  4. Every role's change permissions are readable by any admin at any time; no role, built-in or
+     migrated, is hidden from the role list.
 
 #### REQ-CHG-039 — Segregation of duties on changes
 
