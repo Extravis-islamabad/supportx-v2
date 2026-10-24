@@ -102,11 +102,11 @@ vendors and contracts (architecture.md §2.11). Rules, ID scheme and field meani
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 0 | 89 | 16 | 105 |
+| SAME | 0 | 90 | 15 | 105 |
 | BETTER | 0 | 43 | 7 | 50 |
 | NEW | 0 | 13 | 13 | 26 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **0** | **145** | **38** | **183** |
+| **Total** | **0** | **146** | **37** | **183** |
 
 Edition (lowest edition that includes it): Essentials 0, Professional 182, Enterprise 1. By prefix: REQ-AST 62, REQ-DSC 30, REQ-SAM 22, REQ-CMDB 32, REQ-PUR 20, REQ-CON 17.
 
@@ -172,7 +172,7 @@ Edition (lowest edition that includes it): Essentials 0, Professional 182, Enter
 | [REQ-AST-058](#req-ast-058--asset-permissions-by-action) | Asset permissions by action | SAME | V1 | Professional |
 | [REQ-AST-059](#req-ast-059--asset-notifications) | Asset notifications | SAME | V1 | Professional |
 | [REQ-AST-060](#req-ast-060--asset-data-for-reports-and-dashboards) | Asset data for reports and dashboards | SAME | V1 | Professional |
-| [REQ-AST-061](#req-ast-061--assets-in-the-mobile-app) | Assets in the mobile app | SAME | LATER | Professional |
+| [REQ-AST-061](#req-ast-061--assets-in-the-mobile-app) | Assets in the mobile app | SAME | V1 | Professional |
 | [REQ-AST-062](#req-ast-062--warranty-tracking) | Warranty tracking | SAME | V1 | Professional |
 | [REQ-DSC-001](#req-dsc-001--discovery-is-inventory-never-monitoring) | Discovery is inventory, never monitoring | NEW | V1 | Professional |
 | [REQ-DSC-002](#req-dsc-002--discovery-agent-for-windows-macos-and-linux) | Discovery agent for Windows, macOS and Linux | BETTER | V1 | Professional |
@@ -395,7 +395,7 @@ default cost, GL code, a flag to hide it from purchase orders, depreciation defa
 (REQ-AST-037) and a description. Assets, purchase orders and contracts pick products from it.
 
 - **Decision:** SAME.
-- **Source:** sdp-area-07 (7b) §7b.1 (product list and form); architecture §2.11 (product catalogues), §6.1 (procurement owns products)
+- **Source:** sdp-area-07 (7b) §7b.1 (product list and form); architecture §2.11 (product catalogues), §6.1 (procurement owns products); D-067 (products and vendors arrive in Stage 2 with assets)
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. A product marked "hide from purchase orders" never appears in the PO item picker but can
@@ -1292,8 +1292,8 @@ Technicians look up assets in the mobile app by search or scan, see details and 
 state, assign, and raise an incident from an asset.
 
 - **Decision:** SAME.
-- **Source:** architecture §2.15 (mobile apps), §9.1
-- **Priority:** LATER · **Edition:** Professional
+- **Source:** architecture §2.15 (mobile apps), §9.1; D-065
+- **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. Scanning an asset's QR code opens it in the app.
   2. A state change in the app follows the asset life cycle (REQ-AST-013).
@@ -2563,7 +2563,7 @@ Users with permission can add a vendor inline from a contract, licence or PO for
 
 - **Decision:** BETTER. ServiceDesk Plus keeps vendors only under setup, with no page that
   shows what the vendor supplies.
-- **Source:** sdp-area-07 §Navigation path (vendors only under setup and inline), §Fields (new vendor); sdp-area-11 §Fields (purchase: adding new vendor permission); architecture §2.11 (vendor catalogue)
+- **Source:** sdp-area-07 §Navigation path (vendors only under setup and inline), §Fields (new vendor); sdp-area-11 §Fields (purchase: adding new vendor permission); architecture §2.11 (vendor catalogue); D-067 (products and vendors arrive in Stage 2 with assets)
 - **SDP weak spot fixed:** vendors are hidden under setup.
 - **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
@@ -3067,7 +3067,7 @@ vendor contracts only.
 
 - **Decision:** SKIP. Customer contracts and billing come with MSP multi-tenancy (Enterprise,
   Stage 3); building them inside vendor contracts would mix two different things.
-- **Source:** architecture §2.15 (MSP: contracts and billing), §17 (Stage 3: MSP billing); REQ-SLA-035
+- **Source:** architecture §2.15 (MSP: contracts and billing), §17 (Stage 3: MSP billing); REQ-SLA-035; D-063 (MSP is LATER, no parity file yet)
 - **Priority:** LATER · **Edition:** Enterprise
 - **Acceptance criteria:**
   1. The vendor contract form offers no customer billing fields.
@@ -3265,6 +3265,8 @@ when all items are received and all invoices are paid; budget mode "warn".
    management first". This file makes vendors, the product catalogue and the basic contract
    record V1 and purchasing LATER. Confirm, and confirm that the `procurement` module starts
    at Stage 2 with these parts only.
+   *Answered:* D-067: vendors, the product catalogue and basic contracts move to Stage 2 with
+   assets (V1); purchase orders stay Stage 3. architecture.md §17 updated.
 3. **Editions.** The plan places ITAM and the CMDB in Professional but does not place
    purchasing, contracts or discovery. This file proposes Professional for all. Should
    purchasing (POs, invoices, budgets) be Enterprise, and is `discovery` (a separate feature

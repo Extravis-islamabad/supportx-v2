@@ -6,7 +6,7 @@
   (WP-014 = part 1 of 4; 014b-d are planned below).
 - **Last completed:** WP-020 (work item engine and incidents: API, screens, Tiptap editor),
   2026-10-24. Before it: WP-014 (deployment part 1).
-- **Next work package:** WP-020b (conversation and notes), then the sequence below
+- **Next work package:** WP-020b (conversation, notes and followers), then the sequence below
   (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
@@ -272,7 +272,7 @@ of console and portal. Each WP is sized for one Claude Code session. Status: `[ 
 
 Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 1 starts.
 
-### [x] WP-020 — Work item engine and incident record (ADR-026; D-051..D-057; done 2026-10-24)
+### [x] WP-020 — Work item engine and incident record (ADR-026; D-051..D-056, D-069; done 2026-10-24)
 Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
 - [x] Session 1 (backend): module `work_items` (shared `work_items` table, type registry,
   per-tenant life cycle / scales / matrix / reasons / categories seeded on first use), incidents API
@@ -287,10 +287,11 @@ Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
   Playwright (3 new; 27/27), reserved `requests.*` relabelled as service requests, Appearance
   popover fix (e2e retry removed), Valkey chart test fix (our smoke pod checks auth; upstream pod
   excluded from `helm test`).
-- V1 (D-057): keep following an incident after handing it over (needs followers, REQ-INC-056).
+- Open (D-068, REQ-INC-151, MVP): keep following an incident after handing it over; needs the
+  follower model, so it lands with WP-020b. The D-053 warning ships now.
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
-WP-020b conversation and notes · WP-020c incident settings screens and templates · WP-020d views
+WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
 and departments · WP-022 files (aioboto3, D-054) · WP-023 notifications · WP-024 email channel ·
 WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom fields · WP-027 search ·
@@ -312,7 +313,7 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [ ] WP-018 — Tamper-evident audit log (D-034; planning only)
+### [ ] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; planning only)
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
@@ -325,6 +326,39 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
 
 ## Session log (newest first)
 
+### 2026-10-24 — Parity: MVP build plan (docs only)
+
+- Added `docs/specs/parity/mvp-build-plan.md`: all 397 MVP requirements mapped to 31 work
+  packages (WP-020 to WP-020f, WP-021 to WP-043, plus WP-017 and WP-018), 63 sessions, plus
+  WP-013 and WP-014b (4 sessions): 67 sessions to MVP, up to 4 more depending on where the
+  design partner runs. Critical path 15 sessions (WP-020 → 020c → 026 → 029 → 030 → 031 →
+  032). 14 decisions flagged for the product owner.
+- No code changed.
+
+### 2026-10-24 — Parity: product owner answers D-057 to D-068 (docs only)
+
+- Recorded D-057 (MVP AI slice: summary, reply drafts, similar incidents on the local model
+  through a minimal gateway), D-058 (audit log MVP), D-059 (single sign-on Essentials MVP),
+  D-060 (MFA defaults), D-061 (desks), D-062 (directory sync MVP, Teams V1), D-063 (MSP LATER),
+  D-064 (AI access and fallback), D-065 (mobile app V1), D-066 (REQ-INC-021 MVP, REQ-INC-117
+  V1), D-067 (vendors and products with assets in Stage 2), D-068 (escalating technician keeps
+  following; amends D-053).
+- Applied them to parity files 01–12 (priorities, sources, answered open questions), notes for
+  D-055 (file 03) and D-056 (narrows D-041 at MVP). architecture.md §11.2 Redis → Valkey; §17
+  updated for D-067.
+- MVP now holds 397 requirements across the twelve files. No code changed.
+
+### 2026-10-24 — Parity: Area 15 saved and applied (docs only)
+
+- Saved `docs/specs/reference/sdp-area-15-roles-workflow.md` (PR #38) with the product owner's
+  sign-in, invitation and MFA observations.
+- Parity updates from Area 15: REQ-WI-027 (people can be told apart in pickers), REQ-INC-151
+  (the escalating technician can keep following; changes the D-053 default), REQ-INC-152
+  (default views never hide records silently), REQ-SR-063 (one approver model for requests and
+  changes); auto-assignment picks the group first (REQ-INC-053, REQ-ASG-002); approvals never
+  depend on email (REQ-SR-025); the change manager role can run a change end to end and every
+  role is viewable (REQ-CHG-038, REQ-ADM-017); site admins create requesters (REQ-ADM-020).
+- No code changed.
 ### 2026-10-24 — WP-020 session 2: incident screens, editor, two fixes
 
 - **Screens:** `apps/console/src/pages/incidents` (IncidentsPage, IncidentPage, NewIncidentPage,
@@ -347,8 +381,9 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   incidents and groups were removed by its teardown (0 left). Dev workers `worker-fanout` and
   `worker-consumers` were restarted so they load the new module. k3d release upgraded to revision
   7 (test template only, same images).
-- **Deviations:** following a handed-over incident is V1 (D-057); the language choice is a
-  per-browser setting, so the Arabic e2e checks navigate inside the app.
+- **Deviations:** following a handed-over incident (D-068) moves to WP-020b with followers
+  (D-069); the language choice is a per-browser setting, so the Arabic e2e checks navigate inside
+  the app.
 
 ### 2026-10-24 — WP-020 session 1 (backend): work item engine + incidents API
 

@@ -21,18 +21,18 @@ engine comes first, because every ticket-like module reuses it (architecture.md 
 
 | # | File | Module | ID prefixes | Draws on reference areas | Requirements (MVP / V1 / LATER) |
 |---|---|---|---|---|---|
-| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **176** (84 / 76 / 16) |
-| 02 | [02-service-requests-catalog-portal.md](02-service-requests-catalog-portal.md) | Service requests, service catalog, requester portal | SR, CAT, PRT | 03, 02a-c, 12, 13 (requester portal, approval settings), 10 and 14 (chatbot entry) | **127** (60 / 51 / 16) |
-| 03 | [03-sla-assignment-rules-workflows-notifications.md](03-sla-assignment-rules-workflows-notifications.md) | SLA and OLA, operating hours, auto-assignment, business rules, triggers and schedules, custom actions, life cycles and visual workflows, notification engine | SLA, ASG, RUL, WF, NTF | 12 (incl. 12b), 13, 11 (sites, operating hours), 02c, 14 (custom functions) | **146** (60 / 73 / 13) |
-| 04 | [04-problems.md](04-problems.md) | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | **81** (0 / 74 / 7) |
-| 05 | [05-changes.md](05-changes.md) | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | **118** (0 / 100 / 18) |
+| 01 | [01-work-items-incidents.md](01-work-items-incidents.md) | Work item engine and incidents | WI, INC | 01, 02a, 02b, 02c (main); 03, 04, 05, 06, 07, 08, 10, 11, 12, 13 (cross-references) | **179** (92 / 73 / 14) |
+| 02 | [02-service-requests-catalog-portal.md](02-service-requests-catalog-portal.md) | Service requests, service catalog, requester portal | SR, CAT, PRT | 03, 02a-c, 12, 13 (requester portal, approval settings), 10 and 14 (chatbot entry) | **128** (61 / 51 / 16) |
+| 03 | [03-sla-assignment-rules-workflows-notifications.md](03-sla-assignment-rules-workflows-notifications.md) | SLA and OLA, operating hours, auto-assignment, business rules, triggers and schedules, custom actions, life cycles and visual workflows, notification engine | SLA, ASG, RUL, WF, NTF | 12 (incl. 12b), 13, 11 (sites, operating hours), 02c, 14 (custom functions) | **146** (60 / 74 / 12) |
+| 04 | [04-problems.md](04-problems.md) | Problem management, known errors | PRB | 04, 10 (cluster analysis), 08 (problem solutions), 14 (closure rules) | **81** (0 / 75 / 6) |
+| 05 | [05-changes.md](05-changes.md) | Change enablement, CAB, calendar, freeze windows | CHG | 05 (incl. 5b), 07b (asset links), 12 (change templates), 14 (closure rules) | **118** (0 / 101 / 17) |
 | 06 | [06-releases-projects.md](06-releases-projects.md) | Release management; projects, milestones, Gantt, timesheets | REL, PRJ | 06 (incl. 6b) | **112** (0 / 54 / 58) |
-| 07 | [07-assets-cmdb-software-purchase-contracts.md](07-assets-cmdb-software-purchase-contracts.md) | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | **183** (0 / 145 / 38) |
+| 07 | [07-assets-cmdb-software-purchase-contracts.md](07-assets-cmdb-software-purchase-contracts.md) | Assets, discovery, software and licences, CMDB, purchase, contracts, vendors | AST, DSC, SAM, CMDB, PUR, CON | 07 (incl. 7b), 11 and 14 (fine-grained access), 14 (probes and discovery) | **183** (0 / 146 / 37) |
 | 08 | [08-knowledge.md](08-knowledge.md) | Knowledge base | KB | 08, 10 (solution assist and generator), 03, 04 | **93** (38 / 50 / 5) |
-| 09 | [09-reports-dashboards.md](09-reports-dashboards.md) | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets), 10, 11, 13, 14 | **116** (40 / 61 / 15) |
-| 10 | [10-ai.md](10-ai.md) | AI gateway, AI administration, agents, chatbot, MCP | AI | 10, 14 (agents, chatbot, AI providers) | **108** (0 / 79 / 29) |
-| 11 | [11-admin-users-security-audit.md](11-admin-users-security-audit.md) | Users, roles, groups, sites, customisation, settings, mail, surveys, data administration, login and MFA, security, audit | ADM, SEC, AUD | 11, 13, 14, 01 (preferences, navigation); product owner observation (login, invitation, MFA) | **179** (62 / 101 / 16) |
-| 12 | [12-integrations-esm.md](12-integrations-esm.md) | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, API, extensions; enterprise service management (department desks, HR, facilities) | INT, ESM | 14 (integrations, ESM), 13 (mail), 12 (webhooks), 10 (AI providers), 03 (ESM portal); architecture §2.14, §2.15 | **141** (17 / 47 / 77) |
+| 09 | [09-reports-dashboards.md](09-reports-dashboards.md) | Reports, dashboards, visual query builder, wallboards | RPT, DSH | 09, 01 (home dashboards, widgets), 10, 11, 13, 14 | **116** (40 / 62 / 14) |
+| 10 | [10-ai.md](10-ai.md) | AI gateway, AI administration, agents, chatbot, MCP | AI | 10, 14 (agents, chatbot, AI providers) | **108** (11 / 68 / 29) |
+| 11 | [11-admin-users-security-audit.md](11-admin-users-security-audit.md) | Users, roles, groups, sites, customisation, settings, mail, surveys, data administration, login and MFA, security, audit | ADM, SEC, AUD | 11, 13, 14, 01 (preferences, navigation); product owner observation (login, invitation, MFA) | **179** (75 / 88 / 16) |
+| 12 | [12-integrations-esm.md](12-integrations-esm.md) | Connectors (MonetX read-only, email, Teams, Slack, DevOps, identity ...), webhooks, API, extensions; enterprise service management (department desks, HR, facilities) | INT, ESM | 14 (integrations, ESM), 13 (mail), 12 (webhooks), 10 (AI providers), 03 (ESM portal); architecture §2.14, §2.15 | **141** (20 / 44 / 77) |
 
 Notes on the table:
 
@@ -48,12 +48,18 @@ Notes on the table:
   set-up and the MCP server are specified in file 10 (architecture §6.1 places the MCP server
   in `integrations`; file 12 lists it as an API surface, REQ-INT-093). Mailbox connections are
   file 12 (REQ-INT-050 to REQ-INT-055); announcements authoring is file 11.
-- **Gaps in the research.** Area 14 (data administration, integrations, ESM instances) is in
-  `docs/specs/reference/` (D-039). Area 15 (multi-user assignment, requester-side views) is
-  not there yet. ESM has no research area of its own beyond Area 14's instance and directory
-  screens; file 12 relies on architecture.md §2.15 for it.
+- **Gaps in the research.** Areas 14 (D-039) and 15 (role-based walkthrough, requester-side
+  views, sign-in, invitation and MFA) are in `docs/specs/reference/`. ESM has no research area
+  of its own beyond Area 14's instance and directory screens; file 12 relies on architecture.md
+  §2.15 for it. Still open from Area 15: the SLA pause retest, a delivered line manager
+  approval, CAB approval, per-role dashboards and surveys.
+- **MSP** (multi-customer support and billing) has no file: it is LATER (D-063). A file 13
+  will be added when it is planned.
 - **Counts** for each file are kept in that file's summary table, which is the source of
   truth. This index repeats them when a file is added or changed.
+
+**MVP build plan:** [mvp-build-plan.md](mvp-build-plan.md) maps every MVP requirement to a
+work package in build order, with sessions, dependencies and the critical path.
 
 ## ID scheme
 
@@ -108,7 +114,9 @@ Notes on the table:
    problems and topology read-only) and the generic alert webhook are in scope.
 4. **Open questions** for the product owner go at the end of each module file.
 5. **Defaults are seed data.** Each file lists its proposed tenant defaults in an appendix.
-   Every default must be editable per tenant by an admin (D-041).
+   Every default must be editable per tenant by an admin (D-041). At MVP, admins edit values; changing the
+   structure of life cycles (adding or removing statuses and transitions) waits for the V1
+   designer (D-056).
 
 **Cross-cutting lessons from the research.** Every module applies these. The engine
 requirements in file 01 implement them once:

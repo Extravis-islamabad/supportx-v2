@@ -58,11 +58,11 @@ shared engine (architecture.md §6.2). Rules, ID scheme and field meanings: [REA
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 0 | 29 | 2 | 31 |
+| SAME | 0 | 30 | 1 | 31 |
 | BETTER | 0 | 32 | 0 | 32 |
 | NEW | 0 | 13 | 3 | 16 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **0** | **74** | **7** | **81** |
+| **Total** | **0** | **75** | **6** | **81** |
 
 Edition (lowest edition that includes it): Essentials 0, Professional 81, Enterprise 0. By prefix: REQ-PRB 81.
 
@@ -147,7 +147,7 @@ Edition (lowest edition that includes it): Essentials 0, Professional 81, Enterp
 | [REQ-PRB-077](#req-prb-077--no-alert-correlation-for-problem-detection) | No alert correlation for problem detection | SKIP | LATER | Professional |
 | [REQ-PRB-078](#req-prb-078--health-and-history-of-affected-items-from-monetx) | Health and history of affected items from MonetX | NEW | LATER | Professional |
 | [REQ-PRB-079](#req-prb-079--problem-investigation-agent) | Problem investigation agent | NEW | LATER | Professional |
-| [REQ-PRB-080](#req-prb-080--problems-on-the-mobile-app) | Problems on the mobile app | SAME | LATER | Professional |
+| [REQ-PRB-080](#req-prb-080--problems-on-the-mobile-app) | Problems on the mobile app | SAME | V1 | Professional |
 | [REQ-PRB-081](#req-prb-081--import-problems) | Import problems | SAME | LATER | Professional |
 <!-- summary:end -->
 
@@ -1663,8 +1663,8 @@ solution reading, transitions, assignment, worklogs, tasks and approvals, with p
 notifications.
 
 - **Decision:** SAME.
-- **Source:** architecture §2.15 (mobile apps), §9.1; REQ-INC-149
-- **Priority:** LATER · **Edition:** Professional
+- **Source:** architecture §2.15 (mobile apps), §9.1; REQ-INC-149; D-065
+- **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. A push notification for a problem assignment opens the problem in the app.
   2. Transitions in the app follow the same rules and prompts as the console.
