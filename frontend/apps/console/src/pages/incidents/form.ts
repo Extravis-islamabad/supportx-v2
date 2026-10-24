@@ -2,7 +2,8 @@ import type { IncidentCatalogue, IncidentInput } from '@supportx/api-client';
 import { z } from '@supportx/forms';
 
 /** The create form's rules and conversions (WP-020); the fields are in NewIncidentPage. */
-export const SUBJECT_MAX = 250;
+/** The API's limit (WorkItemIn.subject); the form shows a counter (QA BUG-10). */
+export const SUBJECT_MAX = 500;
 
 export const schema = z
   .object({
@@ -72,14 +73,11 @@ export function previewPriority(
   catalogue: IncidentCatalogue | undefined,
   impact: string | null,
   urgency: string | null,
-): { priority: string; source: 'matrix' | 'default' } | null {
-  if (catalogue === undefined) return null;
-  if (impact === null && urgency === null) {
-    return { priority: catalogue.default_priority, source: 'default' };
-  }
-  const cell = catalogue.matrix.find(
-    (c) => c.impact === (impact ?? 'one_person') && c.urgency === (urgency ?? 'low'),
-  );
+): { priority: string; source: 'matrix' } | null {
+  // Only a real matrix value: with impact or urgency blank the form says the priority is
+  // "calculated when impact and urgency are set" instead of showing a default (form review).
+  if (catalogue === undefined || impact === null || urgency === null) return null;
+  const cell = catalogue.matrix.find((c) => c.impact === impact && c.urgency === urgency);
   return cell === undefined ? null : { priority: cell.priority, source: 'matrix' };
 }
 

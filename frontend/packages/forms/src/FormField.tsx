@@ -17,6 +17,8 @@ export interface FormFieldProps<T extends FieldValues, N extends Path<T> = Path<
   name: N;
   labelKey: LabelKey;
   helpKey?: LabelKey;
+  /** Marks the label with the required sign (*); the form says once what it means. */
+  required?: boolean;
   /** Gets the field's own value type (a boolean field's `value` is a boolean). */
   render: (field: ControllerRenderProps<T, N> & { id: string }) => ReactElement;
 }
@@ -30,6 +32,7 @@ export function FormField<T extends FieldValues, N extends Path<T> = Path<T>>({
   name,
   labelKey,
   helpKey,
+  required = false,
   render,
 }: FormFieldProps<T, N>) {
   const t = useLabels();
@@ -44,6 +47,7 @@ export function FormField<T extends FieldValues, N extends Path<T> = Path<T>>({
           <Form.Item
             label={t(labelKey)}
             htmlFor={id}
+            required={required}
             validateStatus={message === null ? undefined : 'error'}
             help={
               message === null ? (

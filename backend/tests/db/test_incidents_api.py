@@ -967,7 +967,7 @@ async def test_req_inc_064_description_is_sanitised(world: World) -> None:
             '<p onclick="x()">Hello <script>alert(1)</script><a href="javascript:x">l</a></p>'
         ),
     )
-    assert item["description"] == '<p>Hello <a rel="noopener noreferrer nofollow">l</a></p>'
+    assert item["description"] == "<p>Hello l</p>"  # the refused link keeps its text (QA C4)
     blank = await world.create(a, a.admin, description="<p></p>")
     assert blank["description"] is None
 
@@ -1127,3 +1127,117 @@ async def test_incidents_list_p95_on_100k_rows(world: World) -> None:
         print(f"\n[perf] incidents_100k {name}: rows={ROWS}, {report[name]}")  # noqa: T201
     assert all(r["items"] > 0 for r in report.values()), report
     assert all(r["p95_ms"] < 300 for r in report.values()), report
+
+
+# --- QA findings (WP-020-FIX, the QA report's bug IDs) ------------------------------------------
+
+
+async def test_bug_03_history_names_the_people_in_changed_values(world: World) -> None:
+    """QA BUG-03: history shows "Technician: (empty) → Tariq", so it returns their names."""
+    a = world.a
+    item = await world.create(a, a.admin)
+    taken = await world.call(
+        "POST", f"{BASE}/{item['id']}/take", a, a.tech_a, headers={"If-Match": '"1"'}
+    )
+    assert taken.status_code == 200, taken.text
+    page = await world.call("GET", f"{BASE}/{item['id']}/history", a, a.admin)
+    assert page.status_code == 200, page.text
+    body = page.json()
+    changed = [c for e in body["items"] for c in e["changes"] if c["field"] == "technician_id"]
+    assert changed == [{"field": "technician_id", "old": None, "new": str(a.tech_a)}]
+    assert body["people"][str(a.tech_a)]["display_name"] == "Alpha Tech A"
+    # The requester of the created entry is named too (old and new values, every person field).
+    assert body["people"][str(a.requester)]["display_name"] == "Alpha Requester"
+
+
+async def test_bug_05_start_work_on_an_unassigned_incident_takes_it_first(world: World) -> None:
+    """QA BUG-05: "Start work" on an unassigned incident assigns it to the user, then starts it.
+
+    One action, every step in history. A user who may not take it sees the action disabled with
+    the reason; a technician of several groups chooses the group as with Take.
+    """
+    a = world.a
+    item = await world.create(a, a.admin)
+    view = (await world.get(a, a.tech_a, item)).json()
+    assert states(view)["start_work"] is None
+    started = await world.act(a, a.tech_a, item, "start_work")
+    assert started.status_code == 200, started.text
+    body = started.json()
+    assert (body["status"], body["technician_id"], body["group_id"]) == (
+        "in_progress",
+        str(a.tech_a),
+        str(a.ga),
+    )
+    entries = await world.history(a, item)
+    kinds = [(e["kind"], [c["field"] for c in e["changes"]]) for e in entries]
+    assert ("updated", ["group_id", "technician_id"]) in kinds
+    assert entries[0]["kind"] == "status"
+    assert {"field": "status", "old": "assigned", "new": "in_progress"} in entries[0]["changes"]
+    # Several groups: the group is asked for, then sent with the action.
+    other = await world.create(a, a.admin)
+    ask = await world.act(a, a.tech_c, other, "start_work")
+    assert field_codes(ask) == {"group_id": "group_required"}
+    chose = await world.call(
+        "POST",
+        f"{BASE}/{other['id']}/actions/start_work",
+        a,
+        a.tech_c,
+        headers={"If-Match": f'"{other["version"]}"', **CONSOLE},
+        json={"group_id": str(a.gb)},
+    )
+    assert chose.status_code == 200, chose.text
+    assert (chose.json()["technician_id"], chose.json()["group_id"]) == (str(a.tech_c), str(a.gb))
+    # May work on incidents but not take them: disabled with the reason, and refused by the API.
+    worker = await role(world, a, "Worker", [("incidents.view", "all"), ("incidents.edit", "all")])
+    third = await world.create(a, a.admin)
+    solo = await make_worker(world, a, worker)
+    seen = (await world.get(a, solo, third)).json()
+    assert states(seen)["start_work"] == "cannot_take"
+    refused = await world.act(a, solo, third, "start_work")
+    assert problem(refused) == (403, "permission_denied")
+    # Already someone's: start work keeps the current technician (no take).
+    mine = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_c))
+    kept = await world.act(a, a.lead, mine, "start_work")
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["technician_id"] == str(a.tech_c)
+
+
+async def make_worker(world: World, org: Org, role_id: uuid.UUID) -> uuid.UUID:
+    """A technician user holding only the given role."""
+    (user,) = await seed_users(
+        world.db, org.tenant, [{"user_type": "technician", "display_name": "Alpha Worker"}]
+    )
+    added = await world.call("PUT", f"/users/{user}/roles/{role_id}", org, org.admin)
+    assert added.status_code == 204, added.text
+    return user
+
+
+async def test_form_review_default_impact_and_urgency_are_tenant_settings(world: World) -> None:
+    """Haider's form review: the create form starts from the tenant's default impact and urgency."""
+    a = world.a
+    settings = (await world.call("GET", f"{BASE}/settings", a, a.admin)).json()
+    assert (settings["default_impact"], settings["default_urgency"]) == ("team", "medium")
+    cell = next(c for c in settings["matrix"] if (c["impact"], c["urgency"]) == ("team", "medium"))
+    assert cell["priority"] == settings["default_priority"]  # the defaults agree
+    changed = await world.call(
+        "PATCH",
+        f"{BASE}/settings",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{settings["version"]}"'},
+        json={"default_impact": "one_person", "default_urgency": None},
+    )
+    assert changed.status_code == 200, changed.text
+    assert (changed.json()["default_impact"], changed.json()["default_urgency"]) == (
+        "one_person",
+        None,
+    )
+    bad = await world.call(
+        "PATCH",
+        f"{BASE}/settings",
+        a,
+        a.admin,
+        headers={"If-Match": f'"{changed.json()["version"]}"'},
+        json={"default_impact": "galaxy"},
+    )
+    assert bad.status_code == 422, bad.text

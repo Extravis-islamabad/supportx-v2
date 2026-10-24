@@ -23,6 +23,8 @@ const CODED: Record<string, string> = {
 };
 const TIMES = new Set(['resolved_at', 'closed_at', 'last_reopened_at']);
 const PEOPLE = new Set(['requester_id', 'on_behalf_of_id', 'technician_id']);
+// Flags: "not set" reads "No", not "(empty)".
+const FLAGS = new Set(['handed_over_out_of_reach']);
 
 /**
  * The History tab (REQ-WI-003/004): every save, newest first, in true order, with who, when, from
@@ -45,8 +47,18 @@ export function IncidentHistory({ id }: { id: string }) {
     [sites.data, groups.data],
   );
   const entries = history.data?.pages.flatMap((page) => page.items) ?? [];
+  // People named in changed values, from every page (QA BUG-03).
+  const people = useMemo(
+    () =>
+      Object.assign({}, ...(history.data?.pages.map((page) => page.people) ?? [])) as Record<
+        string,
+        { display_name: string; email: string } | undefined
+      >,
+    [history.data],
+  );
 
   const valueText = (change: Change, value: unknown): string => {
+    if (FLAGS.has(change.field) && (value === null || value === undefined)) return t('history.no');
     if (value === null || value === undefined || value === '') return t('history.empty');
     if (change.field === 'status' && typeof value === 'string') {
       return statusLabel(t, catalogue.data, value, locale);
@@ -67,7 +79,9 @@ export function IncidentHistory({ id }: { id: string }) {
     if ((change.field === 'site_id' || change.field === 'group_id') && typeof value === 'string') {
       return units.get(value) ?? t('history.changed');
     }
-    if (PEOPLE.has(change.field)) return t('history.changed'); // names are in the record header
+    if (PEOPLE.has(change.field) && typeof value === 'string') {
+      return people[value]?.display_name ?? t('history.changed');
+    }
     if (change.field === 'description') return t('history.changed');
     if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
     if (Array.isArray(value))

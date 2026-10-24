@@ -1,8 +1,14 @@
 import { App as AntApp } from 'antd';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
-import { useLogout, useSession, useSetNavLayout, useSwitchTenant } from '@supportx/api-client';
+import {
+  useLogout,
+  useSession,
+  useSetNavLayout,
+  useSetUiLocale,
+  useSwitchTenant,
+} from '@supportx/api-client';
 import {
   AnnouncementBanners,
   AppHeader,
@@ -37,6 +43,11 @@ export function ConsoleLayout() {
   useCommandPaletteShortcut(openPalette);
 
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
+  const setUiLocale = useSetUiLocale(session?.user.id ?? '');
+  // A new page starts at its top, as a link would (QA BUG-17: a new record opened scrolled).
+  useEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [pathname]);
   const access = useAccess();
   const nav = useMemo(
     () =>
@@ -70,6 +81,9 @@ export function ConsoleLayout() {
           start={topNav ?? undefined}
           onNavLayoutChange={(layout) => {
             setNavLayout.mutate(layout, { onError: reportError });
+          }}
+          onLocaleChange={(locale) => {
+            setUiLocale.mutate(locale, { onError: reportError });
           }}
           onLogout={() => void logout()}
           onProfile={() => void navigate('/profile')}

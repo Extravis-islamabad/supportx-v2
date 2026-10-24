@@ -1,5 +1,7 @@
 import { theme as antdTheme, type ThemeConfig } from 'antd';
 
+import type { Locale } from '@supportx/labels';
+
 export const THEME_MODES = ['light', 'dark', 'high_contrast'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
 
@@ -18,24 +20,45 @@ export interface Branding {
 /** Extravis brand purple. White text on it has a 6.8:1 contrast ratio (WCAG AA). */
 export const DEFAULT_BRANDING: Branding = { colorPrimary: '#9619B5' };
 
-const SHARED: ThemeConfig['token'] = {
-  borderRadius: 6,
-  fontFamily:
-    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans Arabic', 'Noto Nastaliq Urdu', 'Helvetica Neue', Arial, sans-serif",
+const LATIN = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
+
+/**
+ * Fonts per UI language. Arabic is set in a Naskh face; Urdu in Nastaliq, which is much taller,
+ * so Urdu also gets taller lines. One list for both made Arabic fall back to the installed
+ * Nastaliq font (macOS ships it) and clipped Arabic button labels (QA C2).
+ */
+const FONTS: Record<Locale, { fontFamily: string; lineHeight?: number }> = {
+  en: { fontFamily: `${LATIN}, 'Noto Sans Arabic', sans-serif` },
+  ar: {
+    fontFamily: `${LATIN}, 'Noto Sans Arabic', 'Noto Naskh Arabic', 'Geeza Pro', Tahoma, sans-serif`,
+  },
+  ur: {
+    fontFamily: `${LATIN}, 'Noto Nastaliq Urdu', 'Jameel Noori Nastaleeq', 'Noto Sans Arabic', sans-serif`,
+    lineHeight: 1.9,
+  },
 };
+
+function shared(locale: Locale): ThemeConfig['token'] {
+  return { borderRadius: 6, ...FONTS[locale] };
+}
 
 /**
  * Ant Design theme for a mode and a branding. Light and dark use Ant Design's algorithms on the
  * brand seed. High contrast is a light theme with pure black text and borders, thicker lines
  * and a darker primary so every text/background pair exceeds WCAG AAA (7:1) where possible.
  */
-export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): ThemeConfig {
+export function buildTheme(
+  mode: ThemeMode,
+  branding: Partial<Branding> = {},
+  locale: Locale = 'en',
+): ThemeConfig {
   const brand = { ...DEFAULT_BRANDING, ...branding };
+  const base = shared(locale);
   if (mode === 'high_contrast') {
     return {
       algorithm: antdTheme.defaultAlgorithm,
       token: {
-        ...SHARED,
+        ...base,
         colorPrimary: darken(brand.colorPrimary, 0.35),
         colorText: '#000000',
         colorTextSecondary: '#1f1f1f',
@@ -79,7 +102,7 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
   if (mode !== 'dark') {
     return {
       algorithm: antdTheme.defaultAlgorithm,
-      token: { ...SHARED, ...readable, colorPrimary: brand.colorPrimary },
+      token: { ...base, ...readable, colorPrimary: brand.colorPrimary },
     };
   }
   // The dark algorithm keeps a deep brand colour as the primary, which Menu, Tabs and links use
@@ -89,7 +112,7 @@ export function buildTheme(mode: ThemeMode, branding: Partial<Branding> = {}): T
   return {
     algorithm: antdTheme.darkAlgorithm,
     token: {
-      ...SHARED,
+      ...base,
       ...readable,
       colorPrimary: brand.colorPrimary,
       colorLink: primaryText,

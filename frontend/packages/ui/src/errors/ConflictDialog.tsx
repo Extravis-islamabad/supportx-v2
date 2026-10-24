@@ -57,6 +57,8 @@ export function ConflictDialog({
       cancelText={t('conflict.reload')}
       onOk={onKeepMine}
       onCancel={onReload}
+      okButtonProps={{ 'data-testid': 'conflict-keep-mine' }}
+      cancelButtonProps={{ 'data-testid': 'conflict-reload' }}
       closable={false}
       maskClosable={false}
       destroyOnHidden

@@ -50,3 +50,15 @@ def test_blank_editor_output() -> None:
     assert is_blank("<p></p>")
     assert is_blank(" <p> </p><br> ")
     assert not is_blank("<p>x</p>")
+
+
+def test_c4_blocked_link_is_kept_as_plain_text() -> None:
+    """QA C4: a link whose address is refused keeps its words, never a dead underlined link."""
+    clean = sanitize_html('<p>See <a href="javascript:alert(1)">the manual</a> now</p>')
+    assert clean == "<p>See the manual now</p>"
+    assert sanitize_html("<p><a>bare</a></p>") == "<p>bare</p>"
+    kept = (
+        '<p><a href="https://example.com" target="_blank" '
+        'rel="noopener noreferrer nofollow">ok</a></p>'
+    )
+    assert sanitize_html(kept) == kept

@@ -12,7 +12,7 @@ import {
   Space,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import { ApiError, useCreateIncident, useIncidentCatalogue, useUnits } from '@supportx/api-client';
@@ -60,6 +60,21 @@ export function NewIncidentPage() {
   const group = form.watch('group_id');
   const manual = form.watch('priority');
   const preview = previewPriority(catalogue.data, impact, urgency);
+  const defaults = {
+    impact: catalogue.data?.default_impact ?? null,
+    urgency: catalogue.data?.default_urgency ?? null,
+  };
+  // Impact and urgency start from the tenant's defaults, so the priority shown is a real
+  // matrix value, never "P3" next to two empty fields (form review). Untouched fields only.
+  const { impact: defaultImpact, urgency: defaultUrgency } = defaults;
+  useEffect(() => {
+    if (!form.getFieldState('impact').isDirty && form.getValues('impact') === null) {
+      form.setValue('impact', defaultImpact);
+    }
+    if (!form.getFieldState('urgency').isDirty && form.getValues('urgency') === null) {
+      form.setValue('urgency', defaultUrgency);
+    }
+  }, [form, defaultImpact, defaultUrgency]);
   const canAssign = can('incidents.assign');
   const canPriority = can('incidents.change_priority');
 
@@ -77,8 +92,13 @@ export function NewIncidentPage() {
           }
           if (another) {
             const requester = keepRequester ? values.requester_id : null;
-            form.reset({ ...EMPTY, requester_id: requester });
+            form.reset({ ...EMPTY, ...defaults, requester_id: requester });
             setKey(crypto.randomUUID());
+            // The next call starts at the top, typing into the subject (QA BUG-17).
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            setTimeout(() => {
+              form.setFocus('subject');
+            }, 0);
             return;
           }
           void navigate(`/incidents/${saved.id}`, { replace: true });
@@ -105,12 +125,22 @@ export function NewIncidentPage() {
       <Typography.Title level={1}>{t('incidents.new')}</Typography.Title>
       <Card>
         <Form layout="vertical" component="div" data-testid="inc-form">
+          <Typography.Paragraph type="secondary" data-testid="inc-required-note">
+            {t('incidents.required_note')}
+          </Typography.Paragraph>
           <FormField
             control={control}
             name="subject"
             labelKey="work_item.field.subject"
+            required
             render={(field) => (
-              <Input {...field} maxLength={SUBJECT_MAX} data-testid="inc-subject" />
+              <Input
+                {...field}
+                dir="auto"
+                maxLength={SUBJECT_MAX}
+                showCount
+                data-testid="inc-subject"
+              />
             )}
           />
           <Row gutter={16}>
@@ -119,6 +149,7 @@ export function NewIncidentPage() {
                 control={control}
                 name="requester_id"
                 labelKey="work_item.field.requester_id"
+                required
                 render={(field) => (
                   <UserPicker
                     id={field.id}
@@ -283,9 +314,14 @@ export function NewIncidentPage() {
               <Form.Item label={t('work_item.field.priority')}>
                 <Space direction="vertical" style={{ width: '100%' }}>
                   <span data-testid="inc-priority-preview">
-                    {manual === null && preview !== null && (
-                      <PriorityTag priority={preview.priority as 'p1'} source={preview.source} />
-                    )}
+                    {manual === null &&
+                      (preview === null ? (
+                        <Typography.Text type="secondary">
+                          {t('incidents.priority_pending')}
+                        </Typography.Text>
+                      ) : (
+                        <PriorityTag priority={preview.priority as 'p1'} source={preview.source} />
+                      ))}
                   </span>
                   {canPriority && (
                     <Select
@@ -311,7 +347,12 @@ export function NewIncidentPage() {
                   name="priority_reason"
                   labelKey="work_item.field.priority_reason"
                   render={(field) => (
-                    <Input {...field} maxLength={500} data-testid="inc-priority-reason" />
+                    <Input
+                      {...field}
+                      dir="auto"
+                      maxLength={500}
+                      data-testid="inc-priority-reason"
+                    />
                   )}
                 />
               </Col>
