@@ -96,9 +96,9 @@ monitoring VictoriaMetrics, VictoriaLogs, Jaeger, Perses (Grafana only inside Sa
 on-prem object storage. Container images are INTERNAL/DEV until Nuitka builds exist and go only to
 private registries (D-038).
 
-**Approved additions (D-035, D-036):** `dayjs` (Ant Design 5's date library, used directly by
+**Approved additions (D-035, D-036, D-040):** `dayjs` (Ant Design 5's date library, used directly by
 the shared `DateTimeField`); Tiptap (MIT) as the rich-text editor, with server-side HTML
-sanitising, to be added with the Knowledge module (not yet installed).
+sanitising, to be added with the first incidents work package (D-040; not yet installed).
 
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,

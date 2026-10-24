@@ -20,7 +20,8 @@
 None.
 
 Resolved 2026-10-24: rich-text editor = Tiptap with server-side sanitising, built with the
-Knowledge module (D-036); k3d installed through Homebrew by the product owner; WP-014 plan
+first incidents work package (D-036, timing moved by D-040); parity phase 1 questions answered
+(D-039 to D-050); k3d installed through Homebrew by the product owner; WP-014 plan
 decisions D1-D13 (D-038).
 
 ### Open items
