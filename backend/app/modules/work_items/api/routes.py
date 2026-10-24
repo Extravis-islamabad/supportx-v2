@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
-from app.modules.identity_access import PolicyService, Subject, get_policy, user_names
+from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -153,6 +153,17 @@ class WorkItemTakeIn(BaseModel):
     group_id: uuid.UUID | None = None
 
 
+class PersonOut(BaseModel):
+    """A person on a record: the name, and the email that tells two people of one name apart."""
+
+    display_name: str
+    email: str
+
+
+def _people(found: dict[str, tuple[str, str]]) -> dict[str, PersonOut]:
+    return {k: PersonOut(display_name=n, email=e) for k, (n, e) in found.items()}
+
+
 class WorkItemActionStateOut(BaseModel):
     """An action as you may use it now. Disabled ones carry a reason code (labelled)."""
 
@@ -212,7 +223,7 @@ class WorkItemOut(BaseModel):
         description="edit, assign, take, change_priority, delete: whether you may, and why not."
     )
     history_count: int
-    people: dict[str, str] = Field(description="Display names of the people on the record.")
+    people: dict[str, PersonOut] = Field(description="The people on the record, by user ID.")
     visible: bool = Field(
         default=True, description="False right after you handed it away (D-053): no more access."
     )
@@ -226,7 +237,7 @@ class WorkItemOut(BaseModel):
             actions=[_state(a) for a in view.actions],
             operations=[_state(a) for a in view.operations],
             history_count=view.history_count,
-            people=view.names,
+            people=_people(view.names),
             visible=view.visible,
         )
 
@@ -313,7 +324,7 @@ class WorkItemListItem(BaseModel):
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
-    people: dict[str, str] = Field(default_factory=dict)
+    people: dict[str, PersonOut] = Field(default_factory=dict)
 
 
 class WorkItemViewCountOut(BaseModel):
@@ -329,6 +340,7 @@ class WorkItemAssigneeOut(BaseModel):
 
     id: uuid.UUID
     display_name: str
+    email: str = Field(description="Second line in pickers: two people may share a name.")
     open_count: int
 
 
@@ -614,7 +626,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             next_cursor=page.next_cursor,
             has_more=page.has_more,
             estimated_total=page.estimated_total,
-            people=await user_names(session, people),
+            people=_people(await user_contacts(session, people)),
         )
 
     @router.get("", summary=f"List {wtype.path}")
@@ -669,7 +681,9 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             search=(search or "").strip() or None,
             limit=limit,
         )
-        return [WorkItemAssigneeOut(id=u, display_name=n, open_count=c) for u, n, c in found]
+        return [
+            WorkItemAssigneeOut(id=u, display_name=n, email=e, open_count=c) for u, n, e, c in found
+        ]
 
     @router.get("/lookup/{value}", summary="Find by display ID")
     async def lookup(

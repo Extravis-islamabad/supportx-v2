@@ -244,6 +244,28 @@ async def user_names(session: AsyncSession, user_ids: Sequence[str]) -> dict[str
     return {str(row.id): row.display_name for row in rows}
 
 
+async def user_contacts(
+    session: AsyncSession, user_ids: Sequence[str]
+) -> dict[str, tuple[str, str]]:
+    """{user id: (display name, email)} for users of the session's tenant.
+
+    Pickers and record pages tell two people with the same name apart by their email (Area 15
+    lesson). Unknown IDs are left out.
+    """
+    wanted: list[uuid.UUID] = []
+    for raw in user_ids:
+        try:
+            wanted.append(uuid.UUID(str(raw)))
+        except ValueError:
+            continue
+    if not wanted:
+        return {}
+    rows = await session.execute(
+        select(User.id, User.display_name, User.email).where(User.id.in_(wanted))
+    )
+    return {str(row.id): (row.display_name, row.email) for row in rows}
+
+
 async def display_names(session: AsyncSession, user_ids: Sequence[str]) -> list[str]:
     """Display names in the given order (unknown IDs skipped)."""
     names = await user_names(session, user_ids)

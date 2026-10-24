@@ -31,6 +31,7 @@ from app.modules.identity_access import (
     authorize_stored,
     display_names,
     scope_filter,
+    user_contacts,
     user_names,
 )
 from app.modules.organization import existing_unit_ids, memberships, users_in_groups
@@ -170,7 +171,8 @@ class WorkItemView:
     actions: list[ActionState]
     operations: list[ActionState]
     history_count: int
-    names: dict[str, str] = field(default_factory=dict)
+    # {user id: (display name, email)} of the people on the record.
+    names: dict[str, tuple[str, str]] = field(default_factory=dict)
     # False right after the writer handed the record out of their own reach (D-053).
     visible: bool = True
 
@@ -286,7 +288,7 @@ async def _view(
         actions=actions,
         operations=operations,
         history_count=await count_saves(session, RECORD_TYPE, record.id),
-        names=await user_names(session, people),
+        names=await user_contacts(session, people),
     )
 
 
@@ -472,7 +474,7 @@ async def assignees(  # noqa: PLR0913 - search options, explicit
     group_id: uuid.UUID | None,
     search: str | None,
     limit: int,
-) -> list[tuple[uuid.UUID, str, int]]:
+) -> list[tuple[uuid.UUID, str, str, int]]:
     """Who may be assigned: members of `group_id` (or anyone) who can work on the type.
 
     Each with their number of open records of the type (REQ-INC-053 AC2).
@@ -504,7 +506,8 @@ async def assignees(  # noqa: PLR0913 - search options, explicit
             .group_by(WorkItem.technician_id)
         )
         loads = {row[0]: int(row[1]) for row in rows if row[0] is not None}
-    return [(u, n, loads.get(u, 0)) for u, n in found]
+    contacts = await user_contacts(session, [str(u) for u in ids])
+    return [(u, n, contacts.get(str(u), (n, ""))[1], loads.get(u, 0)) for u, n in found]
 
 
 # --- validation -----------------------------------------------------------------------------------

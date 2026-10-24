@@ -319,7 +319,8 @@ async def test_req_inc_001_ac1_create_with_subject_and_requester_only(world: Wor
     assert (item["status"], item["status_category"], item["type"]) == ("new", "open", "incident")
     assert item["site_id"] == str(a.s1)  # the requester's only site (REQ-INC-016 AC1)
     assert item["channel"] == "phone"  # console default (REQ-INC-005 AC2)
-    assert item["people"][str(a.requester)] == "Alpha Requester"
+    assert item["people"][str(a.requester)]["display_name"] == "Alpha Requester"
+    assert "@" in item["people"][str(a.requester)]["email"]
     missing = await world.call("POST", BASE, a, a.tech_a, json={"subject": " "}, headers=CONSOLE)
     assert missing.status_code == 422
 

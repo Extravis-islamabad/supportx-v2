@@ -1803,6 +1803,16 @@ export interface components {
             scopes: ("all" | "site" | "group" | "own")[];
         };
         /**
+         * PersonOut
+         * @description A person on a record: the name, and the email that tells two people of one name apart.
+         */
+        PersonOut: {
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email: string;
+        };
+        /**
          * Priority
          * @description P1 is the highest.
          * @enum {string}
@@ -2309,7 +2319,7 @@ export interface components {
         WorkItemAssignIn: {
             /**
              * Confirm Lose Access
-             * @description You confirmed you will lose sight of it (D-041).
+             * @description You confirmed you will lose sight of it (D-053).
              * @default false
              */
             confirm_lose_access: boolean;
@@ -2329,6 +2339,11 @@ export interface components {
         WorkItemAssigneeOut: {
             /** Display Name */
             display_name: string;
+            /**
+             * Email
+             * @description Second line in pickers: two people may share a name.
+             */
+            email: string;
             /**
              * Id
              * Format: uuid
@@ -2670,10 +2685,10 @@ export interface components {
             paused_since: string | null;
             /**
              * People
-             * @description Display names of the people on the record.
+             * @description The people on the record, by user ID.
              */
             people: {
-                [key: string]: string;
+                [key: string]: components["schemas"]["PersonOut"];
             };
             priority: components["schemas"]["Priority"];
             priority_source: components["schemas"]["PrioritySource"];
@@ -2732,7 +2747,7 @@ export interface components {
             version: number;
             /**
              * Visible
-             * @description False right after you handed it away (D-041): no more access.
+             * @description False right after you handed it away (D-053): no more access.
              * @default true
              */
             visible: boolean;
@@ -2758,7 +2773,7 @@ export interface components {
             next_cursor: string | null;
             /** People */
             people?: {
-                [key: string]: string;
+                [key: string]: components["schemas"]["PersonOut"];
             };
         };
         /**

@@ -1723,6 +1723,25 @@
         "title": "PermissionOut",
         "type": "object"
       },
+      "PersonOut": {
+        "description": "A person on a record: the name, and the email that tells two people of one name apart.",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_name",
+          "email"
+        ],
+        "title": "PersonOut",
+        "type": "object"
+      },
       "Priority": {
         "description": "P1 is the highest.",
         "enum": [
@@ -2821,7 +2840,7 @@
         "properties": {
           "confirm_lose_access": {
             "default": false,
-            "description": "You confirmed you will lose sight of it (D-041).",
+            "description": "You confirmed you will lose sight of it (D-053).",
             "title": "Confirm Lose Access",
             "type": "boolean"
           },
@@ -2884,6 +2903,11 @@
             "title": "Display Name",
             "type": "string"
           },
+          "email": {
+            "description": "Second line in pickers: two people may share a name.",
+            "title": "Email",
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -2897,6 +2921,7 @@
         "required": [
           "id",
           "display_name",
+          "email",
           "open_count"
         ],
         "title": "WorkItemAssigneeOut",
@@ -3884,9 +3909,9 @@
           },
           "people": {
             "additionalProperties": {
-              "type": "string"
+              "$ref": "#/components/schemas/PersonOut"
             },
-            "description": "Display names of the people on the record.",
+            "description": "The people on the record, by user ID.",
             "title": "People",
             "type": "object"
           },
@@ -4053,7 +4078,7 @@
           },
           "visible": {
             "default": true,
-            "description": "False right after you handed it away (D-041): no more access.",
+            "description": "False right after you handed it away (D-053): no more access.",
             "title": "Visible",
             "type": "boolean"
           }
@@ -4146,7 +4171,7 @@
           },
           "people": {
             "additionalProperties": {
-              "type": "string"
+              "$ref": "#/components/schemas/PersonOut"
             },
             "title": "People",
             "type": "object"
