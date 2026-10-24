@@ -80,11 +80,11 @@ actions and custom functions, life cycles and visual workflows, and the notifica
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 17 | 30 | 5 | 52 |
+| SAME | 17 | 31 | 4 | 52 |
 | BETTER | 36 | 22 | 1 | 59 |
 | NEW | 7 | 21 | 5 | 33 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **60** | **73** | **13** | **146** |
+| **Total** | **60** | **74** | **12** | **146** |
 
 Edition (lowest edition that includes it): Essentials 109, Professional 35, Enterprise 2. By prefix: REQ-SLA 40, REQ-ASG 15, REQ-RUL 32, REQ-WF 31, REQ-NTF 28.
 
@@ -212,7 +212,7 @@ Edition (lowest edition that includes it): Essentials 109, Professional 35, Ente
 | [REQ-NTF-002](#req-ntf-002--email-channel) | Email channel | SAME | MVP | Essentials |
 | [REQ-NTF-003](#req-ntf-003--in-app-channel-for-every-module) | In-app channel for every module | SAME | MVP | Essentials |
 | [REQ-NTF-004](#req-ntf-004--browser-notifications) | Browser notifications | NEW | V1 | Essentials |
-| [REQ-NTF-005](#req-ntf-005--mobile-push) | Mobile push | SAME | LATER | Essentials |
+| [REQ-NTF-005](#req-ntf-005--mobile-push) | Mobile push | SAME | V1 | Essentials |
 | [REQ-NTF-006](#req-ntf-006--text-messages-through-a-gateway) | Text messages through a gateway | SAME | LATER | Essentials |
 | [REQ-NTF-007](#req-ntf-007--no-email-to-sms-carrier-addresses) | No email-to-SMS carrier addresses | SKIP | LATER | Essentials |
 | [REQ-NTF-008](#req-ntf-008--notification-rules-per-module-and-event) | Notification rules per module and event | BETTER | MVP | Essentials |
@@ -2364,8 +2364,8 @@ Pushes open the record in the app. Lock-screen text never contains sensitive dat
 fetches details after unlock.
 
 - **Decision:** SAME. ServiceDesk Plus offers mobile push per rule.
-- **Source:** sdp-area-12 (12b) §Screens (rule layout: email, SMS, mobile push); architecture §6.8, §2.15 (mobile apps with push); REQ-INC-149
-- **Priority:** LATER · **Edition:** Essentials
+- **Source:** sdp-area-12 (12b) §Screens (rule layout: email, SMS, mobile push); architecture §6.8, §2.15 (mobile apps with push); REQ-INC-149; D-065
+- **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. An approval request push opens the approval in the app.
   2. The push payload sent to the push service contains only IDs and a short title.
@@ -2870,6 +2870,8 @@ nodes per workflow; maximum 100 rounds per loop; maximum 10,000 steps per instan
    the first workflow module. SLA clocks and escalations are MVP here (REQ-SLA-037). Does
    Temporal arrive with the SLA work package, or should MVP SLA timers use another durable
    scheduler that moves to Temporal later?
+   *Answered:* D-055: Temporal comes in with the SLA work package (WP-025), so MVP SLA timers
+   run on Temporal.
 2. **Custom function sandbox.** ADR-011 is still open. Custom functions (REQ-RUL-018 to
    REQ-RUL-022) are V1 and Professional. Please confirm the edition, and that the sandbox
    decision is needed before the V1 automation work package.
@@ -2887,6 +2889,7 @@ nodes per workflow; maximum 100 rounds per loop; maximum 10,000 steps per instan
    tool will need to map this. Agree?
 7. **Mobile push timing.** REQ-NTF-005 follows REQ-INC-149 (mobile app LATER), but architecture
    §17 lists the mobile app in Stage 2 (V1). Should push, and the mobile app, move to V1?
+   *Answered:* D-065: the mobile app and push are V1 (architecture §17 Stage 2).
 8. **Text messages.** SMS (REQ-NTF-006) is LATER through a gateway. Is SMS needed for the
    design partner or for NOC customers at V1, and is there a preferred gateway that also works
    on-prem?

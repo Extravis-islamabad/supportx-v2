@@ -46,11 +46,11 @@ applied (D-039 to D-050). **Owner:** Haider (Product Owner).
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 36 | 45 | 8 | 89 |
-| BETTER | 44 | 18 | 2 | 64 |
-| NEW | 7 | 13 | 4 | 24 |
+| SAME | 38 | 45 | 6 | 89 |
+| BETTER | 46 | 16 | 2 | 64 |
+| NEW | 8 | 12 | 4 | 24 |
 | SKIP | 0 | 0 | 2 | 2 |
-| **Total** | **87** | **76** | **16** | **179** |
+| **Total** | **92** | **73** | **14** | **179** |
 
 Edition (lowest edition that includes it): Essentials 167, Professional 12, Enterprise 0. By prefix: REQ-WI 27, REQ-INC 152.
 
@@ -76,7 +76,7 @@ Edition (lowest edition that includes it): Essentials 167, Professional 12, Ente
 | [REQ-WI-018](#req-wi-018--everything-the-ui-does-the-api-does) | Everything the UI does, the API does | NEW | MVP | Essentials |
 | [REQ-WI-019](#req-wi-019--domain-events-for-every-change) | Domain events for every change | NEW | MVP | Essentials |
 | [REQ-WI-020](#req-wi-020--trash-and-restore) | Trash and restore | SAME | MVP | Essentials |
-| [REQ-WI-021](#req-wi-021--audit-of-privileged-actions) | Audit of privileged actions | SAME | V1 | Essentials |
+| [REQ-WI-021](#req-wi-021--audit-of-privileged-actions) | Audit of privileged actions | SAME | MVP | Essentials |
 | [REQ-WI-022](#req-wi-022--keyboard-shortcuts-and-command-palette) | Keyboard shortcuts and command palette | BETTER | V1 | Essentials |
 | [REQ-WI-023](#req-wi-023--accessible-to-wcag-22-aa) | Accessible to WCAG 2.2 AA | BETTER | MVP | Essentials |
 | [REQ-WI-024](#req-wi-024--list-speed-at-scale) | List speed at scale | NEW | V1 | Essentials |
@@ -103,8 +103,8 @@ Edition (lowest edition that includes it): Essentials 167, Professional 12, Ente
 | [REQ-INC-018](#req-inc-018--quick-create) | Quick create | SAME | V1 | Essentials |
 | [REQ-INC-019](#req-inc-019--unsent-form-drafts-are-kept) | Unsent form drafts are kept | NEW | V1 | Essentials |
 | [REQ-INC-020](#req-inc-020--log-an-incident-already-resolved) | Log an incident already resolved | SAME | MVP | Essentials |
-| [REQ-INC-021](#req-inc-021--knowledge-suggestions-while-typing) | Knowledge suggestions while typing | BETTER | V1 | Essentials |
-| [REQ-INC-022](#req-inc-022--possible-duplicate-warning) | Possible duplicate warning | NEW | V1 | Essentials |
+| [REQ-INC-021](#req-inc-021--knowledge-suggestions-while-typing) | Knowledge suggestions while typing | BETTER | MVP | Essentials |
+| [REQ-INC-022](#req-inc-022--possible-duplicate-warning) | Possible duplicate warning | NEW | MVP | Essentials |
 | [REQ-INC-023](#req-inc-023--email-creates-incidents) | Email creates incidents | SAME | MVP | Essentials |
 | [REQ-INC-024](#req-inc-024--email-replies-thread-into-the-incident) | Email replies thread into the incident | SAME | MVP | Essentials |
 | [REQ-INC-025](#req-inc-025--set-fields-from-an-email) | Set fields from an email | SAME | V1 | Essentials |
@@ -202,7 +202,7 @@ Edition (lowest edition that includes it): Essentials 167, Professional 12, Ente
 | [REQ-INC-114](#req-inc-114--edit-in-the-list) | Edit in the list | NEW | V1 | Essentials |
 | [REQ-INC-115](#req-inc-115--row-colours-and-unread-markers) | Row colours and unread markers | SAME | V1 | Essentials |
 | [REQ-INC-116](#req-inc-116--export-lists) | Export lists | BETTER | V1 | Essentials |
-| [REQ-INC-117](#req-inc-117--chart-a-list-in-place) | Chart a list in place | SAME | LATER | Essentials |
+| [REQ-INC-117](#req-inc-117--chart-a-list-in-place) | Chart a list in place | SAME | V1 | Essentials |
 | [REQ-INC-118](#req-inc-118--archive-old-incidents) | Archive old incidents | SAME | LATER | Essentials |
 | [REQ-INC-119](#req-inc-119--select-across-pages) | Select across pages | BETTER | MVP | Essentials |
 | [REQ-INC-120](#req-inc-120--bulk-edit-assign-take-resolve-and-close) | Bulk edit, assign, take, resolve and close | BETTER | MVP | Essentials |
@@ -221,8 +221,8 @@ Edition (lowest edition that includes it): Essentials 167, Professional 12, Ente
 | [REQ-INC-133](#req-inc-133--notifications-in-the-recipients-language) | Notifications in the recipient's language | NEW | MVP | Essentials |
 | [REQ-INC-134](#req-inc-134--notification-log-on-the-incident) | Notification log on the incident | SAME | MVP | Essentials |
 | [REQ-INC-135](#req-inc-135--classification-suggestions) | Classification suggestions | SAME | V1 | Essentials |
-| [REQ-INC-136](#req-inc-136--writing-help-in-replies-and-notes) | Writing help in replies and notes | SAME | V1 | Essentials |
-| [REQ-INC-137](#req-inc-137--conversation-summary) | Conversation summary | BETTER | V1 | Essentials |
+| [REQ-INC-136](#req-inc-136--writing-help-in-replies-and-notes) | Writing help in replies and notes | SAME | MVP | Essentials |
+| [REQ-INC-137](#req-inc-137--conversation-summary) | Conversation summary | BETTER | MVP | Essentials |
 | [REQ-INC-138](#req-inc-138--sentiment-and-frustration-cues) | Sentiment and frustration cues | SAME | LATER | Essentials |
 | [REQ-INC-139](#req-inc-139--translate-messages) | Translate messages | NEW | LATER | Essentials |
 | [REQ-INC-140](#req-inc-140--triage-agent) | Triage agent | NEW | LATER | Professional |
@@ -234,7 +234,7 @@ Edition (lowest edition that includes it): Essentials 167, Professional 12, Ente
 | [REQ-INC-146](#req-inc-146--no-alert-correlation-in-supportx) | No alert correlation in SupportX | SKIP | LATER | Essentials |
 | [REQ-INC-147](#req-inc-147--requesters-follow-their-incidents) | Requesters follow their incidents | SAME | MVP | Essentials |
 | [REQ-INC-148](#req-inc-148--requester-cancel-and-edit-rules) | Requester cancel and edit rules | SAME | V1 | Essentials |
-| [REQ-INC-149](#req-inc-149--incidents-on-the-mobile-app) | Incidents on the mobile app | SAME | LATER | Essentials |
+| [REQ-INC-149](#req-inc-149--incidents-on-the-mobile-app) | Incidents on the mobile app | SAME | V1 | Essentials |
 <!-- summary:end -->
 
 ---
@@ -599,8 +599,8 @@ bulk changes, permission-overriding edits, editing closed records, export and ch
 dates.
 
 - **Decision:** SAME.
-- **Source:** architecture §7.4, §11; D-034 (WP-018)
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** architecture §7.4, §11; D-034 (WP-018); D-058
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Each listed action creates an audit entry with actor, time, target and outcome.
   2. Changing or removing an audit entry is detected by the audit verification.
@@ -1068,10 +1068,10 @@ resolution, or link it to the incident. By default only approved articles are su
 
 - **Decision:** BETTER. Same capability. Suggestions use approved content only by default, and
   never shift the form.
-- **Source:** sdp-area-02b §Screens (suggested solutions); sdp-area-08 §Behaviour (suggestions match unapproved content)
+- **Source:** sdp-area-02b §Screens (suggested solutions); sdp-area-08 §Behaviour (suggestions match unapproved content); D-066 (aligned with REQ-INC-028 and REQ-KB-062)
 - **SDP weak spot fixed:** unapproved articles are suggested by default, and the suggestion
   banner moves the save button.
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Typing words that match an approved article lists it within one second.
   2. An unapproved article is not suggested unless the tenant setting allows it.
@@ -1087,8 +1087,8 @@ as a child of an open major incident.
 
 - **Decision:** NEW. ServiceDesk Plus has nothing like this at creation (product-plan triage
   agent: duplicate detection).
-- **Source:** product-plan §7.3 (triage agent); architecture §2.10 (similar tickets)
-- **Priority:** V1 · **Edition:** Essentials
+- **Source:** product-plan §7.3 (triage agent); architecture §2.10 (similar tickets); D-057 (MVP AI slice)
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Creating a second incident from the same requester with nearly the same subject within an
      hour shows the first one as a possible duplicate.
@@ -2708,8 +2708,8 @@ From any list view, a user can show a quick chart of the current results grouped
 field, and turn it into a dashboard widget.
 
 - **Decision:** SAME.
-- **Source:** architecture §2.7 (instant graph view inside any list view)
-- **Priority:** LATER · **Edition:** Essentials
+- **Source:** architecture §2.7 (instant graph view inside any list view); D-066 (REQ-RPT-024 builds on it)
+- **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. Charting the "my open" view by priority shows counts that match the list.
   2. The chart updates live as the list changes.
@@ -3004,9 +3004,13 @@ model on-prem and air-gapped, and with a chosen cloud model on SaaS, with the sa
 as the user. Every suggestion records whether a person accepted, edited or rejected it.
 Administration is in file 10.
 
-Model access, pending a pricing decision (D-049): SaaS includes a fair-use allowance of cloud
-model usage; Enterprise tenants may bring their own key; on-prem and air-gapped installations
-use a local model.
+Model access (D-049, D-064): SaaS includes a fair-use allowance of cloud model usage and falls
+back to the local model, with a visible notice, when it runs out; only Enterprise tenants may
+bring their own key; every other installation uses the local model.
+
+At MVP (D-057) three features ship, on the local model through a minimal gateway with masking
+and logging: the conversation summary (REQ-INC-137), reply drafts (REQ-INC-136) and similar
+incidents (REQ-INC-022). Everything else in this section stays V1 or later.
 
 #### REQ-INC-135 — Classification suggestions
 
@@ -3034,10 +3038,10 @@ user always reviews the result before it is inserted, and nothing is sent automa
 consistently named entry point is used in every editor.
 
 - **Decision:** SAME. ServiceDesk Plus uses one icon with two different names in two editors.
-- **Source:** sdp-area-10 §Fields (reply assist, text assist), §Behaviour, §Weak spots
+- **Source:** sdp-area-10 §Fields (reply assist, text assist), §Behaviour, §Weak spots; D-057 (MVP AI slice)
 - **SDP weak spot fixed:** the same icon opens differently named tools in the reply and note
   editors, and generated notes can invent facts.
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A draft is shown for review and inserted only when the user accepts it.
   2. Drafts use only facts from the incident and the user's instruction; an evaluation set
@@ -3052,9 +3056,9 @@ Admins choose which parts feed the summary.
 
 - **Decision:** BETTER. In ServiceDesk Plus the summary can be switched on with no sign of
   where it appears.
-- **Source:** sdp-area-10 §Fields (conversation summary), §Behaviour, §Weak spots
+- **Source:** sdp-area-10 §Fields (conversation summary), §Behaviour, §Weak spots; D-057 (MVP AI slice)
 - **SDP weak spot fixed:** the summary's location could not be found after switching it on.
-- **Priority:** V1 · **Edition:** Essentials
+- **Priority:** MVP · **Edition:** Essentials
 - **Acceptance criteria:**
   1. An incident with ten messages shows a summary in the fixed summary area of the record.
   2. The summary excludes private notes when shown to someone who cannot see them.
@@ -3247,8 +3251,8 @@ Technicians handle incidents in the mobile app: lists and views, the record, rep
 notifications and an offline queue for changes made without signal are included.
 
 - **Decision:** SAME.
-- **Source:** architecture §2.15 (mobile apps), §9.1; product-plan §5 (mobile)
-- **Priority:** LATER · **Edition:** Essentials
+- **Source:** architecture §2.15 (mobile apps), §9.1; product-plan §5 (mobile); D-065 (mobile app V1, architecture §17 Stage 2)
+- **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. A note added offline is sent when the device reconnects, with no duplicate.
   2. A push notification for a new assignment opens the incident in the app.
@@ -3260,7 +3264,9 @@ notifications and an offline queue for changes made without signal are included.
 
 These are the defaults a new tenant gets, approved by the product owner (D-041). They are seed
 data, not fixed behaviour: a tenant admin can change every one of them. The requirements above
-refer to this appendix.
+refer to this appendix. At MVP, admins change values (labels, colours, reasons, the priority
+matrix, prefixes, categories); adding or removing statuses and transitions waits for the V1
+life cycle designer, REQ-INC-049 (D-056).
 
 **Impact** (REQ-INC-008), lowest to highest: one person · a team · a department or site · the
 whole organisation.

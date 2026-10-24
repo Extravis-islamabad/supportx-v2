@@ -286,7 +286,7 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [ ] WP-018 — Tamper-evident audit log (D-034; planning only)
+### [ ] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; planning only)
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
@@ -298,6 +298,19 @@ Planned ahead of Stage 1 (architecture.md §17); scoped and numbered when Stage 
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-24 — Parity: product owner answers D-057 to D-068 (docs only)
+
+- Recorded D-057 (MVP AI slice: summary, reply drafts, similar incidents on the local model
+  through a minimal gateway), D-058 (audit log MVP), D-059 (single sign-on Essentials MVP),
+  D-060 (MFA defaults), D-061 (desks), D-062 (directory sync MVP, Teams V1), D-063 (MSP LATER),
+  D-064 (AI access and fallback), D-065 (mobile app V1), D-066 (REQ-INC-021 MVP, REQ-INC-117
+  V1), D-067 (vendors and products with assets in Stage 2), D-068 (escalating technician keeps
+  following; amends D-053).
+- Applied them to parity files 01–12 (priorities, sources, answered open questions), notes for
+  D-055 (file 03) and D-056 (narrows D-041 at MVP). architecture.md §11.2 Redis → Valkey; §17
+  updated for D-067.
+- MVP now holds 397 requirements across the twelve files. No code changed.
 
 ### 2026-10-24 — Parity: Area 15 saved and applied (docs only)
 

@@ -2581,6 +2581,7 @@ approval stage.
 4. **Mobile approvals.** REQ-SR-039 is V1 because architecture §17 puts the mobile app in
    Stage 2. File 01 has the technician mobile app as LATER (REQ-INC-149). Is the mobile app
    (at least for approvals) V1 or LATER?
+   *Answered:* D-065: the mobile app is V1; REQ-INC-149 moved to V1.
 5. **Portal assistant timing.** product-plan §7.2 lists portal answers with citations in its
    Phase 1, but architecture §17 puts the AI gateway in Stage 2 and wins (D-002). The
    assistant is V1 here (REQ-PRT-028). Confirm.

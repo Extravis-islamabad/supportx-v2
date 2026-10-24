@@ -75,11 +75,11 @@ the reporting engine behind them (§6.10), and for dashboards, widgets and wallb
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 16 | 20 | 4 | 40 |
+| SAME | 16 | 21 | 3 | 40 |
 | BETTER | 19 | 20 | 1 | 40 |
 | NEW | 5 | 21 | 6 | 32 |
 | SKIP | 0 | 0 | 4 | 4 |
-| **Total** | **40** | **61** | **15** | **116** |
+| **Total** | **40** | **62** | **14** | **116** |
 
 Edition (lowest edition that includes it): Essentials 103, Professional 8, Enterprise 5. By prefix: REQ-RPT 66, REQ-DSH 50.
 
@@ -198,7 +198,7 @@ Edition (lowest edition that includes it): Essentials 103, Professional 8, Enter
 | [REQ-DSH-045](#req-dsh-045--languages-in-reports-and-dashboards) | Languages in reports and dashboards | BETTER | MVP | Essentials |
 | [REQ-DSH-046](#req-dsh-046--right-to-left-charts-reports-and-exports) | Right-to-left charts, reports and exports | NEW | MVP | Essentials |
 | [REQ-DSH-047](#req-dsh-047--accessible-charts-and-dashboards) | Accessible charts and dashboards | BETTER | MVP | Essentials |
-| [REQ-DSH-048](#req-dsh-048--dashboards-on-phones-and-the-mobile-app) | Dashboards on phones and the mobile app | SAME | LATER | Essentials |
+| [REQ-DSH-048](#req-dsh-048--dashboards-on-phones-and-the-mobile-app) | Dashboards on phones and the mobile app | SAME | V1 | Essentials |
 | [REQ-DSH-049](#req-dsh-049--no-refresh-timers-or-unexplained-switches) | No refresh timers or unexplained switches | SKIP | LATER | Essentials |
 | [REQ-DSH-050](#req-dsh-050--no-anonymous-public-links) | No anonymous public links | SKIP | LATER | Essentials |
 <!-- summary:end -->
@@ -2192,9 +2192,9 @@ stay readable, and drill-down opens the record list. The mobile app shows the ho
 and personal counters.
 
 - **Decision:** SAME. ServiceDesk Plus offers mobile apps.
-- **Source:** sdp-area-01 §Screens (profile drawer: mobile apps); architecture §9.1 (mobile
+- **Source:** sdp-area-01 §Screens (profile drawer: mobile apps); architecture §9.1 (mobile; D-065
   apps)
-- **Priority:** LATER · **Edition:** Essentials
+- **Priority:** V1 · **Edition:** Essentials
 - **Acceptance criteria:**
   1. The service desk dashboard on a 375-pixel-wide screen shows every widget with no
      horizontal scrolling.

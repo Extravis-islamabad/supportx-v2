@@ -55,11 +55,11 @@ ID scheme and field meanings: [README.md](README.md).
 
 | Decision | MVP | V1 | LATER | Total |
 |---|---|---|---|---|
-| SAME | 0 | 43 | 5 | 48 |
+| SAME | 0 | 44 | 4 | 48 |
 | BETTER | 0 | 47 | 2 | 49 |
 | NEW | 0 | 10 | 10 | 20 |
 | SKIP | 0 | 0 | 1 | 1 |
-| **Total** | **0** | **100** | **18** | **118** |
+| **Total** | **0** | **101** | **17** | **118** |
 
 Edition (lowest edition that includes it): Essentials 0, Professional 118, Enterprise 0. By prefix: REQ-CHG 118.
 
@@ -174,7 +174,7 @@ Edition (lowest edition that includes it): Essentials 0, Professional 118, Enter
 | [REQ-CHG-107](#req-chg-107--business-rules-triggers-and-slas-on-changes) | Business rules, triggers and SLAs on changes | SAME | V1 | Professional |
 | [REQ-CHG-108](#req-chg-108--scheduled-recurring-changes) | Scheduled recurring changes | SAME | LATER | Professional |
 | [REQ-CHG-109](#req-chg-109--requesters-raise-and-follow-changes-in-the-portal) | Requesters raise and follow changes in the portal | SAME | V1 | Professional |
-| [REQ-CHG-110](#req-chg-110--changes-and-approvals-on-the-mobile-app) | Changes and approvals on the mobile app | SAME | LATER | Professional |
+| [REQ-CHG-110](#req-chg-110--changes-and-approvals-on-the-mobile-app) | Changes and approvals on the mobile app | SAME | V1 | Professional |
 | [REQ-CHG-111](#req-chg-111--draft-plans-and-summaries) | Draft plans and summaries | NEW | LATER | Professional |
 | [REQ-CHG-112](#req-chg-112--similar-past-changes) | Similar past changes | NEW | LATER | Professional |
 | [REQ-CHG-113](#req-chg-113--change-risk-reviewer-agent) | Change risk reviewer agent | NEW | LATER | Professional |
@@ -1932,8 +1932,8 @@ Technicians and approvers handle changes in the mobile app: lists, the record, s
 transitions, tasks, notes, and approval decisions with the approval view (REQ-CHG-046).
 
 - **Decision:** SAME.
-- **Source:** architecture §2.15 (approver apps), §9.1; REQ-INC-149
-- **Priority:** LATER · **Edition:** Professional
+- **Source:** architecture §2.15 (approver apps), §9.1; REQ-INC-149; D-065
+- **Priority:** V1 · **Edition:** Professional
 - **Acceptance criteria:**
   1. A push notification for a pending approval opens the approval view in the app.
   2. Transitions in the app follow the same rules and prompts as the console.
