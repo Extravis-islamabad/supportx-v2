@@ -10,8 +10,8 @@
   (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
-  WP-018 audit log (worktree `../supportx-v2-wp018`, branch `feat/wp-018-audit-log`), session 2 of
-  3 done.
+  WP-018 audit log, done 2026-10-26 (branch `feat/wp-018-audit-log`). Lane B's next WP follows
+  the MVP build plan.
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
@@ -317,9 +317,10 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [~] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-076; ADR-027; in progress)
+### [x] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-076; ADR-027; done 2026-10-26)
 Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
-- [x] Session 1 (backend core): module `audit`, migration 0014 (was 0013 before lane A's 0013 merged) (partitioned `audit_entries`,
+- [x] Session 1 (backend core): module `audit`, migration 0014 (numbered 0013 until lane A's
+  0013 merged first) (partitioned `audit_entries`,
   queue, chain, personal data, anchors, settings, verification runs; definer functions
   `audit_seal`, `audit_erase_subject`, `audit_tenant_ids`, `audit_ensure_partitions`),
   `audited` / `audit_read` route dependencies, refused-attempt observer and probing alert,
@@ -337,8 +338,25 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   the console banner; signing key and storage keys in the chart and `deploy/scripts/secrets.sh`
   (missing keys are added to an existing Secret, existing values never changed); CI runs
   SeaweedFS for the export tests.
-- [ ] Session 3: retention and archive with RLS cut-off, restore for investigations, 10M-row
-  nightly suite, `docs/architecture/audit.md`, demo, PR.
+- [x] Session 3: retention (`audit__retention`, daily): whole months past retention archived to
+  `audit/archive/<tenant>/<yyyy-mm>.zip`, read back and verified, then `audit_advance_cutoff()`
+  hides them by RLS and deletes their personal rows; `audit_drop_expired_partitions()` drops a
+  month once every tenant has passed it. Failures (no or failing storage, unsealed entries, out-
+  of-order positions, unverifiable archive) leave a failed row, an audit entry, the
+  `archive_failed` banner, a metric and an error log. Restore for investigation
+  (`audit_restored`, 7 days, verified again), Admin › Audit log › Archives tab, labels en/ar/ur.
+  Verification and exports start after the archived positions; entry lookups are bounded by
+  time (18x faster verification). Volume test: 100k in CI, 10M nightly
+  (`.github/workflows/audit-scale.yml`). `docs/architecture/audit.md`, e2e journey
+  `audit.spec.ts`.
+- **Not done in WP-018 (follow-ups):**
+  - partitioning and retention of `field_changes` (the WP-012 field history). It is the work
+    item engine's table, owned by lane A, and it still needs a retention rule from the product
+    owner;
+  - WI-020 AC3 (purge records after retention), which waited for this WP;
+  - archives hold at most 1M entries per month (the export limit) and are built in memory. A
+    month above that fails visibly (`audit_export_too_large`); a streaming archive is needed
+    before a tenant reaches that volume.
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
@@ -350,6 +368,17 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-26 — WP-018 session 3 (retention, restore, volume, demo)
+
+- **Built:** see the WP-018 entry. No new dependencies.
+- **Merged main:** lane A's migration 0013 came first, so the audit migration is now 0014, and
+  lane A's D-075 kept its number, so the WP-018 decisions are now **D-076** (every reference in
+  the WP-018 files was renamed). Conflicts in `DECISIONS.md` and `test_auth_bff.py` were
+  resolved by keeping both sides.
+- **Shared changes:** `useDateTime().formatMonth` (a UTC month); CI sets
+  `SUPPORTX_AUDIT_SCALE_ROWS=100000`; new pytest marker `scale`.
+- **Tests:** RESULTS_PLACEHOLDER
 
 ### 2026-10-24 — WP-018 session 2 (storage, exports, screens)
 

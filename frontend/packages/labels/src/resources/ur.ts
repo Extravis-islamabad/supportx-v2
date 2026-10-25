@@ -825,4 +825,7 @@ export const ur: LabelResource = {
   'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
   'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
   'errors.audit_archive_not_restored': 'اس کے اندراجات پڑھنے کے لیے پہلے آرکائیو بحال کریں۔',
+  // Audit archive events (WP-018 session 3)
+  'event_type.audit.archive.updated': 'آڈٹ آرکائیو اپ ڈیٹ ہوا',
+  'event_type.audit.archive.restore_requested': 'آڈٹ آرکائیو کی بحالی کی درخواست کی گئی',
 };

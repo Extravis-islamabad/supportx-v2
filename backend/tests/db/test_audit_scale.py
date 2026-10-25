@@ -1,10 +1,14 @@
-"""The audit log at volume (WP-018, D-076 item 11): sealing, verification, search, tampering.
+"""The audit log at volume (WP-018, D-076 item 11): seal, verify, retention, search, tampering.
 
 Opt-in: SUPPORTX_AUDIT_SCALE_ROWS sets the number of entries (CI: 100,000 on every run; the
 nightly workflow: 10,000,000). Without it the test is skipped. Rows are generated in Python and
 loaded with COPY as the admin role into a fresh tenant of the throwaway database (COPY cannot
-run under RLS); everything measured after that runs as the application role. Timings go to
-SUPPORTX_AUDIT_SCALE_REPORT (JSON) when set, and to the test output.
+run under RLS); everything measured after that runs as the application role, and retention
+writes its archives to real S3-compatible storage (a fresh bucket).
+
+80 % of the entries are spread over twelve months five years ago (past the 3-year retention),
+the rest over the last 30 days. Timings go to SUPPORTX_AUDIT_SCALE_REPORT (JSON) when set, and
+to the test output.
 """
 
 import asyncio
@@ -24,16 +28,29 @@ from sqlalchemy import text
 from app.core.database import Database
 from app.core.tenancy import TenantContext
 from app.modules.audit.domain.integrity import Problem, entry_hash
+from app.modules.audit.infra.signing import LocalSigner, new_key_config, trusted_keys
 from app.modules.audit.service.integrity import verify
+from app.modules.audit.service.retention import (
+    archive_next,
+    drop_expired_partitions,
+    month_start,
+    next_month,
+)
+from app.shared.storage import S3Storage
 from conftest import create_tenant
+from tests.db.test_audit_exports import storage
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = [pytest.mark.db, pytest.mark.scale]
+__all__ = ["storage"]  # the fixture used below
+
+SIGNER = LocalSigner.from_config(new_key_config("scale-key"))
 
 ROWS = int(os.environ.get("SUPPORTX_AUDIT_SCALE_ROWS", "0"))
 CHUNK = 50_000
 SEAL_BATCH = 5000  # the most audit_seal() takes per call
 SEALS_PER_TRANSACTION = 10
+OLD_SHARE = 80  # percent of the entries past retention
 SEARCH_LIMIT_SECONDS = 1.0  # the screen's first page, filtered by person and the last 7 days
 ACTIONS = ("role.updated", "user.role_assigned", "incident.deleted", "read.audit_log")
 COLUMNS = (
@@ -65,16 +82,28 @@ CATEGORY = {
 }
 
 
-def _rows(tenant: uuid.UUID, start: datetime, count: int, people: list[uuid.UUID]) -> Any:  # noqa: ANN401 - a generator of COPY records
-    step = timedelta(days=30) / max(count, 1)
+def _times(count: int) -> Any:  # noqa: ANN401 - a generator of datetimes
+    """`count` increasing times: OLD_SHARE % in twelve months five years ago, then 30 days."""
+    old = count * OLD_SHARE // 100
+    start = month_start(datetime.now(UTC) - timedelta(days=5 * 365))
+    step = (next_month(start) - start) * 12 / max(old, 1)
+    for i in range(old):
+        yield start + step * i
+    recent = datetime.now(UTC) - timedelta(days=30, hours=1)
+    step = timedelta(days=30) / max(count - old, 1)
+    for i in range(count - old):
+        yield recent + step * i
+
+
+def _rows(tenant: uuid.UUID, count: int, people: list[uuid.UUID]) -> Any:  # noqa: ANN401 - a generator of COPY records
     rng = random.Random(18)  # noqa: S311 - test data, not security
-    for i in range(count):
+    for i, occurred_at in enumerate(_times(count)):
         action = ACTIONS[i % len(ACTIONS)]
         category, module = CATEGORY[action]
         row = {
             "id": uuid.uuid4(),
             "tenant_id": tenant,
-            "occurred_at": start + step * i,
+            "occurred_at": occurred_at,
             "action": action,
             "category": category,
             "module": module,
@@ -101,12 +130,12 @@ def _rows(tenant: uuid.UUID, start: datetime, count: int, people: list[uuid.UUID
         )
 
 
-async def _load(db: ThrowawayDatabase, tenant: uuid.UUID, people: list[uuid.UUID]) -> datetime:
-    start = datetime.now(UTC) - timedelta(days=30, hours=1)
+async def _load(db: ThrowawayDatabase, tenant: uuid.UUID, people: list[uuid.UUID]) -> None:
     conn = await asyncpg.connect(db.admin_url)
     try:
+        await conn.execute("SELECT audit_ensure_partitions(1, 72)")  # months back to the old data
         batch: list[tuple[Any, ...]] = []
-        for record in _rows(tenant, start, ROWS, people):
+        for record in _rows(tenant, ROWS, people):
             batch.append(record)
             if len(batch) == CHUNK:
                 await _copy(conn, batch)
@@ -115,7 +144,6 @@ async def _load(db: ThrowawayDatabase, tenant: uuid.UUID, people: list[uuid.UUID
             await _copy(conn, batch)
     finally:
         await conn.close()
-    return start
 
 
 async def _copy(conn: asyncpg.Connection, batch: list[tuple[Any, ...]]) -> None:
@@ -155,11 +183,73 @@ async def _change_behind_the_apps_back(db: ThrowawayDatabase, tenant: uuid.UUID,
         await conn.close()
 
 
+async def _retention(
+    app_db: Database, tenant: uuid.UUID, store: S3Storage, old: int
+) -> dict[str, Any]:
+    """Archive every month past 3 years (read back, verified), cut off, drop; then re-verify."""
+    timings: dict[str, Any] = {}
+    archived = 0
+    began = time.perf_counter()
+    while True:
+        async with app_db.tenant_session(TenantContext(tenant)) as session:
+            row = await archive_next(
+                session, storage=store, signer=SIGNER, trusted_keys=trusted_keys("", SIGNER)
+            )
+        if row is None:
+            break
+        assert row.status == "ready", row.problem
+        archived += row.entries
+        timings["archives"] = timings.get("archives", 0) + 1
+    timings["archive_seconds"] = round(time.perf_counter() - began, 1)
+    timings["archive_per_second"] = round(old / max(time.perf_counter() - began, 1e-9))
+    assert archived == old
+    async with app_db.platform_session() as session:
+        began = time.perf_counter()
+        timings["partitions_dropped"] = await drop_expired_partitions(session)
+        timings["drop_seconds"] = round(time.perf_counter() - began, 1)
+    assert timings["partitions_dropped"] >= 12  # the twelve old months
+    # Archiving writes one audit entry per month; seal them so the run below is not "overdue".
+    written = await _seal_all(app_db, tenant)
+    async with app_db.tenant_session(TenantContext(tenant)) as session:
+        visible = await session.scalar(
+            text("SELECT count(*) FROM audit_entries WHERE action <> 'audit.entries_archived'")
+        )
+        began = time.perf_counter()
+        live = await verify(session, kind="weekly", trusted_keys={})
+        timings["verify_after_retention_seconds"] = round(time.perf_counter() - began, 1)
+    assert visible == ROWS - old
+    assert live.status == "passed", live.finding
+    assert live.entries_checked == ROWS - old + written
+    return timings
+
+
+async def _search(app_db: Database, tenant: uuid.UUID, person: uuid.UUID) -> float:
+    """The screen's search: one person, the last 7 days, newest first, first page."""
+    async with app_db.tenant_session(TenantContext(tenant)) as session:
+        began = time.perf_counter()
+        found = (
+            await session.execute(
+                text(
+                    "SELECT id FROM audit_entries WHERE actor_id = :a"
+                    " AND occurred_at >= now() - interval '7 days'"
+                    " ORDER BY occurred_at DESC LIMIT 50"
+                ),
+                {"a": person},
+            )
+        ).all()
+        seconds = time.perf_counter() - began
+    assert found
+    return seconds
+
+
 @pytest.mark.skipif(ROWS <= 0, reason="set SUPPORTX_AUDIT_SCALE_ROWS to run the volume test")
-async def test_audit_log_at_volume(migrated_db: ThrowawayDatabase, app_db: Database) -> None:
+async def test_audit_log_at_volume(
+    migrated_db: ThrowawayDatabase, app_db: Database, storage: S3Storage
+) -> None:
     timings: dict[str, Any] = {"rows": ROWS}
     tenant = await create_tenant(migrated_db.migrator_url, "Scale")
     people = [uuid.uuid4() for _ in range(200)]
+    old = ROWS * OLD_SHARE // 100
 
     began = time.perf_counter()
     await _load(migrated_db, tenant, people)
@@ -181,26 +271,13 @@ async def test_audit_log_at_volume(migrated_db: ThrowawayDatabase, app_db: Datab
     assert clean.status == "passed", clean.finding
     assert clean.entries_checked == ROWS
 
-    # The screen's search: one person, the last 7 days, newest first, first page.
-    async with app_db.tenant_session(TenantContext(tenant)) as session:
-        began = time.perf_counter()
-        found = (
-            await session.execute(
-                text(
-                    "SELECT id FROM audit_entries WHERE actor_id = :a"
-                    " AND occurred_at >= now() - interval '7 days'"
-                    " ORDER BY occurred_at DESC LIMIT 50"
-                ),
-                {"a": people[0]},
-            )
-        ).all()
-        search_seconds = time.perf_counter() - began
+    timings.update(await _retention(app_db, tenant, storage, old))
+    search_seconds = await _search(app_db, tenant, people[0])
     timings["search_ms"] = round(search_seconds * 1000, 1)
-    assert found
     assert search_seconds < SEARCH_LIMIT_SECONDS
 
     # Change one entry in the middle behind the app's back: verification names its position.
-    target = ROWS // 2
+    target = old + (ROWS - old) // 2
     await _change_behind_the_apps_back(migrated_db, tenant, target)
     began = time.perf_counter()
     async with app_db.tenant_session(TenantContext(tenant)) as session:

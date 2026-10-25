@@ -1242,4 +1242,7 @@ export const ar: LabelResource = {
   'errors.audit_archive_not_found': 'هذا الأرشيف غير موجود.',
   'errors.audit_archive_not_ready': 'لا يمكن استعادة إلا أرشيف مُتحقق منه.',
   'errors.audit_archive_not_restored': 'استعد هذا الأرشيف أولًا لقراءة إدخالاته.',
+  // Audit archive events (WP-018 session 3)
+  'event_type.audit.archive.updated': 'تم تحديث أرشيف التدقيق',
+  'event_type.audit.archive.restore_requested': 'طُلبت استعادة أرشيف التدقيق',
 };

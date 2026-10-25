@@ -1248,6 +1248,9 @@ export const en = {
   'errors.audit_archive_not_found': 'This archive does not exist.',
   'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
   'errors.audit_archive_not_restored': 'Restore this archive first to read its entries.',
+  // Audit archive events (WP-018 session 3)
+  'event_type.audit.archive.updated': 'Audit archive updated',
+  'event_type.audit.archive.restore_requested': 'Audit archive restore requested',
 } as const;
 
 export type LabelKey = keyof typeof en;
