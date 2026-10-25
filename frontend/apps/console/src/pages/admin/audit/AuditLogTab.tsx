@@ -20,6 +20,7 @@ import { useDateTime, useLabel } from '@supportx/ui';
 
 import { AuditEntryDrawer } from './AuditEntryDrawer';
 import { actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
+import { StateTag } from './StateTag';
 
 /** Every action code that has a label (the catalogue lives in the backend; labels mirror it). */
 const ACTIONS = Object.keys(en)
@@ -255,9 +256,9 @@ export function AuditLogTab() {
             key: 'outcome',
             title: t('audit.ui.col.outcome'),
             render: (_, entry) => (
-              <Tag color={OUTCOME_COLOURS[entry.outcome]}>
+              <StateTag tone={OUTCOME_COLOURS[entry.outcome]}>
                 {t(`audit_outcome.${entry.outcome}`)}
-              </Tag>
+              </StateTag>
             ),
           },
           {

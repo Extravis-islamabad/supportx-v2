@@ -1,4 +1,4 @@
-import { Alert, Button, Drawer, Flex, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Drawer, Flex, Space, Table, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -15,6 +15,7 @@ import { useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 import { ProblemAlert } from './ProblemAlert';
 import { actorLabel, OUTCOME_COLOURS } from './present';
+import { StateTag } from './StateTag';
 
 const RESTORE_COLOURS: Record<string, string> = {
   running: 'processing',
@@ -65,9 +66,9 @@ export function ArchivesTab() {
             title: t('audit.ui.export.status'),
             render: (_, row) => (
               <Space direction="vertical" size={0}>
-                <Tag color={row.status === 'ready' ? 'success' : 'error'}>
+                <StateTag tone={row.status === 'ready' ? 'success' : 'error'}>
                   {t(`audit.archive_status.${row.status}`)}
-                </Tag>
+                </StateTag>
                 {row.problem !== null && (
                   <Typography.Text type="danger">{t(`errors.${row.problem}`)}</Typography.Text>
                 )}
@@ -95,9 +96,9 @@ export function ArchivesTab() {
               return (
                 <Space direction="vertical" size={0}>
                   {row.restore_status !== null && (
-                    <Tag color={RESTORE_COLOURS[row.restore_status]}>
+                    <StateTag tone={RESTORE_COLOURS[row.restore_status]}>
                       {t(`audit.restore_status.${row.restore_status}`)}
-                    </Tag>
+                    </StateTag>
                   )}
                   {row.restore_problem !== null && (
                     <Typography.Text type="danger">
@@ -195,9 +196,9 @@ function RestoredDrawer({
               key: 'outcome',
               title: t('audit.ui.col.outcome'),
               render: (_, entry) => (
-                <Tag color={OUTCOME_COLOURS[entry.outcome]}>
+                <StateTag tone={OUTCOME_COLOURS[entry.outcome]}>
                   {t(`audit_outcome.${entry.outcome}`)}
-                </Tag>
+                </StateTag>
               ),
             },
             {

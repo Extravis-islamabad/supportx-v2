@@ -1,4 +1,4 @@
-import { Button, Card, Flex, Radio, Space, Table, Tag, Typography } from 'antd';
+import { Button, Card, Flex, Radio, Space, Table, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -13,6 +13,7 @@ import { refreshList, useListChannel } from '@supportx/realtime';
 import { DateTimeRangeField, useDateTime, useLabel } from '@supportx/ui';
 
 import { ProblemAlert } from './ProblemAlert';
+import { StateTag } from './StateTag';
 
 const STATUS_COLOURS: Record<string, string> = {
   running: 'processing',
@@ -117,9 +118,9 @@ export function ExportsTab() {
             title: t('audit.ui.export.status'),
             render: (_, row) => (
               <Space direction="vertical" size={0}>
-                <Tag color={STATUS_COLOURS[row.status]}>
+                <StateTag tone={STATUS_COLOURS[row.status]}>
                   {t(`audit.export_status.${row.status}`)}
-                </Tag>
+                </StateTag>
                 {row.problem !== null && (
                   <Typography.Text type="danger">{t(`errors.${row.problem}`)}</Typography.Text>
                 )}

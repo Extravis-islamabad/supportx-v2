@@ -1,7 +1,7 @@
-import { Link } from 'react-router';
-
 import type { AuditEntry } from '@supportx/api-client';
 import type { LabelInput, LabelParams } from '@supportx/labels';
+
+import { OpenLink } from './StateTag';
 
 type T = (key: LabelInput, params?: LabelParams) => string;
 
@@ -41,15 +41,7 @@ export function objectLabel(t: T, entry: AuditEntry) {
   if (path === null) return objectText;
   return (
     <>
-      {objectText} ·{' '}
-      <Link
-        to={path}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      >
-        {t('audit.ui.open')}
-      </Link>
+      {objectText} · <OpenLink to={path}>{t('audit.ui.open')}</OpenLink>
     </>
   );
 }

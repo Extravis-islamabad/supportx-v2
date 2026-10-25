@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Descriptions, Flex, Space, Table, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Descriptions, Flex, Space, Table, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
@@ -13,6 +13,7 @@ import { refreshList, useListChannel } from '@supportx/realtime';
 import { DateTimeRangeField, useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 import { ProblemAlert } from './ProblemAlert';
+import { StateTag } from './StateTag';
 
 const RUN_COLOURS: Record<string, string> = {
   passed: 'success',
@@ -45,7 +46,7 @@ export function IntegrityTab() {
       t('audit.ui.never')
     ) : (
       <>
-        <Tag color={RUN_COLOURS[run.status]}>{t(`audit.run_status.${run.status}`)}</Tag>
+        <StateTag tone={RUN_COLOURS[run.status]}>{t(`audit.run_status.${run.status}`)}</StateTag>
         {dates.formatExact(run.finished_at ?? run.started_at)}
       </>
     );
@@ -68,9 +69,9 @@ export function IntegrityTab() {
             <Descriptions.Item label={t('audit.pending_seal')}>
               {s.pending_seal}
               {s.pending_overdue > 0 && (
-                <Tag color="error" style={{ marginInlineStart: 8 }}>
+                <StateTag tone="error" style={{ marginInlineStart: 8 }}>
                   {t('audit.ui.overdue', { count: s.pending_overdue })}
-                </Tag>
+                </StateTag>
               )}
             </Descriptions.Item>
             <Descriptions.Item label={t('audit.ui.last_anchor')}>

@@ -1,10 +1,11 @@
-import { Collapse, Descriptions, Drawer, Empty, List, Spin, Tag, Typography } from 'antd';
+import { Collapse, Descriptions, Drawer, Empty, List, Spin, Typography } from 'antd';
 import { Link } from 'react-router';
 
 import { useAuditEntry, useRoles, type AuditEntryDetail } from '@supportx/api-client';
 import { useDateTime, useLabel } from '@supportx/ui';
 
 import { actorLabel, grantLabel, objectLabel, OUTCOME_COLOURS } from './present';
+import { StateTag } from './StateTag';
 
 // Settings that audit entries describe by name (old → new values are numbers or lists).
 const NUMBER_DETAILS = new Set([
@@ -81,7 +82,7 @@ function Details({ e }: { e: AuditEntryDetail }) {
           </Descriptions.Item>
         )}
         <Descriptions.Item label={t('audit.ui.col.outcome')}>
-          <Tag color={OUTCOME_COLOURS[e.outcome]}>{t(`audit_outcome.${e.outcome}`)}</Tag>
+          <StateTag tone={OUTCOME_COLOURS[e.outcome]}>{t(`audit_outcome.${e.outcome}`)}</StateTag>
           {e.reason_code !== null && t(`errors.${e.reason_code}`)}
         </Descriptions.Item>
         <Descriptions.Item label={t('audit.ui.col.client')}>
