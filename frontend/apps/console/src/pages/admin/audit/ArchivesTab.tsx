@@ -54,7 +54,12 @@ export function ArchivesTab() {
         loading={archives.isPending}
         dataSource={archives.data ?? []}
         pagination={{ pageSize: 24, hideOnSinglePage: true }}
-        locale={{ emptyText: t('audit.ui.archive.none') }}
+        // The table's own placeholder colour is too faint for WCAG AA (axe); secondary text is not.
+        locale={{
+          emptyText: (
+            <Typography.Text type="secondary">{t('audit.ui.archive.none')}</Typography.Text>
+          ),
+        }}
         columns={[
           {
             key: 'month',
