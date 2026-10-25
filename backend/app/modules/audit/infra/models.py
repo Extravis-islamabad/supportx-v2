@@ -41,6 +41,8 @@ RUN_KINDS = "('daily', 'weekly', 'on_demand')"
 RUN_STATUSES = "('running', 'passed', 'failed', 'error')"
 EXPORT_STATUSES = "('running', 'ready', 'failed', 'expired')"
 EXPORT_FORMATS = "('jsonl', 'csv')"
+ARCHIVE_STATUSES = "('ready', 'failed')"
+RESTORE_STATUSES = "('running', 'ready', 'failed')"
 
 
 class AuditEntry(TenantKeyed, Base):
@@ -254,3 +256,59 @@ class AuditSavedSearch(UuidPrimaryKey, TenantScoped, Base):
     name: Mapped[str] = mapped_column(String(100))
     query: Mapped[dict[str, Any]] = mapped_column(JSONB)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class AuditArchive(UuidPrimaryKey, TenantScoped, Base):
+    """A month of entries past retention, written to object storage and read back (D-075 #10)."""
+
+    __tablename__ = "audit_archives"
+    __table_args__ = (
+        Index("ix_audit_archives_tenant_range", "tenant_id", "range_from"),
+        CheckConstraint(f"status IN {ARCHIVE_STATUSES}", name="status_code"),
+        CheckConstraint("range_to > range_from", name="range_order"),
+        CheckConstraint(f"restore_status IN {RESTORE_STATUSES}", name="restore_status_code"),
+    )
+
+    range_from: Mapped[datetime]
+    range_to: Mapped[datetime]
+    status: Mapped[str] = mapped_column(String(20))
+    object_key: Mapped[str | None] = mapped_column(String(300))
+    entries: Mapped[int] = mapped_column(server_default="0")
+    first_seq: Mapped[int | None]
+    last_seq: Mapped[int | None]
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    problem: Mapped[str | None] = mapped_column(String(60))
+    created_at: Mapped[datetime]
+    # A copy restored for an investigation (audit_restored), kept until `restored_until`.
+    restore_status: Mapped[str | None] = mapped_column(String(20))
+    restore_problem: Mapped[str | None] = mapped_column(String(60))
+    restored_until: Mapped[datetime | None]
+
+
+class AuditCutoff(TenantKeyed, Base):
+    """Entries before `hidden_before` are archived and hidden by RLS (read-only for the app).
+
+    Set only by `audit_advance_cutoff()`, which checks a ready archive covers the range.
+    """
+
+    __tablename__ = "audit_cutoffs"
+
+    hidden_before: Mapped[datetime]
+    updated_at: Mapped[datetime]
+
+
+class AuditRestored(TenantKeyed, Base):
+    """An archived entry restored for an investigation (kept 7 days, outside the live log).
+
+    Archives hold no personal data (it is not kept past retention), so neither does this.
+    """
+
+    __tablename__ = "audit_restored"
+
+    archive_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    seq: Mapped[int] = mapped_column(primary_key=True)
+    entry: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    entry_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    prev_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    chain_hash: Mapped[bytes] = mapped_column(LargeBinary)
+    expires_at: Mapped[datetime]

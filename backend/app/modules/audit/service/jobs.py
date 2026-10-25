@@ -8,6 +8,10 @@
   tenant, when they are due (file 11 Appendix A).
 * `audit__partitions` (every tick, cheap when nothing is missing): monthly partitions 24 months
   ahead.
+* `audit__retention` (daily): archives whole months past each tenant's retention, moves the
+  cut-off behind them and drops partitions every tenant has passed (service/retention.py).
+* `audit__restore` (consumer of `audit.archive.restore_requested`) and `audit__restored_expire`
+  (hourly): restores for investigation and their clean-up after 7 days.
 
 The schedules visit every tenant through `audit_tenant_ids()` (migration 0013).
 """
@@ -30,12 +34,19 @@ from app.modules.audit.infra.signing import AnchorSigner, LocalSigner, trusted_k
 from app.modules.audit.service.exports import build_export, expire_exports
 from app.modules.audit.service.integrity import anchor, seal, unsealed_overdue, verify
 from app.modules.audit.service.recording import WORKER, record
+from app.modules.audit.service.retention import (
+    archive_next,
+    drop_expired_partitions,
+    expire_restored,
+    restore,
+)
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope, record_event
 from app.shared.storage import ObjectStorage, StorageNotConfigured, storage_from
 
 log = get_logger(__name__)
 PARTITION_MONTHS_AHEAD = 24
+ARCHIVE_MONTHS_PER_RUN = 3  # catches up a backlog over a few days without one long transaction
 DAILY_EVERY = timedelta(days=1)
 WEEKLY_EVERY = timedelta(days=7)
 OVERDUE_ALERT_EVERY = timedelta(hours=1)
@@ -208,3 +219,43 @@ async def ensure_partitions(database: Database, settings: Settings) -> None:
         )
     if created:
         log.info("audit_partitions_created", count=created)
+
+
+async def run_retention(database: Database, settings: Settings) -> None:
+    """Archive months past retention (each in its own transaction), then drop expired partitions.
+
+    A tenant stops at its first failure (it is recorded and alerted); others carry on.
+    """
+    storage = storage_or_none(settings)
+    signer = signer_from(settings)
+    trusted = trusted_from(settings)
+    for tenant in await tenant_ids(database):
+        for _ in range(ARCHIVE_MONTHS_PER_RUN):
+            async with database.tenant_session(TenantContext(tenant)) as session:
+                row = await archive_next(
+                    session, storage=storage, signer=signer, trusted_keys=trusted
+                )
+            if row is None or row.status != "ready":
+                break
+    async with database.platform_session() as session:
+        dropped = await drop_expired_partitions(session)
+    if dropped:
+        log.info("audit_partitions_dropped", count=dropped)
+
+
+async def on_restore_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: restore an archive for an investigation."""
+    assert session is not None  # noqa: S101 - transactional consumer
+    from app.core.config import get_settings  # noqa: PLC0415 - the worker's own settings
+
+    await restore(
+        session, uuid.UUID(str(envelope.payload["archive_id"])), storage_or_none(get_settings())
+    )
+
+
+async def expire_all_restored(database: Database, settings: Settings) -> None:
+    """Remove restored copies past their 7 days, every tenant."""
+    del settings
+    for tenant in await tenant_ids(database):
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            await expire_restored(session)

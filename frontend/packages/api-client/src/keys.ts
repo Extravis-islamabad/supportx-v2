@@ -52,6 +52,8 @@ export const queryKeys = {
     settings: ['audit', 'settings'] as const,
     exports: ['audit', 'exports'] as const,
     saved: ['audit', 'saved'] as const,
+    archives: ['audit', 'archives'] as const,
+    restored: (id: string) => ['audit', 'restored', id] as const,
   },
   users: {
     all: ['users'] as const,

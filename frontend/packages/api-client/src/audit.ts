@@ -14,6 +14,8 @@ export type AuditSettings = components['schemas']['AuditSettingsOut'];
 export type AuditSettingsInput = components['schemas']['AuditSettingsIn'];
 export type AuditExport = components['schemas']['AuditExportOut'];
 export type AuditExportInput = components['schemas']['AuditExportIn'];
+export type AuditArchive = components['schemas']['AuditArchiveOut'];
+export type AuditRestoredPage = components['schemas']['AuditRestoredPage'];
 export type AuditSavedSearch = components['schemas']['AuditSavedSearchOut'];
 export type AuditCategory = components['schemas']['AuditCategory'];
 export type AuditOutcome = components['schemas']['AuditOutcome'];
@@ -188,4 +190,49 @@ export function useAuditSavedSearchMutations() {
     onSuccess: refresh,
   });
   return { save, remove };
+}
+
+/** Months archived past retention (and failed attempts), newest first. */
+export function useAuditArchives(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.audit.archives,
+    queryFn: () => call(api.GET('/api/v1/audit/archives')),
+    enabled,
+  });
+}
+
+/** Restore an archive for an investigation (done in the background, kept for 7 days). */
+export function useRestoreAuditArchive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (id: string) =>
+      call(
+        api.POST('/api/v1/audit/archives/{archive_id}/restore', {
+          params: { path: { archive_id: id } },
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.audit.archives });
+    },
+  });
+}
+
+/** Entries of a restored archive, in chain order (reading them is audited). */
+export function useRestoredAuditEntries(id: string | undefined) {
+  return useInfiniteQuery({
+    queryKey: queryKeys.audit.restored(id ?? ''),
+    queryFn: ({ pageParam }) =>
+      call(
+        api.GET('/api/v1/audit/archives/{archive_id}/entries', {
+          params: {
+            path: { archive_id: id ?? '' },
+            query: { limit: 50, cursor: pageParam ?? undefined },
+          },
+        }),
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => (page.has_more ? page.next_cursor : null),
+    enabled: id !== undefined,
+  });
 }

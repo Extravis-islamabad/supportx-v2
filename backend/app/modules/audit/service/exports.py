@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, NotFound
@@ -33,12 +33,11 @@ from app.modules.audit.events import AuditExportFinished, AuditExportRequested
 from app.modules.audit.infra.models import (
     AuditAnchor,
     AuditChainLink,
-    AuditEntry,
     AuditExport,
     AuditPersonal,
 )
 from app.modules.audit.infra.signing import AnchorSigner
-from app.modules.audit.service.integrity import verify
+from app.modules.audit.service.integrity import archived_through, entries_of, verify
 from app.shared.clock import Clock, system_clock
 from app.shared.events import record_event
 from app.shared.ids import new_id
@@ -148,45 +147,44 @@ def _hex(value: bytes) -> str:
     return bytes(value).hex()
 
 
-async def _records(
-    session: AsyncSession, row: AuditExport
+async def chain_records(
+    session: AsyncSession,
+    links_query: Select[AuditChainLink],
+    filters: Mapping[str, str],
+    *,
+    personal: bool = True,
 ) -> tuple[list[dict[str, Any]], int | None, int | None]:
-    query = select(AuditChainLink).order_by(AuditChainLink.seq)
-    if row.range_from is not None:
-        query = query.where(AuditChainLink.entry_occurred_at >= row.range_from)
-    if row.range_to is not None:
-        query = query.where(AuditChainLink.entry_occurred_at < row.range_to)
-    links = list(await session.scalars(query.limit(MAX_ENTRIES + 1)))
+    """The links `links_query` selects, in chain order, with their entries (and personal data).
+
+    Returns (records, first position, last position); raises 409 past MAX_ENTRIES.
+    """
+    ordered = links_query.order_by(AuditChainLink.seq).limit(MAX_ENTRIES + 1)
+    links = list(await session.scalars(ordered))
     if len(links) > MAX_ENTRIES:
         raise Conflict(code="audit_export_too_large", params={"max": MAX_ENTRIES})
     first = links[0].seq if links else None
     last = links[-1].seq if links else None
     found: list[dict[str, Any]] = []
-    columns = AuditEntry.__table__.columns
     for start in range(0, len(links), BATCH):
         batch = links[start : start + BATCH]
         ids = [link.entry_id for link in batch]
-        entries = {
-            r["id"]: dict(r)
-            for r in (
-                await session.execute(select(*columns).where(AuditEntry.id.in_(ids)))
-            ).mappings()
-        }
-        personal: dict[uuid.UUID, dict[str, Any]] = {}
-        for p in await session.scalars(
-            select(AuditPersonal).where(AuditPersonal.entry_id.in_(ids))
-        ):
-            personal.setdefault(p.entry_id, {})[str(p.subject_id)] = {
-                "salt": _hex(p.salt),
-                "data": dict(p.data),
-            }
+        entries = {r["id"]: dict(r) for r in (await session.execute(entries_of(batch))).mappings()}
+        people: dict[uuid.UUID, dict[str, Any]] = {}
+        if personal:
+            for p in await session.scalars(
+                select(AuditPersonal).where(AuditPersonal.entry_id.in_(ids))
+            ):
+                people.setdefault(p.entry_id, {})[str(p.subject_id)] = {
+                    "salt": _hex(p.salt),
+                    "data": dict(p.data),
+                }
         for link in batch:
             entry = entries.get(link.entry_id)
             if entry is None:  # a missing entry: exported as such, the verifier will flag it
                 content: dict[str, Any] = {"id": str(link.entry_id), "missing": True}
             else:
                 content = entry_content(entry)
-            if any(str(content.get(k)) != v for k, v in row.filters.items()):
+            if any(str(content.get(k)) != v for k, v in filters.items()):
                 continue
             found.append(
                 {
@@ -195,10 +193,22 @@ async def _records(
                     "chain_hash": _hex(link.chain_hash),
                     "entry_hash": _hex(link.entry_hash),
                     "entry": content,
-                    "personal": personal.get(link.entry_id, {}),
+                    "personal": people.get(link.entry_id, {}),
                 }
             )
     return found, first, last
+
+
+async def _records(
+    session: AsyncSession, row: AuditExport
+) -> tuple[list[dict[str, Any]], int | None, int | None]:
+    # Archived positions are no longer in the live log (retention): the export starts after them.
+    query = select(AuditChainLink).where(AuditChainLink.seq > await archived_through(session))
+    if row.range_from is not None:
+        query = query.where(AuditChainLink.entry_occurred_at >= row.range_from)
+    if row.range_to is not None:
+        query = query.where(AuditChainLink.entry_occurred_at < row.range_to)
+    return await chain_records(session, query, row.filters)
 
 
 def _data_file(fmt: str, items: list[dict[str, Any]]) -> tuple[str, bytes]:
@@ -244,6 +254,92 @@ def _data_file(fmt: str, items: list[dict[str, Any]]) -> tuple[str, bytes]:
     return "audit.csv", out.getvalue().encode()
 
 
+@dataclass(frozen=True)
+class Contents:
+    """What goes into an export or archive zip."""
+
+    kind: str  # export | archive
+    id: uuid.UUID
+    format: str
+    range_from: datetime | None
+    range_to: datetime | None
+    filters: dict[str, str]
+    items: list[dict[str, Any]]
+    first_seq: int | None
+    last_seq: int | None
+
+
+async def bundle(  # noqa: PLR0913 - keyword-only collaborators
+    session: AsyncSession,
+    contents: Contents,
+    *,
+    signer: AnchorSigner | None,
+    trusted_keys: Mapping[str, bytes],
+    server_verification: dict[str, Any] | None,
+    clock: Clock = system_clock,
+) -> bytes:
+    """The zip: manifest (+ signature), data file, the offline verifier and a README."""
+    first, last = contents.first_seq, contents.last_seq
+    context: TenantContext = session.info["supportx.tenant"]
+    previous = (
+        await session.scalar(
+            select(AuditChainLink.chain_hash).where(AuditChainLink.seq == first - 1)
+        )
+        if first is not None and first > 1
+        else GENESIS_HASH
+    )
+    anchors = list(
+        await session.scalars(
+            select(AuditAnchor)
+            .where(AuditAnchor.seq >= (first or 1), AuditAnchor.seq <= (last or 0))
+            .order_by(AuditAnchor.seq)
+        )
+    )
+    data_name, data = _data_file(contents.format, contents.items)
+    manifest = {
+        "format_version": 1,
+        "format": contents.format,
+        "kind": contents.kind,
+        "tenant_id": str(context.tenant_id),
+        f"{contents.kind}_id": str(contents.id),
+        "generated_at": format_time(clock.now()),
+        "range_from": format_time(contents.range_from) if contents.range_from else None,
+        "range_to": format_time(contents.range_to) if contents.range_to else None,
+        "filters": contents.filters,
+        "complete": not contents.filters,
+        "first_seq": first,
+        "last_seq": last,
+        "previous_chain_hash": _hex(previous or GENESIS_HASH),
+        "entries": len(contents.items),
+        "data_file": data_name,
+        "data_sha256": hashlib.sha256(data).hexdigest(),
+        "anchors": [
+            {
+                "seq": a.seq,
+                "chain_hash": _hex(a.chain_hash),
+                "created_at": format_time(a.created_at),
+                "key_id": a.key_id,
+                "public_key": _hex(a.public_key),
+                "signature": _hex(a.signature),
+            }
+            for a in anchors
+        ],
+        "trusted_keys": {key_id: _hex(key) for key_id, key in trusted_keys.items()},
+        "server_verification": server_verification,
+    }
+    manifest_bytes = json.dumps(manifest, sort_keys=True, indent=2, ensure_ascii=False).encode()
+    archive = io.BytesIO()
+    with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as out:
+        out.writestr("manifest.json", manifest_bytes)
+        if signer is not None:
+            signature = {"key_id": signer.key_id, "signature": signer.sign(manifest_bytes).hex()}
+            out.writestr("manifest.sig", json.dumps(signature))
+        out.writestr(data_name, data)
+        out.writestr("verify_export.py", VERIFIER.read_bytes())
+        out.writestr("README.txt", README)
+    return archive.getvalue()
+
+
 async def build_export(  # noqa: PLR0913 - keyword-only collaborators
     session: AsyncSession,
     export_id: uuid.UUID,
@@ -261,20 +357,6 @@ async def build_export(  # noqa: PLR0913 - keyword-only collaborators
         return await _finish(session, row, "storage_not_configured", clock)
     try:
         items, first, last = await _records(session, row)
-        previous = (
-            await session.scalar(
-                select(AuditChainLink.chain_hash).where(AuditChainLink.seq == first - 1)
-            )
-            if first is not None and first > 1
-            else GENESIS_HASH
-        )
-        anchors = list(
-            await session.scalars(
-                select(AuditAnchor)
-                .where(AuditAnchor.seq >= (first or 1), AuditAnchor.seq <= (last or 0))
-                .order_by(AuditAnchor.seq)
-            )
-        )
         checked = await verify(
             session,
             kind="on_demand",
@@ -283,55 +365,28 @@ async def build_export(  # noqa: PLR0913 - keyword-only collaborators
             range_to=row.range_to,
             requested_by=row.requested_by,
         )
-        data_name, data = _data_file(row.format, items)
-        manifest = {
-            "format_version": 1,
-            "format": row.format,
-            "tenant_id": str(row.tenant_id),
-            "export_id": str(row.id),
-            "generated_at": format_time(clock.now()),
-            "range_from": format_time(row.range_from) if row.range_from else None,
-            "range_to": format_time(row.range_to) if row.range_to else None,
-            "filters": dict(row.filters),
-            "complete": not row.filters,
-            "first_seq": first,
-            "last_seq": last,
-            "previous_chain_hash": _hex(previous or GENESIS_HASH),
-            "entries": len(items),
-            "data_file": data_name,
-            "data_sha256": hashlib.sha256(data).hexdigest(),
-            "anchors": [
-                {
-                    "seq": a.seq,
-                    "chain_hash": _hex(a.chain_hash),
-                    "created_at": format_time(a.created_at),
-                    "key_id": a.key_id,
-                    "public_key": _hex(a.public_key),
-                    "signature": _hex(a.signature),
-                }
-                for a in anchors
-            ],
-            "trusted_keys": {key_id: _hex(key) for key_id, key in trusted_keys.items()},
-            "server_verification": {
+        payload = await bundle(
+            session,
+            Contents(
+                kind="export",
+                id=row.id,
+                format=row.format,
+                range_from=row.range_from,
+                range_to=row.range_to,
+                filters=dict(row.filters),
+                items=items,
+                first_seq=first,
+                last_seq=last,
+            ),
+            signer=signer,
+            trusted_keys=trusted_keys,
+            server_verification={
                 "status": checked.status,
                 "entries_checked": checked.entries_checked,
                 "problem": checked.finding.problem.value if checked.finding else None,
             },
-        }
-        manifest_bytes = json.dumps(manifest, sort_keys=True, indent=2, ensure_ascii=False).encode()
-        archive = io.BytesIO()
-        with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_DEFLATED) as out:
-            out.writestr("manifest.json", manifest_bytes)
-            if signer is not None:
-                signature = {
-                    "key_id": signer.key_id,
-                    "signature": signer.sign(manifest_bytes).hex(),
-                }
-                out.writestr("manifest.sig", json.dumps(signature))
-            out.writestr(data_name, data)
-            out.writestr("verify_export.py", VERIFIER.read_bytes())
-            out.writestr("README.txt", README)
-        payload = archive.getvalue()
+            clock=clock,
+        )
         key = f"audit/exports/{row.tenant_id}/{row.id}.zip"
         await storage.put(key, payload, "application/zip")
     except (StorageUnavailable, Conflict) as exc:

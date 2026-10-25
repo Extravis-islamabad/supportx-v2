@@ -29,7 +29,7 @@ import json
 import sys
 import uuid
 import zipfile
-from typing import Any
+from typing import IO, Any
 
 DOMAIN_TAG = b"sx-audit-v1"
 GENESIS = "00" * 32
@@ -163,8 +163,8 @@ def check_anchors(manifest: dict[str, Any], items: list[dict[str, Any]]) -> str:
     )
 
 
-def verify(path: str) -> str:
-    """Verify the export at `path`; returns a summary or raises Broken."""
+def verify(path: "str | IO[bytes]") -> str:
+    """Verify the export at `path` (a file name or an open binary file); raises Broken."""
     with zipfile.ZipFile(path) as archive:
         manifest_bytes = archive.read("manifest.json")
         manifest = json.loads(manifest_bytes)

@@ -24,6 +24,7 @@ from app.modules.audit.domain.catalogue import (
 )
 from app.modules.audit.infra.models import (
     AuditAnchor,
+    AuditArchive,
     AuditChainLink,
     AuditEntry,
     AuditPersonal,
@@ -199,6 +200,13 @@ async def integrity_status(
         )
         if not cleared:
             alert = failed.problem or "verification_failed"
+    if alert is None:
+        # A failed archive stays visible until a later month archives (the job retries daily).
+        archive = await session.scalar(
+            select(AuditArchive).order_by(AuditArchive.created_at.desc()).limit(1)
+        )
+        if archive is not None and archive.status == "failed":
+            alert = "archive_failed"
     return IntegrityStatus(
         sealed_entries=int(sealed),
         pending_seal=int(pending),

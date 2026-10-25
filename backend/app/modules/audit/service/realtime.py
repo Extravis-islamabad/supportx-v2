@@ -3,7 +3,7 @@
 One list channel, joined only by holders of `audit.view`:
 
     t:{tenant}:queue:audit      "the audit log changed" (new entries, sealing, verification,
-                                exports, alerts); no IDs, no content. Open screens refetch
+                                exports, archives, alerts); no IDs, no content. Open screens refetch
                                 through the API, which applies the permission again.
 """
 
@@ -34,6 +34,7 @@ ROUTES = [
             "audit.alert.raised",
             "audit.export.finished",
             "audit.settings.changed",
+            "audit.archive.updated",
         ),
         _changed,
     )

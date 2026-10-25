@@ -1204,6 +1204,39 @@ export const en = {
   'audit.setting.read_categories': 'Sensitive reads that are logged',
   'audit.setting.read_categories.help': 'Reading the audit log itself is always logged.',
   'incidents.history.audited': 'In the audit log',
+  // Audit archives (WP-018 session 3)
+  'audit.ui.tab.archives': 'Archives',
+  'audit.ui.archive.help':
+    'Months older than the retention period are archived to storage, checked, and then hidden from the log. An archive can be restored for an investigation.',
+  'audit.ui.archive.none': 'Nothing has been archived yet.',
+  'audit.ui.archive.month': 'Month',
+  'audit.ui.archive.positions': 'Positions {{first}} to {{last}}',
+  'audit.ui.archive.restore': 'Restore for investigation',
+  'audit.ui.archive.open': 'Open restored entries',
+  'audit.ui.archive.until': 'Available until {{time}}',
+  'audit.ui.archive.restored_help':
+    'A verified copy of the archive, read-only and kept for 7 days. It is not part of the live log.',
+  'audit.archive_status.ready': 'Archived and verified',
+  'audit.archive_status.failed': 'Not archived',
+  'audit.restore_status.running': 'Restoring',
+  'audit.restore_status.ready': 'Restored',
+  'audit.restore_status.failed': 'Restore failed',
+  'audit.action.audit.entries_archived': 'Archived a month of the audit log',
+  'audit.action.audit.archive_failed': 'Could not archive the audit log',
+  'audit.action.audit.archive_restore_requested': 'Restored an audit archive for investigation',
+  'audit.object.audit_archive': 'Archive',
+  'audit.problem.archive_failed':
+    'A month past retention could not be archived; it stays in the log until it can.',
+  'errors.audit_archive_unsealed':
+    'Some entries of this month are not sealed yet, so it cannot be archived.',
+  'errors.audit_archive_unverified':
+    'The archive did not pass verification when read back from storage.',
+  'errors.audit_archive_out_of_order':
+    'Entries of this month were sealed out of order; ask support to check the audit log.',
+  'errors.audit_archive_missing': 'The archive file is no longer in storage.',
+  'errors.audit_archive_not_found': 'This archive does not exist.',
+  'errors.audit_archive_not_ready': 'Only a verified archive can be restored.',
+  'errors.audit_archive_not_restored': 'Restore this archive first to read its entries.',
 } as const;
 
 export type LabelKey = keyof typeof en;

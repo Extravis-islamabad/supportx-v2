@@ -4,7 +4,7 @@ Pure functions, no I/O. The same byte layout is computed in three places and mus
 
 * here (the service records `entry_hash` and verifies chains);
 * the database function `audit_seal()` (migration 0013), which writes the chain;
-* the standalone offline verifier `tools/audit-verify/verify_export.py` (standard library only).
+* the standalone offline verifier `tools/verify_export.py` (standard library only).
 
 Golden tests pin all three to the same bytes.
 

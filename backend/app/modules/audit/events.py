@@ -100,6 +100,29 @@ class AuditSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class AuditArchiveUpdated(DomainEvent):
+    """A month was archived (`status` ready or failed) or a restore finished (`restore_status`)."""
+
+    event_type: ClassVar[str] = "audit.archive.updated"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "audit_archive"
+
+    archive_id: uuid.UUID
+    status: str
+    restore_status: str | None = None
+    problem: str | None = None
+
+
+class AuditArchiveRestoreRequested(DomainEvent):
+    """An auditor asked to restore an archive for an investigation; the worker does it."""
+
+    event_type: ClassVar[str] = "audit.archive.restore_requested"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "audit_archive"
+
+    archive_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     AuditEntryRecorded,
     AuditEntriesSealed,
@@ -109,4 +132,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AuditExportRequested,
     AuditExportFinished,
     AuditSettingsChanged,
+    AuditArchiveUpdated,
+    AuditArchiveRestoreRequested,
 )

@@ -55,9 +55,24 @@ later erasure must remove without breaking the chain.
    function on a daily schedule); retention defaults to 3 years (1 to 10). Rows past a tenant's
    retention are archived to S3-compatible object storage, then hidden by an RLS cut-off; a
    monthly partition is dropped only when every tenant in it has expired (D-075 item 10).
+   Details fixed in session 3:
+   - An archive is one whole month and covers a contiguous run of chain positions, so the
+     archives and the live chain remain one verifiable chain; verification and exports start
+     after the last archived position.
+   - It is read back and verified before `audit_advance_cutoff()` moves the cut-off. That
+     migrator-owned function refuses a cut-off inside one year or without a ready archive.
+   - Archives hold no personal data: it is deleted at the cut-off, so it is not kept past
+     retention, and erasure requests never have to touch archives.
+   - Positions follow sealing order, not occurrence order. A month whose positions run more than
+     a day past its end fails visibly (`audit_archive_out_of_order`) instead of archiving live
+     entries.
+   - The partition clean-up reads across tenants through `*_maintenance_select` policies for
+     the migrator only (allowlisted in the RLS guard).
+   - An archive can be restored for an investigation into `audit_restored` (verified again,
+     kept 7 days, outside the live chain).
 9. **Periodic work** runs as module schedules in the consumers worker (`ModuleSpec.schedules`),
    one runner per schedule across replicas through an advisory lock: sealing sweep, anchoring,
-   daily and weekly verification, partitions. Temporal (WP-025) is for durable business timers.
+   daily and weekly verification, partitions, retention, restored-copy expiry. Temporal (WP-025) is for durable business timers.
 
 ## Consequences
 

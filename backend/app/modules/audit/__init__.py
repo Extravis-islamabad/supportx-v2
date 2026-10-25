@@ -28,9 +28,12 @@ from app.modules.audit.service.jobs import (
     anchor_all,
     ensure_partitions,
     expire_all_exports,
+    expire_all_restored,
     on_entry_recorded,
     on_export_requested,
+    on_restore_requested,
     on_verification_requested,
+    run_retention,
     seal_sweep,
     verify_due,
 )
@@ -96,6 +99,12 @@ module = ModuleSpec(
             handler=on_verification_requested,
             ack_wait_seconds=900,
         ),
+        ConsumerSpec(
+            name="audit__restore",
+            event_types=("audit.archive.restore_requested",),
+            handler=on_restore_requested,
+            ack_wait_seconds=900,
+        ),
     ],
     schedules=[
         ScheduleSpec("audit__seal_sweep", 60, seal_sweep),
@@ -103,6 +112,8 @@ module = ModuleSpec(
         ScheduleSpec("audit__verify", 900, verify_due),
         ScheduleSpec("audit__partitions", 86400, ensure_partitions),
         ScheduleSpec("audit__exports_expire", 3600, expire_all_exports),
+        ScheduleSpec("audit__retention", 86400, run_retention),
+        ScheduleSpec("audit__restored_expire", 3600, expire_all_restored),
     ],
 )
 

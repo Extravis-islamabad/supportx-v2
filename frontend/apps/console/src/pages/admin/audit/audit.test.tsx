@@ -185,4 +185,68 @@ describe('Admin › Audit log', () => {
     const input = box.tagName === 'INPUT' ? box : box.querySelector('input');
     expect(input?.hasAttribute('disabled')).toBe(true);
   });
+
+  it('archives: failures explained, restore asked for, restored entries in plain words', async () => {
+    const archive = {
+      id: 'a-1',
+      range_from: '2022-03-01T00:00:00Z',
+      range_to: '2022-04-01T00:00:00Z',
+      status: 'ready',
+      entries: 2,
+      first_seq: 4,
+      last_seq: 5,
+      sha256: 'd'.repeat(64),
+      problem: null,
+      created_at: '2025-04-02T01:00:00Z',
+      restore_status: 'ready',
+      restore_problem: null,
+      restored_until: '2025-04-09T01:00:00Z',
+    };
+    const fake = auditRoutes([entry()], {
+      'GET /api/v1/audit/archives': {
+        body: [
+          {
+            ...archive,
+            id: 'a-2',
+            range_from: '2022-04-01T00:00:00Z',
+            range_to: '2022-05-01T00:00:00Z',
+            status: 'failed',
+            entries: 0,
+            first_seq: null,
+            last_seq: null,
+            sha256: null,
+            problem: 'storage_unavailable',
+            restore_status: null,
+            restored_until: null,
+          },
+          { ...archive, id: 'a-3', restore_status: null, restored_until: null },
+          archive,
+        ],
+      },
+      'POST /api/v1/audit/archives/a-3/restore': {
+        status: 202,
+        body: { ...archive, id: 'a-3', restore_status: 'running' },
+      },
+      'GET /api/v1/audit/archives/a-1/entries': {
+        body: { items: [entry({ seq: 4 })], has_more: false, next_cursor: null },
+      },
+    });
+    window.history.pushState({}, '', '/admin/audit?tab=archives');
+    render(<App />);
+    const table = await screen.findByTestId('audit-archives');
+    expect(await within(table).findByText('Not archived')).toBeDefined();
+    expect(within(table).getByText(/storage/i)).toBeDefined();
+    expect(within(table).queryByText('storage_unavailable')).toBeNull();
+    expect(within(table).getAllByText('Positions 4 to 5')).toHaveLength(2);
+
+    fireEvent.click(within(table).getByTestId('audit-archive-restore-a-3'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/audit/archives/a-3/restore')).toHaveLength(1);
+    });
+
+    fireEvent.click(within(table).getByTestId('audit-archive-open-a-1'));
+    const drawer = await screen.findByTestId('audit-restored-table');
+    expect(await within(drawer).findByText('Changed a role')).toBeDefined();
+    expect(within(drawer).getByText('Sealed, position 4')).toBeDefined();
+  });
 });

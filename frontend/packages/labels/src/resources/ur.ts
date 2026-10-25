@@ -780,4 +780,36 @@ export const ur: LabelResource = {
   'audit.setting.read_categories': 'حساس پڑھائیاں جو لاگ ہوتی ہیں',
   'audit.setting.read_categories.help': 'خود آڈٹ لاگ پڑھنا ہمیشہ لاگ ہوتا ہے۔',
   'incidents.history.audited': 'آڈٹ لاگ میں',
+  // Audit archives (WP-018 session 3)
+  'audit.ui.tab.archives': 'آرکائیوز',
+  'audit.ui.archive.help':
+    'مدتِ برقراری سے پرانے مہینے اسٹوریج میں محفوظ کیے جاتے ہیں، جانچے جاتے ہیں اور پھر لاگ سے چھپا دیے جاتے ہیں۔ تحقیقات کے لیے آرکائیو بحال کیا جا سکتا ہے۔',
+  'audit.ui.archive.none': 'ابھی تک کچھ بھی محفوظ نہیں کیا گیا۔',
+  'audit.ui.archive.month': 'مہینہ',
+  'audit.ui.archive.positions': 'مقامات {{first}} تا {{last}}',
+  'audit.ui.archive.restore': 'تحقیقات کے لیے بحال کریں',
+  'audit.ui.archive.open': 'بحال شدہ اندراجات کھولیں',
+  'audit.ui.archive.until': '{{time}} تک دستیاب',
+  'audit.ui.archive.restored_help':
+    'آرکائیو کی تصدیق شدہ نقل، صرف پڑھنے کے لیے اور 7 دن تک محفوظ۔ یہ موجودہ لاگ کا حصہ نہیں ہے۔',
+  'audit.archive_status.ready': 'محفوظ اور تصدیق شدہ',
+  'audit.archive_status.failed': 'محفوظ نہیں ہوا',
+  'audit.restore_status.running': 'بحال ہو رہا ہے',
+  'audit.restore_status.ready': 'بحال شدہ',
+  'audit.restore_status.failed': 'بحالی ناکام',
+  'audit.action.audit.entries_archived': 'آڈٹ لاگ کا ایک مہینہ محفوظ کیا',
+  'audit.action.audit.archive_failed': 'آڈٹ لاگ محفوظ نہیں ہو سکا',
+  'audit.action.audit.archive_restore_requested': 'تحقیقات کے لیے آڈٹ آرکائیو بحال کیا',
+  'audit.object.audit_archive': 'آرکائیو',
+  'audit.problem.archive_failed':
+    'مدتِ برقراری سے گزرا ایک مہینہ محفوظ نہیں ہو سکا؛ یہ اس وقت تک لاگ میں رہے گا۔',
+  'errors.audit_archive_unsealed':
+    'اس مہینے کے کچھ اندراجات ابھی مہر بند نہیں ہوئے، اس لیے اسے محفوظ نہیں کیا جا سکتا۔',
+  'errors.audit_archive_unverified': 'اسٹوریج سے دوبارہ پڑھنے پر آرکائیو تصدیق میں ناکام رہا۔',
+  'errors.audit_archive_out_of_order':
+    'اس مہینے کے اندراجات غلط ترتیب میں مہر بند ہوئے؛ سپورٹ سے آڈٹ لاگ چیک کرنے کو کہیں۔',
+  'errors.audit_archive_missing': 'آرکائیو فائل اب اسٹوریج میں موجود نہیں ہے۔',
+  'errors.audit_archive_not_found': 'یہ آرکائیو موجود نہیں ہے۔',
+  'errors.audit_archive_not_ready': 'صرف تصدیق شدہ آرکائیو بحال کیا جا سکتا ہے۔',
+  'errors.audit_archive_not_restored': 'اس کے اندراجات پڑھنے کے لیے پہلے آرکائیو بحال کریں۔',
 };

@@ -37,7 +37,9 @@ from app.modules.audit.events import (
 )
 from app.modules.audit.infra.models import (
     AuditAnchor,
+    AuditArchive,
     AuditChainLink,
+    AuditCutoff,
     AuditEntry,
     AuditPersonal,
     AuditQueueItem,
@@ -148,6 +150,23 @@ class VerificationResult:
     last_seq: int | None
 
 
+async def archived_through(session: AsyncSession) -> int:
+    """The last chain position that lives only in archives now (0 before any retention).
+
+    Entries up to it are behind the tenant's cut-off: RLS hides them, so verification and
+    exports start after it (the archive itself was verified when it was written).
+    """
+    cutoff = await session.scalar(select(AuditCutoff.hidden_before))
+    if cutoff is None:
+        return 0
+    last = await session.scalar(
+        select(func.max(AuditArchive.last_seq)).where(
+            AuditArchive.status == "ready", AuditArchive.range_to <= cutoff
+        )
+    )
+    return int(last or 0)
+
+
 async def _seq_bounds(
     session: AsyncSession, range_from: datetime | None, range_to: datetime | None
 ) -> tuple[int | None, int | None]:
@@ -158,6 +177,26 @@ async def _seq_bounds(
         query = query.where(AuditChainLink.entry_occurred_at < range_to)
     low, high = (await session.execute(query)).one()
     return low, high
+
+
+def _time_bounds(chain: Sequence[AuditChainLink]) -> tuple[datetime, datetime]:
+    times = [link.entry_occurred_at for link in chain]
+    return min(times), max(times)
+
+
+def entries_of(chain: Sequence[AuditChainLink]) -> Any:  # noqa: ANN401 - a Select of columns
+    """The entries a batch of links seals, as row mappings.
+
+    Bounded by the links' times as well as their IDs, so PostgreSQL reads only the monthly
+    partitions involved instead of probing every partition's index for every ID (the
+    difference between hours and minutes for a full verification of 10M entries).
+    """
+    low, high = _time_bounds(chain)
+    return select(*AuditEntry.__table__.columns).where(
+        AuditEntry.id.in_([link.entry_id for link in chain]),
+        AuditEntry.occurred_at >= low,
+        AuditEntry.occurred_at <= high,
+    )
 
 
 async def _links(
@@ -173,15 +212,17 @@ async def _links(
     ids = [link.entry_id for link in chain]
     entries: dict[uuid.UUID, dict[str, Any]] = {}
     if ids:
-        columns = AuditEntry.__table__.columns
-        for row in (
-            await session.execute(select(*columns).where(AuditEntry.id.in_(ids)))
-        ).mappings():
+        for row in (await session.execute(entries_of(chain))).mappings():
             entries[row["id"]] = dict(row)
     personal: dict[uuid.UUID, list[tuple[uuid.UUID, bytes, Any]]] = {}
     if ids:
+        low, high = _time_bounds(chain)
         for p in await session.scalars(
-            select(AuditPersonal).where(AuditPersonal.entry_id.in_(ids))
+            select(AuditPersonal).where(
+                AuditPersonal.entry_id.in_(ids),
+                AuditPersonal.occurred_at >= low,
+                AuditPersonal.occurred_at <= high,
+            )
         ):
             personal.setdefault(p.entry_id, []).append((p.subject_id, p.salt, p.data))
     return [
@@ -295,6 +336,9 @@ async def verify(  # noqa: PLR0913 - keyword-only run options
         range_from, range_to = run.range_from, run.range_to
 
     first, last = await _seq_bounds(session, range_from, range_to)
+    floor = await archived_through(session)
+    if first is not None and last is not None and first <= floor:
+        first, last = (floor + 1, last) if last > floor else (None, None)
     chain_end = await session.scalar(select(func.max(AuditChainLink.seq))) or 0
     finding, checked, hashes = await _walk(session, tenant_id, first, last)
     if finding is None:

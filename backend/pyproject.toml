@@ -103,6 +103,7 @@ markers = [
     "db: needs PostgreSQL (dev stack or CI service); skipped locally if absent, required in CI",
     "nats: needs NATS JetStream (dev stack or CI container); skipped locally if absent, required in CI",
     "valkey: needs Valkey (dev stack or CI service); skipped locally if absent, required in CI",
+    "scale: volume test, runs only with SUPPORTX_AUDIT_SCALE_ROWS (CI 100k, nightly 10M)",
 ]
 
 [tool.coverage.run]

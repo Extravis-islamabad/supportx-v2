@@ -9,14 +9,22 @@ Tables (all tenant-scoped with RLS):
   `audit_erase_subject()` deletes;
 - audit_anchors: signed checkpoints; INSERT and SELECT;
 - audit_settings, audit_verification_runs, audit_exports: SELECT, INSERT, UPDATE;
-- audit_saved_searches: a person's own saved searches; SELECT, INSERT, DELETE.
+- audit_saved_searches: a person's own saved searches; SELECT, INSERT, DELETE;
+- audit_archives: months past retention written to object storage; SELECT, INSERT, UPDATE;
+- audit_cutoffs: per tenant, entries before `hidden_before` are archived and hidden from every
+  app query by the select policies of audit_entries and audit_personal; SELECT only;
+- audit_restored: archived entries restored for an investigation; SELECT, INSERT, DELETE.
 
 Functions (EXECUTE for supportx_app only):
 - audit_seal(limit): seals up to `limit` queued entries of the current tenant, in order, under a
   per-tenant advisory lock;
 - audit_erase_subject(subject): deletes one person's personal rows (REQ-AUD-013);
 - audit_tenant_ids(): every tenant ID, so the worker's schedules can visit each tenant;
-- audit_ensure_partitions(months_ahead): creates monthly partitions (with RLS) ahead of time.
+- audit_ensure_partitions(months_ahead, months_back): creates monthly partitions (with RLS);
+- audit_advance_cutoff(before): moves the tenant's cut-off, only behind a ready archive and never
+  inside one year, and deletes the personal rows before it;
+- audit_drop_expired_partitions(): drops monthly partitions whose rows are behind every
+  tenant's cut-off (mixed retention, D-075 item 10).
 
 FORCE ROW LEVEL SECURITY binds the table owner too, so the definer functions still see only the
 tenant in `app.tenant_id` (audit_tenant_ids reads `tenants`, where the migrator has its own
@@ -33,7 +41,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-from app.shared.db.rls import APP_ROLE
+from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0013"
@@ -45,8 +53,84 @@ FUNCTIONS = (
     "audit_seal(integer)",
     "audit_erase_subject(uuid)",
     "audit_tenant_ids()",
-    "audit_ensure_partitions(integer)",
+    "audit_ensure_partitions(integer, integer)",
+    "audit_advance_cutoff(timestamptz)",
+    "audit_drop_expired_partitions()",
 )
+# Retention (D-075 item 10): the migrator may read every tenant's entries, cut-offs and archives,
+# so the partition clean-up can tell when a whole month has expired for every tenant. Without
+# these policies FORCE RLS would show it nothing and it could drop live data. Allowlisted in
+# tooling/rls_guard.py; no other role is affected.
+MAINTENANCE_SELECT = ("audit_entries", "audit_cutoffs", "audit_archives")
+CURRENT_TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
+
+# Advances the tenant's cut-off: entries before it are hidden from every app query. Only behind
+# a ready archive and never inside the platform minimum of one year; personal rows before the
+# cut-off are deleted (they are in the archive). Returns the new cut-off.
+CUTOFF = """
+CREATE FUNCTION audit_advance_cutoff(p_before timestamptz) RETURNS timestamptz
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+DECLARE
+    t uuid := NULLIF(current_setting('app.tenant_id', true), '')::uuid;
+    archived_to timestamptz;
+    current_cutoff timestamptz;
+BEGIN
+    IF t IS NULL THEN
+        RAISE EXCEPTION 'audit_advance_cutoff needs app.tenant_id';
+    END IF;
+    IF p_before > now() - interval '365 days' THEN
+        RAISE EXCEPTION 'the audit log keeps at least one year';
+    END IF;
+    SELECT max(range_to) INTO archived_to
+      FROM audit_archives WHERE tenant_id = t AND status = 'ready';
+    IF archived_to IS NULL OR archived_to < p_before THEN
+        RAISE EXCEPTION 'entries before the cut-off are not archived';
+    END IF;
+    SELECT hidden_before INTO current_cutoff FROM audit_cutoffs WHERE tenant_id = t;
+    IF current_cutoff IS NOT NULL AND current_cutoff >= p_before THEN
+        RETURN current_cutoff;
+    END IF;
+    INSERT INTO audit_cutoffs (tenant_id, hidden_before, updated_at)
+    VALUES (t, p_before, now())
+    ON CONFLICT (tenant_id) DO UPDATE SET hidden_before = EXCLUDED.hidden_before,
+                                          updated_at = EXCLUDED.updated_at;
+    DELETE FROM audit_personal WHERE tenant_id = t AND occurred_at < p_before;
+    RETURN p_before;
+END
+$$
+"""
+
+# Drops monthly partitions older than a year whose every row is behind its tenant's cut-off.
+DROP_EXPIRED = """
+CREATE FUNCTION audit_drop_expired_partitions() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
+DECLARE
+    part record;
+    m date;
+    dropped integer := 0;
+BEGIN
+    FOR part IN
+        SELECT c.relname FROM pg_inherits i JOIN pg_class c ON c.oid = i.inhrelid
+         WHERE i.inhparent = 'public.audit_entries'::regclass
+           AND c.relname ~ '^audit_entries_p[0-9]{6}$'
+         ORDER BY c.relname
+    LOOP
+        m := to_date(substr(part.relname, 16), 'YYYYMM');
+        CONTINUE WHEN (m + interval '1 month') > now() - interval '365 days';
+        CONTINUE WHEN EXISTS (
+            SELECT 1 FROM public.audit_entries e
+              LEFT JOIN public.audit_cutoffs c ON c.tenant_id = e.tenant_id
+             WHERE e.occurred_at >= m AND e.occurred_at < m + interval '1 month'
+               AND (c.hidden_before IS NULL OR e.occurred_at >= c.hidden_before)
+        );
+        EXECUTE format('ALTER TABLE public.audit_entries DETACH PARTITION public.%I', part.relname);
+        EXECUTE format('DROP TABLE public.%I', part.relname);
+        dropped := dropped + 1;
+    END LOOP;
+    RETURN dropped;
+END
+$$
+"""
 
 SEAL = """
 CREATE FUNCTION audit_seal(p_limit integer) RETURNS integer
@@ -130,10 +214,11 @@ $$
 # partition gets the tenant policies too (the RLS guard checks every table), and no app grants:
 # the app reaches rows only through the parent, whose policies apply.
 PARTITIONS = """
-CREATE FUNCTION audit_ensure_partitions(p_months_ahead integer) RETURNS integer
+CREATE FUNCTION audit_ensure_partitions(p_months_ahead integer, p_months_back integer DEFAULT 1)
+RETURNS integer
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 DECLARE
-    first_month date := (date_trunc('month', now()) - interval '1 month')::date;
+    first_month date;
     m date;
     name text;
     match text := 'tenant_id = NULLIF(current_setting(''app.tenant_id'', true), '''')::uuid';
@@ -142,7 +227,11 @@ BEGIN
     IF p_months_ahead IS NULL OR p_months_ahead < 1 OR p_months_ahead > 36 THEN
         RAISE EXCEPTION 'months ahead must be between 1 and 36';
     END IF;
-    FOR i IN 0 .. p_months_ahead + 1 LOOP
+    IF p_months_back IS NULL OR p_months_back < 0 OR p_months_back > 240 THEN
+        RAISE EXCEPTION 'months back must be between 0 and 240';
+    END IF;
+    first_month := (date_trunc('month', now()) - make_interval(months => p_months_back))::date;
+    FOR i IN 0 .. p_months_ahead + p_months_back LOOP
         m := (first_month + make_interval(months => i))::date;
         name := 'audit_entries_p' || to_char(m, 'YYYYMM');
         IF to_regclass('public.' || name) IS NULL THEN
@@ -179,6 +268,84 @@ def _tenant_fk(table: str) -> sa.ForeignKeyConstraint:
         name=op.f(f"fk_{table}_tenant_id_tenants"),
         ondelete="RESTRICT",
     )
+
+
+def _retention() -> None:
+    """Archives, cut-offs and restored copies (D-075 item 10)."""
+    op.create_table(
+        "audit_archives",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("range_from", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("range_to", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("status", sa.String(length=20), nullable=False),
+        sa.Column("object_key", sa.String(length=300), nullable=True),
+        sa.Column("entries", sa.BigInteger(), server_default="0", nullable=False),
+        sa.Column("first_seq", sa.BigInteger(), nullable=True),
+        sa.Column("last_seq", sa.BigInteger(), nullable=True),
+        sa.Column("sha256", sa.String(length=64), nullable=True),
+        sa.Column("problem", sa.String(length=60), nullable=True),
+        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("restore_status", sa.String(length=20), nullable=True),
+        sa.Column("restore_problem", sa.String(length=60), nullable=True),
+        sa.Column("restored_until", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "status IN ('ready', 'failed')", name=op.f("ck_audit_archives_status_code")
+        ),
+        sa.CheckConstraint(
+            "restore_status IN ('running', 'ready', 'failed')",
+            name=op.f("ck_audit_archives_restore_status_code"),
+        ),
+        sa.CheckConstraint("range_to > range_from", name=op.f("ck_audit_archives_range_order")),
+        _tenant_fk("audit_archives"),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_audit_archives")),
+    )
+    op.create_index("ix_audit_archives_tenant_range", "audit_archives", ["tenant_id", "range_from"])
+    enable_tenant_rls("audit_archives")
+    grant_app("audit_archives", ("SELECT", "INSERT", "UPDATE"))
+
+    op.create_table(
+        "audit_cutoffs",
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("hidden_before", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
+        _tenant_fk("audit_cutoffs"),
+        sa.PrimaryKeyConstraint("tenant_id", name=op.f("pk_audit_cutoffs")),
+    )
+    enable_tenant_rls("audit_cutoffs")
+    grant_app("audit_cutoffs", ("SELECT",))
+
+    op.create_table(
+        "audit_restored",
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("archive_id", sa.Uuid(), nullable=False),
+        sa.Column("seq", sa.BigInteger(), nullable=False),
+        sa.Column("entry", postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("entry_hash", sa.LargeBinary(), nullable=False),
+        sa.Column("prev_hash", sa.LargeBinary(), nullable=False),
+        sa.Column("chain_hash", sa.LargeBinary(), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        _tenant_fk("audit_restored"),
+        sa.PrimaryKeyConstraint("tenant_id", "archive_id", "seq", name=op.f("pk_audit_restored")),
+    )
+    enable_tenant_rls("audit_restored")
+    grant_app("audit_restored", ("SELECT", "INSERT", "DELETE"))
+
+    # The cut-off (retention, D-075 item 10): rows before it stay in place but no app query sees
+    # them, until the whole monthly partition can go.
+    for table in ("audit_entries", "audit_personal"):
+        op.execute(f"DROP POLICY {table}_tenant_select ON {table}")
+        op.execute(
+            f"CREATE POLICY {table}_tenant_select ON {table} FOR SELECT USING ("  # noqa: S608 - fixed table names
+            f"tenant_id = {CURRENT_TENANT} AND occurred_at >= COALESCE(("
+            f"SELECT c.hidden_before FROM audit_cutoffs c WHERE c.tenant_id = {CURRENT_TENANT}"
+            "), '-infinity'::timestamptz))"
+        )
+    for table in MAINTENANCE_SELECT:
+        op.execute(
+            f"CREATE POLICY {table}_maintenance_select ON {table} FOR SELECT "
+            f"TO {MIGRATOR_ROLE} USING (true)"
+        )
 
 
 def upgrade() -> None:
@@ -477,7 +644,9 @@ def upgrade() -> None:
     enable_tenant_rls("audit_saved_searches")
     grant_app("audit_saved_searches", ("SELECT", "INSERT", "DELETE"))
 
-    for statement in (SEAL, ERASE, TENANT_IDS, PARTITIONS):
+    _retention()
+
+    for statement in (SEAL, ERASE, TENANT_IDS, PARTITIONS, CUTOFF, DROP_EXPIRED):
         op.execute(statement)
     for function in FUNCTIONS:
         op.execute(f"REVOKE ALL ON FUNCTION {function} FROM PUBLIC")
@@ -494,7 +663,15 @@ def upgrade() -> None:
 def downgrade() -> None:
     for function in FUNCTIONS:
         op.execute(f"DROP FUNCTION IF EXISTS {function}")
+    # The select policies read audit_cutoffs, so they go before it.
+    for table in MAINTENANCE_SELECT:
+        op.execute(f"DROP POLICY IF EXISTS {table}_maintenance_select ON {table}")
+    for table in ("audit_entries", "audit_personal"):
+        op.execute(f"DROP POLICY IF EXISTS {table}_tenant_select ON {table}")
     for table in (
+        "audit_restored",
+        "audit_cutoffs",
+        "audit_archives",
         "audit_saved_searches",
         "audit_exports",
         "audit_verification_runs",

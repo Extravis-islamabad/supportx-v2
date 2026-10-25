@@ -34,7 +34,7 @@ from app.modules.audit.domain.catalogue import (
 )
 from app.modules.audit.events import AuditVerificationRequested
 from app.modules.audit.infra.models import AuditVerificationRun
-from app.modules.audit.service import exports, queries, saved
+from app.modules.audit.service import exports, queries, retention, saved
 from app.modules.audit.service.jobs import signer_from, storage_or_none
 from app.modules.audit.service.recording import AuditNote, audit_read, audited
 from app.modules.audit.service.settings import AuditSettingsView, load_settings, update_settings
@@ -597,6 +597,120 @@ async def download_export(
             "Content-Disposition": f'attachment; filename="supportx-audit-{row.id}.zip"',
             "X-Content-SHA256": row.sha256 or "",
         },
+    )
+
+
+# --- archives and restores (retention, D-075 item 10) ------------------------------------------
+
+
+class AuditArchiveOut(BaseModel):
+    """A month past retention, archived to object storage (or why that failed)."""
+
+    id: uuid.UUID
+    range_from: datetime
+    range_to: datetime
+    status: str = Field(description="ready | failed")
+    entries: int
+    first_seq: int | None
+    last_seq: int | None
+    sha256: str | None
+    problem: str | None = Field(description="Why it failed; labels: `errors.<code>`.")
+    created_at: datetime
+    restore_status: str | None = Field(description="running | ready | failed, or null")
+    restore_problem: str | None = Field(description="Why the restore failed: `errors.<code>`.")
+    restored_until: datetime | None
+
+
+class AuditRestoredPage(BaseModel):
+    """A page of a restored archive, in chain order (`seq` is the position in the chain)."""
+
+    items: list[AuditEntryOut]
+    next_cursor: str | None
+    has_more: bool
+
+
+@router.get("/archives", summary="Audit archives")
+async def list_archives(session: TenantSession, subject: View) -> list[AuditArchiveOut]:
+    """Months archived past retention, newest first (failed attempts too)."""
+    del subject
+    return [
+        AuditArchiveOut.model_validate(row, from_attributes=True)
+        for row in await retention.list_archives(session)
+    ]
+
+
+@router.post(
+    "/archives/{archive_id}/restore",
+    summary="Restore an archive for an investigation",
+    status_code=status.HTTP_202_ACCEPTED,
+    responses={409: {"model": ProblemDetail}, 503: {"model": ProblemDetail}},
+)
+async def restore_archive(
+    request: Request,
+    archive_id: uuid.UUID,
+    session: TenantSession,
+    subject: Export,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "audit.archive_restore_requested",
+            object_type="audit_archive",
+            object_param="archive_id",
+        ),
+    ],
+) -> AuditArchiveOut:
+    """Read back, verified again, and browsable for 7 days; the live log is not changed."""
+    del subject
+    row = await retention.request_restore(
+        session,
+        archive_id,
+        storage_ready=storage_or_none(request.app.state.settings) is not None,
+    )
+    note.details = {"range_from": row.range_from, "range_to": row.range_to}
+    return AuditArchiveOut.model_validate(row, from_attributes=True)
+
+
+@router.get(
+    "/archives/{archive_id}/entries",
+    summary="Entries of a restored archive",
+    dependencies=[
+        audit_read(ReadCategory.AUDIT_LOG, object_type="audit_archive", object_param="archive_id")
+    ],
+    responses={409: {"model": ProblemDetail}},
+)
+async def list_restored(
+    archive_id: uuid.UUID,
+    session: TenantSession,
+    subject: View,
+    cursor: str | None = None,
+    limit: Annotated[int, Field(ge=1, le=200)] = 50,
+) -> AuditRestoredPage:
+    """In chain order; `cursor` is the last position of the previous page."""
+    del subject
+    after = int(cursor) if cursor is not None and cursor.isdigit() else 0
+    _, rows = await retention.restored_entries(
+        session, archive_id, after_seq=after, limit=limit + 1
+    )
+    page = rows[:limit]
+    contents = [{**row.entry, "seq": row.seq} for row in page]
+    names = await _names(
+        session, [_as_uuid(c.get("actor_id")) for c in contents if c.get("actor_id")]
+    )
+    items = [
+        AuditEntryOut.model_validate(
+            {
+                **c,
+                "actor_name": names.get(str(c.get("actor_id"))),
+                "object_name": None,
+            }
+        )
+        for c in contents
+    ]
+    has_more = len(rows) > limit
+    return AuditRestoredPage(
+        items=items,
+        next_cursor=str(page[-1].seq) if has_more and page else None,
+        has_more=has_more,
     )
 
 

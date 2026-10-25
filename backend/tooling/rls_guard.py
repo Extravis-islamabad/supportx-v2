@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 import asyncpg
 
 from app.core.config import Settings
-from app.shared.db.rls import APP_ROLE, RELAY_ROLE
+from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE, RELAY_ROLE
 
 SCHEMA = "public"
 # Tables that are deliberately not tenant-scoped, with what the app may do on them.
@@ -66,6 +66,16 @@ CROSS_TENANT_POLICIES: dict[tuple[str, str], tuple[str, str]] = {
     )
     for table in ("idempotency_keys", "processed_events")
     for command in ("select", "delete")
+}
+CROSS_TENANT_POLICIES |= {
+    (table, f"{table}_maintenance_select"): (
+        MIGRATOR_ROLE,
+        (
+            "Audit retention (WP-018, migration 0013, ADR-027): the migrator-owned clean-up must "
+            "see every tenant's rows to know a monthly partition has fully expired; read-only."
+        ),
+    )
+    for table in ("audit_entries", "audit_cutoffs", "audit_archives")
 }
 # Everything supportx_relay may do, per table: (table privileges, columns it may UPDATE).
 RELAY_PRIVILEGES: dict[str, tuple[frozenset[str], frozenset[str]]] = {

@@ -1199,4 +1199,35 @@ export const ar: LabelResource = {
   'audit.setting.read_categories': 'القراءات الحساسة التي تُسجَّل',
   'audit.setting.read_categories.help': 'قراءة سجل التدقيق نفسه تُسجَّل دائمًا.',
   'incidents.history.audited': 'في سجل التدقيق',
+  // Audit archives (WP-018 session 3)
+  'audit.ui.tab.archives': 'الأرشيفات',
+  'audit.ui.archive.help':
+    'تُؤرشف الأشهر الأقدم من فترة الاحتفاظ في التخزين، وتُفحص، ثم تُخفى من السجل. يمكن استعادة الأرشيف لغرض التحقيق.',
+  'audit.ui.archive.none': 'لم تتم أرشفة أي شيء بعد.',
+  'audit.ui.archive.month': 'الشهر',
+  'audit.ui.archive.positions': 'المواضع من {{first}} إلى {{last}}',
+  'audit.ui.archive.restore': 'استعادة للتحقيق',
+  'audit.ui.archive.open': 'فتح الإدخالات المستعادة',
+  'audit.ui.archive.until': 'متاح حتى {{time}}',
+  'audit.ui.archive.restored_help':
+    'نسخة مُتحقق منها من الأرشيف، للقراءة فقط وتُحفظ لمدة 7 أيام. وهي ليست جزءًا من السجل الحالي.',
+  'audit.archive_status.ready': 'مؤرشف ومُتحقق منه',
+  'audit.archive_status.failed': 'لم تتم الأرشفة',
+  'audit.restore_status.running': 'جارٍ الاستعادة',
+  'audit.restore_status.ready': 'مُستعاد',
+  'audit.restore_status.failed': 'فشلت الاستعادة',
+  'audit.action.audit.entries_archived': 'أرشفة شهر من سجل التدقيق',
+  'audit.action.audit.archive_failed': 'تعذرت أرشفة سجل التدقيق',
+  'audit.action.audit.archive_restore_requested': 'استعادة أرشيف تدقيق للتحقيق',
+  'audit.object.audit_archive': 'أرشيف',
+  'audit.problem.archive_failed':
+    'تعذرت أرشفة شهر تجاوز فترة الاحتفاظ؛ وسيبقى في السجل حتى تتم أرشفته.',
+  'errors.audit_archive_unsealed': 'بعض إدخالات هذا الشهر لم تُختم بعد، لذا لا يمكن أرشفته.',
+  'errors.audit_archive_unverified': 'لم يجتز الأرشيف التحقق عند قراءته من التخزين.',
+  'errors.audit_archive_out_of_order':
+    'خُتمت إدخالات هذا الشهر بترتيب غير صحيح؛ اطلب من الدعم فحص سجل التدقيق.',
+  'errors.audit_archive_missing': 'لم يعد ملف الأرشيف موجودًا في التخزين.',
+  'errors.audit_archive_not_found': 'هذا الأرشيف غير موجود.',
+  'errors.audit_archive_not_ready': 'لا يمكن استعادة إلا أرشيف مُتحقق منه.',
+  'errors.audit_archive_not_restored': 'استعد هذا الأرشيف أولًا لقراءة إدخالاته.',
 };

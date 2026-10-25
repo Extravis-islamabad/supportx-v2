@@ -120,6 +120,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.subject_erased", AuditCategory.DATA, "audit"),
     ("audit.export_requested", AuditCategory.DATA, "audit"),
     ("audit.export_downloaded", AuditCategory.DATA, "audit"),
+    ("audit.entries_archived", AuditCategory.DATA, "audit"),
+    ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
+    ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category
