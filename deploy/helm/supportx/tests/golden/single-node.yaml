@@ -993,7 +993,7 @@ spec:
 
 ---
 # Source: supportx/templates/seaweedfs.yaml
-# Minimal single-node SeaweedFS (S3 API) for on-prem installs (ADR-012, D-075; WP-018). One pod
+# Minimal single-node SeaweedFS (S3 API) for on-prem installs (ADR-012, D-076; WP-018). One pod
 # runs master, volume, filer and the S3 gateway; data on one volume. HA object storage, backups and
 # lifecycle rules come with WP-014b. Credentials: the app Secret's `seaweedfs-s3-config`.
 apiVersion: v1

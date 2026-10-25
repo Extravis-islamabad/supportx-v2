@@ -63,10 +63,18 @@ DIRECTION_VALUES = {"rtl", "ltr", "auto"}
 _EMPTY = re.compile(r"^(?:\s|<p>\s*</p>|<br\s*/?>)*$")
 
 
+# A link left without an address (refused scheme, or none at all) after cleaning.
+_DEAD_LINK = re.compile(r"<a(?:\s+(?:target|rel)=\"[^\"]*\")*\s*>(.*?)</a>", re.DOTALL)
+
+
 def sanitize_html(value: str) -> str:
-    """The allow-listed form of `value` (scripts, handlers, styles and unknown tags removed)."""
+    """The allow-listed form of `value` (scripts, handlers, styles and unknown tags removed).
+
+    A link whose address is refused keeps its words as plain text (QA C4), never a dead
+    underlined fragment that goes nowhere.
+    """
     attributes = {tag: set(names) for tag, names in ALLOWED_ATTRIBUTES.items()}
-    return nh3.clean(
+    cleaned = nh3.clean(
         value,
         tags=set(ALLOWED_TAGS),
         clean_content_tags=set(DROPPED_WITH_CONTENT),
@@ -77,6 +85,7 @@ def sanitize_html(value: str) -> str:
         link_rel="noopener noreferrer nofollow",
         strip_comments=True,
     )
+    return _DEAD_LINK.sub(r"\1", cleaned)
 
 
 def is_blank(html: str) -> bool:

@@ -64,7 +64,9 @@ class UserOut(BaseModel):
     id: uuid.UUID
     email: str
     display_name: str
-    locale: Literal["en", "ar", "ur"]
+    locale: Literal["en", "ar", "ur"] = Field(
+        description="UI language: the one picked in the app, else the identity provider's."
+    )
     user_type: UserType
     roles: list[str]
     nav_layout: NavLayout = Field(
@@ -215,11 +217,16 @@ async def _describe(request: Request, session: Session) -> MeResponse:
         async with database.tenant_session(context) as db:
             row = (
                 await db.execute(
-                    select(User.nav_layout, User.time_zone).where(User.id == session.user_uuid)
+                    select(User.nav_layout, User.time_zone, User.ui_locale).where(
+                        User.id == session.user_uuid
+                    )
                 )
             ).first()
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.TOP
         described["user"]["time_zone"] = row.time_zone if row else None
+        # The language picked in the app wins over Keycloak's (QA BUG-04): it follows the user.
+        if row is not None and row.ui_locale is not None:
+            described["user"]["locale"] = row.ui_locale
     policy: PolicyService | None = getattr(request.app.state, "policy", None)
     if policy is None:
         described["user"]["roles"] = []

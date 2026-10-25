@@ -23,7 +23,7 @@ const RESTORE_COLOURS: Record<string, string> = {
 };
 
 /**
- * Archives (retention, D-075 item 10): months past the retention period, written to object
+ * Archives (retention, D-076 item 10): months past the retention period, written to object
  * storage and verified. Failed attempts are listed with their reason, never hidden. An auditor
  * can restore a month for an investigation: it is verified again and readable for 7 days.
  * Live through the audit channel.

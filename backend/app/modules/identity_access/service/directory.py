@@ -42,7 +42,8 @@ from app.shared.history import Change, Source, explain_conflict, record_changes
 
 USER_RECORD_TYPE = "user"
 
-EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout"})
+EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout", "ui_locale"})
+UI_LOCALES = frozenset({"en", "ar", "ur"})
 MAX_SIGNATURE_LENGTH = 2000
 
 USER_FIELDS = ResourceFields(
@@ -127,6 +128,14 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
             errors.append(
                 FieldError(
                     field="body.time_zone",
+                    code="invalid_choice",
+                    message_key="errors.field.invalid_choice",
+                )
+            )
+        elif name == "ui_locale" and value is not None and value not in UI_LOCALES:
+            errors.append(
+                FieldError(
+                    field="body.ui_locale",
                     code="invalid_choice",
                     message_key="errors.field.invalid_choice",
                 )

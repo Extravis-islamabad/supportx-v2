@@ -27,7 +27,7 @@ const READS: AuditReadCategory[] = [
 ];
 
 /**
- * Audit settings (D-075 item 5): retention (1 to 10 years), the read window, the probing alert and
+ * Audit settings (D-076 item 5): retention (1 to 10 years), the read window, the probing alert and
  * which sensitive reads are logged. Editable only with `audit.manage`; read-only for auditors.
  * Every change is itself an audit entry; the audit log itself is always logged when read.
  */

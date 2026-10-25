@@ -1,4 +1,4 @@
-"""Anchor signing keys: Ed25519 via `cryptography` (D-021, D-075; ADR-027).
+"""Anchor signing keys: Ed25519 via `cryptography` (D-021, D-076; ADR-027).
 
 The installation key signs anchors. Its public half, and the public halves of retired keys, are
 the trusted keys a verifier accepts; a key found only in the database is never trusted (someone

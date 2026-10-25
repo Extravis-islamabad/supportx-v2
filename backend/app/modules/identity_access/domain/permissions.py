@@ -26,7 +26,7 @@ TENANT_ADMIN = "tenant_admin"
 TECHNICIAN = "technician"
 REQUESTER = "requester"
 # Reads, searches, exports and verifies the audit log and reads access settings; changes nothing
-# (separation of duties, WP-018, D-075). Its audit permissions come from the audit module.
+# (separation of duties, WP-018, D-076). Its audit permissions come from the audit module.
 AUDITOR = "auditor"
 SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR)
 

@@ -1,4 +1,4 @@
-"""The audit log at volume (WP-018, D-075 item 11): sealing, verification, search, tampering.
+"""The audit log at volume (WP-018, D-076 item 11): sealing, verification, search, tampering.
 
 Opt-in: SUPPORTX_AUDIT_SCALE_ROWS sets the number of entries (CI: 100,000 on every run; the
 nightly workflow: 10,000,000). Without it the test is skipped. Rows are generated in Python and

@@ -104,6 +104,8 @@ OUT_OF_SCOPE = "out_of_scope"
 RECORD_CLOSED = "record_closed"
 ALREADY_YOURS = "already_yours"
 ASSIGNED_TO_OTHER = "assigned_to_other"
+# Start work on an unassigned record takes it first (QA BUG-05); this user may not take it.
+CANNOT_TAKE = "cannot_take"
 
 # Which permission runs which status action.
 ACTION_PERMISSION: Mapping[WorkItemAction, str] = {
@@ -227,7 +229,7 @@ async def _reason_for(
     return None
 
 
-async def _view(
+async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
     cat = await config.load(session, wtype)
@@ -252,6 +254,13 @@ async def _view(
             actions.append(ActionState(action, allowed=False, reason=NOT_FROM_STATUS))
             continue
         refused = await reason(ACTION_PERMISSION[action])
+        if (
+            refused is None
+            and action == WorkItemAction.START_WORK
+            and record.technician_id is None
+            and await reason("take") is not None
+        ):
+            refused = CANNOT_TAKE
         actions.append(
             ActionState(
                 action,
@@ -446,6 +455,10 @@ async def view_counts(
     return found
 
 
+# Fields whose history values are user IDs: the page names them (QA BUG-03).
+PERSON_FIELDS = frozenset({"requester_id", "on_behalf_of_id", "technician_id"})
+
+
 async def history(  # noqa: PLR0913 - paging options, explicit
     session: AsyncSession,
     subject: Subject,
@@ -455,14 +468,26 @@ async def history(  # noqa: PLR0913 - paging options, explicit
     before: HistoryCursor | None,
     limit: int,
     actors: Actors,
-) -> tuple[list[HistoryEntry], HistoryCursor | None, dict[str, str]]:
-    """Saves of a record the subject may see, newest first; plus actor names."""
+) -> tuple[list[HistoryEntry], HistoryCursor | None, dict[str, str], dict[str, tuple[str, str]]]:
+    """Saves of a record the subject may see, newest first.
+
+    Plus the actors' names and the people named in changed values (name, email): the History
+    tab shows "Technician: (empty) → Tariq", never an ID or a bare "changed".
+    """
     await _visible(session, subject, wtype, record_id)
     entries, cursor = await history_entries(
         session, RECORD_TYPE, record_id, before=before, limit=limit, actors=actors
     )
     names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
-    return entries, cursor, names
+    named = {
+        value
+        for e in entries
+        for c in e.changes
+        if c.field in PERSON_FIELDS
+        for value in (c.old, c.new)
+        if isinstance(value, str)
+    }
+    return entries, cursor, names, await user_contacts(session, sorted(named))
 
 
 async def assignees(  # noqa: PLR0913 - search options, explicit
@@ -1103,17 +1128,20 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     reason_code: str | None,
     reason_text: str | None,
     source: Source,
+    holders: PermissionHolders,
+    group_id: uuid.UUID | None = None,
 ) -> WorkItemView:
-    """Run a life-cycle action (REQ-INC-046/047). System actions cannot be called."""
+    """Run a life-cycle action (REQ-INC-046/047). System actions cannot be called.
+
+    Start work on an unassigned record first assigns it to the user (as Take does, with the
+    same group rules), then starts it, in one transaction; both steps are in history (QA BUG-05).
+    """
     if action not in ACTION_PERMISSION:
         raise Conflict(code="invalid_transition", params={"action": action})
     record = await _for_action(session, subject, wtype, ACTION_PERMISSION[action], record_id)
     cat = await config.load(session, wtype)
     try:
         step = cat.lifecycle.transition(record.status, action)
-        target = cat.lifecycle.target(
-            record.status, action, before_cancel=record.status_before_cancel
-        )
     except InvalidTransition as error:
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
@@ -1126,6 +1154,36 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise _errors(problems, reason_text={"max_length": 500})
     if record.version != expected_version:
         raise await _conflict(session, _stale(record, expected_version), record.id)
+    if action == WorkItemAction.START_WORK and record.technician_id is None:
+        if await _reason_for(session, subject, wtype, "take", record.id) is not None:
+            raise PermissionDenied(
+                params={"permission": wtype.permission("take"), "reason": CANNOT_TAKE}
+            )
+        taken = await _assign(
+            session,
+            subject,
+            wtype,
+            record,
+            expected_version=expected_version,
+            group_id=_take_group(subject, record, group_id),
+            technician_id=subject.user_id,
+            reason_code=None,
+            reason_text=None,
+            confirm_lose_access=False,
+            source=source,
+            holders=holders,
+        )
+        record = taken.record
+        expected_version = record.version
+    try:
+        step = cat.lifecycle.transition(record.status, action)
+        target = cat.lifecycle.target(
+            record.status, action, before_cancel=record.status_before_cancel
+        )
+    except InvalidTransition as error:  # pragma: no cover - start work is allowed from assigned
+        raise Conflict(
+            code="invalid_transition", params={"from": record.status, "action": action}
+        ) from error
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
         session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
@@ -1282,6 +1340,22 @@ async def assign(  # noqa: PLR0913 - the assignment and its context, explicit
     )
 
 
+def _take_group(subject: Subject, record: WorkItem, group_id: uuid.UUID | None) -> uuid.UUID | None:
+    """The group a take lands in: the record's, else the chosen one, else the user's only one."""
+    if record.group_id is not None:
+        return record.group_id
+    mine = subject.group_ids
+    if group_id is not None:
+        if group_id not in mine:
+            raise _errors([("group_id", "group_not_yours")])
+        return group_id
+    if len(mine) == 1:
+        return next(iter(mine))
+    if len(mine) > 1:
+        raise _errors([("group_id", "group_required")])
+    return None
+
+
 async def take(  # noqa: PLR0913 - the record and its context, explicit
     session: AsyncSession,
     subject: Subject,
@@ -1304,24 +1378,13 @@ async def take(  # noqa: PLR0913 - the record and its context, explicit
         raise Conflict(
             code="already_taken", params={"taken_by": names.get(str(record.technician_id), "")}
         )
-    target_group = record.group_id
-    if target_group is None:
-        mine = subject.group_ids
-        if group_id is not None:
-            if group_id not in mine:
-                raise _errors([("group_id", "group_not_yours")])
-            target_group = group_id
-        elif len(mine) == 1:
-            target_group = next(iter(mine))
-        elif len(mine) > 1:
-            raise _errors([("group_id", "group_required")])
     return await _assign(
         session,
         subject,
         wtype,
         record,
         expected_version=expected_version,
-        group_id=target_group,
+        group_id=_take_group(subject, record, group_id),
         technician_id=subject.user_id,
         reason_code=None,
         reason_text=None,

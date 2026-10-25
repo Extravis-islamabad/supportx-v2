@@ -1,5 +1,5 @@
 import { App, Alert, Input, Modal, Select, Space, Typography } from 'antd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
@@ -22,15 +22,42 @@ import { GroupPicker, TechnicianPicker } from './pickers';
  * members. Moving between groups needs a reason. If the change would take the incident out of
  * the user's own reach, the server says so first (409 would_lose_access) and the user confirms
  * the hand-over (D-053); the history records it.
+ *
+ * Always the current assignment (QA BUG-01): the dialog is built when it opens, re-reads the
+ * incident, and fields the user has not touched follow live changes while it is open. Only
+ * what the user changed is changed: an untouched technician is sent back as it is now, and the
+ * version is the one the user's change was based on (a newer save by someone else is a conflict,
+ * never silently overwritten).
  */
 export function AssignDialog({
   item,
   open,
   onClose,
+  refresh,
 }: {
   item: Incident;
   open: boolean;
   onClose: () => void;
+  /** Re-read the incident (the dialog opens on the latest assignment). */
+  refresh: () => Promise<unknown>;
+}) {
+  if (!open) return null;
+  return <AssignBody item={item} onClose={onClose} refresh={refresh} />;
+}
+
+interface Choice {
+  touched: boolean;
+  value: string | null;
+}
+
+function AssignBody({
+  item,
+  onClose,
+  refresh,
+}: {
+  item: Incident;
+  onClose: () => void;
+  refresh: () => Promise<unknown>;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -39,18 +66,33 @@ export function AssignDialog({
   const catalogue = useIncidentCatalogue();
   const groups = useUnits('groups');
   const assign = useAssignIncident(item.id);
-  const [group, setGroup] = useState<string | null>(item.group_id);
-  const [technician, setTechnician] = useState<string | null>(item.technician_id);
+  const [groupChoice, setGroupChoice] = useState<Choice>({ touched: false, value: null });
+  const [techChoice, setTechChoice] = useState<Choice>({ touched: false, value: null });
   const [reasonCode, setReasonCode] = useState<string>();
   const [reasonText, setReasonText] = useState('');
   const [handover, setHandover] = useState(false);
+  // The version the user's first change was made on; until then, the latest one.
+  const basedOn = useRef<number | null>(null);
+  const reread = useRef(refresh);
+  useEffect(() => {
+    void reread.current();
+  }, []);
+  const group = groupChoice.touched ? groupChoice.value : item.group_id;
+  const technician = techChoice.touched
+    ? techChoice.value
+    : groupChoice.touched && groupChoice.value !== item.group_id
+      ? null // another group: its own technicians
+      : item.technician_id;
+  const touch = () => {
+    basedOn.current ??= item.version;
+  };
   const movingGroups = item.group_id !== null && group !== item.group_id;
   const reasons = (catalogue.data?.reasons ?? [])
     .filter((r) => r.list === 'reassign')
-    .map((r) => ({
-      value: r.code,
-      label: labelled(r.labels, locale, () => t(`reason.reassign.${r.code}`)),
-    }));
+    .map((r) => {
+      const label = labelled(r.labels, locale, () => t(`reason.reassign.${r.code}`));
+      return { value: r.code, label, 'aria-label': label };
+    });
   const fieldErrors =
     assign.error instanceof ApiError && assign.error.status === 422
       ? assign.error.fieldErrors.map((e) => t(e.message_key, e.params))
@@ -64,10 +106,14 @@ export function AssignDialog({
           email: item.people[item.technician_id]?.email ?? '',
         };
   const groupName = groups.data?.find((g) => g.id === group)?.name ?? t('incidents.no_group');
+  const close = () => {
+    assign.reset();
+    onClose();
+  };
   const send = (confirmLoseAccess: boolean) => {
     assign.mutate(
       {
-        version: item.version,
+        version: basedOn.current ?? item.version,
         groupId: group,
         technicianId: technician,
         reasonCode,
@@ -101,15 +147,12 @@ export function AssignDialog({
   return (
     <>
       <Modal
-        open={open && !handover}
+        open={!handover}
         title={t('work_item_operation.assign')}
         okText={t('work_item_operation.assign')}
         cancelText={t('actions.cancel')}
         confirmLoading={assign.isPending}
-        onCancel={() => {
-          assign.reset();
-          onClose();
-        }}
+        onCancel={close}
         onOk={() => {
           send(false);
         }}
@@ -124,8 +167,9 @@ export function AssignDialog({
             id="inc-assign-group"
             value={group}
             onChange={(next) => {
-              setGroup(next);
-              setTechnician(null); // the list depends on the group
+              touch();
+              setGroupChoice({ touched: true, value: next });
+              setTechChoice({ touched: true, value: null }); // the list depends on the group
             }}
             testId="inc-assign-group"
             ariaLabel={t('work_item.field.group_id')}
@@ -138,7 +182,10 @@ export function AssignDialog({
             groupId={group}
             value={technician}
             current={technician === item.technician_id ? current : null}
-            onChange={setTechnician}
+            onChange={(next) => {
+              touch();
+              setTechChoice({ touched: true, value: next });
+            }}
             testId="inc-assign-technician"
             ariaLabel={t('work_item.field.technician_id')}
           />
@@ -158,6 +205,7 @@ export function AssignDialog({
               <Input.TextArea
                 aria-label={t('incidents.reason_text')}
                 placeholder={t('incidents.reason_text')}
+                dir="auto"
                 rows={2}
                 maxLength={500}
                 value={reasonText}

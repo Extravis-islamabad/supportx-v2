@@ -24,14 +24,14 @@ Functions (EXECUTE for supportx_app only):
 - audit_advance_cutoff(before): moves the tenant's cut-off, only behind a ready archive and never
   inside one year, and deletes the personal rows before it;
 - audit_drop_expired_partitions(): drops monthly partitions whose rows are behind every
-  tenant's cut-off (mixed retention, D-075 item 10).
+  tenant's cut-off (mixed retention, D-076 item 10).
 
 FORCE ROW LEVEL SECURITY binds the table owner too, so the definer functions still see only the
 tenant in `app.tenant_id` (audit_tenant_ids reads `tenants`, where the migrator has its own
 policy).
 
-Revision ID: 0013
-Revises: 0012
+Revision ID: 0014
+Revises: 0013
 Created: 2026-10-24
 """
 
@@ -44,8 +44,8 @@ from sqlalchemy.dialects import postgresql
 from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE
 from migrations.helpers import enable_tenant_rls, grant_app
 
-revision: str = "0013"
-down_revision: str | None = "0012"
+revision: str = "0014"
+down_revision: str | None = "0013"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -57,7 +57,7 @@ FUNCTIONS = (
     "audit_advance_cutoff(timestamptz)",
     "audit_drop_expired_partitions()",
 )
-# Retention (D-075 item 10): the migrator may read every tenant's entries, cut-offs and archives,
+# Retention (D-076 item 10): the migrator may read every tenant's entries, cut-offs and archives,
 # so the partition clean-up can tell when a whole month has expired for every tenant. Without
 # these policies FORCE RLS would show it nothing and it could drop live data. Allowlisted in
 # tooling/rls_guard.py; no other role is affected.
@@ -271,7 +271,7 @@ def _tenant_fk(table: str) -> sa.ForeignKeyConstraint:
 
 
 def _retention() -> None:
-    """Archives, cut-offs and restored copies (D-075 item 10)."""
+    """Archives, cut-offs and restored copies (D-076 item 10)."""
     op.create_table(
         "audit_archives",
         sa.Column("id", sa.Uuid(), nullable=False),
@@ -331,7 +331,7 @@ def _retention() -> None:
     enable_tenant_rls("audit_restored")
     grant_app("audit_restored", ("SELECT", "INSERT", "DELETE"))
 
-    # The cut-off (retention, D-075 item 10): rows before it stay in place but no app query sees
+    # The cut-off (retention, D-076 item 10): rows before it stay in place but no app query sees
     # them, until the whole monthly partition can go.
     for table in ("audit_entries", "audit_personal"):
         op.execute(f"DROP POLICY {table}_tenant_select ON {table}")

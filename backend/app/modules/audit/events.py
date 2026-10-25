@@ -56,7 +56,7 @@ class AuditAlertRaised(DomainEvent):
     """Something security admins must see: a broken chain, overdue sealing, probing.
 
     REQ-AUD-005, REQ-AUD-010. The notification engine (WP-023) will deliver it; until then the
-    console shows a banner and operations get a metric alert (D-075).
+    console shows a banner and operations get a metric alert (D-076).
     """
 
     event_type: ClassVar[str] = "audit.alert.raised"

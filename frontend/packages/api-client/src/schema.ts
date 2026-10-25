@@ -889,6 +889,8 @@ export interface paths {
         /**
          * Run a status action
          * @description Only the actions the life cycle allows from the current status; some need a reason.
+         *
+         *     Start work on an unassigned record takes it for you first (`group_id` as with Take).
          */
         post: operations["act_api_v1_incidents__record_id__actions__action__post"];
         delete?: never;
@@ -2967,6 +2969,11 @@ export interface components {
             /** Time Zone */
             time_zone: string | null;
             /**
+             * Ui Locale
+             * @description Language picked in the app; null: Keycloak's `locale`.
+             */
+            ui_locale?: ("en" | "ar" | "ur") | null;
+            /**
              * Updated At
              * Format: date-time
              */
@@ -2994,6 +3001,7 @@ export interface components {
             id: string;
             /**
              * Locale
+             * @description UI language: the one picked in the app, else the identity provider's.
              * @enum {string}
              */
             locale: "en" | "ar" | "ur";
@@ -3048,6 +3056,11 @@ export interface components {
              * @description IANA, e.g. Asia/Dubai.
              */
             time_zone?: string | null;
+            /**
+             * Ui Locale
+             * @description UI language (en, ar, ur); null: follow the identity provider's locale.
+             */
+            ui_locale?: string | null;
         };
         /**
          * UserType
@@ -3141,7 +3154,11 @@ export interface components {
             actions: components["schemas"]["WorkItemAction"][];
             /** Auto Status On Assign */
             auto_status_on_assign: boolean;
+            /** @description What the create form starts with. */
+            default_impact: components["schemas"]["Impact"] | null;
             default_priority: components["schemas"]["Priority"];
+            /** @description What the create form starts with. */
+            default_urgency: components["schemas"]["Urgency"] | null;
             /** Matrix */
             matrix: components["schemas"]["WorkItemMatrixCellOut"][];
             /** Prefix */
@@ -3297,6 +3314,13 @@ export interface components {
             items: components["schemas"]["WorkItemHistoryEntryOut"][];
             /** Next Cursor */
             next_cursor: string | null;
+            /**
+             * People
+             * @description People named in changed values, by user ID.
+             */
+            people?: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
         };
         /**
          * WorkItemIn
@@ -3627,7 +3651,11 @@ export interface components {
         WorkItemSettingsPatch: {
             /** Auto Status On Assign */
             auto_status_on_assign?: boolean | null;
+            /** @description Null: no default. */
+            default_impact?: components["schemas"]["Impact"] | null;
             default_priority?: components["schemas"]["Priority"] | null;
+            /** @description Null: no default. */
+            default_urgency?: components["schemas"]["Urgency"] | null;
             /**
              * Prefix
              * @description 2-6 capital letters.
@@ -3669,6 +3697,11 @@ export interface components {
          * @description The reason, when the transition asks for one.
          */
         WorkItemTransitionIn: {
+            /**
+             * Group Id
+             * @description Start work on an unassigned record: which of your groups (as with Take).
+             */
+            group_id?: string | null;
             /** Reason Code */
             reason_code?: string | null;
             /** Reason Text */

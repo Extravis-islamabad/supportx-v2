@@ -1,4 +1,4 @@
-"""Retention of the audit log (WP-018; D-075 items 4 and 10): archive, cut-off, partitions, restore.
+"""Retention of the audit log (WP-018; D-076 items 4 and 10): archive, cut-off, partitions, restore.
 
 Real PostgreSQL and real S3-compatible storage (fixtures from test_audit_exports). Entries are
 written with a frozen clock years in the past, into partitions created for the test.

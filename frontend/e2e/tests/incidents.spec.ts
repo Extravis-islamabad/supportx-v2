@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { expectAccessible, goToSection, signInAs } from './helpers';
+import { expectAccessible, resetLanguage, signInAs } from './helpers';
 
 /**
  * WP-020 incidents end to end in real browsers (parity file 01): a new incident with rich text
@@ -179,7 +179,7 @@ test('a new incident with rich text appears live for the technician; edits reach
     // A status that needs a reason asks for it; the reason shows on the record and in history.
     await tech.page.getByTestId('inc-action-wait_requester').click();
     await tech.page.getByTestId('inc-reason-confirm').click();
-    await expect(tech.page.getByTestId('inc-reason-error')).toHaveText('Choose a reason.');
+    await expect(tech.page.getByTestId('inc-reason-code-error')).toHaveText('Choose a reason.');
     await pick(tech.page, 'inc-reason-code', '', 'Needs more information');
     await tech.page.getByTestId('inc-reason-text').fill('Which printer exactly?');
     await tech.page.getByTestId('inc-reason-confirm').click();
@@ -302,21 +302,19 @@ test('incident screens are labelled and accessible in light, dark, high contrast
       /not_from_status|no_permission|work_item_|\bnew\b|\bp1\b|organisation/,
     );
     await expectAccessible(page, 'incident record (Arabic, RTL)');
-    // In-app navigation (the language choice lives in this browser session).
-    await goToSection(page, 'الحوادث');
+    // The language is stored with the user (QA BUG-04): a full page load keeps it.
+    await page.goto('/incidents');
     await expect(page.getByTestId('inc-table')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expectAccessible(page, 'incident list (Arabic, RTL)');
-    await page.getByTestId('inc-new').click();
+    await page.goto('/incidents/new');
     await expect(page.getByTestId('inc-description-editor')).toBeVisible();
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expectAccessible(page, 'incident form (Arabic, RTL)');
     await page.screenshot({ path: 'test-results/incident-form-ar.png', fullPage: true });
   } finally {
-    // Back to English for the suite user (the language is a stored preference).
-    await page.getByTestId('appearance-menu').click();
-    await page.getByTestId('language-select').click();
-    await page.locator('.ant-select-item-option[title="English"]').click();
+    // Back to the identity provider's language for the suite user (a stored preference).
+    await resetLanguage(page);
     await admin.context.close();
   }
 });

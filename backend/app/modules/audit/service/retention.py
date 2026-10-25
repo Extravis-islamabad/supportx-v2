@@ -1,4 +1,4 @@
-"""Retention of the audit log (D-075 items 4 and 10; ADR-027).
+"""Retention of the audit log (D-076 items 4 and 10; ADR-027).
 
 Mixed approach:
 

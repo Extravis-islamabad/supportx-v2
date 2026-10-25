@@ -1,4 +1,4 @@
-"""Audit tables (WP-018, ADR-027). All tenant-scoped with RLS; see migration 0013.
+"""Audit tables (WP-018, ADR-027). All tenant-scoped with RLS; see migration 0014.
 
 Grants (the database enforces them, whatever this code does):
 
@@ -259,7 +259,7 @@ class AuditSavedSearch(UuidPrimaryKey, TenantScoped, Base):
 
 
 class AuditArchive(UuidPrimaryKey, TenantScoped, Base):
-    """A month of entries past retention, written to object storage and read back (D-075 #10)."""
+    """A month of entries past retention, written to object storage and read back (D-076 #10)."""
 
     __tablename__ = "audit_archives"
     __table_args__ = (

@@ -2,7 +2,7 @@
 
 * `audit__seal` (consumer of `audit.entry.recorded`): seals the tenant's queue at once.
 * `audit__seal_sweep` (every tick): seals anything left behind and raises an alert for entries
-  unsealed longer than the limit (5 minutes by default, D-075).
+  unsealed longer than the limit (5 minutes by default, D-076).
 * `audit__anchor` (every tick): signs each tenant's newest position at most once per interval.
 * `audit__verify` (every tick): a daily run for the previous day and a weekly full run per
   tenant, when they are due (file 11 Appendix A).
@@ -13,7 +13,7 @@
 * `audit__restore` (consumer of `audit.archive.restore_requested`) and `audit__restored_expire`
   (hourly): restores for investigation and their clean-up after 7 days.
 
-The schedules visit every tenant through `audit_tenant_ids()` (migration 0013).
+The schedules visit every tenant through `audit_tenant_ids()` (migration 0014).
 """
 
 import uuid

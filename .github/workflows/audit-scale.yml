@@ -1,4 +1,4 @@
-# The audit log at 10 million entries (WP-018, D-075 item 11): sealing, full verification, the
+# The audit log at 10 million entries (WP-018, D-076 item 11): sealing, full verification, the
 # screen's search and tamper detection, with timings in the job summary. Too slow for every PR
 # (CI runs the same test with 100k entries); nightly and on demand.
 name: Audit scale

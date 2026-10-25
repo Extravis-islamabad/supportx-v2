@@ -24,6 +24,33 @@ export async function signIn(
 
 export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<void> {
   await signIn(page, USERS[user].email, passwordOf(user), path);
+  // The UI language is stored with the user (QA BUG-04): a test that switched a suite user to
+  // Arabic must not leave the next test in Arabic. Back to the identity provider's language.
+  if (await resetLanguage(page)) {
+    await page.reload();
+    await expect(page.getByTestId('user-menu')).toBeVisible();
+  }
+}
+
+/** Clear the suite user's stored UI language; true when there was one. */
+export async function resetLanguage(page: Page): Promise<boolean> {
+  const request = page.context().request;
+  const me = (await (await request.get('/api/v1/auth/me')).json()) as {
+    csrf_token: string;
+    user: { id: string };
+  };
+  const path = `/api/v1/users/${me.user.id}`;
+  const user = (await (await request.get(path)).json()) as {
+    ui_locale: string | null;
+    version: number;
+  };
+  if (user.ui_locale === null) return false;
+  const cleared = await request.patch(path, {
+    data: { ui_locale: null },
+    headers: { 'If-Match': `"${String(user.version)}"`, 'X-CSRF-Token': me.csrf_token },
+  });
+  expect(cleared.status(), await cleared.text()).toBe(200);
+  return true;
 }
 
 /**

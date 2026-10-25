@@ -35,6 +35,14 @@ export function PersonOption({
   );
 }
 
+/**
+ * What a screen reader says for an option (QA C7): the name and email, never the ID that
+ * Ant Design's hidden accessibility list would otherwise fall back to.
+ */
+function spoken(name: string, email: string): string {
+  return `${name}, ${email}`;
+}
+
 interface PickerProps {
   id?: string;
   value: string | null;
@@ -63,12 +71,14 @@ export function UserPicker({
   const options = rows.map((u) => ({
     value: u.id,
     name: u.display_name,
+    'aria-label': spoken(u.display_name, u.email),
     label: <PersonOption name={u.display_name} email={u.email} />,
   }));
   if (current != null && !options.some((o) => o.value === current.id)) {
     options.unshift({
       value: current.id,
       name: current.name,
+      'aria-label': spoken(current.name, current.email),
       label: <PersonOption name={current.name} email={current.email} />,
     });
   }
@@ -119,7 +129,11 @@ export function GroupPicker({
       onChange={(next: string | undefined) => {
         onChange(next ?? null);
       }}
-      options={(groups.data ?? []).map((g) => ({ value: g.id, label: g.name }))}
+      options={(groups.data ?? []).map((g) => ({
+        value: g.id,
+        label: g.name,
+        'aria-label': g.name,
+      }))}
       data-testid={testId}
       style={{ width: '100%' }}
     />
@@ -149,7 +163,11 @@ export function SitePicker({
       onChange={(next: string | undefined) => {
         onChange(next ?? null);
       }}
-      options={(sites.data ?? []).map((s) => ({ value: s.id, label: s.name }))}
+      options={(sites.data ?? []).map((s) => ({
+        value: s.id,
+        label: s.name,
+        'aria-label': s.name,
+      }))}
       data-testid={testId}
       style={{ width: '100%' }}
     />
@@ -180,6 +198,7 @@ export function TechnicianPicker({
     name: twice.has(r.display_name.trim().toLocaleLowerCase())
       ? `${r.display_name} (${r.email})`
       : r.display_name,
+    'aria-label': spoken(r.display_name, r.email),
     label: (
       <PersonOption
         name={r.display_name}
@@ -192,6 +211,7 @@ export function TechnicianPicker({
     options.unshift({
       value: current.id,
       name: current.name,
+      'aria-label': spoken(current.name, current.email),
       label: <PersonOption name={current.name} email={current.email} />,
     });
   }

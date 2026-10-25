@@ -75,7 +75,7 @@ jobs:
       # Audit exports (WP-018) on SeaweedFS, the on-prem object store (ADR-012); started below.
       SUPPORTX_TEST_S3_ENDPOINT: http://127.0.0.1:8333
       SUPPORTX_REQUIRE_S3_TESTS: "1"
-      # Audit log volume test (WP-018, D-075 item 11): 100k entries here, 10M nightly
+      # Audit log volume test (WP-018, D-076 item 11): 100k entries here, 10M nightly
       # (audit-scale.yml).
       SUPPORTX_AUDIT_SCALE_ROWS: "100000"
       SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx

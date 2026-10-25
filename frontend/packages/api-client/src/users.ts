@@ -136,3 +136,45 @@ export function useSetNavLayout(userId: string) {
     },
   });
 }
+
+/**
+ * Change the signed-in user's UI language (QA BUG-04). Stored with the user (not in this
+ * browser), so it survives reloads and follows them to other devices; `null` goes back to the
+ * identity provider's locale. Applied at once (optimistic), like the navigation layout.
+ */
+export function useSetUiLocale(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (locale: 'en' | 'ar' | 'ur' | null) => {
+      const latest = await queryClient.query({
+        queryKey: queryKeys.users.detail(userId),
+        queryFn: () =>
+          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
+        staleTime: 0,
+      });
+      return call(
+        api.PATCH('/api/v1/users/{user_id}', {
+          params: {
+            path: { user_id: userId },
+            header: { 'If-Match': `"${String(latest.version)}"` },
+          },
+          body: { ui_locale: locale },
+        }),
+      );
+    },
+    onMutate: (locale) => {
+      if (locale === null) return;
+      queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
+        me ? { ...me, user: { ...me.user, locale } } : me,
+      );
+    },
+    onSuccess: (user) => {
+      rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
+      queryClient.setQueryData(queryKeys.users.detail(userId), user);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
+    },
+  });
+}

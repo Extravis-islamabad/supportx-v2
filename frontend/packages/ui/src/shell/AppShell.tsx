@@ -1,5 +1,5 @@
 import { DownOutlined, LockOutlined } from '@ant-design/icons';
-import { Layout, Menu, Tooltip, Typography, theme, type MenuProps } from 'antd';
+import { Grid, Layout, Menu, Tooltip, Typography, theme, type MenuProps } from 'antd';
 import { useState, type ReactNode } from 'react';
 
 import type { NavLayout } from '@supportx/api-client';
@@ -47,6 +47,9 @@ export function AppShell({
   const { branding } = useAppearance();
   const [collapsed, setCollapsed] = useState(false);
   const compact = layout === 'side_compact';
+  const screens = Grid.useBreakpoint();
+  // Phones: less padding round the page (QA BUG-07); see AppHeader for the same rule.
+  const pad = screens.md === false && (screens.xs === true || screens.sm === true) ? 12 : 24;
 
   const items: MenuProps['items'] = nav.map((item) => {
     const text = t(item.labelKey);
@@ -121,7 +124,7 @@ export function AppShell({
       <Layout style={{ minHeight: '100vh' }} data-layout="top">
         {typeof header === 'function' ? header(topNav) : header}
         {banners}
-        <Layout.Content id="main" style={{ padding: 24 }}>
+        <Layout.Content id="main" style={{ padding: pad, minWidth: 0 }}>
           {children}
         </Layout.Content>
       </Layout>
@@ -153,10 +156,12 @@ export function AppShell({
           <Menu mode="inline" selectedKeys={selectedKeys} items={items} />
         </nav>
       </Layout.Sider>
-      <Layout>
+      {/* min-width 0: the page column may shrink below its widest table (which then scrolls
+          inside its own box), so the page never scrolls sideways (QA BUG-07). */}
+      <Layout style={{ minWidth: 0 }}>
         {typeof header === 'function' ? header(null) : header}
         {banners}
-        <Layout.Content id="main" style={{ padding: 24 }}>
+        <Layout.Content id="main" style={{ padding: pad, minWidth: 0 }}>
           {children}
         </Layout.Content>
       </Layout>

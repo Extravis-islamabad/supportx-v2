@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-24
-- **Source:** WP-018; architecture.md §7.3, §7.4, §11.2, §11.3; docs/specs/parity/11-admin-users-security-audit.md (REQ-AUD-001 to 013); D-034, D-058, D-075
+- **Source:** WP-018; architecture.md §7.3, §7.4, §11.2, §11.3; docs/specs/parity/11-admin-users-security-audit.md (REQ-AUD-001 to 013); D-034, D-058, D-076
 - **Owner:** Haider (Product Owner)
 
 ## Context
@@ -15,7 +15,7 @@ later erasure must remove without breaking the chain.
 
 ## Decision
 
-1. **Record, then seal** (D-075 item 1). A request writes its entry in its own transaction (an
+1. **Record, then seal** (D-076 item 1). A request writes its entry in its own transaction (an
    entry exists exactly when the change committed) and queues it. A sealer gives queued entries
    consecutive positions in the tenant's chain shortly afterwards. No per-tenant lock is held by
    requests, and refused attempts can be written after their transaction rolled back. Entries
@@ -31,14 +31,14 @@ later erasure must remove without breaking the chain.
    no whitespace, UTF-8, no floats, times as UTC with microseconds. The same bytes are produced
    by the service, the database function and a standalone offline verifier; golden tests pin
    them.
-4. **Signed anchors** (D-075 item 2). Each tenant's newest position is signed at most hourly with
+4. **Signed anchors** (D-076 item 2). Each tenant's newest position is signed at most hourly with
    an Ed25519 installation key (`cryptography`, D-021), held in a Kubernetes secret mounted only
    into the consumers worker. Anchors detect removal of the newest entries and a rewritten
    chain. Verifiers trust only configured public keys (the active key and retired keys listed in
    `SUPPORTX_AUDIT_TRUSTED_KEYS`), never a key found in the database, so checkpoints signed by
    old keys stay verifiable after rotation. **Later:** an `AnchorSigner` backed by an HSM or a
    cloud KMS replaces the in-memory key without changing the anchor format.
-5. **Personal data outside the hash** (D-075 item 3). IP addresses, user agents and free-text
+5. **Personal data outside the hash** (D-076 item 3). IP addresses, user agents and free-text
    reasons are stored per data subject in `audit_personal` with a random salt; the entry holds
    only `SHA-256(salt ‖ canonical(data))` per subject. People appear in entries by user ID only;
    names are looked up when read. Erasure deletes the subject's personal rows through the
@@ -48,13 +48,13 @@ later erasure must remove without breaking the chain.
    declare `audit_read(category)`; refused and failed attempts at audited routes are written by
    an error observer registered with core. An architecture test fails for any administrative
    write route without `audited`, and for any route that could change or delete an entry.
-7. **Separation of duties** (D-075 item 6). A built-in Auditor role reads, searches, exports and
+7. **Separation of duties** (D-076 item 6). A built-in Auditor role reads, searches, exports and
    verifies and changes nothing; settings need `audit.manage`; every settings change is itself
    audited. Without `audit.view` the audit API answers 404.
 8. **Storage.** `audit_entries` is partitioned by month (partitions created ahead by a definer
    function on a daily schedule); retention defaults to 3 years (1 to 10). Rows past a tenant's
    retention are archived to S3-compatible object storage, then hidden by an RLS cut-off; a
-   monthly partition is dropped only when every tenant in it has expired (D-075 item 10).
+   monthly partition is dropped only when every tenant in it has expired (D-076 item 10).
    Details fixed in session 3:
    - An archive is one whole month and covers a contiguous run of chain positions, so the
      archives and the live chain remain one verifiable chain; verification and exports start
@@ -81,6 +81,6 @@ later erasure must remove without breaking the chain.
 - Someone holding the database owner role, the anchor key and every anchor copy could still
   rewrite history; anchor copies outside the installation and the export files auditors keep are
   the defence, as for any hash-chained log.
-- Keycloak-side events (failed sign-ins, MFA, password resets) are added by WP-039 (D-075 item 7).
+- Keycloak-side events (failed sign-ins, MFA, password resets) are added by WP-039 (D-076 item 7).
 - Until the notification engine exists (WP-023), alerts are an audit entry, a console banner, an
-  `audit.alert.raised` event and a Prometheus metric (D-075 item 8).
+  `audit.alert.raised` event and a Prometheus metric (D-076 item 8).

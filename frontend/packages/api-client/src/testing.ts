@@ -403,6 +403,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
   return {
     prefix: 'INC',
     default_priority: 'p3',
+    default_impact: 'team',
+    default_urgency: 'medium',
     auto_status_on_assign: true,
     version: 1,
     statuses: [
@@ -431,6 +433,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       { list: 'cancel', code: 'duplicate', labels: null },
       { list: 'cancel', code: 'other', labels: null },
       { list: 'reassign', code: 'wrong_group', labels: null },
+      { list: 'reassign', code: 'other', labels: null },
+      { list: 'pause', code: 'other', labels: null },
     ],
   };
 }

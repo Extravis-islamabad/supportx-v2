@@ -51,6 +51,9 @@ class UserDetail(BaseModel):
     time_zone: str | None
     signature: str | None
     nav_layout: NavLayout
+    ui_locale: Literal["en", "ar", "ur"] | None = Field(
+        default=None, description="Language picked in the app; null: Keycloak's `locale`."
+    )
     last_login_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -76,6 +79,11 @@ class UserPreferencesPatch(BaseModel):
     time_zone: str | None = Field(default=None, max_length=64, description="IANA, e.g. Asia/Dubai.")
     nav_layout: NavLayout | None = Field(
         default=None, description="Navigation: top bar, side bar or compact side bar."
+    )
+    ui_locale: str | None = Field(
+        default=None,
+        max_length=8,
+        description="UI language (en, ar, ur); null: follow the identity provider's locale.",
     )
 
 

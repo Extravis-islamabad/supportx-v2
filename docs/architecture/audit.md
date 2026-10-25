@@ -1,7 +1,7 @@
 # Audit log (WP-018)
 
 The tamper-evident audit log of architecture.md §7.4: who did what, when, from where, and proof
-that nothing was changed, removed or inserted afterwards. Decisions: ADR-027, D-075. Module:
+that nothing was changed, removed or inserted afterwards. Decisions: ADR-027, D-076. Module:
 `backend/app/modules/audit`. This page is for engineers adding audited actions and for operators.
 
 ## What gets recorded
@@ -73,7 +73,7 @@ worker builds a zip in object storage (kept 7 days) with:
 `python3 verify_export.py export.zip` exits 0 with "verified N entries (complete)" or 1 with the
 first problem. An unfiltered export also proves that no position is missing.
 
-## Retention (mixed approach, D-075 item 10)
+## Retention (mixed approach, D-076 item 10)
 
 The default retention is 3 years. An admin can set 1 to 10 years. Once a day, `audit__retention`:
 

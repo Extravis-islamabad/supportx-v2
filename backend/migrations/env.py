@@ -25,7 +25,7 @@ target_metadata = Base.metadata
 
 
 # Monthly partitions of audit_entries (and its default partition) are created at run time by
-# audit_ensure_partitions() (migration 0013, ADR-027); they are not models.
+# audit_ensure_partitions() (migration 0014, ADR-027); they are not models.
 _PARTITION = re.compile(r"^audit_entries_(p\d{6}|default)$")
 
 

@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 
 import { api, call, rememberEtag } from './client';
 import { queryKeys } from './keys';
@@ -85,6 +86,9 @@ export function useIncident(id: string | undefined) {
       call(api.GET('/api/v1/incidents/{record_id}', { params: { path: { record_id: id ?? '' } } })),
     enabled: id !== undefined,
     retry: false, // a 404 (deleted, or out of your reach) is an answer, not a reason to retry
+    // The page shows its own "not found" (deleted, handed over); never a second error toast
+    // on top of "Moved to the trash" (QA BUG-08).
+    meta: { silent: true },
   });
 }
 
@@ -149,6 +153,24 @@ export function useIncidentAssignees(groupId: string | null, search: string, ena
   });
 }
 
+/**
+ * One request at a time per hook (QA BUG-02): a double-click, or Enter plus a click, while a
+ * write is on its way joins that write instead of sending a second one with the old version
+ * (which the server would refuse as a conflict). Buttons are disabled while pending too; this
+ * covers the clicks that arrive before the screen re-renders.
+ */
+export function useSingleFlight<A, R>(run: (args: A) => Promise<R>): (args: A) => Promise<R> {
+  const flight = useRef<Promise<R> | null>(null);
+  return (args: A) => {
+    if (flight.current !== null) return flight.current;
+    const started = run(args).finally(() => {
+      flight.current = null;
+    });
+    flight.current = started;
+    return started;
+  };
+}
+
 /** After a write: the record in the cache, lists, views and history refetched, the ETag kept. */
 function useSaved() {
   const queryClient = useQueryClient();
@@ -176,39 +198,40 @@ export function useCreateIncident() {
 
 export function useUpdateIncident(id: string) {
   const saved = useSaved();
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: ({ changes, version }: { changes: IncidentPatch; version: number }) =>
+  const once = useSingleFlight(
+    ({ changes, version }: { changes: IncidentPatch; version: number }) =>
       call(
         api.PATCH('/api/v1/incidents/{record_id}', {
           params: { path: { record_id: id }, header: ifMatch(version) },
           body: { confirm_lose_access: false, ...changes },
         }),
       ),
-    onSuccess: saved,
-  });
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
+}
+
+export interface ActionRun {
+  action: IncidentAction;
+  version: number;
+  reasonCode?: string;
+  reasonText?: string;
+  /** Start work on an unassigned incident: which of your groups (QA BUG-05). */
+  groupId?: string;
 }
 
 export function useIncidentAction(id: string) {
   const saved = useSaved();
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: ({
-      action,
-      version,
-      reasonCode,
-      reasonText,
-    }: {
-      action: IncidentAction;
-      version: number;
-      reasonCode?: string;
-      reasonText?: string;
-    }) => {
+  const once = useSingleFlight(
+    ({ action, version, reasonCode, reasonText, groupId }: ActionRun) => {
       const text = reasonText?.trim() ?? '';
       const body =
-        reasonCode === undefined && text === ''
+        reasonCode === undefined && text === '' && groupId === undefined
           ? undefined
-          : { reason_code: reasonCode ?? null, reason_text: text === '' ? null : text };
+          : {
+              reason_code: reasonCode ?? null,
+              reason_text: text === '' ? null : text,
+              ...(groupId === undefined ? {} : { group_id: groupId }),
+            };
       return call(
         api.POST('/api/v1/incidents/{record_id}/actions/{action}', {
           params: { path: { record_id: id, action }, header: ifMatch(version) },
@@ -216,8 +239,8 @@ export function useIncidentAction(id: string) {
         }),
       );
     },
-    onSuccess: saved,
-  });
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
 }
 
 export interface AssignChange {
@@ -231,50 +254,48 @@ export interface AssignChange {
 
 export function useAssignIncident(id: string) {
   const saved = useSaved();
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: (change: AssignChange) =>
-      call(
-        api.POST('/api/v1/incidents/{record_id}/assign', {
-          params: { path: { record_id: id }, header: ifMatch(change.version) },
-          body: {
-            group_id: change.groupId,
-            technician_id: change.technicianId,
-            reason_code: change.reasonCode ?? null,
-            reason_text: change.reasonText?.trim() === '' ? null : (change.reasonText ?? null),
-            confirm_lose_access: change.confirmLoseAccess ?? false,
-          },
-        }),
-      ),
-    onSuccess: saved,
-  });
+  const once = useSingleFlight((change: AssignChange) =>
+    call(
+      api.POST('/api/v1/incidents/{record_id}/assign', {
+        params: { path: { record_id: id }, header: ifMatch(change.version) },
+        body: {
+          group_id: change.groupId,
+          technician_id: change.technicianId,
+          reason_code: change.reasonCode ?? null,
+          reason_text: change.reasonText?.trim() === '' ? null : (change.reasonText ?? null),
+          confirm_lose_access: change.confirmLoseAccess ?? false,
+        },
+      }),
+    ),
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
 }
 
 export function useTakeIncident(id: string) {
   const saved = useSaved();
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: ({ version, groupId }: { version: number; groupId?: string }) =>
-      call(
-        api.POST('/api/v1/incidents/{record_id}/take', {
-          params: { path: { record_id: id }, header: ifMatch(version) },
-          body: groupId === undefined ? undefined : { group_id: groupId },
-        }),
-      ),
-    onSuccess: saved,
-  });
+  const once = useSingleFlight(({ version, groupId }: { version: number; groupId?: string }) =>
+    call(
+      api.POST('/api/v1/incidents/{record_id}/take', {
+        params: { path: { record_id: id }, header: ifMatch(version) },
+        body: groupId === undefined ? undefined : { group_id: groupId },
+      }),
+    ),
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
 }
 
 export function useDeleteIncident(id: string) {
   const queryClient = useQueryClient();
+  const once = useSingleFlight((version: number) =>
+    call(
+      api.DELETE('/api/v1/incidents/{record_id}', {
+        params: { path: { record_id: id }, header: ifMatch(version) },
+      }),
+    ),
+  );
   return useMutation({
     meta: { silent: true },
-    mutationFn: (version: number) =>
-      call(
-        api.DELETE('/api/v1/incidents/{record_id}', {
-          params: { path: { record_id: id }, header: ifMatch(version) },
-        }),
-      ),
+    mutationFn: once,
     onSuccess: () => {
       queryClient.removeQueries({ queryKey: queryKeys.incidents.detail(id) });
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.incidents.all, 'list'] });
@@ -285,14 +306,12 @@ export function useDeleteIncident(id: string) {
 
 export function useRestoreIncident() {
   const saved = useSaved();
-  return useMutation({
-    meta: { silent: true },
-    mutationFn: ({ id, version }: { id: string; version: number }) =>
-      call(
-        api.POST('/api/v1/incidents/{record_id}/restore', {
-          params: { path: { record_id: id }, header: ifMatch(version) },
-        }),
-      ),
-    onSuccess: saved,
-  });
+  const once = useSingleFlight(({ id, version }: { id: string; version: number }) =>
+    call(
+      api.POST('/api/v1/incidents/{record_id}/restore', {
+        params: { path: { record_id: id }, header: ifMatch(version) },
+      }),
+    ),
+  );
+  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
 }

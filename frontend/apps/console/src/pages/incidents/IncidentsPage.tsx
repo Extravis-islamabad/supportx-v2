@@ -154,7 +154,7 @@ export function IncidentsPage() {
               value: v.view,
               label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
             }))}
-            style={{ minWidth: 260 }}
+            style={{ minWidth: 'min(260px, 100%)' }}
             data-testid="inc-view"
           />
         )}
@@ -166,7 +166,7 @@ export function IncidentsPage() {
           onChange={(event) => {
             setSearch(event.target.value);
           }}
-          style={{ maxWidth: 320 }}
+          style={{ maxWidth: 320, minWidth: 0 }}
           data-testid="inc-search"
         />
         <Select
@@ -180,7 +180,7 @@ export function IncidentsPage() {
             { value: '', label: t('users.any') },
             ...PRIORITIES.map((p) => ({ value: p, label: t(`priority.${p}`) })),
           ]}
-          style={{ minWidth: 200 }}
+          style={{ minWidth: 'min(200px, 100%)' }}
           data-testid="inc-filter-priority"
         />
         <Select
@@ -189,7 +189,7 @@ export function IncidentsPage() {
           value={sort}
           onChange={setSort}
           options={SORTS.map((s) => ({ value: s, label: t(`incidents.sort.${s}`) }))}
-          style={{ minWidth: 220 }}
+          style={{ minWidth: 'min(220px, 100%)' }}
           data-testid="inc-sort"
         />
       </Flex>
@@ -224,7 +224,19 @@ export function IncidentsPage() {
         }
         columns={[
           { key: 'id', title: t('incidents.col.id'), render: (_, row) => row.display_id },
-          { key: 'subject', title: t('work_item.field.subject'), render: (_, row) => row.subject },
+          {
+            key: 'subject',
+            title: t('work_item.field.subject'),
+            // Long subjects are cut so the other columns stay in view (QA BUG-16); the whole
+            // subject is the tooltip, and it reads in its own direction (QA BUG-12).
+            width: 360,
+            ellipsis: true,
+            render: (_, row) => (
+              <bdi dir="auto" title={row.subject}>
+                {row.subject}
+              </bdi>
+            ),
+          },
           {
             key: 'requester',
             title: t('work_item.field.requester_id'),
@@ -276,7 +288,9 @@ export function IncidentsPage() {
             ? [
                 {
                   key: 'restore',
-                  title: '',
+                  title: t('incidents.restore'),
+                  fixed: 'right' as const, // always in view, however wide the table (QA BUG-16)
+                  width: 130,
                   render: (_: unknown, row: IncidentListItem) => <RestoreButton row={row} />,
                 },
               ]

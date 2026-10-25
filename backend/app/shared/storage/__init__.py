@@ -1,4 +1,4 @@
-"""Object storage through the S3 API only (D-016, D-054, D-075; WP-018, reused by WP-022).
+"""Object storage through the S3 API only (D-016, D-054, D-076; WP-018, reused by WP-022).
 
 One small port so modules never depend on a vendor: `put`, `get`, `delete`, `exists` and a
 health check. On-prem the installation's SeaweedFS answers (Helm chart), on SaaS the cloud

@@ -52,7 +52,7 @@ from app.shared.schedules import ScheduleSpec
 
 AUDITOR = "auditor"
 
-# Separation of duties (D-075): auditors read, search, export and verify, and change nothing;
+# Separation of duties (D-076): auditors read, search, export and verify, and change nothing;
 # settings stay with tenant administrators. Nobody can change or delete an entry.
 PERMISSIONS = (
     PermissionSpec(VIEW, defaults=((AUDITOR, "all"),)),

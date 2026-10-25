@@ -130,6 +130,10 @@ class WorkItemTransitionIn(BaseModel):
 
     reason_code: str | None = Field(default=None, max_length=40)
     reason_text: str | None = Field(default=None, max_length=REASON_TEXT_MAX)
+    group_id: uuid.UUID | None = Field(
+        default=None,
+        description="Start work on an unassigned record: which of your groups (as with Take).",
+    )
 
 
 class WorkItemAssignIn(BaseModel):
@@ -397,6 +401,8 @@ class WorkItemCatalogueOut(BaseModel):
 
     prefix: str
     default_priority: Priority
+    default_impact: Impact | None = Field(description="What the create form starts with.")
+    default_urgency: Urgency | None = Field(description="What the create form starts with.")
     auto_status_on_assign: bool
     version: int
     statuses: list[WorkItemStatusOut]
@@ -412,6 +418,8 @@ class WorkItemCatalogueOut(BaseModel):
         return cls(
             prefix=cat.prefix,
             default_priority=Priority(cat.default_priority),
+            default_impact=None if cat.default_impact is None else Impact(cat.default_impact),
+            default_urgency=None if cat.default_urgency is None else Urgency(cat.default_urgency),
             auto_status_on_assign=cat.auto_status_on_assign,
             version=cat.settings_version,
             statuses=[
@@ -454,6 +462,10 @@ class WorkItemCatalogueOut(BaseModel):
         )
 
 
+# Settings that may be cleared with null (the others ignore a null).
+NULLABLE_SETTINGS = frozenset({"default_impact", "default_urgency"})
+
+
 class WorkItemSettingsPatch(BaseModel):
     """Type settings to change (only those sent). If-Match: the catalogue's `version`."""
 
@@ -461,6 +473,8 @@ class WorkItemSettingsPatch(BaseModel):
 
     prefix: str | None = Field(default=None, max_length=6, description="2-6 capital letters.")
     default_priority: Priority | None = None
+    default_impact: Impact | None = Field(default=None, description="Null: no default.")
+    default_urgency: Urgency | None = Field(default=None, description="Null: no default.")
     auto_status_on_assign: bool | None = None
 
 
@@ -575,6 +589,9 @@ class WorkItemHistoryOut(BaseModel):
 
     items: list[WorkItemHistoryEntryOut]
     next_cursor: str | None
+    people: dict[str, PersonOut] = Field(
+        default_factory=dict, description="People named in changed values, by user ID."
+    )
 
 
 def _item(row: WorkItem) -> WorkItemListItem:
@@ -733,7 +750,11 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             session,
             wtype,
             expected_version=version,
-            values=body.model_dump(include=body.model_fields_set, exclude_none=True),
+            values={
+                k: v
+                for k, v in body.model_dump(include=body.model_fields_set).items()
+                if v is not None or k in NULLABLE_SETTINGS
+            },
             source=source_of(request),
             user_id=subject.user_id,
         )
@@ -878,9 +899,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         subject: View,
         response: Response,
         request: Request,
+        policy: Policy,
         body: WorkItemTransitionIn | None = None,
     ) -> WorkItemOut:
-        """Only the actions the life cycle allows from the current status; some need a reason."""
+        """Only the actions the life cycle allows from the current status; some need a reason.
+
+        Start work on an unassigned record takes it for you first (`group_id` as with Take).
+        """
         view = await service.transition(
             session,
             subject,
@@ -891,6 +916,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             reason_code=body.reason_code if body else None,
             reason_text=body.reason_text if body else None,
             source=source_of(request),
+            holders=policy,
+            group_id=body.group_id if body else None,
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
@@ -1002,7 +1029,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         actors: Annotated[Actors, Query(description="people, automation or all")] = "all",
     ) -> WorkItemHistoryOut:
         """Every save, newest first, in true order: who, when, from where, what, why."""
-        entries, next_cursor, names = await service.history(
+        entries, next_cursor, names, people = await service.history(
             session, subject, wtype, record_id, before=_cursor(cursor), limit=limit, actors=actors
         )
         audit = (
@@ -1013,6 +1040,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return WorkItemHistoryOut(
             items=[WorkItemHistoryEntryOut.of(e, names, audit) for e in entries],
             next_cursor=None if next_cursor is None else _cursor_text(*next_cursor),
+            people=_people(people),
         )
 
     return router

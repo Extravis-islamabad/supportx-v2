@@ -7,7 +7,7 @@ import { refreshList, useListChannel } from '@supportx/realtime';
 import { useAccess, useLabel } from '@supportx/ui';
 
 /**
- * The audit alert banner (REQ-AUD-010, D-075 item 8): shown to holders of `audit.view` while the
+ * The audit alert banner (REQ-AUD-010, D-076 item 8): shown to holders of `audit.view` while the
  * chain has an unresolved problem (a failed verification, entries waiting too long to be
  * sealed). It stays until a later full verification passes. Live through the audit channel.
  */

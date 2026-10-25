@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules.organization import existing_unit_ids
-from app.modules.work_items.domain.classification import Priority
+from app.modules.work_items.domain.classification import Impact, Priority, Urgency
 from app.modules.work_items.domain.types import WorkItemType, prefix_problems
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
@@ -49,7 +49,7 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
     return await config.load(session, wtype)
 
 
-async def update_settings(  # noqa: PLR0913 - the change and its context, explicit
+async def update_settings(  # noqa: PLR0913, C901 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     *,
@@ -58,7 +58,7 @@ async def update_settings(  # noqa: PLR0913 - the change and its context, explic
     source: Source,
     user_id: uuid.UUID | None,
 ) -> Catalogue:
-    """Prefix, default priority, automatic status moves (If-Match on the settings version)."""
+    """Prefix, default priority and scales, automatic status moves (If-Match: settings version)."""
     current = await config.load(session, wtype)
     changes: dict[str, Any] = {}
     if "prefix" in values:
@@ -72,10 +72,17 @@ async def update_settings(  # noqa: PLR0913 - the change and its context, explic
         changes["default_priority"] = values["default_priority"]
     if "auto_status_on_assign" in values:
         changes["auto_status_on_assign"] = bool(values["auto_status_on_assign"])
+    for name, codes in (("default_impact", set(Impact)), ("default_urgency", set(Urgency))):
+        if name in values:
+            if values[name] is not None and values[name] not in codes:
+                raise _invalid(field=name, field_code="invalid_choice")
+            changes[name] = values[name]
     before = {
         "prefix": current.prefix,
         "default_priority": current.default_priority,
         "auto_status_on_assign": current.auto_status_on_assign,
+        "default_impact": current.default_impact,
+        "default_urgency": current.default_urgency,
     }
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if current.settings_version != expected_version:

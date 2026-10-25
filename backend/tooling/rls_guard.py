@@ -71,7 +71,7 @@ CROSS_TENANT_POLICIES |= {
     (table, f"{table}_maintenance_select"): (
         MIGRATOR_ROLE,
         (
-            "Audit retention (WP-018, migration 0013, ADR-027): the migrator-owned clean-up must "
+            "Audit retention (WP-018, migration 0014, ADR-027): the migrator-owned clean-up must "
             "see every tenant's rows to know a monthly partition has fully expired; read-only."
         ),
     )

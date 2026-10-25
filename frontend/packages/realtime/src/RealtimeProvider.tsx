@@ -58,7 +58,14 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
       if (code === ACCESS_CHANGED) refreshAccess();
     });
     connection.connect();
+    // Leaving or reloading the page: say goodbye now, so others do not see this window as a
+    // viewer until the server times it out (QA BUG-13, the "you, another window" ghost).
+    const leave = () => {
+      connection.close();
+    };
+    window.addEventListener('pagehide', leave);
     return () => {
+      window.removeEventListener('pagehide', leave);
       leaveOwn();
       leaveTenant();
       stopWatching();

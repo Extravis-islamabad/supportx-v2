@@ -289,7 +289,7 @@
     },
     "audit.alert.raised": {
       "1": {
-        "description": "Something security admins must see: a broken chain, overdue sealing, probing.\n\nREQ-AUD-005, REQ-AUD-010. The notification engine (WP-023) will deliver it; until then the\nconsole shows a banner and operations get a metric alert (D-075).",
+        "description": "Something security admins must see: a broken chain, overdue sealing, probing.\n\nREQ-AUD-005, REQ-AUD-010. The notification engine (WP-023) will deliver it; until then the\nconsole shows a banner and operations get a metric alert (D-076).",
         "properties": {
           "actor_id": {
             "anyOf": [
@@ -326,6 +326,69 @@
           "alert"
         ],
         "title": "AuditAlertRaised",
+        "type": "object"
+      }
+    },
+    "audit.archive.restore_requested": {
+      "1": {
+        "description": "An auditor asked to restore an archive for an investigation; the worker does it.",
+        "properties": {
+          "archive_id": {
+            "format": "uuid",
+            "title": "Archive Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_id"
+        ],
+        "title": "AuditArchiveRestoreRequested",
+        "type": "object"
+      }
+    },
+    "audit.archive.updated": {
+      "1": {
+        "description": "A month was archived (`status` ready or failed) or a restore finished (`restore_status`).",
+        "properties": {
+          "archive_id": {
+            "format": "uuid",
+            "title": "Archive Id",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Problem"
+          },
+          "restore_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Restore Status"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "archive_id",
+          "status"
+        ],
+        "title": "AuditArchiveUpdated",
         "type": "object"
       }
     },

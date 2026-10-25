@@ -25,7 +25,7 @@ test('audit log: a change shows up as an entry with its chain position', async (
     await expect(table.getByText('role.created')).toHaveCount(0);
     await expectAccessible(page, 'audit log');
 
-    // Sealing is asynchronous (D-075 item 1): the entry is pending for a moment, then sealed.
+    // Sealing is asynchronous (D-076 item 1): the entry is pending for a moment, then sealed.
     await expect(table.getByText(/^Sealed, position \d+$/).first()).toBeVisible({
       timeout: 15_000,
     });

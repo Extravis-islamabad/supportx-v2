@@ -728,3 +728,42 @@ async def test_req_aud_002_sign_in_sign_out_and_switch_are_audited(bff: Bff) -> 
         (b, "session.signed_out"),
     ]
     assert all(r["by_self"] and r["client"] == "console" for r in rows)
+
+
+async def test_bug_04_ui_language_is_kept_per_user_across_logins_and_devices(bff: Bff) -> None:
+    """QA BUG-04: the language chosen in the UI is stored with the user, not in the browser.
+
+    Keycloak's locale only seeds it: a later login (another device, Keycloak still "en") keeps
+    the choice. Choosing nothing (null) falls back to Keycloak's locale again.
+    """
+    user = bff.user("a", email="lang@demo.test", locale="en", roles=("technician",))
+    await bff.login(user)
+    me = (await bff.me()).json()
+    assert me["user"]["locale"] == "en"
+    path = f"/api/v1/users/{me['user']['id']}"
+    read = await bff.client.get(path)
+    assert read.status_code == 200, read.text
+    chosen = await bff.client.patch(
+        path,
+        json={"ui_locale": "ar"},
+        headers={"X-CSRF-Token": me["csrf_token"], "If-Match": read.headers["ETag"]},
+    )
+    assert chosen.status_code == 200, chosen.text
+    assert (await bff.me()).json()["user"]["locale"] == "ar"
+    bff.client.cookies.clear()
+    await bff.login(user)  # a new session, as on another device
+    again = (await bff.me()).json()
+    assert again["user"]["locale"] == "ar"
+    bad = await bff.client.patch(
+        path,
+        json={"ui_locale": "fr"},
+        headers={"X-CSRF-Token": again["csrf_token"], "If-Match": chosen.headers["ETag"]},
+    )
+    assert bad.status_code == 422, bad.text
+    cleared = await bff.client.patch(
+        path,
+        json={"ui_locale": None},
+        headers={"X-CSRF-Token": again["csrf_token"], "If-Match": chosen.headers["ETag"]},
+    )
+    assert cleared.status_code == 200, cleared.text
+    assert (await bff.me()).json()["user"]["locale"] == "en"

@@ -1,4 +1,4 @@
-"""Audit settings per tenant: defaults, limits and edits (D-074, D-075; file 11 Appendix A).
+"""Audit settings per tenant: defaults, limits and edits (D-074, D-076; file 11 Appendix A).
 
 The row is created on the first change; until then the defaults apply. Every change is versioned
 (If-Match) and is itself audited (`audit.settings_changed`), with old and new values.
