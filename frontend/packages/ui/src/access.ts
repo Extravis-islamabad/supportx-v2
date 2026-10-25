@@ -11,6 +11,7 @@ export const ADMIN_PERMISSIONS = [
   'groups.manage',
   'settings.manage',
   'licence.manage',
+  'audit.view',
 ] as const;
 
 export interface Access {

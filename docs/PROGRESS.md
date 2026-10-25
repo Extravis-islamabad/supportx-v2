@@ -9,8 +9,9 @@
 - **Next work package:** WP-020b (conversation, notes and followers), then the sequence below
   (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Working mode:** single agent (parallel mode ended 2026-10-23; a stale WP-010 worktree or
-  branch, if any, is left for the product owner).
+- **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
+  WP-018 audit log, done 2026-10-26 (branch `feat/wp-018-audit-log`). Lane B's next WP follows
+  the MVP build plan.
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
@@ -316,7 +317,46 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [ ] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; planning only)
+### [x] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-076; ADR-027; done 2026-10-26)
+Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
+- [x] Session 1 (backend core): module `audit`, migration 0014 (numbered 0013 until lane A's
+  0013 merged first) (partitioned `audit_entries`,
+  queue, chain, personal data, anchors, settings, verification runs; definer functions
+  `audit_seal`, `audit_erase_subject`, `audit_tenant_ids`, `audit_ensure_partitions`),
+  `audited` / `audit_read` route dependencies, refused-attempt observer and probing alert,
+  sealing consumer, module schedules in the consumers worker (seal sweep, anchors, daily and
+  weekly verification, partitions), Ed25519 anchors with key rotation, verification, erasure,
+  Auditor system role, API (`/audit/entries`, `/audit/status`, `/audit/verification-runs`,
+  `/audit/settings`), wiring of every existing privileged route and sign-in, labels en/ar/ur,
+  ADR-027, D-076.
+- [x] Session 2: shared storage component (`app/shared/storage`, aioboto3, S3 API only) and a
+  minimal single-node SeaweedFS 4.48 in the Helm chart (dev and single-node profiles; smoke-
+  tested on k3d in a throwaway namespace, auth enforced); exports (JSONL/CSV, signed manifest,
+  standalone `verify_export.py`, 7-day expiry, visible failures), saved searches, realtime list
+  channel, history link on incidents (REQ-AUD-006), console screens (Admin › Audit log: log with
+  filters and the live "new entries" pill, entry drawer, integrity panel, exports, settings) and
+  the console banner; signing key and storage keys in the chart and `deploy/scripts/secrets.sh`
+  (missing keys are added to an existing Secret, existing values never changed); CI runs
+  SeaweedFS for the export tests.
+- [x] Session 3: retention (`audit__retention`, daily): whole months past retention archived to
+  `audit/archive/<tenant>/<yyyy-mm>.zip`, read back and verified, then `audit_advance_cutoff()`
+  hides them by RLS and deletes their personal rows; `audit_drop_expired_partitions()` drops a
+  month once every tenant has passed it. Failures (no or failing storage, unsealed entries, out-
+  of-order positions, unverifiable archive) leave a failed row, an audit entry, the
+  `archive_failed` banner, a metric and an error log. Restore for investigation
+  (`audit_restored`, 7 days, verified again), Admin › Audit log › Archives tab, labels en/ar/ur.
+  Verification and exports start after the archived positions; entry lookups are bounded by
+  time (18x faster verification). Volume test: 100k in CI, 10M nightly
+  (`.github/workflows/audit-scale.yml`). `docs/architecture/audit.md`, e2e journey
+  `audit.spec.ts`.
+- **Not done in WP-018 (follow-ups):**
+  - partitioning and retention of `field_changes` (the WP-012 field history). It is the work
+    item engine's table, owned by lane A, and it still needs a retention rule from the product
+    owner;
+  - WI-020 AC3 (purge records after retention), which waited for this WP;
+  - archives hold at most 1M entries per month (the export limit) and are built in memory. A
+    month above that fails visibly (`audit_export_too_large`); a streaming archive is needed
+    before a tenant reaches that volume.
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
@@ -328,6 +368,55 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-26 — WP-018 session 3 (retention, restore, volume, demo)
+
+- **Built:** see the WP-018 entry. No new dependencies.
+- **Merged main:** lane A's migration 0013 came first, so the audit migration is now 0014, and
+  lane A's D-075 kept its number, so the WP-018 decisions are now **D-076** (every reference in
+  the WP-018 files was renamed). Conflicts in `DECISIONS.md` and `test_auth_bff.py` were
+  resolved by keeping both sides.
+- **Shared changes:** `useDateTime().formatMonth` (a UTC month); CI sets
+  `SUPPORTX_AUDIT_SCALE_ROWS=100000`; new pytest marker `scale`.
+- **Tests:** backend 949 passed, 1 skipped (the opt-in volume test), 94.53 % coverage; 7 new
+  retention tests on PostgreSQL and SeaweedFS; console 75, ui 38, labels 25. Volume test at 100k
+  (in CI on every run): seal, full verification, retention (24 archives, partitions dropped),
+  search 13-47 ms, tamper detected at the changed position. The e2e journey `audit.spec.ts` passes
+  in CI after three accessibility fixes it found (tag and link contrast, an inline link without
+  underline, the empty-table text). Verification is 18x faster after bounding entry lookups by
+  time (about 1,000 to about 18,000 entries/s at 100k).
+- **Not finished here:** the local 10M run stopped after 66 minutes because the whole dev stack
+  was shut down by a normal stop request (not by this session, not out of memory). The first 10M
+  result comes from the `audit-scale` workflow on GitHub, which can only be started by hand once
+  it is on main. The stopped dev PostgreSQL still holds that run's throwaway
+  `supportx_test_*` database; drop it when the stack is up again.
+- **Seen, not changed (lane A screens):** the incidents and announcements tables show their
+  empty-table text in Ant Design's faint placeholder colour, the same contrast problem axe found
+  on the Archives tab.
+
+### 2026-10-24 — WP-018 session 2 (storage, exports, screens)
+
+- **Built:** see the WP-018 entry. New dependencies: `aioboto3` (approved D-054/D-076; pulls
+  aiobotocore, Apache-2.0) and the dev type stubs `types-aioboto3[s3]` (MIT, D-012 helper).
+- **Shared changes:** `useDateTime().formatExact` (to the second), `audit.view` opens the Admin
+  area, admins' fake permissions include the audit permissions, `/audit/status` in the console
+  test API.
+- **Tests:** backend 937 passed (94.68 %), including 6 export tests on SeaweedFS and MinIO;
+  console 55 (6 new audit screen tests); chart lint for all five profiles.
+
+### 2026-10-24 — WP-018 session 1 (backend core of the audit log)
+
+- **Built:** see the WP-018 entry above. Decisions D-076 (product owner answers to the plan),
+  ADR-027. The chain is written by the migrator-owned definer function `audit_seal()` instead of
+  a separate `supportx_audit` login role (stronger, one less credential).
+- **Core changes:** `app/core/errors.py` error observers (`register_error_observer`),
+  `ModuleSpec.schedules` + `app/shared/schedules.py`, `recorded_change_ids()` in field history,
+  `SUPPORTX_AUDIT_*` and `SUPPORTX_WORKER_SCHEDULES_ENABLED` settings, Auditor system role
+  (`identity_access`), `migrations/env.py` skips audit partitions.
+- **Not audited yet, with reason:** edits of closed incidents (closed records are read-only, 409
+  `record_closed`) and due-date overrides (come with SLA, WP-025); their actions are catalogued.
+- **Tests:** backend 876 → all green plus 25 domain, 20 API, 5 job, 4 route-table and 1 BFF audit
+  tests. Lane A has not merged a migration since 0012, so ours stays 0013 for now.
 
 ### 2026-10-24 — MVP build plan v0.2: decisions D-070 to D-074, two lanes (docs only)
 

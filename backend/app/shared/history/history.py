@@ -52,6 +52,7 @@ KINDS: tuple[str, ...] = ChangeKind.__args__  # type: ignore[attr-defined]  # Li
 CLIENT_HEADER = "X-SupportX-Client"
 _UI_CLIENTS = frozenset({"console", "portal", "mobile"})
 MAX_PAGE = 100
+CHANGE_IDS_KEY = "supportx.change_ids"
 
 JsonValue = Any  # JSON-serialisable field value (str, number, bool, None, list, dict)
 
@@ -209,7 +210,14 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
             row.tenant_id = context.tenant_id
     session.add_all(rows)
     await session.flush()
+    # The audit log links its entry for this request to the history it wrote (REQ-AUD-006).
+    session.info.setdefault(CHANGE_IDS_KEY, []).append(change_id)
     return change_id
+
+
+def recorded_change_ids(session: AsyncSession) -> list[uuid.UUID]:
+    """Change IDs of the field history written in this session's transaction, in order."""
+    return list(session.info.get(CHANGE_IDS_KEY, ()))
 
 
 def changes_between(before: dict[str, JsonValue], after: dict[str, JsonValue]) -> list[Change]:

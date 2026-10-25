@@ -25,7 +25,10 @@ SCOPE_RANK: Mapping[Scope, int] = MappingProxyType({"all": 3, "site": 2, "group"
 TENANT_ADMIN = "tenant_admin"
 TECHNICIAN = "technician"
 REQUESTER = "requester"
-SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER)
+# Reads, searches, exports and verifies the audit log and reads access settings; changes nothing
+# (separation of duties, WP-018, D-076). Its audit permissions come from the audit module.
+AUDITOR = "auditor"
+SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR)
 
 ALL = ALL_SCOPES
 OWN_ONLY: tuple[Scope, ...] = ("own",)
@@ -73,6 +76,7 @@ ADMIN_PERMISSIONS = frozenset(
         "groups.manage",
         "settings.manage",
         "licence.manage",
+        "audit.view",
     }
 )
 
@@ -109,6 +113,13 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("requests.create", "all"),
             ("requests.close", "own"),
             ("knowledge.view", "all"),
+        ),
+        AUDITOR: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("roles.view", "all"),
+            ("sites.view", "all"),
+            ("groups.view", "all"),
         ),
     }
 )

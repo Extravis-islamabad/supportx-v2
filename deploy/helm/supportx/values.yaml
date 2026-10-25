@@ -27,6 +27,7 @@ images:
   keycloak: quay.io/keycloak/keycloak:26.8.1
   centrifugo: centrifugo/centrifugo:v6.10.1
   postgres: ghcr.io/cloudnative-pg/postgresql:16.15-202610190958-standard-trixie
+  seaweedfs: chrislusf/seaweedfs:4.48
 
 # --- secrets (never in values) ---------------------------------------------------------------------
 # Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
@@ -115,6 +116,29 @@ postgresql:
       defaultPoolSize: "25"
       maxClientConn: "500"
     # Backups to S3-compatible storage (Barman Cloud plugin): WP-014b.
+
+# --- Object storage (S3 API only, D-016; WP-018, reused by WP-022) ---------------------------------------
+# seaweedfs: a minimal single-node SeaweedFS in this release (on-prem, ADR-012, D-076).
+# external:  any S3-compatible store (the cloud provider's S3 on SaaS). Credentials always come
+#            from the app Secret (keys s3-access-key, s3-secret-key).
+objectStorage:
+  mode: seaweedfs
+  bucket: supportx
+  region: us-east-1
+  external:
+    endpoint: ""                    # e.g. https://s3.eu-central-1.amazonaws.com
+  seaweedfs:
+    storage: {size: 20Gi, storageClass: ""}
+    volumeSizeLimitMB: 1024
+    resources:
+      requests: {cpu: 50m, memory: 128Mi}
+      limits: {cpu: "1", memory: 512Mi}
+
+# --- Audit log (WP-018, ADR-027) ---------------------------------------------------------------------
+audit:
+  # Public halves of retired anchor-signing keys, "<key id>:<base64>,..." (key rotation). The
+  # active key is the app Secret's `audit-signing-key`, mounted into the consumers worker only.
+  trustedKeys: ""
 
 # --- NATS JetStream (upstream chart, D-037) ---------------------------------------------------------
 nats:

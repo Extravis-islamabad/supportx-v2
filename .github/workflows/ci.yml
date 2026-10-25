@@ -72,6 +72,12 @@ jobs:
       SUPPORTX_REQUIRE_NATS_TESTS: "1"
       SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
       SUPPORTX_REQUIRE_VALKEY_TESTS: "1"
+      # Audit exports (WP-018) on SeaweedFS, the on-prem object store (ADR-012); started below.
+      SUPPORTX_TEST_S3_ENDPOINT: http://127.0.0.1:8333
+      SUPPORTX_REQUIRE_S3_TESTS: "1"
+      # Audit log volume test (WP-018, D-076 item 11): 100k entries here, 10M nightly
+      # (audit-scale.yml).
+      SUPPORTX_AUDIT_SCALE_ROWS: "100000"
       SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -86,6 +92,15 @@ jobs:
             sleep 1
           done
           curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' # fail the job if never up
+      - name: Start SeaweedFS (S3 API; same image as the Helm chart)
+        run: |
+          docker run -d --name seaweedfs -p 8333:8333 chrislusf/seaweedfs:4.48 \
+            server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -master.volumeSizeLimitMB=256
+          for _ in $(seq 1 30); do
+            curl -s -o /dev/null http://127.0.0.1:8333 && break
+            sleep 1
+          done
+          curl -s -o /dev/null http://127.0.0.1:8333 # fail the job if never up
       - uses: ./.github/actions/setup-backend
       - name: Lint (ruff check, ruff format --check, import-linter, OpenAPI + event schema drift)
         run: make backend-lint

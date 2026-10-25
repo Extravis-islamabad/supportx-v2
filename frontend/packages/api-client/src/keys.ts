@@ -1,4 +1,5 @@
 import type { AnnouncementsQuery } from './announcements';
+import type { AuditEntriesQuery } from './audit';
 import type { IncidentsQuery } from './incidents';
 import type { UsersQuery } from './users';
 
@@ -41,6 +42,18 @@ export const queryKeys = {
     categories: ['incidents', 'categories'] as const,
     assignees: (groupId: string | null, search: string) =>
       ['incidents', 'assignees', groupId, search] as const,
+  },
+  audit: {
+    all: ['audit'] as const,
+    list: (query: AuditEntriesQuery) => ['audit', 'list', query] as const,
+    entry: (id: string) => ['audit', 'entry', id] as const,
+    status: ['audit', 'status'] as const,
+    runs: ['audit', 'runs'] as const,
+    settings: ['audit', 'settings'] as const,
+    exports: ['audit', 'exports'] as const,
+    saved: ['audit', 'saved'] as const,
+    archives: ['audit', 'archives'] as const,
+    restored: (id: string) => ['audit', 'restored', id] as const,
   },
   users: {
     all: ['users'] as const,

@@ -5,6 +5,7 @@ description = "SupportX v2 Core API (modular monolith) and workers"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "aioboto3>=15.5.0",
     "alembic>=1.20.1",
     "asyncpg>=0.32.0",
     "cryptography>=50.0.2",
@@ -40,6 +41,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.1",
+    "types-aioboto3[s3]>=15.5.0",
 ]
 
 [tool.ruff]
@@ -101,6 +103,7 @@ markers = [
     "db: needs PostgreSQL (dev stack or CI service); skipped locally if absent, required in CI",
     "nats: needs NATS JetStream (dev stack or CI container); skipped locally if absent, required in CI",
     "valkey: needs Valkey (dev stack or CI service); skipped locally if absent, required in CI",
+    "scale: volume test, runs only with SUPPORTX_AUDIT_SCALE_ROWS (CI 100k, nightly 10M)",
 ]
 
 [tool.coverage.run]
@@ -144,6 +147,12 @@ layers = ["api", "service", "infra", "domain"]
 name = "work_items layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.work_items"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "audit layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.audit"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]

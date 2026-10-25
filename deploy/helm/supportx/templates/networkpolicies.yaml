@@ -86,6 +86,29 @@ spec:
       ports:
         - {port: 4222, protocol: TCP}
         - {port: 6379, protocol: TCP}
+{{- if eq .Values.objectStorage.mode "seaweedfs" }}
+---
+# SeaweedFS (S3 API): only SupportX's own pods.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-seaweedfs-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: seaweedfs
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- toYaml $ours | nindent 14 }}
+      ports:
+        - {port: 8333, protocol: TCP}
+{{- end }}
 {{- if eq .Values.postgresql.mode "cnpg" }}
 ---
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the

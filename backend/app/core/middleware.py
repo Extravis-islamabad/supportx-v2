@@ -8,9 +8,10 @@ import time
 from collections.abc import Iterable
 
 from starlette.datastructures import Headers, MutableHeaders
+from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.core.errors import internal_error_response
+from app.core.errors import internal_error_response, notify_error
 from app.core.logging import get_logger
 from app.core.request_context import (
     REQUEST_ID_HEADER,
@@ -77,6 +78,7 @@ class RequestContextMiddleware:
             log.exception("unhandled_exception", path=scope.get("path"))
             if response_started:
                 raise
+            await notify_error(Request(scope), 500, "internal_error")
             await internal_error_response(scope.get("path"))(scope, receive, send_with_request_id)
         finally:
             log.info(

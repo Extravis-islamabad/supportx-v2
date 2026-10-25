@@ -74,6 +74,10 @@ const ADMIN_EXTRA: Grant[] = [
   ['incidents.assign', 'all'],
   ['incidents.assign_outside_group', 'all'],
   ['incidents.delete', 'all'],
+  ['audit.view', 'all'],
+  ['audit.export', 'all'],
+  ['audit.verify', 'all'],
+  ['audit.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
@@ -432,5 +436,24 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       { list: 'reassign', code: 'other', labels: null },
       { list: 'pause', code: 'other', labels: null },
     ],
+  };
+}
+
+type AuditStatus = components['schemas']['AuditStatusOut'];
+
+/** GET /audit/status for a healthy chain (no alert) unless overridden. */
+export function fakeAuditStatus(overrides: Partial<AuditStatus> = {}): AuditStatus {
+  return {
+    sealed_entries: 120,
+    pending_seal: 0,
+    pending_overdue: 0,
+    anchoring_configured: true,
+    last_anchor_at: '2026-10-24T09:00:00Z',
+    last_anchor_seq: 118,
+    last_daily: null,
+    last_weekly: null,
+    last_on_demand: null,
+    alert: null,
+    ...overrides,
   };
 }

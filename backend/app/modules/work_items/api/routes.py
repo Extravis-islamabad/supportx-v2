@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
+from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
@@ -552,10 +553,19 @@ class WorkItemHistoryEntryOut(BaseModel):
         description="Set when automation made the change, e.g. {kind: matrix}."
     )
     changes: list[WorkItemFieldChangeOut]
+    audit_entry_id: uuid.UUID | None = Field(
+        default=None,
+        description="The audit entry of this save; only for holders of audit.view (REQ-AUD-006).",
+    )
 
     @classmethod
-    def of(cls, entry: HistoryEntry, names: dict[str, str]) -> "WorkItemHistoryEntryOut":
-        """From a history entry plus resolved actor names."""
+    def of(
+        cls,
+        entry: HistoryEntry,
+        names: dict[str, str],
+        audit: dict[uuid.UUID, uuid.UUID] | None = None,
+    ) -> "WorkItemHistoryEntryOut":
+        """From a history entry plus resolved actor names (and audit links, if allowed)."""
         return cls(
             change_id=entry.change_id,
             version=entry.version,
@@ -570,6 +580,7 @@ class WorkItemHistoryEntryOut(BaseModel):
             changes=[
                 WorkItemFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes
             ],
+            audit_entry_id=(audit or {}).get(entry.change_id),
         )
 
 
@@ -729,8 +740,12 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         version: ExpectedVersion,
         response: Response,
         request: Request,
+        note: Annotated[
+            AuditNote, audited(f"{name}.settings_changed", object_type=f"{name}_settings")
+        ],
     ) -> WorkItemCatalogueOut:
         """Prefix, default priority and the automatic status moves on assignment."""
+        note.details = {"changed_fields": sorted(body.model_fields_set)}
         cat = await settings_service.update_settings(
             session,
             wtype,
@@ -757,7 +772,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
 
     @router.post("/categories", summary="Add a category", status_code=status.HTTP_201_CREATED)
     async def create_category(
-        body: WorkItemCategoryIn, session: TenantSession, subject: Admin, request: Request
+        body: WorkItemCategoryIn,
+        session: TenantSession,
+        subject: Admin,
+        request: Request,
+        note: Annotated[
+            AuditNote, audited(f"{name}.category_created", object_type=f"{name}_category")
+        ],
     ) -> WorkItemCategoryOut:
         """A new node (at most three levels)."""
         del subject
@@ -769,7 +790,10 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             default_group_id=body.default_group_id,
             source=source_of(request),
         )
-        return WorkItemCategoryOut.of(node)
+        out = WorkItemCategoryOut.of(node)
+        note.object_id = str(out.id)
+        note.details = {"parent_id": body.parent_id}
+        return out
 
     @router.patch("/categories/{category_id}", summary="Change a category", responses=CONFLICT)
     async def patch_category(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -779,9 +803,18 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         subject: Admin,
         version: ExpectedVersion,
         request: Request,
+        note: Annotated[
+            AuditNote,
+            audited(
+                f"{name}.category_changed",
+                object_type=f"{name}_category",
+                object_param="category_id",
+            ),
+        ],
     ) -> WorkItemCategoryOut:
         """Rename or translate, set its default group, disable or enable."""
         del subject
+        note.details = {"changed_fields": sorted(body.model_fields_set)}
         node = await settings_service.update_category(
             session,
             wtype,
@@ -948,6 +981,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         summary="Move to the trash",
         status_code=status.HTTP_204_NO_CONTENT,
         responses=CONFLICT,
+        dependencies=[audited(f"{name}.deleted", object_type=name, object_param="record_id")],
     )
     async def delete(
         record_id: uuid.UUID,
@@ -962,7 +996,12 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
-    @router.post("/{record_id}/restore", summary="Restore from the trash", responses=CONFLICT)
+    @router.post(
+        "/{record_id}/restore",
+        summary="Restore from the trash",
+        responses=CONFLICT,
+        dependencies=[audited(f"{name}.restored", object_type=name, object_param="record_id")],
+    )
     async def restore(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
         version: ExpectedVersion,
@@ -993,8 +1032,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         entries, next_cursor, names, people = await service.history(
             session, subject, wtype, record_id, before=_cursor(cursor), limit=limit, actors=actors
         )
+        audit = (
+            await entries_for_changes(session, [e.change_id for e in entries])
+            if subject.holds("audit.view")
+            else {}
+        )
         return WorkItemHistoryOut(
-            items=[WorkItemHistoryEntryOut.of(e, names) for e in entries],
+            items=[WorkItemHistoryEntryOut.of(e, names, audit) for e in entries],
             next_cursor=None if next_cursor is None else _cursor_text(*next_cursor),
             people=_people(people),
         )

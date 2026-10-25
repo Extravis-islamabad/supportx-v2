@@ -1,0 +1,75 @@
+# The audit log at 10 million entries (WP-018, D-076 item 11): sealing, full verification, the
+# retention job (archive to S3, cut-off, partition drop), the screen's search and tamper
+# detection, with timings in the job summary. Too slow for every PR
+# (CI runs the same test with 100k entries); nightly and on demand.
+name: Audit scale
+
+on:
+  schedule:
+    - cron: "53 1 * * *" # nightly 01:53 UTC
+  workflow_dispatch:
+    inputs:
+      rows:
+        description: Number of audit entries
+        default: "10000000"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  audit-scale:
+    name: audit scale
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg16-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-${{ github.run_id }}
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    env:
+      SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
+      SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
+      SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+      SUPPORTX_TEST_RELAY_PASSWORD: ci-relay-${{ github.run_id }}
+      SUPPORTX_REQUIRE_DB_TESTS: "1"
+      SUPPORTX_TEST_S3_ENDPOINT: http://127.0.0.1:8333
+      SUPPORTX_REQUIRE_S3_TESTS: "1"
+      SUPPORTX_AUDIT_SCALE_ROWS: ${{ inputs.rows || '10000000' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start SeaweedFS (S3 API; same image as the Helm chart)
+        run: |
+          docker run -d --name seaweedfs -p 8333:8333 chrislusf/seaweedfs:4.48 \
+            server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -master.volumeSizeLimitMB=1024
+          for _ in $(seq 1 30); do
+            curl -s -o /dev/null http://127.0.0.1:8333 && break
+            sleep 1
+          done
+          curl -s -o /dev/null http://127.0.0.1:8333 # fail the job if never up
+      - uses: ./.github/actions/setup-backend
+      - name: Volume test
+        working-directory: backend
+        env:
+          SUPPORTX_AUDIT_SCALE_REPORT: ${{ runner.temp }}/audit-scale.json
+        run: uv run pytest --no-cov -q -s -m scale tests/db/test_audit_scale.py
+      - name: Timings (job summary)
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/audit-scale.json" ]; then
+            { echo '### Audit log at volume'; echo '```json'; cat "$RUNNER_TEMP/audit-scale.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi

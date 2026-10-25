@@ -64,7 +64,7 @@ hex values and never overwrites an existing one (its passwords are already insid
 
 | Secret | Keys |
 |---|---|
-| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password` |
+| `supportx-app` | `app-db-password`, `migrator-db-password`, `relay-db-password`, `session-secret`, `centrifugo-token-secret`, `centrifugo-api-key`, `oidc-console-secret`, `oidc-portal-secret`, `keycloak-admin-password`, `nats-password`, `valkey-password`, `s3-access-key`, `s3-secret-key`, `seaweedfs-s3-config` (SeaweedFS's s3.json for that key pair), `audit-signing-key` (`<key id>:<base64 Ed25519 seed>`, consumers worker only; ADR-027) |
 | `supportx-db-keycloak` (basic-auth) | `username` = `keycloak`, `password` |
 | `supportx-pg-superuser` | created by CloudNativePG; used only by the migrate Job |
 

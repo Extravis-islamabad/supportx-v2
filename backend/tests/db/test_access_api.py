@@ -162,6 +162,7 @@ async def test_roles_lifecycle_with_etags(world: World) -> None:
         "tenant_admin",
         "technician",
         "requester",
+        "auditor",
     }
 
     created = await world.create_role(

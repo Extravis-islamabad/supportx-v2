@@ -58,6 +58,8 @@ class ModuleSpec:
     # and RealtimeRoute instances (which events reach which channels, whose access they change).
     channels: Sequence[object] = ()
     realtime: Sequence[object] = ()
+    # Periodic jobs (app/shared/schedules.py ScheduleSpec), run by the consumers worker.
+    schedules: Sequence[object] = ()
     # Counted licence limits this module owns the numbers for: limit key -> counter.
     usage_counters: Mapping[str, UsageCounter] = field(default_factory=lambda: MappingProxyType({}))
 

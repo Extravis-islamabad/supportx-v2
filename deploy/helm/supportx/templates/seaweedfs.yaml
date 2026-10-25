@@ -1,0 +1,94 @@
+{{- if eq .Values.objectStorage.mode "seaweedfs" }}
+{{- $c := dict "root" . "component" "seaweedfs" -}}
+# Minimal single-node SeaweedFS (S3 API) for on-prem installs (ADR-012, D-076; WP-018). One pod
+# runs master, volume, filer and the S3 gateway; data on one volume. HA object storage, backups and
+# lifecycle rules come with WP-014b. Credentials: the app Secret's `seaweedfs-s3-config`.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: s3, port: 8333, targetPort: s3}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  serviceName: {{ include "supportx.name" $c }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000               # the image's `seaweed` user
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: seaweedfs
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.seaweedfs) }}
+          command: ["weed"]
+          args:
+            - server
+            - -dir=/data
+            - -ip.bind=0.0.0.0
+            - -s3
+            - -s3.port=8333
+            - -s3.config=/etc/seaweedfs/s3.json
+            - -master.volumeSizeLimitMB={{ .Values.objectStorage.seaweedfs.volumeSizeLimitMB }}
+          ports:
+            - {name: s3, containerPort: 8333}
+          readinessProbe:
+            tcpSocket: {port: s3}
+            periodSeconds: 5
+          livenessProbe:
+            tcpSocket: {port: s3}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.objectStorage.seaweedfs.resources | nindent 12 }}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: config, mountPath: /etc/seaweedfs, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          secret:
+            secretName: {{ .Values.secrets.app }}
+            items:
+              - {key: seaweedfs-s3-config, path: s3.json}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.objectStorage.seaweedfs.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.objectStorage.seaweedfs.storage.size }}
+{{- end }}

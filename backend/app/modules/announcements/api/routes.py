@@ -30,6 +30,7 @@ from app.modules.announcements.domain.announcement import (
 )
 from app.modules.announcements.infra.models import Announcement
 from app.modules.announcements.service import announcements as service
+from app.modules.audit import audited
 from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -453,7 +454,12 @@ async def get_settings(session: TenantSession, subject: View) -> SettingsOut:
     )
 
 
-@router.put("/settings", summary="Change announcement settings", responses=CONFLICT)
+@router.put(
+    "/settings",
+    summary="Change announcement settings",
+    responses=CONFLICT,
+    dependencies=[audited("announcement.settings_changed", object_type="announcement_settings")],
+)
 async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: SettingsIn,
     session: TenantSession,

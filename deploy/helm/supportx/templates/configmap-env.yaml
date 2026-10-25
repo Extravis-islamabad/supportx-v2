@@ -23,6 +23,15 @@ data:
   SUPPORTX_METRICS_HOST: "0.0.0.0"
   SUPPORTX_METRICS_PORT: "9464"
   SUPPORTX_ENTITLEMENT_PROVIDER: {{ .Values.app.entitlementProvider | quote }}
+  # Object storage (S3 API, D-016): the release's SeaweedFS or an external S3 (WP-018).
+  {{- if eq .Values.objectStorage.mode "seaweedfs" }}
+  SUPPORTX_OBJECT_STORAGE_ENDPOINT: {{ printf "http://%s-seaweedfs:8333" .Release.Name | quote }}
+  {{- else }}
+  SUPPORTX_OBJECT_STORAGE_ENDPOINT: {{ required "objectStorage.external.endpoint is required" .Values.objectStorage.external.endpoint | quote }}
+  {{- end }}
+  SUPPORTX_OBJECT_STORAGE_BUCKET: {{ .Values.objectStorage.bucket | quote }}
+  SUPPORTX_OBJECT_STORAGE_REGION: {{ .Values.objectStorage.region | quote }}
+  SUPPORTX_AUDIT_TRUSTED_KEYS: {{ .Values.audit.trustedKeys | quote }}
   {{- if eq .Values.app.entitlementProvider "licence_file" }}
   SUPPORTX_LICENCE_FILE: /etc/supportx/licence/licence.json
   {{- end }}

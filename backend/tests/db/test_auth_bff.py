@@ -698,6 +698,38 @@ async def test_keycloak_roles_are_mapped_only_once(bff: Bff) -> None:
     assert (await bff.me()).json()["permissions"] == []
 
 
+async def test_req_aud_002_sign_in_sign_out_and_switch_are_audited(bff: Bff) -> None:
+    """WP-018: each session event writes one audit entry in the session's tenant."""
+    a, b = bff.tenants
+    await bff.login(bff.user("a", "b", email="audited@demo.test"))
+    switched = await bff.client.post(
+        "/api/v1/auth/switch-tenant",
+        json={"tenant_id": str(b)},
+        headers={"X-CSRF-Token": await bff.csrf()},
+    )
+    assert switched.status_code == 200
+    logout = await bff.client.post(
+        "/api/v1/auth/logout", headers={"X-CSRF-Token": await bff.csrf()}
+    )
+    assert logout.status_code == 204
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        rows = await conn.fetch(
+            "SELECT e.tenant_id, e.action, e.client, e.actor_id = u.id AS by_self"
+            " FROM audit_entries e JOIN users u ON u.id = e.actor_id"
+            " WHERE u.email = $1 ORDER BY e.occurred_at",
+            "audited@demo.test",
+        )
+    finally:
+        await conn.close()
+    assert [(r["tenant_id"], r["action"]) for r in rows] == [
+        (a, "session.signed_in"),
+        (b, "session.tenant_switched"),
+        (b, "session.signed_out"),
+    ]
+    assert all(r["by_self"] and r["client"] == "console" for r in rows)
+
+
 async def test_bug_04_ui_language_is_kept_per_user_across_logins_and_devices(bff: Bff) -> None:
     """QA BUG-04: the language chosen in the UI is stored with the user, not in the browser.
 

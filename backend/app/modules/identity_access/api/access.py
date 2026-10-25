@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from app.core.authorization import Scope, require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ServiceUnavailable
+from app.modules.audit import AuditNote, ReadCategory, audit_read, audited
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.service import roles as role_service
 from app.modules.identity_access.service.policy import PolicyService
@@ -43,6 +44,8 @@ ViewRoles = Annotated[Subject, Depends(require_permission("roles.view"))]
 ManageRoles = Annotated[Subject, Depends(require_permission("roles.manage"))]
 ViewUsers = Annotated[Subject, Depends(require_permission("users.view"))]
 ManageUsers = Annotated[Subject, Depends(require_permission("users.manage"))]
+# Roles, the catalogue and a person's access are "access information" for the audit log.
+READ_ACCESS = audit_read(ReadCategory.ACCESS_INFORMATION)
 
 
 def get_policy(request: Request) -> PolicyService:
@@ -141,7 +144,7 @@ def _detail(detail: role_service.RoleDetail) -> RoleDetailOut:
     )
 
 
-@router.get("/permissions", summary="Permission catalogue")
+@router.get("/permissions", summary="Permission catalogue", dependencies=[READ_ACCESS])
 async def list_permissions(subject: ViewRoles, policy: Policy) -> list[PermissionOut]:
     """Every permission, with whether the tenant's plan includes it."""
     features = await policy.entitled_features(subject.tenant_id, None)
@@ -158,7 +161,7 @@ async def list_permissions(subject: ViewRoles, policy: Policy) -> list[Permissio
     ]
 
 
-@router.get("/roles", summary="List roles")
+@router.get("/roles", summary="List roles", dependencies=[READ_ACCESS])
 async def list_roles(session: TenantSession, subject: ViewRoles) -> list[RoleSummary]:
     """System roles first, then custom roles by name, with how many users hold each."""
     del subject
@@ -176,7 +179,13 @@ async def list_roles(session: TenantSession, subject: ViewRoles) -> list[RoleSum
     ]
 
 
-@router.get("/roles/{role_id}", summary="Get a role")
+@router.get(
+    "/roles/{role_id}",
+    summary="Get a role",
+    dependencies=[
+        audit_read(ReadCategory.ACCESS_INFORMATION, object_type="role", object_param="role_id")
+    ],
+)
 async def get_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     role_id: uuid.UUID,
     request: Request,
@@ -202,14 +211,16 @@ async def get_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     response_model=RoleDetailOut,
     responses={201: {"model": RoleDetailOut, "description": "Created (or replayed)."}},
 )
-async def create_role(
+async def create_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     body: RoleCreate,
     session: TenantSession,
     subject: ManageRoles,
     policy: Policy,
     idempotency: Idempotency,
+    note: Annotated[AuditNote, audited("role.created", object_type="role")],
 ) -> Response:
     """Create a role (Idempotency-Key supported). No permission beyond your own (unless admin)."""
+    note.skip = True  # a replayed create changes nothing; the operation below un-skips
 
     async def operation() -> Created:
         detail = await role_service.create_role(
@@ -222,6 +233,9 @@ async def create_role(
             resources=dict(policy.resources),
         )
         out = _detail(detail)
+        note.skip = False
+        note.object_id = str(out.id)
+        note.details = {"grants_added": _grant_codes(detail.grants)}
         return Created(out, {"ETag": f'"{out.version}"', "Location": f"/api/v1/roles/{out.id}"})
 
     return await idempotency.run(body, operation)
@@ -236,8 +250,13 @@ async def update_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: ManageRoles,
     policy: Policy,
+    note: Annotated[AuditNote, audited("role.updated", object_type="role", object_param="role_id")],
 ) -> RoleDetailOut:
     """Edit name, description and/or the permission matrix (If-Match). System roles: 403."""
+    before = await role_service.get_role(session, policy.catalogue, role_id)
+    # Copied now: the update changes the same ORM object.
+    old_version, old_name = before.role.version, before.role.name
+    old = set(_grant_codes(before.grants))
     detail = await role_service.update_role(
         session,
         policy,
@@ -249,6 +268,13 @@ async def update_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         grants=None if body.permissions is None else _grants(body.permissions),
         resources=dict(policy.resources),
     )
+    new = set(_grant_codes(detail.grants))
+    note.details = {
+        "grants_added": sorted(new - old),
+        "grants_removed": sorted(old - new),
+        "renamed": old_name != detail.role.name,
+    }
+    note.skip = detail.role.version == old_version
     set_etag(response, detail.role.version)
     return _detail(detail)
 
@@ -262,6 +288,7 @@ async def delete_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     session: TenantSession,
     subject: ManageRoles,
     policy: Policy,
+    note: Annotated[AuditNote, audited("role.deleted", object_type="role", object_param="role_id")],
     reassign_to: Annotated[
         uuid.UUID | None,
         Query(description="Required when users hold the role: they move to this role."),
@@ -277,10 +304,17 @@ async def delete_role(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         reassign_to=reassign_to,
         resources=dict(policy.resources),
     )
+    note.details = {"reassigned_to": str(reassign_to) if reassign_to else None}
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/users/{user_id}/access", summary="Roles, sites and groups of a user")
+@router.get(
+    "/users/{user_id}/access",
+    summary="Roles, sites and groups of a user",
+    dependencies=[
+        audit_read(ReadCategory.ACCESS_INFORMATION, object_type="user", object_param="user_id")
+    ],
+)
 async def get_user_access(
     user_id: uuid.UUID, session: TenantSession, subject: ViewUsers
 ) -> UserAccessOut:
@@ -300,6 +334,14 @@ async def get_user_access(
     "/users/{user_id}/roles/{role_id}",
     summary="Assign a role",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "user.role_assigned",
+            object_type="user",
+            object_param="user_id",
+            detail_params=("role_id",),
+        )
+    ],
 )
 async def assign_role(
     user_id: uuid.UUID,
@@ -317,6 +359,14 @@ async def assign_role(
     "/users/{user_id}/roles/{role_id}",
     summary="Remove a role",
     status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited(
+            "user.role_removed",
+            object_type="user",
+            object_param="user_id",
+            detail_params=("role_id",),
+        )
+    ],
 )
 async def remove_role(
     user_id: uuid.UUID,
@@ -328,3 +378,8 @@ async def remove_role(
     """Idempotent. The last tenant admin cannot lose the role (409 last_tenant_admin)."""
     await role_service.remove_role(session, policy, subject, user_id, role_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _grant_codes(grants: list[role_service.PermissionGrant]) -> list[str]:
+    """`permission:scope` codes for the audit entry (codes only, never names)."""
+    return sorted(f"{grant.permission}:{grant.scope}" for grant in grants)
