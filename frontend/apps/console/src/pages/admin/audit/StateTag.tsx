@@ -30,13 +30,13 @@ export function StateTag({
   );
 }
 
-/** A link in the brand's text colour (readable on light and dark backgrounds). */
+/** A link in the brand's text colour, underlined: it sits inside text (WCAG 1.4.1, axe). */
 export function OpenLink({ to, children }: { to: string; children: ReactNode }) {
   const { token } = theme.useToken();
   return (
     <Link
       to={to}
-      style={{ color: token.colorPrimaryText }}
+      style={{ color: token.colorPrimaryText, textDecoration: 'underline' }}
       onClick={(event) => {
         event.stopPropagation();
       }}
