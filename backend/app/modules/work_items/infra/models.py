@@ -433,6 +433,12 @@ class WorkItem(TenantEntity):
             postgresql_where=text("group_id IS NULL AND technician_id IS NULL"),
         ),
         Index("ix_wi_tags", "tags", postgresql_using="gin"),
+        Index(
+            "ix_wi_custom",
+            "custom",
+            postgresql_using="gin",
+            postgresql_ops={"custom": "jsonb_path_ops"},
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20))
@@ -455,6 +461,11 @@ class WorkItem(TenantEntity):
     # Support level, a code of the `level` pick list (REQ-INC-007); retired codes stay readable.
     level: Mapped[str | None] = mapped_column(String(40))
     template_id: Mapped[uuid.UUID | None]
+    # Custom field values by key (WP-026, metadata module); typed JSON, GIN-indexed.
+    custom: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    # Their free text (text, long text, email, phone, web address), kept on every save for
+    # search: a generated column cannot tell free text from choice codes (D-087).
+    custom_text: Mapped[str | None] = mapped_column(Text)
     priority_source: Mapped[str] = mapped_column(String(10))
     status: Mapped[str] = mapped_column(String(40))
     status_category: Mapped[str] = mapped_column(String(10))

@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard dev-subscription e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -73,6 +73,9 @@ db-current: ## Show the database's current migration
 
 db-seed: ## Create the dev tenants and their plans if missing (idempotent, never deletes or updates)
 	$(BACKEND) uv run python -m tooling.seed_dev
+
+custom-field-indexes: ## Build the custom field indexes admins asked for (CONCURRENTLY; D-087)
+	$(BACKEND) uv run python -m tooling.custom_field_indexes
 
 db-guard: ## Check every table's tenant isolation (RLS) in the dev database
 	$(BACKEND) uv run python -m tooling.rls_guard

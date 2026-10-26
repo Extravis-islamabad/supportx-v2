@@ -22,12 +22,14 @@ import { useNavigate } from 'react-router';
 import {
   ApiError,
   useCreateIncident,
+  useCustomFields,
   useIncidentCatalogue,
   useIncidentCategories,
   useIncidentTemplates,
   useSession,
   useSetFormDensity,
   useUnits,
+  type CustomField,
   type FormDensity,
   type IncidentCatalogue,
   type IncidentCategory,
@@ -45,6 +47,8 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { CustomFormField } from '../customFields/fields';
+import { fieldName } from '../customFields/values';
 import { HandOverWarning } from './assign';
 import { CategoryCascade } from './CategoryCascade';
 import {
@@ -163,6 +167,7 @@ export function NewIncidentPage() {
   const catalogue = useIncidentCatalogue();
   const categories = useIncidentCategories();
   const templates = useIncidentTemplates();
+  const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
   const [key, setKey] = useState(() => crypto.randomUUID());
@@ -194,7 +199,20 @@ export function NewIncidentPage() {
   const preview = previewPriority(catalogue.data, impact, urgency);
   const canAssign = can('incidents.assign');
   const canPriority = can('incidents.change_priority');
-  const fieldLabel = (name: string) => t(`work_item.field.${name}`);
+  // Custom fields (WP-026): shown unless the template hides them; required by the template or
+  // by the field itself; retired ones are never offered on a new incident.
+  const offeredCustom = (customFields.data ?? []).filter((f) => !f.retired);
+  const byKey = new Map((customFields.data ?? []).map((f) => [f.key, f]));
+  const customRule = (key: string) => template?.custom_fields[key];
+  const customShown = (f: CustomField) => customRule(f.key)?.shown ?? true;
+  const customRequired = (f: CustomField) =>
+    (customRule(f.key)?.required ?? false) || f.validation.required;
+  const shownCustom = offeredCustom.filter(customShown);
+  const fieldLabel = (name: string) => {
+    if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
+    const found = byKey.get(name.slice('custom.'.length));
+    return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
+  };
 
   // What the current template filled in: a field still holding that value was not typed by
   // the user, so another template may replace it; anything else is the user's and stays.
@@ -210,6 +228,7 @@ export function NewIncidentPage() {
   ) => {
     const start = startOf(next, catalogue.data, categories.data ?? []);
     for (const name of clear) {
+      if (name.startsWith('custom.')) continue; // applyCustom clears those
       form.setValue(name as keyof Values, EMPTY[name as keyof Values]);
     }
     for (const [name, value] of Object.entries(start.values)) {
@@ -219,11 +238,30 @@ export function NewIncidentPage() {
         form.setValue(field, value);
       }
     }
+    applyCustom(next, clear);
     started.current = start.values;
     // A new template brings new rules: its own check runs on save. Loading the first one never
     // wipes a message the user is already looking at.
     if (switched) form.clearErrors();
     setDropped(start.dropped);
+  };
+  // Custom fields start from the template's value, else the field's default. A value the user
+  // typed stays, as for the other fields.
+  const startedCustom = useRef<Record<string, unknown>>({});
+  const applyCustom = (next: IncidentTemplate | undefined, clear: readonly string[] = []) => {
+    const defaults = (next?.defaults ?? {}) as Record<string, unknown>;
+    const values = { ...form.getValues('custom') };
+    const starts: Record<string, unknown> = {};
+    for (const f of offeredCustom) {
+      const start = defaults[`custom.${f.key}`] ?? f.default ?? null;
+      starts[f.key] = start;
+      const before = startedCustom.current[f.key] ?? null;
+      const untouched = JSON.stringify(values[f.key] ?? null) === JSON.stringify(before);
+      if (clear.includes(`custom.${f.key}`)) values[f.key] = null;
+      if (untouched || clear.includes(`custom.${f.key}`)) values[f.key] = start;
+    }
+    startedCustom.current = starts;
+    form.setValue('custom', values);
   };
   // First load: apply the default template once the template, catalogue and tree are known.
   const applied = useRef<string | null>(null);
@@ -236,6 +274,11 @@ export function NewIncidentPage() {
     apply(template, [], switched);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the template changes only
   }, [ready, template?.id]);
+  // Fields added or changed by an admin while the form is open (live): start values follow.
+  useEffect(() => {
+    if (customFields.data !== undefined && applied.current !== null) applyCustom(template);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the field list is the trigger
+  }, [customFields.data]);
 
   if (!can('incidents.create')) return <NoAccess titleKey="nav.incidents" />;
 
@@ -244,10 +287,18 @@ export function NewIncidentPage() {
     if (next === undefined || next.id === template?.id) return;
     // Filled-in fields the new template does not show would be lost: ask first.
     const values = form.getValues();
-    const lost = TEMPLATE_FIELDS.filter(
+    const lost: string[] = TEMPLATE_FIELDS.filter(
       (name) =>
         next.fields[name]?.shown === false && typed(name, values[name]) && hasValue(values[name]),
     );
+    for (const f of shownCustom) {
+      const value = values.custom[f.key];
+      const typedCustom =
+        JSON.stringify(value ?? null) !== JSON.stringify(startedCustom.current[f.key] ?? null);
+      if (next.custom_fields[f.key]?.shown === false && typedCustom && hasValue(value)) {
+        lost.push(`custom.${f.key}`);
+      }
+    }
     if (lost.length > 0) {
       setSwitching({ next, lost });
       return;
@@ -264,10 +315,16 @@ export function NewIncidentPage() {
     ...TEMPLATE_FIELDS.filter(
       (name) => shown(name) && (canAssign || (name !== 'group_id' && name !== 'technician_id')),
     ),
+    ...shownCustom.map((f) => `custom.${f.key}`),
   ]);
   const send = (values: Values, confirm: boolean, keepFollowing?: boolean) => {
     const body = {
-      ...bodyOf(values, confirm, template?.id ?? null),
+      ...bodyOf(
+        values,
+        confirm,
+        template?.id ?? null,
+        shownCustom.map((f) => f.key),
+      ),
       keep_following: keepFollowing ?? null,
     };
     const variant = keepFollowing === undefined ? '' : `-${String(keepFollowing)}`;
@@ -302,7 +359,9 @@ export function NewIncidentPage() {
             return;
           }
           setKey(crypto.randomUUID()); // corrected input is a new request
-          const visible = FIELDS.filter((name) => rendered.has(name));
+          const visible = [...FIELDS, ...shownCustom.map((f) => `custom.${f.key}` as const)].filter(
+            (name) => rendered.has(name),
+          );
           const unseen =
             error instanceof ApiError &&
             error.fieldErrors.some((e) => !rendered.has(e.field.replace(/^body\./, '')));
@@ -319,7 +378,13 @@ export function NewIncidentPage() {
       (name) => required(name) && rendered.has(name) && !hasValue(values[name]),
     );
     for (const name of missing) form.setError(name, { message: 'errors.field.required' });
-    return missing;
+    const missingCustom = shownCustom.filter(
+      (f) => customRequired(f) && !hasValue(values.custom[f.key]),
+    );
+    for (const f of missingCustom) {
+      form.setError(`custom.${f.key}`, { message: 'errors.field.required' });
+    }
+    return [...missing, ...missingCustom.map((f) => `custom.${f.key}`)];
   };
   const save = () =>
     form.handleSubmit(
@@ -335,7 +400,10 @@ export function NewIncidentPage() {
   const compact = density === 'compact';
   const groupName =
     groups.data?.find((g) => g.id === handover?.group_id)?.name ?? t('incidents.no_group');
-  const hidden = TEMPLATE_FIELDS.filter((name) => !shown(name));
+  const hidden: string[] = [
+    ...TEMPLATE_FIELDS.filter((name) => !shown(name)),
+    ...offeredCustom.filter((f) => !customShown(f)).map((f) => `custom.${f.key}`),
+  ];
   const span = (name: string, comfortable: number) =>
     FULL_WIDTH.has(name) ? 24 : compact ? 12 : comfortable;
 
@@ -809,6 +877,11 @@ export function NewIncidentPage() {
                 )}
               />,
             )}
+            {shownCustom.map((f) => (
+              <Col key={f.key} xs={24} md={f.field_type === 'long_text' ? 24 : 12}>
+                <CustomFormField control={control} field={f} required={customRequired(f)} />
+              </Col>
+            ))}
           </Row>
           <Space wrap>
             <WriteButton

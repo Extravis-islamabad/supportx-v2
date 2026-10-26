@@ -24,8 +24,8 @@ import hmac
 import json
 import secrets
 import uuid
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, tzinfo
 from typing import Annotated, Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -36,11 +36,13 @@ from sqlalchemy import ColumnElement, Select, and_, false, func, or_, select, tr
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.database import TenantSession
 from app.core.errors import BadRequest, FieldError, ParamValue, ValidationFailed
 from app.core.tenancy import TenantContext, resolve_tenant
 from app.shared.api.filters import (
     DEFAULT_LIMITS,
     FieldType,
+    FilterField,
     ResourceFields,
     compile_filter,
     compile_simple,
@@ -344,17 +346,27 @@ class PageResult[RowT]:
     estimated_total: int | None
 
 
-def list_query(resource: ResourceFields, *, extra_parameters: frozenset[str] = frozenset()) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
+FieldsFor = Callable[[AsyncSession], Awaitable[Mapping[str, FilterField]]]
+
+
+def list_query(
+    resource: ResourceFields,
+    *,
+    extra_parameters: frozenset[str] = frozenset(),
+    fields_for: FieldsFor | None = None,
+) -> Any:  # noqa: ANN401 - returns a FastAPI dependency
     """FastAPI dependency: `query: Annotated[ListQuery, Depends(list_query(RESOURCE))]`.
 
     `extra_parameters` are query parameters the endpoint reads itself (e.g. `view`): they are
     not simple filters, but they are part of the cursor's fingerprint, so a cursor of one view
-    cannot be replayed on another.
+    cannot be replayed on another. `fields_for` adds the tenant's own fields to the allowlist
+    for this request (WP-026: custom fields as `custom.<key>`), read in the request's session.
     """
 
     async def dependency(  # noqa: PLR0913, PLR0917 - FastAPI reads parameters from the signature
         request: Request,
         tenant: Annotated[TenantContext, Depends(resolve_tenant)],
+        session: TenantSession,
         codec: Annotated[CursorCodec, Depends(get_cursor_codec)],
         filter_: Annotated[
             str | None,
@@ -372,6 +384,9 @@ def list_query(resource: ResourceFields, *, extra_parameters: frozenset[str] = f
         include_total: Annotated[bool, Query(description="Also count matches (capped).")] = False,  # noqa: FBT002 - query flag
     ) -> ListQuery:
         settings: Settings = request.app.state.settings
+        allowed = resource
+        if fields_for is not None:
+            allowed = replace(resource, fields={**resource.fields, **await fields_for(session)})
         size = settings.page_size_default if limit is None else limit
         if not 1 <= size <= settings.page_size_max:
             raise _invalid(
@@ -391,10 +406,10 @@ def list_query(resource: ResourceFields, *, extra_parameters: frozenset[str] = f
         now = datetime.now(request_zone(request))
         tree = parse_filter_json(filter_) if filter_ is not None else None
         where = and_(
-            compile_simple(simple, resource),
-            compile_filter(tree, resource, now=now) if tree is not None else true(),
+            compile_simple(simple, allowed),
+            compile_filter(tree, allowed, now=now) if tree is not None else true(),
         )
-        keys = parse_sort(sort, resource)
+        keys = parse_sort(sort, allowed)
         fingerprint = hashlib.sha256(
             json.dumps(
                 [tree, sorted(simple.items()), sorted(own.items())]
@@ -412,7 +427,7 @@ def list_query(resource: ResourceFields, *, extra_parameters: frozenset[str] = f
             filter_fingerprint=fingerprint,
         )
         after = codec.decode(cursor, scope, keys) if cursor else None
-        return ListQuery(resource, where, keys, size, after, include_total, scope, codec)
+        return ListQuery(allowed, where, keys, size, after, include_total, scope, codec)
 
     return dependency
 

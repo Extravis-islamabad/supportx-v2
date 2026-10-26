@@ -32,6 +32,8 @@ export const schema = z
     priority: z.string().nullable(), // null: from the matrix
     priority_reason: z.string().max(500, 'errors.field.value_too_long'),
     tags: z.array(z.string()),
+    // Custom field values by key (WP-026); checked by the server, required ones by the page.
+    custom: z.record(z.string(), z.unknown()),
   })
   .refine((v) => v.priority === null || v.priority_reason.trim() !== '', {
     path: ['priority_reason'],
@@ -74,6 +76,7 @@ export const EMPTY: Values = {
   priority: null,
   priority_reason: '',
   tags: [],
+  custom: {},
 };
 
 /** The priority the server will compute (REQ-INC-009 AC2), shown live while typing. */
@@ -94,6 +97,7 @@ export function bodyOf(
   values: Values,
   confirmLoseAccess = false,
   templateId: string | null = null,
+  customKeys: readonly string[] = [],
 ): IncidentInput {
   const body: Record<string, unknown> = {
     subject: values.subject.trim(),
@@ -120,6 +124,15 @@ export function bodyOf(
   if (values.priority !== null) {
     body.priority = values.priority;
     body.priority_reason = values.priority_reason.trim();
+  }
+  // Every custom field on screen, empty ones as null: an emptied default stays empty.
+  if (customKeys.length > 0) {
+    body.custom = Object.fromEntries(
+      customKeys.map((key) => {
+        const value = values.custom[key];
+        return [key, hasValue(value) ? value : null];
+      }),
+    );
   }
   return body as unknown as IncidentInput;
 }

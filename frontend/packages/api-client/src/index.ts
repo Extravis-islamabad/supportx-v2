@@ -183,6 +183,19 @@ export {
   type TemplateField,
 } from './incidentSettings';
 export {
+  useCustomFieldChange,
+  useCustomFields,
+  type CustomField,
+  type CustomFieldChange,
+  type CustomFieldChoice,
+  type CustomFieldEntity,
+  type CustomFieldIndexState,
+  type CustomFieldInput,
+  type CustomFieldPatch,
+  type CustomFieldType,
+  type CustomFieldValidation,
+} from './customFields';
+export {
   fetchMentionable,
   sendTyping,
   useAddConversationEntry,

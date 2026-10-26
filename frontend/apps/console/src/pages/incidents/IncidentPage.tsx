@@ -31,9 +31,11 @@ import {
   useIncidentTemplates,
   useSession,
   useUnits,
+  useCustomFields,
   useUpdateIncident,
   type Incident,
   type IncidentActionState,
+  type CustomField,
 } from '@supportx/api-client';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
@@ -50,6 +52,8 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
+import { fieldName } from '../customFields/values';
 import { AssignDialog, TakeButton } from './assign';
 import { OperationButton } from './operations';
 import { IncidentConversation, type Typing } from './IncidentConversation';
@@ -397,6 +401,7 @@ function Details({
   const categories = useIncidentCategories();
   const catalogue = useIncidentCatalogue();
   const templates = useIncidentTemplates();
+  const customFields = useCustomFields('incident');
   const sites = useUnits('sites');
   const scale = (name: 'impact' | 'urgency', code: string) =>
     scaleLabel(t, catalogue.data, name, code, locale);
@@ -513,6 +518,27 @@ function Details({
       view: item.tags.join(', '),
       edit: { kind: 'tags', value: item.tags },
     },
+    // Custom fields (WP-026): the ones the template shows, and any other holding a value
+    // (retired ones read-only, marked).
+    ...(customFields.data ?? [])
+      .filter((f) => {
+        const value = item.custom[f.key];
+        const held = value !== null && value !== undefined;
+        return held || (!f.retired && (template?.custom_fields[f.key]?.shown ?? true));
+      })
+      .map((f) => {
+        const label = fieldName(f, locale);
+        const value = item.custom[f.key] ?? null;
+        const current = typeof value === 'string' ? person(value) : null;
+        return {
+          key: `custom.${f.key}`,
+          label: f.retired ? t('categories.retired_value', { name: label }) : label,
+          view: <CustomFieldValue field={f} value={value} people={item.people} />,
+          edit: f.retired
+            ? undefined
+            : ({ kind: 'custom', value, field: f, current } satisfies EditorSpec),
+        };
+      }),
     {
       key: 'template_id',
       label: t('work_item.field.template_id'),
@@ -602,7 +628,13 @@ type EditorSpec =
   | { kind: 'category'; value: string | null }
   | { kind: 'choice'; value: string | null; options: { value: string; label: string }[] }
   | { kind: 'priority'; value: string }
-  | { kind: 'tags'; value: string[] };
+  | { kind: 'tags'; value: string[] }
+  | {
+      kind: 'custom';
+      value: unknown;
+      field: CustomField;
+      current: { id: string; name: string; email: string } | null;
+    };
 
 /** One property in place: view, pencil, then the control with save / cancel (and its errors). */
 function InlineEdit({
@@ -626,6 +658,7 @@ function InlineEdit({
   const { message } = App.useApp();
   const update = useUpdateIncident(item.id);
   const catalogue = useIncidentCatalogue();
+  const customFields = useCustomFields('incident', true);
   const { locale } = useAppearance();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState<unknown>(spec.value);
@@ -643,7 +676,9 @@ function InlineEdit({
         ? value === 'matrix'
           ? { priority: null }
           : { priority: value, priority_reason: reason }
-        : { [field]: value };
+        : spec.kind === 'custom'
+          ? { custom: { [spec.field.key]: value } }
+          : { [field]: value };
     update.mutate(
       { changes: changes, version },
       {
@@ -807,6 +842,20 @@ function InlineEdit({
             )}
           </Space>
         );
+      case 'custom':
+        return (
+          <CustomFieldControl
+            id={id}
+            field={spec.field}
+            value={value}
+            saved={spec.value}
+            current={spec.current}
+            onChange={setValue}
+            testId={`inc-input-${field}`}
+            ariaLabel={label}
+            autoFocus
+          />
+        );
       case 'tags':
         return (
           <TagsInput
@@ -852,7 +901,11 @@ function InlineEdit({
       <ConflictDialog
         open={conflict !== null}
         error={conflict}
-        fieldLabel={(name) => t(`work_item.field.${name}`)}
+        fieldLabel={(name) => {
+          if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
+          const found = customFields.data?.find((f) => `custom.${f.key}` === name);
+          return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
+        }}
         onReload={() => {
           setConflict(null);
           void reload().then(close);

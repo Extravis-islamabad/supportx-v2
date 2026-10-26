@@ -27,6 +27,7 @@ from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.modules import metadata
 from app.modules.identity_access import (
     Subject,
     authorize_stored,
@@ -57,7 +58,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
-from app.modules.work_items.domain.templates import PickList, clean_impact_details
+from app.modules.work_items.domain.templates import PickList, clean_impact_details, is_custom
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     Channel,
@@ -307,7 +308,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             record.updated_by,
         )
         if u is not None
-    ]
+    ] + [v for v in (record.custom or {}).values() if _is_uuid(v)]  # custom person fields
     conversation = [
         ActionState(name, allowed=(refused := await reason(name)) is None, reason=refused)
         for name in CONVERSATION_ACTIONS
@@ -570,9 +571,9 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         value
         for e in entries
         for c in e.changes
-        if c.field in PERSON_FIELDS
+        if c.field in PERSON_FIELDS or is_custom(c.field)
         for value in (c.old, c.new)
-        if isinstance(value, str)
+        if isinstance(value, str) and (c.field in PERSON_FIELDS or _is_uuid(value))
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
 
@@ -813,7 +814,58 @@ SNAPSHOT_FIELDS = (
 
 
 def _snapshot(record: WorkItem, names: Sequence[str] = SNAPSHOT_FIELDS) -> dict[str, Any]:
-    return {name: _json(getattr(record, name)) for name in names}
+    snapshot = {name: _json(getattr(record, name)) for name in names}
+    if names is SNAPSHOT_FIELDS:
+        # Custom fields as `custom.<key>`: history and events name each one (WP-026).
+        snapshot |= {f"custom.{key}": value for key, value in (record.custom or {}).items()}
+    return snapshot
+
+
+async def _custom_text(
+    session: AsyncSession, wtype: WorkItemType, custom: Mapping[str, Any]
+) -> str | None:
+    """Free text of the custom values, kept on the record for search (WP-026, WP-027)."""
+    if not custom:
+        return None
+    return await metadata.text_for_search(session, wtype.code.value, custom)
+
+
+def _is_uuid(value: Any) -> bool:  # noqa: ANN401 - a JSON value
+    """A custom value naming a person (only person fields hold UUIDs)."""
+    if not isinstance(value, str):
+        return False
+    try:
+        uuid.UUID(value)
+    except ValueError:
+        return False
+    return True
+
+
+def _flat(custom: Mapping[str, Any]) -> dict[str, Any]:
+    return {f"custom.{key}": value for key, value in custom.items()}
+
+
+async def _custom_in(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    values: Mapping[str, Any],
+    *,
+    current: Mapping[str, Any] | None,
+    creating: bool,
+) -> tuple[dict[str, Any] | None, list[tuple[str, str]]]:
+    """The record's custom values after this write (None: unchanged), and problems (WP-026)."""
+    if "custom" not in values and not creating:
+        return None, []
+    sent = values.get("custom") or {}
+    if not isinstance(sent, Mapping):
+        return None, [("custom", "invalid_value")]
+    if wtype.code.value not in set(metadata.CustomFieldEntity):
+        return (None, [("custom", "not_allowed")]) if sent else (None, [])
+    cleaned, problems = await metadata.clean(
+        session, wtype.code.value, sent, current=current, creating=creating, defaults=creating
+    )
+    merged = {**(current or {}), **cleaned}
+    return {k: v for k, v in merged.items() if v is not None}, problems
 
 
 def _audience(record: WorkItem) -> Audience:
@@ -1034,8 +1086,12 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
         raise PermissionDenied(
             params={"permission": wtype.permission("assign"), "reason": NO_PERMISSION}
         )
+    custom, custom_problems = await _custom_in(session, wtype, values, current=None, creating=True)
+    problems += custom_problems
     template = await templates.for_create(session, wtype, values.get("template_id"))
-    problems += templates.required_problems(template, {**values, **cleaned})
+    problems += await templates.required_problems(
+        session, wtype, template, {**values, **cleaned, **_flat(custom or {})}
+    )
     problems += _check_level(cat, cleaned.get("level"), current=None)
     if problems:
         raise _errors(problems)
@@ -1082,6 +1138,8 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
         priority_source=priority_source,
         level=cleaned.get("level"),
         template_id=template.id,
+        custom=custom or {},
+        custom_text=await _custom_text(session, wtype, custom or {}),
         status=initial,
         status_category=cat.lifecycle.category(initial),
         status_changed_at=now,
@@ -1092,6 +1150,8 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
         reassignment_count=0,
     )
     await WorkItemRepository(session).add(record)
+    if custom:
+        await metadata.mark_used(session, wtype.code.value, list(custom))
     reach = await _keep_in_reach(
         session,
         subject,
@@ -1189,15 +1249,28 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "level" in cleaned:
         problems += _check_level(cat, cleaned["level"], current=record.level)
+    custom, custom_problems = await _custom_in(
+        session, wtype, values, current=record.custom or {}, creating=False
+    )
+    problems += custom_problems
+    emptied = {
+        f"custom.{k}": None for k in (record.custom or {}) if custom is not None and k not in custom
+    }
     problems += await templates.emptied_required(
         session,
         record.template_id,
-        {name: getattr(record, name) for name in cleaned},
-        cleaned,
+        {
+            **{name: getattr(record, name) for name in cleaned},
+            **_flat(record.custom or {}),
+        },
+        {**cleaned, **(_flat(custom) if custom is not None else {}), **emptied},
     )
     if problems:
         raise _errors(problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
+    if custom is not None and custom != (record.custom or {}):
+        columns["custom"] = custom
+        columns["custom_text"] = await _custom_text(session, wtype, custom)
     impact = columns.get("impact", record.impact)
     urgency = columns.get("urgency", record.urgency)
     recomputed = False
@@ -1218,6 +1291,8 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     before = _snapshot(record)
     audience_before = _audience(record)
     updated = await _update(session, record, expected_version, columns)
+    if "custom" in columns:
+        await metadata.mark_used(session, wtype.code.value, list(columns["custom"]))
     reach = await _keep_in_reach(
         session,
         subject,
@@ -1228,6 +1303,9 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     )
     handed_over = reach == LOST
     after = _snapshot(updated)
+    # A custom value removed is in `before` only: name it with an empty new value.
+    after |= {name: None for name in before if name not in after}
+    before |= {name: None for name in after if name not in before}
     automatic = {"priority", "priority_source"} if recomputed else set()
     people = [
         Change(n, before[n], v) for n, v in after.items() if before[n] != v and n not in automatic

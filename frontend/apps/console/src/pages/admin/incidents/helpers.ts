@@ -123,13 +123,18 @@ export function shippedKey(list: PickList, code: string): string {
 }
 
 /** Problems of a template save, each named by its field ("Category: ..."). */
-export function templateProblems(t: ReturnType<typeof useLabel>, error: unknown): string[] {
+export function templateProblems(
+  t: ReturnType<typeof useLabel>,
+  error: unknown,
+  // Names fields the labels package does not know (custom fields, WP-026).
+  nameOf: (field: string) => string = (field) => t(`work_item.field.${field}`),
+): string[] {
   if (!(error instanceof ApiError) || error.status !== 422) return [];
   return error.fieldErrors.map((f) => {
     const message = t(f.message_key, f.params ?? {});
-    const match = /^body\.(fields|defaults)\.([a-z_]+)$/.exec(f.field);
+    const match = /^body\.(fields|defaults)\.([a-z_.]+)$/.exec(f.field);
     if (match === null) return message;
-    const field = t(`work_item.field.${match[2] ?? ''}`);
+    const field = nameOf(match[2] ?? '');
     return t(match[1] === 'defaults' ? 'templates.problem_default' : 'templates.problem_field', {
       field,
       message,

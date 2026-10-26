@@ -134,11 +134,28 @@ def default_rules() -> dict[str, FieldRule]:
     return rules
 
 
+CUSTOM_PREFIX = "custom."
+_CUSTOM = re.compile(r"^custom\.[a-z][a-z0-9_]{1,39}$")
+
+
+def is_custom(name: str) -> bool:
+    """A custom field's name in templates: `custom.<key>` (WP-026)."""
+    return _CUSTOM.fullmatch(name) is not None
+
+
+def _fixed(name: str) -> bool:
+    return name in set(TemplateField) and TemplateField(name) in FIXED_FIELDS
+
+
 def rules_from_json(raw: Mapping[str, Any] | None) -> dict[str, FieldRule]:
-    """Stored rules with any field the stored copy lacks filled from the defaults."""
+    """Stored rules with any field the stored copy lacks filled from the defaults.
+
+    Custom fields (`custom.<key>`) appear only when the template has a rule for them; a custom
+    field without one is shown and optional, like a new built-in field.
+    """
     rules = default_rules()
     for name, value in (raw or {}).items():
-        if name in rules and isinstance(value, Mapping):
+        if (name in rules or is_custom(name)) and isinstance(value, Mapping):
             rules[name] = FieldRule(
                 shown=bool(value.get("shown", True)),
                 required=bool(value.get("required", False)),
@@ -171,14 +188,12 @@ def rule_problems(
     """(field path, problem code) for rules that can never work (REQ-WI-009 AC4)."""
     problems: list[tuple[str, str]] = []
     for name, rule in rules.items():
-        if name not in set(TemplateField):
+        if name not in set(TemplateField) and not is_custom(name):
             problems.append((f"fields.{name}", "unknown_field"))
             continue
-        if TemplateField(name) in FIXED_FIELDS and not (rule.shown and rule.required):
+        if _fixed(name) and not (rule.shown and rule.required):
             problems.append((f"fields.{name}", "field_always_required"))
-        elif TemplateField(name) in FIXED_FIELDS and not (
-            rule.requester_can_see and rule.requester_can_fill
-        ):
+        elif _fixed(name) and not (rule.requester_can_see and rule.requester_can_fill):
             # A requester could never log anything from the portal without them (D-086).
             problems.append((f"fields.{name}", "requester_always_needed"))
         if rule.required and not rule.shown and _empty(defaults.get(name)):
@@ -187,13 +202,14 @@ def rule_problems(
         if (
             rule.requester_can_fill
             and not rule.requester_can_see
-            and TemplateField(name) not in FIXED_FIELDS  # those say "always needed" instead
+            and not _fixed(name)  # those say "always needed" instead
         ):
             problems.append((f"fields.{name}", "fill_needs_see"))
     problems.extend(
         (f"defaults.{name}", "no_default_allowed")
         for name in defaults
-        if name not in set(TemplateField) or TemplateField(name) not in DEFAULTABLE
+        if not is_custom(name)
+        and (name not in set(TemplateField) or TemplateField(name) not in DEFAULTABLE)
     )
     return problems
 
@@ -205,7 +221,7 @@ def missing_required(
     return [
         (name, "required")
         for name, rule in rules.items()
-        if rule.required and TemplateField(name) not in FIXED_FIELDS and _empty(values.get(name))
+        if rule.required and not _fixed(name) and _empty(values.get(name))
     ]
 
 

@@ -54,6 +54,11 @@ export function ConsoleLayout() {
   // reloads its pick lists, labels and templates; nothing waits for a page refresh (§8).
   const queryClient = useQueryClient();
   useTenantChannel((event) => {
+    // Custom fields changed (WP-026): forms, records, lists and filters reload them.
+    if (event.type === 'metadata.custom_fields_changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.customFields.all });
+      return;
+    }
     if (event.type !== 'work_items.settings_changed') return;
     for (const key of [
       queryKeys.incidents.catalogue,

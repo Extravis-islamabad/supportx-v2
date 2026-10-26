@@ -5,6 +5,7 @@ import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
 import { NoAccess, useAccess, useLabel } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
+import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
 import { PickListEditor } from './PickListEditor';
 import { PriorityTab } from './PriorityTab';
@@ -15,6 +16,7 @@ import { TemplatesTab } from './TemplatesTab';
 const SECTIONS = [
   'general',
   'templates',
+  'custom-fields',
   'statuses',
   'reasons',
   'priority',
@@ -60,6 +62,8 @@ export function IncidentSettingsPage() {
         return <GeneralTab catalogue={cat} />;
       case 'templates':
         return <TemplatesTab />;
+      case 'custom-fields':
+        return <CustomFieldsTab />;
       case 'statuses':
         return <StatusesTab catalogue={cat} />;
       case 'reasons':

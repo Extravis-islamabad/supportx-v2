@@ -1,6 +1,8 @@
 export {
+  DateField,
   DateTimeField,
   DateTimeRangeField,
+  type DateFieldProps,
   type DateTimeFieldProps,
   type DateTimeRangeFieldProps,
 } from './DateTimeField';

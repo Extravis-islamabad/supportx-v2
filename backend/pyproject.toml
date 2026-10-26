@@ -157,6 +157,12 @@ containers = ["app.modules.audit"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "metadata layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.metadata"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 # CLAUDE.md rule b / architecture.md §6.5: request code writes events to the outbox and never
 # publishes to NATS itself. Only workers/ (relay, consumers) may use the NATS client. The single
 # exception is the system module's readiness probes, which open a connection to ping NATS and

@@ -2263,6 +2263,15 @@
         "title": "CheckStatus",
         "type": "string"
       },
+      "ChoiceDisplay": {
+        "description": "How a single choice is shown on forms.",
+        "enum": [
+          "list",
+          "radio"
+        ],
+        "title": "ChoiceDisplay",
+        "type": "string"
+      },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
         "properties": {
@@ -2520,6 +2529,444 @@
           "capped"
         ],
         "title": "CounterOut",
+        "type": "object"
+      },
+      "CustomFieldChoiceIO": {
+        "additionalProperties": false,
+        "description": "One choice. Send `code` for an existing one; a new one gets a code from its name.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "{\"en\": ..., \"ar\": ..., \"ur\": ...}; en required.",
+            "title": "Labels",
+            "type": "object"
+          },
+          "retired": {
+            "default": false,
+            "title": "Retired",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "labels"
+        ],
+        "title": "CustomFieldChoiceIO",
+        "type": "object"
+      },
+      "CustomFieldEntity": {
+        "description": "Records that carry custom fields (only incidents exist yet; others join as they come).",
+        "enum": [
+          "incident"
+        ],
+        "title": "CustomFieldEntity",
+        "type": "string"
+      },
+      "CustomFieldIn": {
+        "additionalProperties": false,
+        "description": "A new field.",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/CustomFieldChoiceIO"
+            },
+            "maxItems": 100,
+            "title": "Choices",
+            "type": "array"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ISO 4217, currency type.",
+            "title": "Currency"
+          },
+          "default": {
+            "title": "Default"
+          },
+          "display": {
+            "$ref": "#/components/schemas/ChoiceDisplay",
+            "default": "list"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/CustomFieldEntity"
+          },
+          "field_type": {
+            "$ref": "#/components/schemas/FieldType"
+          },
+          "help": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Help"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Name per language; en required.",
+            "title": "Labels",
+            "type": "object"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/CustomFieldValidationIO"
+          }
+        },
+        "required": [
+          "entity",
+          "field_type",
+          "labels"
+        ],
+        "title": "CustomFieldIn",
+        "type": "object"
+      },
+      "CustomFieldOrderIn": {
+        "additionalProperties": false,
+        "description": "Every field of the entity, in the new order.",
+        "properties": {
+          "entity": {
+            "$ref": "#/components/schemas/CustomFieldEntity"
+          },
+          "ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entity",
+          "ids"
+        ],
+        "title": "CustomFieldOrderIn",
+        "type": "object"
+      },
+      "CustomFieldOut": {
+        "description": "A custom field. `key` is for the API only: screens show `labels`.",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/CustomFieldChoiceIO"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "default": {
+            "title": "Default"
+          },
+          "display": {
+            "$ref": "#/components/schemas/ChoiceDisplay"
+          },
+          "entity": {
+            "$ref": "#/components/schemas/CustomFieldEntity"
+          },
+          "field_type": {
+            "$ref": "#/components/schemas/FieldType"
+          },
+          "help": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Help"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "in_use": {
+            "description": "A record holds a value: it can be retired, not deleted.",
+            "title": "In Use",
+            "type": "boolean"
+          },
+          "index_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Index Error"
+          },
+          "index_state": {
+            "$ref": "#/components/schemas/IndexState"
+          },
+          "key": {
+            "description": "Stable; the name values use in `custom`. Never shown as text.",
+            "title": "Key",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "removed": {
+            "description": "Removed while in use: only for old values and history.",
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "retired": {
+            "title": "Retired",
+            "type": "boolean"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/CustomFieldValidationIO"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "entity",
+          "key",
+          "field_type",
+          "labels",
+          "help",
+          "choices",
+          "display",
+          "validation",
+          "currency",
+          "sort_order",
+          "retired",
+          "removed",
+          "in_use",
+          "index_state",
+          "index_error",
+          "version"
+        ],
+        "title": "CustomFieldOut",
+        "type": "object"
+      },
+      "CustomFieldPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent). The type and key cannot change.",
+        "properties": {
+          "choices": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CustomFieldChoiceIO"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choices"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "maxLength": 3,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "default": {
+            "title": "Default"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChoiceDisplay"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "help": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Help"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "retired": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retired"
+          },
+          "validation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CustomFieldValidationIO"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "CustomFieldPatch",
+        "type": "object"
+      },
+      "CustomFieldValidationIO": {
+        "additionalProperties": false,
+        "description": "Rules beyond the type. Numbers are decimal text (exact).",
+        "properties": {
+          "max": {
+            "anyOf": [
+              {
+                "maxLength": 30,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max"
+          },
+          "max_length": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Length"
+          },
+          "min": {
+            "anyOf": [
+              {
+                "maxLength": 30,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min"
+          },
+          "min_length": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Length"
+          },
+          "pattern": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pattern"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          }
+        },
+        "title": "CustomFieldValidationIO",
         "type": "object"
       },
       "DeliveryReason": {
@@ -2915,6 +3362,27 @@
         },
         "title": "FieldRuleIO",
         "type": "object"
+      },
+      "FieldType": {
+        "description": "What a custom field holds.",
+        "enum": [
+          "text",
+          "long_text",
+          "integer",
+          "decimal",
+          "currency",
+          "date",
+          "datetime",
+          "choice",
+          "multi_choice",
+          "yes_no",
+          "email",
+          "phone",
+          "url",
+          "person"
+        ],
+        "title": "FieldType",
+        "type": "string"
       },
       "FileOut": {
         "description": "A file and where it is attached. The scan state decides whether it opens.",
@@ -3475,6 +3943,17 @@
           "organisation"
         ],
         "title": "Impact",
+        "type": "string"
+      },
+      "IndexState": {
+        "description": "Promotion to an index (REQ-INC-014 AC2), done by the migration job (D-087).",
+        "enum": [
+          "none",
+          "requested",
+          "active",
+          "failed"
+        ],
+        "title": "IndexState",
         "type": "string"
       },
       "Kind": {
@@ -4913,6 +5392,14 @@
             "description": "Set on copies (REQ-INC-035 AC3).",
             "title": "Copied From Id"
           },
+          "custom_fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FieldRuleIO"
+            },
+            "description": "Custom field rules by key (WP-026); sent as `fields['custom.<key>']`.",
+            "title": "Custom Fields",
+            "type": "object"
+          },
           "defaults": {
             "additionalProperties": true,
             "description": "Starting values by field.",
@@ -4998,6 +5485,7 @@
           "disabled",
           "copied_from_id",
           "fields",
+          "custom_fields",
           "defaults",
           "version"
         ],
@@ -6506,6 +6994,19 @@
             "title": "Confirm Lose Access",
             "type": "boolean"
           },
+          "custom": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Custom field values by key (GET /custom-fields?entity=...).",
+            "title": "Custom"
+          },
           "description": {
             "anyOf": [
               {
@@ -7021,6 +7522,12 @@
             ],
             "title": "Created By"
           },
+          "custom": {
+            "additionalProperties": true,
+            "description": "Custom field values by key (WP-026).",
+            "title": "Custom",
+            "type": "object"
+          },
           "description": {
             "anyOf": [
               {
@@ -7388,6 +7895,7 @@
           "priority_source",
           "level",
           "template_id",
+          "custom",
           "status",
           "status_category",
           "status_reason_code",
@@ -7506,6 +8014,19 @@
             "default": false,
             "title": "Confirm Lose Access",
             "type": "boolean"
+          },
+          "custom": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Custom values to change by key (null clears one); others kept.",
+            "title": "Custom"
           },
           "description": {
             "anyOf": [
@@ -11494,6 +12015,559 @@
         "summary": "Switch active tenant",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/api/v1/custom-fields": {
+      "get": {
+        "description": "Every field in display order; retired ones are marked, not hidden (old values).",
+        "operationId": "list_fields_api_v1_custom_fields_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "entity",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/CustomFieldEntity"
+            }
+          },
+          {
+            "description": "Also fields removed while in use (to show old values).",
+            "in": "query",
+            "name": "include_removed",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also fields removed while in use (to show old values).",
+              "title": "Include Removed",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CustomFieldOut"
+                  },
+                  "title": "Response List Fields Api V1 Custom Fields Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Custom fields of an entity",
+        "tags": [
+          "custom-fields"
+        ]
+      },
+      "post": {
+        "description": "A new field at the end of the entity's list. Its key comes from the English name.",
+        "operationId": "create_field_api_v1_custom_fields_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomFieldIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a custom field",
+        "tags": [
+          "custom-fields"
+        ]
+      }
+    },
+    "/api/v1/custom-fields/order": {
+      "put": {
+        "description": "Forms, records and filters follow the new order at once.",
+        "operationId": "put_order_api_v1_custom_fields_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomFieldOrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CustomFieldOut"
+                  },
+                  "title": "Response Put Order Api V1 Custom Fields Order Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reorder custom fields",
+        "tags": [
+          "custom-fields"
+        ]
+      }
+    },
+    "/api/v1/custom-fields/{field_id}": {
+      "delete": {
+        "description": "A field records hold values in needs `confirm=true`, else 409 `custom_field_in_use`.",
+        "operationId": "delete_field_api_v1_custom_fields__field_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Field Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Remove even though records hold values (they keep them).",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Remove even though records hold values (they keep them).",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict, or custom_field_in_use (retire it instead)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a custom field",
+        "tags": [
+          "custom-fields"
+        ]
+      },
+      "patch": {
+        "description": "Names, help, choices, default, validation; retire or bring back.",
+        "operationId": "patch_field_api_v1_custom_fields__field_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Field Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomFieldPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict, or custom_field_in_use (retire it instead)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a custom field",
+        "tags": [
+          "custom-fields"
+        ]
+      }
+    },
+    "/api/v1/custom-fields/{field_id}/index": {
+      "post": {
+        "description": "The index is built by the migration job (D-087); `index_state` says how far it got.",
+        "operationId": "request_index_api_v1_custom_fields__field_id__index_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "field_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Field Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomFieldOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict, or custom_field_in_use (retire it instead)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Ask for an index on a custom field",
+        "tags": [
+          "custom-fields"
         ]
       }
     },

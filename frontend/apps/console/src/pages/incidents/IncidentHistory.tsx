@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 
 import {
+  useCustomFields,
   useIncidentCatalogue,
   useIncidentCategories,
   useIncidentHistory,
@@ -13,6 +14,7 @@ import {
 } from '@supportx/api-client';
 import { useAccess, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
+import { fieldName, useCustomValueText } from '../customFields/values';
 import {
   categoryPath,
   levelLabel,
@@ -57,6 +59,18 @@ export function IncidentHistory({ id }: { id: string }) {
   const catalogue = useIncidentCatalogue();
   const categories = useIncidentCategories();
   const templates = useIncidentTemplates();
+  // Removed fields too: their old values stay in the history (REQ-INC-014 AC4).
+  const customFields = useCustomFields('incident', true);
+  const customText = useCustomValueText();
+  const customField = (name: string) =>
+    name.startsWith('custom.')
+      ? customFields.data?.find((f) => `custom.${f.key}` === name)
+      : undefined;
+  const fieldText = (name: string) => {
+    if (!name.startsWith('custom.')) return t(`work_item.field.${name}`);
+    const found = customField(name);
+    return found === undefined ? t('custom_fields.unknown_field') : fieldName(found, locale);
+  };
   const sites = useUnits('sites', can('sites.view'));
   const groups = useUnits('groups', can('groups.view'));
   const units = useMemo(
@@ -77,6 +91,14 @@ export function IncidentHistory({ id }: { id: string }) {
   const valueText = (change: Change, value: unknown): string => {
     if (FLAGS.has(change.field) && (value === null || value === undefined)) return t('history.no');
     if (value === null || value === undefined || value === '') return t('history.empty');
+    const custom = customField(change.field);
+    if (custom !== undefined) {
+      return (
+        customText(custom, value, people as Record<string, { display_name: string }>) ||
+        t('history.empty')
+      );
+    }
+    if (change.field.startsWith('custom.')) return t('history.changed');
     if (change.field === 'status' && typeof value === 'string') {
       return statusLabel(t, catalogue.data, value, locale);
     }
@@ -183,7 +205,7 @@ export function IncidentHistory({ id }: { id: string }) {
                     {entry.changes.map((change) => (
                       <li key={change.field}>
                         {t('history.change', {
-                          field: t(`work_item.field.${change.field}`),
+                          field: fieldText(change.field),
                           old: valueText(change, change.old),
                           new: valueText(change, change.new),
                         })}

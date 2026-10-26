@@ -7,7 +7,8 @@ Run by the chart's migrate Job (one per Helm revision, before the new pods start
    single source, same as the dev stack and CI). Skipped for an external, DBA-managed database
    (`SUPPORTX_DEPLOY_ADMIN_URL` unset);
 3. `alembic upgrade head` as supportx_migrator, under an advisory lock so two Jobs (two quick
-   upgrades) never migrate at once.
+   upgrades) never migrate at once;
+4. build the custom field indexes admins asked for (tooling/custom_field_indexes.py, D-087).
 
 Rollback-safe (expand/contract, architecture.md §14.3): when the database is already at a
 revision this code does not know, it was migrated by a newer release and stays as it is (a
@@ -33,6 +34,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
+from tooling import custom_field_indexes
 from tooling.db_bootstrap import RolePasswords, bootstrap, run_script, with_database
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -179,6 +181,11 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
         Action.NEWER: "database was migrated by a newer release; left unchanged",
     }
     sys.stdout.write(f"migrate: {messages[action]}\n")
+    if action is not Action.NEWER:
+        # Indexes admins asked for on custom fields (D-087). A failure is recorded on the field
+        # and never fails the deploy.
+        outcome = asyncio.run(custom_field_indexes.run(config.migrator_url))
+        sys.stdout.write(f"custom field indexes: {outcome}\n")
     return 0
 
 

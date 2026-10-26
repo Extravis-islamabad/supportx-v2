@@ -35,3 +35,4 @@ Owner: the product owner owns all ADRs until a tech lead is appointed (D-007).
 | [ADR-026](ADR-026-work-item-engine.md) | Work item engine: shared table, types as registry entries, tenant life cycles, type-keyed counters, history children and automation trace | Accepted | Haider (Product Owner) |
 | [ADR-027](ADR-027-audit-log.md) | Audit log: record then seal, per-tenant hash chain built in the database, signed anchors with key rotation, personal data outside the hash | Accepted | Haider (Product Owner) |
 | [ADR-028](ADR-028-files.md) | Files: uploads stream through the API, per-tenant envelope encryption, scan before availability, image metadata stripped, real-type blocking | Accepted | Haider (Product Owner) |
+| [ADR-030](ADR-030-custom-fields.md) | Custom fields: definitions in the metadata module, typed JSON values with guarded filter expressions, indexes built on request by the migration job | Accepted | Haider (Product Owner) |

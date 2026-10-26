@@ -50,6 +50,10 @@ export const queryKeys = {
     replyTemplates: ['incidents', 'reply-templates'] as const,
     templates: ['incidents', 'templates'] as const,
   },
+  customFields: {
+    all: ['custom-fields'] as const,
+    list: (entity: string, removed: boolean) => ['custom-fields', entity, removed] as const,
+  },
   audit: {
     all: ['audit'] as const,
     list: (query: AuditEntriesQuery) => ['audit', 'list', query] as const,
