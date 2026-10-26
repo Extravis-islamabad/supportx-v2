@@ -404,6 +404,14 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   - archives hold at most 1M entries per month (the export limit) and are built in memory. A
     month above that fails visibly (`audit_export_too_large`); a streaming archive is needed
     before a tenant reaches that volume.
+  - **10M sealing throughput (open):** the first full 10M run on GitHub (run 40280703924,
+    2026-10-26, after the queue index of migration 0015) loaded 10M entries in 634 s and
+    sealed **all** of them, but at **875 entries/s** (11,434 s), below the test's 1,000/s floor,
+    so it failed there and the verify, archive and search stages did not run at 10M. At 100k
+    sealing ran at 8,415/s, so the cost per entry still grows with volume. Leading suspects (not
+    yet measured): run-time partition pruning in `audit_seal`'s queue-to-entries join across
+    ~785 monthly partitions, and per-row INSERT/DELETE in the loop. Next: EXPLAIN ANALYZE one
+    seal batch at 10M, fix, rerun the workflow.
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),
@@ -466,6 +474,8 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   in CI after three accessibility fixes it found (tag and link contrast, an inline link without
   underline, the empty-table text). Verification is 18x faster after bounding entry lookups by
   time (about 1,000 to about 18,000 entries/s at 100k).
+- **Update 2026-10-26:** the 10M workflow ran to the end. Sealing finished but at 875/s (below
+  the 1,000/s floor); see the WP-018 follow-ups. The leftover throwaway database was dropped.
 - **Not finished here:** the local 10M run stopped after 66 minutes because the whole dev stack
   was shut down by a normal stop request (not by this session, not out of memory). The first 10M
   result comes from the `audit-scale` workflow on GitHub, which can only be started by hand once
