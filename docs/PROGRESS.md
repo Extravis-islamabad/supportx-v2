@@ -404,14 +404,15 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   - archives hold at most 1M entries per month (the export limit) and are built in memory. A
     month above that fails visibly (`audit_export_too_large`); a streaming archive is needed
     before a tenant reaches that volume.
-  - **10M sealing throughput (open):** the first full 10M run on GitHub (run 40280703924,
-    2026-10-26, after the queue index of migration 0015) loaded 10M entries in 634 s and
-    sealed **all** of them, but at **875 entries/s** (11,434 s), below the test's 1,000/s floor,
-    so it failed there and the verify, archive and search stages did not run at 10M. At 100k
-    sealing ran at 8,415/s, so the cost per entry still grows with volume. Leading suspects (not
-    yet measured): run-time partition pruning in `audit_seal`'s queue-to-entries join across
-    ~785 monthly partitions, and per-row INSERT/DELETE in the loop. Next: EXPLAIN ANALYZE one
-    seal batch at 10M, fix, rerun the workflow.
+  - **10M sealing throughput (fixed, migration 0017, branch `fix/audit-seal-volume`):** the
+    first full 10M run on GitHub (run 40280703924) sealed all 10M entries but at 875/s. Measured
+    on one batch of 5,000 at 10M (98 partitions): the batch query read the tenant's whole log
+    (hash join or entry-driven nested loop, about 10 s) and was JIT-compiled on every call
+    (677 functions, 2.1-2.5 s). Not the partition count as such: the test's 98 partitions are
+    realistic for long retention, so the test spread stays. Fix: batch from the queue, entries by
+    key (LATERAL), `jit = off` on `audit_seal`. After: one batch query 11.9 ms; sealing at 10M
+    18,000-29,000/s locally (was about 1,100-2,000/s locally with the old function); 100k test
+    44,572/s (was 8,415/s).
 - **Goal:** The §7.4 audit log: who did what, when, from where, provably unchanged.
 - **Scope:** Append-only audit records for privileged actions and record changes (built on the
   WP-012 field history), each hashed with the previous record's hash per tenant (hash chain),

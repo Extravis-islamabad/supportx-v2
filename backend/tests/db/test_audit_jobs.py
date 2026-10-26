@@ -133,3 +133,17 @@ def test_schedule_declarations_are_checked() -> None:
     wrong = ModuleSpec(name="audit", schedules=[ScheduleSpec("other__job", 1, handler)])
     with pytest.raises(ScheduleRegistrationError):
         schedules_from_modules([wrong])
+
+
+async def test_sealing_takes_the_batch_from_the_queue_without_jit(app_db: Database) -> None:
+    """Migration 0017: the 10M run sealed at 875/s because each batch read the tenant's whole log
+    and was JIT-compiled on every call (about 2 s for 98 partitions). Keep both fixes in place."""
+    async with app_db.platform_session() as session:
+        config, source = (
+            await session.execute(
+                text("SELECT proconfig, prosrc FROM pg_proc WHERE proname = 'audit_seal'")
+            )
+        ).one()
+    assert "jit=off" in config
+    assert "WITH batch AS MATERIALIZED" in source
+    assert "CROSS JOIN LATERAL" in source
