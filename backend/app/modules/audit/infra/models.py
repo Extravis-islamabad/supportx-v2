@@ -107,6 +107,8 @@ class AuditQueueItem(TenantKeyed, Base):
     """An entry waiting to be sealed into the chain (removed by `audit_seal()`)."""
 
     __tablename__ = "audit_queue"
+    # The sealing order (migration 0015): without it every batch sorted the whole queue.
+    __table_args__ = (Index("ix_audit_queue_tenant_order", "tenant_id", "occurred_at", "entry_id"),)
 
     entry_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     occurred_at: Mapped[datetime]
