@@ -109,6 +109,8 @@ jobs:
         run: |
           make dev-ps
           tail -n 200 api.log relay.log consumers.log fanout.log console.log portal.log || true
+          # Warnings and errors from the whole run (the tails above only show its end).
+          grep -hE '\[(warning|error) ' api.log consumers.log relay.log | tail -n 100 || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
             --profile full logs --no-color --tail=200 keycloak postgres pgbouncer centrifugo
           docker logs --tail=100 clamav || true

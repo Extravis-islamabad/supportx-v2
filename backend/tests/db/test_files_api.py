@@ -718,3 +718,28 @@ async def test_operator_key_commands_check_rotate_and_rewrap(
     broken = await files_keys.run(database, stranger, "check")
     assert not broken.ok
     assert "not in the key ring" in broken.failed[a.tenant]
+
+
+async def test_streamed_upload_creates_a_missing_bucket(storage: S3Storage) -> None:
+    """A fresh installation or dev stack has no bucket yet: the first upload creates it, as
+    `put` does (CI e2e found uploads refused with storage_unavailable on a new MinIO)."""
+    for size in (3, 6 << 20):  # one PUT, and multipart
+        fresh = S3Storage(
+            storage.endpoint,
+            storage.region,
+            storage.access_key,
+            storage.secret_key,
+            f"sx-test-{uuid.uuid4().hex[:12]}",
+            5,
+        )
+
+        async def parts(total: int = size) -> AsyncIterator[bytes]:
+            yield b"x" * total
+
+        try:
+            assert await fresh.put_stream("first", parts(), "application/octet-stream") == size
+            assert await fresh.get("first") == b"x" * size
+        finally:
+            await fresh.delete("first")
+            async with fresh._client() as client:  # noqa: SLF001 - test cleanup of its own bucket
+                await client.delete_bucket(Bucket=fresh.bucket)

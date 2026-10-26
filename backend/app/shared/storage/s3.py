@@ -24,6 +24,13 @@ PART_BYTES = 5 << 20
 _READ_PIECE = 256 << 10
 
 
+def _reason(exc: Exception) -> str:
+    """The S3 error code or exception class, for the log (never the request or credentials)."""
+    if isinstance(exc, ClientError):
+        return str(exc.response.get("Error", {}).get("Code", "ClientError"))
+    return type(exc).__name__
+
+
 class StorageUnavailable(ServiceUnavailable):
     """The object store did not answer or refused the request."""
 
@@ -93,6 +100,15 @@ class S3Storage:
             config=config,
         ) as client:
             yield client
+
+    async def _bucket_exists(self, client: "S3Client") -> None:
+        # Like `put`: the bucket is created on first use (a fresh installation or dev stack).
+        try:
+            await client.head_bucket(Bucket=self.bucket)
+        except ClientError as exc:
+            if str(exc.response.get("Error", {}).get("Code")) not in _MISSING:
+                raise
+            await client.create_bucket(Bucket=self.bucket)
 
     async def ensure_bucket(self) -> None:
         """Create the bucket if it does not exist yet (installers and the first start)."""
@@ -168,6 +184,7 @@ class S3Storage:
                 async def send(body: bytes) -> None:
                     nonlocal upload_id
                     if upload_id is None:
+                        await self._bucket_exists(client)
                         created = await client.create_multipart_upload(
                             Bucket=self.bucket, Key=key, ContentType=content_type
                         )
@@ -193,6 +210,7 @@ class S3Storage:
                         await send(body)
                         del body
                 if upload_id is None:
+                    await self._bucket_exists(client)
                     await client.put_object(
                         Bucket=self.bucket,
                         Key=key,
@@ -210,7 +228,7 @@ class S3Storage:
                 )
                 return written
         except (BotoCoreError, ClientError, OSError) as exc:
-            log.warning("storage_unreachable", operation="put_stream")
+            log.warning("storage_unreachable", operation="put_stream", error=_reason(exc))
             await self._abort(key, upload_id)
             raise StorageUnavailable from exc
         except BaseException:
