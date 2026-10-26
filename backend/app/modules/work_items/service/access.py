@@ -11,6 +11,10 @@ The scopes of every `<type>.<action>` permission mean, for work items:
           a record does not make it yours: a technician who logs a call and hands it to another
           group stops seeing it (after a warning, D-053).
 
+Followers who kept access after handing a record over (D-068, `work_item_followers.grants_access`)
+reach that one record for `view` and `add_note` only, whatever their scope (`shared_scope`): they
+can read it, see it live and add private notes, never edit, assign or change its status.
+
 The built-in technician role holds view and the working permissions at `group` and `own`
 (D-052); admins widen them to `all` per role. Lists, single records, realtime channels and
 (later) search and AI use these same predicates (architecture.md §11.2).
@@ -18,14 +22,14 @@ The built-in technician role holds view and the working permissions at `group` a
 
 import uuid
 
-from sqlalchemy import ColumnElement, and_
+from sqlalchemy import ColumnElement, and_, select
 
 from app.core.authorization import ALL_SCOPES, PermissionSpec, Scope
 from app.modules.identity_access import ResourceType, Subject
 from app.modules.work_items.domain.classification import Impact, Priority, PrioritySource, Urgency
 from app.modules.work_items.domain.lifecycle import DefaultStatus, StatusCategory
 from app.modules.work_items.domain.types import Channel, WorkItemType
-from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
 from app.shared.api.filters import FieldType, FilterField, ResourceFields
 
 NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -50,6 +54,21 @@ def unassigned_in_sites(site_ids: frozenset[uuid.UUID]) -> ColumnElement[bool]:
 
 def _site_queue(subject: Subject) -> ColumnElement[bool] | None:
     return unassigned_in_sites(subject.site_ids) if subject.site_ids else None
+
+
+def followed_with_access(subject: Subject) -> ColumnElement[bool]:
+    """Records the subject follows with access (D-068): kept after handing them over."""
+    return WorkItem.id.in_(
+        select(WorkItemFollower.work_item_id).where(
+            WorkItemFollower.user_id == subject.user_id,
+            WorkItemFollower.grants_access.is_(True),
+            WorkItemFollower.deleted_at.is_(None),
+        )
+    )
+
+
+# What a follower with access may do on that record (REQ-INC-151 AC2).
+SHARED_ACTIONS = frozenset({"view", "add_note"})
 
 
 def _enum(column: object, values: object) -> FilterField:
@@ -123,6 +142,8 @@ RESOURCE = ResourceType(
     site_scope=_in_sites,
     group_scope=_in_groups,
     group_scope_extra=_site_queue,
+    shared_scope=followed_with_access,
+    shared_actions=SHARED_ACTIONS,
 )
 
 # action -> (scopes it may be granted at, built-in technician scopes). D-052: group + own.
@@ -140,6 +161,10 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
     ("reopen", ALL_SCOPES, _TECH),
     ("cancel", ALL_SCOPES, _TECH),
     ("delete", ("all",), ()),
+    # WP-020b: private notes; public replies and notes (and making a note public); followers.
+    ("add_note", ALL_SCOPES, _TECH),
+    ("reply", ALL_SCOPES, _TECH),
+    ("manage_followers", ALL_SCOPES, _TECH),
 )
 
 

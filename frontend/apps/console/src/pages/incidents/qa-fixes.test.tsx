@@ -487,8 +487,10 @@ describe('QA findings on one incident', () => {
     fireEvent.click(await screen.findByTitle('Network'));
     fireEvent.click(screen.getByTestId('inc-assign-confirm'));
     const warning = await screen.findByTestId('inc-handover-warning');
-    expect(warning.textContent).toContain('on by default');
-    expect(warning.textContent).not.toContain('later release');
+    // WP-020b: following after a hand-over exists now, ticked by default (D-068).
+    expect(screen.getByTestId<HTMLInputElement>('inc-handover-keep-following').checked).toBe(true);
+    expect(warning.textContent).toContain('You keep following it');
+    expect(warning.textContent).not.toContain('next update');
   });
 
   it('C6: a dialog without a reason list does not mention "Other"', async () => {

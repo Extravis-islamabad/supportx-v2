@@ -7,7 +7,8 @@ Each write, in one transaction (docs/architecture/module-template.md §4):
 2. the input is validated (422 with field codes), references included;
 3. the row is updated with optimistic concurrency (409 explains who changed what);
 4. visibility is checked again: a write may not move a record out of the writer's reach
-   unless it is an explicit hand-over the writer confirmed (D-053, `would_lose_access`);
+   unless it is an explicit hand-over the writer confirmed (D-053, `would_lose_access`); by
+   default they keep following it with access (D-068, `keep_following`);
 5. field history (with source, reason, and which automation did what);
 6. the outbox event.
 
@@ -22,7 +23,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import Any, Literal, Protocol
 
-from sqlalchemy import ColumnElement, Select, and_, func, select
+from sqlalchemy import ColumnElement, Select, and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
@@ -43,6 +44,7 @@ from app.modules.work_items.domain.classification import (
     Urgency,
     compute_priority,
 )
+from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
     USER_ACTIONS,
@@ -73,8 +75,14 @@ from app.modules.work_items.events import (
     WorkItemStatusChanged,
     WorkItemUpdated,
 )
-from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
+from app.modules.work_items.infra.models import (
+    WorkItem,
+    WorkItemCategory,
+    WorkItemConversation,
+    WorkItemFollower,
+)
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import followers
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
@@ -94,7 +102,7 @@ from app.shared.history import (
 )
 from app.shared.richtext import is_blank, sanitize_html
 
-RECORD_TYPE = "work_item"
+RECORD_TYPE = followers.RECORD_TYPE
 OPEN_CATEGORIES = (StatusCategory.OPEN, StatusCategory.PAUSED)
 
 # Why an action is disabled right now (the UI labels them as `action_reason.<code>`).
@@ -121,6 +129,8 @@ ACTION_PERMISSION: Mapping[WorkItemAction, str] = {
 }
 # Record operations besides status actions, in the order the UI shows them.
 OPERATIONS = ("edit", "assign", "take", "change_priority", "delete")
+# The conversation's actions (WP-020b); allowed on closed records too (a note after closing).
+CONVERSATION_ACTIONS = ("add_note", "reply", "manage_followers")
 
 
 class PermissionHolders(Protocol):
@@ -177,6 +187,10 @@ class WorkItemView:
     names: dict[str, tuple[str, str]] = field(default_factory=dict)
     # False right after the writer handed the record out of their own reach (D-053).
     visible: bool = True
+    # add_note, reply, manage_followers: whether this user may, and why not (WP-020b).
+    conversation: list[ActionState] = field(default_factory=list)
+    following: bool = False
+    conversation_count: int = 0
 
 
 def _now() -> datetime:
@@ -292,12 +306,27 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
         )
         if u is not None
     ]
+    conversation = [
+        ActionState(name, allowed=(refused := await reason(name)) is None, reason=refused)
+        for name in CONVERSATION_ACTIONS
+    ]
+    entries = await session.scalar(
+        select(func.count())
+        .select_from(WorkItemConversation)
+        .where(
+            WorkItemConversation.work_item_id == record.id,
+            WorkItemConversation.deleted_at.is_(None),
+        )
+    )
     return WorkItemView(
         record=record,
         actions=actions,
         operations=operations,
         history_count=await count_saves(session, RECORD_TYPE, record.id),
         names=await user_contacts(session, people),
+        conversation=conversation,
+        following=await followers.current(session, record.id, subject.user_id) is not None,
+        conversation_count=int(entries or 0),
     )
 
 
@@ -385,6 +414,60 @@ def view_predicates(
         "closed": WorkItem.status_category == StatusCategory.CLOSED,
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
         "all": WorkItem.id.is_not(None),
+        **_personal(subject, now=now, today_end=today + timedelta(days=1)),
+    }
+
+
+# Personal counters (REQ-INC-128): each is also a view of the same code (not listed in /views).
+COUNTERS = (
+    "my_overdue",
+    "my_due_today",
+    "waiting_on_me",
+    "updated_by_others",
+    "unassigned_in_my_groups",
+)
+RECENT = timedelta(hours=24)
+
+
+def _personal(
+    subject: Subject, *, now: datetime, today_end: datetime
+) -> dict[str, ColumnElement[bool]]:
+    """The personal counters' predicates.
+
+    Overdue and due today read the resolution due time, which the SLA module fills (WP-025);
+    "pending my approval" comes with approvals (WP-030). "Updated by others" counts field
+    changes and conversation entries by someone else in the last 24 hours on records the user
+    is assigned to or follows.
+    """
+    mine = WorkItem.technician_id == subject.user_id
+    active = _open()
+    followed = WorkItem.id.in_(
+        select(WorkItemFollower.work_item_id).where(
+            WorkItemFollower.user_id == subject.user_id, WorkItemFollower.deleted_at.is_(None)
+        )
+    )
+    since = now - RECENT
+    others_wrote = exists(
+        select(WorkItemConversation.id).where(
+            WorkItemConversation.work_item_id == WorkItem.id,
+            WorkItemConversation.created_at >= since,
+            WorkItemConversation.created_by != subject.user_id,
+        )
+    )
+    others_changed = and_(WorkItem.updated_at >= since, WorkItem.updated_by != subject.user_id)
+    groups = subject.group_ids
+    return {
+        "my_overdue": and_(mine, active, WorkItem.resolution_due_at < now),
+        "my_due_today": and_(
+            mine, active, WorkItem.resolution_due_at >= now, WorkItem.resolution_due_at < today_end
+        ),
+        "waiting_on_me": and_(mine, WorkItem.status_category == StatusCategory.OPEN),
+        "updated_by_others": and_(or_(mine, followed), or_(others_changed, others_wrote)),
+        "unassigned_in_my_groups": and_(
+            active, WorkItem.technician_id.is_(None), WorkItem.group_id.in_(groups)
+        )
+        if groups
+        else WorkItem.id.is_(None),
     }
 
 
@@ -456,7 +539,9 @@ async def view_counts(
 
 
 # Fields whose history values are user IDs: the page names them (QA BUG-03).
-PERSON_FIELDS = frozenset({"requester_id", "on_behalf_of_id", "technician_id"})
+PERSON_FIELDS = frozenset(
+    {"requester_id", "on_behalf_of_id", "technician_id", "follower", "follower_access"}
+)
 
 
 async def history(  # noqa: PLR0913 - paging options, explicit
@@ -748,24 +833,55 @@ def _stale(record: WorkItem, expected_version: int) -> Conflict:
     )
 
 
-async def _keep_in_reach(
+# What a write did to the writer's own reach (D-053, D-068).
+KEPT = "kept"  # they still see it through their scope
+FOLLOWING = "following"  # it left their scope; they keep following it with access
+LOST = "lost"  # it left their scope and they chose not to follow it
+
+
+async def _keep_in_reach(  # noqa: PLR0913 - the record, the writer and their two choices, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
     record: WorkItem,
     *,
     confirmed: bool,
-) -> bool:
-    """After a write: check the record is still visible to the writer (D-053).
+    keep_following: bool | None,
+) -> str:
+    """After a write: check the record is still visible to the writer (D-053, D-068).
 
-    Not visible and not confirmed: 409 `would_lose_access` (the transaction rolls back, the UI
-    warns and resends with `confirm_lose_access`). Returns True when the writer handed it away.
+    Not visible and not confirmed: 409 `would_lose_access` with the tenant's "keep following"
+    default (the transaction rolls back; the UI asks and resends with `confirm_lose_access` and
+    `keep_following`). Confirmed: FOLLOWING when they keep following (the default, D-068; the
+    caller adds the follower after its own history), else LOST.
     """
     if await _may(session, subject, wtype, "view", record.id):
-        return False
+        return KEPT
+    cat = await config.load(session, wtype)
     if not confirmed:
-        raise Conflict(code="would_lose_access", params={"display_id": record.display_id})
-    return True
+        raise Conflict(
+            code="would_lose_access",
+            params={
+                "display_id": record.display_id,
+                "keep_following": cat.keep_following_on_handover,
+            },
+        )
+    keep = cat.keep_following_on_handover if keep_following is None else keep_following
+    return FOLLOWING if keep else LOST
+
+
+async def _follow_after_handover(
+    session: AsyncSession, subject: Subject, record: WorkItem, reach: str, source: Source
+) -> None:
+    if reach == FOLLOWING:
+        await followers.follow(
+            session,
+            record,
+            subject.user_id,
+            reason=FollowReason.HANDED_OVER,
+            grants_access=True,
+            source=source,
+        )
 
 
 async def _status_change(  # noqa: PLR0913 - the record, the move and its context, explicit
@@ -950,9 +1066,15 @@ async def create(  # noqa: PLR0913, C901 - the new record's inputs and checks, e
         reassignment_count=0,
     )
     await WorkItemRepository(session).add(record)
-    handed_over = await _keep_in_reach(
-        session, subject, wtype, record, confirmed=bool(values.get("confirm_lose_access"))
+    reach = await _keep_in_reach(
+        session,
+        subject,
+        wtype,
+        record,
+        confirmed=bool(values.get("confirm_lose_access")),
+        keep_following=values.get("keep_following"),
     )
+    handed_over = reach == LOST
     after = _snapshot(record)
     await record_changes(
         session,
@@ -992,6 +1114,7 @@ async def create(  # noqa: PLR0913, C901 - the new record's inputs and checks, e
             await _record_status(
                 session, before, record, move, source=source, reason=None, automatic=True
             )
+    await _follow_after_handover(session, subject, record, reach, source)
     if handed_over:
         return WorkItemView(
             record=record, actions=[], operations=[], history_count=0, visible=False
@@ -1002,7 +1125,7 @@ async def create(  # noqa: PLR0913, C901 - the new record's inputs and checks, e
 # --- edit -----------------------------------------------------------------------------------------
 
 
-async def update(  # noqa: PLR0913, C901, PLR0912 - one record, one version, one change set
+async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one version, one change set
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -1061,9 +1184,15 @@ async def update(  # noqa: PLR0913, C901, PLR0912 - one record, one version, one
     before = _snapshot(record)
     audience_before = _audience(record)
     updated = await _update(session, record, expected_version, columns)
-    handed_over = await _keep_in_reach(
-        session, subject, wtype, updated, confirmed=bool(values.get("confirm_lose_access"))
+    reach = await _keep_in_reach(
+        session,
+        subject,
+        wtype,
+        updated,
+        confirmed=bool(values.get("confirm_lose_access")),
+        keep_following=values.get("keep_following"),
     )
+    handed_over = reach == LOST
     after = _snapshot(updated)
     automatic = {"priority", "priority_source"} if recomputed else set()
     people = [
@@ -1107,6 +1236,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912 - one record, one version, one
         aggregate_id=updated.id,
         aggregate_version=updated.version,
     )
+    await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
         return WorkItemView(
             record=updated, actions=[], operations=[], history_count=0, visible=False
@@ -1210,6 +1340,7 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     reason_code: str | None,
     reason_text: str | None,
     confirm_lose_access: bool,
+    keep_following: bool | None = None,
     source: Source,
     holders: PermissionHolders,
 ) -> WorkItemView:
@@ -1249,9 +1380,15 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     before = _snapshot(record, ("group_id", "technician_id", "reassignment_count"))
     audience_before = _audience(record)
     updated = await _update(session, record, expected_version, columns)
-    handed_over = await _keep_in_reach(
-        session, subject, wtype, updated, confirmed=confirm_lose_access
+    reach = await _keep_in_reach(
+        session,
+        subject,
+        wtype,
+        updated,
+        confirmed=confirm_lose_access,
+        keep_following=keep_following,
     )
+    handed_over = reach == LOST
     after = _snapshot(updated, ("group_id", "technician_id", "reassignment_count"))
     changes = [Change(n, before[n], v) for n, v in after.items() if before[n] != v]
     if reason_code is not None:
@@ -1300,6 +1437,7 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
             await _record_status(
                 session, stamps, updated, move, source=source, reason=None, automatic=True
             )
+    await _follow_after_handover(session, subject, updated, reach, source)
     if handed_over:
         return WorkItemView(
             record=updated, actions=[], operations=[], history_count=0, visible=False
@@ -1319,10 +1457,11 @@ async def assign(  # noqa: PLR0913 - the assignment and its context, explicit
     reason_code: str | None,
     reason_text: str | None,
     confirm_lose_access: bool,
+    keep_following: bool | None = None,
     source: Source,
     holders: PermissionHolders,
 ) -> WorkItemView:
-    """Set group and technician (REQ-INC-053/055); D-053 hand-over needs confirmation."""
+    """Set group and technician (REQ-INC-053/055); a hand-over needs confirmation (D-053, D-068)."""
     record = await _for_action(session, subject, wtype, "assign", record_id)
     return await _assign(
         session,
@@ -1335,6 +1474,7 @@ async def assign(  # noqa: PLR0913 - the assignment and its context, explicit
         reason_code=reason_code,
         reason_text=reason_text,
         confirm_lose_access=confirm_lose_access,
+        keep_following=keep_following,
         source=source,
         holders=holders,
     )
@@ -1483,3 +1623,28 @@ async def restore(  # noqa: PLR0913 - the record, its version and the source, ex
         aggregate_version=record.version,
     )
     return await _view(session, subject, wtype, record)
+
+
+# --- for the conversation service (service/conversations.py) -----------------------------------
+
+visible_record = _visible
+record_for_action = _for_action
+may = _may
+audience_of = _audience
+now = _now
+field_errors = _errors
+
+
+async def update_columns(
+    session: AsyncSession, record: WorkItem, expected_version: int, changes: Mapping[str, Any]
+) -> WorkItem:
+    """Versioned update of a work item's columns (409 explains who changed what)."""
+    return await _update(session, record, expected_version, changes)
+
+
+def stale(current_version: int, expected_version: int) -> Conflict:
+    """409 version_conflict for a child record (a conversation entry)."""
+    return Conflict(
+        code="version_conflict",
+        params={"expected_version": expected_version, "current_version": current_version},
+    )

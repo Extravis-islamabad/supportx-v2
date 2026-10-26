@@ -1,30 +1,64 @@
 import {
+  AlignCenterOutlined,
+  AlignLeftOutlined,
+  AlignRightOutlined,
   BoldOutlined,
+  ClearOutlined,
+  CodeOutlined,
+  ConsoleSqlOutlined,
+  FontColorsOutlined,
+  FullscreenExitOutlined,
+  FullscreenOutlined,
+  HighlightOutlined,
   ItalicOutlined,
+  LineOutlined,
   LinkOutlined,
+  MenuFoldOutlined,
+  MenuOutlined,
+  MenuUnfoldOutlined,
+  MessageOutlined,
   OrderedListOutlined,
+  RedoOutlined,
+  SnippetsOutlined,
   StrikethroughOutlined,
   TableOutlined,
   UnderlineOutlined,
+  UndoOutlined,
   UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { TableKit } from '@tiptap/extension-table';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
-import { Button, Flex, Input, Modal, Tooltip } from 'antd';
+import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
 import { useEffect, useState, type ReactNode } from 'react';
 
-import { useLabel } from '../appearance';
+import { useAppearance, useLabel } from '../appearance';
+import {
+  BlockFormat,
+  HIGHLIGHTS,
+  HighlightMark,
+  TEXT_COLOURS,
+  TextColourMark,
+  type Alignment,
+} from './extensions';
+import { mentionExtension } from './mention';
+import { cleanPastedHtml } from './paste';
 import { RichTextStyles } from './styles';
-import type { RichTextFieldProps } from './types';
+import type { RichTextFieldProps, RichTextTemplate } from './types';
 
 /**
- * The Tiptap editor behind RichTextField (D-036, D-040, D-051). Loaded on demand (its chunk is
- * not part of the shell). What it produces is exactly the server's allow-list
- * (backend/app/shared/richtext.py): StarterKit (headings, lists, quotes, code, link, underline)
- * and tables; every block reads in its own direction (`textDirection: 'auto'`), so Arabic and
- * English paragraphs mix correctly. The server sanitises every value again before storing it.
+ * The Tiptap editor behind RichTextField (D-036, D-040, D-051; richer toolbar WP-020b). Loaded on
+ * demand (its chunk is not part of the shell). What it produces is exactly the server's
+ * allow-list (backend/app/shared/richtext.py): StarterKit (three heading sizes, lists, quote,
+ * code, horizontal line, link, underline, undo/redo), tables, and our own codes for alignment,
+ * indent, palette colours and highlights (extensions.ts), plus @mentions. Every block reads in its
+ * own direction (`textDirection: 'auto'`), so Arabic and English paragraphs mix correctly, and
+ * alignment and indent are logical (start/end), so they are right in both directions. Pastes from
+ * Word, Outlook and the web are cleaned first (paste.ts). The server sanitises every value again.
+ *
+ * Inline images wait for file storage (WP-022): no image button, and pasted images are dropped
+ * (paste.ts) until they can be uploaded as attachments.
  */
 export default function RichTextEditor({
   value,
@@ -35,8 +69,14 @@ export default function RichTextEditor({
   invalid = false,
   testId,
   id,
+  mentions,
+  templates,
+  onManageTemplates,
+  minHeight,
+  autoFocus = false,
 }: RichTextFieldProps) {
   const t = useLabel();
+  const [fullScreen, setFullScreen] = useState(false);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -45,9 +85,14 @@ export default function RichTextEditor({
       }),
       TableKit.configure({ table: { resizable: false } }),
       Placeholder.configure({ placeholder: placeholder ?? '' }),
+      BlockFormat,
+      TextColourMark,
+      HighlightMark,
+      ...(mentions === undefined ? [] : [mentionExtension(mentions)]),
     ],
     content: value ?? '',
     editable: !disabled,
+    autofocus: autoFocus ? 'end' : false,
     textDirection: 'auto',
     editorProps: {
       attributes: {
@@ -58,7 +103,9 @@ export default function RichTextEditor({
         ...(id === undefined ? {} : { id }),
         ...(testId === undefined ? {} : { 'data-testid': testId }),
         class: 'sx-richtext sx-richtext-input',
+        ...(minHeight === undefined ? {} : { style: `min-height: ${String(minHeight)}px` }),
       },
+      transformPastedHTML: cleanPastedHtml,
     },
     onUpdate: ({ editor: current }) => {
       onChange?.(current.isEmpty ? '' : current.getHTML());
@@ -75,10 +122,31 @@ export default function RichTextEditor({
     editor.setEditable(!disabled);
   }, [editor, disabled]);
   return (
-    <div className={`sx-richtext-frame${invalid ? ' sx-richtext-invalid' : ''}`}>
+    <div
+      className={`sx-richtext-frame${invalid ? ' sx-richtext-invalid' : ''}${fullScreen ? ' sx-richtext-fullscreen' : ''}`}
+      data-testid={testId === undefined ? undefined : `${testId}-frame`}
+      {...(fullScreen ? { role: 'dialog', 'aria-modal': true, 'aria-label': label } : {})}
+      onKeyDown={(event) => {
+        if (fullScreen && event.key === 'Escape') {
+          event.stopPropagation();
+          setFullScreen(false);
+        }
+      }}
+    >
       <RichTextStyles />
-      {!disabled && <Toolbar editor={editor} />}
-      <EditorContent editor={editor} />
+      {!disabled && (
+        <Toolbar
+          editor={editor}
+          templates={templates}
+          onManageTemplates={onManageTemplates}
+          fullScreen={fullScreen}
+          onFullScreen={() => {
+            setFullScreen((on) => !on);
+            editor.commands.focus();
+          }}
+        />
+      )}
+      <EditorContent editor={editor} className="sx-richtext-scroll" />
       <span className="sx-visually-hidden">{t('richtext.hint')}</span>
     </div>
   );
@@ -88,12 +156,14 @@ function Tool({
   title,
   icon,
   active,
+  disabled,
   onClick,
   testId,
 }: {
   title: string;
   icon: ReactNode;
   active?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   testId: string;
 }) {
@@ -104,6 +174,7 @@ function Tool({
         type={active === true ? 'primary' : 'text'}
         aria-label={title}
         aria-pressed={active}
+        disabled={disabled}
         icon={icon}
         onMouseDown={(event) => {
           event.preventDefault(); // keep the selection in the editor
@@ -115,65 +186,309 @@ function Tool({
   );
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+const Gap = () => <Divider type="vertical" style={{ marginInline: 2, height: 20 }} />;
+
+function Swatch({ kind, code }: { kind: 'text' | 'highlight'; code: string | null }) {
+  return (
+    <span
+      aria-hidden
+      className={`sx-swatch sx-swatch-${kind}`}
+      data-color={code ?? undefined}
+      style={{ display: 'inline-block', width: 14, height: 14, borderRadius: 3 }}
+    />
+  );
+}
+
+type HeadingChoice = 'paragraph' | '2' | '3' | '4';
+
+function Toolbar({
+  editor,
+  templates,
+  onManageTemplates,
+  fullScreen,
+  onFullScreen,
+}: {
+  editor: Editor;
+  templates: RichTextTemplate[] | undefined;
+  onManageTemplates: (() => void) | undefined;
+  fullScreen: boolean;
+  onFullScreen: () => void;
+}) {
   const t = useLabel();
+  const { direction } = useAppearance();
   const [linking, setLinking] = useState(false);
   const [href, setHref] = useState('');
+  // Re-render the toolbar when the selection or the content changes (active states).
+  const state = useEditorState({
+    editor,
+    selector: ({ editor: e }) => ({
+      bold: e.isActive('bold'),
+      italic: e.isActive('italic'),
+      underline: e.isActive('underline'),
+      strike: e.isActive('strike'),
+      code: e.isActive('code'),
+      bullets: e.isActive('bulletList'),
+      numbers: e.isActive('orderedList'),
+      quote: e.isActive('blockquote'),
+      codeBlock: e.isActive('codeBlock'),
+      link: e.isActive('link'),
+      heading: e.isActive('heading', { level: 2 })
+        ? '2'
+        : e.isActive('heading', { level: 3 })
+          ? '3'
+          : e.isActive('heading', { level: 4 })
+            ? '4'
+            : 'paragraph',
+      align: (e.getAttributes('paragraph').align ??
+        e.getAttributes('heading').align ??
+        null) as Alignment | null,
+      canUndo: e.can().undo(),
+      canRedo: e.can().redo(),
+    }),
+  });
   const chain = () => editor.chain().focus();
+  // Logical alignment, physical icons: "start" is drawn on the left in English, right in Arabic.
+  const rtl = direction === 'rtl';
+  const startIcon = rtl ? <AlignRightOutlined /> : <AlignLeftOutlined />;
+  const endIcon = rtl ? <AlignLeftOutlined /> : <AlignRightOutlined />;
+  const indentIcon = rtl ? <MenuFoldOutlined /> : <MenuUnfoldOutlined />;
+  const outdentIcon = rtl ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />;
+  const align = (value: Alignment) => {
+    chain()
+      .setAlignment(state.align === value ? null : value)
+      .run();
+  };
   return (
     <Flex
       gap={2}
       wrap
+      align="center"
       className="sx-richtext-toolbar"
       role="toolbar"
       aria-label={t('richtext.toolbar')}
     >
       <Tool
+        title={t('richtext.undo')}
+        icon={<UndoOutlined />}
+        disabled={!state.canUndo}
+        onClick={() => chain().undo().run()}
+        testId="rt-undo"
+      />
+      <Tool
+        title={t('richtext.redo')}
+        icon={<RedoOutlined />}
+        disabled={!state.canRedo}
+        onClick={() => chain().redo().run()}
+        testId="rt-redo"
+      />
+      <Gap />
+      <Select<HeadingChoice>
+        size="small"
+        variant="borderless"
+        aria-label={t('richtext.text_style')}
+        value={state.heading as HeadingChoice}
+        popupMatchSelectWidth={false}
+        // Fixed width: inside a form Ant Design stretches selects to the full line.
+        style={{ width: 150, flex: 'none' }}
+        onChange={(choice) => {
+          if (choice === 'paragraph') chain().setParagraph().run();
+          else
+            chain()
+              .setHeading({ level: Number(choice) as 2 | 3 | 4 })
+              .run();
+        }}
+        options={[
+          { value: 'paragraph', label: t('richtext.style.paragraph') },
+          { value: '2', label: t('richtext.style.heading_large') },
+          { value: '3', label: t('richtext.style.heading_medium') },
+          { value: '4', label: t('richtext.style.heading_small') },
+        ]}
+        data-testid="rt-style"
+      />
+      <Gap />
+      <Tool
         title={t('richtext.bold')}
         icon={<BoldOutlined />}
-        active={editor.isActive('bold')}
+        active={state.bold}
         onClick={() => chain().toggleBold().run()}
         testId="rt-bold"
       />
       <Tool
         title={t('richtext.italic')}
         icon={<ItalicOutlined />}
-        active={editor.isActive('italic')}
+        active={state.italic}
         onClick={() => chain().toggleItalic().run()}
         testId="rt-italic"
       />
       <Tool
         title={t('richtext.underline')}
         icon={<UnderlineOutlined />}
-        active={editor.isActive('underline')}
+        active={state.underline}
         onClick={() => chain().toggleUnderline().run()}
         testId="rt-underline"
       />
       <Tool
         title={t('richtext.strike')}
         icon={<StrikethroughOutlined />}
-        active={editor.isActive('strike')}
+        active={state.strike}
         onClick={() => chain().toggleStrike().run()}
         testId="rt-strike"
       />
       <Tool
+        title={t('richtext.code')}
+        icon={<CodeOutlined />}
+        active={state.code}
+        onClick={() => chain().toggleCode().run()}
+        testId="rt-code"
+      />
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items: [
+            {
+              key: 'none',
+              icon: <Swatch kind="text" code={null} />,
+              label: t('richtext.colour.default'),
+              onClick: () => chain().unsetTextColour().run(),
+            },
+            ...TEXT_COLOURS.map((code) => ({
+              key: code,
+              icon: <Swatch kind="text" code={code} />,
+              label: t(`richtext.colour.${code}`),
+              onClick: () => chain().setTextColour(code).run(),
+            })),
+          ],
+        }}
+      >
+        <Button
+          size="small"
+          type="text"
+          aria-label={t('richtext.text_colour')}
+          icon={<FontColorsOutlined />}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          data-testid="rt-colour"
+        />
+      </Dropdown>
+      <Dropdown
+        trigger={['click']}
+        menu={{
+          items: [
+            {
+              key: 'none',
+              icon: <Swatch kind="highlight" code={null} />,
+              label: t('richtext.highlight.none'),
+              onClick: () => chain().unsetHighlight().run(),
+            },
+            ...HIGHLIGHTS.map((code) => ({
+              key: code,
+              icon: <Swatch kind="highlight" code={code} />,
+              label: t(`richtext.highlight.${code}`),
+              onClick: () => chain().setHighlight(code).run(),
+            })),
+          ],
+        }}
+      >
+        <Button
+          size="small"
+          type="text"
+          aria-label={t('richtext.highlight')}
+          icon={<HighlightOutlined />}
+          onMouseDown={(event) => {
+            event.preventDefault();
+          }}
+          data-testid="rt-highlight"
+        />
+      </Dropdown>
+      <Gap />
+      <Tool
+        title={t('richtext.align.start')}
+        icon={startIcon}
+        active={state.align === 'start'}
+        onClick={() => {
+          align('start');
+        }}
+        testId="rt-align-start"
+      />
+      <Tool
+        title={t('richtext.align.center')}
+        icon={<AlignCenterOutlined />}
+        active={state.align === 'center'}
+        onClick={() => {
+          align('center');
+        }}
+        testId="rt-align-center"
+      />
+      <Tool
+        title={t('richtext.align.end')}
+        icon={endIcon}
+        active={state.align === 'end'}
+        onClick={() => {
+          align('end');
+        }}
+        testId="rt-align-end"
+      />
+      <Tool
+        title={t('richtext.align.justify')}
+        icon={<MenuOutlined />}
+        active={state.align === 'justify'}
+        onClick={() => {
+          align('justify');
+        }}
+        testId="rt-align-justify"
+      />
+      <Tool
+        title={t('richtext.outdent')}
+        icon={outdentIcon}
+        onClick={() => chain().outdent().run()}
+        testId="rt-outdent"
+      />
+      <Tool
+        title={t('richtext.indent')}
+        icon={indentIcon}
+        onClick={() => chain().indent().run()}
+        testId="rt-indent"
+      />
+      <Gap />
+      <Tool
         title={t('richtext.bullets')}
         icon={<UnorderedListOutlined />}
-        active={editor.isActive('bulletList')}
+        active={state.bullets}
         onClick={() => chain().toggleBulletList().run()}
         testId="rt-bullets"
       />
       <Tool
         title={t('richtext.numbers')}
         icon={<OrderedListOutlined />}
-        active={editor.isActive('orderedList')}
+        active={state.numbers}
         onClick={() => chain().toggleOrderedList().run()}
         testId="rt-numbers"
       />
       <Tool
+        title={t('richtext.quote')}
+        icon={<MessageOutlined />}
+        active={state.quote}
+        onClick={() => chain().toggleBlockquote().run()}
+        testId="rt-quote"
+      />
+      <Tool
+        title={t('richtext.code_block')}
+        icon={<ConsoleSqlOutlined />}
+        active={state.codeBlock}
+        onClick={() => chain().toggleCodeBlock().run()}
+        testId="rt-code-block"
+      />
+      <Tool
+        title={t('richtext.horizontal_line')}
+        icon={<LineOutlined />}
+        onClick={() => chain().setHorizontalRule().run()}
+        testId="rt-hr"
+      />
+      <Tool
         title={t('richtext.link')}
         icon={<LinkOutlined />}
-        active={editor.isActive('link')}
+        active={state.link}
         onClick={() => {
           setHref((editor.getAttributes('link').href as string | undefined) ?? '');
           setLinking(true);
@@ -185,6 +500,59 @@ function Toolbar({ editor }: { editor: Editor }) {
         icon={<TableOutlined />}
         onClick={() => chain().insertTable({ rows: 2, cols: 2, withHeaderRow: true }).run()}
         testId="rt-table"
+      />
+      <Gap />
+      <Tool
+        title={t('richtext.clear_formatting')}
+        icon={<ClearOutlined />}
+        onClick={() => chain().unsetAllMarks().clearNodes().setAlignment(null).run()}
+        testId="rt-clear"
+      />
+      {templates !== undefined && (
+        <Dropdown
+          trigger={['click']}
+          menu={{
+            items: [
+              ...(templates.length === 0
+                ? [{ key: 'none', disabled: true, label: t('richtext.templates_none') }]
+                : templates.map((template) => ({
+                    key: template.id,
+                    label: <bdi dir="auto">{template.name}</bdi>,
+                    onClick: () => chain().insertContent(template.body).run(),
+                  }))),
+              ...(onManageTemplates === undefined
+                ? []
+                : [
+                    { type: 'divider' as const },
+                    {
+                      key: 'manage',
+                      label: t('richtext.templates_manage'),
+                      onClick: onManageTemplates,
+                    },
+                  ]),
+            ],
+          }}
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={<SnippetsOutlined />}
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
+            data-testid="rt-templates"
+          >
+            {t('richtext.templates')}
+          </Button>
+        </Dropdown>
+      )}
+      <span style={{ flex: 1 }} />
+      <Tool
+        title={t(fullScreen ? 'richtext.exit_full_screen' : 'richtext.full_screen')}
+        icon={fullScreen ? <FullscreenExitOutlined /> : <FullscreenOutlined />}
+        active={fullScreen}
+        onClick={onFullScreen}
+        testId="rt-full-screen"
       />
       <Modal
         open={linking}

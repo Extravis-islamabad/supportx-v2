@@ -29,3 +29,13 @@ Object.defineProperty(window, 'matchMedia', {
 
 // No realtime gateway in unit tests: the realtime package has its own tests with a fake client.
 setDefaultClientFactory(inertClientFactory);
+
+// jsdom has no layout: the rich-text editor (ProseMirror) measures the caret when it scrolls to
+// an insertion (templates, typed text). Empty rectangles are enough for tests.
+const noRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] });
+for (const proto of [Range.prototype, Element.prototype, Text.prototype] as object[]) {
+  Object.assign(proto, {
+    getClientRects: noRects,
+    getBoundingClientRect: () => new DOMRect(0, 0, 0, 0),
+  });
+}

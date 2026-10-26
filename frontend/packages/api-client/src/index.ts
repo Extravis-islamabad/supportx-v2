@@ -162,6 +162,29 @@ export {
   type Urgency,
   type WorkItemChannel,
 } from './incidents';
+export {
+  fetchMentionable,
+  sendTyping,
+  useAddConversationEntry,
+  useChangeNoteVisibility,
+  useFollowerChange,
+  useIncidentConversation,
+  useIncidentCounters,
+  useIncidentFollowers,
+  useReplyTemplateChange,
+  useReplyTemplates,
+  type ConversationAdded,
+  type ConversationEntry,
+  type ConversationEntryInput,
+  type EntryKind,
+  type Follower,
+  type Followers,
+  type Mentionable,
+  type PersonalCounter,
+  type ReplyMode,
+  type ReplyTemplate,
+  type Visibility,
+} from './conversation';
 export { queryKeys } from './keys';
 export {
   fetchConnectionToken,

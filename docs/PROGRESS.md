@@ -4,10 +4,10 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020-FIX (the WP-020 QA findings: 18 bugs, 7 cosmetic, form review),
-  2026-10-24. Before it: WP-020 (work item engine and incidents).
-- **Next work package:** WP-020b (conversation, notes and followers), then the sequence below
-  (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
+- **Last completed:** WP-020b (conversation, notes, followers, richer editor), 2026-10-26;
+  exploratory QA report: ~/Desktop/qa-wp020b/. Before it: WP-020-FIX and WP-020.
+- **Next work package:** the WP-020b QA findings (after product owner review), then WP-020c and
+  the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -294,6 +294,34 @@ Contract: docs/specs/parity/01-work-items-incidents.md. Two sessions.
 - Open (D-068, REQ-INC-151, MVP): keep following an incident after handing it over; needs the
   follower model, so it lands with WP-020b. The D-053 warning ships now.
 
+### [x] WP-020b — Conversation, notes, followers, richer editor (D-079, D-080; done 2026-10-26)
+REQ-INC-057, 058 (saved, not sent until WP-024), 061, 065, 128, 151 (D-068); REQ-INC-063 and
+REQ-WI-006 AC2 (typing) pulled forward from V1. One session (planned two).
+- [x] Migration 0016: `work_item_conversations`, `work_item_followers`, `work_item_reply_templates`
+  (RLS, no DELETE grant, actor triggers); type settings `keep_following_on_handover`,
+  `first_response_on`.
+- [x] API: conversation (list, add with Idempotency-Key, make public/private with If-Match and
+  audit), followers (follow, add, remove by self/assignee/manager), mentionable people, typing
+  signal, personal counters (each also a list view), reply templates (admin, audited). New
+  permissions `incidents.add_note`, `incidents.reply`, `incidents.manage_followers`.
+- [x] D-068: hand-over keeps following by default (`keep_following`); the follower may view and add
+  private notes only, through the policy layer's new `shared_scope` (ADR-026 amendment); removal
+  revokes their realtime subscriptions.
+- [x] Console: Conversation tab (filters, public/private clearly different, "not sent" notice,
+  first-response tag, make public/private with confirmation, typing indicator, composer with
+  To/Cc and reply-all/forward), followers card and Follow button, hand-over dialog with
+  "Keep following", personal counters on the list, record and create pages use the full width.
+- [x] Editor: three heading sizes, palette colours and highlights, logical alignment and indent
+  (right in RTL), quote, code block, horizontal line, undo/redo, clear formatting, full screen,
+  clean paste from Word/Outlook/web (real lists), @mentions, reply templates; same allow-list on
+  the server (`data-*` codes only). Inline images: placeholder in `paste.ts` for WP-022.
+- [x] Empty-table text contrast (found by WP-018): shared `EmptyText` used by incidents,
+  announcements and the command palette.
+- Not done here: notifications for replies, notes, mentions and followers (WP-023, from the
+  events); sending replies (WP-024); "pending my approval" counter (WP-030); edit/delete notes
+  (REQ-INC-062, V1); sharing (REQ-INC-056 sharing part, V1); overdue/due-today counters change by
+  time only every minute until SLA timers (WP-025); the first-response settings screen (WP-020c).
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -397,6 +425,25 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ## Session log (newest first)
 
+### 2026-10-26 — WP-020b: conversation, notes, followers, richer editor
+
+- **Built:** see the WP-020b entry. Decisions D-079 (defaults) and D-080 (Tiptap mention and
+  suggestion, MIT). ADR-026 amended (followers and shared reach). Migration 0016 on top of 0015.
+- **New dependencies:** `@tiptap/extension-mention`, `@tiptap/suggestion` (MIT, 3.31.4; D-080).
+- **Shared changes:** `ResourceType.shared_scope`/`shared_actions` in the policy layer;
+  `EmptyText` in `@supportx/ui`; sanitiser allow-list (span/mark with palette codes, alignment and
+  indent codes, mentions); e2e teardown also removes the suite's conversation rows.
+- **Tests:** backend 972 passed, 1 skipped, 94.57 %; new `test_conversation_api.py` (18, incl.
+  RLS for the three tables) and domain tests; console 83, ui 45 (editor and Word paste); e2e
+  incident journeys 3/3 locally (hand-over now keeps following, then unfollow removes access).
+- **Chrome check before the PR** found and fixed four UI bugs: the text-style picker stretched the
+  toolbar onto three lines in forms; mention list unreadable in dark mode (mounted outside the
+  theme); the record page left a quarter of the screen empty (fixed 1200 px cap, also on the create
+  form); the disabled Reply button's arrow looked active; the empty editor's placeholder sat on the
+  left in Arabic. Known, not fixed: the first pasted paragraph takes the alignment of the empty line
+  it lands in (ProseMirror merges them).
+- **Dev environment:** dev database migrated 0013 → 0016 (forward only); fan-out, consumer workers
+  and the console dev server restarted to load the new code and dependency.
 ### 2026-10-26 — Branding (lane B) and WP-018 wrap-up
 
 - **Branding** (D-078, branch `feat/branding`): see the BRAND entry above. Colours sampled from the
