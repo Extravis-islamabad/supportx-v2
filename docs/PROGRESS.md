@@ -501,7 +501,7 @@ Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`
     commands.
   - Not built: a per-tenant "rotate data key" button for administrators. D-082 D2 rotation is
     covered by the operator command; a tenant button adds little (data keys are wrapped by the
-    installation key either way). Recorded as a follow-up.
+    installation key either way). **V1** (D-084).
 
 ### [x] BRAND — SupportX branding (lane B; product owner request; D-078; done 2026-10-26)
 - **Goal:** The SupportX logo and colours everywhere SupportX shows its own brand, from one place
@@ -596,6 +596,21 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - Found and fixed while building: an INSERT returned the generated tsvector with every new
   incident. The search columns are now `unmapped_column`s.
 - Shared `useDebounced` (`apps/console/src/useDebounced.ts`) replaces two copies.
+### 2026-10-26 — WP-022 review follow-ups (lane B)
+
+- D-084 recorded: the admin "rotate data key" action is V1; new enum values are additive, and
+  API clients must tolerate unknown enum values (`docs/architecture/api-conventions.md` §8).
+- Urdu labels for every licence limit (`limit.*`), with a test that every limit has Arabic and
+  Urdu.
+- Flaky console announcements test, cause found: `pnpm test` ran four packages at once, each
+  Vitest with a worker per CPU core, so about four jsdom workers per core. A file's first full
+  render (about 1.5 s of CPU, measured with a CPU profile: Ant Design styles parsed by jsdom
+  and React's first render) then sometimes ran past the 5 s test limit, about one run in five.
+  Fix: `pnpm test` runs the packages one after another (`--workspace-concurrency=1`): 6 of 6 runs
+  green, and faster (about 35 s against 40–70 s). Preloading the lazy routes was tried and did
+  not help (the time was not module loading).
+- D-085 recorded: PostgreSQL full-text search with pg_trgm for MVP, behind a search port
+  (ADR-029 comes with WP-027).
 
 ### 2026-10-26 — WP-020c: incident settings screens and templates
 

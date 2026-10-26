@@ -36,6 +36,12 @@ export const ur: LabelResource = {
     'آپ کے لائسنس پر توجہ درکار ہے: صرف پڑھنے کے موڈ سے پہلے {{count}} دن باقی ہیں۔',
   'licence.read_only_banner':
     'صرف پڑھنے کا موڈ: آپ ڈیٹا دیکھ اور ایکسپورٹ کر سکتے ہیں۔ لائسنس کی تجدید تک تبدیلیاں روک دی گئی ہیں۔',
+  'limit.technicians': 'ٹیکنیشن',
+  'limit.assets': 'زیرِ انتظام اثاثے',
+  'limit.departments': 'شعبہ جاتی ڈیسک',
+  'limit.msp_customers': 'MSP صارفین',
+  'limit.ai_agent_runs_per_month': 'ماہانہ AI ایجنٹ رنز',
+  'limit.storage_gb': 'فائل اسٹوریج (GB)',
   'connectivity.reconnecting': 'دوبارہ جوڑا جا رہا ہے…',
   'errors.copy_reference': 'حوالہ کاپی کریں',
   'actions.save': 'محفوظ کریں',

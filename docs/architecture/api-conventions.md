@@ -170,8 +170,19 @@ is stale (`openapi-check`). It also fails when `openapi.json` breaks the target 
 - an operation or parameter removed;
 - a new required parameter or body field;
 - a type changed;
+- an enum loses a value;
 - a response field removed or made optional;
 - a named schema removed or renamed.
+
+**New enum values are not breaking (D-084).** A version may add a code to any enum: a status, a
+kind, a limit key, an event type. **Every API client must tolerate enum values it does not
+know**, in responses and events:
+- show them, never crash or drop the record: our UI renders every code through
+  `packages/labels`, which falls back to a readable form of the code when it has no label yet;
+- never use an exhaustive `switch` with no default, or a lookup that throws, on an API enum;
+- treat an unknown value as "other" in logic (for example, not counted in a known bucket).
+
+Removing or renaming a value stays breaking.
 
 Breaking changes go to `/api/v2`.
 
