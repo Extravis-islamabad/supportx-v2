@@ -112,8 +112,9 @@ describe('Attachments', () => {
     fireEvent.change(input as HTMLInputElement, {
       target: { files: [new File([new Uint8Array(1_000_001)], 'huge.iso')] },
     });
+    // Other alerts (a notification from an earlier test's request) may be on the page too.
     await waitFor(() => {
-      expect(screen.getByRole('alert').textContent).toBe(
+      expect(screen.getAllByRole('alert').map((a) => a.textContent)).toContain(
         'huge.iso is larger than the limit of 1 MB.',
       );
     });
