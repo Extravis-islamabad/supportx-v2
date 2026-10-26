@@ -1,15 +1,19 @@
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion';
-import { Flex, Tag, Typography, theme } from 'antd';
+import { Flex, Typography, theme } from 'antd';
 import { forwardRef, useImperativeHandle, useState } from 'react';
 
 import { useLabel } from '../appearance';
+import { ToneTag } from '../ToneTag';
 import type { MentionCandidate } from './mention';
 
 export interface ListHandle {
   onKeyDown: (props: SuggestionKeyDownProps) => boolean;
 }
 
-export type ListProps = SuggestionProps<MentionCandidate, { id: string; label: string }>;
+export type ListProps = SuggestionProps<
+  MentionCandidate,
+  { id: string; label: string; canSee: boolean }
+>;
 
 export const MentionList = forwardRef<ListHandle, ListProps>(function MentionList(props, ref) {
   const t = useLabel();
@@ -22,7 +26,7 @@ export const MentionList = forwardRef<ListHandle, ListProps>(function MentionLis
   }
   const pick = (index: number) => {
     const item = props.items[index];
-    if (item !== undefined) props.command({ id: item.id, label: item.label });
+    if (item !== undefined) props.command({ id: item.id, label: item.label, canSee: item.canSee });
   };
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
@@ -92,11 +96,7 @@ export const MentionList = forwardRef<ListHandle, ListProps>(function MentionLis
                   {item.email}
                 </Typography.Text>
               </Flex>
-              {!item.canSee && (
-                <Tag color="warning" style={{ marginInlineEnd: 0 }}>
-                  {t('richtext.mention_cannot_see')}
-                </Tag>
-              )}
+              {!item.canSee && <ToneTag tone="warning">{t('richtext.mention_cannot_see')}</ToneTag>}
             </Flex>
           </div>
         ))

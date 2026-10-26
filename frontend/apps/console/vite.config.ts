@@ -24,5 +24,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // App-level tests render whole lazy routes (the record page opens on its conversation, D-081)
+    // and wait up to 5 s for elements (test/setup.ts); the test itself needs room above that on a
+    // busy machine or CI runner, or a slow but passing wait turns into a timeout.
+    testTimeout: 15_000,
   },
 });

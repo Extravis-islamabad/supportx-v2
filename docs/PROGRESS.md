@@ -4,10 +4,10 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020b (conversation, notes, followers, richer editor), 2026-10-26;
-  exploratory QA report: ~/Desktop/qa-wp020b/. Before it: WP-020-FIX and WP-020.
-- **Next work package:** the WP-020b QA findings (after product owner review), then WP-020c and
-  the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
+- **Last completed:** WP-020b-FIX (all WP-020b QA findings: BUG-01..10, C1..C7, D-081), 2026-10-26.
+  Before it: WP-020b (conversation, notes, followers, richer editor).
+- **Next work package:** WP-020c (incident settings screens and templates), **when the product
+  owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -322,6 +322,28 @@ REQ-WI-006 AC2 (typing) pulled forward from V1. One session (planned two).
   (REQ-INC-062, V1); sharing (REQ-INC-056 sharing part, V1); overdue/due-today counters change by
   time only every minute until SLA timers (WP-025); the first-response settings screen (WP-020c).
 
+### [x] WP-020b-FIX — WP-020b QA findings (D-081; done 2026-10-26)
+Every finding of Desktop/qa-wp020b/QA-REPORT.md has a test named after its ID that failed first.
+- [x] BUG-01 readable tags: shared `ToneTag` and palette (`packages/ui/src/tones.ts`), automated
+  contrast check for every tone in light, dark (4.5:1) and high contrast (7:1).
+- [x] BUG-02 one realtime connection per tab in development (StrictMode) and production
+  (acquire/release with a deferred close); a refused or ended channel and a dropped connection are
+  shown (`limited` / `reconnecting` banner) and retried with backoff, then refetch what was missed.
+  Verified on a production build (`vite preview`) and the dev server: one connection token per
+  tab, one channel subscriber, live note received.
+- [x] BUG-03 each list item reads in its own direction (view and editor), lists indent per item.
+- [x] BUG-04 typing heartbeat (start repeated every 3 s while typing; shown for 8 s).
+- [x] BUG-05 full screen fills the window, a click anywhere focuses, Escape works from anywhere.
+- [x] BUG-06 counter views show which view is active and how many incidents it leaves out.
+- [x] BUG-07 open composers reload reply templates live. BUG-08 follower search ignores stale
+  answers. BUG-09 removing a follower who would lose access (or unfollowing it yourself) asks
+  first. BUG-10 reply menu opens on click and closes after a choice.
+- [x] C1 Arabic hand-over wording; C2 invalid addresses named, no second "required"; C3 mentions
+  of unknown users become plain text; C4 singular/plural notice (ar six forms); C5 history word
+  gap; C6 group name isolated (bidi); C7 paste into an empty line keeps the first block's alignment.
+- [x] D-081: warning before sending a mention of someone who cannot see the incident; the record
+  opens on the last-used tab per user (Conversation first). Demo data restored.
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -424,6 +446,16 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-26 — WP-020b-FIX: the WP-020b QA findings
+
+- **Fixed:** BUG-01..10 and C1..C7 (see the WP-020b-FIX entry), plus the D-081 changes. Shared
+  changes: `@supportx/realtime` acquire/release, `limited` status, channel and connection retries,
+  `@supportx/realtime/testing` (scripted client for app tests); `@supportx/ui` `ToneTag`, `tones.ts`,
+  `richtext/direction.ts`, the `connectivity.limited` banner.
+- **Not changed:** no new dependencies; no migration; the remembered tab is per browser (D-081).
+- **Data:** Tariq (tech@demo.test) removed from QA-Desk A and QA-Site through the admin API (as
+  before the QA run); INC-68..71 moved to the trash.
 
 ### 2026-10-26 — WP-020b: conversation, notes, followers, richer editor
 

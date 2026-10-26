@@ -12,6 +12,7 @@ import {
   Button,
   Card,
   Dropdown,
+  Modal,
   Empty,
   Flex,
   Popconfirm,
@@ -25,12 +26,14 @@ import {
   Typography,
   theme,
 } from 'antd';
-import { cloneElement, isValidElement, useEffect, useMemo, useRef, useState } from 'react';
+import { cloneElement, isValidElement, useMemo, useState } from 'react';
+
+import { useQueryClient } from '@tanstack/react-query';
 
 import {
   ApiError,
+  queryKeys,
   fetchMentionable,
-  sendTyping,
   useAddConversationEntry,
   useChangeNoteVisibility,
   useIncidentConversation,
@@ -46,6 +49,7 @@ import {
   reportError,
   RichTextField,
   RichTextView,
+  ToneTag,
   useAccess,
   useDateTime,
   useLabel,
@@ -53,15 +57,16 @@ import {
   type MentionSearch,
 } from '@supportx/ui';
 
+import { useTenantChannel } from '@supportx/realtime';
+
 import { ReplyTemplatesDialog } from './ReplyTemplatesDialog';
+import { useTypingSignal } from './typing';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
 type Draft = { kind: 'reply'; mode: ReplyMode } | { kind: 'note' };
 
 /** Who is writing what right now, from typing signals on the record channel (REQ-WI-006 AC2). */
 export type Typing = Record<string, { name: string; kind: EntryKind }>;
-
-const TYPING_IDLE_MS = 4_000;
 
 function initials(name: string): string {
   return name
@@ -182,6 +187,8 @@ function ComposeButtons({
   const note = state('add_note');
   const why = (s: typeof reply) =>
     s === undefined || s.allowed ? undefined : t(`action_reason.${s.reason ?? 'no_permission'}`);
+  // Opens on click (keyboard too) and closes once something is chosen (QA BUG-10).
+  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <Space wrap>
       <Tooltip title={why(reply)}>
@@ -189,6 +196,9 @@ function ComposeButtons({
           type="primary"
           disabled={disabled || reply?.allowed !== true}
           icon={<DownOutlined />}
+          trigger={['click']}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
           onClick={() => {
             onCompose({ kind: 'reply', mode: 'reply' });
           }}
@@ -196,10 +206,11 @@ function ComposeButtons({
             items: (['reply_all', 'forward'] as const).map((mode) => ({
               key: mode,
               label: t(`reply_mode.${mode}`),
-              onClick: () => {
-                onCompose({ kind: 'reply', mode });
-              },
             })),
+            onClick: ({ key }) => {
+              setMenuOpen(false);
+              onCompose({ kind: 'reply', mode: key as ReplyMode });
+            },
           }}
           buttonsRender={([left, right]) => [
             <span key="l" data-testid="conv-reply">
@@ -316,20 +327,20 @@ function EntryCard({
           <Typography.Text strong>
             <bdi dir="auto">{author}</bdi>
           </Typography.Text>
-          <Tag
+          <ToneTag
             icon={isPrivate ? <LockOutlined /> : <GlobalOutlined />}
-            color={isPrivate ? 'warning' : entry.kind === 'reply' ? 'purple' : 'blue'}
-            data-testid="conv-entry-visibility"
+            tone={isPrivate ? 'warning' : entry.kind === 'reply' ? 'purple' : 'info'}
+            testId="conv-entry-visibility"
           >
             {t(kindKey)}
-          </Tag>
+          </ToneTag>
           <Typography.Text type={isPrivate ? undefined : 'secondary'} data-testid="conv-entry-who">
             {t(isPrivate ? 'conversation.private_hint' : 'conversation.public_hint')}
           </Typography.Text>
           {entry.first_response && (
-            <Tag color="success" data-testid="conv-first-response">
+            <ToneTag tone="success" testId="conv-first-response">
               {t('conversation.first_response')}
-            </Tag>
+            </ToneTag>
           )}
         </Space>
         <Typography.Text type="secondary">{dates.format(entry.created_at)}</Typography.Text>
@@ -435,39 +446,39 @@ function Composer({
   const [to, setTo] = useState<string[]>(initial.to);
   const [cc, setCc] = useState<string[]>(initial.cc);
   const kind: EntryKind = draft.kind;
-  // Typing signal: start on the first keystroke, stop after a pause, on send and on close.
-  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const typingOn = useRef(false);
-  const stopTyping = () => {
-    if (typingTimer.current !== null) clearTimeout(typingTimer.current);
-    typingTimer.current = null;
-    if (typingOn.current) sendTyping(item.id, 'stop', kind);
-    typingOn.current = false;
-  };
-  useEffect(() => stopTyping, []); // eslint-disable-line react-hooks/exhaustive-deps -- unmount only
-  const typed = () => {
-    if (!typingOn.current) {
-      typingOn.current = true;
-      sendTyping(item.id, 'start', kind);
+  // Typing signal: start, repeated while typing goes on, stop after a pause (QA BUG-04).
+  const { typed, stop: stopTyping } = useTypingSignal(item.id, kind);
+  // Templates changed by an admin elsewhere: reload the list while this composer is open (BUG-07).
+  const queryClient = useQueryClient();
+  useTenantChannel((message) => {
+    if (message.type === 'work_items.reply_templates_changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.replyTemplates });
     }
-    if (typingTimer.current !== null) clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(stopTyping, TYPING_IDLE_MS);
-  };
+  });
+  // D-081: warn before sending a mention of someone who cannot see the incident.
+  const [unseen, setUnseen] = useState<string[] | null>(null);
   const mentions: MentionSearch = (query) =>
     fetchMentionable(item.id, query).then((found) =>
       found.map((p) => ({ id: p.id, label: p.display_name, email: p.email, canSee: p.can_see })),
     );
   const error = add.error instanceof ApiError ? add.error : null;
   const fieldErrors = error?.status === 422 ? error.fieldErrors : [];
-  const send = () => {
+  const send = (confirmed = false) => {
+    const blind = cannotSee(body);
+    if (!confirmed && blind.length > 0) {
+      setUnseen(blind);
+      return;
+    }
+    setUnseen(null);
     stopTyping();
+    const clean = withoutComposerMarkers(body);
     add.mutate(
       {
         key,
         body:
           kind === 'reply' && draft.kind === 'reply'
-            ? { kind, body, reply_mode: draft.mode, to, cc }
-            : { kind, body, visibility },
+            ? { kind, body: clean, reply_mode: draft.mode, to, cc }
+            : { kind, body: clean, visibility },
       },
       {
         onSuccess: (saved) => {
@@ -613,12 +624,39 @@ function Composer({
           type="primary"
           loading={add.isPending}
           disabled={body === ''}
-          onClick={send}
+          onClick={() => {
+            send();
+          }}
           data-testid="conv-send"
         >
           {t(draft.kind === 'note' ? 'conversation.save_note' : 'conversation.send')}
         </WriteButton>
       </Flex>
+      <Modal
+        open={unseen !== null}
+        title={t('conversation.mention_warning_title')}
+        footer={null}
+        onCancel={() => {
+          setUnseen(null);
+        }}
+        destroyOnHidden
+      >
+        <div data-testid="conv-mention-warning">
+          {(unseen ?? []).map((name) => (
+            <Typography.Paragraph key={name} style={{ marginBottom: 4 }}>
+              {t('conversation.mention_cannot_see', { name })}
+            </Typography.Paragraph>
+          ))}
+          <ModalButtons
+            onSend={() => {
+              send(true);
+            }}
+            onBack={() => {
+              setUnseen(null);
+            }}
+          />
+        </div>
+      </Modal>
       <ReplyTemplatesDialog
         open={managing}
         onClose={() => {
@@ -626,5 +664,30 @@ function Composer({
         }}
       />
     </Card>
+  );
+}
+
+/** Names of mentioned people the composer was told cannot see the incident (D-081). */
+function cannotSee(html: string): string[] {
+  const doc = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+  return [...doc.querySelectorAll('span[data-type="mention"][data-can-see="false"]')].map(
+    (span) => span.getAttribute('data-label') ?? span.textContent.replace(/^@/, ''),
+  );
+}
+
+/** The editor's composer-only marks (who cannot see) are not sent; the server keeps none. */
+function withoutComposerMarkers(html: string): string {
+  return html.replace(/\sdata-can-see="(?:true|false)"/g, '');
+}
+
+function ModalButtons({ onSend, onBack }: { onSend: () => void; onBack: () => void }) {
+  const t = useLabel();
+  return (
+    <Flex justify="end" gap={8} style={{ marginTop: 12 }}>
+      <Button onClick={onBack}>{t('conversation.go_back')}</Button>
+      <Button type="primary" onClick={onSend}>
+        {t('conversation.send_anyway')}
+      </Button>
+    </Flex>
   );
 }

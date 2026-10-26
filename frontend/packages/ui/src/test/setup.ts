@@ -1,4 +1,4 @@
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
@@ -6,6 +6,10 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 afterEach(() => {
   cleanup();
 });
+
+// The rich-text editor loads lazily and ProseMirror is slow in jsdom on a busy runner: waits get
+// the same 5 s as the console's app tests (apps/console/src/test/setup.ts).
+configure({ asyncUtilTimeout: 5000 });
 
 // jsdom has no matchMedia; Ant Design's responsive utilities need it. Left untyped on purpose:
 // the legacy addListener/removeListener pair is still called by some Ant Design internals.

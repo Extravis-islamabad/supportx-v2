@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+
+import { withItemDirections } from './direction';
 import { RichTextStyles } from './styles';
 
 /**
@@ -6,6 +9,8 @@ import { RichTextStyles } from './styles';
  * the browser only renders it.
  */
 export function RichTextView({ html, testId }: { html: string | null; testId?: string }) {
+  // Each list item reads in its own direction, so its bullet sits beside its text (QA BUG-03).
+  const shown = useMemo(() => (html === null ? '' : withItemDirections(html)), [html]);
   if (html === null || html === '') return null;
   return (
     <>
@@ -15,7 +20,7 @@ export function RichTextView({ html, testId }: { html: string | null; testId?: s
         dir="auto"
         data-testid={testId}
         // Server-sanitised HTML (see above); React would otherwise show the tags as text.
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: shown }}
       />
     </>
   );

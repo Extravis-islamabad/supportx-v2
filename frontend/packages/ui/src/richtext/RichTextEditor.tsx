@@ -31,7 +31,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { useAppearance, useLabel } from '../appearance';
 import {
@@ -42,6 +42,7 @@ import {
   TextColourMark,
   type Alignment,
 } from './extensions';
+import { ListItemDirection } from './direction';
 import { mentionExtension } from './mention';
 import { cleanPastedHtml } from './paste';
 import { RichTextStyles } from './styles';
@@ -88,6 +89,7 @@ export default function RichTextEditor({
       BlockFormat,
       TextColourMark,
       HighlightMark,
+      ListItemDirection,
       ...(mentions === undefined ? [] : [mentionExtension(mentions)]),
     ],
     content: value ?? '',
@@ -103,9 +105,24 @@ export default function RichTextEditor({
         ...(id === undefined ? {} : { id }),
         ...(testId === undefined ? {} : { 'data-testid': testId }),
         class: 'sx-richtext sx-richtext-input',
-        ...(minHeight === undefined ? {} : { style: `min-height: ${String(minHeight)}px` }),
       },
       transformPastedHTML: cleanPastedHtml,
+      // Pasting into an empty line: the line becomes the first pasted block (its heading level
+      // and alignment), instead of ProseMirror merging the pasted text into it (QA C7).
+      handlePaste: (view, _event, slice) => {
+        const { $from, empty } = view.state.selection;
+        const first = slice.content.firstChild;
+        if (!empty || !$from.parent.isTextblock || $from.parent.content.size > 0) return false;
+        if (first === null || !first.isTextblock || slice.openStart === 0) return false;
+        const start = $from.before();
+        const tr = view.state.tr.replaceSelection(slice);
+        const line = tr.doc.nodeAt(start);
+        if (line?.isTextblock === true) {
+          tr.setNodeMarkup(start, first.type, { ...line.attrs, ...first.attrs });
+        }
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      },
     },
     onUpdate: ({ editor: current }) => {
       onChange?.(current.isEmpty ? '' : current.getHTML());
@@ -121,17 +138,28 @@ export default function RichTextEditor({
   useEffect(() => {
     editor.setEditable(!disabled);
   }, [editor, disabled]);
+  // Escape leaves full screen wherever the focus is (QA BUG-05).
+  useEffect(() => {
+    if (!fullScreen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFullScreen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [fullScreen]);
   return (
     <div
       className={`sx-richtext-frame${invalid ? ' sx-richtext-invalid' : ''}${fullScreen ? ' sx-richtext-fullscreen' : ''}`}
       data-testid={testId === undefined ? undefined : `${testId}-frame`}
+      // The composer's minimum height; full screen fills the window instead (QA BUG-05).
+      style={
+        fullScreen || minHeight === undefined
+          ? undefined
+          : ({ '--sx-editor-min-height': `${String(minHeight)}px` } as CSSProperties)
+      }
       {...(fullScreen ? { role: 'dialog', 'aria-modal': true, 'aria-label': label } : {})}
-      onKeyDown={(event) => {
-        if (fullScreen && event.key === 'Escape') {
-          event.stopPropagation();
-          setFullScreen(false);
-        }
-      }}
     >
       <RichTextStyles />
       {!disabled && (
@@ -146,7 +174,17 @@ export default function RichTextEditor({
           }}
         />
       )}
-      <EditorContent editor={editor} className="sx-richtext-scroll" />
+      <EditorContent
+        editor={editor}
+        className="sx-richtext-scroll"
+        // A click on the empty space below the text puts the caret at the end (QA BUG-05).
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            event.preventDefault();
+            editor.commands.focus('end');
+          }
+        }}
+      />
       <span className="sx-visually-hidden">{t('richtext.hint')}</span>
     </div>
   );

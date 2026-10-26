@@ -1,13 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook, waitFor } from '@testing-library/react';
 import { UnauthorizedError, type Centrifuge } from 'centrifuge';
-import type { ReactNode } from 'react';
+import { StrictMode, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { queryKeys } from '@supportx/api-client';
 import { fakeApi, problem } from '@supportx/api-client/testing';
 
-import { FALLBACK_AFTER_MS, POLL_INTERVAL_MS, RealtimeConnection } from './connection';
+import {
+  FALLBACK_AFTER_MS,
+  POLL_INTERVAL_MS,
+  RETRY_DELAYS_MS,
+  RealtimeConnection,
+} from './connection';
 import { refreshRecord, useListChannel, useRealtimeStatus, useRecordChannel } from './hooks';
 import { RealtimeProvider } from './RealtimeProvider';
 import type { RealtimeMessage } from './types';
@@ -28,6 +33,7 @@ class FakeEmitter {
 
 class FakeSubscription extends FakeEmitter {
   subscribed = false;
+  subscribeCalls = 0;
   constructor(
     readonly channel: string,
     readonly options: { getToken: (ctx: { channel: string }) => Promise<string> },
@@ -37,6 +43,7 @@ class FakeSubscription extends FakeEmitter {
   }
   subscribe() {
     this.subscribed = true;
+    this.subscribeCalls += 1;
   }
   unsubscribe() {
     this.subscribed = false;
@@ -49,6 +56,8 @@ class FakeSubscription extends FakeEmitter {
 class FakeClient extends FakeEmitter {
   subs = new Map<string, FakeSubscription>();
   connected = false;
+  connects = 0;
+  disconnects = 0;
   presence: Record<string, { client: string; connInfo: unknown }> = {};
   constructor(readonly getToken: () => Promise<string>) {
     super();
@@ -66,9 +75,11 @@ class FakeClient extends FakeEmitter {
   }
   connect() {
     this.connected = true;
+    this.connects += 1;
   }
   disconnect() {
     this.connected = false;
+    this.disconnects += 1;
   }
   publish(channel: string, data: RealtimeMessage) {
     this.subs.get(channel)?.emit('publication', { channel, data });
@@ -309,5 +320,101 @@ describe('refreshRecord', () => {
       version: 6,
     });
     expect(queryClient.getQueryState(['users', 'detail', '1'])?.isInvalidated).toBe(true);
+  });
+});
+
+describe('WP-020b QA: one connection per tab, never silently dead', () => {
+  const clients: FakeClient[] = [];
+  const counting = (getToken: () => Promise<string>) => {
+    const made = factory(getToken);
+    clients.push(client);
+    return made;
+  };
+  let queryClient: QueryClient;
+  beforeEach(() => {
+    clients.length = 0;
+    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  });
+
+  function Viewer({ onMessage }: { onMessage: (m: RealtimeMessage) => void }) {
+    useRecordChannel('wi', 'r1', onMessage);
+    return null;
+  }
+
+  function app(strict: boolean, onMessage: (m: RealtimeMessage) => void) {
+    const tree = (
+      <QueryClientProvider client={queryClient}>
+        <RealtimeProvider tenantId={T} userId={U} factory={counting}>
+          <Viewer onMessage={onMessage} />
+        </RealtimeProvider>
+      </QueryClientProvider>
+    );
+    return strict ? <StrictMode>{tree}</StrictMode> : tree;
+  }
+
+  for (const strict of [true, false]) {
+    it(`BUG-02: exactly one live connection and a live record channel (${strict ? 'development, StrictMode' : 'production'})`, async () => {
+      vi.useFakeTimers();
+      const seen: RealtimeMessage[] = [];
+      render(app(strict, (m) => seen.push(m)));
+      await act(async () => {
+        await vi.runOnlyPendingTimersAsync();
+      });
+      const connected = clients.filter((c) => c.connected);
+      expect(connected).toHaveLength(1);
+      expect(clients.filter((c) => c.connects > 0)).toHaveLength(1);
+      expect(connected[0]?.connects).toBe(1);
+      expect(connected[0]?.disconnects).toBe(0);
+      const sub = connected[0]?.subs.get(`t:${T}:wi:r1`);
+      expect(sub?.subscribed).toBe(true);
+      act(() => {
+        connected[0]?.publish(`t:${T}:wi:r1`, { type: 'work_items.changed', ids: ['r1'] });
+      });
+      expect(seen).toEqual([{ type: 'work_items.changed', ids: ['r1'] }]);
+    });
+  }
+
+  it('BUG-02: a connection that drops while screens use it is shown and retried', () => {
+    vi.useFakeTimers();
+    const connection = new RealtimeConnection(factory);
+    connection.acquire();
+    expect(client.connects).toBe(1);
+    // The connection token was refused (or the server ended the connection for good).
+    client.emit('disconnected', { code: 3500, reason: 'unauthorized' });
+    expect(connection.currentStatus).toBe('reconnecting'); // shown, never silently offline
+    vi.advanceTimersByTime(RETRY_DELAYS_MS[0]);
+    expect(client.connects).toBe(2);
+    client.emit('connected', { client: 'c2', transport: 'websocket' });
+    expect(connection.currentStatus).toBe('connected');
+    // Closing on purpose (sign out, leaving) is not a drop: no retry.
+    connection.close();
+    client.emit('disconnected', { code: 0, reason: 'disconnect called' });
+    vi.advanceTimersByTime(60_000);
+    expect(client.connects).toBe(2);
+    expect(connection.currentStatus).toBe('offline');
+  });
+
+  it('BUG-02: a refused or ended channel is shown and retried, then catches up', () => {
+    vi.useFakeTimers();
+    const connection = new RealtimeConnection(factory);
+    const listener = vi.fn();
+    connection.join('t:x:wi:1', listener);
+    connection.connect();
+    client.emit('connected', { client: 'c1', transport: 'websocket' });
+    const sub = client.subs.get('t:x:wi:1');
+    sub?.emit('subscribed', { wasRecovering: false, recovered: false });
+    expect(connection.currentStatus).toBe('connected');
+    // The API refused the token (e.g. its access cache was still stale after a change).
+    sub?.emit('unsubscribed', { code: 1, reason: 'unauthorized' });
+    expect(connection.currentStatus).toBe('limited');
+    const before = sub?.subscribeCalls ?? 0;
+    vi.advanceTimersByTime(RETRY_DELAYS_MS[0]);
+    expect(sub?.subscribeCalls).toBe(before + 1);
+    sub?.emit('subscribed', { wasRecovering: false, recovered: false });
+    expect(connection.currentStatus).toBe('connected');
+    expect(listener).toHaveBeenCalledWith({ type: 'refresh', ids: [] }); // fetch what was missed
+    // Leaving the screen stops the retries.
+    sub?.emit('unsubscribed', { code: 2500, reason: 'server' });
+    expect(connection.currentStatus).toBe('limited');
   });
 });

@@ -37,6 +37,7 @@ from app.modules.work_items.domain.conversation import (
     delivery_for,
     mentioned_ids,
     stamps_first_response,
+    unmention,
 )
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import (
@@ -161,19 +162,19 @@ def _needed_action(kind: EntryKind, visibility: Visibility) -> str:
     return "add_note" if kind == EntryKind.NOTE and visibility == Visibility.PRIVATE else "reply"
 
 
-def _addresses(values: Sequence[str]) -> tuple[list[str], bool]:
-    """(cleaned, all valid): trimmed, lower-cased, de-duplicated in order."""
+def _addresses(values: Sequence[str]) -> tuple[list[str], list[str]]:
+    """(valid, invalid): trimmed, lower-cased, de-duplicated in order."""
     cleaned: list[str] = []
-    valid = True
+    invalid: list[str] = []
     for raw in values:
         value = raw.strip().lower()
         if not value:
             continue
         if not _EMAIL.fullmatch(value) or len(value) > 254:  # noqa: PLR2004 - RFC 5321 limit
-            valid = False
+            invalid.append(raw.strip())
         elif value not in cleaned:
             cleaned.append(value)
-    return cleaned, valid
+    return cleaned, invalid
 
 
 async def _default_to(session: AsyncSession, record: WorkItem) -> list[str]:
@@ -190,25 +191,28 @@ async def _check_recipients(  # noqa: PLR0913, PLR0917 - the composer's fields, 
     mode: ReplyMode | None,
     to: Sequence[str],
     cc: Sequence[str],
-) -> tuple[dict[str, list[str]] | None, list[tuple[str, str]]]:
+) -> tuple[dict[str, list[str]] | None, list[tuple[str, str]], dict[str, dict[str, str]]]:
+    """(recipients, problems, problem params). Invalid addresses are named (QA C2)."""
     problems: list[tuple[str, str]] = []
+    params: dict[str, dict[str, str]] = {}
     if kind == EntryKind.NOTE:
         if to or cc or mode is not None:
             problems.append(("to", "not_allowed_for_notes"))
-        return None, problems
-    to_list, to_ok = _addresses(to)
-    cc_list, cc_ok = _addresses(cc)
-    if not to_ok:
-        problems.append(("to", "invalid_email"))
-    if not cc_ok:
-        problems.append(("cc", "invalid_email"))
+        return None, problems, params
+    to_list, to_bad = _addresses(to)
+    cc_list, cc_bad = _addresses(cc)
+    for name, bad in (("to", to_bad), ("cc", cc_bad)):
+        if bad:
+            problems.append((name, "invalid_email"))
+            params[name] = {"addresses": ", ".join(bad)}
     if not to_list and mode != ReplyMode.FORWARD:
         to_list = await _default_to(session, record)
-    if not to_list:
+    # A wrong address already explains the empty To: no second "required" message (QA C2).
+    if not to_list and not to_bad:
         problems.append(("to", "required"))
     if len(to_list) + len(cc_list) > RECIPIENTS_MAX:
         problems.append(("cc", "too_many"))
-    return {"to": to_list, "cc": [c for c in cc_list if c not in to_list]}, problems
+    return {"to": to_list, "cc": [c for c in cc_list if c not in to_list]}, problems, params
 
 
 async def _may_see(  # noqa: PLR0913, PLR0917 - who asks, about whom, and where; explicit
@@ -270,7 +274,7 @@ def _entry_code(kind: str, visibility: str) -> str:
     return "reply" if kind == EntryKind.REPLY else f"{visibility}_note"
 
 
-async def add_entry(  # noqa: PLR0913, C901 - the composer's fields and context, explicit
+async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and context, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -303,10 +307,17 @@ async def add_entry(  # noqa: PLR0913, C901 - the composer's fields and context,
         problems.append(("body", "required"))
     elif len(clean) > BODY_MAX:
         problems.append(("body", "value_too_long"))
-    recipients, recipient_problems = await _check_recipients(session, record, kind, mode, to, cc)
+    recipients, recipient_problems, params = await _check_recipients(
+        session, record, kind, mode, to, cc
+    )
     problems += recipient_problems
     if problems:
-        raise items.field_errors(problems)
+        raise items.field_errors(problems, **params)
+    # Mentions of people who are not users of this tenant become plain words (QA C3).
+    claimed = mentioned_ids(clean)
+    if claimed:
+        known = await user_contacts(session, claimed)
+        clean = unmention(clean, [u for u in claimed if u not in known])
     state, reason = delivery_for(kind, email_channel=await email_channel_configured(session))
     mentioned: list[uuid.UUID] = []
     not_notified: list[uuid.UUID] = []

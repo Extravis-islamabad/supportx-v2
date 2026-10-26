@@ -579,3 +579,37 @@ async def test_new_tables_are_isolated_by_rls(world: World) -> None:
         "SELECT count(*) AS n FROM work_item_conversations WHERE tenant_id = $1", a.tenant
     )
     assert rows[0]["n"] == 1
+
+
+# --- WP-020b QA findings ------------------------------------------------------------------------
+
+
+async def test_c2_invalid_addresses_are_named_without_a_second_required_error(world: World) -> None:
+    a = world.a
+    item = await world.create(a, a.tech_a, group_id=str(a.ga))
+    forward = await say(
+        world, a, a.tech_a, item, kind="reply", reply_mode="forward", to=["vendor-at-example"]
+    )
+    assert forward.status_code == 422, forward.text
+    errors = forward.json()["errors"]
+    assert [(e["field"], e["code"]) for e in errors] == [("body.to", "invalid_email")]
+    assert errors[0]["params"] == {"addresses": "vendor-at-example"}
+
+
+async def test_c3_unknown_mentions_become_plain_text(world: World) -> None:
+    a = world.a
+    item = await world.create(a, a.tech_a, group_id=str(a.ga))
+    ghost = "00000000-0000-0000-0000-000000000000"
+    body = f"<p>{mention(uuid.UUID(ghost), 'Ghost')} and {mention(a.tech_c, 'Tech C')}</p>"
+    saved = await say(world, a, a.tech_a, item, body=body)
+    assert saved.status_code == 201, saved.text
+    entry = saved.json()["entry"]
+    assert ghost not in entry["body"]
+    assert "@Ghost" in entry["body"]  # the words stay, as plain text
+    assert f'data-id="{a.tech_c}"' in entry["body"]
+    assert saved.json()["not_notified"] == []  # nobody unknown is reported
+    # Someone of another tenant is unknown here too.
+    other = f"<p>{mention(world.b.tech_a, 'Elsewhere')}</p>"
+    foreign = (await say(world, a, a.tech_a, item, body=other)).json()
+    assert str(world.b.tech_a) not in foreign["entry"]["body"]
+    assert foreign["not_notified"] == []

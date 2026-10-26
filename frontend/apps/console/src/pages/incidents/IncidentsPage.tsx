@@ -20,6 +20,7 @@ import {
   queryKeys,
   useIncidentCatalogue,
   useIncidents,
+  useIncidentCounters,
   useIncidentViews,
   useRestoreIncident,
   useUnits,
@@ -98,6 +99,8 @@ export function IncidentsPage() {
   const trash = mode === 'trash';
   const list = useIncidents({ view, filter, sort, limit: 50, trash }, allowed);
   const views = useIncidentViews(allowed && !trash);
+  // Counter views say what they leave out like the built-in ones (Area 15; QA BUG-06).
+  const counters = useIncidentCounters(allowed && !trash);
   const catalogue = useIncidentCatalogue(allowed);
   const groups = useUnits('groups', allowed);
   const groupNames = new Map((groups.data ?? []).map((g) => [g.id, g.name]));
@@ -122,7 +125,11 @@ export function IncidentsPage() {
     [list.data],
   );
   if (!allowed) return <NoAccess titleKey="nav.incidents" />;
-  const counts = new Map((views.data ?? []).map((v) => [v.view, v]));
+  const counts = new Map(
+    [...(views.data ?? []), ...(counters.data ?? []).map((c) => ({ ...c, view: c.counter }))].map(
+      (v) => [v.view, { count: v.count, capped: v.capped }],
+    ),
+  );
   const total = list.data?.pages[0]?.estimated_total ?? null;
 
   return (

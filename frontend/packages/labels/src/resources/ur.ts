@@ -419,8 +419,6 @@ export const ur: LabelResource = {
   'incidents.sort.subject': 'موضوع حروفِ تہجی سے',
   'incidents.view_notice': 'منظر «{{view}}»: {{count}} دکھائے گئے۔',
   'incidents.filter_notice': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
-  'incidents.hidden_notice':
-    'آپ جو دیکھ سکتے ہیں ان میں سے {{count}} دوسرے واقعات اس منظر میں نہیں۔',
   'incidents.hidden_notice_capped':
     'آپ جو دیکھ سکتے ہیں ان میں سے {{count}} سے زیادہ دوسرے واقعات اس منظر میں نہیں۔',
   'incidents.show_all': 'سب دکھائیں',
@@ -845,7 +843,6 @@ export const ur: LabelResource = {
   'errors.follower_not_found': 'یہ شخص اسے فالو نہیں کر رہا۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
-  'errors.field.invalid_email': 'ای میل پتے چیک کریں۔',
   'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
   'errors.field.replies_are_public':
     'جوابات ٹیم سے باہر کے لوگوں کو جاتے ہیں، اس لیے وہ ہمیشہ عوامی ہوتے ہیں۔',
@@ -898,16 +895,8 @@ export const ur: LabelResource = {
   'live.someone': 'کوئی',
   'incidents.tab.conversation': 'گفتگو ({{count}})',
   'incidents.handover_title': '{{id}} حوالے کریں؟',
-  'incidents.handover_moves':
-    '{{id}} {{group}} کو منتقل ہو جائے گا، ان واقعات سے باہر جن پر آپ کام کرتے ہیں۔',
   'incidents.handover_keep_following': 'اس واقعے کو فالو کرتے رہیں',
-  'incidents.handover_following_text':
-    'آپ اسے فالو کرتے رہیں گے: آپ اب بھی اسے کھول سکتے ہیں، اس کی تازہ کاریاں براہ راست دیکھ سکتے ہیں اور نجی نوٹس شامل کر سکتے ہیں، لیکن اسے تبدیل نہیں کر سکتے۔ آپ کسی بھی وقت فالو کرنا بند کر سکتے ہیں۔',
-  'incidents.handover_text':
-    'اس کے بعد آپ {{id}} نہیں دیکھ سکیں گے اور نہ ہی آپ کو اس کے بارے میں بتایا جائے گا۔ تاریخ میں حوالگی درج ہوتی ہے۔',
   'incidents.handover_confirm_following': 'حوالے کریں اور فالو جاری رکھیں',
-  'incidents.handed_over_following':
-    '{{id}} {{group}} کے حوالے کر دیا گیا۔ آپ اسے فالو کرتے رہیں گے۔',
   'richtext.undo': 'واپس کریں',
   'richtext.redo': 'دوبارہ کریں',
   'richtext.text_style': 'متن کا انداز',
@@ -1024,4 +1013,24 @@ export const ur: LabelResource = {
   'followers.access_hint':
     'انہوں نے اسے حوالے کیا اور فالو جاری رکھا: وہ اسے کھول سکتے ہیں اور نجی نوٹس شامل کر سکتے ہیں، لیکن اسے تبدیل نہیں کر سکتے۔',
   'followers.add': 'فالوور شامل کریں',
+  'connectivity.limited': 'کچھ براہ راست اپ ڈیٹس رکی ہوئی ہیں۔ دوبارہ کوشش جاری ہے…',
+  'errors.field.invalid_email': 'یہ پتے درست نہیں ہیں: {{addresses}}',
+  'incidents.hidden_notice_one': '{{count}} اور واقعہ جو آپ دیکھ سکتے ہیں اس منظر میں نہیں ہے۔',
+  'incidents.hidden_notice_other': '{{count}} اور واقعات جو آپ دیکھ سکتے ہیں اس منظر میں نہیں ہیں۔',
+  'conversation.mention_warning_title': 'سب کو اطلاع دیے بغیر بھیجیں؟',
+  'conversation.mention_cannot_see':
+    '{{name}} یہ واقعہ نہیں دیکھ سکتے اور انہیں اطلاع نہیں دی جائے گی۔',
+  'conversation.send_anyway': 'پھر بھی بھیجیں',
+  'conversation.go_back': 'واپس جائیں',
+  'followers.remove_loses_access':
+    '{{name}} یہ واقعہ صرف فالو کرنے کی وجہ سے دیکھتے ہیں۔ ہٹانے سے ان کی رسائی بھی ختم ہو جائے گی۔',
+  'followers.remove_ok': 'ہٹائیں',
+  'incidents.handover_moves':
+    '{{id}} {{group}} کو منتقل ہو جائے گا، ان واقعات سے باہر جن پر آپ کام کرتے ہیں۔',
+  'incidents.handover_following_text':
+    'آپ اسے فالو کرتے رہیں گے: آپ اب بھی اسے کھول سکتے ہیں، اس کی تازہ کاریاں براہ راست دیکھ سکتے ہیں اور نجی نوٹس شامل کر سکتے ہیں، لیکن اسے تبدیل نہیں کر سکتے۔ آپ کسی بھی وقت فالو کرنا بند کر سکتے ہیں۔',
+  'incidents.handover_text':
+    'اس کے بعد آپ {{id}} نہیں دیکھ سکیں گے اور نہ ہی آپ کو اس کے بارے میں بتایا جائے گا۔ تاریخ میں حوالگی درج ہوتی ہے۔',
+  'incidents.handed_over_following':
+    '{{id}} {{group}} کے حوالے کر دیا گیا۔ آپ اسے فالو کرتے رہیں گے۔',
 };
