@@ -115,3 +115,10 @@ chunk exceeds 500 kB.
 
 Vitest with the fake API (`fakeApi` route table, records every call); Playwright against the dev
 stack with axe (`frontend/e2e/README.md`).
+
+`pnpm test` runs the packages **one after another** (`--workspace-concurrency=1`). Each Vitest
+run already uses a worker per CPU core. Running four packages at once started about four
+workers per core, so the first full render of a test file (about 1.5 s of CPU in jsdom, mostly
+Ant Design styles parsed by jsdom) sometimes ran past the 5 s test limit: the console
+announcements test failed about one run in five. One package at a time is also faster
+(about 35 s against 40–70 s).
