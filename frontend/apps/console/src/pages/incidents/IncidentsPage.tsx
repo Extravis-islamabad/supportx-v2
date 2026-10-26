@@ -27,9 +27,19 @@ import {
   type IncidentListItem,
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
-import { NoAccess, reportError, useAccess, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+import {
+  EmptyText,
+  NoAccess,
+  reportError,
+  useAccess,
+  useDateTime,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 import { personName } from './labels';
+import { COUNTERS } from './counters';
+import { PersonalCounters } from './PersonalCounters';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
@@ -96,6 +106,7 @@ export function IncidentsPage() {
   useListChannel(allowed ? 'incidents' : null, (message) => {
     refreshList(queryClient, [...queryKeys.incidents.all, 'list']);
     refreshList(queryClient, queryKeys.incidents.views);
+    refreshList(queryClient, queryKeys.incidents.counters);
     for (const id of message.ids) {
       refreshRecord(queryClient, queryKeys.incidents.detail(id), message);
     }
@@ -143,6 +154,7 @@ export function IncidentsPage() {
           )}
         </Space>
       </Flex>
+      {!trash && <PersonalCounters active={view} onOpen={setView} />}
       <Flex gap={12} wrap>
         {!trash && (
           <Select
@@ -150,10 +162,16 @@ export function IncidentsPage() {
             prefix={`${t('incidents.view')}:`}
             value={view}
             onChange={setView}
-            options={(views.data ?? [{ view: DEFAULT_VIEW, count: 0, capped: false }]).map((v) => ({
-              value: v.view,
-              label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
-            }))}
+            options={[
+              ...(views.data ?? [{ view: DEFAULT_VIEW, count: 0, capped: false }]).map((v) => ({
+                value: v.view,
+                label: `${t(`work_item_view.${v.view}`)} (${String(v.count)}${v.capped ? '+' : ''})`,
+              })),
+              // A personal counter opened its view (REQ-INC-128 AC2): name it like the others.
+              ...((COUNTERS as readonly string[]).includes(view)
+                ? [{ value: view, label: t(`work_item_view.${view}`) }]
+                : []),
+            ]}
             style={{ minWidth: 'min(260px, 100%)' }}
             data-testid="inc-view"
           />
@@ -212,7 +230,11 @@ export function IncidentsPage() {
         dataSource={rows}
         pagination={false}
         scroll={{ x: 'max-content' }}
-        locale={{ emptyText: t(trash ? 'incidents.trash_empty' : 'incidents.empty') }}
+        locale={{
+          emptyText: (
+            <EmptyText>{t(trash ? 'incidents.trash_empty' : 'incidents.empty')}</EmptyText>
+          ),
+        }}
         onRow={(row) =>
           trash
             ? { 'data-testid': `inc-row-${row.display_id}` }

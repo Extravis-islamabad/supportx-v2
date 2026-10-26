@@ -42,6 +42,10 @@ export const queryKeys = {
     categories: ['incidents', 'categories'] as const,
     assignees: (groupId: string | null, search: string) =>
       ['incidents', 'assignees', groupId, search] as const,
+    conversation: (id: string) => ['incidents', 'conversation', id] as const,
+    followers: (id: string) => ['incidents', 'followers', id] as const,
+    counters: ['incidents', 'counters'] as const,
+    replyTemplates: ['incidents', 'reply-templates'] as const,
   },
   audit: {
     all: ['audit'] as const,

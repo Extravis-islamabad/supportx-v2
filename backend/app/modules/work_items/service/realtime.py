@@ -11,6 +11,12 @@ A change is published to the audiences the record belongs to *now and before the
 row that moved from group A to group B leaves A's list and joins B's (REQ-WI-005 AC2). Payloads
 carry the ID, changed field names and the version; screens refetch through the API, where the
 scope rules apply again, so a channel never reveals a record's content.
+
+Followers who kept access after a hand-over (D-068) are an audience of their own: their personal
+channel hears about the record like the requester's and technician's. The conversation (WP-020b)
+publishes `work_items.conversation_changed` on the record channel with the entry ID only, and
+`work_items.followers_changed` when someone follows or stops; typing signals go straight to the
+record channel from the API (`TYPING`), as they change nothing stored.
 """
 
 import uuid
@@ -20,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -38,6 +44,10 @@ from app.shared.realtime import (
 RECORD_KIND = "wi"
 CHANGED = "work_items.changed"
 SETTINGS_CHANGED = "work_items.settings_changed"
+CONVERSATION_CHANGED = "work_items.conversation_changed"
+FOLLOWERS_CHANGED = "work_items.followers_changed"
+TYPING = "work_items.typing"
+TEMPLATES_CHANGED = "work_items.reply_templates_changed"
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -109,6 +119,7 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         unassigned.add(row.site_id)
     if before.get("unassigned") and before.get("site_id"):
         unassigned.add(uuid.UUID(str(before["site_id"])))
+    owners |= await _followers_with_access(session, record_id)
     fields = tuple(payload.get("changed_fields", ()))
     if "to_status" in payload:
         fields = ("status",)
@@ -137,6 +148,71 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
     return RealtimeEffects(publications=publications)
 
 
+async def _followers_with_access(session: AsyncSession, record_id: uuid.UUID) -> set[uuid.UUID]:
+    rows = await session.scalars(
+        select(WorkItemFollower.user_id).where(
+            WorkItemFollower.work_item_id == record_id,
+            WorkItemFollower.grants_access.is_(True),
+            WorkItemFollower.deleted_at.is_(None),
+        )
+    )
+    return set(rows)
+
+
+async def _conversation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A reply or note was added or changed visibility: open timelines refetch it."""
+    del session
+    payload = envelope.payload
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                record(envelope.tenant_id, RECORD_KIND, record_id),
+                CONVERSATION_CHANGED,
+                ids=(str(payload["entry_id"]),),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
+async def _followers_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Someone follows or stopped: the record's followers panel and that person's lists.
+
+    A follower who loses the access the follow gave them is cut and rejoins with fresh tokens, so
+    their subscription to the record channel ends (architecture.md §8.2).
+    """
+    tenant = envelope.tenant_id
+    payload = envelope.payload
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    user_id = uuid.UUID(str(payload["user_id"]))
+    kind = await session.scalar(select(WorkItem.type).where(WorkItem.id == record_id))
+    live = LISTS.get(WorkItemTypeCode(kind), LISTS[INCIDENT.code]) if kind else None
+    publications = [
+        Publication(
+            record(tenant, RECORD_KIND, record_id),
+            FOLLOWERS_CHANGED,
+            ids=(str(user_id),),
+            actor_id=_actor(envelope),
+        )
+    ]
+    if live is not None and payload.get("grants_access"):
+        publications += live.publications(
+            tenant, CHANGED, record_id, owners=[user_id], actor_id=_actor(envelope)
+        )
+    removed = envelope.event_type == "work_items.follower.removed"
+    revoke = [user_id] if removed and payload.get("grants_access") else []
+    return RealtimeEffects(publications=publications, revoke_users=revoke)
+
+
+async def _templates_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Reply templates changed: open composers reload the list (no content)."""
+    del session
+    return RealtimeEffects(
+        publications=[Publication(broadcast(envelope.tenant_id), TEMPLATES_CHANGED)]
+    )
+
+
 async def _settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """Configuration changed: open forms reload their pick lists (no record data)."""
     del session
@@ -158,4 +234,10 @@ ROUTES = [
         _work_item_changed,
     ),
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
+    RealtimeRoute(
+        ("work_items.conversation.added", "work_items.conversation.visibility_changed"),
+        _conversation_changed,
+    ),
+    RealtimeRoute(("work_items.follower.added", "work_items.follower.removed"), _followers_changed),
+    RealtimeRoute(("work_items.reply_templates.changed",), _templates_changed),
 ]

@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Priority, Urgency
+from app.modules.work_items.domain.conversation import FirstResponseAction
 from app.modules.work_items.domain.types import WorkItemType, prefix_problems
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
@@ -49,7 +50,7 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
     return await config.load(session, wtype)
 
 
-async def update_settings(  # noqa: PLR0913, C901 - one rule per setting, flat
+async def update_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     *,
@@ -58,7 +59,7 @@ async def update_settings(  # noqa: PLR0913, C901 - one rule per setting, flat
     source: Source,
     user_id: uuid.UUID | None,
 ) -> Catalogue:
-    """Prefix, default priority and scales, automatic status moves (If-Match: settings version)."""
+    """Prefix, defaults, automatic moves, hand-over and first response (If-Match: version)."""
     current = await config.load(session, wtype)
     changes: dict[str, Any] = {}
     if "prefix" in values:
@@ -72,6 +73,14 @@ async def update_settings(  # noqa: PLR0913, C901 - one rule per setting, flat
         changes["default_priority"] = values["default_priority"]
     if "auto_status_on_assign" in values:
         changes["auto_status_on_assign"] = bool(values["auto_status_on_assign"])
+    if "keep_following_on_handover" in values:
+        changes["keep_following_on_handover"] = bool(values["keep_following_on_handover"])
+    if "first_response_on" in values:
+        chosen = list(values["first_response_on"] or [])
+        if any(code not in set(FirstResponseAction) for code in chosen):
+            raise _invalid(field="first_response_on", field_code="invalid_choice")
+        # Stored in the fixed order, so a re-ordered list is not a change.
+        changes["first_response_on"] = [c for c in FirstResponseAction if c in chosen]
     for name, codes in (("default_impact", set(Impact)), ("default_urgency", set(Urgency))):
         if name in values:
             if values[name] is not None and values[name] not in codes:
@@ -81,6 +90,8 @@ async def update_settings(  # noqa: PLR0913, C901 - one rule per setting, flat
         "prefix": current.prefix,
         "default_priority": current.default_priority,
         "auto_status_on_assign": current.auto_status_on_assign,
+        "keep_following_on_handover": current.keep_following_on_handover,
+        "first_response_on": list(current.first_response_on),
         "default_impact": current.default_impact,
         "default_urgency": current.default_urgency,
     }

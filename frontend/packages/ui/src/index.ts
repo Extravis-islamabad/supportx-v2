@@ -3,6 +3,7 @@ export { ADMIN_PERMISSIONS, useAccess, type Access } from './access';
 export * from './announcements';
 export * from './dates';
 export { AppearanceControls } from './AppearanceControls';
+export { EmptyText } from './EmptyText';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
 export * from './errors';

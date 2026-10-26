@@ -2,6 +2,7 @@ import { Input, List, Modal, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 
 import { useLabel } from '../appearance';
+import { EmptyText } from '../EmptyText';
 
 export interface PaletteCommand {
   key: string;
@@ -76,7 +77,7 @@ export function CommandPalette({ open, onOpenChange, commands, onNavigate }: Com
         <List
           style={{ marginTop: 12 }}
           dataSource={matches}
-          locale={{ emptyText: t('palette.no_results') }}
+          locale={{ emptyText: <EmptyText>{t('palette.no_results')}</EmptyText> }}
           renderItem={(command, index) => (
             <List.Item
               role="option"

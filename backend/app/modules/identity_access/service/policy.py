@@ -91,6 +91,12 @@ class ResourceType:
     built from the whole subject. Work items use it for the unassigned queue of the member's
     sites (D-052): a technician at group scope sees their groups' records and the new,
     unassigned records of their sites, so nobody's new ticket is invisible to everyone.
+
+    `shared_scope` adds records shared with the subject one by one, for the permissions whose
+    action is in `shared_actions` only, and only when the subject holds the permission at some
+    scope. Work items use it for followers who kept access after a hand-over (D-068): they may
+    view and add private notes, never edit, assign or change the status (REQ-INC-151 AC2).
+    Grant conditions do not narrow a shared record: sharing is an explicit, per-record grant.
     """
 
     name: str
@@ -99,6 +105,8 @@ class ResourceType:
     site_scope: ScopePredicate | None = None
     group_scope: ScopePredicate | None = None
     group_scope_extra: Callable[[Subject], ColumnElement[bool] | None] | None = None
+    shared_scope: Callable[[Subject], ColumnElement[bool]] | None = None
+    shared_actions: frozenset[str] = frozenset()
     field_rules: Mapping[str, FieldRule] = field(default_factory=lambda: MappingProxyType({}))
     sod_rules: Mapping[str, Sequence[SodRule]] = field(default_factory=lambda: MappingProxyType({}))
 
@@ -165,6 +173,12 @@ def scope_filter(
                 path="condition",
             )
         parts.append(reach)
+    if (
+        resource_type.shared_scope is not None
+        and permission.rsplit(".", 1)[-1] in resource_type.shared_actions
+        and subject.grants.get(permission)
+    ):
+        parts.append(resource_type.shared_scope(subject))
     return or_(*parts) if parts else false()
 
 

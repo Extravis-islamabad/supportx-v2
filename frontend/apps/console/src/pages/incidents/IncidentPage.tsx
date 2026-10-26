@@ -49,6 +49,8 @@ import {
 
 import { AssignDialog, TakeButton } from './assign';
 import { OperationButton } from './operations';
+import { IncidentConversation, type Typing } from './IncidentConversation';
+import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { IncidentHistory } from './IncidentHistory';
 import { categoryPath, personName } from './labels';
 import { CategoryPicker, SitePicker, UserPicker } from './pickers';
@@ -59,6 +61,8 @@ import { PriorityTag, SlaTag, StatusTag } from './tags';
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
+// A typing signal is shown at most this long without another one (a lost 'stop' never sticks).
+const TYPING_SHOWN_MS = 8_000;
 
 /** One incident (REQ-INC-122): header, actions in a fixed order, fixed tabs, live (REQ-WI-005). */
 export function IncidentPage() {
@@ -108,10 +112,59 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [changedBy, setChangedBy] = useState<string | null>(null);
   const behind = useRef(false); // a change arrived while someone here was editing
   const [assigning, setAssigning] = useState(false);
+  const [typing, setTyping] = useState<Typing>({});
+  const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const me = useSession().data?.user.id ?? null;
+  const stopTyping = (userId: string) => {
+    clearTimeout(typingTimers.current.get(userId));
+    typingTimers.current.delete(userId);
+    setTyping((current) =>
+      Object.fromEntries(Object.entries(current).filter(([id]) => id !== userId)),
+    );
+  };
+  useEffect(() => {
+    const timers = typingTimers.current;
+    return () => {
+      for (const timer of timers.values()) clearTimeout(timer);
+    };
+  }, []);
   const viewers = useRecordChannel('wi', item.id, (event) => {
+    // Someone is writing (REQ-WI-006 AC2): shown until they stop, send, or go quiet.
+    if (event.type === 'work_items.typing') {
+      const by = event.by;
+      if (by === undefined || by === me) return;
+      if (event.fields?.[0] === 'stop') {
+        stopTyping(by);
+        return;
+      }
+      const name = others.current.find((v) => v.userId === by)?.name ?? t('live.someone');
+      const kind = event.fields?.[1] === 'reply' ? 'reply' : 'note';
+      setTyping((current) => ({ ...current, [by]: { name, kind } }));
+      clearTimeout(typingTimers.current.get(by));
+      typingTimers.current.set(
+        by,
+        setTimeout(() => {
+          stopTyping(by);
+        }, TYPING_SHOWN_MS),
+      );
+      return;
+    }
     void queryClient.invalidateQueries({
       queryKey: [...queryKeys.incidents.all, 'history', item.id],
     });
+    // A reply or note was added or changed visibility: refetch the timeline (and the record's
+    // counts), never interrupting someone editing a field.
+    if (event.type === 'work_items.conversation_changed') {
+      if (event.by !== undefined) stopTyping(event.by);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.conversation(item.id) });
+      if (editing.current === 0) void reload();
+      return;
+    }
+    if (event.type === 'work_items.followers_changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.followers(item.id) });
+      if (editing.current === 0) void reload();
+      return;
+    }
     if (event.type === 'refresh') {
       void reload();
       return;
@@ -130,7 +183,6 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   useEffect(() => {
     others.current = viewers;
   }, [viewers]);
-  const me = useSession().data?.user.id ?? null;
   const remove = useDeleteIncident(item.id);
   const op = (name: string): IncidentActionState | undefined =>
     item.operations.find((o) => o.action === name);
@@ -139,7 +191,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     item.group_id === null ? '' : (groups.data?.find((g) => g.id === item.group_id)?.name ?? '');
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%', maxWidth: 1200 }}>
+    // Full width: the record uses the whole screen (no fixed cap leaving the right side empty).
+    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Flex justify="space-between" align="start" wrap gap={12}>
         <Space direction="vertical" size={4}>
           <Typography.Text type="secondary" copyable data-testid="inc-display-id">
@@ -183,7 +236,10 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             {groupName === '' ? '' : ` (${groupName})`}
           </Typography.Text>
         </Space>
-        <PresenceAvatars viewers={viewers} selfUserId={me} />
+        <Flex align="center" gap={12} wrap>
+          <PresenceAvatars viewers={viewers} selfUserId={me} />
+          <FollowButton item={item} me={me} />
+        </Flex>
       </Flex>
       {changedBy !== null && (
         <Alert
@@ -256,7 +312,13 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       />
       <Tabs
         data-testid="inc-tabs"
+        defaultActiveKey="details"
         items={[
+          {
+            key: 'conversation',
+            label: t('incidents.tab.conversation', { count: item.conversation_count }),
+            children: <IncidentConversation item={item} typing={typing} />,
+          },
           {
             key: 'details',
             label: t('incidents.tab.details'),
@@ -273,6 +335,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
                     void reload();
                   }
                 }}
+                me={me}
               />
             ),
           },
@@ -303,10 +366,12 @@ function Details({
   item,
   reload,
   onEditing,
+  me,
 }: {
   item: Incident;
   reload: () => Promise<unknown>;
   onEditing: (delta: number) => void;
+  me: string | null;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -413,28 +478,32 @@ function Details({
       <Card style={{ flex: '2 1 420px', minWidth: 0 }} title={t('work_item.field.description')}>
         <Description item={item} canEdit={canEdit} reload={reload} onEditing={onEditing} />
       </Card>
-      <Card style={{ flex: '1 1 320px', minWidth: 0 }} title={t('incidents.properties')}>
-        <Descriptions column={1} size="small" data-testid="inc-properties">
-          {rows.map((row) => (
-            <Descriptions.Item key={row.key} label={row.label}>
-              {row.edit !== undefined && canEdit ? (
-                <InlineEdit
-                  item={item}
-                  field={row.key}
-                  label={row.label}
-                  spec={row.edit}
-                  reload={reload}
-                  onEditing={onEditing}
-                >
-                  {row.view}
-                </InlineEdit>
-              ) : (
-                <span data-testid={`inc-prop-${row.key}`}>{row.view}</span>
-              )}
-            </Descriptions.Item>
-          ))}
-        </Descriptions>
-      </Card>
+      {/* Properties and followers share one column beside the description. */}
+      <Flex vertical gap={16} style={{ flex: '1 1 340px', minWidth: 0 }}>
+        <Card title={t('incidents.properties')}>
+          <Descriptions column={1} size="small" data-testid="inc-properties">
+            {rows.map((row) => (
+              <Descriptions.Item key={row.key} label={row.label}>
+                {row.edit !== undefined && canEdit ? (
+                  <InlineEdit
+                    item={item}
+                    field={row.key}
+                    label={row.label}
+                    spec={row.edit}
+                    reload={reload}
+                    onEditing={onEditing}
+                  >
+                    {row.view}
+                  </InlineEdit>
+                ) : (
+                  <span data-testid={`inc-prop-${row.key}`}>{row.view}</span>
+                )}
+              </Descriptions.Item>
+            ))}
+          </Descriptions>
+        </Card>
+        <FollowersCard item={item} me={me} />
+      </Flex>
     </Flex>
   );
 }

@@ -27,6 +27,7 @@ import {
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
+  EmptyText,
   NoAccess,
   reportError,
   useAccess,
@@ -194,7 +195,7 @@ export function AnnouncementsPage() {
         loading={list.isPending && list.fetchStatus === 'fetching'}
         dataSource={rows}
         pagination={false}
-        locale={{ emptyText: t('announcements.empty') }}
+        locale={{ emptyText: <EmptyText>{t('announcements.empty')}</EmptyText> }}
         onRow={(row) =>
           trash
             ? { 'data-testid': `ann-row-${row.display_id}` }

@@ -765,6 +765,26 @@ export interface paths {
         patch: operations["patch_category_api_v1_incidents_categories__category_id__patch"];
         trace?: never;
     };
+    "/api/v1/incidents/counters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your personal counters
+         * @description Overdue, due today, waiting on you, updated by others, unassigned in your groups.
+         */
+        get: operations["counters_api_v1_incidents_counters_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/lookup/{value}": {
         parameters: {
             query?: never;
@@ -780,6 +800,54 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/reply-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Reply templates
+         * @description Texts to insert into a reply or note, by name.
+         */
+        get: operations["templates_api_v1_incidents_reply_templates_get"];
+        put?: never;
+        /**
+         * Add a reply template
+         * @description Names are unique (ignoring case).
+         */
+        post: operations["create_template_api_v1_incidents_reply_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/reply-templates/{template_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a reply template
+         * @description Needs If-Match.
+         */
+        put: operations["update_template_api_v1_incidents_reply_templates__template_id__put"];
+        post?: never;
+        /**
+         * Remove a reply template
+         * @description Needs If-Match. Text already inserted into replies stays.
+         */
+        delete: operations["delete_template_api_v1_incidents_reply_templates__template_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -919,6 +987,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/{record_id}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Conversation
+         * @description Replies and notes, oldest first; private notes are marked (staff only).
+         */
+        get: operations["conversation_api_v1_incidents__record_id__conversation_get"];
+        put?: never;
+        /**
+         * Reply or add a note
+         * @description A private note needs add_note; a reply or public note needs reply.
+         *
+         *     Replies are saved and marked not_sent until an email channel exists (never dropped).
+         *     Send an Idempotency-Key: a retried request returns the same 201.
+         */
+        post: operations["add_api_v1_incidents__record_id__conversation_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/conversation/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Make a note public or private
+         * @description Needs reply and If-Match (the entry's version). Recorded in history and the audit log.
+         */
+        patch: operations["visibility_api_v1_incidents__record_id__conversation__entry_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/followers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Followers
+         * @description Who follows the record and why.
+         */
+        get: operations["followers_api_v1_incidents__record_id__followers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/followers/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Follow, or add a follower
+         * @description Your own ID: follow it. Someone else: needs manage_followers, and they must see it.
+         */
+        put: operations["follow_api_v1_incidents__record_id__followers__user_id__put"];
+        post?: never;
+        /**
+         * Unfollow, or remove a follower
+         * @description Yourself; or anyone, as the assignee or with manage_followers (REQ-INC-151 AC4).
+         */
+        delete: operations["unfollow_api_v1_incidents__record_id__followers__user_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/{record_id}/history": {
         parameters: {
             query?: never;
@@ -931,6 +1090,26 @@ export interface paths {
          * @description Every save, newest first, in true order: who, when, from where, what, why.
          */
         get: operations["history_api_v1_incidents__record_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/mentionable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * People to mention or add as followers
+         * @description Staff who work on this type, each saying whether they may see this record.
+         */
+        get: operations["mentionable_api_v1_incidents__record_id__mentionable_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -973,6 +1152,28 @@ export interface paths {
          * @description You become the technician; with no group, your only group is set (or you choose).
          */
         post: operations["take_api_v1_incidents__record_id__take_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/typing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Show others you are writing
+         * @description A signal on the record channel (REQ-WI-006 AC2); nothing is stored.
+         *
+         *     Only staff who may see the record are on that channel (never the requester, AC3).
+         */
+        post: operations["typing_api_v1_incidents__record_id__typing_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2217,6 +2418,125 @@ export interface components {
          */
         CheckStatus: "ok" | "failed" | "not_configured";
         /**
+         * ConversationAddedOut
+         * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
+         */
+        ConversationAddedOut: {
+            entry: components["schemas"]["ConversationEntryOut"];
+            /** Not Notified */
+            not_notified: string[];
+            /** People */
+            people: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
+        };
+        /**
+         * ConversationEntryIn
+         * @description A reply (to people) or a note (on the record). Notes are private unless you say public.
+         */
+        ConversationEntryIn: {
+            /**
+             * Body
+             * @description Rich text (HTML), sanitised.
+             */
+            body: string;
+            /** Cc */
+            cc?: string[];
+            kind: components["schemas"]["EntryKind"];
+            /** @description Replies: reply by default. */
+            reply_mode?: components["schemas"]["ReplyMode"] | null;
+            /**
+             * To
+             * @description Replies: email addresses. Empty: the requester (forward needs one).
+             */
+            to?: string[];
+            /** @description Notes: private by default. Replies are always public. */
+            visibility?: components["schemas"]["Visibility"] | null;
+        };
+        /**
+         * ConversationEntryOut
+         * @description One reply or note.
+         */
+        ConversationEntryOut: {
+            /**
+             * Body
+             * @description Sanitised rich text (HTML).
+             */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created By */
+            created_by: string | null;
+            delivery_reason: components["schemas"]["DeliveryReason"] | null;
+            /** @description Replies only. not_sent: saved, but nothing could send it (see the reason). */
+            delivery_state: components["schemas"]["DeliveryState"] | null;
+            /**
+             * First Response
+             * @description This entry stamped the first response.
+             */
+            first_response: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["EntryKind"];
+            /** Mentioned Ids */
+            mentioned_ids: string[];
+            recipients: components["schemas"]["RecipientsOut"] | null;
+            reply_mode: components["schemas"]["ReplyMode"] | null;
+            /** Version */
+            version: number;
+            visibility: components["schemas"]["Visibility"];
+        };
+        /**
+         * ConversationOut
+         * @description The conversation, oldest first. The description is the record's own field.
+         */
+        ConversationOut: {
+            /** Items */
+            items: components["schemas"]["ConversationEntryOut"][];
+            /**
+             * People
+             * @description Authors and mentioned people, by user ID.
+             */
+            people: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
+            /**
+             * Truncated
+             * @description Only the newest entries are listed.
+             */
+            truncated: boolean;
+        };
+        /**
+         * CounterOut
+         * @description A personal counter; `counter` is also the view that lists the same records.
+         */
+        CounterOut: {
+            /** Capped */
+            capped: boolean;
+            /** Count */
+            count: number;
+            /** Counter */
+            counter: string;
+        };
+        /**
+         * DeliveryReason
+         * @description Why a reply is not (yet) sent.
+         * @enum {string}
+         */
+        DeliveryReason: "email_channel_not_configured";
+        /**
+         * DeliveryState
+         * @description Where an outbound reply is. Notes have none.
+         * @enum {string}
+         */
+        DeliveryState: "not_sent" | "queued" | "sent" | "failed";
+        /**
          * Edition
          * @description Commercial tier (product-plan.md §9).
          * @enum {string}
@@ -2280,6 +2600,12 @@ export interface components {
              */
             writable: boolean;
         };
+        /**
+         * EntryKind
+         * @description A reply (to people, by a channel) or a note (on the record).
+         * @enum {string}
+         */
+        EntryKind: "reply" | "note";
         /**
          * ExportFilter
          * @description Fields an export can be filtered on (exact match).
@@ -2382,6 +2708,62 @@ export interface components {
         FilterOr: {
             /** Or */
             or: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd"] | components["schemas"]["FilterOr"])[];
+        };
+        /**
+         * FirstResponseAction
+         * @description Actions an admin may count as the first response (REQ-INC-065).
+         * @enum {string}
+         */
+        FirstResponseAction: "reply" | "public_note" | "private_note";
+        /**
+         * FollowReason
+         * @description How someone came to follow a record (shown in the followers list).
+         * @enum {string}
+         */
+        FollowReason: "self" | "added" | "handed_over" | "mentioned";
+        /**
+         * FollowerOut
+         * @description Someone following the record.
+         */
+        FollowerOut: {
+            /**
+             * Grants Access
+             * @description They see the record because they follow it.
+             */
+            grants_access: boolean;
+            reason: components["schemas"]["FollowReason"];
+            /**
+             * Removable
+             * @description You may remove them (yourself, assignee, or manager).
+             */
+            removable: boolean;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * FollowersOut
+         * @description Followers, oldest first.
+         */
+        FollowersOut: {
+            /** Items */
+            items: components["schemas"]["FollowerOut"][];
+            /**
+             * May Manage
+             * @description You may add and remove other people.
+             */
+            may_manage: boolean;
+            /** People */
+            people: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
         };
         /**
          * GrantIO
@@ -2520,6 +2902,26 @@ export interface components {
             /** Tenants */
             tenants: components["schemas"]["TenantOut"][];
             user: components["schemas"]["UserOut"];
+        };
+        /**
+         * MentionableOut
+         * @description A person to mention or add as a follower.
+         */
+        MentionableOut: {
+            /**
+             * Can See
+             * @description False: mentioning them notifies nobody (REQ-INC-063).
+             */
+            can_see: boolean;
+            /** Display Name */
+            display_name: string;
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
         };
         /**
          * NavLayout
@@ -2691,6 +3093,49 @@ export interface components {
          * @enum {string}
          */
         ReasonMode: "none" | "optional" | "required";
+        /**
+         * RecipientsOut
+         * @description Where a reply goes.
+         */
+        RecipientsOut: {
+            /** Cc */
+            cc: string[];
+            /** To */
+            to: string[];
+        };
+        /**
+         * ReplyMode
+         * @description Which composer a reply came from (REQ-INC-058).
+         * @enum {string}
+         */
+        ReplyMode: "reply" | "reply_all" | "forward";
+        /**
+         * ReplyTemplateIn
+         * @description A template's name and text (rich text, sanitised).
+         */
+        ReplyTemplateIn: {
+            /** Body */
+            body: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ReplyTemplateOut
+         * @description A reply template.
+         */
+        ReplyTemplateOut: {
+            /** Body */
+            body: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+        };
         /**
          * RoleCreate
          * @description A new custom role.
@@ -2880,6 +3325,19 @@ export interface components {
         TransitionIn: {
             /** Reason */
             reason?: string | null;
+        };
+        /**
+         * TypingIn
+         * @description Start or stop showing others that you are writing.
+         */
+        TypingIn: {
+            /** @default note */
+            kind: components["schemas"]["EntryKind"];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "start" | "stop";
         };
         /**
          * UnitIn
@@ -3082,6 +3540,19 @@ export interface components {
             type: string;
         };
         /**
+         * Visibility
+         * @description Public: the requester sees it (portal, email). Private: staff only.
+         * @enum {string}
+         */
+        Visibility: "public" | "private";
+        /**
+         * VisibilityIn
+         * @description Make a note public or private (If-Match: the entry's version).
+         */
+        VisibilityIn: {
+            visibility: components["schemas"]["Visibility"];
+        };
+        /**
          * WorkItemAction
          * @description Status actions in the one order the UI shows them (system actions last, never shown).
          * @enum {string}
@@ -3109,12 +3580,17 @@ export interface components {
         WorkItemAssignIn: {
             /**
              * Confirm Lose Access
-             * @description You confirmed you will lose sight of it (D-053).
+             * @description You confirmed it leaves your reach (D-053).
              * @default false
              */
             confirm_lose_access: boolean;
             /** Group Id */
             group_id?: string | null;
+            /**
+             * Keep Following
+             * @description With confirm_lose_access: keep following it (null: tenant default, D-068).
+             */
+            keep_following?: boolean | null;
             /** Reason Code */
             reason_code?: string | null;
             /** Reason Text */
@@ -3159,6 +3635,16 @@ export interface components {
             default_priority: components["schemas"]["Priority"];
             /** @description What the create form starts with. */
             default_urgency: components["schemas"]["Urgency"] | null;
+            /**
+             * First Response On
+             * @description Which actions stamp the first response (REQ-INC-065).
+             */
+            first_response_on: components["schemas"]["FirstResponseAction"][];
+            /**
+             * Keep Following On Handover
+             * @description Hand-over dialog: 'keep following' starts ticked (D-068).
+             */
+            keep_following_on_handover: boolean;
             /** Matrix */
             matrix: components["schemas"]["WorkItemMatrixCellOut"][];
             /** Prefix */
@@ -3345,6 +3831,11 @@ export interface components {
             /** Group Id */
             group_id?: string | null;
             impact?: components["schemas"]["Impact"] | null;
+            /**
+             * Keep Following
+             * @description With confirm_lose_access: keep following it (null: tenant default, D-068).
+             */
+            keep_following?: boolean | null;
             /** On Behalf Of Id */
             on_behalf_of_id?: string | null;
             /** @description Set by hand (needs change_priority and a reason). */
@@ -3450,6 +3941,16 @@ export interface components {
             /** Closed At */
             closed_at: string | null;
             /**
+             * Conversation Actions
+             * @description add_note, reply, manage_followers: whether you may, and why not.
+             */
+            conversation_actions: components["schemas"]["WorkItemActionStateOut"][];
+            /**
+             * Conversation Count
+             * @description Replies and notes.
+             */
+            conversation_count: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -3466,6 +3967,11 @@ export interface components {
             first_responded_at: string | null;
             /** First Response Due At */
             first_response_due_at: string | null;
+            /**
+             * Following
+             * @description You follow this record.
+             */
+            following: boolean;
             /** Group Id */
             group_id: string | null;
             /** History Count */
@@ -3598,6 +4104,11 @@ export interface components {
             /** Description */
             description?: string | null;
             impact?: components["schemas"]["Impact"] | null;
+            /**
+             * Keep Following
+             * @description With confirm_lose_access: keep following it (null: tenant default, D-068).
+             */
+            keep_following?: boolean | null;
             /** On Behalf Of Id */
             on_behalf_of_id?: string | null;
             /** @description A value sets it by hand (with a reason); null: back to the matrix. */
@@ -3656,6 +4167,10 @@ export interface components {
             default_priority?: components["schemas"]["Priority"] | null;
             /** @description Null: no default. */
             default_urgency?: components["schemas"]["Urgency"] | null;
+            /** First Response On */
+            first_response_on?: components["schemas"]["FirstResponseAction"][] | null;
+            /** Keep Following On Handover */
+            keep_following_on_handover?: boolean | null;
             /**
              * Prefix
              * @description 2-6 capital letters.
@@ -6694,6 +7209,62 @@ export interface operations {
             };
         };
     };
+    counters_api_v1_incidents_counters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CounterOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     lookup_api_v1_incidents_lookup__value__get: {
         parameters: {
             query?: never;
@@ -6740,6 +7311,287 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    templates_api_v1_incidents_reply_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyTemplateOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_template_api_v1_incidents_reply_templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyTemplateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyTemplateOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_template_api_v1_incidents_reply_templates__template_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyTemplateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyTemplateOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict: someone changed it first. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_template_api_v1_incidents_reply_templates__template_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict: someone changed it first. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -7424,6 +8276,435 @@ export interface operations {
             };
         };
     };
+    conversation_api_v1_incidents__record_id__conversation_get: {
+        parameters: {
+            query?: {
+                /** @description Only replies or only notes. */
+                kind?: components["schemas"]["EntryKind"] | null;
+            };
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    add_api_v1_incidents__record_id__conversation_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConversationEntryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationAddedOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    visibility_api_v1_incidents__record_id__conversation__entry_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VisibilityIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationEntryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict: someone changed it first. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    followers_api_v1_incidents__record_id__followers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowersOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    follow_api_v1_incidents__record_id__followers__user_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowersOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    unfollow_api_v1_incidents__record_id__followers__user_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowersOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     history_api_v1_incidents__record_id__history_get: {
         parameters: {
             query?: {
@@ -7448,6 +8729,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkItemHistoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mentionable_api_v1_incidents__record_id__mentionable_get: {
+        parameters: {
+            query?: {
+                search?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MentionableOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -7632,6 +8983,75 @@ export interface operations {
             };
             /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    typing_api_v1_incidents__record_id__typing_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TypingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

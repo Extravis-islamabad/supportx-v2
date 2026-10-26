@@ -57,6 +57,18 @@ SUITE_RECORDS = (
         ),
         SUITE_PREFIX,
     ),
+    *(
+        # Their conversation and followers (WP-020b), which reference the incident.
+        (
+            table,
+            (
+                f"DELETE FROM {table} WHERE work_item_id IN"  # noqa: S608 - fixed table names
+                " (SELECT id FROM work_items WHERE subject LIKE $1)"
+            ),
+            SUITE_PREFIX,
+        )
+        for table in ("work_item_conversations", "work_item_followers")
+    ),
     ("work_items", "DELETE FROM work_items WHERE subject LIKE $1", SUITE_PREFIX),
     (
         "group_members",
