@@ -106,10 +106,14 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),
     ("announcement.settings_changed", AuditCategory.CONFIGURATION, "announcements"),
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),
+    ("incident.note_visibility_changed", AuditCategory.RECORDS, "work_items"),
     ("incident.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("incident.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # the audit log itself

@@ -54,3 +54,14 @@ field edits.
 - The work_items config tables have no DELETE grant: values are disabled, never removed.
 - `field_changes` can grow faster (children); partitioning by month (§7.3) remains planned.
 - `LiveList` publishes a record to both its old and new audiences; payloads stay IDs and codes.
+
+## Amendment, WP-020b (2026-10-26): followers, the conversation and shared reach
+
+- Followers (`work_item_followers`) and conversation entries (`work_item_conversations`) are child
+  tables of the engine, used by every type. Replies and notes do not bump the record's version
+  (no 409 for someone editing fields at the same time); the first-response stamp does.
+- A follow that `grants_access` (only a hand-over that kept following, D-068) is a per-record
+  grant in the **one policy layer**: `ResourceType.shared_scope` adds those records to the scope
+  filter for `view` and `add_note` only, so lists, single records, realtime channels and (later)
+  search and AI all see it the same way. Editing, assigning and status actions never use it.
+- Removing such a follow revokes the person's realtime subscriptions (§8.2).

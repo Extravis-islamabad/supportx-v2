@@ -138,6 +138,8 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
     assert removed == {
         "field_changes": 2,
         "announcements": 1,
+        "work_item_conversations": 0,  # with their incidents (WP-020b)
+        "work_item_followers": 0,
         "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
         "group_members": 1,
         "support_groups": 2,

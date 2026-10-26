@@ -132,7 +132,7 @@ describe('One incident', () => {
     // Delete is not offered at all without the permission (it is set apart from everyday work).
     expect(screen.queryByTestId('inc-op-delete')).toBeNull();
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Details', 'History (1)']);
+    expect(tabs).toEqual(['Conversation (0)', 'Details', 'History (1)']);
     const description = await screen.findByTestId('inc-description');
     expect(description.innerHTML).toBe('<p>Since <strong>9:00</strong>.</p>');
     expect(description.getAttribute('dir')).toBe('auto');
@@ -165,7 +165,7 @@ describe('One incident', () => {
     expect(sent?.headers.get('If-Match')).toBe('"1"');
   });
 
-  it('D-053: a hand-over out of your reach warns first and is only sent once confirmed', async () => {
+  it('D-053/D-068: a hand-over warns first; unticking "keep following" gives up access', async () => {
     const handed = {
       ...ITEM,
       group_id: 'g-a',
@@ -196,8 +196,16 @@ describe('One incident', () => {
     fireEvent.click(await screen.findByTitle('Service Desk'));
     fireEvent.click(screen.getByTestId('inc-assign-confirm'));
     const warning = await screen.findByTestId('inc-handover-warning');
-    expect(warning.textContent).toContain('INC-7 belongs to Service Desk');
-    expect(warning.textContent).toContain('you will no longer be able to see it');
+    expect(warning.textContent).toContain('INC-7 moves to Service Desk');
+    // D-068: keep following is ticked by default, and says what that means.
+    // antd puts the test ID on the checkbox input itself.
+    const keep = screen.getByTestId<HTMLInputElement>('inc-handover-keep-following');
+    expect(keep.checked).toBe(true);
+    expect(warning.textContent).toContain('You keep following it');
+    fireEvent.click(keep);
+    expect(screen.getByTestId('inc-handover-outcome').textContent).toContain(
+      'You will no longer be able to see INC-7',
+    );
     await act(async () => {
       fireEvent.click(screen.getByTestId('inc-handover-confirm'));
       await Promise.resolve();
@@ -208,6 +216,7 @@ describe('One incident', () => {
     const [first, second] = fake.find('POST', `${PATH}/assign`);
     expect((first?.body as { confirm_lose_access: boolean }).confirm_lose_access).toBe(false);
     expect((second?.body as { confirm_lose_access: boolean }).confirm_lose_access).toBe(true);
+    expect((second?.body as { keep_following: boolean }).keep_following).toBe(false);
     await waitFor(() => {
       expect(window.location.pathname).toBe('/incidents');
     });

@@ -504,8 +504,15 @@ async def test_d053_handing_out_of_reach_needs_confirmation_and_is_recorded(worl
     assert warned.json()["params"]["display_id"] == item["display_id"]
     still = (await world.get(a, a.tech_a, item)).json()
     assert still["group_id"] == str(a.ga)  # nothing changed
+    # D-068 keeps a follow by default; unticked, the D-053 loss of access still applies.
     handed = await world.assign(
-        a, a.tech_a, still, group=a.gb, reason_code="wrong_group", confirm_lose_access=True
+        a,
+        a.tech_a,
+        still,
+        group=a.gb,
+        reason_code="wrong_group",
+        confirm_lose_access=True,
+        keep_following=False,
     )
     assert handed.status_code == 200, handed.text
     assert handed.json()["visible"] is False

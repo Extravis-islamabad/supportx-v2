@@ -2234,6 +2234,284 @@
         "title": "CheckStatus",
         "type": "string"
       },
+      "ConversationAddedOut": {
+        "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
+        "properties": {
+          "entry": {
+            "$ref": "#/components/schemas/ConversationEntryOut"
+          },
+          "not_notified": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Not Notified",
+            "type": "array"
+          },
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "title": "People",
+            "type": "object"
+          }
+        },
+        "required": [
+          "entry",
+          "not_notified",
+          "people"
+        ],
+        "title": "ConversationAddedOut",
+        "type": "object"
+      },
+      "ConversationEntryIn": {
+        "additionalProperties": false,
+        "description": "A reply (to people) or a note (on the record). Notes are private unless you say public.",
+        "properties": {
+          "body": {
+            "description": "Rich text (HTML), sanitised.",
+            "maxLength": 200000,
+            "title": "Body",
+            "type": "string"
+          },
+          "cc": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Cc",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntryKind"
+          },
+          "reply_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplyMode"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replies: reply by default."
+          },
+          "to": {
+            "description": "Replies: email addresses. Empty: the requester (forward needs one).",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "To",
+            "type": "array"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Visibility"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Notes: private by default. Replies are always public."
+          }
+        },
+        "required": [
+          "kind",
+          "body"
+        ],
+        "title": "ConversationEntryIn",
+        "type": "object"
+      },
+      "ConversationEntryOut": {
+        "description": "One reply or note.",
+        "properties": {
+          "body": {
+            "description": "Sanitised rich text (HTML).",
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "delivery_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryReason"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "delivery_state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DeliveryState"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replies only. not_sent: saved, but nothing could send it (see the reason)."
+          },
+          "first_response": {
+            "description": "This entry stamped the first response.",
+            "title": "First Response",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/EntryKind"
+          },
+          "mentioned_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Mentioned Ids",
+            "type": "array"
+          },
+          "recipients": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecipientsOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reply_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReplyMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "visibility",
+          "reply_mode",
+          "body",
+          "recipients",
+          "delivery_state",
+          "delivery_reason",
+          "first_response",
+          "mentioned_ids",
+          "created_at",
+          "created_by",
+          "version"
+        ],
+        "title": "ConversationEntryOut",
+        "type": "object"
+      },
+      "ConversationOut": {
+        "description": "The conversation, oldest first. The description is the record's own field.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ConversationEntryOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "description": "Authors and mentioned people, by user ID.",
+            "title": "People",
+            "type": "object"
+          },
+          "truncated": {
+            "description": "Only the newest entries are listed.",
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "truncated",
+          "people"
+        ],
+        "title": "ConversationOut",
+        "type": "object"
+      },
+      "CounterOut": {
+        "description": "A personal counter; `counter` is also the view that lists the same records.",
+        "properties": {
+          "capped": {
+            "title": "Capped",
+            "type": "boolean"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "counter": {
+            "title": "Counter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "counter",
+          "count",
+          "capped"
+        ],
+        "title": "CounterOut",
+        "type": "object"
+      },
+      "DeliveryReason": {
+        "description": "Why a reply is not (yet) sent.",
+        "enum": [
+          "email_channel_not_configured"
+        ],
+        "title": "DeliveryReason",
+        "type": "string"
+      },
+      "DeliveryState": {
+        "description": "Where an outbound reply is. Notes have none.",
+        "enum": [
+          "not_sent",
+          "queued",
+          "sent",
+          "failed"
+        ],
+        "title": "DeliveryState",
+        "type": "string"
+      },
       "Edition": {
         "description": "Commercial tier (product-plan.md §9).",
         "enum": [
@@ -2400,6 +2678,15 @@
         ],
         "title": "EntitlementsResponse",
         "type": "object"
+      },
+      "EntryKind": {
+        "description": "A reply (to people, by a channel) or a note (on the record).",
+        "enum": [
+          "reply",
+          "note"
+        ],
+        "title": "EntryKind",
+        "type": "string"
       },
       "ExportFilter": {
         "description": "Fields an export can be filtered on (exact match).",
@@ -2681,6 +2968,95 @@
           "or"
         ],
         "title": "FilterOr",
+        "type": "object"
+      },
+      "FirstResponseAction": {
+        "description": "Actions an admin may count as the first response (REQ-INC-065).",
+        "enum": [
+          "reply",
+          "public_note",
+          "private_note"
+        ],
+        "title": "FirstResponseAction",
+        "type": "string"
+      },
+      "FollowReason": {
+        "description": "How someone came to follow a record (shown in the followers list).",
+        "enum": [
+          "self",
+          "added",
+          "handed_over",
+          "mentioned"
+        ],
+        "title": "FollowReason",
+        "type": "string"
+      },
+      "FollowerOut": {
+        "description": "Someone following the record.",
+        "properties": {
+          "grants_access": {
+            "description": "They see the record because they follow it.",
+            "title": "Grants Access",
+            "type": "boolean"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/FollowReason"
+          },
+          "removable": {
+            "description": "You may remove them (yourself, assignee, or manager).",
+            "title": "Removable",
+            "type": "boolean"
+          },
+          "since": {
+            "format": "date-time",
+            "title": "Since",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "reason",
+          "grants_access",
+          "since",
+          "removable"
+        ],
+        "title": "FollowerOut",
+        "type": "object"
+      },
+      "FollowersOut": {
+        "description": "Followers, oldest first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FollowerOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "may_manage": {
+            "description": "You may add and remove other people.",
+            "title": "May Manage",
+            "type": "boolean"
+          },
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "title": "People",
+            "type": "object"
+          }
+        },
+        "required": [
+          "items",
+          "may_manage",
+          "people"
+        ],
+        "title": "FollowersOut",
         "type": "object"
       },
       "GrantIO": {
@@ -3008,6 +3384,37 @@
           "csrf_token"
         ],
         "title": "MeResponse",
+        "type": "object"
+      },
+      "MentionableOut": {
+        "description": "A person to mention or add as a follower.",
+        "properties": {
+          "can_see": {
+            "description": "False: mentioning them notifies nobody (REQ-INC-063).",
+            "title": "Can See",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "email",
+          "can_see"
+        ],
+        "title": "MentionableOut",
         "type": "object"
       },
       "NavLayout": {
@@ -3354,6 +3761,93 @@
         ],
         "title": "ReasonMode",
         "type": "string"
+      },
+      "RecipientsOut": {
+        "description": "Where a reply goes.",
+        "properties": {
+          "cc": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Cc",
+            "type": "array"
+          },
+          "to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "To",
+            "type": "array"
+          }
+        },
+        "required": [
+          "to",
+          "cc"
+        ],
+        "title": "RecipientsOut",
+        "type": "object"
+      },
+      "ReplyMode": {
+        "description": "Which composer a reply came from (REQ-INC-058).",
+        "enum": [
+          "reply",
+          "reply_all",
+          "forward"
+        ],
+        "title": "ReplyMode",
+        "type": "string"
+      },
+      "ReplyTemplateIn": {
+        "additionalProperties": false,
+        "description": "A template's name and text (rich text, sanitised).",
+        "properties": {
+          "body": {
+            "maxLength": 200000,
+            "title": "Body",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 240,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "body"
+        ],
+        "title": "ReplyTemplateIn",
+        "type": "object"
+      },
+      "ReplyTemplateOut": {
+        "description": "A reply template.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "body",
+          "version"
+        ],
+        "title": "ReplyTemplateOut",
+        "type": "object"
       },
       "RoleCreate": {
         "description": "A new custom role.",
@@ -3771,6 +4265,29 @@
           }
         },
         "title": "TransitionIn",
+        "type": "object"
+      },
+      "TypingIn": {
+        "additionalProperties": false,
+        "description": "Start or stop showing others that you are writing.",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/EntryKind",
+            "default": "note"
+          },
+          "state": {
+            "enum": [
+              "start",
+              "stop"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "TypingIn",
         "type": "object"
       },
       "UnitIn": {
@@ -4220,6 +4737,29 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "Visibility": {
+        "description": "Public: the requester sees it (portal, email). Private: staff only.",
+        "enum": [
+          "public",
+          "private"
+        ],
+        "title": "Visibility",
+        "type": "string"
+      },
+      "VisibilityIn": {
+        "additionalProperties": false,
+        "description": "Make a note public or private (If-Match: the entry's version).",
+        "properties": {
+          "visibility": {
+            "$ref": "#/components/schemas/Visibility"
+          }
+        },
+        "required": [
+          "visibility"
+        ],
+        "title": "VisibilityIn",
+        "type": "object"
+      },
       "WorkItemAction": {
         "description": "Status actions in the one order the UI shows them (system actions last, never shown).",
         "enum": [
@@ -4288,7 +4828,7 @@
         "properties": {
           "confirm_lose_access": {
             "default": false,
-            "description": "You confirmed you will lose sight of it (D-053).",
+            "description": "You confirmed it leaves your reach (D-053).",
             "title": "Confirm Lose Access",
             "type": "boolean"
           },
@@ -4303,6 +4843,18 @@
               }
             ],
             "title": "Group Id"
+          },
+          "keep_following": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With confirm_lose_access: keep following it (null: tenant default, D-068).",
+            "title": "Keep Following"
           },
           "reason_code": {
             "anyOf": [
@@ -4415,6 +4967,19 @@
             ],
             "description": "What the create form starts with."
           },
+          "first_response_on": {
+            "description": "Which actions stamp the first response (REQ-INC-065).",
+            "items": {
+              "$ref": "#/components/schemas/FirstResponseAction"
+            },
+            "title": "First Response On",
+            "type": "array"
+          },
+          "keep_following_on_handover": {
+            "description": "Hand-over dialog: 'keep following' starts ticked (D-068).",
+            "title": "Keep Following On Handover",
+            "type": "boolean"
+          },
           "matrix": {
             "items": {
               "$ref": "#/components/schemas/WorkItemMatrixCellOut"
@@ -4465,6 +5030,8 @@
           "default_impact",
           "default_urgency",
           "auto_status_on_assign",
+          "keep_following_on_handover",
+          "first_response_on",
           "version",
           "statuses",
           "actions",
@@ -4918,6 +5485,18 @@
               }
             ]
           },
+          "keep_following": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With confirm_lose_access: keep following it (null: tenant default, D-068).",
+            "title": "Keep Following"
+          },
           "on_behalf_of_id": {
             "anyOf": [
               {
@@ -5253,6 +5832,19 @@
             ],
             "title": "Closed At"
           },
+          "conversation_actions": {
+            "description": "add_note, reply, manage_followers: whether you may, and why not.",
+            "items": {
+              "$ref": "#/components/schemas/WorkItemActionStateOut"
+            },
+            "title": "Conversation Actions",
+            "type": "array"
+          },
+          "conversation_count": {
+            "description": "Replies and notes.",
+            "title": "Conversation Count",
+            "type": "integer"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -5320,6 +5912,11 @@
               }
             ],
             "title": "First Response Due At"
+          },
+          "following": {
+            "description": "You follow this record.",
+            "title": "Following",
+            "type": "boolean"
           },
           "group_id": {
             "anyOf": [
@@ -5619,7 +6216,10 @@
           "actions",
           "operations",
           "history_count",
-          "people"
+          "people",
+          "conversation_actions",
+          "following",
+          "conversation_count"
         ],
         "title": "WorkItemOut",
         "type": "object"
@@ -5730,6 +6330,18 @@
                 "type": "null"
               }
             ]
+          },
+          "keep_following": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With confirm_lose_access: keep following it (null: tenant default, D-068).",
+            "title": "Keep Following"
           },
           "on_behalf_of_id": {
             "anyOf": [
@@ -5960,6 +6572,32 @@
               }
             ],
             "description": "Null: no default."
+          },
+          "first_response_on": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FirstResponseAction"
+                },
+                "maxItems": 3,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Response On"
+          },
+          "keep_following_on_handover": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keep Following On Handover"
           },
           "prefix": {
             "anyOf": [
@@ -10395,6 +11033,72 @@
         ]
       }
     },
+    "/api/v1/incidents/counters": {
+      "get": {
+        "description": "Overdue, due today, waiting on you, updated by others, unassigned in your groups.",
+        "operationId": "counters_api_v1_incidents_counters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CounterOut"
+                  },
+                  "title": "Response Counters Api V1 Incidents Counters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your personal counters",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
     "/api/v1/incidents/lookup/{value}": {
       "get": {
         "description": "`INC-12`, `inc-12` or `12`. Old prefixes keep working after a rename.",
@@ -10473,6 +11177,363 @@
           }
         },
         "summary": "Find by display ID",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/reply-templates": {
+      "get": {
+        "description": "Texts to insert into a reply or note, by name.",
+        "operationId": "templates_api_v1_incidents_reply_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReplyTemplateOut"
+                  },
+                  "title": "Response Templates Api V1 Incidents Reply Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reply templates",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "post": {
+        "description": "Names are unique (ignoring case).",
+        "operationId": "create_template_api_v1_incidents_reply_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyTemplateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyTemplateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a reply template",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/reply-templates/{template_id}": {
+      "delete": {
+        "description": "Needs If-Match. Text already inserted into replies stays.",
+        "operationId": "delete_template_api_v1_incidents_reply_templates__template_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "description": "version_conflict: someone changed it first."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a reply template",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "put": {
+        "description": "Needs If-Match.",
+        "operationId": "update_template_api_v1_incidents_reply_templates__template_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyTemplateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyTemplateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "description": "version_conflict: someone changed it first."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a reply template",
         "tags": [
           "incidents"
         ]
@@ -11444,6 +12505,613 @@
         ]
       }
     },
+    "/api/v1/incidents/{record_id}/conversation": {
+      "get": {
+        "description": "Replies and notes, oldest first; private notes are marked (staff only).",
+        "operationId": "conversation_api_v1_incidents__record_id__conversation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only replies or only notes.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/EntryKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only replies or only notes.",
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Conversation",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "post": {
+        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and marked not_sent until an email channel exists (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
+        "operationId": "add_api_v1_incidents__record_id__conversation_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConversationEntryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationAddedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reply or add a note",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/conversation/{entry_id}": {
+      "patch": {
+        "description": "Needs reply and If-Match (the entry's version). Recorded in history and the audit log.",
+        "operationId": "visibility_api_v1_incidents__record_id__conversation__entry_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "entry_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Entry Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisibilityIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConversationEntryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "description": "version_conflict: someone changed it first."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Make a note public or private",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/followers": {
+      "get": {
+        "description": "Who follows the record and why.",
+        "operationId": "followers_api_v1_incidents__record_id__followers_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Followers",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/followers/{user_id}": {
+      "delete": {
+        "description": "Yourself; or anyone, as the assignee or with manage_followers (REQ-INC-151 AC4).",
+        "operationId": "unfollow_api_v1_incidents__record_id__followers__user_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Unfollow, or remove a follower",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "put": {
+        "description": "Your own ID: follow it. Someone else: needs manage_followers, and they must see it.",
+        "operationId": "follow_api_v1_incidents__record_id__followers__user_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowersOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Follow, or add a follower",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
     "/api/v1/incidents/{record_id}/history": {
       "get": {
         "description": "Every save, newest first, in true order: who, when, from where, what, why.",
@@ -11570,6 +13238,123 @@
           }
         },
         "summary": "History",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/mentionable": {
+      "get": {
+        "description": "Staff who work on this type, each saying whether they may see this record.",
+        "operationId": "mentionable_api_v1_incidents__record_id__mentionable_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 100,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MentionableOut"
+                  },
+                  "title": "Response Mentionable Api V1 Incidents  Record Id  Mentionable Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "People to mention or add as followers",
         "tags": [
           "incidents"
         ]
@@ -11811,6 +13596,93 @@
           }
         },
         "summary": "Take it yourself",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/typing": {
+      "post": {
+        "description": "A signal on the record channel (REQ-WI-006 AC2); nothing is stored.\n\nOnly staff who may see the record are on that channel (never the requester, AC3).",
+        "operationId": "typing_api_v1_incidents__record_id__typing_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TypingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Show others you are writing",
         "tags": [
           "incidents"
         ]

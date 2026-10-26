@@ -27,10 +27,19 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
+from app.modules.work_items.domain.conversation import (
+    DeliveryReason,
+    DeliveryState,
+    EntryKind,
+    FirstResponseAction,
+    FollowReason,
+    ReplyMode,
+    Visibility,
+)
 from app.modules.work_items.domain.lifecycle import (
     ReasonList,
     ReasonMode,
@@ -64,6 +73,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
             "default_urgency IS NULL OR " + _codes("default_urgency", Urgency),
             name="default_urgency_code",
         ),
+        CheckConstraint(
+            "first_response_on <@ ARRAY["
+            + ", ".join(f"'{v}'" for v in FirstResponseAction)
+            + "]::varchar[]",
+            name="first_response_on_codes",
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -73,6 +88,12 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     default_impact: Mapped[str | None] = mapped_column(String(30), server_default="team")
     default_urgency: Mapped[str | None] = mapped_column(String(30), server_default="medium")
     auto_status_on_assign: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # D-068: whoever hands a record out of their own reach keeps following it unless they untick.
+    keep_following_on_handover: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    # Which actions stamp the first response (REQ-INC-065); a private note only if listed.
+    first_response_on: Mapped[list[str]] = mapped_column(
+        ARRAY(String(20)), server_default="{reply,public_note}"
+    )
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_by: Mapped[uuid.UUID | None]
@@ -388,3 +409,112 @@ class WorkItem(TenantEntity):
     sla_policy_id: Mapped[uuid.UUID | None]
     first_response_due_at: Mapped[datetime | None]
     resolution_due_at: Mapped[datetime | None]
+
+
+def _work_item_fk(name: str) -> ForeignKeyConstraint:
+    return ForeignKeyConstraint(
+        ["tenant_id", "work_item_id"], ["work_items.tenant_id", "work_items.id"], name=name
+    )
+
+
+class WorkItemConversation(TenantEntity):
+    """One reply or note on a work item (REQ-INC-057/058/061). The body is sanitised HTML."""
+
+    __tablename__ = "work_item_conversations"
+    __table_args__ = (
+        _work_item_fk("fk_wic_work_item"),
+        CheckConstraint(_codes("kind", EntryKind), name="kind_code"),
+        CheckConstraint(_codes("visibility", Visibility), name="visibility_code"),
+        # Replies go to the requester and others: always public.
+        CheckConstraint("kind = 'note' OR visibility = 'public'", name="reply_is_public"),
+        CheckConstraint(
+            "reply_mode IS NULL OR " + _codes("reply_mode", ReplyMode), name="reply_mode_code"
+        ),
+        CheckConstraint("(kind = 'reply') = (reply_mode IS NOT NULL)", name="reply_has_mode"),
+        CheckConstraint(
+            "delivery_state IS NULL OR " + _codes("delivery_state", DeliveryState),
+            name="delivery_state_code",
+        ),
+        CheckConstraint(
+            "delivery_reason IS NULL OR " + _codes("delivery_reason", DeliveryReason),
+            name="delivery_reason_code",
+        ),
+        CheckConstraint("(kind = 'reply') = (delivery_state IS NOT NULL)", name="reply_delivery"),
+        CheckConstraint("char_length(body) BETWEEN 1 AND 100000", name="body_length"),
+        Index("ix_wic_tenant_item_created", "tenant_id", "work_item_id", "created_at", "id"),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(10))
+    visibility: Mapped[str] = mapped_column(String(10))
+    reply_mode: Mapped[str | None] = mapped_column(String(10))
+    body: Mapped[str] = mapped_column(Text)
+    # Replies: {"to": [email, ...], "cc": [email, ...]} as the composer sent them.
+    recipients: Mapped[dict[str, list[str]] | None] = mapped_column(JSONB)
+    delivery_state: Mapped[str | None] = mapped_column(String(20))
+    delivery_reason: Mapped[str | None] = mapped_column(String(40))
+    first_response: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    mentioned_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
+
+
+class WorkItemFollower(TenantEntity):
+    """Someone following a work item (REQ-INC-056/151). Unfollowing soft-deletes the row.
+
+    `grants_access` (D-068): the follower may open the record, see it live and add private notes
+    even outside their own scope; only a hand-over (and later, sharing) grants it. Following for
+    any other reason never widens what someone may see (REQ-INC-063).
+    """
+
+    __tablename__ = "work_item_followers"
+    __table_args__ = (
+        _work_item_fk("fk_wif_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wif_user"
+        ),
+        CheckConstraint(_codes("reason", FollowReason), name="reason_code"),
+        Index(
+            "uq_wif_tenant_item_user",
+            "tenant_id",
+            "work_item_id",
+            "user_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wif_tenant_user_access",
+            "tenant_id",
+            "user_id",
+            "work_item_id",
+            postgresql_where=text("deleted_at IS NULL AND grants_access"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    user_id: Mapped[uuid.UUID]
+    reason: Mapped[str] = mapped_column(String(20))
+    grants_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
+
+
+class WorkItemReplyTemplate(TenantEntity):
+    """A reply template technicians insert into the composer (REQ-INC-058)."""
+
+    __tablename__ = "work_item_reply_templates"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 120", name="name_length"),
+        CheckConstraint("char_length(body) BETWEEN 1 AND 100000", name="body_length"),
+        Index(
+            "uq_wirt_tenant_type_name",
+            "tenant_id",
+            "type",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(120))
+    body: Mapped[str] = mapped_column(Text)
