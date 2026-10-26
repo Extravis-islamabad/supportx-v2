@@ -516,6 +516,13 @@ async def test_req_inc_035_default_moves_and_cannot_be_disabled(world: World) ->
     assert listed[0]["id"] == other["id"]  # the default comes first
     item = await world.create(a, a.admin)
     assert item["template_id"] == other["id"]
+    demoted = await world.sql(
+        "SELECT field, old_value, new_value FROM field_changes"
+        " WHERE tenant_id = $1 AND record_type = 'work_item_template' AND record_id = $2",
+        a.tenant,
+        uuid.UUID(standard["id"]),
+    )
+    assert [r["field"] for r in demoted] == ["is_default"]  # the old default's own history
     # The previous default can now be disabled.
     old = next(t for t in listed if t["id"] == standard["id"])
     assert (await patch_template(world, a, old, disabled=True)).status_code == 200

@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
@@ -323,6 +323,29 @@ async def copy_template(
     )
 
 
+async def _demote_default(session: AsyncSession, wtype: WorkItemType, source: Source) -> None:
+    """The current default stops being one, with its own history entry (§7.4)."""
+    previous = await session.scalars(
+        select(WorkItemTemplate).where(
+            WorkItemTemplate.type == wtype.code,
+            WorkItemTemplate.is_default.is_(True),
+            WorkItemTemplate.deleted_at.is_(None),
+        )
+    )
+    for other in list(previous):
+        demoted = await TemplateRepository(session).update(
+            other.id, expected_version=other.version, changes={"is_default": False}
+        )
+        await _changed(
+            session,
+            wtype,
+            demoted,
+            [Change(field="is_default", old=True, new=False)],
+            kind="updated",
+            source=source,
+        )
+
+
 async def update_template(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
@@ -380,15 +403,7 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912 - one rule per settin
     if disabled is not None and bool(disabled) != (template.disabled_at is not None):
         changes["disabled_at"] = datetime.now(UTC) if disabled else None
     if make_default and not template.is_default:
-        await session.execute(
-            update(WorkItemTemplate)
-            .where(
-                WorkItemTemplate.type == wtype.code,
-                WorkItemTemplate.is_default.is_(True),
-                WorkItemTemplate.deleted_at.is_(None),
-            )
-            .values(is_default=False, version=WorkItemTemplate.version + 1)
-        )
+        await _demote_default(session, wtype, source)
         changes["is_default"] = True
     before = {k: getattr(template, k) for k in changes}
     changes = {k: v for k, v in changes.items() if before[k] != v}
