@@ -136,7 +136,7 @@ def test_schedule_declarations_are_checked() -> None:
 
 
 async def test_sealing_takes_the_batch_from_the_queue_without_jit(app_db: Database) -> None:
-    """Migration 0016: the 10M run sealed at 875/s because each batch read the tenant's whole log
+    """Migration 0017: the 10M run sealed at 875/s because each batch read the tenant's whole log
     and was JIT-compiled on every call (about 2 s for 98 partitions). Keep both fixes in place."""
     async with app_db.platform_session() as session:
         config, source = (

@@ -404,7 +404,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   - archives hold at most 1M entries per month (the export limit) and are built in memory. A
     month above that fails visibly (`audit_export_too_large`); a streaming archive is needed
     before a tenant reaches that volume.
-  - **10M sealing throughput (fixed, migration 0016, branch `fix/audit-seal-volume`):** the
+  - **10M sealing throughput (fixed, migration 0017, branch `fix/audit-seal-volume`):** the
     first full 10M run on GitHub (run 40280703924) sealed all 10M entries but at 875/s. Measured
     on one batch of 5,000 at 10M (98 partitions): the batch query read the tenant's whole log
     (hash join or entry-driven nested loop, about 10 s) and was JIT-compiled on every call

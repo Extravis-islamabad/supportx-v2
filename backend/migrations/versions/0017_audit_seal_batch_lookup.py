@@ -16,8 +16,8 @@ is fetched by its key through LATERAL (run-time pruning to one partition, one in
 the function runs with `jit = off`: JIT cannot help short row-by-row work. Same inputs, order and
 hashes as before; only the plan changes. Reversible.
 
-Revision ID: 0016
-Revises: 0015
+Revision ID: 0017
+Revises: 0016
 Created: 2026-10-26
 """
 
@@ -26,8 +26,8 @@ from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0016"
-down_revision: str | None = "0015"
+revision: str = "0017"
+down_revision: str | None = "0016"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
