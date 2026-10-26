@@ -11,8 +11,8 @@ Shared code (`app/shared/files`) cannot reach modules, so the `system` module pl
 
 import uuid
 from datetime import UTC, datetime
-from functools import cache
 
+from fastapi import Request
 from opentelemetry import metrics
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,10 +45,29 @@ RECORD_KIND = "wi"  # the work item record channel (work_items owns it)
 FILES_CHANGED = "files.changed"
 
 
-@cache
+FILES_STATE = "files"
+_worker_services: list[FileServices] = []
+
+
 def services() -> FileServices:
-    """The worker's and API's file services, from settings (once per process)."""
-    return FileServices.from_settings(get_settings())
+    """The worker's file services, from settings (once per process; tests may replace them)."""
+    if not _worker_services:
+        _worker_services.append(FileServices.from_settings(get_settings()))
+    return _worker_services[0]
+
+
+def use_services(replacement: FileServices | None) -> None:
+    """Replace the worker's file services (tests), or go back to the settings (None)."""
+    _worker_services[:] = [] if replacement is None else [replacement]
+
+
+def api_services(request: Request) -> FileServices:
+    """The API process's file services (set at startup; tests swap `app.state.files`)."""
+    found: FileServices | None = getattr(request.app.state, FILES_STATE, None)
+    if found is None:
+        found = FileServices.from_settings(request.app.state.settings)
+        setattr(request.app.state, FILES_STATE, found)
+    return found
 
 
 # --- quota ---------------------------------------------------------------------------------------
@@ -99,18 +118,25 @@ async def scan_sweep(database: Database, settings: Settings) -> None:
         async with database.tenant_session(TenantContext(tenant)) as session:
             waiting = await scanning.waiting(session)
         for file_id in waiting:
-            async with database.tenant_session(TenantContext(tenant)) as session:
-                outcome = await scanning.scan(session, services(), file_id)
-                if outcome.state == FileState.INFECTED:
-                    _blocked.add(1)
-                    await record(
-                        session,
-                        action_code="file.blocked",
-                        facts=WORKER,
-                        object_type="file",
-                        object_id=file_id,
-                        details={"signature": outcome.signature or "unknown"},
-                    )
+            try:
+                await _scan_one(database, tenant, file_id)
+            except Exception:  # one broken file must not stop the others; it is logged
+                log.exception("file_scan_sweep_error", file_id=str(file_id))
+
+
+async def _scan_one(database: Database, tenant: uuid.UUID, file_id: uuid.UUID) -> None:
+    async with database.tenant_session(TenantContext(tenant)) as session:
+        outcome = await scanning.scan(session, services(), file_id)
+        if outcome.state == FileState.INFECTED:
+            _blocked.add(1)
+            await record(
+                session,
+                action_code="file.blocked",
+                facts=WORKER,
+                object_type="file",
+                object_id=file_id,
+                details={"signature": outcome.signature or "unknown"},
+            )
 
 
 async def purge(database: Database, settings: Settings) -> None:

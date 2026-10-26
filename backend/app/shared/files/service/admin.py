@@ -84,8 +84,9 @@ class ScanningStatus:
 
 async def scanning_status(session: AsyncSession, services: FileServices) -> ScanningStatus:
     """The scanner's state and the tenant's files that are not (yet) checked."""
-    counts = dict(
-        (
+    # A result has .keys(), so dict() would read it as a mapping: hand it a list of rows.
+    counts: dict[str, int] = dict(
+        list(
             await session.execute(
                 select(StoredFile.state, func.count())
                 .where(
@@ -99,7 +100,7 @@ async def scanning_status(session: AsyncSession, services: FileServices) -> Scan
                 )
                 .group_by(StoredFile.state)
             )
-        ).tuples()
+        )
     )
     installed = services.scanner.available
     reachable, date = False, None

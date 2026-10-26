@@ -345,6 +345,43 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
+### [ ] WP-022 — Files and safe attachments (lane B; D-081; ADR-028; in progress, 3 sessions)
+Plan: ~/Desktop/wp-022-plan.md (approved with D-081). Branch `feat/wp-022-files`.
+- [x] **Session 1 (backend core, 2026-10-26):**
+  - shared platform service `app/shared/files`, mounted by the `system` module;
+  - migration 0018: `files`, `file_links`, `tenant_data_keys`, `tenant_storage_usage`,
+    `file_settings`, all with RLS;
+  - real-type sniffing and blocking (default list of executables and scripts, tenant-editable);
+  - safe names; chunked AES-256-GCM with range reads; per-tenant data keys wrapped by the
+    installation key ring (`SUPPORTX_FILES_KEYS`; rotation and re-wrap);
+  - streaming upload through the API (size, quota, type checked before storing; S3 multipart);
+  - scan consumer and sweep with clamd, no-scanner and fake adapters (retries, "could not be
+    checked", rescan);
+  - lossless EXIF/GPS/XMP stripping (orientation kept) and Pillow thumbnails under bomb limits;
+  - links valid 5 minutes, bound to the user; ranged content route with nosniff and sandbox CSP;
+  - inline images and thumbnails; delete with a 24 h grace; purge; purge with the record;
+  - `storage_gb` licence limit; rules, usage and scanning status for administrators (warnings
+    for no scanner, unreachable scanner, signatures older than 7 days, unscanned and failed
+    files); hourly scanner check with a metric;
+  - the work_items access port (private-note files for staff only);
+  - audit actions; labels en/ar/ur; dev key ring and clamd address; chart env wiring;
+  - `docs/architecture/files.md` (backup and restore of the key ring, rotation);
+  - tests: 35 unit, 19 with Postgres and S3 storage.
+- [ ] **Session 2 (screens and editor):**
+  - attachments component on incidents, replies and notes (drag and drop, picker, paste, live
+    scan state);
+  - previews (image viewer, PDF in a sandboxed frame);
+  - Admin > Files (rules, usage, status) and an administrators' banner;
+  - inline images in the editor (`@tiptap/extension-image`, replace lane A's paste
+    placeholder, sanitiser allows `<img data-file-id>`, drafts attached on save);
+  - api-client hooks, realtime `files.changed`, Vitest.
+- [ ] **Session 3 (platform and hardening):**
+  - ClamAV chart component (private mirror, offline signature bundle);
+  - operator commands for key rotation and re-wrap; the admin rotate action;
+  - real ClamAV with EICAR in the stack-smoke e2e job; Playwright journeys with axe;
+  - load check (50 parallel 25 MB uploads);
+  - PROGRESS and docs.
+
 ### [x] BRAND — SupportX branding (lane B; product owner request; D-078; done 2026-10-26)
 - **Goal:** The SupportX logo and colours everywhere SupportX shows its own brand, from one place
   that WP-017 replaces per tenant.

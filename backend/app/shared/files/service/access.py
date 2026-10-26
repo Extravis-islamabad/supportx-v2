@@ -99,7 +99,7 @@ async def for_record(
     )
     return [
         Attachment(stored, link)
-        for stored, link in rows.tuples()
+        for stored, link in rows
         if (OwnerType(link.owner_type), link.owner_id) in visible
     ]
 

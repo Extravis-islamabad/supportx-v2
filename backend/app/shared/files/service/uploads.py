@@ -164,7 +164,9 @@ async def upload(  # noqa: PLR0913 - the upload's facts, explicit
             record_id=owner.record_id if owner else None,
             inline=target.inline,
         )
-        session.add_all([stored, link])
+        session.add(stored)
+        await session.flush()  # no ORM relationship orders the inserts: the file goes first
+        session.add(link)
         counter = await lock_usage(session)
         counter.bytes_used += written.size
         counter.files_count += 1

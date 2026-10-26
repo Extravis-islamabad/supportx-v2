@@ -33,6 +33,7 @@ from app.shared.events import BusNames, ConsumerSpec
 from app.shared.files.events import EVENTS as FILE_EVENTS
 from app.shared.files.events import FileUploaded
 from app.shared.files.ports import register_quota
+from app.shared.files.service.core import FileServices
 from app.shared.schedules import ScheduleSpec
 
 
@@ -90,6 +91,8 @@ def _worker_probes(settings: Settings) -> list[DependencyProbe]:
 async def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
     app.state.readiness = build_readiness_service(settings)
+    # A malformed files key ring fails startup here, loudly, rather than at the first upload.
+    setattr(app.state, files.FILES_STATE, FileServices.from_settings(settings))
     register_quota(files.storage_limit_bytes)
 
 

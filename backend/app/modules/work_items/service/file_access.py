@@ -111,7 +111,7 @@ class WorkItemFileAccess:
             WorkItemConversation.deleted_at.is_(None),
         )
         staff = sees_private(subject, wtype)
-        for entry_id, visibility in (await session.execute(query)).tuples():
+        for entry_id, visibility in await session.execute(query):
             if staff or visibility == Visibility.PUBLIC.value:
                 owners.add((OwnerType.CONVERSATION_ENTRY, entry_id))
         return owners

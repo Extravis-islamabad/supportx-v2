@@ -1401,6 +1401,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: s3-access-key}}
             - name: SUPPORTX_OBJECT_STORAGE_SECRET_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: s3-secret-key}}
+            - name: SUPPORTX_FILES_KEYS
+              valueFrom: {secretKeyRef: {name: supportx-app, key: files-keys, optional: true}}
             - name: SUPPORTX_SERVICE_NAME
               value: supportx-api
           ports:
@@ -1999,6 +2001,9 @@ spec:
             # Signs the audit log's anchors (ADR-027); only this worker holds the key.
             - name: SUPPORTX_AUDIT_SIGNING_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: audit-signing-key}}
+            # Decrypts new files to scan them and writes thumbnails (WP-022).
+            - name: SUPPORTX_FILES_KEYS
+              valueFrom: {secretKeyRef: {name: supportx-app, key: files-keys, optional: true}}
           ports:
             - {name: metrics, containerPort: 9464}
           startupProbe:

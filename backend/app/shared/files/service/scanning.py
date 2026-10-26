@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.shared.events import record_event
 from app.shared.files.domain import metadata
+from app.shared.files.domain.chunks import ChunkError
 from app.shared.files.domain.states import SCAN_ATTEMPTS_MAX, FileState, may_become
 from app.shared.files.events import FileChanged
 from app.shared.files.infra import blobs, thumbnails
@@ -85,10 +86,10 @@ async def _set(session: AsyncSession, stored: StoredFile, state: FileState) -> N
 
 
 async def _unavailable(
-    session: AsyncSession, services: FileServices, stored: StoredFile
+    session: AsyncSession, services: FileServices, stored: StoredFile, *, scanner_down: bool = False
 ) -> ScanOutcome:
-    """No scanner installed, or it did not answer: wait, retry later, or give up visibly."""
-    if not services.scanner.available:
+    """No scanner installed, or it (or storage) did not answer: wait, retry later, or give up."""
+    if not services.scanner.available and not scanner_down:
         if services.scan_required:
             return ScanOutcome(stored.id, FileState.SCANNING)  # waits; admins are told why
         await _set(session, stored, FileState.NOT_SCANNED)
@@ -102,6 +103,26 @@ async def _unavailable(
     return ScanOutcome(stored.id, FileState.SCAN_FAILED)
 
 
+async def _read(
+    session: AsyncSession, services: FileServices, stored: StoredFile
+) -> bytes | ScanOutcome:
+    """The file's plaintext, or the outcome when it cannot be read now (or ever)."""
+    storage, keyring = services.require_storage()
+    key = await data_key(session, keyring, stored.data_key_id)
+    try:
+        return await blobs.read_all(
+            storage, stored.object_key, data_key=key, file_id=stored.id, size=stored.size
+        )
+    except StorageUnavailable:
+        log.warning("file_scan_storage_unavailable", file_id=str(stored.id))
+        return await _unavailable(session, services, stored, scanner_down=True)
+    except ChunkError:
+        # The stored bytes do not decrypt: never open it; an administrator sees "not checked".
+        log.exception("file_object_unreadable", file_id=str(stored.id))
+        await _set(session, stored, FileState.SCAN_FAILED)
+        return ScanOutcome(stored.id, FileState.SCAN_FAILED)
+
+
 async def scan(session: AsyncSession, services: FileServices, file_id: uuid.UUID) -> ScanOutcome:
     """Scan one file (idempotent: a file no longer waiting is left alone)."""
     stored = await session.get(StoredFile, file_id, with_for_update=True)
@@ -110,15 +131,13 @@ async def scan(session: AsyncSession, services: FileServices, file_id: uuid.UUID
         return ScanOutcome(file_id, state)
     if not services.scanner.available:
         return await _unavailable(session, services, stored)
-    storage, keyring = services.require_storage()
-    key = await data_key(session, keyring, stored.data_key_id)
-    data = await blobs.read_all(
-        storage, stored.object_key, data_key=key, file_id=stored.id, size=stored.size
-    )
+    data = await _read(session, services, stored)
+    if isinstance(data, ScanOutcome):
+        return data
     try:
         verdict = await services.scanner.scan(data)
     except ScannerUnavailableError:
-        return await _unavailable(session, services, stored)
+        return await _unavailable(session, services, stored, scanner_down=True)
     if verdict.infected:
         stored.scan_signature = verdict.signature
         await _set(session, stored, FileState.INFECTED)

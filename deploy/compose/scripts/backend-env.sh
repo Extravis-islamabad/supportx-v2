@@ -42,6 +42,11 @@ values=(
   "SUPPORTX_OBJECT_STORAGE_SECRET_KEY=${MINIO_ROOT_PASSWORD}"
   # Audit anchors (ADR-027): a dev-only signing key derived from the dev session secret.
   "SUPPORTX_AUDIT_SIGNING_KEY=dev-1:$(printf '%s' "audit-anchor:${SESSION_SECRET}" | openssl dgst -sha256 -binary | base64)"
+  # Files (WP-022, ADR-028): a dev-only key ring derived from the dev session secret, and the
+  # ClamAV of the `full` profile (make dev-up-full). Without it files wait as "scanning" and
+  # Admin > Files says the scanner is unreachable (scanning stays required, as in production).
+  "SUPPORTX_FILES_KEYS=dev-1:$(printf '%s' "files-kek:${SESSION_SECRET}" | openssl dgst -sha256 -binary | base64)"
+  "SUPPORTX_FILES_CLAMD_ADDRESS=127.0.0.1:${CLAMAV_PORT}"
 )
 
 umask 077

@@ -227,8 +227,8 @@ class S3Storage:
                 response = await client.get_object(
                     Bucket=self.bucket, Key=key, Range=f"bytes={start}-{end}"
                 )
-                async with response["Body"] as body:
-                    while piece := await body.read(_READ_PIECE):
+                async with response["Body"] as body:  # an aiohttp response underneath
+                    async for piece in body.content.iter_chunked(_READ_PIECE):
                         yield piece
         except (BotoCoreError, ClientError, OSError) as exc:
             log.warning("storage_unreachable", operation="read_range")

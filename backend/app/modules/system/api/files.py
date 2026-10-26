@@ -24,7 +24,7 @@ from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
 from app.modules.audit import AuditNote, audited
-from app.modules.system.service.files import services
+from app.modules.system.service.files import api_services
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
@@ -34,11 +34,12 @@ from app.shared.files.domain.types import Kind, Sniffed, inline_allowed
 from app.shared.files.infra.models import FileLink, StoredFile
 from app.shared.files.ports import Action, Actor, OwnerType
 from app.shared.files.service import access, admin, scanning, uploads
-from app.shared.files.service.core import rules
+from app.shared.files.service.core import FileServices, rules
 
 MANAGE = "files.manage"
 SignedIn = Annotated[Any, Depends(require_signed_in())]
 Manage = Annotated[Any, Depends(require_permission(MANAGE))]
+Files = Annotated[FileServices, Depends(api_services)]
 
 router = APIRouter(
     prefix="/files",
@@ -76,10 +77,10 @@ class FileOut(BaseModel):
     version: int
 
 
-def _out(stored: StoredFile, link: FileLink) -> FileOut:
+def _out(stored: StoredFile, link: FileLink, files: FileServices) -> FileOut:
     state = FileState(stored.state)
     sniffed = Sniffed(stored.content_type, Kind(stored.kind), active_markup=stored.active_markup)
-    usable = openable(state, scan_required=services().scan_required)
+    usable = openable(state, scan_required=files.scan_required)
     return FileOut(
         id=stored.id,
         name=stored.name,
@@ -132,6 +133,7 @@ async def upload_file(  # noqa: PLR0913 - the upload's facts, explicit
     request: Request,
     session: TenantSession,
     subject: SignedIn,
+    files: Files,
     idempotency: Idempotency,
     note: Annotated[AuditNote, audited("file.uploaded", object_type="file")],
     owner_type: Annotated[OwnerType, Query()],
@@ -152,7 +154,7 @@ async def upload_file(  # noqa: PLR0913 - the upload's facts, explicit
     async def run() -> Created:
         stored, link = await uploads.upload(
             session,
-            services(),
+            files,
             subject,
             uploads.Target(owner_type, owner_id, inline=inline),
             name=name,
@@ -161,7 +163,7 @@ async def upload_file(  # noqa: PLR0913 - the upload's facts, explicit
         )
         note.object_id = str(stored.id)
         note.details = {"owner_type": owner_type.value, "size": stored.size}
-        return Created(_out(stored, link))
+        return Created(_out(stored, link, files))
 
     return await idempotency.run(target, run, status_code=201)
 
@@ -189,21 +191,21 @@ async def attach_drafts(
 
 @router.get("/records/{record_type}/{record_id}")
 async def record_files(
-    record_type: str, record_id: uuid.UUID, session: TenantSession, subject: SignedIn
+    record_type: str, record_id: uuid.UUID, session: TenantSession, subject: SignedIn, files: Files
 ) -> list[FileOut]:
     """Every file on a record, its replies and notes that you may see."""
     found = await access.for_record(session, subject, record_type, record_id)
-    return [_out(item.file, item.link) for item in found]
+    return [_out(item.file, item.link, files) for item in found]
 
 
 @router.get("/{file_id}")
 async def get_file(
-    file_id: uuid.UUID, response: Response, session: TenantSession, subject: SignedIn
+    file_id: uuid.UUID, response: Response, session: TenantSession, subject: SignedIn, files: Files
 ) -> FileOut:
     """One file (its scan state, for the screen that is waiting on it)."""
     found = await access.authorize(session, subject, file_id, Action.VIEW)
     set_etag(response, found.file.version)
-    return _out(found.file, found.link)
+    return _out(found.file, found.link, files)
 
 
 class LinkIn(BaseModel):
@@ -221,12 +223,10 @@ class LinkOut(BaseModel):
 
 @router.post("/{file_id}/link")
 async def create_link(
-    file_id: uuid.UUID, body: LinkIn, session: TenantSession, subject: SignedIn
+    file_id: uuid.UUID, body: LinkIn, session: TenantSession, subject: SignedIn, files: Files
 ) -> LinkOut:
     """A fresh short-lived link (409 `file_not_ready` while it is being checked or blocked)."""
-    token, expires_at = await access.issue_link(
-        session, services(), subject, file_id, body.disposition
-    )
+    token, expires_at = await access.issue_link(session, files, subject, file_id, body.disposition)
     return LinkOut(url=f"/api/v1/files/content/{token}", expires_at=expires_at)
 
 
@@ -262,16 +262,18 @@ def _stream(content: access.Content, *, cache: str) -> StreamingResponse:
     response_class=StreamingResponse,
     responses={410: {"model": ProblemDetail, "description": "The link expired."}},
 )
-async def file_content(
+async def file_content(  # noqa: PLR0913 - the link, the reader and the audit note
+    *,
     token: str,
     request: Request,
     session: TenantSession,
     subject: SignedIn,
+    files: Files,
     note: Annotated[AuditNote, audited("file.downloaded", object_type="file")],
 ) -> StreamingResponse:
     """The file behind a link (checked again against your access); supports Range."""
     content = await access.open_by_link(
-        session, services(), subject, token, range_header=request.headers.get("range")
+        session, files, subject, token, range_header=request.headers.get("range")
     )
     # Reads are audited for private-note files only (D-081 D7); public ones would be noise.
     note.skip = not content.private
@@ -281,29 +283,30 @@ async def file_content(
 
 async def _image(
     session: TenantSession,
+    files: FileServices,
     subject: Actor,
     file_id: uuid.UUID,
     *,
     thumbnail: bool,
 ) -> StreamingResponse:
-    content = await access.open_image(session, services(), subject, file_id, thumbnail=thumbnail)
+    content = await access.open_image(session, files, subject, file_id, thumbnail=thumbnail)
     return _stream(content, cache="private, max-age=300")
 
 
 @router.get("/{file_id}/inline", response_class=StreamingResponse)
 async def inline_image(
-    file_id: uuid.UUID, session: TenantSession, subject: SignedIn
+    file_id: uuid.UUID, session: TenantSession, subject: SignedIn, files: Files
 ) -> StreamingResponse:
     """An image shown inside a reply or note (signed-in users who may see it; clean only)."""
-    return await _image(session, subject, file_id, thumbnail=False)
+    return await _image(session, files, subject, file_id, thumbnail=False)
 
 
 @router.get("/{file_id}/thumbnail", response_class=StreamingResponse)
 async def thumbnail(
-    file_id: uuid.UUID, session: TenantSession, subject: SignedIn
+    file_id: uuid.UUID, session: TenantSession, subject: SignedIn, files: Files
 ) -> StreamingResponse:
     """The 320 px preview of an image."""
-    return await _image(session, subject, file_id, thumbnail=True)
+    return await _image(session, files, subject, file_id, thumbnail=True)
 
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -324,6 +327,7 @@ async def rescan(
     file_id: uuid.UUID,
     session: TenantSession,
     subject: Manage,
+    files: Files,
     note: Annotated[
         AuditNote, audited("file.rescan_requested", object_type="file", object_param="file_id")
     ],
@@ -333,7 +337,7 @@ async def rescan(
     found = await access.authorize(session, subject, file_id, Action.VIEW)
     if not await scanning.rescan(session, file_id):
         raise ValidationFailed(code="file_not_rescannable", params={"state": found.file.state})
-    return _out(found.file, found.link)
+    return _out(found.file, found.link, files)
 
 
 # --- rules, usage, scanning status -----------------------------------------------------------
@@ -444,8 +448,8 @@ class StatusOut(BaseModel):
 
 
 @router.get("/settings/status")
-async def get_status(session: TenantSession, subject: Manage) -> StatusOut:
+async def get_status(session: TenantSession, subject: Manage, files: Files) -> StatusOut:
     """Scanning status for Admin > Files and the administrators' banner."""
     del subject
-    found = await admin.scanning_status(session, services())
+    found = await admin.scanning_status(session, files)
     return StatusOut.model_validate(found, from_attributes=True)
