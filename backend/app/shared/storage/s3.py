@@ -18,6 +18,9 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 _MISSING = {"NoSuchKey", "404", "NotFound"}
+# S3 multipart parts must be at least 5 MiB (except the last); 8 MiB keeps uploads to a few parts.
+PART_BYTES = 8 << 20
+_READ_PIECE = 256 << 10
 
 
 class StorageUnavailable(ServiceUnavailable):
@@ -49,6 +52,14 @@ class ObjectStorage(Protocol):
 
     async def check(self) -> None:
         """Raise `StorageUnavailable` unless the bucket can be reached."""
+        ...
+
+    async def put_stream(self, key: str, parts: AsyncIterator[bytes], content_type: str) -> int:
+        """Store an object from a stream of parts (multipart above PART_BYTES); bytes written."""
+        ...
+
+    def read_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
+        """Bytes start..end (inclusive) of an object, streamed; `StorageUnavailable` if absent."""
         ...
 
 
@@ -138,6 +149,89 @@ class S3Storage:
                 await client.delete_object(Bucket=self.bucket, Key=key)
         except (BotoCoreError, ClientError, OSError) as exc:
             log.warning("storage_unreachable", operation="delete")
+            raise StorageUnavailable from exc
+
+    async def put_stream(self, key: str, parts: AsyncIterator[bytes], content_type: str) -> int:
+        """Store a stream without holding it in memory: one PUT when small, else multipart.
+
+        A failure part-way aborts the multipart upload, so no half object is left behind.
+        """
+        buffer = bytearray()
+        written = 0
+        upload_id: str | None = None
+        numbers: list[dict[str, object]] = []
+        try:
+            async with self._client() as client:
+                async for part in parts:
+                    buffer += part
+                    written += len(part)
+                    while len(buffer) >= PART_BYTES:
+                        if upload_id is None:
+                            created = await client.create_multipart_upload(
+                                Bucket=self.bucket, Key=key, ContentType=content_type
+                            )
+                            upload_id = created["UploadId"]
+                        piece, buffer = bytes(buffer[:PART_BYTES]), buffer[PART_BYTES:]
+                        number = len(numbers) + 1
+                        sent = await client.upload_part(
+                            Bucket=self.bucket,
+                            Key=key,
+                            UploadId=upload_id,
+                            PartNumber=number,
+                            Body=piece,
+                        )
+                        numbers.append({"PartNumber": number, "ETag": sent["ETag"]})
+                if upload_id is None:
+                    await client.put_object(
+                        Bucket=self.bucket, Key=key, Body=bytes(buffer), ContentType=content_type
+                    )
+                    return written
+                if buffer:
+                    number = len(numbers) + 1
+                    sent = await client.upload_part(
+                        Bucket=self.bucket,
+                        Key=key,
+                        UploadId=upload_id,
+                        PartNumber=number,
+                        Body=bytes(buffer),
+                    )
+                    numbers.append({"PartNumber": number, "ETag": sent["ETag"]})
+                await client.complete_multipart_upload(
+                    Bucket=self.bucket,
+                    Key=key,
+                    UploadId=upload_id,
+                    MultipartUpload={"Parts": numbers},  # type: ignore[typeddict-item]  # boto stubs want a narrower dict type
+                )
+                return written
+        except (BotoCoreError, ClientError, OSError) as exc:
+            log.warning("storage_unreachable", operation="put_stream")
+            await self._abort(key, upload_id)
+            raise StorageUnavailable from exc
+        except BaseException:
+            await self._abort(key, upload_id)
+            raise
+
+    async def _abort(self, key: str, upload_id: str | None) -> None:
+        if upload_id is None:
+            return
+        try:
+            async with self._client() as client:
+                await client.abort_multipart_upload(Bucket=self.bucket, Key=key, UploadId=upload_id)
+        except (BotoCoreError, ClientError, OSError):
+            log.warning("storage_unreachable", operation="abort_multipart")
+
+    async def read_range(self, key: str, start: int, end: int) -> AsyncIterator[bytes]:
+        """Bytes start..end (inclusive), streamed in pieces of at most 256 KiB."""
+        try:
+            async with self._client() as client:
+                response = await client.get_object(
+                    Bucket=self.bucket, Key=key, Range=f"bytes={start}-{end}"
+                )
+                async with response["Body"] as body:
+                    while piece := await body.read(_READ_PIECE):
+                        yield piece
+        except (BotoCoreError, ClientError, OSError) as exc:
+            log.warning("storage_unreachable", operation="read_range")
             raise StorageUnavailable from exc
 
     async def check(self) -> None:

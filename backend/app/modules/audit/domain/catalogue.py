@@ -117,6 +117,14 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.closed_record_edited", AuditCategory.RECORDS, "work_items"),
     ("incident.due_date_changed", AuditCategory.RECORDS, "work_items"),
     # the audit log itself
+    # Files (WP-022): names are personal data and never in details.
+    ("file.uploaded", AuditCategory.RECORDS, "system"),
+    ("file.deleted", AuditCategory.RECORDS, "system"),
+    ("file.downloaded", AuditCategory.DATA, "system"),
+    ("file.blocked", AuditCategory.SECURITY, "system"),
+    ("file.rescan_requested", AuditCategory.SECURITY, "system"),
+    ("file.purged", AuditCategory.DATA, "system"),
+    ("file_settings.changed", AuditCategory.CONFIGURATION, "system"),
     ("audit.settings_changed", AuditCategory.SECURITY, "audit"),
     ("audit.verification_requested", AuditCategory.SECURITY, "audit"),
     ("audit.verification_failed", AuditCategory.SECURITY, "audit"),
