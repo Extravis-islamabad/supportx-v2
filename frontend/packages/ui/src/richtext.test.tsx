@@ -1,21 +1,10 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { cleanPastedHtml, RichTextField } from './richtext';
 import { renderUi } from './test/render';
 
 // WP-020b: the richer editor and the paste cleaner (Word, Outlook, the web).
-
-// jsdom has no layout: ProseMirror measures the caret when it scrolls to an insertion.
-beforeAll(() => {
-  const empty = () => ({ length: 0, item: () => null, [Symbol.iterator]: [][Symbol.iterator] });
-  for (const proto of [Range.prototype, Element.prototype, Text.prototype] as object[]) {
-    Object.assign(proto, {
-      getClientRects: empty,
-      getBoundingClientRect: () => new DOMRect(0, 0, 0, 0),
-    });
-  }
-});
 
 const WORD_LIST = `<html xmlns:o="urn:schemas-microsoft-com:office:office"><head>
 <style>p.MsoNormal {font-family: Calibri}</style></head><body>
