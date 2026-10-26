@@ -176,10 +176,19 @@ def rule_problems(
             continue
         if TemplateField(name) in FIXED_FIELDS and not (rule.shown and rule.required):
             problems.append((f"fields.{name}", "field_always_required"))
+        elif TemplateField(name) in FIXED_FIELDS and not (
+            rule.requester_can_see and rule.requester_can_fill
+        ):
+            # A requester could never log anything from the portal without them (D-086).
+            problems.append((f"fields.{name}", "requester_always_needed"))
         if rule.required and not rule.shown and _empty(defaults.get(name)):
             # Nobody could ever fill it in: every create would be refused.
             problems.append((f"fields.{name}", "hidden_required_needs_default"))
-        if rule.requester_can_fill and not rule.requester_can_see:
+        if (
+            rule.requester_can_fill
+            and not rule.requester_can_see
+            and TemplateField(name) not in FIXED_FIELDS  # those say "always needed" instead
+        ):
             problems.append((f"fields.{name}", "fill_needs_see"))
     problems.extend(
         (f"defaults.{name}", "no_default_allowed")

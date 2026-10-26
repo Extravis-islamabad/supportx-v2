@@ -104,7 +104,8 @@ export function IncidentSettingsPage() {
     }
   })();
   return (
-    <Flex vertical gap={8}>
+    // minWidth 0: the tab bar fits the screen and folds the rest into "more" (QA BUG-03).
+    <Flex vertical gap={8} style={{ minWidth: 0 }}>
       <Typography.Title level={2}>{t('settings.incidents_title')}</Typography.Title>
       <Tabs
         activeKey={current}

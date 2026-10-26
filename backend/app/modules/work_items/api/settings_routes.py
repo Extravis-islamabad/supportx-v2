@@ -495,7 +495,8 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         row = await template_service.create_template(
             session,
             wtype,
-            body.model_dump(exclude_none=True, mode="json"),
+            # exclude_unset: a field rule changes only the flags sent (the rest keep theirs).
+            body.model_dump(exclude_unset=True, exclude_none=True, mode="json"),
             source=source_of(request),
         )
         note.object_id = str(row.id)
@@ -551,7 +552,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             wtype,
             template_id,
             expected_version=version,
-            values=body.model_dump(include=body.model_fields_set, mode="json"),
+            values=body.model_dump(exclude_unset=True, mode="json"),
             source=source_of(request),
         )
         set_etag(response, row.version)

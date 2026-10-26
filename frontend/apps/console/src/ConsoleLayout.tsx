@@ -5,7 +5,9 @@ import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import {
   queryKeys,
+  readPending,
   useLogout,
+  useSetFormDensity,
   useSession,
   useSetNavLayout,
   useSetUiLocale,
@@ -64,6 +66,22 @@ export function ConsoleLayout() {
 
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
+  const setFormDensity = useSetFormDensity(session?.user.id ?? '');
+  // Preferences chosen just before a reload, whose save had not finished: applied and sent
+  // again, so a quick reload never loses them (the flaky QA BUG-04 test was this race).
+  const userId = session?.user.id;
+  useEffect(() => {
+    if (userId === undefined) return;
+    const pending = readPending(userId);
+    if (pending.ui_locale !== undefined) setUiLocale.mutate(pending.ui_locale);
+    if (pending.nav_layout !== undefined) {
+      setNavLayout.mutate(pending.nav_layout as Parameters<typeof setNavLayout.mutate>[0]);
+    }
+    if (pending.form_density !== undefined) {
+      setFormDensity.mutate(pending.form_density as Parameters<typeof setFormDensity.mutate>[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per signed-in user
+  }, [userId]);
   // A new page starts at its top, as a link would (QA BUG-17: a new record opened scrolled).
   useEffect(() => {
     window.scrollTo({ top: 0 });

@@ -23,6 +23,7 @@ from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service.catalogue import Catalogue
+from app.shared.db.display_ids import NumberAlreadyUsedError, set_next_number
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -55,7 +56,7 @@ async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue
     return await config.load(session, wtype)
 
 
-async def update_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
+async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     *,
@@ -64,17 +65,31 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per settin
     source: Source,
     user_id: uuid.UUID | None,
 ) -> Catalogue:
-    """Prefix, defaults, automatic moves, hand-over and first response (If-Match: version)."""
+    """Prefix, next number, defaults, automatic moves, hand-over, first response (If-Match).
+
+    All or nothing (QA BUG-01): every value is checked first and every problem is named at its
+    field; only then is anything written, in this one transaction, as one version step.
+    """
     current = await config.load(session, wtype)
     changes: dict[str, Any] = {}
+    problems: list[FieldError] = []
+
+    def problem(field: str, code: str, **params: Any) -> None:  # noqa: ANN401 - problem params
+        problems.extend(invalid(field=field, field_code=code, **params).errors)
+
     if "prefix" in values:
         prefix = str(values["prefix"] or "").strip().upper()
         if prefix_problems(prefix):
-            raise _invalid(field="prefix", field_code="invalid_prefix")
+            problem("prefix", "invalid_prefix")
         changes["prefix"] = prefix
+    next_number: int | None = None
+    if values.get("next_number") is not None:
+        next_number = int(values["next_number"])
+        if next_number <= current.last_number:
+            problem("next_number", "number_already_used", minimum=current.last_number + 1)
     if "default_priority" in values:
         if values["default_priority"] not in set(Priority):
-            raise _invalid(field="default_priority", field_code="invalid_choice")
+            problem("default_priority", "invalid_choice")
         changes["default_priority"] = values["default_priority"]
     if "auto_status_on_assign" in values:
         changes["auto_status_on_assign"] = bool(values["auto_status_on_assign"])
@@ -83,14 +98,16 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per settin
     if "first_response_on" in values:
         chosen = list(values["first_response_on"] or [])
         if any(code not in set(FirstResponseAction) for code in chosen):
-            raise _invalid(field="first_response_on", field_code="invalid_choice")
+            problem("first_response_on", "invalid_choice")
         # Stored in the fixed order, so a re-ordered list is not a change.
         changes["first_response_on"] = [c for c in FirstResponseAction if c in chosen]
     for name, codes in (("default_impact", set(Impact)), ("default_urgency", set(Urgency))):
         if name in values:
             if values[name] is not None and values[name] not in codes:
-                raise _invalid(field=name, field_code="invalid_choice")
+                problem(name, "invalid_choice")
             changes[name] = values[name]
+    if problems:
+        raise ValidationFailed(errors=problems)
     before = {
         "prefix": current.prefix,
         "default_priority": current.default_priority,
@@ -109,7 +126,16 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per settin
                 "current_version": current.settings_version,
             },
         )
-    if not changes:
+    history = [Change(k, before[k], v) for k, v in changes.items()]
+    if next_number is not None and next_number != current.last_number + 1:
+        try:
+            await set_next_number(session, wtype.counter_key, next_number)
+        except NumberAlreadyUsedError as error:  # a create won the race since we read it
+            raise invalid(
+                field="next_number", field_code="number_already_used", minimum=next_number + 1
+            ) from error
+        history.append(Change("next_number", current.last_number + 1, next_number))
+    if not history:
         return current
     await session.execute(
         update(WorkItemTypeSettings)
@@ -128,12 +154,12 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per settin
         record_id=settings_id,
         version=expected_version + 1,
         kind="updated",
-        changes=[Change(k, before[k], v) for k, v in changes.items()],
+        changes=history,
         source=source,
     )
     await record_event(
         session,
-        WorkItemSettingsChanged(type=wtype.code, changed_fields=sorted(changes)),
+        WorkItemSettingsChanged(type=wtype.code, changed_fields=sorted(c.field for c in history)),
         aggregate_id=settings_id,
         aggregate_version=expected_version + 1,
     )

@@ -43,7 +43,10 @@ function preferredMode(): ThemeMode {
  * and the sidebar's border, reach every edge: QA C3), and the scrollbar's place is kept when a
  * dialog hides it, so nothing moves sideways when a dialog opens (QA C5).
  */
-const PAGE_CSS = 'html { scrollbar-gutter: stable; } body { margin: 0; }';
+// A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
+const PAGE_CSS =
+  'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
+  '.ant-table-content { overflow-x: auto; }';
 
 /**
  * Theme (light / dark / high contrast, brand seeds), text direction and language for everything

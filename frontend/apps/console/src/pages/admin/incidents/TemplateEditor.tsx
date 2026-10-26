@@ -29,6 +29,7 @@ import { reportError, RichTextField, useAppearance, useLabel, WriteButton } from
 import { CategoryCascade } from '../../incidents/CategoryCascade';
 import { listValueLabel, scaleLabel, templateLabel } from '../../incidents/labels';
 import { GroupPicker, SitePicker } from '../../incidents/pickers';
+import { TagsInput } from '../../incidents/TagsInput';
 import { cleanLabels, templateProblems } from './helpers';
 import { LabelsFields, Problems } from './shared';
 
@@ -84,6 +85,8 @@ function blankRules(): Rules {
     ]),
   ) as Rules;
 }
+
+const NO_CHANNEL = 'none'; // the radio's "no default" (a radio value is never null: QA BUG-08)
 
 /** A switch change and what it implies (hidden → not required; fill → see), never contradictory. */
 function toggle(rule: FieldRule, flag: Flag, on: boolean): FieldRule {
@@ -220,13 +223,14 @@ export function TemplateEditor({
         return (
           <Radio.Group
             id={id}
-            value={value ?? null}
+            value={value ?? NO_CHANNEL}
             onChange={(event) => {
-              setDefault(f, event.target.value);
+              const chosen = event.target.value as string;
+              setDefault(f, chosen === NO_CHANNEL ? null : chosen);
             }}
             optionType="button"
             options={[
-              { value: null, label: t('settings.no_default') },
+              { value: NO_CHANNEL, label: t('settings.no_default') },
               { value: 'phone', label: t('work_item_channel.phone') },
               { value: 'walk_up', label: t('work_item_channel.walk_up') },
             ]}
@@ -303,15 +307,13 @@ export function TemplateEditor({
         );
       case 'tags':
         return (
-          <Select
+          <TagsInput
             id={id}
-            mode="tags"
             value={Array.isArray(value) ? (value as string[]) : []}
-            onChange={(next: string[]) => {
+            onChange={(next) => {
               setDefault(f, next);
             }}
-            tokenSeparators={[',']}
-            data-testid={id}
+            testId={id}
           />
         );
       default:
@@ -399,6 +401,9 @@ export function TemplateEditor({
       </Form>
       <Typography.Title level={3}>{t('templates.fields')}</Typography.Title>
       <Typography.Paragraph type="secondary">{t('templates.fields_help')}</Typography.Paragraph>
+      <Typography.Paragraph type="secondary" data-testid="tpl-editor-locked-note">
+        {t('templates.locked_note')}
+      </Typography.Paragraph>
       <Table
         size="small"
         rowKey={(f: TemplateField) => f}
@@ -415,7 +420,9 @@ export function TemplateEditor({
             key: flag,
             title: t(`templates.flag.${flag}`),
             render: (_: unknown, f: TemplateField) => {
-              const locked = FIXED.has(f) && (flag === 'shown' || flag === 'required');
+              // Subject and requester: always shown and required, and always seen and filled
+              // in by requesters, or nobody could log an incident from the portal (D-086).
+              const locked = FIXED.has(f);
               const control = (
                 <Switch
                   size="small"
@@ -432,7 +439,15 @@ export function TemplateEditor({
                 />
               );
               return locked ? (
-                <Tooltip title={t('templates.always_required')}>{control}</Tooltip>
+                <Tooltip
+                  title={t(
+                    flag === 'shown' || flag === 'required'
+                      ? 'templates.always_required'
+                      : 'templates.requester_always_needed',
+                  )}
+                >
+                  {control}
+                </Tooltip>
               ) : (
                 control
               );
@@ -463,6 +478,7 @@ export function TemplateEditor({
         labelCol={{ flex: '170px' }}
         wrapperCol={{ flex: 1 }}
         labelWrap
+        colon={false}
         component="div"
       >
         {FIELDS.filter((f) => DEFAULTABLE.has(f)).map((f) => (

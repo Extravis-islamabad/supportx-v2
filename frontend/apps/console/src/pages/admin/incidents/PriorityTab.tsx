@@ -211,7 +211,7 @@ function ScaleCard({ scale, catalogue }: { scale: IncidentScale; catalogue: Inci
           title={t('settings.rename_value', {
             name: scaleLabel(t, catalogue, scale, editing.code, locale),
           })}
-          shipped={t(`${scale}.${editing.code}`)}
+          shippedKey={`${scale}.${editing.code}`}
           labels={editing.labels ?? null}
           colour={editing.colour ?? null}
           withColour

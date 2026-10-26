@@ -1189,6 +1189,12 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         )
     if "level" in cleaned:
         problems += _check_level(cat, cleaned["level"], current=record.level)
+    problems += await templates.emptied_required(
+        session,
+        record.template_id,
+        {name: getattr(record, name) for name in cleaned},
+        cleaned,
+    )
     if problems:
         raise _errors(problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
@@ -1392,6 +1398,12 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
         problems.append(("reason_code", "invalid_choice"))
     if text is not None and len(text) > PRIORITY_REASON_MAX:
         problems.append(("reason_text", "value_too_long"))
+    problems += await templates.emptied_required(
+        session,
+        record.template_id,
+        {"group_id": record.group_id, "technician_id": record.technician_id},
+        {"group_id": group_id, "technician_id": technician_id},
+    )
     if problems:
         raise _errors(problems)
     if (group_id, technician_id) == (record.group_id, record.technician_id):

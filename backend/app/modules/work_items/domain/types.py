@@ -212,6 +212,8 @@ FIELD_PROBLEMS = frozenset(
         "hidden_required_needs_default",
         "fill_needs_see",
         "no_default_allowed",
+        # WP-020c-FIX (D-086)
+        "requester_always_needed",
     }
 )
 
