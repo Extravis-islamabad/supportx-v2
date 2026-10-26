@@ -50,8 +50,10 @@ test('files: checked live, previewed, malware blocked, accessible in every theme
 }) => {
   test.setTimeout(240_000);
   await signInAs(page, 'admin', '/incidents');
+  const me = (await (await page.request.get('/api/v1/auth/me')).json()) as { user: { id: string } };
   const created = await call(page, 'POST', '/incidents', {
     subject: `E2E files ${String(Date.now()).slice(-7)}`,
+    requester_id: me.user.id,
   });
   expect(created.status(), await created.text()).toBe(201);
   const item = (await created.json()) as { id: string; version: number };

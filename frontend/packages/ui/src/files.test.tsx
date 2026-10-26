@@ -1,5 +1,5 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import type { FileRules, StoredFile } from '@supportx/api-client';
 import { fakeApi } from '@supportx/api-client/testing';
@@ -63,10 +63,6 @@ describe('file rules in the browser (REQ-INC-079 AC2)', () => {
 });
 
 describe('Attachments', () => {
-  afterEach(() => {
-    document.body.innerHTML = '';
-  });
-
   it('shows each file with its state in words; only ready files open', () => {
     const fake = fakeApi({ 'GET /api/v1/files/settings/rules': { body: RULES } });
     renderUi(
