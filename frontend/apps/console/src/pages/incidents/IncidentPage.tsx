@@ -54,6 +54,7 @@ import { AssignDialog, TakeButton } from './assign';
 import { OperationButton } from './operations';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
+import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
@@ -130,6 +131,10 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
   const [tab, setTab] = useState<string>(() => lastTab(me));
+  // Offered first in quick search and record pickers (REQ-INC-085).
+  useEffect(() => {
+    rememberIncident(me, item.id);
+  }, [me, item.id]);
   const stopTyping = (userId: string) => {
     clearTimeout(typingTimers.current.get(userId));
     typingTimers.current.delete(userId);

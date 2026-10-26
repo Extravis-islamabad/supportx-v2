@@ -16,6 +16,8 @@ export type FilterCondition = components['schemas']['FilterCondition'];
 /** List parameters the UI controls; `filter` is the shared JSON filter DSL (architecture.md §6.5). */
 export interface UsersQuery {
   filter?: FilterExpression;
+  /** Search names and emails: word starts, Arabic and Urdu spellings, typos (WP-027). */
+  q?: string;
   /** e.g. `display_name` or `-last_login_at` */
   sort?: string;
   limit?: number;
@@ -50,6 +52,7 @@ export function useUsers(query: UsersQuery, enabled = true) {
           params: {
             query: {
               filter: query.filter === undefined ? undefined : JSON.stringify(query.filter),
+              q: query.q === undefined || query.q.trim() === '' ? undefined : query.q.trim(),
               sort: query.sort,
               limit: query.limit ?? 50,
               cursor: pageParam ?? undefined,

@@ -1101,6 +1101,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search incidents
+         * @description Records you may see, exactly as in the lists (REQ-INC-085), best match first.
+         *
+         *     Without `q`: the most recently updated (narrowed by the other parameters).
+         */
+        get: operations["search_api_v1_incidents_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/settings": {
         parameters: {
             query?: never;
@@ -1957,8 +1979,8 @@ export interface paths {
          * List users
          * @description Users the caller may see (`users.view`, filtered to its scope).
          *
-         *     Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), sort with
-         *     `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
+         *     Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), search with `q`,
+         *     sort with `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
          */
         get: operations["list_users_api_v1_users_get"];
         put?: never;
@@ -5119,6 +5141,18 @@ export interface components {
             /** Rank */
             rank: number;
             scale: components["schemas"]["Scale"];
+        };
+        /**
+         * WorkItemSearchOut
+         * @description Search results, best first, with the people on them (name and email).
+         */
+        WorkItemSearchOut: {
+            /** Items */
+            items: components["schemas"]["WorkItemListItem"][];
+            /** People */
+            people?: {
+                [key: string]: components["schemas"]["PersonOut"];
+            };
         };
         /**
          * WorkItemSettingsPatch
@@ -9520,6 +9554,79 @@ export interface operations {
             };
         };
     };
+    search_api_v1_incidents_search_get: {
+        parameters: {
+            query?: {
+                /** @description Display ID, subject or description words, or the requester's name or email. Word forms (English, Arabic), Urdu word starts and typos match. */
+                q?: string | null;
+                status_category?: components["schemas"]["StatusCategory"][];
+                requester_id?: string | null;
+                /** @description Only these records (e.g. recently viewed). */
+                ids?: string[] | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemSearchOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     get_settings_api_v1_incidents_settings_get: {
         parameters: {
             query?: never;
@@ -13342,6 +13449,8 @@ export interface operations {
     list_users_api_v1_users_get: {
         parameters: {
             query?: {
+                /** @description Search names and emails: word starts, Arabic and Urdu spellings, typos. */
+                q?: string | null;
                 /** @description Filter DSL as JSON (schema: FilterExpression). */
                 filter?: string | null;
                 /** @description e.g. -created_at,display_name */

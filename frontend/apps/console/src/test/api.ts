@@ -34,6 +34,8 @@ export function consoleApi({
     'GET /api/v1/audit/status': { body: fakeAuditStatus() },
     'GET /api/v1/files/settings/status': { body: fakeFileStatus() },
     'GET /api/v1/files/settings/rules': { body: fakeFileRules() },
+    // Quick search in the command palette (WP-027): nothing found unless a test says otherwise.
+    'GET /api/v1/incidents/search': { body: { items: [], people: {} } },
     ...routes,
   });
 }

@@ -2,7 +2,6 @@ import { Select, Space, TreeSelect, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 
 import {
-  searchFilter,
   useIncidentAssignees,
   useIncidentCategories,
   useUnits,
@@ -54,7 +53,7 @@ interface PickerProps {
   ariaLabel: string;
 }
 
-/** Any user of the tenant, searched by name or email (GET /users). */
+/** Any user of the tenant, searched by name or email (GET /users?q=). */
 export function UserPicker({
   id,
   value,
@@ -66,7 +65,8 @@ export function UserPicker({
 }: PickerProps) {
   const t = useLabel();
   const [search, setSearch] = useState('');
-  const users = useUsers({ filter: searchFilter(search), sort: 'display_name', limit: 20 });
+  // Server search: half a name, a typo, Arabic or Urdu spellings, or the email (WP-027).
+  const users = useUsers({ q: search, sort: 'display_name', limit: 20 });
   const rows = useMemo(() => users.data?.pages.flatMap((p) => p.items) ?? [], [users.data]);
   const options = rows.map((u) => ({
     value: u.id,

@@ -48,8 +48,15 @@ from app.modules.identity_access.domain.policy import (
 )
 from app.modules.identity_access.infra.models import Role, RolePermission, User, UserRole
 from app.shared.api.filters import ResourceFields, compile_filter
+from app.shared.search import ENGINE, SearchDocument
 
 log = get_logger(__name__)
+
+# Where people's searchable text lives (migration 0020): name and email words, and the name's
+# trigrams for typos. Every people search uses it: the directory, pickers, assignees.
+PEOPLE = SearchDocument(
+    vector=User.__table__.c.search_vector, short_text=User.__table__.c.search_name
+)
 
 SUBJECT_STATE = "authz_subject"
 MemberLookup = Callable[
@@ -475,19 +482,13 @@ class PolicyService:
                 ),
             ),
         )
-        if search:
-            # LIKE wildcards typed by the user match themselves only.
-            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            pattern = f"%{escaped}%"
-            query = query.where(
-                or_(
-                    User.display_name.ilike(pattern, escape="\\"),
-                    User.email.ilike(pattern, escape="\\"),
-                )
-            )
-        rows = (
-            await session.execute(query.order_by(User.display_name, User.id).limit(limit))
-        ).all()
+        order: list[Any] = [User.display_name, User.id]
+        found = await ENGINE.match(session, PEOPLE, search) if search else None
+        if found is not None:
+            # Name or email words, word forms in Arabic and Urdu, and typos (WP-027).
+            query = query.where(found.predicate)
+            order.insert(0, found.rank.desc())
+        rows = (await session.execute(query.order_by(*order).limit(limit))).all()
         return [
             (row.id, row.display_name)
             for row in rows

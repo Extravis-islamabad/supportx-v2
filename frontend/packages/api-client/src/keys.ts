@@ -1,6 +1,6 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { AuditEntriesQuery } from './audit';
-import type { IncidentsQuery } from './incidents';
+import type { IncidentSearchQuery, IncidentsQuery } from './incidents';
 import type { UsersQuery } from './users';
 
 /**
@@ -37,6 +37,8 @@ export const queryKeys = {
   incidents: {
     all: ['incidents'] as const,
     list: (query: IncidentsQuery) => ['incidents', 'list', query] as const,
+    // Under 'list': whatever refreshes the lists refreshes searches (WP-027).
+    search: (query: IncidentSearchQuery) => ['incidents', 'list', 'search', query] as const,
     views: ['incidents', 'views'] as const,
     detail: (id: string) => ['incidents', 'detail', id] as const,
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,

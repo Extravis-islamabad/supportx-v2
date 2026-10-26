@@ -26,6 +26,7 @@ from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.policy import (
+    PEOPLE,
     FieldRule,
     ResourceType,
     authorize,
@@ -39,6 +40,7 @@ from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, explain_conflict, record_changes
+from app.shared.search import ENGINE
 
 USER_RECORD_TYPE = "user"
 
@@ -95,12 +97,39 @@ def users_resource() -> ResourceType:
 USERS = users_resource()
 
 
-async def list_users(session: AsyncSession, subject: Subject, query: ListQuery) -> PageResult[User]:
-    """One page of the users the subject may see (users.view, scope-filtered)."""
+async def list_users(
+    session: AsyncSession, subject: Subject, query: ListQuery, *, text: str | None = None
+) -> PageResult[User]:
+    """One page of the users the subject may see (users.view, scope-filtered).
+
+    `text` searches names and emails (word forms, Arabic and Urdu spellings, typos; WP-027); the
+    page keeps the requested sort, so paging stays stable.
+    """
     visible_rows = select(User).where(
         User.deleted_at.is_(None), scope_filter(subject, "users.view", USERS)
     )
+    found = await ENGINE.match(session, PEOPLE, text) if text else None
+    if found is not None:
+        visible_rows = visible_rows.where(found.predicate)
     return await paginate(session, visible_rows, query)
+
+
+async def people_matching(session: AsyncSession, text: str, *, limit: int = 200) -> list[uuid.UUID]:
+    """IDs of the tenant's people whose name or email matches `text`, best first.
+
+    For other modules' searches by person ("incidents requested by Ahmed"): they filter their own
+    records by these IDs and their own scope, so this reveals nothing on its own.
+    """
+    found = await ENGINE.match(session, PEOPLE, text)
+    if found is None:
+        return []
+    rows = await session.scalars(
+        select(User.id)
+        .where(User.deleted_at.is_(None), found.predicate)
+        .order_by(found.rank.desc(), User.id)
+        .limit(limit)
+    )
+    return list(rows)
 
 
 async def get_user(session: AsyncSession, subject: Subject, user_id: uuid.UUID) -> User:
