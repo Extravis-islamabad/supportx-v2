@@ -811,6 +811,9 @@ data:
       --pf-v5-global--primary-color--200: #6f38b8;
       --pf-v5-global--link--Color: #7e40d1;
       --pf-v5-global--link--Color--hover: #6f38b8;
+      --supportx-button: #7e40d1;
+      --supportx-button-hover: #6f38b8;
+      --supportx-card-top: linear-gradient(90deg, #6060de, #951ab6);
       --supportx-logo-url: url("../img/logo-dark-text.png");
     }
     :root.pf-v5-theme-dark {
@@ -824,11 +827,13 @@ data:
        the dark settings above (its link colour is already above 7:1). */
     @media (prefers-contrast: more) {
       :root:not(.pf-v5-theme-dark) {
-        --keycloak-card-top-color: #000000;
         --pf-v5-global--primary-color--100: #522a88;
         --pf-v5-global--primary-color--200: #000000;
         --pf-v5-global--link--Color: #522a88;
         --pf-v5-global--link--Color--hover: #000000;
+        --supportx-button: #522a88;
+        --supportx-button-hover: #000000;
+        --supportx-card-top: linear-gradient(#000000, #000000);
         --supportx-logo-url: url("../img/logo-high-contrast.png");
       }
     }
@@ -840,13 +845,13 @@ data:
     }
     .pf-v5-c-login__main-header {
       border-top: 4px solid;
-      border-image: linear-gradient(90deg, #6060de, #951ab6) 1;
+      border-image: var(--supportx-card-top) 1;
     }
     .pf-v5-c-button.pf-m-primary {
-      --pf-v5-c-button--m-primary--BackgroundColor: #7e40d1;
-      --pf-v5-c-button--m-primary--hover--BackgroundColor: #6f38b8;
-      --pf-v5-c-button--m-primary--focus--BackgroundColor: #6f38b8;
-      --pf-v5-c-button--m-primary--active--BackgroundColor: #6f38b8;
+      --pf-v5-c-button--m-primary--BackgroundColor: var(--supportx-button);
+      --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--supportx-button-hover);
+      --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--supportx-button-hover);
+      --pf-v5-c-button--m-primary--active--BackgroundColor: var(--supportx-button-hover);
       --pf-v5-c-button--m-primary--Color: #ffffff;
       --pf-v5-c-button--m-primary--hover--Color: #ffffff;
       --pf-v5-c-button--m-primary--focus--Color: #ffffff;
