@@ -82,6 +82,15 @@ CATEGORY = {
 }
 
 
+class Timings(dict[str, Any]):
+    """Prints each measurement as it is taken, so a run cut off by a time limit still shows how
+    far it got (the 2-hour limit cut off the first 10M run with no output)."""
+
+    def __setitem__(self, key: str, value: Any) -> None:  # noqa: ANN401 - any measurement
+        super().__setitem__(key, value)
+        print(f"{key}={value}", flush=True)  # noqa: T201 - progress of a long run
+
+
 def _times(count: int) -> Any:  # noqa: ANN401 - a generator of datetimes
     """`count` increasing times: OLD_SHARE % in twelve months five years ago, then 30 days."""
     old = count * OLD_SHARE // 100
@@ -187,7 +196,7 @@ async def _retention(
     app_db: Database, tenant: uuid.UUID, store: S3Storage, old: int
 ) -> dict[str, Any]:
     """Archive every month past 3 years (read back, verified), cut off, drop; then re-verify."""
-    timings: dict[str, Any] = {}
+    timings = Timings()
     archived = 0
     began = time.perf_counter()
     while True:
@@ -246,7 +255,7 @@ async def _search(app_db: Database, tenant: uuid.UUID, person: uuid.UUID) -> flo
 async def test_audit_log_at_volume(
     migrated_db: ThrowawayDatabase, app_db: Database, storage: S3Storage
 ) -> None:
-    timings: dict[str, Any] = {"rows": ROWS}
+    timings = Timings(rows=ROWS)
     tenant = await create_tenant(migrated_db.migrator_url, "Scale")
     people = [uuid.uuid4() for _ in range(200)]
     old = ROWS * OLD_SHARE // 100

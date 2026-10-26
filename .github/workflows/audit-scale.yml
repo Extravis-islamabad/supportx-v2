@@ -27,7 +27,9 @@ jobs:
   audit-scale:
     name: audit scale
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    # A 2-vCPU runner needs more than 2 hours for 10M entries with retention (the first run was
+    # cut off at 120 minutes); hosted runners allow up to 6 hours.
+    timeout-minutes: 300
     services:
       postgres:
         image: pgvector/pgvector:0.8.7-pg16-bookworm
