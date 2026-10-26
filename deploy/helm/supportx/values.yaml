@@ -28,6 +28,7 @@ images:
   centrifugo: centrifugo/centrifugo:v6.10.1
   postgres: ghcr.io/cloudnative-pg/postgresql:16.15-202610190958-standard-trixie
   seaweedfs: chrislusf/seaweedfs:4.48
+  clamav: clamav/clamav:1.5.4-debian
 
 # --- secrets (never in values) ---------------------------------------------------------------------
 # Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
@@ -64,7 +65,7 @@ consumers:
   replicas: 1
   resources:
     requests: {cpu: 50m, memory: 160Mi}
-    limits: {cpu: 500m, memory: 384Mi}
+    limits: {cpu: "1", memory: 768Mi}  # scans stream; images up to 50 MB are processed whole (WP-022)
 
 # Exactly one copy (ADR-023: merge windows and per-tenant rate limits are in memory). Rollouts
 # surge one new pod before the old stops; the durable consumer resumes from its last ack.
@@ -133,6 +134,23 @@ objectStorage:
     resources:
       requests: {cpu: 50m, memory: 128Mi}
       limits: {cpu: "1", memory: 512Mi}
+
+# --- Files and malware scanning (WP-022, ADR-028, D-082) -------------------------------------------
+files:
+  # Files wait as "scanning" until a scanner has checked them. Off only knowingly: files are then
+  # stored "not scanned" and administrators are warned (docs/architecture/files.md).
+  scanRequired: true
+clamav:
+  enabled: true
+  # Signature updates. Default: ClamAV's public mirrors. Air-gapped: a private mirror on the
+  # internal network (e.g. http://mirror.internal/clamav), or none at all and the offline bundle
+  # loaded with deploy/scripts/clamav-signatures.sh. Signatures older than 7 days raise an alert.
+  privateMirror: ""
+  checksPerDay: 12
+  storage: {size: 2Gi, storageClass: ""}
+  resources:
+    requests: {cpu: 100m, memory: 1Gi}
+    limits: {cpu: "2", memory: 2Gi}
 
 # --- Audit log (WP-018, ADR-027) ---------------------------------------------------------------------
 audit:

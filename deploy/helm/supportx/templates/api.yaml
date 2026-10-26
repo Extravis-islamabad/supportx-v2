@@ -33,6 +33,7 @@ spec:
           {{- include "supportx.backendEnvFrom" . | nindent 10 }}
           env:
             {{- include "supportx.secretEnv" . | nindent 12 }}
+            {{- include "supportx.filesEnv" . | nindent 12 }}
             - name: SUPPORTX_SERVICE_NAME
               value: supportx-api
           ports:

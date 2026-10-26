@@ -32,20 +32,27 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import {
   ApiError,
-  queryKeys,
+  attachDrafts,
   fetchMentionable,
+  queryKeys,
   useAddConversationEntry,
   useChangeNoteVisibility,
+  useFiles,
   useIncidentConversation,
+  useRecordFiles,
   useReplyTemplates,
+  useSession,
   type ConversationEntry,
+  type StoredFile,
   type EntryKind,
   type Incident,
   type ReplyMode,
   type Visibility,
 } from '@supportx/api-client';
 import {
+  Attachments,
   describeError,
+  inlineImageIds,
   reportError,
   RichTextField,
   RichTextView,
@@ -89,6 +96,7 @@ export function IncidentConversation({ item, typing }: { item: Incident; typing:
   const [filter, setFilter] = useState<Filter>('all');
   const [draft, setDraft] = useState<Draft | null>(null);
   const conversation = useIncidentConversation(item.id);
+  const recordFiles = useRecordFiles('incident', item.id).data ?? [];
   const entries = conversation.data?.items ?? [];
   const people = conversation.data?.people ?? {};
   const shown = entries.filter(
@@ -146,7 +154,18 @@ export function IncidentConversation({ item, typing }: { item: Incident; typing:
             <Alert type="info" showIcon message={t('conversation.truncated')} />
           )}
           {shown.map((entry) => (
-            <EntryCard key={entry.id} item={item} entry={entry} people={people} />
+            <EntryCard
+              key={entry.id}
+              item={item}
+              entry={entry}
+              people={people}
+              files={recordFiles.filter(
+                (file) =>
+                  file.owner_type === 'conversation_entry' &&
+                  file.owner_id === entry.id &&
+                  !file.inline,
+              )}
+            />
           ))}
           {filter === 'system' && (
             <Empty
@@ -281,12 +300,16 @@ function EntryCard({
   item,
   entry,
   people,
+  files,
 }: {
   item: Incident;
   entry: ConversationEntry;
   people: Record<string, { display_name: string; email: string }>;
+  files: StoredFile[];
 }) {
   const t = useLabel();
+  const { can } = useAccess();
+  const canEditRecord = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const dates = useDateTime();
   const { token } = theme.useToken();
   const { message } = App.useApp();
@@ -372,6 +395,15 @@ function EntryCard({
       <div style={{ marginTop: 8 }}>
         <RichTextView html={entry.body} />
       </div>
+      {files.length > 0 && (
+        <Attachments
+          files={files}
+          canRemove={canEditRecord}
+          canRescan={can('files.manage')}
+          staffOnly={isPrivate}
+          testId="conv-entry-files"
+        />
+      )}
       {canSwitch && (
         <Flex justify="end">
           <Popconfirm
@@ -426,6 +458,10 @@ function Composer({
   const { can } = useAccess();
   const add = useAddConversationEntry(item.id);
   const templates = useReplyTemplates();
+  const me = useSession().data?.user.id;
+  // Files for this entry wait as the author's drafts until it is saved (WP-022).
+  const [draftIds, setDraftIds] = useState<string[]>([]);
+  const drafts = useFiles(draftIds);
   const [managing, setManaging] = useState(false);
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [body, setBody] = useState('');
@@ -482,6 +518,13 @@ function Composer({
       },
       {
         onSuccess: (saved) => {
+          attachDrafts('conversation_entry', saved.entry.id, [...draftIds, ...inlineImageIds(body)])
+            .then(() =>
+              queryClient.invalidateQueries({
+                queryKey: queryKeys.files.record('incident', item.id),
+              }),
+            )
+            .catch(reportError);
           if (saved.entry.delivery_state === 'not_sent') {
             void message.warning(t('conversation.reply_saved_not_sent'));
           } else {
@@ -591,6 +634,21 @@ function Composer({
         autoFocus
         invalid={fieldErrors.some((f) => f.field === 'body.body')}
         testId="conv-editor"
+        imageOwnerId={me}
+      />
+      <Attachments
+        files={drafts}
+        target={me === undefined ? null : { ownerType: 'draft', ownerId: me }}
+        onStored={(file) => {
+          setDraftIds((ids) => [...ids, file.id]);
+        }}
+        onRemoved={(file) => {
+          setDraftIds((ids) => ids.filter((id) => id !== file.id));
+        }}
+        canRemove
+        staffOnly={kind === 'note' && visibility === 'private'}
+        compact
+        testId="conv-attachments"
       />
       {error !== null && error.status === 422 && (
         <Alert

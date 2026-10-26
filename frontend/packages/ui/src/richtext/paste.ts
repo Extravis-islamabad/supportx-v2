@@ -6,8 +6,8 @@
  * justified paragraphs keep their alignment as a code. Fonts, sizes and colours never come in:
  * the palette is fixed. The server sanitises again before storing (the security boundary).
  *
- * Images are dropped here: pasted screenshots become attachments with file storage (WP-022).
- * TODO(WP-022): turn pasted and dropped images into uploaded attachments shown inline.
+ * Images inside pasted HTML are dropped here (remote addresses are never stored). Image *files*
+ * pasted or dropped into the editor are uploaded as drafts and shown inline (inlineImage.tsx).
  */
 
 const DROP = 'style, meta, link, title, script, xml, template, img, picture, svg, object, iframe';

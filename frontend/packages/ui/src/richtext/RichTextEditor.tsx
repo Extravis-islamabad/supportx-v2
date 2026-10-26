@@ -31,7 +31,12 @@ import { TableKit } from '@tiptap/extension-table';
 import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import type { EditorView } from '@tiptap/pm/view';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+
+import { queryKeys, useFileRules, type FileRules } from '@supportx/api-client';
+import { usePersonalChannel } from '@supportx/realtime';
 
 import { useAppearance, useLabel } from '../appearance';
 import {
@@ -43,6 +48,7 @@ import {
   type Alignment,
 } from './extensions';
 import { ListItemDirection } from './direction';
+import { InlineImage, insertImages } from './inlineImage';
 import { mentionExtension } from './mention';
 import { cleanPastedHtml } from './paste';
 import { RichTextStyles } from './styles';
@@ -58,8 +64,9 @@ import type { RichTextFieldProps, RichTextTemplate } from './types';
  * alignment and indent are logical (start/end), so they are right in both directions. Pastes from
  * Word, Outlook and the web are cleaned first (paste.ts). The server sanitises every value again.
  *
- * Inline images wait for file storage (WP-022): no image button, and pasted images are dropped
- * (paste.ts) until they can be uploaded as attachments.
+ * Inline images (WP-022): with `imageOwnerId`, image files pasted or dropped into the text are
+ * uploaded as the author's drafts and shown inline once checked (inlineImage.tsx). Images inside
+ * pasted HTML (remote addresses) are still dropped (paste.ts): only stored files are kept.
  */
 export default function RichTextEditor({
   value,
@@ -75,9 +82,23 @@ export default function RichTextEditor({
   onManageTemplates,
   minHeight,
   autoFocus = false,
+  imageOwnerId,
 }: RichTextFieldProps) {
   const t = useLabel();
   const [fullScreen, setFullScreen] = useState(false);
+  // Filled by <ImageSupport> (only mounted when images are taken): the tenant's file rules.
+  const images = useRef<{ ownerId: string | undefined; rules: FileRules | undefined }>({
+    ownerId: imageOwnerId,
+    rules: undefined,
+  });
+  useEffect(() => {
+    images.current.ownerId = imageOwnerId;
+  }, [imageOwnerId]);
+  const take = (view: EditorView, files: FileList | null | undefined, pos: number): boolean => {
+    const ownerId = images.current.ownerId;
+    if (ownerId === undefined || files === null || files === undefined) return false;
+    return insertImages(view, Array.from(files), pos, { ownerId, rules: images.current.rules, t });
+  };
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -91,6 +112,7 @@ export default function RichTextEditor({
       HighlightMark,
       ListItemDirection,
       ...(mentions === undefined ? [] : [mentionExtension(mentions)]),
+      ...(imageOwnerId === undefined ? [] : [InlineImage]),
     ],
     content: value ?? '',
     editable: !disabled,
@@ -107,9 +129,11 @@ export default function RichTextEditor({
         class: 'sx-richtext sx-richtext-input',
       },
       transformPastedHTML: cleanPastedHtml,
-      // Pasting into an empty line: the line becomes the first pasted block (its heading level
-      // and alignment), instead of ProseMirror merging the pasted text into it (QA C7).
-      handlePaste: (view, _event, slice) => {
+      // Pasted or dropped image files become inline images (WP-022); other pastes into an empty
+      // line make the line the first pasted block (its heading level and alignment), instead of
+      // ProseMirror merging the pasted text into it (QA C7).
+      handlePaste: (view, event, slice) => {
+        if (take(view, event.clipboardData?.files, view.state.selection.from)) return true;
         const { $from, empty } = view.state.selection;
         const first = slice.content.firstChild;
         if (!empty || !$from.parent.isTextblock || $from.parent.content.size > 0) return false;
@@ -122,6 +146,11 @@ export default function RichTextEditor({
         }
         view.dispatch(tr.scrollIntoView());
         return true;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        return take(view, event.dataTransfer?.files, at?.pos ?? view.state.selection.from);
       },
     },
     onUpdate: ({ editor: current }) => {
@@ -174,6 +203,13 @@ export default function RichTextEditor({
           }}
         />
       )}
+      {imageOwnerId !== undefined && (
+        <ImageSupport
+          onRules={(found) => {
+            images.current.rules = found;
+          }}
+        />
+      )}
       <EditorContent
         editor={editor}
         className="sx-richtext-scroll"
@@ -188,6 +224,26 @@ export default function RichTextEditor({
       <span className="sx-visually-hidden">{t('richtext.hint')}</span>
     </div>
   );
+}
+
+/**
+ * What inline images need from the app (WP-022): the tenant's file rules (refuse early) and the
+ * personal channel (a draft's scan finished: its placeholder becomes the image).
+ */
+function ImageSupport({ onRules }: { onRules: (rules: FileRules | undefined) => void }) {
+  const rules = useFileRules();
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    onRules(rules.data);
+  }, [rules.data, onRules]);
+  usePersonalChannel((event) => {
+    if (event.type === 'files.changed') {
+      for (const fileId of event.ids) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.files.detail(fileId) });
+      }
+    }
+  });
+  return null;
 }
 
 function Tool({

@@ -5,14 +5,15 @@
 Breaking (within a major version):
 - an operation (path + method) disappears;
 - a parameter disappears, or a new required parameter / required body field appears;
-- a parameter or body field changes type;
+- a parameter or body field changes type, or an enum loses a value;
 - a 2xx response loses a property or a property changes type;
 - a required response property becomes optional (clients rely on it being there);
 - a named schema in `components.schemas` disappears or is renamed (the generated TypeScript
   type of that name would vanish from packages/api-client).
 
 Additive changes pass: new operations, new optional parameters and fields, new response
-properties, wording. Breaking changes belong in /api/v2 (§10 versioning).
+properties, new enum values (each has a label, rule 5d), wording. Breaking changes belong in
+/api/v2 (§10 versioning).
 """
 
 import json
@@ -111,6 +112,15 @@ class _Walk:
                     for a, b in zip(old[union], new[union], strict=True)
                     for problem in self.diff(label, a, b, depth + 1)
                 ]
+        return self._leaf(label, old, new)
+
+    def _leaf(self, label: str, old: dict[str, Any], new: dict[str, Any]) -> list[str]:
+        if "enum" in old and "enum" in new:
+            # A new code is additive: every code has a label (rule 5d), so clients show it.
+            # A code that disappears breaks callers that still send or expect it.
+            if not set(old["enum"]) <= set(new["enum"]):
+                return [f"{label} lost enum values"]
+            old, new = {**old, "enum": []}, {**new, "enum": []}
         if _shape(old, self.ro) != _shape(new, self.rn):
             return [f"{label} changed type"]
         return []

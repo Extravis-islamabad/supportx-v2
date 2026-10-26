@@ -57,6 +57,7 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  ['files.manage', 'all'],
   ['announcements.manage', 'all'],
   ['announcements.publish', 'all'],
   ['users.manage', 'all'],
@@ -488,6 +489,63 @@ export function fakeAuditStatus(overrides: Partial<AuditStatus> = {}): AuditStat
     last_weekly: null,
     last_on_demand: null,
     alert: null,
+    ...overrides,
+  };
+}
+
+/** A stored file (GET /files/…): a clean PDF on an incident unless overridden (WP-022). */
+export function fakeStoredFile(
+  overrides: Partial<components['schemas']['FileOut']> = {},
+): components['schemas']['FileOut'] {
+  return {
+    id: '01900000-0000-7000-8000-0000000f0001',
+    name: 'invoice.pdf',
+    size: 245_000,
+    content_type: 'application/pdf',
+    kind: 'pdf',
+    state: 'clean',
+    openable: true,
+    previewable: true,
+    has_thumbnail: false,
+    owner_type: 'work_item',
+    owner_id: '01900000-0000-7000-8000-000000000101',
+    record_type: 'incident',
+    record_id: '01900000-0000-7000-8000-000000000101',
+    inline: false,
+    uploaded_by: null,
+    created_at: '2026-10-26T09:00:00Z',
+    version: 1,
+    ...overrides,
+  };
+}
+
+/** The tenant's file rules (GET /files/settings/rules): the defaults unless overridden. */
+export function fakeFileRules(
+  overrides: Partial<components['schemas']['RulesOut']> = {},
+): components['schemas']['RulesOut'] {
+  return {
+    max_file_mb: 25,
+    max_batch: 20,
+    blocked_extensions: ['bat', 'exe', 'js', 'msi', 'ps1', 'sh'],
+    version: 0,
+    ...overrides,
+  };
+}
+
+/** Scanning status (GET /files/settings/status): a working scanner unless overridden. */
+export function fakeFileStatus(
+  overrides: Partial<components['schemas']['StatusOut']> = {},
+): components['schemas']['StatusOut'] {
+  return {
+    scanner_installed: true,
+    scanner_reachable: true,
+    scan_required: true,
+    signature_date: '2026-10-25T08:24:12Z',
+    signatures_stale: false,
+    waiting: 0,
+    failed: 0,
+    not_scanned: 0,
+    warnings: [],
     ...overrides,
   };
 }

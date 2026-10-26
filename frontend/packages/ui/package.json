@@ -17,6 +17,7 @@
     "@supportx/labels": "workspace:*",
     "@supportx/realtime": "workspace:*",
     "@tiptap/core": "catalog:",
+    "@tiptap/extension-image": "catalog:",
     "@tiptap/extension-link": "catalog:",
     "@tiptap/extension-mention": "catalog:",
     "@tiptap/extension-placeholder": "catalog:",

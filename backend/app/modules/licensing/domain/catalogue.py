@@ -62,6 +62,8 @@ class LimitKey(StrEnum):
     DEPARTMENTS = "departments"
     MSP_CUSTOMERS = "msp_customers"
     AI_AGENT_RUNS_PER_MONTH = "ai_agent_runs_per_month"
+    # Stored files in GB (WP-022, D-082 D6): counted in whole GB for display; uploads compare bytes.
+    STORAGE_GB = "storage_gb"
 
 
 _ESSENTIALS = frozenset(
@@ -112,6 +114,7 @@ EDITION_DEFAULT_LIMITS: Mapping[Edition, Mapping[LimitKey, int | None]] = Mappin
                 LimitKey.DEPARTMENTS: 1,
                 LimitKey.MSP_CUSTOMERS: 0,
                 LimitKey.AI_AGENT_RUNS_PER_MONTH: 500,
+                LimitKey.STORAGE_GB: 50,
             }
         ),
         Edition.PROFESSIONAL: MappingProxyType(
@@ -121,6 +124,7 @@ EDITION_DEFAULT_LIMITS: Mapping[Edition, Mapping[LimitKey, int | None]] = Mappin
                 LimitKey.DEPARTMENTS: 1,
                 LimitKey.MSP_CUSTOMERS: 0,
                 LimitKey.AI_AGENT_RUNS_PER_MONTH: 5_000,
+                LimitKey.STORAGE_GB: 250,
             }
         ),
         # "Unlimited department desks (ESM)" is an Enterprise selling point (product-plan.md §9).
@@ -131,6 +135,7 @@ EDITION_DEFAULT_LIMITS: Mapping[Edition, Mapping[LimitKey, int | None]] = Mappin
                 LimitKey.DEPARTMENTS: None,
                 LimitKey.MSP_CUSTOMERS: 25,
                 LimitKey.AI_AGENT_RUNS_PER_MONTH: 50_000,
+                LimitKey.STORAGE_GB: 1_000,
             }
         ),
     }

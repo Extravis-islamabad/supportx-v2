@@ -28,4 +28,9 @@ export interface RichTextFieldProps {
   /** Taller editing area (composer) or the default. */
   minHeight?: number;
   autoFocus?: boolean;
+  /**
+   * Images pasted or dropped into the text are uploaded as this user's draft files (WP-022) and
+   * shown inline; the screen attaches them to the saved entry. Without it images are not taken.
+   */
+  imageOwnerId?: string;
 }

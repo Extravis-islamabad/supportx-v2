@@ -84,6 +84,10 @@ ${indents}
 .sx-richtext code { font-family: ${token.fontFamilyCode}; }
 .sx-richtext hr { border: none; border-top: 1px solid ${token.colorBorder}; margin: 0.75em 0; }
 .sx-richtext a { color: ${token.colorLink}; text-decoration: underline; }
+.sx-richtext img, .sx-inline-image img { max-width: 100%; height: auto; border-radius: 4px; }
+.sx-inline-image { display: block; margin-block: 8px; }
+.sx-inline-image-selected { outline: 2px solid ${token.colorPrimary}; outline-offset: 2px; }
+.sx-inline-image-missing { font-style: italic; color: ${token.colorTextSecondary}; }
 .sx-richtext table { border-collapse: collapse; margin: 0 0 0.5em; }
 .sx-richtext td, .sx-richtext th { border: 1px solid ${token.colorBorder}; padding: 4px 8px; vertical-align: top; }
 .sx-richtext th { background: ${token.colorFillTertiary}; font-weight: 600; }

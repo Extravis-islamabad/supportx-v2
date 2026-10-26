@@ -141,6 +141,13 @@ securityContext:
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: s3-secret-key}}
 {{- end -}}
 
+{{/* Files key ring (WP-022, ADR-028): the API (uploads) and the consumers worker (scanning) only.
+Optional: an installation without it answers 503 files_not_configured, never stores plaintext. */}}
+{{- define "supportx.filesEnv" -}}
+- name: SUPPORTX_FILES_KEYS
+  valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: files-keys, optional: true}}
+{{- end -}}
+
 {{/* Common pod parts for the API and workers. */}}
 {{- define "supportx.backendEnvFrom" -}}
 envFrom:

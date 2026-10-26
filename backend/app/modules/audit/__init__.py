@@ -9,7 +9,8 @@ Public interface for other modules:
   (`note: Annotated[AuditNote, audited(...)]` to add details);
 * `audit_read(ReadCategory.X, ...)`: route dependency for sensitive reads;
 * `record_alone(database, context, action_code=..., facts=...)`: entries outside a route
-  transaction (sign-in);
+  transaction (sign-in); `record(session, action_code=..., facts=WORKER, ...)` inside a worker's
+  transaction (the files service's scan and purge jobs);
 * `erase_subject(session, user_id)`: personal-data erasure that keeps the chain verifiable;
 * `entries_for_changes(session, change_ids)`: which field-history saves have an audit entry
   (record history shows the link only to holders of `audit.view`, REQ-AUD-006).
@@ -40,11 +41,13 @@ from app.modules.audit.service.jobs import (
 from app.modules.audit.service.queries import entries_for_changes
 from app.modules.audit.service.realtime import CHANNELS, ROUTES
 from app.modules.audit.service.recording import (
+    WORKER,
     AuditNote,
     RequestFacts,
     audit_read,
     audited,
     log_refusal,
+    record,
     record_alone,
 )
 from app.shared.events import ConsumerSpec
@@ -119,6 +122,7 @@ module = ModuleSpec(
 
 __all__ = [
     "AUDITOR",
+    "WORKER",
     "AuditCategory",
     "AuditNote",
     "ReadCategory",
@@ -128,5 +132,6 @@ __all__ = [
     "entries_for_changes",
     "erase_subject",
     "module",
+    "record",
     "record_alone",
 ]

@@ -16,6 +16,9 @@ KEYCLOAK_DB_SECRET="supportx-db-keycloak"
 rand() { openssl rand -hex "${1:-32}"; }
 # Audit anchor-signing key (WP-018, ADR-027): "<key id>:<base64 32-byte Ed25519 seed>".
 signing_key() { printf 'k%s:%s' "$(date -u +%Y%m%d)" "$(openssl rand -base64 32)"; }
+# Files key ring (WP-022, ADR-028): "<key id>:<base64 32 random bytes>". Back it up with the other
+# secrets: losing it loses every stored file (docs/architecture/files.md).
+files_keys() { printf 'k%s:%s' "$(date -u +%Y%m%d)" "$(openssl rand -base64 32)"; }
 # SeaweedFS S3 identity (WP-018): the access key pair the app uses, as SeaweedFS's s3.json.
 s3_config() {
   printf '{"identities":[{"name":"supportx","credentials":[{"accessKey":"%s","secretKey":"%s"}],"actions":["Admin","Read","Write","List","Tagging"]}]}' "$1" "$2"
@@ -41,6 +44,7 @@ if kubectl -n "$NAMESPACE" get secret "$APP_SECRET" >/dev/null 2>&1; then
     add_missing seaweedfs-s3-config "$(s3_config "$S3_ACCESS" "$S3_SECRET")"
   fi
   add_missing audit-signing-key "$(signing_key)"
+  add_missing files-keys "$(files_keys)"
   echo "secret $NAMESPACE/$APP_SECRET exists: existing values left unchanged"
 else
   kubectl -n "$NAMESPACE" create secret generic "$APP_SECRET" \
@@ -58,7 +62,8 @@ else
     --from-literal=s3-access-key="$S3_ACCESS" \
     --from-literal=s3-secret-key="$S3_SECRET" \
     --from-literal=seaweedfs-s3-config="$(s3_config "$S3_ACCESS" "$S3_SECRET")" \
-    --from-literal=audit-signing-key="$(signing_key)" >/dev/null
+    --from-literal=audit-signing-key="$(signing_key)" \
+    --from-literal=files-keys="$(files_keys)" >/dev/null
   echo "secret $NAMESPACE/$APP_SECRET created"
 fi
 
