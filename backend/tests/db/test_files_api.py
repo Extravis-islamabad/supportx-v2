@@ -675,3 +675,24 @@ async def test_a_purged_record_takes_its_files_along(world: World, files: FileSe
     for file_id in result.file_ids:
         assert await files.storage.get(f"tenants/{a.tenant}/files/{file_id}") is None
     assert await record_files(world, a, a.tech_a, item) == []
+
+
+async def test_ac4_a_pdf_previews_in_the_browser(world: World, files: FileServices) -> None:
+    del files
+    a = world.a
+    item = await world.create(a, a.tech_a)
+    pdf = b"%PDF-1.4\n" + b"0" * 3000 + b"\n%%EOF"
+    stored = (await upload(world, a, a.tech_a, ("work_item", item["id"]), pdf, "plan.pdf")).json()
+    await scan_waiting(world)
+    found = (await world.call("GET", f"/files/{stored['id']}", a, a.tech_a)).json()
+    assert (found["kind"], found["previewable"]) == ("pdf", True)
+    preview = await open_file(world, a, a.tech_a, stored["id"], disposition="inline")
+    assert preview.headers["content-type"] == "application/pdf"
+    assert preview.headers["content-disposition"].startswith("inline;")
+    # Browsers do not open their PDF viewer in a sandboxed document; scripts stay off anyway.
+    assert "sandbox" not in preview.headers["content-security-policy"]
+    assert "default-src 'none'" in preview.headers["content-security-policy"]
+    page = await open_file(
+        world, a, a.tech_a, stored["id"], disposition="inline", headers={"Range": "bytes=0-7"}
+    )
+    assert (page.status_code, page.content) == (206, b"%PDF-1.4")

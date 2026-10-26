@@ -367,14 +367,26 @@ Plan: ~/Desktop/wp-022-plan.md (approved with D-081). Branch `feat/wp-022-files`
   - audit actions; labels en/ar/ur; dev key ring and clamd address; chart env wiring;
   - `docs/architecture/files.md` (backup and restore of the key ring, rotation);
   - tests: 35 unit, 19 with Postgres and S3 storage.
-- [ ] **Session 2 (screens and editor):**
-  - attachments component on incidents, replies and notes (drag and drop, picker, paste, live
-    scan state);
-  - previews (image viewer, PDF in a sandboxed frame);
-  - Admin > Files (rules, usage, status) and an administrators' banner;
-  - inline images in the editor (`@tiptap/extension-image`, replace lane A's paste
-    placeholder, sanitiser allows `<img data-file-id>`, drafts attached on save);
-  - api-client hooks, realtime `files.changed`, Vitest.
+- [x] **Session 2 (screens and editor, 2026-10-26):**
+  - api-client `files.ts`: raw-body uploads with progress (XHR, same CSRF, client and idempotency
+    headers), record files, links, delete, drafts attach, rules, usage, status, rescan;
+  - `@supportx/ui` `files/`: `Attachments` (drag and drop, picker, paste; the tenant's size and
+    type rules checked before sending; at most 3 uploads at once with progress; live state in
+    words; preview, download, delete, rescan; "Staff only" for private notes), `FilePreview`
+    (image in the dialog, PDF in the browser's viewer via a fresh link), `FileStateTag`;
+  - incident page: the record's files under the description; each reply's or note's files on its
+    card; the composer takes files and pasted images as drafts and attaches them to the saved
+    entry; the description's pasted images too; live through `files.changed` on the record
+    channel (drafts: the personal channel, `usePersonalChannel`);
+  - editor: `@tiptap/extension-image` node holding only `data-file-id` (uploading, checking,
+    blocked or image), paste and drop of image files; lane A's placeholder replaced; the
+    server sanitiser keeps `<img data-file-id alt>` only (UUID-checked, no `src`, no remote or
+    `data:` images); read-only view fills the address from the ID;
+  - Admin > Files (rules with If-Match, usage against `storage_gb`, scanning status) and the
+    administrators' banner (`files.manage`);
+  - inline PDFs are served without CSP `sandbox` (browsers refuse their PDF viewer in a sandbox;
+    still `default-src 'none'`), every other file with it;
+  - labels en/ar/ur; tests: ui 10, console 4, API 21, sanitiser.
 - [ ] **Session 3 (platform and hardening):**
   - ClamAV chart component (private mirror, offline signature bundle);
   - operator commands for key rotation and re-wrap; the admin rotate action;

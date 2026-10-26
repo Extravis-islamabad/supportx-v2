@@ -8,6 +8,7 @@ export { EmptyText } from './EmptyText';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
 export * from './errors';
+export * from './files';
 export * from './licence';
 export * from './richtext';
 export { SessionGate, type SessionGateProps } from './SessionGate';

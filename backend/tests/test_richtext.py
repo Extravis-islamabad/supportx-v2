@@ -1,6 +1,6 @@
 """Server-side rich-text sanitising (REQ-INC-064; architecture.md §11.4; D-051)."""
 
-from app.shared.richtext import ALLOWED_TAGS, is_blank, sanitize_html
+from app.shared.richtext import ALLOWED_TAGS, image_file_ids, is_blank, sanitize_html
 
 
 def test_req_inc_064_ac1_script_and_handlers_stripped() -> None:
@@ -79,3 +79,19 @@ def test_wp020b_editor_formatting_survives_and_free_styles_do_not() -> None:
         '<mark data-color="black">y</mark><span data-type="link" data-id="x">z</span></p>'
     )
     assert sanitize_html(dirty) == "<p><span>x</span><mark>y</mark><span>z</span></p>"
+
+
+def test_images_are_stored_files_only() -> None:
+    """WP-022: an inline image is a SupportX file by ID; no src, no remote or data: images."""
+    file_id = "01a17826-97b9-747c-b630-0d20263b86e9"
+    kept = sanitize_html(f'<p><img data-file-id="{file_id}" alt="screenshot" src="/x"></p>')
+    assert kept == f'<p><img data-file-id="{file_id}" alt="screenshot"></p>'
+    assert image_file_ids(kept) == [file_id]
+    for dropped in (
+        '<img src="https://tracker.example/p.gif">',
+        '<img src="data:image/png;base64,AAAA">',
+        '<img data-file-id="not-a-uuid" alt="x">',
+        '<img data-file-id="x" onerror="alert(1)">',
+    ):
+        assert "<img" not in sanitize_html(f"<p>{dropped}</p>"), dropped
+    assert not is_blank(kept)

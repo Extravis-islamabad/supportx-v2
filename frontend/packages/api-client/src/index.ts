@@ -185,6 +185,31 @@ export {
   type ReplyTemplate,
   type Visibility,
 } from './conversation';
+export {
+  attachDrafts,
+  fileImageUrl,
+  fileLink,
+  uploadFile,
+  useDeleteFile,
+  useFile,
+  useFileRules,
+  useFileStatus,
+  useFileUsage,
+  useFiles,
+  useRecordFiles,
+  useRescanFile,
+  useUpdateFileRules,
+  type FileDisposition,
+  type FileOwnerType,
+  type FileRules,
+  type FileRulesInput,
+  type FileState,
+  type FileStatus,
+  type FileUsage,
+  type StoredFile,
+  type UploadHandle,
+  type UploadTarget,
+} from './files';
 export { queryKeys } from './keys';
 export {
   fetchConnectionToken,

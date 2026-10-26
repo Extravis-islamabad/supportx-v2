@@ -235,6 +235,17 @@ def _content_disposition(disposition: Disposition, name: str) -> str:
     return f"{disposition.value}; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"
 
 
+def _policy(content: access.Content) -> str:
+    """The file runs nothing: no scripts, plugins or forms, whatever it claims to be.
+
+    `sandbox` everywhere except a PDF shown inline: browsers refuse to open their PDF viewer in a
+    sandboxed document, and the viewer itself does not run the file's scripts.
+    """
+    if content.disposition == Disposition.INLINE and content.content_type == "application/pdf":
+        return "default-src 'none'; object-src 'self'; style-src 'unsafe-inline'"
+    return "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
+
+
 def _stream(content: access.Content, *, cache: str) -> StreamingResponse:
     headers = {
         "Content-Disposition": _content_disposition(content.disposition, content.name),
@@ -242,10 +253,7 @@ def _stream(content: access.Content, *, cache: str) -> StreamingResponse:
         "Accept-Ranges": "bytes",
         "Cache-Control": cache,
         "X-Content-Type-Options": "nosniff",
-        # The file runs nothing: no scripts, no plugins, no forms, whatever it claims to be.
-        "Content-Security-Policy": (
-            "sandbox; default-src 'none'; img-src 'self'; style-src 'unsafe-inline'"
-        ),
+        "Content-Security-Policy": _policy(content),
     }
     if content.partial:
         headers["Content-Range"] = f"bytes {content.start}-{content.end}/{content.size}"

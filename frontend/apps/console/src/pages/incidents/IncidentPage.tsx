@@ -27,6 +27,7 @@ import {
   useIncident,
   useIncidentCatalogue,
   useIncidentCategories,
+  attachDrafts,
   useSession,
   useUnits,
   useUpdateIncident,
@@ -41,6 +42,7 @@ import {
   reportError,
   RichTextField,
   RichTextView,
+  inlineImageIds,
   useAppearance,
   useDateTime,
   useLabel,
@@ -50,6 +52,7 @@ import {
 import { AssignDialog, TakeButton } from './assign';
 import { OperationButton } from './operations';
 import { IncidentConversation, type Typing } from './IncidentConversation';
+import { IncidentFiles } from './IncidentFiles';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { IncidentHistory } from './IncidentHistory';
 import { categoryPath, personName } from './labels';
@@ -163,6 +166,11 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     if (event.type === 'work_items.followers_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.followers(item.id) });
       if (editing.current === 0) void reload();
+      return;
+    }
+    // A file was added, checked, blocked or removed (WP-022): refetch the record's files.
+    if (event.type === 'files.changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('incident', item.id) });
       return;
     }
     if (event.type === 'refresh') {
@@ -477,6 +485,7 @@ function Details({
     <Flex gap={16} wrap align="start">
       <Card style={{ flex: '2 1 420px', minWidth: 0 }} title={t('work_item.field.description')}>
         <Description item={item} canEdit={canEdit} reload={reload} onEditing={onEditing} />
+        <IncidentFiles item={item} canEdit={canEdit} />
       </Card>
       {/* Properties and followers share one column beside the description. */}
       <Flex vertical gap={16} style={{ flex: '1 1 340px', minWidth: 0 }}>
@@ -797,6 +806,7 @@ function Description({
 }) {
   const t = useLabel();
   const { message } = App.useApp();
+  const me = useSession().data?.user.id ?? null;
   const update = useUpdateIncident(item.id);
   const [editing, setEditing] = useState(false);
   const [html, setHtml] = useState(item.description ?? '');
@@ -806,6 +816,8 @@ function Description({
       { changes: { description: html }, version },
       {
         onSuccess: () => {
+          // Images pasted into the description were the author's drafts: attach them (WP-022).
+          attachDrafts('work_item', item.id, inlineImageIds(html)).catch(reportError);
           void message.success(t('incidents.saved'));
           setEditing(false);
           onEditing(-1);
@@ -854,6 +866,7 @@ function Description({
         value={html}
         onChange={setHtml}
         testId="inc-description-editor"
+        imageOwnerId={me ?? undefined}
       />
       <Space>
         <WriteButton

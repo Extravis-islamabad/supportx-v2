@@ -17,6 +17,7 @@ export {
   useListChannel,
   useRealtimeStatus,
   useRealtimeUser,
+  usePersonalChannel,
   useRecordChannel,
   useTenantChannel,
 } from './hooks';
