@@ -9,6 +9,10 @@ import {
 
 import { App } from '../../App';
 import { consoleApi } from '../../test/api';
+import { rememberTab } from './tabs';
+
+// The fake session's user (api-client testing fixtures).
+const SESSION_USER = '01900000-0000-7000-8000-000000000101';
 
 // WP-020b screens: conversation, notes, followers, counters. Names cite parity file 01.
 
@@ -200,6 +204,8 @@ describe('Conversation', () => {
 describe('Followers', () => {
   beforeEach(() => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    // These tests are about the Details tab: start there (the default is Conversation, D-081).
+    rememberTab(SESSION_USER, 'details');
   });
   afterEach(() => {
     restore();
@@ -237,6 +243,8 @@ describe('Followers', () => {
     expect(row.textContent).toContain('Sees it by following');
     expect(row.textContent).not.toContain('handed_over');
     fireEvent.click(within(row).getByTestId('inc-follower-remove'));
+    // They see it only by following: removing them asks first (QA BUG-09).
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove' }));
     await waitFor(() => {
       expect(fake.find('DELETE', `${PATH}/followers/${TECH}`)).toHaveLength(1);
     });

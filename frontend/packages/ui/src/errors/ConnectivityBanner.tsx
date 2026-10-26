@@ -19,10 +19,11 @@ export const RECONNECT_INTERVAL_MS = 3_000;
 export const REALTIME_GRACE_MS = 2_000;
 
 /** Realtime trouble worth telling the user about: a reconnect that lasts, or polling. */
-function useRealtimeTrouble(): 'reconnecting' | 'polling' | null {
+function useRealtimeTrouble(): 'reconnecting' | 'polling' | 'limited' | null {
   const status = useRealtimeStatus();
   const [lasting, setLasting] = useState(false);
-  const reconnecting = status === 'reconnecting';
+  // "limited": connected, but a channel a screen follows is paused and being retried (QA BUG-02).
+  const reconnecting = status === 'reconnecting' || status === 'limited';
   useEffect(() => {
     if (!reconnecting) return;
     const timer = setTimeout(() => {
@@ -34,7 +35,8 @@ function useRealtimeTrouble(): 'reconnecting' | 'polling' | null {
     };
   }, [reconnecting]);
   if (status === 'polling') return 'polling';
-  return reconnecting && lasting ? 'reconnecting' : null;
+  if (!reconnecting || !lasting) return null;
+  return status === 'limited' ? 'limited' : 'reconnecting';
 }
 
 /**
@@ -78,6 +80,19 @@ export function ConnectivityBanner() {
         banner
         showIcon
         message={t('connectivity.polling')}
+      />
+    );
+  }
+  if (state === 'online' && realtime === 'limited') {
+    return (
+      <Alert
+        role="status"
+        data-testid="realtime-limited-banner"
+        type="warning"
+        banner
+        showIcon
+        icon={<Spin size="small" />}
+        message={t('connectivity.limited')}
       />
     );
   }

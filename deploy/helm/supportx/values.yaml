@@ -253,6 +253,9 @@ keycloak:
   # Route /auth/admin publicly (gateway mode). Off in production: SupportX manages its users;
   # the dev profile turns it on for the e2e suite. Plain Ingress cannot block it (WP-014b).
   exposeAdmin: false
+  # Upgrade step (D-078, branding.md): a Job per revision gives the realm the SupportX login
+  # theme when it has none. A theme someone chose (incl. a tenant's own) is never overwritten.
+  setLoginTheme: true
   resources:
     requests: {cpu: 250m, memory: 768Mi}
     limits: {cpu: "2", memory: 1536Mi}

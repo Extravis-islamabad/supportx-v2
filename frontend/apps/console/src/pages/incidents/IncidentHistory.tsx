@@ -126,7 +126,12 @@ export function IncidentHistory({ id }: { id: string }) {
               <div data-testid="inc-history-entry" data-kind={entry.kind}>
                 <Typography.Text strong>{t(`change_kind.${entry.kind}`)}</Typography.Text>{' '}
                 {entry.automation !== null && (
-                  <Tag data-testid="inc-history-automatic">{t('incidents.history.automatic')}</Tag>
+                  <>
+                    <Tag data-testid="inc-history-automatic">
+                      {t('incidents.history.automatic')}
+                    </Tag>
+                    {/* A real space after each tag: the tag's margin is not a word gap (QA C5). */}{' '}
+                  </>
                 )}
                 {entry.audit_entry_id != null && (
                   <Link
@@ -136,6 +141,7 @@ export function IncidentHistory({ id }: { id: string }) {
                     <Tag icon={<SafetyCertificateOutlined />}>{t('incidents.history.audited')}</Tag>
                   </Link>
                 )}
+                {entry.audit_entry_id != null && ' '}
                 <Typography.Text type="secondary">
                   {t('history.by', {
                     name: entry.actor_name ?? t(`actor_type.${entry.actor_type}`),

@@ -1,7 +1,8 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { fileImageUrl } from '@supportx/api-client';
 
+import { withItemDirections } from './direction';
 import { RichTextStyles } from './styles';
 
 const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -16,6 +17,8 @@ const FILE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * checked, blocked, or not visible to this reader) shows its description instead.
  */
 export function RichTextView({ html, testId }: { html: string | null; testId?: string }) {
+  // Each list item reads in its own direction, so its bullet sits beside its text (QA BUG-03).
+  const shown = useMemo(() => (html === null ? '' : withItemDirections(html)), [html]);
   const container = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const root = container.current;
@@ -32,7 +35,7 @@ export function RichTextView({ html, testId }: { html: string | null; testId?: s
       };
       image.src = fileImageUrl(id, 'inline');
     }
-  }, [html]);
+  }, [shown]);
   if (html === null || html === '') return null;
   return (
     <>
@@ -43,7 +46,7 @@ export function RichTextView({ html, testId }: { html: string | null; testId?: s
         dir="auto"
         data-testid={testId}
         // Server-sanitised HTML (see above); React would otherwise show the tags as text.
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={{ __html: shown }}
       />
     </>
   );

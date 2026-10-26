@@ -2,6 +2,7 @@
 // (architecture.md §8.3; WP-011). See docs/architecture/realtime.md.
 export {
   ACCESS_CHANGED,
+  RETRY_DELAYS_MS,
   FALLBACK_AFTER_MS,
   POLL_INTERVAL_MS,
   RealtimeConnection,

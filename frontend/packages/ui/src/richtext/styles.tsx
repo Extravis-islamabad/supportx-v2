@@ -68,6 +68,9 @@ export function RichTextStyles() {
 .sx-richtext p, .sx-richtext li, .sx-richtext h2, .sx-richtext h3, .sx-richtext h4,
 .sx-richtext blockquote, .sx-richtext td, .sx-richtext th { unicode-bidi: plaintext; text-align: start; }
 .sx-richtext p { margin: 0 0 0.5em; }
+/* Lists indent per item, on each item's own start side, so the bullet follows its direction (QA BUG-03). */
+.sx-richtext ul, .sx-richtext ol { padding-inline-start: 0; margin: 0 0 0.5em; }
+.sx-richtext li { margin-inline-start: 1.6em; }
 .sx-richtext h2 { font-size: 1.4em; margin: 0.6em 0 0.4em; }
 .sx-richtext h3 { font-size: 1.2em; margin: 0.6em 0 0.4em; }
 .sx-richtext h4 { font-size: 1.05em; margin: 0.6em 0 0.4em; }
@@ -98,7 +101,7 @@ ${highlights}
 .sx-richtext-frame:focus-within { border-color: ${token.colorPrimary}; box-shadow: 0 0 0 2px ${token.colorPrimaryBg}; }
 .sx-richtext-invalid { border-color: ${token.colorError}; }
 .sx-richtext-toolbar { padding: 4px; border-bottom: 1px solid ${token.colorBorderSecondary}; }
-.sx-richtext-input { min-height: 140px; padding: 8px 11px; outline: none; color: ${token.colorText}; }
+.sx-richtext-input { min-height: var(--sx-editor-min-height, 140px); padding: 8px 11px; outline: none; color: ${token.colorText}; }
 /* An empty paragraph with dir=auto reads left to right: the placeholder follows the UI instead. */
 html[dir="rtl"] .sx-richtext-input p.is-editor-empty:first-child { direction: rtl; }
 .sx-richtext-input p.is-editor-empty:first-child::before { content: attr(data-placeholder); color: ${token.colorTextPlaceholder}; float: inline-start; height: 0; pointer-events: none; }

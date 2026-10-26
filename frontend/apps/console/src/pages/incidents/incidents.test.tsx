@@ -7,6 +7,10 @@ import { App } from '../../App';
 import { consoleApi, fakeSession, problem } from '../../test/api';
 import { duplicateNames } from './labels';
 import { previewPriority } from './form';
+import { rememberTab } from './tabs';
+
+// The fake session's user (api-client testing fixtures).
+const SESSION_USER = '01900000-0000-7000-8000-000000000101';
 
 // WP-020 screens. Test names cite docs/specs/parity/01-work-items-incidents.md criteria.
 
@@ -103,6 +107,8 @@ describe('Incidents list', () => {
 describe('One incident', () => {
   beforeEach(() => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    // These tests are about the Details tab: start there (the default is Conversation, D-081).
+    rememberTab(SESSION_USER, 'details');
   });
   afterEach(() => {
     restore();

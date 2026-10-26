@@ -1,6 +1,18 @@
 import { CloseOutlined, EyeInvisibleOutlined, EyeOutlined } from '@ant-design/icons';
-import { App, Button, Card, Flex, List, Select, Space, Tag, Tooltip, Typography } from 'antd';
-import { useState } from 'react';
+import {
+  App,
+  Button,
+  Card,
+  Flex,
+  List,
+  Popconfirm,
+  Select,
+  Space,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
+import { useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
@@ -10,7 +22,7 @@ import {
   type Incident,
   type Mentionable,
 } from '@supportx/api-client';
-import { EmptyText, reportError, useLabel, WriteButton } from '@supportx/ui';
+import { EmptyText, reportError, ToneTag, useLabel, WriteButton } from '@supportx/ui';
 
 /**
  * Follow or unfollow this incident (REQ-INC-056/151). Someone who follows only because they
@@ -41,18 +53,31 @@ export function FollowButton({ item, me }: { item: Incident; me: string | null }
       },
     );
   };
-  return (
-    <Tooltip title={onlyThroughFollowing ? t('followers.unfollow_loses_access') : undefined}>
-      <WriteButton
-        icon={following ? <EyeInvisibleOutlined /> : <EyeOutlined />}
-        loading={change.isPending}
-        onClick={toggle}
-        aria-pressed={following}
-        data-testid="inc-follow"
-      >
-        {t(following ? 'followers.unfollow' : 'followers.follow')}
-      </WriteButton>
-    </Tooltip>
+  const button = (
+    <WriteButton
+      icon={following ? <EyeInvisibleOutlined /> : <EyeOutlined />}
+      loading={change.isPending}
+      onClick={onlyThroughFollowing ? undefined : toggle}
+      aria-pressed={following}
+      data-testid="inc-follow"
+    >
+      {t(following ? 'followers.unfollow' : 'followers.follow')}
+    </WriteButton>
+  );
+  // Unfollowing what you see only by following it removes your access: ask first (QA BUG-09).
+  return onlyThroughFollowing ? (
+    <Popconfirm
+      title={t('followers.unfollow')}
+      description={t('followers.unfollow_loses_access')}
+      okText={t('followers.unfollow')}
+      okButtonProps={{ danger: true }}
+      cancelText={t('actions.cancel')}
+      onConfirm={toggle}
+    >
+      {button}
+    </Popconfirm>
+  ) : (
+    button
   );
 }
 
@@ -62,6 +87,19 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
   const followers = useIncidentFollowers(item.id);
   const change = useFollowerChange(item.id);
   const [search, setSearch] = useState<Mentionable[]>([]);
+  // Only the answer to the latest search counts: a slow earlier one (the empty search sent on
+  // focus) must not replace the results of what was typed (QA BUG-08).
+  const asked = useRef(0);
+  const lookUp = (text: string) => {
+    asked.current += 1;
+    const ticket = asked.current;
+    void fetchMentionable(item.id, text).then((found) => {
+      if (ticket === asked.current) setSearch(found);
+    });
+  };
+  const remove = (userId: string) => {
+    change.mutate({ userId, follow: false }, { onError: reportError });
+  };
   const data = followers.data;
   const people = data?.people ?? {};
   return (
@@ -81,22 +119,14 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
             actions={
               follower.removable
                 ? [
-                    <Button
+                    <RemoveFollower
                       key="remove"
-                      size="small"
-                      type="text"
-                      icon={<CloseOutlined />}
-                      aria-label={t(
-                        follower.user_id === me ? 'followers.unfollow' : 'followers.remove',
-                        { name: people[follower.user_id]?.display_name ?? '' },
-                      )}
-                      onClick={() => {
-                        change.mutate(
-                          { userId: follower.user_id, follow: false },
-                          { onError: reportError },
-                        );
+                      name={people[follower.user_id]?.display_name ?? ''}
+                      self={follower.user_id === me}
+                      losesAccess={follower.grants_access}
+                      onRemove={() => {
+                        remove(follower.user_id);
                       }}
-                      data-testid="inc-follower-remove"
                     />,
                   ]
                 : []
@@ -111,7 +141,9 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
                 <Tag>{t(`follow_reason.${follower.reason}`)}</Tag>
                 {follower.grants_access && (
                   <Tooltip title={t('followers.access_hint')}>
-                    <Tag color="blue">{t('followers.access')}</Tag>
+                    <span>
+                      <ToneTag tone="info">{t('followers.access')}</ToneTag>
+                    </span>
                   </Tooltip>
                 )}
               </Space>
@@ -128,11 +160,9 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
             aria-label={t('followers.add')}
             filterOption={false}
             style={{ width: '100%' }}
-            onSearch={(text) => {
-              void fetchMentionable(item.id, text).then(setSearch);
-            }}
+            onSearch={lookUp}
             onFocus={() => {
-              void fetchMentionable(item.id, '').then(setSearch);
+              lookUp('');
             }}
             onChange={(userId) => {
               change.mutate({ userId, follow: true }, { onError: reportError });
@@ -155,5 +185,48 @@ export function FollowersCard({ item, me }: { item: Incident; me: string | null 
         </Flex>
       )}
     </Card>
+  );
+}
+
+/**
+ * The X beside a follower. Someone who sees the incident only by following it loses access when
+ * removed, so that asks first (QA BUG-09); removing anyone else is immediate.
+ */
+function RemoveFollower({
+  name,
+  self,
+  losesAccess,
+  onRemove,
+}: {
+  name: string;
+  self: boolean;
+  losesAccess: boolean;
+  onRemove: () => void;
+}): ReactNode {
+  const t = useLabel();
+  const button = (
+    <Button
+      size="small"
+      type="text"
+      icon={<CloseOutlined />}
+      aria-label={t(self ? 'followers.unfollow' : 'followers.remove', { name })}
+      onClick={losesAccess ? undefined : onRemove}
+      data-testid="inc-follower-remove"
+    />
+  );
+  if (!losesAccess) return button;
+  return (
+    <Popconfirm
+      title={t(self ? 'followers.unfollow' : 'followers.remove', { name })}
+      description={t(self ? 'followers.unfollow_loses_access' : 'followers.remove_loses_access', {
+        name,
+      })}
+      okText={t('followers.remove_ok')}
+      okButtonProps={{ danger: true }}
+      cancelText={t('actions.cancel')}
+      onConfirm={onRemove}
+    >
+      {button}
+    </Popconfirm>
   );
 }

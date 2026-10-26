@@ -32,6 +32,12 @@ async function call(page: Page, method: string, path: string, body?: unknown) {
   });
 }
 
+/** The record opens on Conversation (D-081); its files sit with the description, on Details. */
+async function openDetails(page: Page, id: string): Promise<void> {
+  await page.goto(`/incidents/${id}`);
+  await page.getByRole('tab', { name: /^(Details|التفاصيل)$/ }).click();
+}
+
 async function attach(page: Page, name: string, mimeType: string, buffer: Buffer): Promise<void> {
   await page
     .getByTestId('inc-attachments-drop')
@@ -50,7 +56,7 @@ test('files: checked live, previewed, malware blocked, accessible in every theme
   expect(created.status(), await created.text()).toBe(201);
   const item = (await created.json()) as { id: string; version: number };
   try {
-    await page.goto(`/incidents/${item.id}`);
+    await openDetails(page, item.id);
     const files = page.getByTestId('inc-attachments');
     await expect(files).toBeVisible();
 
@@ -83,7 +89,7 @@ test('files: checked live, previewed, malware blocked, accessible in every theme
       await page.evaluate((value) => {
         window.localStorage.setItem('supportx.theme_mode', value);
       }, theme);
-      await page.goto(`/incidents/${item.id}`);
+      await openDetails(page, item.id);
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
       await expect(files.getByText('notes.txt')).toBeVisible();
       await expectAccessible(page, `incident with files (${theme})`);
@@ -95,7 +101,7 @@ test('files: checked live, previewed, malware blocked, accessible in every theme
     await page.evaluate(() => {
       window.localStorage.setItem('supportx.theme_mode', 'light');
     });
-    await page.goto(`/incidents/${item.id}`);
+    await openDetails(page, item.id);
     await page.getByTestId('appearance-menu').click();
     await page.getByTestId('language-select').click();
     await page.locator('.ant-select-item-option[title="العربية"]').click();

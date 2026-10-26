@@ -33,7 +33,7 @@ import { StarterKit } from '@tiptap/starter-kit';
 import { Button, Divider, Dropdown, Flex, Input, Modal, Select, Tooltip } from 'antd';
 import type { EditorView } from '@tiptap/pm/view';
 import { useQueryClient } from '@tanstack/react-query';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 import { queryKeys, useFileRules, type FileRules } from '@supportx/api-client';
 import { usePersonalChannel } from '@supportx/realtime';
@@ -47,6 +47,7 @@ import {
   TextColourMark,
   type Alignment,
 } from './extensions';
+import { ListItemDirection } from './direction';
 import { InlineImage, insertImages } from './inlineImage';
 import { mentionExtension } from './mention';
 import { cleanPastedHtml } from './paste';
@@ -109,6 +110,7 @@ export default function RichTextEditor({
       BlockFormat,
       TextColourMark,
       HighlightMark,
+      ListItemDirection,
       ...(mentions === undefined ? [] : [mentionExtension(mentions)]),
       ...(imageOwnerId === undefined ? [] : [InlineImage]),
     ],
@@ -125,11 +127,26 @@ export default function RichTextEditor({
         ...(id === undefined ? {} : { id }),
         ...(testId === undefined ? {} : { 'data-testid': testId }),
         class: 'sx-richtext sx-richtext-input',
-        ...(minHeight === undefined ? {} : { style: `min-height: ${String(minHeight)}px` }),
       },
       transformPastedHTML: cleanPastedHtml,
-      handlePaste: (view, event) =>
-        take(view, event.clipboardData?.files, view.state.selection.from),
+      // Pasted or dropped image files become inline images (WP-022); other pastes into an empty
+      // line make the line the first pasted block (its heading level and alignment), instead of
+      // ProseMirror merging the pasted text into it (QA C7).
+      handlePaste: (view, event, slice) => {
+        if (take(view, event.clipboardData?.files, view.state.selection.from)) return true;
+        const { $from, empty } = view.state.selection;
+        const first = slice.content.firstChild;
+        if (!empty || !$from.parent.isTextblock || $from.parent.content.size > 0) return false;
+        if (first === null || !first.isTextblock || slice.openStart === 0) return false;
+        const start = $from.before();
+        const tr = view.state.tr.replaceSelection(slice);
+        const line = tr.doc.nodeAt(start);
+        if (line?.isTextblock === true) {
+          tr.setNodeMarkup(start, first.type, { ...line.attrs, ...first.attrs });
+        }
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      },
       handleDrop: (view, event, _slice, moved) => {
         if (moved) return false;
         const at = view.posAtCoords({ left: event.clientX, top: event.clientY });
@@ -150,17 +167,28 @@ export default function RichTextEditor({
   useEffect(() => {
     editor.setEditable(!disabled);
   }, [editor, disabled]);
+  // Escape leaves full screen wherever the focus is (QA BUG-05).
+  useEffect(() => {
+    if (!fullScreen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setFullScreen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [fullScreen]);
   return (
     <div
       className={`sx-richtext-frame${invalid ? ' sx-richtext-invalid' : ''}${fullScreen ? ' sx-richtext-fullscreen' : ''}`}
       data-testid={testId === undefined ? undefined : `${testId}-frame`}
+      // The composer's minimum height; full screen fills the window instead (QA BUG-05).
+      style={
+        fullScreen || minHeight === undefined
+          ? undefined
+          : ({ '--sx-editor-min-height': `${String(minHeight)}px` } as CSSProperties)
+      }
       {...(fullScreen ? { role: 'dialog', 'aria-modal': true, 'aria-label': label } : {})}
-      onKeyDown={(event) => {
-        if (fullScreen && event.key === 'Escape') {
-          event.stopPropagation();
-          setFullScreen(false);
-        }
-      }}
     >
       <RichTextStyles />
       {!disabled && (
@@ -182,7 +210,17 @@ export default function RichTextEditor({
           }}
         />
       )}
-      <EditorContent editor={editor} className="sx-richtext-scroll" />
+      <EditorContent
+        editor={editor}
+        className="sx-richtext-scroll"
+        // A click on the empty space below the text puts the caret at the end (QA BUG-05).
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            event.preventDefault();
+            editor.commands.focus('end');
+          }
+        }}
+      />
       <span className="sx-visually-hidden">{t('richtext.hint')}</span>
     </div>
   );

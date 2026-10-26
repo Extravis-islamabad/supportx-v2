@@ -146,6 +146,8 @@ describe('incident attachments', () => {
       },
     });
     render(<App />);
+    // The record's files sit with the description, on Details (the record opens on Conversation).
+    fireEvent.click(await screen.findByRole('tab', { name: 'Details' }));
     const record = await screen.findByTestId('inc-attachments');
     expect(await within(record).findByText('invoice.pdf')).toBeTruthy();
     expect(within(record).getByText('Ready')).toBeTruthy();

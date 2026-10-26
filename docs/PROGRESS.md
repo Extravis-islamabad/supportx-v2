@@ -4,10 +4,10 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020b (conversation, notes, followers, richer editor), 2026-10-26;
-  exploratory QA report: ~/Desktop/qa-wp020b/. Before it: WP-020-FIX and WP-020.
-- **Next work package:** the WP-020b QA findings (after product owner review), then WP-020c and
-  the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
+- **Last completed:** WP-020b-FIX (all WP-020b QA findings: BUG-01..10, C1..C7, D-081), 2026-10-26.
+  Before it: WP-020b (conversation, notes, followers, richer editor).
+- **Next work package:** WP-020c (incident settings screens and templates), **when the product
+  owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -322,6 +322,28 @@ REQ-WI-006 AC2 (typing) pulled forward from V1. One session (planned two).
   (REQ-INC-062, V1); sharing (REQ-INC-056 sharing part, V1); overdue/due-today counters change by
   time only every minute until SLA timers (WP-025); the first-response settings screen (WP-020c).
 
+### [x] WP-020b-FIX — WP-020b QA findings (D-081; done 2026-10-26)
+Every finding of Desktop/qa-wp020b/QA-REPORT.md has a test named after its ID that failed first.
+- [x] BUG-01 readable tags: shared `ToneTag` and palette (`packages/ui/src/tones.ts`), automated
+  contrast check for every tone in light, dark (4.5:1) and high contrast (7:1).
+- [x] BUG-02 one realtime connection per tab in development (StrictMode) and production
+  (acquire/release with a deferred close); a refused or ended channel and a dropped connection are
+  shown (`limited` / `reconnecting` banner) and retried with backoff, then refetch what was missed.
+  Verified on a production build (`vite preview`) and the dev server: one connection token per
+  tab, one channel subscriber, live note received.
+- [x] BUG-03 each list item reads in its own direction (view and editor), lists indent per item.
+- [x] BUG-04 typing heartbeat (start repeated every 3 s while typing; shown for 8 s).
+- [x] BUG-05 full screen fills the window, a click anywhere focuses, Escape works from anywhere.
+- [x] BUG-06 counter views show which view is active and how many incidents it leaves out.
+- [x] BUG-07 open composers reload reply templates live. BUG-08 follower search ignores stale
+  answers. BUG-09 removing a follower who would lose access (or unfollowing it yourself) asks
+  first. BUG-10 reply menu opens on click and closes after a choice.
+- [x] C1 Arabic hand-over wording; C2 invalid addresses named, no second "required"; C3 mentions
+  of unknown users become plain text; C4 singular/plural notice (ar six forms); C5 history word
+  gap; C6 group name isolated (bidi); C7 paste into an empty line keeps the first block's alignment.
+- [x] D-081: warning before sending a mention of someone who cannot see the incident; the record
+  opens on the last-used tab per user (Conversation first). Demo data restored.
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -345,7 +367,7 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [ ] WP-022 — Files and safe attachments (lane B; D-082; ADR-028; in progress, 3 sessions)
+### [x] WP-022 — Files and safe attachments (lane B; D-082; ADR-028; done 2026-10-26, 3 sessions)
 Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`.
 - [x] **Session 1 (backend core, 2026-10-26):**
   - shared platform service `app/shared/files`, mounted by the `system` module;
@@ -387,12 +409,25 @@ Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`
   - inline PDFs are served without CSP `sandbox` (browsers refuse their PDF viewer in a sandbox;
     still `default-src 'none'`), every other file with it;
   - labels en/ar/ur; tests: ui 10, console 4, API 21, sanitiser.
-- [ ] **Session 3 (platform and hardening):**
-  - ClamAV chart component (private mirror, offline signature bundle);
-  - operator commands for key rotation and re-wrap; the admin rotate action;
-  - real ClamAV with EICAR in the stack-smoke e2e job; Playwright journeys with axe;
-  - load check (50 parallel 25 MB uploads);
-  - PROGRESS and docs.
+- [x] **Session 3 (platform and hardening, 2026-10-26):**
+  - ClamAV chart component: clamd and freshclam as non-root, signatures init container, PVC,
+    network policy, private mirror value; `deploy/scripts/clamav-signatures.sh` for air-gapped
+    signature bundles; verified 2/2 Running on k3d, EICAR found by the real clamd;
+  - operator commands `python -m tooling.files_keys check|rewrap|rotate` (tested);
+  - uploads reworked for load: owner, size and quota in a short transaction of their own, the
+    stream with no database connection held, at most 8 writing per process
+    (`SUPPORTX_FILES_UPLOAD_CONCURRENCY`), 5 MiB S3 parts; load check 50 x 25 MB all stored,
+    57 MB/s, peak 389 MB;
+  - scans stream to clamd (no whole file in the worker); image processing only up to 50 MB;
+    consumers memory limit 768Mi;
+  - stack-smoke runs a real ClamAV (signatures cached weekly); Playwright journey
+    `files.spec.ts`: checking then ready live, image preview, EICAR blocked, too-large refused,
+    axe in light, dark, high contrast and Arabic, Admin › Files;
+  - `docs/architecture/files.md`: memory and connections, ClamAV, offline signatures, key
+    commands.
+  - Not built: a per-tenant "rotate data key" button for administrators. D-082 D2 rotation is
+    covered by the operator command; a tenant button adds little (data keys are wrapped by the
+    installation key either way). Recorded as a follow-up.
 
 ### [x] BRAND — SupportX branding (lane B; product owner request; D-078; done 2026-10-26)
 - **Goal:** The SupportX logo and colours everywhere SupportX shows its own brand, from one place
@@ -409,9 +444,12 @@ Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`
   (Compose mount, Helm ConfigMap, realm `loginTheme`). Links use the brand colour in every mode
   (Ant Design's default blue was 4.1:1). Product name label "SupportX". e2e `branding.spec.ts`
   (axe in light, dark, high contrast, Arabic RTL). `docs/architecture/branding.md`.
-- **Not done:** e-mail templates (none exist yet; WP-023/WP-024 use the same files). Existing
-  Keycloak realms keep Keycloak's theme until an administrator sets the login theme (realms are
-  imported only on first start; one kcadm command, branding.md). Per-tenant branding is WP-017.
+- **Upgrade step (2026-10-26, product owner request):** `tooling/keycloak_theme.py` gives a realm
+  without a login theme the `supportx` theme and never replaces a chosen one; a chart Job per Helm
+  revision (`keycloak.setLoginTheme`) and `make keycloak-theme` for Compose. Applied to the shared
+  dev Keycloak (container recreated with the theme mount) and to k3d (Helm upgrade).
+- **Not done:** e-mail templates (none exist yet; WP-023/WP-024 use the same files). Per-tenant
+  branding is WP-017.
 
 ### [x] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-076; ADR-027; done 2026-10-26)
 Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
@@ -473,6 +511,28 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-26 — WP-022 files and safe attachments (lane B, sessions 1–3)
+
+- Built WP-022 in `../supportx-v2-wp022` (branch `feat/wp-022-files`) as planned and approved
+  (D-082, ADR-028); see the WP entry for what each session delivered.
+- Decision renumbered from D-081 to D-082 when merging main (lane A recorded D-081 meanwhile).
+  Migration 0018 follows lane A's 0017: one head.
+- Found: the console announcements test is flaky under full parallel load (passes alone,
+  pre-existing, not touched here). Real clamd flags EICAR only at the start of a file; the fake
+  scanner in tests now matches that.
+- Follow-ups: an administrators' per-tenant data-key rotate action (optional); Urdu
+  `limit.storage_gb` (limits have en/ar only, like the other limit labels).
+
+### 2026-10-26 — WP-020b-FIX: the WP-020b QA findings
+
+- **Fixed:** BUG-01..10 and C1..C7 (see the WP-020b-FIX entry), plus the D-081 changes. Shared
+  changes: `@supportx/realtime` acquire/release, `limited` status, channel and connection retries,
+  `@supportx/realtime/testing` (scripted client for app tests); `@supportx/ui` `ToneTag`, `tones.ts`,
+  `richtext/direction.ts`, the `connectivity.limited` banner.
+- **Not changed:** no new dependencies; no migration; the remembered tab is per browser (D-081).
+- **Data:** Tariq (tech@demo.test) removed from QA-Desk A and QA-Site through the admin API (as
+  before the QA run); INC-68..71 moved to the trash.
 
 ### 2026-10-26 — WP-020b: conversation, notes, followers, richer editor
 

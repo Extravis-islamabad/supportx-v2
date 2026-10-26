@@ -159,12 +159,15 @@ test('a new incident with rich text appears live for the technician; edits reach
     const id = form.url().split('/').at(-1) ?? '';
     created.push(id);
     await expect(form.getByTestId('inc-status')).toHaveText('Assigned'); // REQ-INC-050
+    // The record opens on Conversation (D-081); description and fields are on Details.
+    await form.getByRole('tab', { name: 'Details' }).click();
     await expect(form.getByTestId('inc-description').locator('strong')).toHaveText('tray 2');
 
     // Live in the technician's "My open" list, no reload.
     await expect(tech.page.getByText(subject)).toBeVisible(LIVE);
     await tech.page.getByText(subject).click();
     await expect(tech.page.getByTestId('inc-heading')).toHaveText(subject);
+    await tech.page.getByRole('tab', { name: 'Details' }).click();
 
     // The admin edits urgency in place; the technician's open record follows by itself.
     await form.getByTestId('inc-edit-urgency').click();
@@ -231,11 +234,14 @@ test('D-052/D-053/D-068: the technician sees the site queue, keeps following wha
     // Still open for them: read-only, following, and listed as a follower with access.
     await expect(tech.page.getByTestId('inc-follow')).toContainText('Unfollow');
     await expect(tech.page.getByTestId('inc-op-assign')).toBeDisabled();
+    await tech.page.getByRole('tab', { name: 'Details' }).click();
     await expect(tech.page.getByTestId('inc-followers')).toContainText(
       'Kept after handing it over',
     );
     // Unfollowing gives up the access the follow gave (AC4); then it is out of reach (AC3).
     await tech.page.getByTestId('inc-follow').click();
+    // It asks first: unfollowing removes the access the follow gave (QA BUG-09).
+    await tech.page.locator('.ant-popover').getByRole('button', { name: 'Unfollow' }).click();
     await expect(tech.page).toHaveURL(/\/incidents$/);
     await tech.page.goto(`/incidents/${queued.id}`);
     await expect(tech.page.getByTestId('inc-not-found')).toBeVisible();

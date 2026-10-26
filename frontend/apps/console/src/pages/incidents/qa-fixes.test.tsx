@@ -6,6 +6,10 @@ import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testin
 
 import { App } from '../../App';
 import { consoleApi, problem } from '../../test/api';
+import { rememberTab } from './tabs';
+
+// The fake session's user (api-client testing fixtures).
+const SESSION_USER = '01900000-0000-7000-8000-000000000101';
 
 // WP-020-FIX: one test (at least) per finding of the WP-020 QA report, named after its ID, so
 // none of them can come back unnoticed.
@@ -66,6 +70,8 @@ function errorToasts(): string[] {
 describe('QA findings on one incident', () => {
   beforeEach(() => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    // These tests are about the Details tab: start there (the default is Conversation, D-081).
+    rememberTab(SESSION_USER, 'details');
   });
   afterEach(() => {
     restore();

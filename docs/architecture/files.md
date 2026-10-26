@@ -45,6 +45,13 @@ multipart). It runs these steps in order:
 An `Idempotency-Key` replays the same file. Several files mean one request each; the console
 sends at most three at a time.
 
+**Memory and connections:** steps 1–3 run in a short transaction of their own, and step 5 holds
+no database connection, so slow uploads never exhaust the pool. At most
+`SUPPORTX_FILES_UPLOAD_CONCURRENCY` uploads (default 8) per API process write at once; the rest
+wait with their bodies unread. Each writing upload holds about one 5 MiB S3 part plus its
+encryption. Load check (`tests/db/test_files_load.py`, opt-in): 50 parallel 25 MB uploads, all
+stored, 57 MB/s on a laptop, Python peak 389 MB with both ends of the requests in one process.
+
 **Blocking (D-082):**
 
 - Default blocked extensions: executables and scripts (`exe msi bat cmd com scr pif cpl dll sys
@@ -82,7 +89,9 @@ To restore:
 1. Put the Secret back **before** the API and workers start. A ring missing a key that wrapped a
    data key makes those files fail to open, with an error naming the missing key.
 2. Restore the database and the bucket from the same point in time.
-3. Check: open one old file in the console, and confirm Admin > Files shows no warnings.
+3. Check: `kubectl -n supportx exec deploy/supportx-api -- python -m tooling.files_keys check`
+   lists every tenant as ok (a missing key is named, exit code 1). Then open one old file in the
+   console and confirm Admin > Files shows no warnings.
 
 Keep the key ring in at least two places: the cluster's secret backup and an offline copy (the
 installer's escrow, WP-014c). Treat it like the database superuser password.
@@ -91,8 +100,8 @@ installer's escrow, WP-014c). Treat it like the database superuser password.
 
 | Rotate | How | Effect |
 |---|---|---|
-| A tenant's data key | `rotate_data_key` (service function today; the admin action and an operator command come in WP-022 session 3) | New files use the new key; old files keep theirs |
-| The installation key | 1. Put a new key **first** in `files-keys` and keep the old one after it. 2. Roll the API and workers. 3. Run `rewrap_data_keys` for every tenant (operator command in session 3). 4. Remove the old key from the ring | Stored data keys move to the new installation key; file objects are never rewritten |
+| Every tenant's data key | `python -m tooling.files_keys rotate` | New files use the new key; old files keep theirs |
+| The installation key | 1. Put a new key **first** in `files-keys` and keep the old one after it. 2. Roll the API and workers. 3. Run `python -m tooling.files_keys rewrap`. 4. Remove the old key from the ring | Stored data keys move to the new installation key; file objects are never rewritten |
 
 Download-link signatures derive from the active key, so links issued before a rotation stop
 working (they live minutes).
@@ -118,8 +127,30 @@ working (they live minutes).
   state everywhere, and administrators are warned.
 
 **Signatures** older than 7 days raise `signatures_stale` (Admin > Files, metric, error log).
-Offline sites update them from a private mirror, or load the offline bundle (chart and installer
-steps come with WP-022 session 3).
+Offline sites update them from a private mirror, or load the offline bundle (below).
+
+The scanner streams each file to clamd in pieces (`INSTREAM`); the worker never holds a whole
+file for scanning. Only images up to 50 MB are read whole, for metadata stripping and thumbnails.
+
+### ClamAV in the chart
+
+`clamav.enabled` (on in every profile) runs one `supportx-clamav` StatefulSet:
+
+- clamd and a freshclam sidecar, both as UID 1000 with the chart's own `clamd.conf` and
+  `freshclam.conf` (the image's start script needs root);
+- an init container that fetches signatures before clamd starts, into a PVC (`clamav.storage`);
+- a network policy that admits only the API and the consumers, on port 3310.
+
+`files.scanRequired` (default true) becomes `SUPPORTX_FILES_SCAN_REQUIRED`, and the clamd address
+is wired to the API and workers automatically.
+
+Signature updates, by site type:
+
+| Site | How |
+|---|---|
+| Internet access | freshclam updates from `database.clamav.net` every few hours |
+| Private mirror | `clamav.privateMirror: http://mirror.internal/clamav` |
+| Air-gapped | `deploy/scripts/clamav-signatures.sh fetch <dir>` on a connected machine, carry `<dir>` in, then `deploy/scripts/clamav-signatures.sh load <dir> [namespace]`. clamd reloads within 10 minutes. Repeat at least weekly, or the 7-day alert fires |
 
 ## Images (ADR-028 item 4, D-082 D4)
 

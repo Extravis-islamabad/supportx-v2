@@ -5,6 +5,8 @@ export * from './brand';
 export * from './dates';
 export { AppearanceControls } from './AppearanceControls';
 export { EmptyText } from './EmptyText';
+export { ToneTag } from './ToneTag';
+export { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 export { PresenceAvatars, type PresenceAvatarsProps } from './PresenceAvatars';
 export { AppearanceProvider, type AppearanceProviderProps } from './AppearanceProvider';
 export * from './errors';
