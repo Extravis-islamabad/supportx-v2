@@ -290,7 +290,7 @@ async def add_entry(  # noqa: PLR0913, C901 - the composer's fields and context,
         chosen = Visibility.PUBLIC if visibility is None else visibility
         mode: ReplyMode | None = reply_mode or ReplyMode.REPLY
     else:
-        chosen = Visibility.PRIVATE if visibility is None else visibility  # D-077: private first
+        chosen = Visibility.PRIVATE if visibility is None else visibility  # D-079: private first
         mode = reply_mode
     record = await items.record_for_action(
         session, subject, wtype, _needed_action(kind, chosen), record_id

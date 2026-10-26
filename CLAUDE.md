@@ -105,7 +105,7 @@ sanitising, installed with the first incidents work package (D-040).
 extensions (MIT, no Tiptap Pro; installed in WP-020, pinned 3.31.4, with their companions
 `@tiptap/core` and `@tiptap/extensions`). Later: `aioboto3` for WP-022 (D-054).
 
-**Approved additions (D-078):** `@tiptap/extension-mention` and `@tiptap/suggestion` (MIT, 3.31.4;
+**Approved additions (D-080):** `@tiptap/extension-mention` and `@tiptap/suggestion` (MIT, 3.31.4;
 @mentions in the editor, WP-020b).
 
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),

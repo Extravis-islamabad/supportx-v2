@@ -209,7 +209,7 @@ the design partner's own testing come on top.
 ### WP-020b — Conversation, notes and followers
 
 - **Sessions:** 2 · **Depends on:** nothing open · **Requirements:** 5 · **Lane:** A
-- **Note:** Includes REQ-INC-151 (keep following after hand-over, D-068). Done 2026-10-26 in one session (D-077, D-078).
+- **Note:** Includes REQ-INC-151 (keep following after hand-over, D-068). Done 2026-10-26 in one session (D-079, D-080).
 
 | ID | Title | File |
 |---|---|---|

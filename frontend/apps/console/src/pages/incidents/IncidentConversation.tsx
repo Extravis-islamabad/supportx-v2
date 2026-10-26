@@ -398,7 +398,7 @@ function emailsOf(
     .map((e) => e.toLowerCase());
 }
 
-/** The composer: a reply (to, cc) or a note (private by default, D-077). */
+/** The composer: a reply (to, cc) or a note (private by default, D-079). */
 function Composer({
   item,
   draft,

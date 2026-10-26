@@ -12,6 +12,7 @@ import {
 import { label, LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
+import { BrandedPage, BrandLogo } from './brand';
 
 export interface SessionGateProps {
   app: App;
@@ -75,42 +76,47 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
   if (loginError !== null && !me) {
     // A failed login: explain it (translated) instead of bouncing straight back to Keycloak.
     return (
-      <Result
-        status="403"
-        title={label(`errors.${loginError}`, locale)}
-        extra={
-          <Button
-            type="primary"
-            onClick={() => {
-              navigate(loginUrl(app, '/'));
-            }}
-          >
-            {t('auth.sign_in_again')}
-          </Button>
-        }
-      />
+      <BrandedPage>
+        <Result
+          status="403"
+          title={label(`errors.${loginError}`, locale)}
+          extra={
+            <Button
+              type="primary"
+              onClick={() => {
+                navigate(loginUrl(app, '/'));
+              }}
+            >
+              {t('auth.sign_in_again')}
+            </Button>
+          }
+        />
+      </BrandedPage>
     );
   }
   if (session.isError) {
     return (
-      <Result
-        status="warning"
-        title={t('auth.session_error')}
-        extra={
-          <Button
-            onClick={() => {
-              void session.refetch();
-            }}
-          >
-            {t('auth.retry')}
-          </Button>
-        }
-      />
+      <BrandedPage>
+        <Result
+          status="warning"
+          title={t('auth.session_error')}
+          extra={
+            <Button
+              onClick={() => {
+                void session.refetch();
+              }}
+            >
+              {t('auth.retry')}
+            </Button>
+          }
+        />
+      </BrandedPage>
     );
   }
   if (me === undefined || me === null) {
     return (
-      <Flex justify="center" align="center" style={{ minHeight: '100vh' }}>
+      <Flex vertical justify="center" align="center" gap={24} style={{ minHeight: '100vh' }}>
+        <BrandLogo height={40} />
         <Spin tip={t(me === null ? 'auth.redirecting_to_login' : 'auth.checking_session')}>
           <div style={{ padding: 48 }} />
         </Spin>

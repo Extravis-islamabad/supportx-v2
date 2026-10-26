@@ -43,6 +43,11 @@ describe('portal', () => {
     render(<App />);
     expect((await screen.findByTestId('user-name')).textContent).toBe('Yusra Requester');
     expect(screen.getAllByText('Self-Service Portal').length).toBeGreaterThan(0);
+    // Branding: the logo in the header and the welcome band on the home page.
+    expect(
+      screen.getByRole('banner').querySelector('[data-testid="brand-logo-full"]'),
+    ).not.toBeNull();
+    expect(screen.getByTestId('portal-welcome').style.backgroundImage).toContain('linear-gradient');
     fireEvent.click(await screen.findByText('My requests'));
     expect(await screen.findByRole('heading', { name: 'My requests' })).toBeDefined();
     expect(screen.queryByTestId('tenant-switcher')).toBeNull();
