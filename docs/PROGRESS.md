@@ -382,9 +382,12 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   (Compose mount, Helm ConfigMap, realm `loginTheme`). Links use the brand colour in every mode
   (Ant Design's default blue was 4.1:1). Product name label "SupportX". e2e `branding.spec.ts`
   (axe in light, dark, high contrast, Arabic RTL). `docs/architecture/branding.md`.
-- **Not done:** e-mail templates (none exist yet; WP-023/WP-024 use the same files). Existing
-  Keycloak realms keep Keycloak's theme until an administrator sets the login theme (realms are
-  imported only on first start; one kcadm command, branding.md). Per-tenant branding is WP-017.
+- **Upgrade step (2026-10-26, product owner request):** `tooling/keycloak_theme.py` gives a realm
+  without a login theme the `supportx` theme and never replaces a chosen one; a chart Job per Helm
+  revision (`keycloak.setLoginTheme`) and `make keycloak-theme` for Compose. Applied to the shared
+  dev Keycloak (container recreated with the theme mount) and to k3d (Helm upgrade).
+- **Not done:** e-mail templates (none exist yet; WP-023/WP-024 use the same files). Per-tenant
+  branding is WP-017.
 
 ### [x] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-076; ADR-027; done 2026-10-26)
 Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.

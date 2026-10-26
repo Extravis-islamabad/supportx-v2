@@ -6,7 +6,7 @@
 	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check keycloak-realm brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check keycloak-realm keycloak-theme brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -218,6 +218,13 @@ GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 keycloak-realm: ## Regenerate the production (base) Keycloak realm from the dev realm
 	$(BACKEND) uv run python -m tooling.keycloak_realm
+
+keycloak-theme: $(DEV_ENV) ## Give the dev realm the SupportX login theme if it has none (never overwrites a chosen one)
+	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
+	cd backend && SUPPORTX_KEYCLOAK_URL="http://localhost:$$(env_value KEYCLOAK_PORT || echo 28080)" \
+	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
+	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
+	SUPPORTX_KEYCLOAK_WAIT_SECONDS=60 uv run python -m tooling.keycloak_theme
 
 brand-assets: ## Regenerate logos, favicons and the Keycloak theme from docs/brand (branding.md)
 	$(BACKEND) uv run python -m tooling.brand_assets

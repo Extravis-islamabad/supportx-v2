@@ -1,0 +1,49 @@
+{{- if .Values.keycloak.setLoginTheme }}
+{{- $c := dict "root" . "component" "keycloak-theme" -}}
+# Upgrade step (D-078, docs/architecture/branding.md): Keycloak imports the realm file only on a
+# realm's first start, so a realm from before the branding work keeps Keycloak's login page. This
+# Job, one per Helm revision, sets the realm's login theme to `supportx` when it has none and
+# leaves any chosen theme alone (tooling/keycloak_theme.py). Nothing waits for it, so it never
+# holds up a deploy; it retries while Keycloak starts and exits 0 if the bootstrap admin has been
+# replaced (the theme is then set by hand once).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "supportx.name" $c }}-{{ .Release.Revision }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: keycloak-theme
+          image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          command: ["python", "-m", "tooling.keycloak_theme"]
+          env:
+            - name: SUPPORTX_KEYCLOAK_URL
+              value: {{ printf "http://%s-keycloak:8080/auth" .Release.Name | quote }}
+            - {name: SUPPORTX_KEYCLOAK_ADMIN_USER, value: admin}
+            - name: SUPPORTX_KEYCLOAK_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-admin-password}}
+            - {name: SUPPORTX_KEYCLOAK_WAIT_SECONDS, value: "600"}
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}
