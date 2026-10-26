@@ -90,13 +90,25 @@ The same rules are tested twice: the Python checks (`Palette.checks`) and
 
 ## Keycloak
 
-The realm files set `"loginTheme": "supportx"`. The realm is imported only on first start, so an
-installation whose realm already exists keeps Keycloak's own theme until an administrator sets it.
-In the admin console: Realm settings › Themes › Login theme = `supportx`. Or with kcadm:
+The realm files set `"loginTheme": "supportx"`, but Keycloak imports a realm only on its first
+start. Realms that existed before the branding work get the theme from an upgrade step,
+`tooling/keycloak_theme.py`:
 
-```sh
-kcadm.sh update realms/supportx -s loginTheme=supportx
-```
+| Realm's login theme | What the step does |
+|---|---|
+| none (empty) | sets `supportx` |
+| anything else (Keycloak's own chosen on purpose, a tenant's custom theme, already `supportx`) | leaves it as it is: never overwritten |
+| realm missing | nothing |
+
+- **Kubernetes:** a Job per Helm revision, `<release>-keycloak-theme-<revision>`
+  (`keycloak.setLoginTheme`, default on). It signs in as the installation's bootstrap admin
+  (secret key `keycloak-admin-password`) and retries while Keycloak starts. Nothing waits for it,
+  so it never holds up a deploy. If an operator has replaced the bootstrap admin, it logs
+  `SKIPPED` and exits 0; set the theme by hand once in that case. If Keycloak never answers, it
+  fails visibly.
+- **Compose:** `make keycloak-theme`, with the admin from `deploy/compose/.env`.
+- **By hand:** in the admin console, Realm settings › Themes › Login theme = `supportx`, or
+  `kcadm.sh update realms/supportx -s loginTheme=supportx`.
 
 Compose mounts the theme folder; `start-dev` does not cache themes, so CSS edits show at once.
 The chart ships the theme as a ConfigMap. Its keys are the file paths with `/` written as `__`,

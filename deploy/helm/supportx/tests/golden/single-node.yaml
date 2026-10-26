@@ -2444,6 +2444,77 @@ spec:
             storage: 20Gi
 
 ---
+# Source: supportx/templates/keycloak-theme-job.yaml
+# Upgrade step (D-078, docs/architecture/branding.md): Keycloak imports the realm file only on a
+# realm's first start, so a realm from before the branding work keeps Keycloak's login page. This
+# Job, one per Helm revision, sets the realm's login theme to `supportx` when it has none and
+# leaves any chosen theme alone (tooling/keycloak_theme.py). Nothing waits for it, so it never
+# holds up a deploy; it retries while Keycloak starts and exits 0 if the bootstrap admin has been
+# replaced (the theme is then set by hand once).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: supportx-keycloak-theme-1
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: keycloak-theme
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: keycloak-theme
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak-theme
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "tooling.keycloak_theme"]
+          env:
+            - name: SUPPORTX_KEYCLOAK_URL
+              value: "http://supportx-keycloak:8080/auth"
+            - {name: SUPPORTX_KEYCLOAK_ADMIN_USER, value: admin}
+            - name: SUPPORTX_KEYCLOAK_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-admin-password}}
+            - {name: SUPPORTX_KEYCLOAK_WAIT_SECONDS, value: "600"}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+
+---
 # Source: supportx/templates/migrate-job.yaml
 # One Job per Helm revision (ADR-025): roles + database from tooling/sql, then Alembic. Not a
 # Helm hook: a pre-install hook would run before the in-cluster PostgreSQL exists, and a
