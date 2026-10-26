@@ -6,7 +6,7 @@
 	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
-	frontend-install-check keycloak-realm chart-deps chart-lint images cluster-up cluster-secrets \
+	frontend-install-check keycloak-realm brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
 	deploy-dev cluster-test cluster-e2e cluster-down
 
 BACKEND := cd backend &&
@@ -155,6 +155,7 @@ backend-lint:
 	$(BACKEND) uv run ruff check . && uv run ruff format --check . && uv run lint-imports
 	$(MAKE) openapi-check events-check
 	$(BACKEND) uv run python -m tooling.keycloak_realm --check
+	$(BACKEND) uv run python -m tooling.brand_assets --check
 
 backend-typecheck:
 	$(BACKEND) uv run mypy
@@ -217,6 +218,9 @@ GIT_SHA := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 
 keycloak-realm: ## Regenerate the production (base) Keycloak realm from the dev realm
 	$(BACKEND) uv run python -m tooling.keycloak_realm
+
+brand-assets: ## Regenerate logos, favicons and the Keycloak theme from docs/brand (branding.md)
+	$(BACKEND) uv run python -m tooling.brand_assets
 
 chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Chart.lock
 	helm repo add nats https://nats-io.github.io/k8s/helm/charts/ --force-update >/dev/null

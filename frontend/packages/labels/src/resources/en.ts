@@ -1,6 +1,6 @@
 // English is the reference dictionary: every key must exist here (CI-enforced later, §9.5).
 export const en = {
-  'product.name': 'SupportX v2',
+  'product.name': 'SupportX',
   'app.console.name': 'Technician Console',
   'app.portal.name': 'Self-Service Portal',
   'appearance.dark_mode': 'Dark mode',
@@ -903,6 +903,11 @@ export const en = {
   'incidents.required_note': 'Fields marked * are required.',
   'incidents.priority_pending': 'Calculated when impact and urgency are set',
   'shell.menu': 'Menu',
+  'about.open': 'About SupportX',
+  'about.version': 'Version {{version}}',
+  'about.version_unavailable': 'The server version is not available right now.',
+  'about.made_by': 'Made by Extravis',
+  'about.close': 'Close',
   'incidents.pick_person': 'Search by name or email',
   'incidents.nobody_found': 'Nobody found',
   'incidents.no_group': 'No group',

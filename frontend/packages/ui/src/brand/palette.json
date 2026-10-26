@@ -1,0 +1,6 @@
+{
+  "description": "SupportX brand colours, the one source for the UI theme, the web manifest and the Keycloak login theme (docs/architecture/branding.md). sampled = the logo's gradient ends as measured by tooling/brand_assets.py; primary and gradient = the shades used, chosen for WCAG AA.",
+  "sampled": { "start": "#6666ec", "end": "#951ab6" },
+  "primary": "#7e40d1",
+  "gradient": { "start": "#6060de", "end": "#951ab6" }
+}

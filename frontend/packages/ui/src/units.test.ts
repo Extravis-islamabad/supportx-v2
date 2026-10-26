@@ -12,9 +12,9 @@ import { buildTheme, darken, DEFAULT_BRANDING, lighten } from './theme';
 const t = (key: string, params?: Record<string, unknown>) => label(key, 'en', params as never);
 
 describe('theme', () => {
-  it('uses the Extravis purple by default and lets a tenant override it', () => {
-    expect(DEFAULT_BRANDING.colorPrimary).toBe('#9619B5');
-    expect(buildTheme('light').token?.colorPrimary).toBe('#9619B5');
+  it('uses the SupportX purple by default and lets a tenant override it', () => {
+    expect(DEFAULT_BRANDING.colorPrimary).toBe('#7e40d1');
+    expect(buildTheme('light').token?.colorPrimary).toBe('#7e40d1');
     expect(buildTheme('dark', { colorPrimary: '#0055aa' }).token?.colorPrimary).toBe('#0055aa');
     expect(buildTheme('dark').algorithm).toBe(theme.darkAlgorithm);
   });
@@ -24,12 +24,12 @@ describe('theme', () => {
     expect(contrast.token?.colorText).toBe('#000000');
     expect(contrast.token?.colorBorder).toBe('#000000');
     expect(contrast.token?.lineWidth).toBe(2);
-    expect(contrast.token?.colorPrimary).toBe(darken('#9619B5', 0.35));
+    expect(contrast.token?.colorPrimary).toBe(darken('#7e40d1', 0.35));
     expect(darken('#ffffff', 0.5)).toBe('#808080');
     expect(lighten('#000000', 0.5)).toBe('#808080');
   });
 
-  it.each(['#9619B5', '#0055aa', '#1677ff', '#b80000'])(
+  it.each(['#7e40d1', '#9619B5', '#0055aa', '#1677ff', '#b80000'])(
     'dark (%s): selected menu and tab text reaches WCAG AA on the selected and page backgrounds',
     (colorPrimary) => {
       const config = buildTheme('dark', { colorPrimary });

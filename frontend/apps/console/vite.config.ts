@@ -5,6 +5,8 @@ import { codeSplitting } from '../../vite.chunks';
 
 export default defineConfig({
   plugins: [react()],
+  // Favicons and the web manifest, shared by both apps (packages/ui/src/brand, branding.md).
+  publicDir: '../../packages/ui/src/brand/public',
   build: { rolldownOptions: { output: { codeSplitting } } },
   server: {
     port: 5173,
