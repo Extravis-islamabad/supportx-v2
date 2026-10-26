@@ -62,3 +62,20 @@ def test_c4_blocked_link_is_kept_as_plain_text() -> None:
         'rel="noopener noreferrer nofollow">ok</a></p>'
     )
     assert sanitize_html(kept) == kept
+
+
+def test_wp020b_editor_formatting_survives_and_free_styles_do_not() -> None:
+    """Alignment, indent, palette colours, highlights and mentions are codes, never styles."""
+    editor = (
+        '<h3 data-align="end" data-indent="1">T</h3><p data-align="justify" data-indent="6">'
+        '<span data-color="brand">b</span><mark data-color="pink">h</mark>'
+        '<span data-type="mention" data-id="0192a1b2-0000-7000-8000-000000000001" '
+        'data-label="Ali">@Ali</span></p>'
+    )
+    assert sanitize_html(editor) == editor
+    dirty = (
+        '<p data-align="left" data-indent="9" style="font-size:40px">'
+        '<span data-color="#ff0000" style="font-family:Comic">x</span>'
+        '<mark data-color="black">y</mark><span data-type="link" data-id="x">z</span></p>'
+    )
+    assert sanitize_html(dirty) == "<p><span>x</span><mark>y</mark><span>z</span></p>"

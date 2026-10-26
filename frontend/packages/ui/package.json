@@ -18,12 +18,14 @@
     "@supportx/realtime": "workspace:*",
     "@tiptap/core": "catalog:",
     "@tiptap/extension-link": "catalog:",
+    "@tiptap/extension-mention": "catalog:",
     "@tiptap/extension-placeholder": "catalog:",
     "@tiptap/extension-table": "catalog:",
     "@tiptap/extensions": "catalog:",
     "@tiptap/pm": "catalog:",
     "@tiptap/react": "catalog:",
     "@tiptap/starter-kit": "catalog:",
+    "@tiptap/suggestion": "catalog:",
     "dayjs": "catalog:"
   },
   "peerDependencies": {

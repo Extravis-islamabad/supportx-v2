@@ -22,9 +22,18 @@ const CODED: Record<string, string> = {
   impact: 'impact',
   urgency: 'urgency',
   channel: 'work_item_channel',
+  follow_reason: 'follow_reason',
+  conversation_entry: 'conversation_entry',
+  note_visibility: 'visibility',
 };
-const TIMES = new Set(['resolved_at', 'closed_at', 'last_reopened_at']);
-const PEOPLE = new Set(['requester_id', 'on_behalf_of_id', 'technician_id']);
+const TIMES = new Set(['resolved_at', 'closed_at', 'last_reopened_at', 'first_responded_at']);
+const PEOPLE = new Set([
+  'requester_id',
+  'on_behalf_of_id',
+  'technician_id',
+  'follower',
+  'follower_access',
+]);
 // Flags: "not set" reads "No", not "(empty)".
 const FLAGS = new Set(['handed_over_out_of_reach']);
 

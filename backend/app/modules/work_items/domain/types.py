@@ -188,6 +188,13 @@ FIELD_PROBLEMS = frozenset(
         "english_label_required",
         "unknown_language",
         "too_deep",
+        # WP-020b: conversation, followers, reply templates
+        "not_allowed_for_notes",
+        "invalid_email",
+        "too_many",
+        "replies_are_public",
+        "cannot_see_record",
+        "duplicate_name",
     }
 )
 

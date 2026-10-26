@@ -18,6 +18,11 @@ from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
 from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
+from app.modules.work_items.api.conversation_routes import (
+    add_collection_routes,
+    add_record_routes,
+)
+from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -26,6 +31,7 @@ from app.modules.work_items.domain.classification import (
     Scale,
     Urgency,
 )
+from app.modules.work_items.domain.conversation import FirstResponseAction
 from app.modules.work_items.domain.lifecycle import (
     REASON_TEXT_MAX,
     USER_ACTIONS,
@@ -98,6 +104,10 @@ class WorkItemIn(BaseModel):
     confirm_lose_access: bool = Field(
         default=False, description="Confirm handing it to people you cannot see records of."
     )
+    keep_following: bool | None = Field(
+        default=None,
+        description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
+    )
 
 
 class WorkItemPatch(BaseModel):
@@ -121,6 +131,10 @@ class WorkItemPatch(BaseModel):
     priority_reason: str | None = Field(default=None, max_length=PRIORITY_REASON_MAX)
     tags: list[str] | None = Field(default=None, max_length=TAGS_MAX * 2)
     confirm_lose_access: bool = False
+    keep_following: bool | None = Field(
+        default=None,
+        description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
+    )
 
 
 class WorkItemTransitionIn(BaseModel):
@@ -146,7 +160,11 @@ class WorkItemAssignIn(BaseModel):
     reason_code: str | None = Field(default=None, max_length=40)
     reason_text: str | None = Field(default=None, max_length=PRIORITY_REASON_MAX)
     confirm_lose_access: bool = Field(
-        default=False, description="You confirmed you will lose sight of it (D-053)."
+        default=False, description="You confirmed it leaves your reach (D-053)."
+    )
+    keep_following: bool | None = Field(
+        default=None,
+        description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
     )
 
 
@@ -158,15 +176,7 @@ class WorkItemTakeIn(BaseModel):
     group_id: uuid.UUID | None = None
 
 
-class PersonOut(BaseModel):
-    """A person on a record: the name, and the email that tells two people of one name apart."""
-
-    display_name: str
-    email: str
-
-
-def _people(found: dict[str, tuple[str, str]]) -> dict[str, PersonOut]:
-    return {k: PersonOut(display_name=n, email=e) for k, (n, e) in found.items()}
+_people = people_out
 
 
 class WorkItemActionStateOut(BaseModel):
@@ -232,6 +242,11 @@ class WorkItemOut(BaseModel):
     visible: bool = Field(
         default=True, description="False right after you handed it away (D-053): no more access."
     )
+    conversation_actions: list[WorkItemActionStateOut] = Field(
+        description="add_note, reply, manage_followers: whether you may, and why not."
+    )
+    following: bool = Field(description="You follow this record.")
+    conversation_count: int = Field(description="Replies and notes.")
 
     @classmethod
     def of(cls, view: service.WorkItemView) -> "WorkItemOut":
@@ -244,6 +259,9 @@ class WorkItemOut(BaseModel):
             history_count=view.history_count,
             people=_people(view.names),
             visible=view.visible,
+            conversation_actions=[_state(a) for a in view.conversation],
+            following=view.following,
+            conversation_count=view.conversation_count,
         )
 
 
@@ -404,6 +422,12 @@ class WorkItemCatalogueOut(BaseModel):
     default_impact: Impact | None = Field(description="What the create form starts with.")
     default_urgency: Urgency | None = Field(description="What the create form starts with.")
     auto_status_on_assign: bool
+    keep_following_on_handover: bool = Field(
+        description="Hand-over dialog: 'keep following' starts ticked (D-068)."
+    )
+    first_response_on: list[FirstResponseAction] = Field(
+        description="Which actions stamp the first response (REQ-INC-065)."
+    )
     version: int
     statuses: list[WorkItemStatusOut]
     actions: list[WorkItemAction] = Field(description="User actions in their fixed order.")
@@ -421,6 +445,8 @@ class WorkItemCatalogueOut(BaseModel):
             default_impact=None if cat.default_impact is None else Impact(cat.default_impact),
             default_urgency=None if cat.default_urgency is None else Urgency(cat.default_urgency),
             auto_status_on_assign=cat.auto_status_on_assign,
+            keep_following_on_handover=cat.keep_following_on_handover,
+            first_response_on=[FirstResponseAction(c) for c in cat.first_response_on],
             version=cat.settings_version,
             statuses=[
                 WorkItemStatusOut(
@@ -476,6 +502,8 @@ class WorkItemSettingsPatch(BaseModel):
     default_impact: Impact | None = Field(default=None, description="Null: no default.")
     default_urgency: Urgency | None = Field(default=None, description="Null: no default.")
     auto_status_on_assign: bool | None = None
+    keep_following_on_handover: bool | None = None
+    first_response_on: list[FirstResponseAction] | None = Field(default=None, max_length=3)
 
 
 class WorkItemCategoryOut(BaseModel):
@@ -825,6 +853,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         return WorkItemCategoryOut.of(node)
 
+    add_collection_routes(router, wtype)
+
     @router.post(
         "",
         summary=f"Create {'an' if name[0] in 'aeiou' else 'a'} {name}",
@@ -945,6 +975,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             reason_code=body.reason_code,
             reason_text=body.reason_text,
             confirm_lose_access=body.confirm_lose_access,
+            keep_following=body.keep_following,
             source=source_of(request),
             holders=policy,
         )
@@ -1043,4 +1074,5 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             people=_people(people),
         )
 
+    add_record_routes(router, wtype)
     return router

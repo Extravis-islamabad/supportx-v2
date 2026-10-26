@@ -1,4 +1,4 @@
-import { App, Alert, Input, Modal, Select, Space, Typography } from 'antd';
+import { App, Alert, Checkbox, Input, Modal, Select, Space, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 
@@ -21,7 +21,7 @@ import { GroupPicker, TechnicianPicker } from './pickers';
  * Assign or reassign (REQ-INC-053/055). The technician list shows only the chosen group's
  * members. Moving between groups needs a reason. If the change would take the incident out of
  * the user's own reach, the server says so first (409 would_lose_access) and the user confirms
- * the hand-over (D-053); the history records it.
+ * the hand-over (D-053), keeping it followed by default (D-068); the history records both.
  *
  * Always the current assignment (QA BUG-01): the dialog is built when it opens, re-reads the
  * incident, and fields the user has not touched follow live changes while it is open. Only
@@ -110,7 +110,7 @@ function AssignBody({
     assign.reset();
     onClose();
   };
-  const send = (confirmLoseAccess: boolean) => {
+  const send = (confirmLoseAccess: boolean, keepFollowing?: boolean) => {
     assign.mutate(
       {
         version: basedOn.current ?? item.version,
@@ -119,12 +119,17 @@ function AssignBody({
         reasonCode,
         reasonText,
         confirmLoseAccess,
+        keepFollowing,
       },
       {
         onSuccess: (saved) => {
           setHandover(false);
           onClose();
-          if (saved.visible) {
+          if (saved.visible && confirmLoseAccess) {
+            void message.success(
+              t('incidents.handed_over_following', { id: item.display_id, group: groupName }),
+            );
+          } else if (saved.visible) {
             void message.success(t('incidents.assigned'));
           } else {
             void message.success(
@@ -232,15 +237,19 @@ function AssignBody({
           setHandover(false);
           assign.reset();
         }}
-        onConfirm={() => {
-          send(true);
+        onConfirm={(keepFollowing) => {
+          send(true, keepFollowing);
         }}
       />
     </>
   );
 }
 
-/** D-053: say plainly that the user will lose sight of the incident, before it happens. */
+/**
+ * D-053 and D-068: before the incident leaves the user's reach, say plainly what happens. By
+ * default they keep following it (they can open it, see updates and add private notes, and can
+ * unfollow later); unticked, they lose sight of it.
+ */
 export function HandOverWarning({
   open,
   displayId,
@@ -254,31 +263,56 @@ export function HandOverWarning({
   group: string;
   pending: boolean;
   onCancel: () => void;
-  onConfirm: () => void;
+  onConfirm: (keepFollowing: boolean) => void;
 }) {
   const t = useLabel();
+  const catalogue = useIncidentCatalogue();
+  const fallback = catalogue.data?.keep_following_on_handover ?? true;
+  const [keep, setKeep] = useState<boolean | null>(null);
+  const following = keep ?? fallback;
   return (
     <Modal
       open={open}
-      title={t('incidents.handover_title')}
-      okText={t('incidents.handover_confirm')}
+      title={t('incidents.handover_title', { id: displayId })}
+      okText={t(following ? 'incidents.handover_confirm_following' : 'incidents.handover_confirm')}
       okButtonProps={{
-        danger: true,
+        danger: !following,
         ...({ 'data-testid': 'inc-handover-confirm' } as Record<string, string>),
       }}
       cancelText={t('actions.cancel')}
       confirmLoading={pending}
-      onCancel={onCancel}
-      onOk={onConfirm}
+      onCancel={() => {
+        setKeep(null);
+        onCancel();
+      }}
+      onOk={() => {
+        setKeep(null);
+        onConfirm(following);
+      }}
       destroyOnHidden
     >
       <Space direction="vertical" data-testid="inc-handover-warning">
+        <Typography.Paragraph style={{ marginBottom: 0 }}>
+          {t('incidents.handover_moves', { id: displayId, group })}
+        </Typography.Paragraph>
+        <Checkbox
+          checked={following}
+          onChange={(event) => {
+            setKeep(event.target.checked);
+          }}
+          data-testid="inc-handover-keep-following"
+        >
+          {t('incidents.handover_keep_following')}
+        </Checkbox>
         <Alert
-          type="warning"
+          type={following ? 'info' : 'warning'}
           showIcon
-          message={t('incidents.handover_text', { id: displayId, group })}
+          data-testid="inc-handover-outcome"
+          message={t(following ? 'incidents.handover_following_text' : 'incidents.handover_text', {
+            id: displayId,
+            group,
+          })}
         />
-        <Typography.Text type="secondary">{t('incidents.handover_follow_later')}</Typography.Text>
       </Space>
     </Modal>
   );

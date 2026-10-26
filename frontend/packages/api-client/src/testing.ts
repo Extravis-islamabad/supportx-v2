@@ -2,6 +2,7 @@
  * Test helpers (import from '@supportx/api-client/testing'): typed fixtures and a fake API that
  * replaces global fetch. Never imported by app code.
  */
+import type { ConversationEntry } from './conversation';
 import type { Entitlements } from './entitlements';
 import type { components } from './schema';
 import type { MeResponse } from './session';
@@ -386,6 +387,37 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     history_count: 1,
     people: { [requester]: { display_name: 'Rana Requester', email: 'rana@demo.test' } },
     visible: true,
+    conversation_actions: ['add_note', 'reply', 'manage_followers'].map((action) => ({
+      action,
+      allowed: true,
+      reason: null,
+      reason_mode: 'none',
+      reason_list: null,
+    })),
+    following: false,
+    conversation_count: 0,
+    ...overrides,
+  };
+}
+
+/** A note or reply on an incident (GET /incidents/{id}/conversation). */
+export function fakeConversationEntry(
+  overrides: Partial<ConversationEntry> = {},
+): ConversationEntry {
+  return {
+    id: '01900000-0000-7000-8000-0000000c0e01',
+    kind: 'note',
+    visibility: 'private',
+    reply_mode: null,
+    body: '<p>Checked the mail server.</p>',
+    recipients: null,
+    delivery_state: null,
+    delivery_reason: null,
+    first_response: false,
+    mentioned_ids: [],
+    created_at: '2026-10-24T09:30:00Z',
+    created_by: '01900000-0000-7000-8000-0000000000a1',
+    version: 1,
     ...overrides,
   };
 }
@@ -406,6 +438,8 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     default_impact: 'team',
     default_urgency: 'medium',
     auto_status_on_assign: true,
+    keep_following_on_handover: true,
+    first_response_on: ['reply', 'public_note'],
     version: 1,
     statuses: [
       ['new', 'open'],

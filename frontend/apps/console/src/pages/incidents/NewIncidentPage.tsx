@@ -79,9 +79,11 @@ export function NewIncidentPage() {
   const canPriority = can('incidents.change_priority');
 
   if (!can('incidents.create')) return <NoAccess titleKey="nav.incidents" />;
-  const send = (values: Values, confirm: boolean) => {
+  const send = (values: Values, confirm: boolean, keepFollowing?: boolean) => {
+    const body = { ...bodyOf(values, confirm), keep_following: keepFollowing ?? null };
+    const variant = keepFollowing === undefined ? '' : `-${String(keepFollowing)}`;
     create.mutate(
-      { body: bodyOf(values, confirm), key: confirm ? `${key}-confirmed` : key },
+      { body, key: confirm ? `${key}-confirmed${variant}` : key },
       {
         onSuccess: (saved) => {
           setHandover(null);
@@ -121,7 +123,7 @@ export function NewIncidentPage() {
   const groupName =
     groups.data?.find((g) => g.id === handover?.group_id)?.name ?? t('incidents.no_group');
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%', maxWidth: 1100 }}>
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
       <Typography.Title level={1}>{t('incidents.new')}</Typography.Title>
       <Card>
         <Form layout="vertical" component="div" data-testid="inc-form">
@@ -429,8 +431,8 @@ export function NewIncidentPage() {
         onCancel={() => {
           setHandover(null);
         }}
-        onConfirm={() => {
-          if (handover !== null) send(handover, true);
+        onConfirm={(keepFollowing) => {
+          if (handover !== null) send(handover, true, keepFollowing);
         }}
       />
     </Space>

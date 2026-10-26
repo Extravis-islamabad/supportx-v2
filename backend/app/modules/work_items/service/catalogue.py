@@ -89,6 +89,8 @@ class Catalogue:
     prefix: str
     default_priority: str
     auto_status_on_assign: bool
+    keep_following_on_handover: bool
+    first_response_on: tuple[str, ...]
     settings_version: int
     default_impact: str | None
     default_urgency: str | None
@@ -272,6 +274,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         prefix=settings.prefix,
         default_priority=settings.default_priority,
         auto_status_on_assign=settings.auto_status_on_assign,
+        keep_following_on_handover=settings.keep_following_on_handover,
+        first_response_on=tuple(settings.first_response_on),
         settings_version=settings.version,
         default_impact=settings.default_impact,
         default_urgency=settings.default_urgency,

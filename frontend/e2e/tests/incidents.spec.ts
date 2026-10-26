@@ -199,7 +199,7 @@ test('a new incident with rich text appears live for the technician; edits reach
   }
 });
 
-test('D-052/D-053: the technician sees the site queue, is warned before handing an incident out of reach, then cannot open it', async ({
+test('D-052/D-053/D-068: the technician sees the site queue, keeps following what they hand over, and loses it on unfollow', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
@@ -223,9 +223,19 @@ test('D-052/D-053: the technician sees the site queue, is warned before handing 
     await pick(tech.page, 'inc-assign-reason', '', 'Wrong group');
     await tech.page.getByTestId('inc-assign-confirm').click();
     const warning = tech.page.getByTestId('inc-handover-warning');
-    await expect(warning).toContainText('you will no longer be able to see it');
+    // D-068 / REQ-INC-151: keep following is ticked by default and says what it means.
+    await expect(tech.page.getByTestId('inc-handover-keep-following')).toBeChecked();
+    await expect(warning).toContainText('You keep following it');
     await expectAccessible(tech.page, 'hand-over warning');
     await tech.page.getByTestId('inc-handover-confirm').click();
+    // Still open for them: read-only, following, and listed as a follower with access.
+    await expect(tech.page.getByTestId('inc-follow')).toContainText('Unfollow');
+    await expect(tech.page.getByTestId('inc-op-assign')).toBeDisabled();
+    await expect(tech.page.getByTestId('inc-followers')).toContainText(
+      'Kept after handing it over',
+    );
+    // Unfollowing gives up the access the follow gave (AC4); then it is out of reach (AC3).
+    await tech.page.getByTestId('inc-follow').click();
     await expect(tech.page).toHaveURL(/\/incidents$/);
     await tech.page.goto(`/incidents/${queued.id}`);
     await expect(tech.page.getByTestId('inc-not-found')).toBeVisible();

@@ -9,7 +9,7 @@ from a viewer's audience as well as add it where it arrived.
 import uuid
 from typing import ClassVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.shared.events import DomainEvent
 
@@ -98,6 +98,73 @@ class WorkItemSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class _ConversationEvent(DomainEvent):
+    aggregate_type: ClassVar[str] = "work_item_conversation"
+
+    work_item_id: uuid.UUID
+    entry_id: uuid.UUID
+    kind: str
+    visibility: str
+
+
+class WorkItemConversationAdded(_ConversationEvent):
+    """A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.
+
+    `mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`
+    is true when this entry stamped the record's first response (REQ-INC-065).
+    """
+
+    event_type: ClassVar[str] = "work_items.conversation.added"
+    schema_version: ClassVar[int] = 1
+
+    delivery_state: str | None = None
+    first_response: bool = False
+    mentioned_ids: list[uuid.UUID] = Field(default_factory=list)
+
+
+class WorkItemConversationVisibilityChanged(_ConversationEvent):
+    """A note was made public or private (REQ-INC-061 AC3). `visibility` is the new one."""
+
+    event_type: ClassVar[str] = "work_items.conversation.visibility_changed"
+    schema_version: ClassVar[int] = 1
+
+    from_visibility: str
+
+
+class _FollowerEvent(DomainEvent):
+    aggregate_type: ClassVar[str] = "work_item_follower"
+
+    work_item_id: uuid.UUID
+    user_id: uuid.UUID
+    reason: str
+    grants_access: bool
+
+
+class WorkItemFollowerAdded(_FollowerEvent):
+    """Someone follows the record now (REQ-INC-056/151)."""
+
+    event_type: ClassVar[str] = "work_items.follower.added"
+    schema_version: ClassVar[int] = 1
+
+
+class WorkItemFollowerRemoved(_FollowerEvent):
+    """Someone stopped following (themselves, or removed by someone allowed to)."""
+
+    event_type: ClassVar[str] = "work_items.follower.removed"
+    schema_version: ClassVar[int] = 1
+
+
+class WorkItemReplyTemplatesChanged(DomainEvent):
+    """A reply template was added, changed or removed (open composers reload the list)."""
+
+    event_type: ClassVar[str] = "work_items.reply_templates.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_reply_template"
+
+    type: str
+    template_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -106,4 +173,9 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemDeleted,
     WorkItemRestored,
     WorkItemSettingsChanged,
+    WorkItemConversationAdded,
+    WorkItemConversationVisibilityChanged,
+    WorkItemFollowerAdded,
+    WorkItemFollowerRemoved,
+    WorkItemReplyTemplatesChanged,
 )

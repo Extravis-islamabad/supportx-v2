@@ -871,6 +871,190 @@
         "type": "object"
       }
     },
+    "work_items.conversation.added": {
+      "1": {
+        "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",
+        "properties": {
+          "delivery_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivery State"
+          },
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "first_response": {
+            "default": false,
+            "title": "First Response",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mentioned_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Mentioned Ids",
+            "type": "array"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility"
+        ],
+        "title": "WorkItemConversationAdded",
+        "type": "object"
+      }
+    },
+    "work_items.conversation.visibility_changed": {
+      "1": {
+        "description": "A note was made public or private (REQ-INC-061 AC3). `visibility` is the new one.",
+        "properties": {
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "from_visibility": {
+            "title": "From Visibility",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility",
+          "from_visibility"
+        ],
+        "title": "WorkItemConversationVisibilityChanged",
+        "type": "object"
+      }
+    },
+    "work_items.follower.added": {
+      "1": {
+        "description": "Someone follows the record now (REQ-INC-056/151).",
+        "properties": {
+          "grants_access": {
+            "title": "Grants Access",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "user_id",
+          "reason",
+          "grants_access"
+        ],
+        "title": "WorkItemFollowerAdded",
+        "type": "object"
+      }
+    },
+    "work_items.follower.removed": {
+      "1": {
+        "description": "Someone stopped following (themselves, or removed by someone allowed to).",
+        "properties": {
+          "grants_access": {
+            "title": "Grants Access",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "user_id",
+          "reason",
+          "grants_access"
+        ],
+        "title": "WorkItemFollowerRemoved",
+        "type": "object"
+      }
+    },
+    "work_items.reply_templates.changed": {
+      "1": {
+        "description": "A reply template was added, changed or removed (open composers reload the list).",
+        "properties": {
+          "template_id": {
+            "format": "uuid",
+            "title": "Template Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "template_id"
+        ],
+        "title": "WorkItemReplyTemplatesChanged",
+        "type": "object"
+      }
+    },
     "work_items.settings.changed": {
       "1": {
         "description": "A type's configuration changed (prefix, default priority, categories ...).",

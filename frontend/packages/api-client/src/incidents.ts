@@ -250,6 +250,8 @@ export interface AssignChange {
   reasonCode?: string;
   reasonText?: string;
   confirmLoseAccess?: boolean;
+  /** With confirmLoseAccess: keep following it (D-068); undefined: the tenant default. */
+  keepFollowing?: boolean;
 }
 
 export function useAssignIncident(id: string) {
@@ -264,6 +266,7 @@ export function useAssignIncident(id: string) {
           reason_code: change.reasonCode ?? null,
           reason_text: change.reasonText?.trim() === '' ? null : (change.reasonText ?? null),
           confirm_lose_access: change.confirmLoseAccess ?? false,
+          keep_following: change.keepFollowing ?? null,
         },
       }),
     ),
