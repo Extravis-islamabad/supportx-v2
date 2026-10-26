@@ -31,13 +31,28 @@ function place(element: HTMLElement, rect: (() => DOMRect | null) | null | undef
  * (and reads to notify and add followers).
  */
 export function mentionExtension(search: MentionSearch) {
-  return Mention.configure({
+  // canSee (D-081): known when the person was picked; the composer warns before sending a mention
+  // of someone who cannot see the record. Shown in the editor's HTML as data-can-see="false" only
+  // (the composer removes it before sending; the server's allow-list never keeps it).
+  return Mention.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        canSee: {
+          default: true,
+          parseHTML: (element: HTMLElement) => element.getAttribute('data-can-see') !== 'false',
+          renderHTML: () => ({}),
+        },
+      };
+    },
+  }).configure({
     renderHTML: ({ node }) => [
       'span',
       {
         'data-type': 'mention',
         'data-id': node.attrs.id as string,
         'data-label': node.attrs.label as string,
+        ...(node.attrs.canSee === false ? { 'data-can-see': 'false' } : {}),
       },
       `@${String(node.attrs.label ?? node.attrs.id)}`,
     ],

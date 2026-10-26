@@ -50,6 +50,8 @@ import {
 import { AssignDialog, TakeButton } from './assign';
 import { OperationButton } from './operations';
 import { IncidentConversation, type Typing } from './IncidentConversation';
+import { lastTab, rememberTab } from './tabs';
+import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { IncidentHistory } from './IncidentHistory';
 import { categoryPath, personName } from './labels';
@@ -61,8 +63,6 @@ import { PriorityTag, SlaTag, StatusTag } from './tags';
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
-// A typing signal is shown at most this long without another one (a lost 'stop' never sticks).
-const TYPING_SHOWN_MS = 8_000;
 
 /** One incident (REQ-INC-122): header, actions in a fixed order, fixed tabs, live (REQ-WI-005). */
 export function IncidentPage() {
@@ -115,6 +115,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const [typing, setTyping] = useState<Typing>({});
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
+  const [tab, setTab] = useState<string>(() => lastTab(me));
   const stopTyping = (userId: string) => {
     clearTimeout(typingTimers.current.get(userId));
     typingTimers.current.delete(userId);
@@ -228,12 +229,15 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             </Typography.Text>
           )}
           <Typography.Text type="secondary" data-testid="inc-people">
+            {/* Names and the group are isolated, so a mixed Arabic and English line keeps
+                "(group)" together in either reading direction (QA C6). */}
             {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
             {' · '}
             {item.technician_id === null
               ? t('incidents.unassigned')
               : t('incidents.assigned_to', { name: personName(item.people, item.technician_id) })}
-            {groupName === '' ? '' : ` (${groupName})`}
+            {groupName === '' ? '' : ' '}
+            {groupName === '' ? null : <bdi>({groupName})</bdi>}
           </Typography.Text>
         </Space>
         <Flex align="center" gap={12} wrap>
@@ -312,7 +316,12 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       />
       <Tabs
         data-testid="inc-tabs"
-        defaultActiveKey="details"
+        // The tab this user used last, Conversation the first time (D-081).
+        activeKey={tab}
+        onChange={(key) => {
+          setTab(key);
+          rememberTab(me, key);
+        }}
         items={[
           {
             key: 'conversation',

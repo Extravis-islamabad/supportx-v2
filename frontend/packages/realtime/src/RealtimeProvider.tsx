@@ -57,7 +57,9 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
     const stopWatching = connection.onReconnect((code) => {
       if (code === ACCESS_CHANGED) refreshAccess();
     });
-    connection.connect();
+    // One connection per tab (QA BUG-02): acquire/release instead of connect/close, so React
+    // StrictMode's unmount-and-remount in development keeps the same live connection.
+    connection.acquire();
     // Leaving or reloading the page: say goodbye now, so others do not see this window as a
     // viewer until the server times it out (QA BUG-13, the "you, another window" ghost).
     const leave = () => {
@@ -69,7 +71,7 @@ export function RealtimeProvider({ tenantId, userId, children, factory }: Realti
       leaveOwn();
       leaveTenant();
       stopWatching();
-      connection.close();
+      connection.release();
     };
   }, [value, queryClient]);
 

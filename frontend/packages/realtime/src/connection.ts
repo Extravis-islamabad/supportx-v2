@@ -9,6 +9,8 @@ export const ACCESS_CHANGED = 4000;
 /** Without a connection for this long, screens fall back to timed refreshes. */
 export const FALLBACK_AFTER_MS = 10_000;
 export const POLL_INTERVAL_MS = 15_000;
+/** A followed channel that was refused or ended is tried again after these delays (then every last one). */
+export const RETRY_DELAYS_MS = [2_000, 5_000, 10_000, 30_000] as const;
 
 type MessageListener = (message: RealtimeMessage) => void;
 type PresenceListener = (members: PresenceMember[]) => void;
@@ -20,6 +22,10 @@ interface ChannelEntry {
   members: Map<string, PresenceMember>;
   presence: boolean;
   denied: boolean;
+  /** Not subscribed although a screen follows it: refused, or ended by the server. */
+  lost: boolean;
+  retries: number;
+  retryTimer: ReturnType<typeof setTimeout> | null;
 }
 
 /** What centrifuge-js needs from us; tests replace it with a fake. */
@@ -101,6 +107,14 @@ export class RealtimeConnection {
   private fallbackTimer: ReturnType<typeof setTimeout> | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private transport: string | null = null;
+  // One connection per tab (QA BUG-02): screens acquire and release it; the last release closes it
+  // on the next tick, so React StrictMode's unmount-and-remount in development reuses the live
+  // connection instead of closing it and opening a second one.
+  private holders = 0;
+  private started = false;
+  private closeTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnects = 0;
 
   constructor(factory: ClientFactory = activeFactory) {
     this.client = factory(() => fetchConnectionToken().catch(denial));
@@ -114,25 +128,58 @@ export class RealtimeConnection {
       this.clientId = ctx.client;
       this.transport = ctx.transport;
       this.clearTimers();
-      this.setStatus('connected');
+      this.reconnects = 0;
+      this.setStatus(this.anyLost() ? 'limited' : 'connected');
       if (wasPolling) this.refreshAll(); // reconcile what changed while we were polling
     });
     this.client.on('disconnected', () => {
       this.clearTimers();
-      this.setStatus('offline');
+      // Dropped while screens still use it (token refused, server ended it): show "reconnecting"
+      // and try again with backoff, never silently offline (QA BUG-02). Closed on purpose: offline.
+      if (this.started) {
+        this.setStatus('reconnecting');
+        this.scheduleReconnect();
+      } else {
+        this.setStatus('offline');
+      }
     });
   }
 
   connect(): void {
+    this.started = true;
     this.setStatus('connecting');
     this.armFallback();
     this.client.connect();
   }
 
+  /** A screen starts using the connection: connects once, cancels a pending close. */
+  acquire(): void {
+    this.holders += 1;
+    if (this.closeTimer !== null) clearTimeout(this.closeTimer);
+    this.closeTimer = null;
+    if (!this.started) this.connect();
+  }
+
+  /** A screen stops using it; the last one closes it on the next tick unless someone re-acquires. */
+  release(): void {
+    this.holders = Math.max(0, this.holders - 1);
+    if (this.holders > 0 || this.closeTimer !== null) return;
+    this.closeTimer = setTimeout(() => {
+      this.closeTimer = null;
+      if (this.holders === 0) this.close();
+    }, 0);
+  }
+
   close(): void {
     this.clearTimers();
+    if (this.reconnectTimer !== null) clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+    if (this.closeTimer !== null) clearTimeout(this.closeTimer);
+    this.closeTimer = null;
+    for (const entry of this.channels.values()) this.stopRetry(entry);
+    this.started = false;
+    this.channels.clear(); // first: the disconnect's unsubscribe events must not schedule retries
     this.client.disconnect();
-    this.channels.clear();
   }
 
   get currentStatus(): ConnectionStatus {
@@ -200,20 +247,33 @@ export class RealtimeConnection {
       members: new Map(),
       presence,
       denied: false,
+      lost: false,
+      retries: 0,
+      retryTimer: null,
     };
     subscription.on('publication', (ctx) => {
       if (isMessage(ctx.data)) this.deliver(entry, ctx.data);
     });
     subscription.on('subscribed', (ctx) => {
       entry.denied = false;
-      if (ctx.wasRecovering && !ctx.recovered) this.deliver(entry, { type: 'refresh', ids: [] });
+      const wasLost = entry.lost;
+      this.stopRetry(entry);
+      if ((ctx.wasRecovering && !ctx.recovered) || wasLost) {
+        this.deliver(entry, { type: 'refresh', ids: [] }); // fetch what was missed meanwhile
+      }
       if (entry.presence) void this.loadPresence(entry);
+      if (wasLost && this.status === 'limited' && !this.anyLost()) this.setStatus('connected');
     });
     subscription.on('unsubscribed', (ctx) => {
-      // Code 1 = unauthorized: the API refused the token (permission removed).
+      // Code 1 = unauthorized: the API refused the token (permission removed, or its access
+      // cache not yet refreshed after a change). Other codes: the server ended it. While a screen
+      // still follows the channel it is never left silently dead (QA BUG-02): the connection
+      // reports "limited" (a banner shows it) and retries with backoff. A screen that really
+      // lost access shows "not found" and leaves the channel, which stops the retries.
       entry.denied = ctx.code === 1;
       entry.members.clear();
       this.notifyPresence(entry);
+      if (this.channels.get(channel) === entry) this.scheduleRetry(entry);
     });
     subscription.on('join', (ctx) => {
       entry.members.set(ctx.info.client, member(ctx.info.client, ctx.info.connInfo));
@@ -232,8 +292,43 @@ export class RealtimeConnection {
     const entry = this.channels.get(channel);
     if (entry === undefined) return;
     this.channels.delete(channel);
+    this.stopRetry(entry);
+    if (this.status === 'limited' && !this.anyLost()) this.setStatus('connected');
     entry.subscription.unsubscribe();
     this.client.removeSubscription(entry.subscription);
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer !== null) return;
+    const delay = RETRY_DELAYS_MS[Math.min(this.reconnects, RETRY_DELAYS_MS.length - 1)] ?? 30_000;
+    this.reconnects += 1;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (this.started) this.client.connect();
+    }, delay);
+  }
+
+  private anyLost(): boolean {
+    return [...this.channels.values()].some((entry) => entry.lost);
+  }
+
+  private scheduleRetry(entry: ChannelEntry): void {
+    entry.lost = true;
+    if (this.status === 'connected') this.setStatus('limited');
+    if (entry.retryTimer !== null) return;
+    const delay = RETRY_DELAYS_MS[Math.min(entry.retries, RETRY_DELAYS_MS.length - 1)] ?? 30_000;
+    entry.retries += 1;
+    entry.retryTimer = setTimeout(() => {
+      entry.retryTimer = null;
+      if (this.channels.get(entry.subscription.channel) === entry) entry.subscription.subscribe();
+    }, delay);
+  }
+
+  private stopRetry(entry: ChannelEntry): void {
+    if (entry.retryTimer !== null) clearTimeout(entry.retryTimer);
+    entry.retryTimer = null;
+    entry.lost = false;
+    entry.retries = 0;
   }
 
   private deliver(entry: ChannelEntry, message: RealtimeMessage): void {

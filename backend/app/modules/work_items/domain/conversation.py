@@ -135,3 +135,27 @@ def mentioned_ids(html: str) -> list[str]:
             if value not in found:
                 found.append(value)
     return found[:MENTIONS_MAX]
+
+
+def unmention(html: str, user_ids: Collection[str]) -> str:
+    """`html` with the mentions of `user_ids` turned into their plain words (QA C3).
+
+    Used for mentions of people who are not users of the tenant (forged or from elsewhere): the
+    text stays readable, but nothing looks like a mention of someone who does not exist.
+    """
+    wanted = {u.lower() for u in user_ids}
+    if not wanted:
+        return html
+
+    def plain(match: re.Match[str]) -> str:
+        found = _MENTION_ID.search(match.group(1))
+        if found is not None and found.group(1).lower() in wanted:
+            return match.group(2)
+        return match.group(0)
+
+    return _MENTION_SPAN.sub(plain, html)
+
+
+_MENTION_SPAN = re.compile(
+    r"(<span\b[^>]*\bdata-type=\"mention\"[^>]*>)(.*?)</span>", re.IGNORECASE | re.DOTALL
+)

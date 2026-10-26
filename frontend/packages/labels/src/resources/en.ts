@@ -852,7 +852,6 @@ export const en = {
   'incidents.sort.subject': 'Subject A–Z',
   'incidents.view_notice': 'View “{{view}}”: {{count}} shown.',
   'incidents.filter_notice': 'Your search and filters narrow it to {{count}}.',
-  'incidents.hidden_notice': '{{count}} other incidents you can see are not in this view.',
   'incidents.hidden_notice_capped':
     'More than {{count}} other incidents you can see are not in this view.',
   'incidents.show_all': 'Show everything',
@@ -1267,7 +1266,6 @@ export const en = {
   'errors.follower_not_found': 'This person is not following it.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
-  'errors.field.invalid_email': 'Check the email addresses.',
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.replies_are_public':
     'Replies go to people outside the team, so they are always public.',
@@ -1319,14 +1317,8 @@ export const en = {
   'live.someone': 'Someone',
   'incidents.tab.conversation': 'Conversation ({{count}})',
   'incidents.handover_title': 'Hand over {{id}}?',
-  'incidents.handover_moves': '{{id}} moves to {{group}}, outside the incidents you work on.',
   'incidents.handover_keep_following': 'Keep following this incident',
-  'incidents.handover_following_text':
-    'You keep following it: you can still open it, see its updates live and add private notes, but not change it. You can unfollow at any time.',
-  'incidents.handover_text':
-    'You will no longer be able to see {{id}} or be told about it. The history records the hand-over.',
   'incidents.handover_confirm_following': 'Hand over and keep following',
-  'incidents.handed_over_following': '{{id}} handed over to {{group}}. You keep following it.',
   'richtext.undo': 'Undo',
   'richtext.redo': 'Redo',
   'richtext.text_style': 'Text style',
@@ -1443,6 +1435,23 @@ export const en = {
   'followers.access_hint':
     'They handed it over and kept following: they can open it and add private notes, but not change it.',
   'followers.add': 'Add a follower',
+  'connectivity.limited': 'Some live updates are paused. Retrying…',
+  'errors.field.invalid_email': 'These addresses are not valid: {{addresses}}',
+  'incidents.hidden_notice_one': '{{count}} other incident you can see is not in this view.',
+  'incidents.hidden_notice_other': '{{count}} other incidents you can see are not in this view.',
+  'conversation.mention_warning_title': 'Send without notifying everyone?',
+  'conversation.mention_cannot_see': "{{name}} can't see this incident and won't be notified.",
+  'conversation.send_anyway': 'Send anyway',
+  'conversation.go_back': 'Go back',
+  'followers.remove_loses_access':
+    '{{name}} sees this incident only by following it. Removing them also removes their access.',
+  'followers.remove_ok': 'Remove',
+  'incidents.handover_moves': '{{id}} moves to {{group}}, outside the incidents you work on.',
+  'incidents.handover_following_text':
+    'You keep following it: you can still open it, see its updates live and add private notes, but not change it. You can unfollow at any time.',
+  'incidents.handover_text':
+    'You will no longer be able to see {{id}} or be told about it. The history records the hand-over.',
+  'incidents.handed_over_following': '{{id}} handed over to {{group}}. You keep following it.',
 } as const;
 
 export type LabelKey = keyof typeof en;

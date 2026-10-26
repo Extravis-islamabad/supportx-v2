@@ -16,7 +16,14 @@ export interface RealtimeMessage {
  * connecting / reconnecting: trying (live updates may lag); connected: live;
  * polling: no connection for a while, screens refresh on a timer; offline: given up (signed out).
  */
-export type ConnectionStatus = 'connecting' | 'connected' | 'reconnecting' | 'polling' | 'offline';
+export type ConnectionStatus =
+  | 'connecting'
+  | 'connected'
+  | 'reconnecting'
+  | 'polling'
+  | 'offline'
+  /** Connected, but a channel a screen follows is refused or ended; being retried (QA BUG-02). */
+  | 'limited';
 
 /** Someone else following the same record channel (a connection; one person may have several). */
 export interface PresenceMember {
