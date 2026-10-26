@@ -48,6 +48,7 @@ export const queryKeys = {
     followers: (id: string) => ['incidents', 'followers', id] as const,
     counters: ['incidents', 'counters'] as const,
     replyTemplates: ['incidents', 'reply-templates'] as const,
+    templates: ['incidents', 'templates'] as const,
   },
   audit: {
     all: ['audit'] as const,

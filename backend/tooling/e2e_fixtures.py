@@ -7,7 +7,8 @@ pattern. They are requesters, so they never take a technician seat. Refuses prod
 
 `delete` also removes what the suite itself created through the UI and API (WP-012, WP-020),
 matched by the reserved "E2E " name prefix: announcements (with their field history and audience
-rows), incidents (with their history), support groups and sites, in the two dev tenants; plus
+rows), incidents (with their history), incident templates and admin-added pick-list values
+(WP-020c), support groups and sites, in the two dev tenants; plus
 the field history of the suite's own users (`e2e.*@demo.test`, profile and layout saves). The API
 only soft-deletes, and history is append-only for the application; the suite must leave nothing.
 
@@ -70,6 +71,26 @@ SUITE_RECORDS = (
         for table in ("work_item_conversations", "work_item_followers")
     ),
     ("work_items", "DELETE FROM work_items WHERE subject LIKE $1", SUITE_PREFIX),
+    (
+        # Templates the suite made (WP-020c), after the incidents that name them.
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'work_item_template' AND record_id IN"
+            " (SELECT id FROM work_item_templates WHERE labels->>'en' LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
+    (
+        "work_item_templates",
+        "DELETE FROM work_item_templates WHERE labels->>'en' LIKE $1 AND NOT is_default",
+        SUITE_PREFIX,
+    ),
+    (
+        # Pick-list values the suite added (admin values only, never a shipped one).
+        "work_item_reasons",
+        "DELETE FROM work_item_reasons WHERE labels->>'en' LIKE $1 AND code LIKE 'v\\_%'",
+        SUITE_PREFIX,
+    ),
     (
         "group_members",
         (

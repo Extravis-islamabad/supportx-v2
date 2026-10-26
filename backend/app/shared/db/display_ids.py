@@ -25,7 +25,7 @@ import re
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, ForeignKey, func
+from sqlalchemy import CheckConstraint, ForeignKey, func, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
@@ -100,3 +100,51 @@ async def _next_value(session: AsyncSession, key: str) -> int:
         msg = "display ID upsert returned no row"
         raise RuntimeError(msg)
     return int(value)
+
+
+async def last_number(session: AsyncSession, counter_key: str) -> int:
+    """The last number a counter handed out in the session's tenant (0: none yet)."""
+    value = await session.scalar(
+        select(DisplayIdSequence.last_value).where(DisplayIdSequence.prefix == counter_key)
+    )
+    return int(value or 0)
+
+
+class NumberAlreadyUsedError(ValueError):
+    """The next number asked for is not above the last one handed out (REQ-ADM-045 AC3)."""
+
+
+async def set_next_number(session: AsyncSession, counter_key: str, next_number: int) -> None:
+    """Make the counter hand out `next_number` next; never backwards (IDs are never reused).
+
+    Locks the counter row, so a create running at the same time either finishes first (and the
+    check sees its number) or waits and gets the new number.
+    """
+    if not _KEY.fullmatch(counter_key):
+        msg = f"counter key must match {KEY_PATTERN}, got {counter_key!r}"
+        raise ValueError(msg)
+    context = session.info.get(SESSION_TENANT_KEY)
+    if not isinstance(context, TenantContext):
+        msg = "set_next_number needs a tenant session"
+        raise TypeError(msg)
+    current = await session.scalar(
+        select(DisplayIdSequence.last_value)
+        .where(DisplayIdSequence.prefix == counter_key)
+        .with_for_update()
+    )
+    if next_number <= (current or 0):
+        raise NumberAlreadyUsedError(next_number)
+    if next_number == 1:
+        return  # nothing handed out yet and the next is 1: already so
+    if current is None:
+        await session.execute(
+            insert(DisplayIdSequence).values(
+                tenant_id=context.tenant_id, prefix=counter_key, last_value=next_number - 1
+            )
+        )
+        return
+    await session.execute(
+        update(DisplayIdSequence)
+        .where(DisplayIdSequence.prefix == counter_key)
+        .values(last_value=next_number - 1, updated_at=func.now())
+    )

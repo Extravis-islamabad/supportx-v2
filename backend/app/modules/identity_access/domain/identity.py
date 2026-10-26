@@ -41,6 +41,17 @@ class NavLayout(StrEnum):
     SIDE_COMPACT = "side_compact"
 
 
+class FormDensity(StrEnum):
+    """How record forms lay out, per user (WP-020c): one column with labels above, or compact.
+
+    Compact puts two columns side by side with the labels on the left (the denser layout
+    ServiceDesk Plus users are used to); stored server-side so it follows the user.
+    """
+
+    COMFORTABLE = "comfortable"
+    COMPACT = "compact"
+
+
 class ClaimsError(ValueError):
     """The ID token's claims are not acceptable; the login must fail."""
 

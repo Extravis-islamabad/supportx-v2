@@ -2886,6 +2886,36 @@
         "title": "FieldError",
         "type": "object"
       },
+      "FieldRuleIO": {
+        "additionalProperties": false,
+        "description": "How a template treats one field.",
+        "properties": {
+          "requester_can_fill": {
+            "default": false,
+            "description": "For the portal (WP-028).",
+            "title": "Requester Can Fill",
+            "type": "boolean"
+          },
+          "requester_can_see": {
+            "default": true,
+            "description": "For the portal (WP-028).",
+            "title": "Requester Can See",
+            "type": "boolean"
+          },
+          "required": {
+            "default": false,
+            "title": "Required",
+            "type": "boolean"
+          },
+          "shown": {
+            "default": true,
+            "title": "Shown",
+            "type": "boolean"
+          }
+        },
+        "title": "FieldRuleIO",
+        "type": "object"
+      },
       "FileOut": {
         "description": "A file and where it is attached. The scan state decides whether it opens.",
         "properties": {
@@ -3227,6 +3257,15 @@
         "title": "FollowersOut",
         "type": "object"
       },
+      "FormDensity": {
+        "description": "How record forms lay out, per user (WP-020c): one column with labels above, or compact.\n\nCompact puts two columns side by side with the labels on the left (the denser layout\nServiceDesk Plus users are used to); stored server-side so it follows the user.",
+        "enum": [
+          "comfortable",
+          "compact"
+        ],
+        "title": "FormDensity",
+        "type": "string"
+      },
       "GrantIO": {
         "description": "One permission of a role.",
         "properties": {
@@ -3542,6 +3581,100 @@
         "title": "LinkOut",
         "type": "object"
       },
+      "ListOrderIn": {
+        "additionalProperties": false,
+        "description": "Every code of the list, in the new order.",
+        "properties": {
+          "codes": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Codes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "codes"
+        ],
+        "title": "ListOrderIn",
+        "type": "object"
+      },
+      "ListValueIn": {
+        "additionalProperties": false,
+        "description": "A new value of a pick list.",
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          }
+        },
+        "required": [
+          "labels"
+        ],
+        "title": "ListValueIn",
+        "type": "object"
+      },
+      "ListValuePatch": {
+        "additionalProperties": false,
+        "description": "Rename / translate, colour, retire or bring back.",
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "disabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          }
+        },
+        "title": "ListValuePatch",
+        "type": "object"
+      },
       "LiveListChannels": {
         "description": "The channels to join to follow one list live (one per audience the user belongs to).",
         "properties": {
@@ -3557,6 +3690,46 @@
           "channels"
         ],
         "title": "LiveListChannels",
+        "type": "object"
+      },
+      "MatrixCellIn": {
+        "description": "One cell.",
+        "properties": {
+          "impact": {
+            "$ref": "#/components/schemas/Impact"
+          },
+          "priority": {
+            "$ref": "#/components/schemas/Priority"
+          },
+          "urgency": {
+            "$ref": "#/components/schemas/Urgency"
+          }
+        },
+        "required": [
+          "impact",
+          "urgency",
+          "priority"
+        ],
+        "title": "MatrixCellIn",
+        "type": "object"
+      },
+      "MatrixIn": {
+        "additionalProperties": false,
+        "description": "Every cell of the matrix (4 x 4); one missing refuses the whole save.",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/MatrixCellIn"
+            },
+            "maxItems": 16,
+            "title": "Cells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "MatrixIn",
         "type": "object"
       },
       "MeResponse": {
@@ -3636,6 +3809,23 @@
         ],
         "title": "NavLayout",
         "type": "string"
+      },
+      "NumberingIn": {
+        "additionalProperties": false,
+        "description": "The number the next record gets (never one already used).",
+        "properties": {
+          "next_number": {
+            "maximum": 1000000000000000.0,
+            "minimum": 1.0,
+            "title": "Next Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "next_number"
+        ],
+        "title": "NumberingIn",
+        "type": "object"
       },
       "Op": {
         "description": "Every operator of the grammar.",
@@ -3773,6 +3963,20 @@
         ],
         "title": "PersonOut",
         "type": "object"
+      },
+      "PickList": {
+        "description": "Admin-managed value lists: the reason lists plus levels and closure codes.",
+        "enum": [
+          "pause",
+          "third_party",
+          "cancel",
+          "reopen",
+          "reassign",
+          "level",
+          "closure_code"
+        ],
+        "title": "PickList",
+        "type": "string"
       },
       "Priority": {
         "description": "P1 is the highest.",
@@ -4338,6 +4542,40 @@
         "title": "Scale",
         "type": "string"
       },
+      "ScaleValuePatch": {
+        "additionalProperties": false,
+        "description": "Labels and colour of an impact, urgency or priority value.",
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          }
+        },
+        "title": "ScaleValuePatch",
+        "type": "object"
+      },
       "SettingsIn": {
         "additionalProperties": false,
         "description": "New settings.",
@@ -4469,6 +4707,42 @@
         "title": "StatusOut",
         "type": "object"
       },
+      "StatusPatch": {
+        "additionalProperties": false,
+        "description": "A status's labels and colour (its category and code are fixed, D-056).",
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "#rrggbb",
+            "title": "Colour"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "{en, ar, ur}; null: shipped.",
+            "title": "Labels"
+          }
+        },
+        "title": "StatusPatch",
+        "type": "object"
+      },
       "SubscriptionTokenRequest": {
         "description": "The channel to join, e.g. `t:<tenant>:users:<user id>`.",
         "properties": {
@@ -4497,6 +4771,343 @@
           "tenant_id"
         ],
         "title": "SwitchTenantRequest",
+        "type": "object"
+      },
+      "TemplateCopyIn": {
+        "additionalProperties": false,
+        "description": "The copy's name.",
+        "properties": {
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          }
+        },
+        "required": [
+          "labels"
+        ],
+        "title": "TemplateCopyIn",
+        "type": "object"
+      },
+      "TemplateField": {
+        "description": "Fields a template configures, in the order the form shows them.",
+        "enum": [
+          "subject",
+          "requester_id",
+          "on_behalf_of_id",
+          "channel",
+          "site_id",
+          "category_id",
+          "level",
+          "group_id",
+          "technician_id",
+          "impact",
+          "urgency",
+          "impact_details",
+          "description",
+          "tags"
+        ],
+        "title": "TemplateField",
+        "type": "string"
+      },
+      "TemplateIn": {
+        "additionalProperties": false,
+        "description": "A new template.",
+        "properties": {
+          "defaults": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Defaults"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/FieldRuleIO"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
+          },
+          "for_requesters": {
+            "default": false,
+            "title": "For Requesters",
+            "type": "boolean"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          }
+        },
+        "required": [
+          "labels"
+        ],
+        "title": "TemplateIn",
+        "type": "object"
+      },
+      "TemplateOut": {
+        "description": "A template as admins and the create form see it.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seeded templates: labelled by the UI from this code.",
+            "title": "Code"
+          },
+          "copied_from_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set on copies (REQ-INC-035 AC3).",
+            "title": "Copied From Id"
+          },
+          "defaults": {
+            "additionalProperties": true,
+            "description": "Starting values by field.",
+            "title": "Defaults",
+            "type": "object"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "fields": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FieldRuleIO"
+            },
+            "propertyNames": {
+              "$ref": "#/components/schemas/TemplateField"
+            },
+            "title": "Fields",
+            "type": "object"
+          },
+          "for_requesters": {
+            "title": "For Requesters",
+            "type": "boolean"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_default": {
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "labels",
+          "description",
+          "group_name",
+          "is_default",
+          "for_requesters",
+          "disabled",
+          "copied_from_id",
+          "fields",
+          "defaults",
+          "version"
+        ],
+        "title": "TemplateOut",
+        "type": "object"
+      },
+      "TemplatePatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent); `fields` may name only some fields.",
+        "properties": {
+          "defaults": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces all of them.",
+            "title": "Defaults"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "disabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/FieldRuleIO"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
+          },
+          "for_requesters": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "For Requesters"
+          },
+          "group_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Name"
+          },
+          "is_default": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Default"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          }
+        },
+        "title": "TemplatePatch",
         "type": "object"
       },
       "TenantOut": {
@@ -4621,6 +5232,20 @@
           }
         },
         "title": "TransitionIn",
+        "type": "object"
+      },
+      "TransitionPatch": {
+        "additionalProperties": false,
+        "description": "Whether running the transition asks for a reason (REQ-INC-047 AC3).",
+        "properties": {
+          "reason_mode": {
+            "$ref": "#/components/schemas/ReasonMode"
+          }
+        },
+        "required": [
+          "reason_mode"
+        ],
+        "title": "TransitionPatch",
         "type": "object"
       },
       "TypingIn": {
@@ -4797,6 +5422,9 @@
             "title": "Email",
             "type": "string"
           },
+          "form_density": {
+            "$ref": "#/components/schemas/FormDensity"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -4897,6 +5525,7 @@
           "time_zone",
           "signature",
           "nav_layout",
+          "form_density",
           "last_login_at",
           "created_at",
           "updated_at",
@@ -4915,6 +5544,11 @@
           "email": {
             "title": "Email",
             "type": "string"
+          },
+          "form_density": {
+            "$ref": "#/components/schemas/FormDensity",
+            "default": "comfortable",
+            "description": "The user's record form layout preference."
           },
           "id": {
             "format": "uuid",
@@ -5021,6 +5655,17 @@
         "additionalProperties": false,
         "description": "Fields SupportX owns. Identity fields come from Keycloak and cannot be set here.",
         "properties": {
+          "form_density": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FormDensity"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Record forms: comfortable (one column) or compact (two)."
+          },
           "nav_layout": {
             "anyOf": [
               {
@@ -5329,6 +5974,14 @@
             "title": "Auto Status On Assign",
             "type": "boolean"
           },
+          "closure_codes": {
+            "description": "REQ-INC-093.",
+            "items": {
+              "$ref": "#/components/schemas/WorkItemListValueOut"
+            },
+            "title": "Closure Codes",
+            "type": "array"
+          },
           "default_impact": {
             "anyOf": [
               {
@@ -5367,12 +6020,25 @@
             "title": "Keep Following On Handover",
             "type": "boolean"
           },
+          "levels": {
+            "description": "Support levels (REQ-INC-007).",
+            "items": {
+              "$ref": "#/components/schemas/WorkItemListValueOut"
+            },
+            "title": "Levels",
+            "type": "array"
+          },
           "matrix": {
             "items": {
               "$ref": "#/components/schemas/WorkItemMatrixCellOut"
             },
             "title": "Matrix",
             "type": "array"
+          },
+          "next_number": {
+            "description": "The display number the next record gets.",
+            "title": "Next Number",
+            "type": "integer"
           },
           "prefix": {
             "title": "Prefix",
@@ -5425,7 +6091,10 @@
           "transitions",
           "scales",
           "matrix",
-          "reasons"
+          "reasons",
+          "levels",
+          "closure_codes",
+          "next_number"
         ],
         "title": "WorkItemCatalogueOut",
         "type": "object"
@@ -5872,6 +6541,19 @@
               }
             ]
           },
+          "impact_details": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Plain text.",
+            "title": "Impact Details"
+          },
           "keep_following": {
             "anyOf": [
               {
@@ -5883,6 +6565,19 @@
             ],
             "description": "With confirm_lose_access: keep following it (null: tenant default, D-068).",
             "title": "Keep Following"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A `level` list code.",
+            "title": "Level"
           },
           "on_behalf_of_id": {
             "anyOf": [
@@ -5962,6 +6657,19 @@
             ],
             "title": "Technician Id"
           },
+          "template_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Default: the tenant's default template (its rules apply).",
+            "title": "Template Id"
+          },
           "urgency": {
             "anyOf": [
               {
@@ -6035,6 +6743,17 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
           },
           "priority": {
             "$ref": "#/components/schemas/Priority"
@@ -6145,6 +6864,7 @@
           "category_id",
           "priority",
           "priority_source",
+          "level",
           "status",
           "status_category",
           "status_reason_code",
@@ -6158,6 +6878,58 @@
           "version"
         ],
         "title": "WorkItemListItem",
+        "type": "object"
+      },
+      "WorkItemListValueOut": {
+        "description": "One value of a level or closure-code list (retired ones included, marked).",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "disabled": {
+            "title": "Disabled",
+            "type": "boolean"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: labelled by the UI from the code.",
+            "title": "Labels"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "labels",
+          "sort_order",
+          "colour",
+          "disabled"
+        ],
+        "title": "WorkItemListValueOut",
         "type": "object"
       },
       "WorkItemMatrixCellOut": {
@@ -6336,6 +7108,17 @@
               }
             ]
           },
+          "impact_details": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact Details"
+          },
           "last_reopened_at": {
             "anyOf": [
               {
@@ -6347,6 +7130,18 @@
               }
             ],
             "title": "Last Reopened At"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A `level` list code (may be a retired one).",
+            "title": "Level"
           },
           "on_behalf_of_id": {
             "anyOf": [
@@ -6517,6 +7312,19 @@
             ],
             "title": "Technician Id"
           },
+          "template_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The template it was created from.",
+            "title": "Template Id"
+          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -6574,9 +7382,12 @@
           "technician_id",
           "category_id",
           "impact",
+          "impact_details",
           "urgency",
           "priority",
           "priority_source",
+          "level",
+          "template_id",
           "status",
           "status_category",
           "status_reason_code",
@@ -6718,6 +7529,18 @@
               }
             ]
           },
+          "impact_details": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impact Details"
+          },
           "keep_following": {
             "anyOf": [
               {
@@ -6729,6 +7552,18 @@
             ],
             "description": "With confirm_lose_access: keep following it (null: tenant default, D-068).",
             "title": "Keep Following"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
           },
           "on_behalf_of_id": {
             "anyOf": [
@@ -6831,11 +7666,27 @@
         "type": "object"
       },
       "WorkItemReasonOut": {
-        "description": "One reason of a pick list.",
+        "description": "One reason of a pick list (retired ones included, marked: they still label records).",
         "properties": {
           "code": {
             "title": "Code",
             "type": "string"
+          },
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "disabled": {
+            "default": false,
+            "title": "Disabled",
+            "type": "boolean"
           },
           "labels": {
             "anyOf": [
@@ -6853,6 +7704,11 @@
           },
           "list": {
             "$ref": "#/components/schemas/ReasonList"
+          },
+          "sort_order": {
+            "default": 0,
+            "title": "Sort Order",
+            "type": "integer"
           }
         },
         "required": [
@@ -13291,6 +14147,1332 @@
           }
         },
         "summary": "Change incident settings",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/lists/{list_name}/order": {
+      "put": {
+        "operationId": "put_list_order_api_v1_incidents_settings_lists__list_name__order_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PickList"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListOrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reorder a pick list",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/lists/{list_name}/values": {
+      "post": {
+        "operationId": "add_list_value_api_v1_incidents_settings_lists__list_name__values_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PickList"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListValueIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a value to a pick list",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/lists/{list_name}/values/{code}": {
+      "patch": {
+        "operationId": "patch_list_value_api_v1_incidents_settings_lists__list_name__values__code__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "list_name",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/PickList"
+            }
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListValuePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Rename, colour, retire or bring back a pick list value",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/matrix": {
+      "put": {
+        "operationId": "put_matrix_api_v1_incidents_settings_matrix_put",
+        "parameters": [
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatrixIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Replace the priority matrix",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/numbering": {
+      "put": {
+        "operationId": "put_numbering_api_v1_incidents_settings_numbering_put",
+        "parameters": [
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NumberingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Set the next display number",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/scales/{scale}/{code}": {
+      "patch": {
+        "operationId": "patch_scale_value_api_v1_incidents_settings_scales__scale___code__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scale",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Scale"
+            }
+          },
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleValuePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change an impact, urgency or priority value's labels or colour",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/statuses/{code}": {
+      "patch": {
+        "operationId": "patch_status_api_v1_incidents_settings_statuses__code__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StatusPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a status's labels or colour",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/settings/transitions/{from_status}/{action}": {
+      "patch": {
+        "operationId": "patch_transition_api_v1_incidents_settings_transitions__from_status___action__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "from_status",
+            "required": true,
+            "schema": {
+              "title": "From Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/WorkItemAction"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a transition's reason prompt",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/templates": {
+      "get": {
+        "description": "Every template, the default first; disabled ones are marked, not hidden.",
+        "operationId": "list_templates_api_v1_incidents_templates_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TemplateOut"
+                  },
+                  "title": "Response List Templates Api V1 Incidents Templates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Templates",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "post": {
+        "description": "A new template (never the default until made so).",
+        "operationId": "create_template_api_v1_incidents_templates_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a template",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/templates/{template_id}": {
+      "patch": {
+        "description": "Name, rules, starting values, requester flags, default, enabled.",
+        "operationId": "patch_template_api_v1_incidents_templates__template_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplatePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict: reload and try again."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a template",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/templates/{template_id}/copy": {
+      "post": {
+        "description": "An independent copy, marked as a copy of the original (REQ-INC-035 AC3).",
+        "operationId": "copy_template_api_v1_incidents_templates__template_id__copy_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "template_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Template Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TemplateCopyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TemplateOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Copy a template",
         "tags": [
           "incidents"
         ]

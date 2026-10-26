@@ -57,6 +57,7 @@ from app.modules.work_items.domain.lifecycle import (
     move_pause_clock,
     reason_problems,
 )
+from app.modules.work_items.domain.templates import PickList, clean_impact_details
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     Channel,
@@ -82,8 +83,9 @@ from app.modules.work_items.infra.models import (
     WorkItemFollower,
 )
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import followers
+from app.modules.work_items.service import followers, templates
 from app.modules.work_items.service.access import RESOURCE
+from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.display_ids import next_display_number
 from app.shared.db.repository import Repository
@@ -711,6 +713,12 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
             if value is not None and value not in set(enum):
                 problems.append((name, "invalid_choice"))
             cleaned[name] = value
+    if "impact_details" in values:
+        details, codes = clean_impact_details(values["impact_details"])
+        problems += [("impact_details", c) for c in codes]
+        cleaned["impact_details"] = details
+    if "level" in values:
+        cleaned["level"] = values["level"] or None
     if "tags" in values:
         tags, codes = clean_tags(list(values["tags"] or []))
         problems += [("tags", c) for c in codes]
@@ -773,6 +781,15 @@ def _json(value: Any) -> Any:  # noqa: ANN401 - field values of several types
     return value
 
 
+def _check_level(
+    cat: Catalogue, level: str | None, *, current: str | None
+) -> list[tuple[str, str]]:
+    """A level offered for new input; the record's own (perhaps retired) level may stay."""
+    if level is None or level == current or level in cat.reason_codes(PickList.LEVEL):
+        return []
+    return [("level", "invalid_choice")]
+
+
 SNAPSHOT_FIELDS = (
     "subject",
     "description",
@@ -784,11 +801,14 @@ SNAPSHOT_FIELDS = (
     "technician_id",
     "category_id",
     "impact",
+    "impact_details",
     "urgency",
     "priority",
     "priority_source",
+    "level",
     "tags",
     "status",
+    "template_id",
 )
 
 
@@ -990,7 +1010,7 @@ def _closed(record: WorkItem) -> bool:
 # --- create ---------------------------------------------------------------------------------------
 
 
-async def create(  # noqa: PLR0913, C901 - the new record's inputs and checks, explicit
+async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and checks, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -1014,6 +1034,9 @@ async def create(  # noqa: PLR0913, C901 - the new record's inputs and checks, e
         raise PermissionDenied(
             params={"permission": wtype.permission("assign"), "reason": NO_PERMISSION}
         )
+    template = await templates.for_create(session, wtype, values.get("template_id"))
+    problems += templates.required_problems(template, {**values, **cleaned})
+    problems += _check_level(cat, cleaned.get("level"), current=None)
     if problems:
         raise _errors(problems)
     problems += await _check_people(session, cleaned)
@@ -1053,9 +1076,12 @@ async def create(  # noqa: PLR0913, C901 - the new record's inputs and checks, e
         technician_id=technician_id,
         category_id=cleaned.get("category_id"),
         impact=cleaned.get("impact"),
+        impact_details=cleaned.get("impact_details"),
         urgency=cleaned.get("urgency"),
         priority=priority,
         priority_source=priority_source,
+        level=cleaned.get("level"),
+        template_id=template.id,
         status=initial,
         status_category=cat.lifecycle.category(initial),
         status_changed_at=now,
@@ -1161,6 +1187,8 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         problems += await _check_category(
             session, wtype, cleaned["category_id"], current=record.category_id
         )
+    if "level" in cleaned:
+        problems += _check_level(cat, cleaned["level"], current=record.level)
     if problems:
         raise _errors(problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}

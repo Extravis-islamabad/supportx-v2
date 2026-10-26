@@ -4,6 +4,8 @@ import { z } from '@supportx/forms';
 /** The create form's rules and conversions (WP-020); the fields are in NewIncidentPage. */
 /** The API's limit (WorkItemIn.subject); the form shows a counter (QA BUG-10). */
 export const SUBJECT_MAX = 500;
+/** The API's limit for impact details (plain text). */
+export const IMPACT_DETAILS_MAX = 2000;
 
 export const schema = z
   .object({
@@ -24,7 +26,9 @@ export const schema = z
     technician_id: z.string().nullable(),
     category_id: z.string().nullable(),
     impact: z.string().nullable(),
+    impact_details: z.string().max(IMPACT_DETAILS_MAX, 'errors.field.value_too_long'),
     urgency: z.string().nullable(),
+    level: z.string().nullable(),
     priority: z.string().nullable(), // null: from the matrix
     priority_reason: z.string().max(500, 'errors.field.value_too_long'),
     tags: z.array(z.string()),
@@ -45,7 +49,9 @@ export const FIELDS = [
   'technician_id',
   'category_id',
   'impact',
+  'impact_details',
   'urgency',
+  'level',
   'priority',
   'priority_reason',
   'tags',
@@ -62,7 +68,9 @@ export const EMPTY: Values = {
   technician_id: null,
   category_id: null,
   impact: null,
+  impact_details: '',
   urgency: null,
+  level: null,
   priority: null,
   priority_reason: '',
   tags: [],
@@ -82,7 +90,11 @@ export function previewPriority(
 }
 
 /** What to send: empty optional values are left out; a matrix priority sends no override. */
-export function bodyOf(values: Values, confirmLoseAccess = false): IncidentInput {
+export function bodyOf(
+  values: Values,
+  confirmLoseAccess = false,
+  templateId: string | null = null,
+): IncidentInput {
   const body: Record<string, unknown> = {
     subject: values.subject.trim(),
     requester_id: values.requester_id,
@@ -90,7 +102,9 @@ export function bodyOf(values: Values, confirmLoseAccess = false): IncidentInput
     tags: values.tags,
     confirm_lose_access: confirmLoseAccess,
   };
+  if (templateId !== null) body.template_id = templateId;
   if (values.description !== '') body.description = values.description;
+  if (values.impact_details.trim() !== '') body.impact_details = values.impact_details.trim();
   for (const name of [
     'on_behalf_of_id',
     'site_id',
@@ -99,6 +113,7 @@ export function bodyOf(values: Values, confirmLoseAccess = false): IncidentInput
     'category_id',
     'impact',
     'urgency',
+    'level',
   ] as const) {
     if (values[name] !== null) body[name] = values[name];
   }
@@ -107,4 +122,19 @@ export function bodyOf(values: Values, confirmLoseAccess = false): IncidentInput
     body.priority_reason = values.priority_reason.trim();
   }
   return body as unknown as IncidentInput;
+}
+
+/** Whether a form value counts as filled in (an empty editor paragraph does not). */
+export function hasValue(value: unknown): boolean {
+  if (value === null || value === undefined) return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === 'string') {
+    return (
+      value
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .trim() !== ''
+    );
+  }
+  return true;
 }

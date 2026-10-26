@@ -163,6 +163,25 @@ export {
   type WorkItemChannel,
 } from './incidents';
 export {
+  useIncidentCategoryChange,
+  useIncidentSettingsChange,
+  useIncidentTemplateChange,
+  useIncidentTemplates,
+  type CategoryChange,
+  type FieldRule,
+  type IncidentScale,
+  type IncidentTemplate,
+  type IncidentTemplateInput,
+  type IncidentTemplatePatch,
+  type Labels,
+  type ListValue,
+  type PickList,
+  type ReasonMode,
+  type SettingsChange,
+  type TemplateChange,
+  type TemplateField,
+} from './incidentSettings';
+export {
   fetchMentionable,
   sendTyping,
   useAddConversationEntry,
@@ -230,6 +249,7 @@ export {
 export {
   allOf,
   searchFilter,
+  useSetFormDensity,
   useSetNavLayout,
   useSetUiLocale,
   useUpdateUser,
@@ -239,6 +259,7 @@ export {
   type FilterExpression,
   type UserDetail,
   type UserPage,
+  type FormDensity,
   type NavLayout,
   type UserPreferencesPatch,
   type UsersQuery,

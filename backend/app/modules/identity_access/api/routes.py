@@ -14,7 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.identity_access.domain.identity import NavLayout, UserType
+from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import directory
@@ -51,6 +51,7 @@ class UserDetail(BaseModel):
     time_zone: str | None
     signature: str | None
     nav_layout: NavLayout
+    form_density: FormDensity
     ui_locale: Literal["en", "ar", "ur"] | None = Field(
         default=None, description="Language picked in the app; null: Keycloak's `locale`."
     )
@@ -79,6 +80,9 @@ class UserPreferencesPatch(BaseModel):
     time_zone: str | None = Field(default=None, max_length=64, description="IANA, e.g. Asia/Dubai.")
     nav_layout: NavLayout | None = Field(
         default=None, description="Navigation: top bar, side bar or compact side bar."
+    )
+    form_density: FormDensity | None = Field(
+        default=None, description="Record forms: comfortable (one column) or compact (two)."
     )
     ui_locale: str | None = Field(
         default=None,

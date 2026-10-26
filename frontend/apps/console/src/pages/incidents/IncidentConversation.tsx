@@ -66,11 +66,13 @@ import {
 
 import { useTenantChannel } from '@supportx/realtime';
 
-import { ReplyTemplatesDialog } from './ReplyTemplatesDialog';
 import { useTypingSignal } from './typing';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
 type Draft = { kind: 'reply'; mode: ReplyMode } | { kind: 'note' };
+
+/** Where admins manage reply templates (WP-020c: moved out of the composer). */
+const REPLY_TEMPLATES_SETTINGS = '/admin/incidents/reply-templates';
 
 /** Who is writing what right now, from typing signals on the record channel (REQ-WI-006 AC2). */
 export type Typing = Record<string, { name: string; kind: EntryKind }>;
@@ -462,7 +464,6 @@ function Composer({
   // Files for this entry wait as the author's drafts until it is saved (WP-022).
   const [draftIds, setDraftIds] = useState<string[]>([]);
   const drafts = useFiles(draftIds);
-  const [managing, setManaging] = useState(false);
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [body, setBody] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('private');
@@ -626,7 +627,8 @@ function Composer({
         onManageTemplates={
           can('settings.manage')
             ? () => {
-                setManaging(true);
+                // A new tab, so this draft stays; the list here reloads live when saved there.
+                window.open(REPLY_TEMPLATES_SETTINGS, '_blank', 'noopener');
               }
             : undefined
         }
@@ -715,12 +717,6 @@ function Composer({
           />
         </div>
       </Modal>
-      <ReplyTemplatesDialog
-        open={managing}
-        onClose={() => {
-          setManaging(false);
-        }}
-      />
     </Card>
   );
 }

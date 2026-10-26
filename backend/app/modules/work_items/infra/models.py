@@ -46,6 +46,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import Channel, WorkItemTypeCode
 from app.shared.db.models import Base, TenantEntity, TenantKeyed
 
@@ -94,6 +95,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"
     )
+    # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
+    seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_by: Mapped[uuid.UUID | None]
@@ -161,13 +164,19 @@ class WorkItemTransition(TenantKeyed, Base):
 
 
 class WorkItemReason(TenantKeyed, Base):
-    """One value of a reason pick list (pause, cancel, reopen, reassign ...)."""
+    """One value of a pick list: the reason lists (pause, cancel ...), levels, closure codes.
+
+    Values are retired (`disabled_at`), never deleted, so old records keep their label
+    (REQ-ADM-043). Seeded values carry no labels (the UI labels their code); admin values carry
+    their own translations.
+    """
 
     __tablename__ = "work_item_reasons"
     __table_args__ = (
         CheckConstraint(TYPE_CHECK, name="type_code"),
-        CheckConstraint(_codes("list", ReasonList), name="list_code"),
+        CheckConstraint(_codes("list", PickList), name="list_code"),
         CheckConstraint("code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
+        CheckConstraint("colour IS NULL OR colour ~ '^#[0-9a-fA-F]{6}$'", name="colour_format"),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -175,6 +184,7 @@ class WorkItemReason(TenantKeyed, Base):
     code: Mapped[str] = mapped_column(String(40), primary_key=True)
     labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
     sort_order: Mapped[int] = mapped_column(Integer)
+    colour: Mapped[str | None] = mapped_column(String(7))
     disabled_at: Mapped[datetime | None]
 
 
@@ -263,6 +273,49 @@ class WorkItemCategory(TenantEntity):
     disabled_at: Mapped[datetime | None]
 
 
+class WorkItemTemplate(TenantEntity):
+    """An incident (or other type's) template: shown and required fields, starting values.
+
+    REQ-INC-035. `field_rules` maps each configurable field to shown / required / requester can
+    see / requester can fill in; `defaults` maps fields to starting values. Disabled templates
+    are not offered for new records but still name the records created from them.
+    """
+
+    __tablename__ = "work_item_templates"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_work_item_templates_tenant_id_id"),
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("code IS NOT NULL OR labels IS NOT NULL", name="named"),
+        CheckConstraint("code IS NULL OR code ~ '^[a-z][a-z0-9_]{1,39}$'", name="code_format"),
+        CheckConstraint("NOT (is_default AND disabled_at IS NOT NULL)", name="default_enabled"),
+        ForeignKeyConstraint(
+            ["tenant_id", "copied_from_id"],
+            ["work_item_templates.tenant_id", "work_item_templates.id"],
+            name="fk_work_item_templates_copied_from",
+        ),
+        Index("ix_work_item_templates_tenant_type", "tenant_id", "type", "disabled_at"),
+        Index(
+            "uq_work_item_templates_tenant_type_default",
+            "tenant_id",
+            "type",
+            unique=True,
+            postgresql_where=text("is_default AND deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    code: Mapped[str | None] = mapped_column(String(40))
+    labels: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    description: Mapped[str | None] = mapped_column(String(500))
+    group_name: Mapped[str | None] = mapped_column(String(60))
+    is_default: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    for_requesters: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    field_rules: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    defaults: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    copied_from_id: Mapped[uuid.UUID | None]
+    disabled_at: Mapped[datetime | None]
+
+
 class WorkItem(TenantEntity):
     """One ticket-like record of any type."""
 
@@ -316,6 +369,15 @@ class WorkItem(TenantEntity):
             ["tenant_id", "category_id"],
             ["work_item_categories.tenant_id", "work_item_categories.id"],
             name="fk_wi_category",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "template_id"],
+            ["work_item_templates.tenant_id", "work_item_templates.id"],
+            name="fk_wi_template",
+        ),
+        CheckConstraint(
+            f"impact_details IS NULL OR char_length(impact_details) <= {IMPACT_DETAILS_MAX}",
+            name="impact_details_length",
         ),
         ForeignKeyConstraint(
             ["tenant_id", "type", "status"],
@@ -386,8 +448,13 @@ class WorkItem(TenantEntity):
     technician_id: Mapped[uuid.UUID | None]
     category_id: Mapped[uuid.UUID | None]
     impact: Mapped[str | None] = mapped_column(String(30))
+    # Plain text: who and what is affected, in the reporter's words (REQ-INC-001).
+    impact_details: Mapped[str | None] = mapped_column(Text)
     urgency: Mapped[str | None] = mapped_column(String(30))
     priority: Mapped[str] = mapped_column(String(10))
+    # Support level, a code of the `level` pick list (REQ-INC-007); retired codes stay readable.
+    level: Mapped[str | None] = mapped_column(String(40))
+    template_id: Mapped[uuid.UUID | None]
     priority_source: Mapped[str] = mapped_column(String(10))
     status: Mapped[str] = mapped_column(String(40))
     status_category: Mapped[str] = mapped_column(String(10))

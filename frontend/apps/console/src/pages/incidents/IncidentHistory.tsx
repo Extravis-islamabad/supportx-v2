@@ -7,20 +7,25 @@ import {
   useIncidentCatalogue,
   useIncidentCategories,
   useIncidentHistory,
+  useIncidentTemplates,
   useUnits,
   type IncidentHistoryEntry,
 } from '@supportx/api-client';
 import { useAccess, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
-import { categoryPath, statusLabel } from './labels';
+import {
+  categoryPath,
+  levelLabel,
+  reasonValueLabel,
+  scaleLabel,
+  statusLabel,
+  templateLabel,
+} from './labels';
 
 type Change = IncidentHistoryEntry['changes'][number];
 
 const CODED: Record<string, string> = {
-  priority: 'priority',
   priority_source: 'priority_source',
-  impact: 'impact',
-  urgency: 'urgency',
   channel: 'work_item_channel',
   follow_reason: 'follow_reason',
   conversation_entry: 'conversation_entry',
@@ -51,6 +56,7 @@ export function IncidentHistory({ id }: { id: string }) {
   const history = useIncidentHistory(id, actors);
   const catalogue = useIncidentCatalogue();
   const categories = useIncidentCategories();
+  const templates = useIncidentTemplates();
   const sites = useUnits('sites', can('sites.view'));
   const groups = useUnits('groups', can('groups.view'));
   const units = useMemo(
@@ -74,14 +80,32 @@ export function IncidentHistory({ id }: { id: string }) {
     if (change.field === 'status' && typeof value === 'string') {
       return statusLabel(t, catalogue.data, value, locale);
     }
+    if (
+      (change.field === 'priority' || change.field === 'impact' || change.field === 'urgency') &&
+      typeof value === 'string'
+    ) {
+      return scaleLabel(t, catalogue.data, change.field, value, locale);
+    }
+    if (change.field === 'level' && typeof value === 'string') {
+      return levelLabel(t, catalogue.data, value, locale);
+    }
+    if (change.field === 'template_id' && typeof value === 'string') {
+      const found = templates.data?.find((x) => x.id === value);
+      return found === undefined ? t('history.changed') : templateLabel(t, found, locale);
+    }
     const prefix = CODED[change.field];
     if (prefix !== undefined && typeof value === 'string') return t(`${prefix}.${value}`);
     if (
       (change.field === 'status_reason_code' || change.field === 'assignment_reason') &&
       typeof value === 'string'
     ) {
-      const reason = catalogue.data?.reasons.find((r) => r.code === value);
-      return reason === undefined ? t('history.changed') : t(`reason.${reason.list}.${value}`);
+      return reasonValueLabel(
+        t,
+        catalogue.data,
+        value,
+        locale,
+        change.field === 'assignment_reason' ? 'reassign' : null,
+      );
     }
     if (TIMES.has(change.field) && typeof value === 'string') return dates.format(value);
     if (change.field === 'category_id' && typeof value === 'string') {

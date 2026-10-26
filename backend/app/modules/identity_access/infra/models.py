@@ -38,6 +38,7 @@ class User(TenantEntity):
         CheckConstraint("user_type IN ('technician', 'requester')", name="user_type_code"),
         CheckConstraint("char_length(signature) <= 2000", name="signature_length"),
         CheckConstraint("nav_layout IN ('top', 'side', 'side_compact')", name="nav_layout_code"),
+        CheckConstraint("form_density IN ('comfortable', 'compact')", name="form_density_code"),
         CheckConstraint(
             "ui_locale IS NULL OR ui_locale IN ('en', 'ar', 'ur')", name="ui_locale_code"
         ),
@@ -58,6 +59,7 @@ class User(TenantEntity):
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
     nav_layout: Mapped[str] = mapped_column(server_default="top")
+    form_density: Mapped[str] = mapped_column(server_default="comfortable")
     # The language picked in the app (QA BUG-04); NULL: follow `locale` from Keycloak.
     ui_locale: Mapped[str | None]
     # When the Keycloak roles were mapped to SupportX roles (once, D-029); NULL = not yet.

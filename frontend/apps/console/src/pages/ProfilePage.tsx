@@ -7,6 +7,7 @@ import {
   Descriptions,
   Form,
   Input,
+  Segmented,
   Skeleton,
   Space,
   Typography,
@@ -17,13 +18,40 @@ import {
   ApiError,
   queryKeys,
   useSession,
+  useSetFormDensity,
   useUpdateUser,
   useUser,
+  type FormDensity,
   type UserDetail,
 } from '@supportx/api-client';
 import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx/forms';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import { ConflictDialog, PresenceAvatars, reportError, useLabel, WriteButton } from '@supportx/ui';
+
+/** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
+function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
+  const t = useLabel();
+  const setDensity = useSetFormDensity(userId);
+  return (
+    <Card title={t('form_density.title')}>
+      <Space direction="vertical">
+        <Segmented<FormDensity>
+          aria-label={t('form_density.title')}
+          value={value}
+          onChange={(next) => {
+            setDensity.mutate(next, { onError: reportError });
+          }}
+          options={[
+            { value: 'comfortable', label: t('form_density.comfortable') },
+            { value: 'compact', label: t('form_density.compact') },
+          ]}
+          data-testid="profile-density"
+        />
+        <Typography.Text type="secondary">{t('profile.form_density_help')}</Typography.Text>
+      </Space>
+    </Card>
+  );
+}
 
 const schema = z.object({
   signature: z.string().max(2000, 'errors.field.value_too_long'),
@@ -74,6 +102,7 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
+      <FormDensityCard userId={me.id} value={me.form_density} />
       <ProfileForm
         user={user.data}
         selfName={me.display_name}

@@ -5,6 +5,7 @@ import {
   fakeConversationEntry,
   fakeIncident,
   fakeIncidentCatalogue,
+  fakeIncidentTemplate,
 } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
@@ -43,6 +44,7 @@ const REPLY = fakeConversationEntry({
 });
 const COMMON = {
   'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+  'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate()] },
   'GET /api/v1/incidents/categories': { body: [] },
   'GET /api/v1/organization/groups': { body: [] },
   'GET /api/v1/organization/sites': { body: [] },

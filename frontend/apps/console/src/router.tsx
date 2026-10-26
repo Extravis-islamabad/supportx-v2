@@ -97,6 +97,13 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'incidents/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/incidents/IncidentSettingsPage'))
+                .IncidentSettingsPage,
+            }),
+          },
+          {
             path: 'files',
             lazy: async () => ({
               Component: (await import('./pages/admin/files/FilesPage')).FilesPage,

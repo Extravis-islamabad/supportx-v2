@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.modules.identity_access.domain.identity import NavLayout, UserType
+from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import User
@@ -42,7 +42,7 @@ from app.shared.history import Change, Source, explain_conflict, record_changes
 
 USER_RECORD_TYPE = "user"
 
-EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout", "ui_locale"})
+EDITABLE_FIELDS = frozenset({"signature", "time_zone", "nav_layout", "form_density", "ui_locale"})
 UI_LOCALES = frozenset({"en", "ar", "ur"})
 MAX_SIGNATURE_LENGTH = 2000
 
@@ -144,6 +144,14 @@ def _validate(changes: Mapping[str, Any]) -> dict[str, Any]:
             errors.append(
                 FieldError(
                     field="body.nav_layout",
+                    code="invalid_choice",
+                    message_key="errors.field.invalid_choice",
+                )
+            )
+        elif name == "form_density" and value not in {d.value for d in FormDensity}:
+            errors.append(
+                FieldError(
+                    field="body.form_density",
                     code="invalid_choice",
                     message_key="errors.field.invalid_choice",
                 )

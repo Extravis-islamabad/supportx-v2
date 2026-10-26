@@ -4,10 +4,11 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020b-FIX (all WP-020b QA findings: BUG-01..10, C1..C7, D-081), 2026-10-26.
-  Before it: WP-020b (conversation, notes, followers, richer editor).
-- **Next work package:** WP-020c (incident settings screens and templates), **when the product
-  owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
+- **Last completed:** WP-020c (incident settings screens and templates, D-083), 2026-10-26.
+  Before it: WP-020b-FIX (all WP-020b QA findings) and WP-020b.
+- **Next work package:** the WP-020c QA findings (Desktop/qa-wp020c/QA-REPORT.md), **when the
+  product owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan:
+  ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -344,6 +345,43 @@ Every finding of Desktop/qa-wp020b/QA-REPORT.md has a test named after its ID th
 - [x] D-081: warning before sending a mention of someone who cannot see the incident; the record
   opens on the last-used tab per user (Conversation first). Demo data restored.
 
+### [x] WP-020c — Incident settings screens and templates (D-083; done 2026-10-26)
+REQ-INC-035, REQ-INC-006, REQ-INC-007 (V1, pulled forward on request), REQ-INC-009 AC4,
+REQ-INC-044 AC4, REQ-INC-045 AC3 (values only, D-056), REQ-INC-047 AC3, REQ-INC-093 (the list),
+REQ-INC-017 AC1, REQ-ADM-043, REQ-ADM-045 (incidents), REQ-WI-002 AC4, REQ-WI-009 AC4, Impact
+details (REQ-INC-001). One session (planned two).
+- [x] Migration 0019 (0018 when built; renumbered after lane B's files migration): `work_item_templates` (RLS, no DELETE grant, actor triggers; one default per
+  type), `work_items.template_id`, `level`, `impact_details`; `work_item_reasons` is the pick-list
+  table (lists `level` and `closure_code`, optional colour); `work_item_type_settings.seed_version`
+  (tenants seeded before WP-020c get levels, closure codes and the standard template on their next
+  read, once, race-safe); `users.form_density`.
+- [x] API (all admin writes `settings.manage`, If-Match on the catalogue version, field history on
+  the settings record, outbox event, audited): status labels and colours, reason prompt per
+  transition, scale labels and colours, the matrix (saved whole, a gap refused), pick lists (add,
+  rename, colour, retire / bring back, reorder; "Other" kept), next number (never backwards);
+  templates (list for `incidents.view`, create, change, copy, default, turn off); create applies the
+  template's required fields on the server and refuses a turned-off template; catalogue carries
+  retired values (marked) so old records keep their labels. New audit actions
+  `incident.template_created` / `incident.template_changed`.
+- [x] Console: Admin › Incidents (General: numbering, defaults, automatic steps, first response;
+  Templates with editor drawer; Statuses and reason prompts; Reasons; Priority: matrix and scale
+  names; Categories tree; Levels; Closure codes; Reply templates, moved out of the composer). New
+  incident form: template picker (searchable, grouped, default preselected), switching keeps typed
+  values and asks before clearing, hidden fields listed, retired starting values announced,
+  template-required fields checked; 3-level category picker with "search all levels" and a
+  clearing notice; Level; Impact details; comfortable / compact layout (user preference, also on
+  My profile). Record: Level, Impact details, Template; admin names and colours of priority,
+  impact and urgency everywhere; retired reasons not offered, unknown codes read "Unknown value".
+  Settings changes reach every open screen live (`work_items.settings_changed` in the console
+  frame).
+- [x] Labels en/ar/ur for every new key (202 each; Arabic plural forms).
+- Not done here: REQ-INC-020 (log an incident already resolved) needs the resolution field
+  (WP-020f); REQ-INC-011 AC2/3 (no-SLA marker and view) with WP-025; category merge (REQ-ADM-043
+  AC3) and reordering categories; the duplicate-name warning (REQ-WI-027 AC2, WP-021); the
+  all-record-types numbering page (REQ-ADM-045) once a second type exists; the portal flags take
+  effect with WP-028; template life cycle and workflow (REQ-INC-035 last sentence) with the
+  designers (V1).
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -511,6 +549,24 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-26 — WP-020c: incident settings screens and templates
+
+- **Built:** see the WP-020c entry. Decision D-083 (defaults per D-074; renumbered from D-082 when merging main, lane B took
+  it). Migration 0019 on top of lane B's 0018 (renumbered when merging main) (applied to the dev database). PR #56.
+- **No new dependencies.** Shared changes: `users.form_density` (identity_access, BFF `/auth/me`),
+  `display_ids.last_number` / `set_next_number`, the console frame listens to
+  `work_items.settings_changed`, `@supportx/api-client` `incidentSettings.ts`, e2e cleanup of
+  "E2E" templates and pick-list values.
+- **Tests:** backend 1015 passed, 1 skipped (coverage 94.3 %); Vitest console 109 (13 new);
+  Playwright `incident-settings.spec.ts` 3/3. Full e2e run: 38/40 locally; `qa-fixes` BUG-04
+  passed on two reruns (flaky under load); `branding` login logo fails on the dev Keycloak (realm
+  theme state, not this branch).
+- **Slow tests (over 5 s, measured while the e2e suite ran in parallel):** event relay throughput
+  10k (26 s), audit jobs seal/anchor/verify (24 s), 100k list p95 (19 s), commit→consumer latency
+  (14 s), filtered list 100k (12 s), brand assets generation (9 s), audit retention archive
+  (7.5 s), OpenAPI export (6.7 s), two parallel relays (6.4 s), and the incidents API tests whose
+  *setup* (two orgs with roles, sites and groups) takes 6-22 s under load. Timeouts unchanged.
 
 ### 2026-10-26 — WP-022 files and safe attachments (lane B, sessions 1–3)
 

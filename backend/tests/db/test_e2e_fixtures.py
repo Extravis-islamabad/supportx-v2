@@ -47,6 +47,30 @@ async def _scenario(database: db_testing.ThrowawayDatabase) -> None:
     await _suite_records(database)
 
 
+async def _work_item_config(conn: asyncpg.Connection) -> None:
+    """Templates and pick-list values (WP-020c).
+
+    Only the suite's own go; a shipped value with an "E2E" label and a default template stay.
+    """
+    for name, default in (("E2E outage", False), ("E2E default", True), ("Keep", False)):
+        await conn.execute(
+            "INSERT INTO work_item_templates (id, tenant_id, type, labels, is_default)"
+            " VALUES (gen_random_uuid(), $1, 'incident', jsonb_build_object('en', $2::text),"
+            " $3)",
+            seed_dev.DEMO_TENANT_ID,
+            name,
+            default,
+        )
+    for code, name in (("v_e2e1", "E2E level"), ("tier_1", "E2E renamed"), ("v_keep", "Keep")):
+        await conn.execute(
+            "INSERT INTO work_item_reasons (tenant_id, type, list, code, labels, sort_order)"
+            " VALUES ($1, 'incident', 'level', $2, jsonb_build_object('en', $3::text), 0)",
+            seed_dev.DEMO_TENANT_ID,
+            code,
+            name,
+        )
+
+
 async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
     """Only "E2E …" announcements and sites (and their history) go; everything else stays."""
     conn = await asyncpg.connect(database.admin_url)
@@ -131,6 +155,7 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
                 seed_dev.DEMO_TENANT_ID,
                 role_id,
             )
+        await _work_item_config(conn)
     finally:
         await conn.close()
 
@@ -141,6 +166,8 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         "work_item_conversations": 0,  # with their incidents (WP-020b)
         "work_item_followers": 0,
         "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
+        "work_item_templates": 1,
+        "work_item_reasons": 1,
         "group_members": 1,
         "support_groups": 2,
         "site_members": 0,

@@ -106,6 +106,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("incident.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.category_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.category_changed", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.template_created", AuditCategory.CONFIGURATION, "work_items"),
+    ("incident.template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_created", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.reply_template_deleted", AuditCategory.CONFIGURATION, "work_items"),

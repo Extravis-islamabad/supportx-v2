@@ -1,8 +1,10 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { App as AntApp } from 'antd';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import {
+  queryKeys,
   useLogout,
   useSession,
   useSetNavLayout,
@@ -23,6 +25,7 @@ import {
   useLicence,
   visibleNav,
 } from '@supportx/ui';
+import { useTenantChannel } from '@supportx/realtime';
 
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
@@ -44,6 +47,20 @@ export function ConsoleLayout() {
     setPaletteOpen(true);
   }, []);
   useCommandPaletteShortcut(openPalette);
+
+  // Incident settings changed by an admin anywhere (WP-020c): every open form, list and record
+  // reloads its pick lists, labels and templates; nothing waits for a page refresh (§8).
+  const queryClient = useQueryClient();
+  useTenantChannel((event) => {
+    if (event.type !== 'work_items.settings_changed') return;
+    for (const key of [
+      queryKeys.incidents.catalogue,
+      queryKeys.incidents.categories,
+      queryKeys.incidents.templates,
+    ]) {
+      void queryClient.invalidateQueries({ queryKey: key });
+    }
+  });
 
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');

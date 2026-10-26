@@ -177,8 +177,9 @@ function ReasonDialog({
   const [text, setText] = useState('');
   const [touched, setTouched] = useState(false);
   const list = state.reason_list;
+  // Retired reasons label old records but are not offered (REQ-ADM-043).
   const options = (catalogue?.reasons ?? [])
-    .filter((r) => r.list === list)
+    .filter((r) => r.list === list && !r.disabled)
     .map((r) => {
       const label = labelled(r.labels, locale, () => t(`reason.${r.list}.${r.code}`));
       return { value: r.code, label, 'aria-label': label };
