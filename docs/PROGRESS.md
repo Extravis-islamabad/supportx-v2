@@ -10,8 +10,8 @@
   (WP-020c..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
-  WP-018 audit log, done 2026-10-26 (branch `feat/wp-018-audit-log`). Lane B's next WP follows
-  the MVP build plan.
+  WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
+  D-078). Lane B's next WP follows the MVP build plan.
 - **Blockers:** None. Homebrew, k3d 5.9.0, kubectl 1.37.1, Helm 4.3.1 and Rust 1.99.1 are installed
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
@@ -317,6 +317,25 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
+### [x] BRAND — SupportX branding (lane B; product owner request; D-078; done 2026-10-26)
+- **Goal:** The SupportX logo and colours everywhere SupportX shows its own brand, from one place
+  that WP-017 replaces per tenant.
+- **Done:** `make brand-assets` (`backend/tooling/brand_assets.py`, standard library only) makes
+  every asset from `docs/brand/supportx-logo-dark-text.png`: logos with dark text, with white
+  text and in one colour, icon, `favicon.ico` (16/32/48), 180/192/512 px icons, `site.webmanifest`,
+  Keycloak login theme `supportx`, and `docs/brand/preview.png` (everything on white and
+  #141414). Colours in `packages/ui/src/brand/palette.json`: primary #7e40d1, gradient
+  #6060de → #951ab6, all pairs AA (high contrast AAA); `make lint` checks them. Logo in the
+  console top bar and sidebars (icon when compact), portal header, portal welcome band in the
+  gradient, header gradient accent, favicons, pre-load splash, session, sign-in-error and crash
+  screens, a new About dialog (version from `/api/v1/health`), and the Keycloak login page
+  (Compose mount, Helm ConfigMap, realm `loginTheme`). Links use the brand colour in every mode
+  (Ant Design's default blue was 4.1:1). Product name label "SupportX". e2e `branding.spec.ts`
+  (axe in light, dark, high contrast, Arabic RTL). `docs/architecture/branding.md`.
+- **Not done:** e-mail templates (none exist yet; WP-023/WP-024 use the same files). Existing
+  Keycloak realms keep Keycloak's theme until an administrator sets the login theme (realms are
+  imported only on first start; one kcadm command, branding.md). Per-tenant branding is WP-017.
+
 ### [x] WP-018 — Tamper-evident audit log (D-034; MVP per D-058; D-076; ADR-027; done 2026-10-26)
 Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - [x] Session 1 (backend core): module `audit`, migration 0014 (numbered 0013 until lane A's
@@ -351,8 +370,8 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   `audit.spec.ts`.
 - **Not done in WP-018 (follow-ups):**
   - partitioning and retention of `field_changes` (the WP-012 field history). It is the work
-    item engine's table, owned by lane A, and it still needs a retention rule from the product
-    owner;
+    item engine's table, owned by lane A. Rule decided (D-077): kept while the record exists,
+    purged with the record (audited); monthly partitioning later;
   - WI-020 AC3 (purge records after retention), which waited for this WP;
   - archives hold at most 1M entries per month (the export limit) and are built in memory. A
     month above that fails visibly (`audit_export_too_large`); a streaming archive is needed
@@ -368,6 +387,21 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-26 — Branding (lane B) and WP-018 wrap-up
+
+- **Branding** (D-078, branch `feat/branding`): see the BRAND entry above. Colours sampled from the
+  logo, #6666ec → #951ab6; #6666ec alone fails AA with white (4.49:1), so the primary is the
+  gradient midpoint #7e40d1 (5.93:1) and the gradient starts at #6060de (4.97:1). Hover and press
+  darken (7.16:1, 8.12:1) instead of Ant Design's lighter hover. Keycloak login page checked with
+  axe in light, dark, high contrast and Arabic in a throwaway Keycloak 26.8.1 container (removed
+  afterwards).
+- **D-077** recorded (field history retention).
+- **Dev environment:** the Compose dev stack and the k3d cluster, stopped from outside the session
+  on 2026-10-25, were started again (`make dev-up`, `k3d cluster start`): `make dev-check` 19
+  passed, 0 failed; all k3d pods ready. The leftover throwaway database from the interrupted
+  local 10M run (`supportx_test_21eb95e23b46`, 7.7 GB) was dropped, with the product owner's OK;
+  nothing else was touched.
 
 ### 2026-10-26 — WP-018 session 3 (retention, restore, volume, demo)
 

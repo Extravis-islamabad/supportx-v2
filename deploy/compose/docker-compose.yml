@@ -156,6 +156,8 @@ services:
       SUPPORTX_KC_PORTAL_ORIGIN: http://localhost:5174
     volumes:
       - ../helm/supportx/files/keycloak/dev:/opt/keycloak/data/import:ro
+      # SupportX login theme (branding.md); start-dev does not cache themes, edits show at once.
+      - ../helm/supportx/files/keycloak/themes/supportx:/opt/keycloak/themes/supportx:ro
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-28080}:8080"
       - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-28090}:9000"

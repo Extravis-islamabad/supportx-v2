@@ -2,7 +2,7 @@ import type { LabelResource } from './en';
 
 // Arabic is mandatory from day one (D-006). Missing keys fall back to English.
 export const ar: LabelResource = {
-  'product.name': 'SupportX v2',
+  'product.name': 'SupportX',
   'app.console.name': 'وحدة تحكم الفني',
   'app.portal.name': 'بوابة الخدمة الذاتية',
   'appearance.dark_mode': 'الوضع الداكن',
@@ -905,6 +905,11 @@ export const ar: LabelResource = {
   'incidents.required_note': 'الحقول المميزة بـ * مطلوبة.',
   'incidents.priority_pending': 'تُحسب عند تحديد التأثير والإلحاح',
   'shell.menu': 'القائمة',
+  'about.open': 'حول SupportX',
+  'about.version': 'الإصدار {{version}}',
+  'about.version_unavailable': 'إصدار الخادم غير متاح الآن.',
+  'about.made_by': 'من إنتاج Extravis',
+  'about.close': 'إغلاق',
   'incidents.pick_person': 'ابحث بالاسم أو البريد الإلكتروني',
   'incidents.nobody_found': 'لم يُعثر على أحد',
   'incidents.no_group': 'بلا مجموعة',

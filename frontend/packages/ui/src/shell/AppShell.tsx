@@ -1,10 +1,11 @@
 import { DownOutlined, LockOutlined } from '@ant-design/icons';
-import { Grid, Layout, Menu, Tooltip, Typography, theme, type MenuProps } from 'antd';
+import { Grid, Layout, Menu, Tooltip, theme, type MenuProps } from 'antd';
 import { useState, type ReactNode } from 'react';
 
 import type { NavLayout } from '@supportx/api-client';
 
-import { useAppearance, useLabel } from '../appearance';
+import { useLabel } from '../appearance';
+import { BrandLogo } from '../brand';
 import type { VisibleNavItem } from './nav';
 
 export interface AppShellProps {
@@ -44,7 +45,6 @@ export function AppShell({
 }: AppShellProps) {
   const t = useLabel();
   const { token } = theme.useToken();
-  const { branding } = useAppearance();
   const [collapsed, setCollapsed] = useState(false);
   const compact = layout === 'side_compact';
   const screens = Grid.useBreakpoint();
@@ -77,22 +77,10 @@ export function AppShell({
   // The sections offered, whatever the layout and whatever fits on screen (tests, diagnostics).
   const itemKeys = nav.map((item) => item.key).join(' ');
 
-  const brand = (short: boolean) =>
-    branding.logoUrl !== undefined ? (
-      <img src={branding.logoUrl} alt={t('product.name')} style={{ maxHeight: 32 }} />
-    ) : (
-      <Typography.Text
-        strong
-        style={{
-          fontSize: 18,
-          borderInlineStart: `4px solid ${token.colorPrimary}`,
-          paddingInlineStart: 8,
-          whiteSpace: 'nowrap',
-        }}
-      >
-        {short ? t('product.short_name') : t('product.name')}
-      </Typography.Text>
-    );
+  // Full logo in the top bar and the wide sidebar; the square mark in the narrow ones.
+  const brand = (short: boolean) => (
+    <BrandLogo variant={short ? 'icon' : 'full'} height={short ? 32 : 28} />
+  );
 
   if (layout === 'top') {
     const topNav = (
@@ -145,7 +133,15 @@ export function AppShell({
         trigger={compact ? null : undefined}
         style={{ borderInlineEnd: `1px solid ${token.colorBorderSecondary}` }}
       >
-        <div style={{ padding: 16, minHeight: 64, display: 'flex', alignItems: 'center' }}>
+        <div
+          style={{
+            padding: 16,
+            minHeight: 64,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: narrow ? 'center' : 'flex-start',
+          }}
+        >
           {brand(narrow)}
         </div>
         <nav

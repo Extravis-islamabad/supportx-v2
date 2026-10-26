@@ -2,23 +2,39 @@ import { theme as antdTheme, type ThemeConfig } from 'antd';
 
 import type { Locale } from '@supportx/labels';
 
+import { SUPPORTX_COLOURS, SUPPORTX_LOGOS, type BrandLogos } from './brand';
+
 export const THEME_MODES = ['light', 'dark', 'high_contrast'] as const;
 export type ThemeMode = (typeof THEME_MODES)[number];
 
 /**
- * What a tenant may brand (WP-017 will load it per tenant; until then the Extravis default).
- * Everything else in the theme derives from these seeds, so a tenant colour changes buttons,
- * links, focus rings and selected menu items consistently in every mode.
+ * What a tenant may brand (WP-017 will load it per tenant; until then the SupportX defaults from
+ * ./brand, docs/architecture/branding.md). Everything else in the theme derives from these seeds,
+ * so a tenant colour changes buttons, links, focus rings and selected menu items consistently in
+ * every mode.
  */
 export interface Branding {
-  /** Seed for every primary shade, e.g. '#9619B5'. */
+  /** Seed for every primary shade, e.g. '#7e40d1'. White text on it must reach 4.5:1. */
   colorPrimary: string;
-  /** Logo URL (S3 asset in WP-017); the product name is shown when absent. */
-  logoUrl?: string;
+  /** Decorative gradient (start, end): header accent, portal welcome band. */
+  gradient: readonly [string, string];
+  /** Logo files; the product name is shown when a variant is missing. */
+  logos: BrandLogos;
 }
 
-/** Extravis brand purple. White text on it has a 6.8:1 contrast ratio (WCAG AA). */
-export const DEFAULT_BRANDING: Branding = { colorPrimary: '#9619B5' };
+/**
+ * The SupportX brand: primary #7e40d1 (the logo gradient's midpoint; white text 5.93:1), gradient
+ * #6060de to #951ab6 (the logo's ends, the start darkened 6% so white text reaches 4.97:1).
+ */
+export const DEFAULT_BRANDING: Branding = {
+  colorPrimary: SUPPORTX_COLOURS.primary,
+  gradient: SUPPORTX_COLOURS.gradient,
+  logos: SUPPORTX_LOGOS,
+};
+
+/** Same amounts as tooling/brand_assets.py (the Keycloak login page uses its hover shade too). */
+const PRIMARY_HOVER_DARKEN = 0.12;
+const PRIMARY_ACTIVE_DARKEN = 0.2;
 
 const LATIN = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial";
 
@@ -60,6 +76,7 @@ export function buildTheme(
       token: {
         ...base,
         colorPrimary: darken(brand.colorPrimary, 0.35),
+        colorLink: darken(brand.colorPrimary, 0.35),
         colorText: '#000000',
         colorTextSecondary: '#1f1f1f',
         colorTextTertiary: '#262626',
@@ -99,14 +116,29 @@ export function buildTheme(
           // Ant Design's #ff4d4f is about 3.3:1 on white as button text; this red is about 5:1.
           colorError: '#cf1322',
         };
+  // Ant Design lightens a primary button on hover; white text on the lighter shade can drop below
+  // 4.5:1. Hover and press darken instead (white on the SupportX hover shade: 7.16:1).
+  const pressed = {
+    colorPrimaryHover: darken(brand.colorPrimary, PRIMARY_HOVER_DARKEN),
+    colorPrimaryActive: darken(brand.colorPrimary, PRIMARY_ACTIVE_DARKEN),
+  };
   if (mode !== 'dark') {
     return {
       algorithm: antdTheme.defaultAlgorithm,
-      token: { ...base, ...readable, colorPrimary: brand.colorPrimary },
+      token: {
+        ...base,
+        ...readable,
+        ...pressed,
+        colorPrimary: brand.colorPrimary,
+        // Links in the brand colour too: Ant Design's default link blue is about 4.1:1 on white.
+        colorLink: brand.colorPrimary,
+        colorLinkHover: pressed.colorPrimaryHover,
+        colorLinkActive: pressed.colorPrimaryActive,
+      },
     };
   }
   // The dark algorithm keeps a deep brand colour as the primary, which Menu, Tabs and links use
-  // for *text*: a purple like #9619B5 then reads at about 1.6:1 on the dark selected background
+  // for *text*: a deep purple (#9619B5) read at about 1.6:1 on the dark selected background
   // (axe, WP-016). Selected and active text uses a light tint of the brand instead.
   const primaryText = lighten(brand.colorPrimary, 0.5);
   return {
@@ -114,8 +146,11 @@ export function buildTheme(
     token: {
       ...base,
       ...readable,
+      ...pressed,
       colorPrimary: brand.colorPrimary,
       colorLink: primaryText,
+      colorLinkHover: primaryText,
+      colorLinkActive: primaryText,
       colorPrimaryText: primaryText,
     },
     components: {

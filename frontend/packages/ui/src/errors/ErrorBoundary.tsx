@@ -2,6 +2,7 @@ import { Button, Result, Space } from 'antd';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
+import { BrandedPage } from '../brand';
 import { CopyReference } from './CopyReference';
 
 interface State {
@@ -32,23 +33,25 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, State> {
 export function CrashPage({ reference }: { reference: string | null }) {
   const t = useLabel();
   return (
-    <Result
-      status="error"
-      title={t('crash.title')}
-      subTitle={t('crash.body')}
-      extra={
-        <Space>
-          <Button
-            type="primary"
-            onClick={() => {
-              window.location.reload();
-            }}
-          >
-            {t('crash.reload')}
-          </Button>
-          {reference !== null && <CopyReference reference={reference} />}
-        </Space>
-      }
-    />
+    <BrandedPage>
+      <Result
+        status="error"
+        title={t('crash.title')}
+        subTitle={t('crash.body')}
+        extra={
+          <Space>
+            <Button
+              type="primary"
+              onClick={() => {
+                window.location.reload();
+              }}
+            >
+              {t('crash.reload')}
+            </Button>
+            {reference !== null && <CopyReference reference={reference} />}
+          </Space>
+        }
+      />
+    </BrandedPage>
   );
 }

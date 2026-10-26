@@ -3,10 +3,49 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>SupportX v2</title>
+    <title>SupportX</title>
+    <!-- Brand files: packages/ui/src/brand (docs/architecture/branding.md). -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <meta name="theme-color" content="#7e40d1" />
+    <style>
+      /* Shown until the app's first render replaces #root. */
+      #sx-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        #sx-splash {
+          background: #141414;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="sx-splash">
+        <picture>
+          <source
+            srcset="../../packages/ui/src/brand/assets/logo-high-contrast.png"
+            media="(prefers-contrast: more)"
+          />
+          <source
+            srcset="../../packages/ui/src/brand/assets/logo-white-text.png"
+            media="(prefers-color-scheme: dark)"
+          />
+          <img
+            src="../../packages/ui/src/brand/assets/logo-dark-text.png"
+            alt="SupportX"
+            height="40"
+          />
+        </picture>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -8,6 +8,8 @@ export default defineConfig(({ command }) => ({
   // with paths). The dev server keeps its own origin at /.
   base: command === 'build' ? '/portal/' : '/',
   plugins: [react()],
+  // Favicons and the web manifest, shared by both apps (packages/ui/src/brand, branding.md).
+  publicDir: '../../packages/ui/src/brand/public',
   build: { rolldownOptions: { output: { codeSplitting } } },
   server: {
     port: 5174,

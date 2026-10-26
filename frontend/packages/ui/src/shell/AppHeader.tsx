@@ -1,4 +1,10 @@
-import { BgColorsOutlined, DownOutlined, SearchOutlined, UserOutlined } from '@ant-design/icons';
+import {
+  BgColorsOutlined,
+  DownOutlined,
+  InfoCircleOutlined,
+  SearchOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
 import {
   Avatar,
   Button,
@@ -12,13 +18,14 @@ import {
   theme,
   type MenuProps,
 } from 'antd';
-import { useEffect, useSyncExternalStore, type ReactNode } from 'react';
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react';
 
 import type { MeResponse, NavLayout } from '@supportx/api-client';
 import type { LabelKey, Locale } from '@supportx/labels';
 
-import { useLabel } from '../appearance';
+import { useAppearance, useLabel } from '../appearance';
 import { AppearanceControls } from '../AppearanceControls';
+import { AboutDialog } from './AboutDialog';
 
 export interface AppHeaderProps {
   /** Labels key of the app's name, e.g. `app.console.name`. */
@@ -98,6 +105,8 @@ export function AppHeader({
 }: AppHeaderProps) {
   const t = useLabel();
   const { token } = theme.useToken();
+  const { mode, branding } = useAppearance();
+  const [aboutOpen, setAboutOpen] = useState(false);
   const screens = Grid.useBreakpoint();
   // Narrow only when a small breakpoint was measured: before the first measurement (and where
   // nothing matches, as in tests without media queries) the header stays the wide one.
@@ -147,7 +156,14 @@ export function AppHeader({
         gap: narrow ? 8 : 16,
         paddingInline: narrow ? 12 : 24,
         minWidth: 0,
-        background: token.colorBgContainer,
+        // A thin brand gradient along the top edge (decorative); high contrast keeps it solid.
+        backgroundColor: token.colorBgContainer,
+        backgroundImage:
+          mode === 'high_contrast'
+            ? `linear-gradient(${token.colorText}, ${token.colorText})`
+            : `linear-gradient(90deg, ${branding.gradient[0]}, ${branding.gradient[1]})`,
+        backgroundSize: '100% 3px',
+        backgroundRepeat: 'no-repeat',
         borderBottom: `1px solid ${token.colorBorderSecondary}`,
         lineHeight: 'normal',
       }}
@@ -226,6 +242,14 @@ export function AppHeader({
                     onClick: onProfile,
                   },
                 ]),
+            {
+              key: 'about',
+              icon: <InfoCircleOutlined />,
+              label: t('about.open'),
+              onClick: () => {
+                setAboutOpen(true);
+              },
+            },
             { key: 'logout', label: t('auth.sign_out'), onClick: onLogout, danger: true },
           ],
         }}
@@ -247,6 +271,16 @@ export function AppHeader({
           </Flex>
         </Button>
       </Dropdown>
+      {/* Mounted only while open: it is the header's one server query (the version). */}
+      {aboutOpen && (
+        <AboutDialog
+          open
+          onClose={() => {
+            setAboutOpen(false);
+          }}
+          appName={appName}
+        />
+      )}
     </Layout.Header>
   );
 }

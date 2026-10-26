@@ -2,7 +2,7 @@ import type { LabelResource } from './en';
 
 // Urdu skeleton: mandatory from Stage 2 (D-006). Missing keys fall back to English.
 export const ur: LabelResource = {
-  'product.name': 'SupportX v2',
+  'product.name': 'SupportX',
   'appearance.language': 'زبان',
   'locale.en': 'English',
   'locale.ar': 'العربية',
@@ -471,6 +471,11 @@ export const ur: LabelResource = {
   'incidents.required_note': '* والے خانے لازمی ہیں۔',
   'incidents.priority_pending': 'اثر اور فوریت طے ہونے پر حساب ہوگی',
   'shell.menu': 'مینو',
+  'about.open': 'SupportX کے بارے میں',
+  'about.version': 'ورژن {{version}}',
+  'about.version_unavailable': 'سرور کا ورژن ابھی دستیاب نہیں ہے۔',
+  'about.made_by': 'Extravis کی تیار کردہ',
+  'about.close': 'بند کریں',
   'incidents.pick_person': 'نام یا ای میل سے تلاش کریں',
   'incidents.nobody_found': 'کوئی نہیں ملا',
   'incidents.no_group': 'کوئی گروپ نہیں',

@@ -11,7 +11,7 @@ const ALERT_TYPE = { info: 'info', warning: 'warning', critical: 'error' } as co
  */
 export function HomePage() {
   const t = useLabel();
-  const { locale } = useAppearance();
+  const { locale, mode, branding } = useAppearance();
   const session = useSession().data;
   const licence = useLicence();
   const feed = useLiveAnnouncementFeed(licence.has('incident'));
@@ -19,10 +19,29 @@ export function HomePage() {
   const format = new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' });
   return (
     <>
-      <Typography.Title level={1}>
-        {t('home.title', { name: session?.user.display_name ?? '' })}
-      </Typography.Title>
-      <Typography.Paragraph type="secondary">{t('app.portal.name')}</Typography.Paragraph>
+      {/* Welcome band in the brand gradient; white text on it reaches 4.97:1 at its lightest
+          (branding.md). High contrast shows plain black on white instead. */}
+      <section
+        data-testid="portal-welcome"
+        style={{
+          borderRadius: 12,
+          padding: '28px 32px',
+          marginBottom: 32,
+          ...(mode === 'high_contrast'
+            ? { border: '2px solid #000000' }
+            : {
+                backgroundImage: `linear-gradient(90deg, ${branding.gradient[0]}, ${branding.gradient[1]})`,
+                color: '#ffffff',
+              }),
+        }}
+      >
+        <Typography.Title level={1} style={{ color: 'inherit', marginTop: 0 }}>
+          {t('home.title', { name: session?.user.display_name ?? '' })}
+        </Typography.Title>
+        <Typography.Paragraph style={{ color: 'inherit', marginBottom: 0, fontSize: 16 }}>
+          {t('app.portal.name')}
+        </Typography.Paragraph>
+      </section>
       <section aria-labelledby="announcements-heading" data-testid="portal-announcements">
         <Typography.Title level={2} id="announcements-heading">
           {t('announcements.title')}

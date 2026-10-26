@@ -9,7 +9,7 @@ adding a screen.
 |---|---|
 | `@supportx/api-client` | Typed client on the generated `schema.ts` (openapi-fetch), `ApiError`, query keys, hooks (`useSession`, `useSwitchTenant`, `useEntitlements`, `useUsers`, `useUser`, `useUpdateUser`). Test helpers under `@supportx/api-client/testing`. |
 | `@supportx/labels` | All on-screen text: en/ar/ur resources on i18next + react-i18next, `label()`, `useLabels()`, plurals, interpolation, `humanize()` fallback with a missing-label warning. |
-| `@supportx/ui` | Theme (light/dark/high contrast, Extravis purple `#9619B5`, tenant overrides), app shell, header, command palette, licence banners, `WriteButton`, error reporting, conflict dialog, reconnecting banner, error boundary. |
+| `@supportx/ui` | Theme (light/dark/high contrast, SupportX brand from `src/brand` — primary `#7e40d1`, logo, gradient — tenant overrides, see branding.md), app shell, header, command palette, licence banners, `WriteButton`, error reporting, conflict dialog, reconnecting banner, error boundary. |
 | `@supportx/forms` | React Hook Form + Zod; `FormField` (label + control + translated inline error); `applyServerErrors()` puts RFC 9457 field errors under the right field. |
 | `@supportx/charts` | `<Chart>`: ECharts (tree-shaken core) with theme colours and RTL mirroring. |
 | `@supportx/eslint-plugin` | `supportx/no-raw-enum`, `supportx/no-literal-text`. |

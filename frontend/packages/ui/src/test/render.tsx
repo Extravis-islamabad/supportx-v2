@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 
 import type { Locale } from '@supportx/labels';
 
+import type { ThemeMode } from '../theme';
+
 import { AppearanceProvider } from '../AppearanceProvider';
 import { createQueryClient, ErrorReporterProvider } from '../errors';
 import { LicenceContext, type Licence } from '../licence/context';
@@ -13,12 +15,16 @@ const NO_LICENCE: Licence = { entitlements: null, has: () => true, writable: tru
 /** Render inside the real providers (theme, labels, error reporter) with a given licence. */
 export function renderUi(
   ui: ReactNode,
-  { locale = 'en', licence = NO_LICENCE }: { locale?: Locale; licence?: Partial<Licence> } = {},
+  {
+    locale = 'en',
+    licence = NO_LICENCE,
+    mode = 'light',
+  }: { locale?: Locale; licence?: Partial<Licence>; mode?: ThemeMode } = {},
 ) {
   const client = createQueryClient();
   return render(
     <QueryClientProvider client={client}>
-      <AppearanceProvider initialLocale={locale} initialMode="light">
+      <AppearanceProvider initialLocale={locale} initialMode={mode}>
         <ErrorReporterProvider>
           <LicenceContext.Provider value={{ ...NO_LICENCE, ...licence }}>
             {ui}

@@ -1,6 +1,7 @@
 {
   "realm": "supportx",
   "displayName": "SupportX",
+  "loginTheme": "supportx",
   "enabled": true,
   "organizationsEnabled": true,
   "sslRequired": "external",

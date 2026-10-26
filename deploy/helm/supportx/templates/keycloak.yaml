@@ -19,6 +19,29 @@ data:
   {{- fail "keycloak.realmImport must be dev or base" }}
   {{- end }}
 ---
+# SupportX login theme (docs/architecture/branding.md): text files as data, images as binaryData.
+# ConfigMap keys cannot hold "/", so each file's key is its path with "/" as "__" and the volume
+# below puts it back at its path.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" $c }}-theme
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+data:
+  {{- range $path, $_ := .Files.Glob "files/keycloak/themes/supportx/**" }}
+  {{- if not (hasSuffix ".png" $path | or (hasSuffix ".ico" $path)) }}
+  {{ trimPrefix "files/keycloak/themes/supportx/" $path | replace "/" "__" }}: |
+    {{- $.Files.Get $path | nindent 4 }}
+  {{- end }}
+  {{- end }}
+binaryData:
+  {{- range $path, $_ := .Files.Glob "files/keycloak/themes/supportx/**" }}
+  {{- if hasSuffix ".png" $path | or (hasSuffix ".ico" $path) }}
+  {{ trimPrefix "files/keycloak/themes/supportx/" $path | replace "/" "__" }}: {{ $.Files.Get $path | b64enc }}
+  {{- end }}
+  {{- end }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -117,12 +140,21 @@ spec:
             {{- toYaml .Values.keycloak.resources | nindent 12 }}
           volumeMounts:
             - {name: realm, mountPath: /opt/keycloak/data/import, readOnly: true}
+            - {name: theme, mountPath: /opt/keycloak/themes/supportx, readOnly: true}
             - {name: build, mountPath: /opt/keycloak/lib/quarkus}
             - {name: data-tmp, mountPath: /opt/keycloak/data/tmp}
             - {name: tmp, mountPath: /tmp}
       volumes:
         - name: realm
           configMap: {name: {{ include "supportx.name" $c }}-realm}
+        - name: theme
+          configMap:
+            name: {{ include "supportx.name" $c }}-theme
+            items:
+              {{- range $path, $_ := .Files.Glob "files/keycloak/themes/supportx/**" }}
+              {{- $file := trimPrefix "files/keycloak/themes/supportx/" $path }}
+              - {key: {{ replace "/" "__" $file }}, path: {{ $file }}}
+              {{- end }}
         - name: build
           emptyDir: {}
         - name: data-tmp

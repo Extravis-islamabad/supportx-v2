@@ -1,4 +1,4 @@
-import { Layout, Menu } from 'antd';
+import { Flex, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
 import { useLogout, useSession, useSetUiLocale } from '@supportx/api-client';
@@ -6,6 +6,7 @@ import type { LabelKey } from '@supportx/labels';
 import {
   AnnouncementBanners,
   AppHeader,
+  BrandLogo,
   ConnectivityBanner,
   LicenceBanners,
   reportError,
@@ -34,6 +35,14 @@ export function PortalLayout() {
       <AppHeader
         appName="app.portal.name"
         session={session}
+        start={
+          <Flex align="center" gap={12} style={{ flex: 1, minWidth: 0 }}>
+            <BrandLogo height={28} />
+            <Typography.Text type="secondary" ellipsis>
+              {t('app.portal.name')}
+            </Typography.Text>
+          </Flex>
+        }
         onLogout={() => void logout()}
         onLocaleChange={(locale) => {
           setUiLocale.mutate(locale, { onError: reportError });
