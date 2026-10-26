@@ -34,3 +34,17 @@ describe('label', () => {
     expect(isRtlLocale('en')).toBe(false);
   });
 });
+
+describe('licence limits', () => {
+  it('every limit has an Arabic and an Urdu label (shown on licence and usage screens)', async () => {
+    const { en } = await import('./resources/en');
+    const { ar } = await import('./resources/ar');
+    const { ur } = await import('./resources/ur');
+    const keys = Object.keys(en).filter((key) => key.startsWith('limit.'));
+    expect(keys.length).toBeGreaterThan(0);
+    for (const key of keys) {
+      expect(ar[key as keyof typeof ar], key).toBeTruthy();
+      expect(ur[key as keyof typeof ur], key).toBeTruthy();
+    }
+  });
+});
