@@ -299,6 +299,13 @@ default `latest` tag is amd64-only; we use the multi-arch `-debian` tag.
 **Login fails for `supportx_app`, Keycloak or Temporal after editing `.env`**
 See section 5: the old password is still stored in the volume. Run `make dev-reset`.
 
+**The sign-in page is Keycloak's own, not the SupportX one**
+The realm still uses the `supportx` theme (`make keycloak-theme` says so), but the container no
+longer sees the theme folder: on macOS a bind mount goes empty when its host folder is deleted and
+created again (a branch switch can do that). `docker compose -f deploy/compose/docker-compose.yml
+restart keycloak` mounts it again; no data is touched. `docker exec supportx-dev-keycloak-1 ls
+/opt/keycloak/themes/supportx` must list `login`.
+
 **OpenSearch fails with "max virtual memory areas vm.max_map_count is too low" (Linux only)**
 Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows already sets this.
 

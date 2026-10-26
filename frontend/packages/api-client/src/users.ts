@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call, rememberEtag } from './client';
+import { clearPending, setPending, settlePendingAfterError } from './pendingPreferences';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 import type { MeResponse } from './session';
@@ -127,15 +128,18 @@ export function useSetNavLayout(userId: string) {
       );
     },
     onMutate: (layout) => {
+      setPending(userId, 'nav_layout', layout);
       queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
         me ? { ...me, user: { ...me.user, nav_layout: layout } } : me,
       );
     },
-    onSuccess: (user) => {
+    onSuccess: (user, value) => {
+      clearPending(userId, 'nav_layout', value);
       rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
       queryClient.setQueryData(queryKeys.users.detail(userId), user);
     },
-    onError: () => {
+    onError: (error, value) => {
+      settlePendingAfterError(userId, 'nav_layout', value, error);
       void queryClient.invalidateQueries({ queryKey: queryKeys.session }); // undo the optimism
     },
   });
@@ -167,15 +171,18 @@ export function useSetFormDensity(userId: string) {
       );
     },
     onMutate: (density) => {
+      setPending(userId, 'form_density', density);
       queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
         me ? { ...me, user: { ...me.user, form_density: density } } : me,
       );
     },
-    onSuccess: (user) => {
+    onSuccess: (user, value) => {
+      clearPending(userId, 'form_density', value);
       rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
       queryClient.setQueryData(queryKeys.users.detail(userId), user);
     },
-    onError: () => {
+    onError: (error, value) => {
+      settlePendingAfterError(userId, 'form_density', value, error);
       void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
@@ -207,17 +214,20 @@ export function useSetUiLocale(userId: string) {
       );
     },
     onMutate: (locale) => {
+      setPending(userId, 'ui_locale', locale);
       if (locale === null) return;
       queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
         me ? { ...me, user: { ...me.user, locale } } : me,
       );
     },
-    onSuccess: (user) => {
+    onSuccess: (user, value) => {
+      clearPending(userId, 'ui_locale', value);
       rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
       queryClient.setQueryData(queryKeys.users.detail(userId), user);
       void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
-    onError: () => {
+    onError: (error, value) => {
+      settlePendingAfterError(userId, 'ui_locale', value, error);
       void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });

@@ -520,7 +520,14 @@ class WorkItemCatalogueOut(BaseModel):
                     reason_mode=t.reason_mode,
                     reason_list=t.reason_list,
                 )
-                for t in cat.lifecycle.transitions.values()
+                # Life-cycle order (QA BUG-04): by status, then the fixed action order.
+                for t in sorted(
+                    cat.lifecycle.transitions.values(),
+                    key=lambda t: (
+                        [st.code for st in cat.statuses].index(t.from_status),
+                        USER_ACTIONS.index(t.action) if t.action in USER_ACTIONS else 99,
+                    ),
+                )
                 if t.action in USER_ACTIONS
             ],
             scales=[
@@ -561,6 +568,9 @@ class WorkItemSettingsPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     prefix: str | None = Field(default=None, max_length=6, description="2-6 capital letters.")
+    next_number: int | None = Field(
+        default=None, ge=1, le=10**15, description="The number the next record gets (never lower)."
+    )
     default_priority: Priority | None = None
     default_impact: Impact | None = Field(default=None, description="Null: no default.")
     default_urgency: Urgency | None = Field(default=None, description="Null: no default.")

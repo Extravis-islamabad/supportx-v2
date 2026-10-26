@@ -7866,6 +7866,20 @@
             ],
             "title": "Keep Following On Handover"
           },
+          "next_number": {
+            "anyOf": [
+              {
+                "maximum": 1000000000000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The number the next record gets (never lower).",
+            "title": "Next Number"
+          },
           "prefix": {
             "anyOf": [
               {

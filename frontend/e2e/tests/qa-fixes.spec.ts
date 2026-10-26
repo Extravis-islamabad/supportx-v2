@@ -132,6 +132,12 @@ test('BUG-04: the language picked survives a reload and follows the user to anot
   const first = await browser.newContext();
   const page = await first.newPage();
   await signInAs(page, 'admin', '/incidents');
+  // A slow save, as under load: the reload below lands while it is still on its way. This is
+  // what made the test flaky; the choice must survive it (kept until the server confirms it).
+  await page.route('**/api/v1/users/*', async (route) => {
+    if (route.request().method() === 'PATCH') await new Promise((r) => setTimeout(r, 1500));
+    await route.continue();
+  });
   try {
     await page.getByTestId('appearance-menu').click();
     await page.getByTestId('language-select').click();

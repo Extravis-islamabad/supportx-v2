@@ -63,20 +63,26 @@ export function ReplyTemplatesTab() {
     );
   };
   return (
-    <Card title={t('reply_templates.title')} data-testid="settings-reply-templates">
+    <Card
+      title={t('reply_templates.title')}
+      // In the header like every other settings card (QA C7).
+      extra={
+        editing === null ? (
+          <WriteButton
+            type="primary"
+            onClick={() => {
+              start({ kind: 'create' });
+            }}
+            data-testid="tpl-new"
+          >
+            {t('reply_templates.new')}
+          </WriteButton>
+        ) : null
+      }
+      data-testid="settings-reply-templates"
+    >
       {editing === null ? (
         <Space direction="vertical" style={{ width: '100%' }}>
-          <Flex justify="end">
-            <WriteButton
-              type="primary"
-              onClick={() => {
-                start({ kind: 'create' });
-              }}
-              data-testid="tpl-new"
-            >
-              {t('reply_templates.new')}
-            </WriteButton>
-          </Flex>
           <List
             loading={templates.isPending}
             dataSource={templates.data ?? []}
@@ -97,7 +103,8 @@ export function ReplyTemplatesTab() {
                   <Popconfirm
                     key="delete"
                     title={t('reply_templates.delete_confirm', { name: template.name })}
-                    okText={t('actions.delete')}
+                    description={t('reply_templates.remove_explained')}
+                    okText={t('reply_templates.remove')}
                     okButtonProps={{ danger: true }}
                     cancelText={t('actions.cancel')}
                     onConfirm={() => {
@@ -108,7 +115,7 @@ export function ReplyTemplatesTab() {
                     }}
                   >
                     <Button type="link" danger>
-                      {t('actions.delete')}
+                      {t('reply_templates.remove')}
                     </Button>
                   </Popconfirm>,
                 ]}

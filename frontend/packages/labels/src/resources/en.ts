@@ -1731,7 +1731,7 @@ export const en = {
   'templates.problem_default': '{{field}} (starting value): {{message}}',
   'incident_template.standard': 'Standard incident',
   'templates.field': 'Template',
-  'templates.ungrouped': 'Templates',
+  'templates.ungrouped': 'Without a group',
   'templates.load_failed':
     "Templates couldn't be loaded, so the form can't start. Reload the page to try again.",
   'templates.disabled_meanwhile':
@@ -1739,7 +1739,7 @@ export const en = {
   'templates.hidden_fields':
     'This template hides: {{fields}}. Their starting values, if any, are still saved.',
   'templates.default_retired':
-    'Some starting values of this template were retired and left empty: {{fields}}.',
+    'Some starting values of this template were retired; these start from the nearest value still in use, or empty: {{fields}}.',
   'templates.switch_title': 'Switch to "{{name}}"?',
   'templates.switch_body':
     'These fields you filled in are not on that template and will be cleared: {{fields}}. Everything else you typed stays.',
@@ -1794,6 +1794,17 @@ export const en = {
   'search.type_to_search': 'Type an ID, words or a name',
   'search.nothing_found': 'No incident you can see matches',
   'search.status_filter': 'Status',
+  // WP-020c-FIX
+  'settings.no_colour': 'No colour',
+  'settings.other_stays': '"Other" always stays: it is the way out when no reason fits.',
+  'reply_templates.remove': 'Remove',
+  'reply_templates.remove_explained':
+    'It disappears from the composer. Replies already sent keep their text.',
+  'templates.requester_always_needed': 'Requesters always see and fill in this field',
+  'templates.locked_note':
+    'Subject and requester are locked on: without them requesters could not log an incident from the portal.',
+  'errors.field.requester_always_needed':
+    'Subject and requester are always seen and filled in by requesters.',
 } as const;
 
 export type LabelKey = keyof typeof en;

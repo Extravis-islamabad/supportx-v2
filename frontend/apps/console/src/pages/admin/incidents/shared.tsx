@@ -1,7 +1,8 @@
 import { Alert, Checkbox, ColorPicker, Flex, Form, Input, Modal, Typography } from 'antd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { Labels } from '@supportx/api-client';
+import { useLabelsIn } from '@supportx/labels';
 import { useLabel } from '@supportx/ui';
 
 import { cleanLabels } from './helpers';
@@ -27,12 +28,26 @@ export function LabelsFields({
   value,
   onChange,
   testId,
+  autoFocus = true,
 }: {
   value: Labels;
   onChange: (next: Labels) => void;
   testId: string;
+  autoFocus?: boolean;
 }) {
   const t = useLabel();
+  const first = useRef<HTMLInputElement | null>(null);
+  // Dialogs open with the caret in the first name (QA BUG-09). After the dialog's own focus
+  // handling, which would otherwise take it back to the dialog frame.
+  useEffect(() => {
+    if (!autoFocus) return undefined;
+    const timer = setTimeout(() => {
+      first.current?.focus();
+    }, 60);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [autoFocus]);
   return (
     <>
       {LANGUAGES.map((language) => (
@@ -43,6 +58,9 @@ export function LabelsFields({
           htmlFor={`${testId}-${language}`}
         >
           <Input
+            ref={(element) => {
+              if (language === 'en') first.current = element?.input ?? null;
+            }}
             id={`${testId}-${language}`}
             dir={language === 'en' ? 'ltr' : 'rtl'}
             lang={language}
@@ -70,6 +88,7 @@ export function ColourField({
   label: string;
   testId: string;
 }) {
+  const t = useLabel();
   return (
     <Form.Item label={label}>
       <ColorPicker
@@ -77,7 +96,8 @@ export function ColourField({
         allowClear
         disabledAlpha
         format="hex"
-        showText
+        // Our words for "none", not the picker's "Transparent" (QA C2).
+        showText={() => value ?? t('settings.no_colour')}
         onChange={(colour) => {
           onChange(colour.toHexString());
         }}
@@ -98,7 +118,7 @@ export function ColourField({
 export function ValueDialog({
   open,
   title,
-  shipped,
+  shippedKey,
   labels,
   colour,
   withColour,
@@ -111,7 +131,8 @@ export function ValueDialog({
 }: {
   open: boolean;
   title: string;
-  shipped: string | null;
+  /** Label key of the built-in name (seeded values); null for admin values. */
+  shippedKey: string | null;
   labels: Labels | null;
   colour?: string | null;
   withColour?: boolean;
@@ -123,6 +144,8 @@ export function ValueDialog({
   testId: string;
 }) {
   const t = useLabel();
+  const tIn = useLabelsIn();
+  const shipped = shippedKey === null ? null : t(shippedKey);
   const [names, setNames] = useState<Labels>(labels ?? {});
   const [shippedName, setShippedName] = useState(shipped !== null && labels === null);
   const [hex, setHex] = useState<string | null>(colour ?? null);
@@ -151,6 +174,14 @@ export function ValueDialog({
               checked={shippedName}
               onChange={(event) => {
                 setShippedName(event.target.checked);
+                // Start from the built-in names in every language, to edit (QA C2).
+                if (!event.target.checked && shippedKey !== null && cleanLabels(names) === null) {
+                  setNames(
+                    Object.fromEntries(
+                      (['en', 'ar', 'ur'] as const).map((lang) => [lang, tIn(lang, shippedKey)]),
+                    ),
+                  );
+                }
               }}
               data-testid={`${testId}-shipped`}
             >

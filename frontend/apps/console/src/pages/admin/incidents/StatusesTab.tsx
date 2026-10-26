@@ -144,7 +144,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         <ValueDialog
           open
           title={t('settings.rename_value', { name: name(editing.code) })}
-          shipped={t(`work_item_status.${editing.code}`)}
+          shippedKey={`work_item_status.${editing.code}`}
           labels={editing.labels ?? null}
           colour={editing.colour}
           withColour

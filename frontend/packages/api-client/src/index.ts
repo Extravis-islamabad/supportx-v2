@@ -166,6 +166,7 @@ export {
   type WorkItemChannel,
 } from './incidents';
 export {
+  isOwnSettingsVersion,
   useIncidentCategoryChange,
   useIncidentSettingsChange,
   useIncidentTemplateChange,
@@ -267,3 +268,4 @@ export {
   type UserPreferencesPatch,
   type UsersQuery,
 } from './users';
+export { readPending, type PendingPreferences } from './pendingPreferences';

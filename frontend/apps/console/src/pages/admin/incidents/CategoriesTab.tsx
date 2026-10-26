@@ -1,4 +1,16 @@
-import { Button, Card, Flex, Form, Modal, Popconfirm, Space, Tag, Tree, Typography } from 'antd';
+import {
+  Button,
+  Card,
+  Flex,
+  Form,
+  Modal,
+  Popconfirm,
+  Skeleton,
+  Space,
+  Tag,
+  Tree,
+  Typography,
+} from 'antd';
 import { useMemo, useState } from 'react';
 
 import {
@@ -102,7 +114,10 @@ export function CategoriesTab() {
       data-testid="settings-categories"
     >
       <Typography.Paragraph type="secondary">{t('settings.categories_help')}</Typography.Paragraph>
-      {nodes.length === 0 && !categories.isPending ? (
+      {categories.data === undefined ? (
+        // The tree mounts with its nodes, so it opens expanded (QA BUG-06).
+        <Skeleton active />
+      ) : nodes.length === 0 ? (
         <EmptyText>{t('settings.no_values')}</EmptyText>
       ) : (
         <Tree

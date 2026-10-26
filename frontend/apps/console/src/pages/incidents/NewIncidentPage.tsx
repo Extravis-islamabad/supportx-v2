@@ -61,6 +61,7 @@ import {
 import { listValueLabel, scaleLabel, templateLabel } from './labels';
 import { GroupPicker, SitePicker, TechnicianPicker, UserPicker } from './pickers';
 import { PriorityTag } from './tags';
+import { TagsInput } from './TagsInput';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -114,9 +115,14 @@ function startOf(
       continue;
     }
     if (name === 'category_id') {
-      const node = categories.find((n) => n.id === value);
+      let node = categories.find((n) => n.id === value);
       if (node === undefined || node.disabled) {
-        values.category_id = null;
+        // The nearest category above it still in use, else none; either way, said (QA C9).
+        while (node?.disabled === true) {
+          const parent = node.parent_id;
+          node = parent === null ? undefined : categories.find((n) => n.id === parent);
+        }
+        values.category_id = node?.id ?? null;
         dropped.push(name);
         continue;
       }
@@ -340,7 +346,13 @@ export function NewIncidentPage() {
       </Col>
     ) : null;
 
-  const templateOptions = (() => {
+  interface TemplateOption {
+    value: string;
+    label: string;
+  }
+  const templateOptions = ((): (
+    TemplateOption | { label: string; options: TemplateOption[] }
+  )[] => {
     const grouped = new Map<string, { value: string; label: string }[]>();
     for (const x of offered) {
       const groupLabel = x.group_name ?? '';
@@ -348,6 +360,9 @@ export function NewIncidentPage() {
       list.push({ value: x.id, label: templateLabel(t, x, locale) });
       grouped.set(groupLabel, list);
     }
+    // Headings only when some template has a group; the others then sit under "Without a
+    // group", never under a heading that repeats the field's name (QA C4).
+    if (grouped.size === 1 && grouped.has('')) return grouped.get('') ?? [];
     return [...grouped.entries()].map(([name, options]) =>
       name === '' ? { label: t('templates.ungrouped'), options } : { label: name, options },
     );
@@ -785,13 +800,11 @@ export function NewIncidentPage() {
                 labelKey="work_item.field.tags"
                 required={required('tags')}
                 render={(field) => (
-                  <Select
+                  <TagsInput
                     id={field.id}
-                    mode="tags"
                     value={field.value}
                     onChange={field.onChange}
-                    tokenSeparators={[',']}
-                    data-testid="inc-tags"
+                    testId="inc-tags"
                   />
                 )}
               />,

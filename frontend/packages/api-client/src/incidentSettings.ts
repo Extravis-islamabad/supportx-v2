@@ -49,8 +49,7 @@ export type SettingsChange =
   | { kind: 'matrix'; cells: MatrixCell[] }
   | { kind: 'add_value'; list: PickList; labels: Labels; colour?: string | null }
   | { kind: 'value'; list: PickList; code: string; body: components['schemas']['ListValuePatch'] }
-  | { kind: 'order'; list: PickList; codes: string[] }
-  | { kind: 'numbering'; nextNumber: number };
+  | { kind: 'order'; list: PickList; codes: string[] };
 
 function send(change: SettingsChange, version: number): Promise<IncidentCatalogue> {
   const header = ifMatch(version);
@@ -114,14 +113,16 @@ function send(change: SettingsChange, version: number): Promise<IncidentCatalogu
           body: { codes: change.codes },
         }),
       );
-    case 'numbering':
-      return call(
-        api.PUT('/api/v1/incidents/settings/numbering', {
-          params: { header },
-          body: { next_number: change.nextNumber },
-        }),
-      );
   }
+}
+
+// Catalogue versions this tab's own saves produced (QA BUG-02): a screen holding unsaved
+// edits must not call those "changed elsewhere".
+const ownVersions = new Set<number>();
+
+/** Whether this tab's own save produced catalogue `version`. */
+export function isOwnSettingsVersion(version: number): boolean {
+  return ownVersions.has(version);
 }
 
 /**
@@ -138,6 +139,7 @@ export function useIncidentSettingsChange() {
       return send(change, version ?? cached?.version ?? 0);
     },
     onSuccess: (catalogue) => {
+      ownVersions.add(catalogue.version);
       queryClient.setQueryData(queryKeys.incidents.catalogue, catalogue);
     },
     onError: () => {

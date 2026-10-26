@@ -1,5 +1,16 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
-import { Badge, Button, Card, Flex, Popconfirm, Space, Table, Tag, Typography } from 'antd';
+import {
+  Badge,
+  Button,
+  Card,
+  Flex,
+  Popconfirm,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
 import { useState } from 'react';
 
 import type { Labels, PickList } from '@supportx/api-client';
@@ -155,6 +166,19 @@ export function PickListEditor({
                   >
                     {t('settings.bring_back')}
                   </Button>
+                ) : list !== 'level' && list !== 'closure_code' && value.code === 'other' ? (
+                  // "Other" is the way out when no reason fits (QA C5): never offered to retire.
+                  <Tooltip title={t('settings.other_stays')}>
+                    <Button
+                      type="link"
+                      size="small"
+                      disabled
+                      title={t('settings.other_stays')}
+                      data-testid={`list-${list}-retire-${value.code}`}
+                    >
+                      {t('settings.retire')}
+                    </Button>
+                  </Tooltip>
                 ) : (
                   <Popconfirm
                     title={t('settings.retire_confirm', { name: name(value) })}
@@ -193,10 +217,8 @@ export function PickListEditor({
               ? t('settings.add_value_to', { list: title })
               : t('settings.rename_value', { name: name(editing) })
           }
-          shipped={
-            editing === 'new' || isAdminValue(editing.code)
-              ? null
-              : t(shippedKey(list, editing.code))
+          shippedKey={
+            editing === 'new' || isAdminValue(editing.code) ? null : shippedKey(list, editing.code)
           }
           labels={editing === 'new' ? null : editing.labels}
           colour={editing === 'new' ? null : (editing.colour ?? null)}

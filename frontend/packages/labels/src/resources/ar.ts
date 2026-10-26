@@ -1726,12 +1726,13 @@ export const ar: LabelResource = {
   'templates.problem_default': '{{field}} (القيمة الأولية): {{message}}',
   'incident_template.standard': 'حادث عادي',
   'templates.field': 'القالب',
-  'templates.ungrouped': 'القوالب',
+  'templates.ungrouped': 'بدون مجموعة',
   'templates.load_failed':
     'تعذّر تحميل القوالب، لذا لا يمكن بدء النموذج. أعد تحميل الصفحة للمحاولة مرة أخرى.',
   'templates.disabled_meanwhile': 'أوقف مسؤول هذا القالب للتو. اختر قالبًا آخر للحفظ.',
   'templates.hidden_fields': 'يخفي هذا القالب: {{fields}}. تُحفظ قيمها الأولية، إن وُجدت.',
-  'templates.default_retired': 'بعض القيم الأولية لهذا القالب متوقفة وتُركت فارغة: {{fields}}.',
+  'templates.default_retired':
+    'بعض القيم الأولية لهذا القالب متوقفة؛ تبدأ هذه من أقرب قيمة ما زالت مستخدمة، أو فارغة: {{fields}}.',
   'templates.switch_title': 'التبديل إلى "{{name}}"؟',
   'templates.switch_body':
     'هذه الحقول التي ملأتها ليست في ذلك القالب وسيتم مسحها: {{fields}}. يبقى كل ما كتبته غيرها.',
@@ -1786,4 +1787,14 @@ export const ar: LabelResource = {
   'search.type_to_search': 'اكتب رقمًا أو كلمات أو اسمًا',
   'search.nothing_found': 'لا توجد حادثة مطابقة ضمن ما يمكنك رؤيته',
   'search.status_filter': 'الحالة',
+  // WP-020c-FIX
+  'settings.no_colour': 'بلا لون',
+  'settings.other_stays': 'يبقى "أخرى" دائمًا: فهو المخرج حين لا يناسب أي سبب.',
+  'reply_templates.remove': 'إزالة',
+  'reply_templates.remove_explained': 'يختفي من محرر الردود. تحتفظ الردود المرسلة بنصها.',
+  'templates.requester_always_needed': 'يرى مقدمو الطلبات هذا الحقل ويملؤونه دائمًا',
+  'templates.locked_note':
+    'الموضوع ومقدم الطلب مثبّتان: بدونهما لا يستطيع مقدمو الطلبات تسجيل حادث من البوابة.',
+  'errors.field.requester_always_needed':
+    'يرى مقدمو الطلبات الموضوع ومقدم الطلب ويملؤونهما دائمًا.',
 };

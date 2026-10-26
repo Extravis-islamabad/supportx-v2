@@ -12,4 +12,4 @@ export {
 } from './label';
 export { en, type LabelKey } from './resources/en';
 export { LabelsProvider, type LabelsProviderProps } from './react';
-export { useLabels } from './useLabels';
+export { useLabels, useLabelsIn } from './useLabels';

@@ -26,7 +26,12 @@ export function FilesBanner({ showLink = true }: { showLink?: boolean }) {
       description={
         <>
           {warnings.map((warning) => t(`file_warning.${warning}`)).join(' ')}{' '}
-          {showLink && <Link to="/admin/files">{t('files.banner.open')}</Link>}
+          {/* Underlined: a link inside text must not rely on colour alone (WCAG 1.4.1, axe). */}
+          {showLink && (
+            <Link to="/admin/files" style={{ textDecoration: 'underline' }}>
+              {t('files.banner.open')}
+            </Link>
+          )}
         </>
       }
     />
