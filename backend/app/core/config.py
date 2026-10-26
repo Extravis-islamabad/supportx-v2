@@ -183,6 +183,20 @@ class Settings(BaseSettings):
     object_storage_bucket: str = Field(default="supportx", pattern=r"^[a-z0-9][a-z0-9.-]{2,62}$")
     object_storage_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
 
+    # Files (WP-022, ADR-028, docs/architecture/files.md). `files_keys` is the installation key
+    # ring that wraps each tenant's data keys: "<key id>:<base64 32 bytes>, ..." with the active
+    # key first; older keys stay listed so files they wrapped remain readable (rotation). Back it up
+    # with the other secrets: losing it loses every file. Not set: uploads answer 503
+    # `files_not_configured` (never plaintext). Scanning: clamd at `files_clamd_address`
+    # ("host:port"); with no scanner and `files_scan_required` on (default), files wait as
+    # "scanning" and administrators see that no scanner is installed.
+    files_keys: SecretStr | None = None
+    files_clamd_address: str | None = Field(default=None, pattern=r"^[A-Za-z0-9.-]+:\d{1,5}$")
+    files_clamd_timeout_seconds: float = Field(default=60.0, gt=0, le=600)
+    files_scan_required: bool = True
+    files_signature_max_age_days: int = Field(default=7, ge=1, le=90)
+    files_link_ttl_seconds: int = Field(default=300, ge=30, le=3600)
+
     # Audit log (WP-018, ADR-027, docs/architecture/audit.md). Anchors (signed checkpoints of each
     # tenant's chain) are signed with an Ed25519 installation key, "<key id>:<base64 32-byte
     # seed>", mounted only into the consumers worker. Rotation: set the new key here and move the

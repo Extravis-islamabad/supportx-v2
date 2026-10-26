@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlalchemy.pool import NullPool
 
 import app.shared.api.idempotency
-import app.shared.db.display_ids  # noqa: F401 - registers display_id_sequences on the metadata
+import app.shared.db.display_ids
+import app.shared.files.infra.models  # noqa: F401 - registers the files tables (WP-022)
 from app.core.config import Settings
 from app.core.database import to_async_url
 from app.core.modules import discover_modules

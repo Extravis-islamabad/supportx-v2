@@ -108,6 +108,9 @@ extensions (MIT, no Tiptap Pro; installed in WP-020, pinned 3.31.4, with their c
 **Approved additions (D-080):** `@tiptap/extension-mention` and `@tiptap/suggestion` (MIT, 3.31.4;
 @mentions in the editor, WP-020b).
 
+**Approved additions (D-081, WP-022):** `pillow` (HPND; image thumbnails and EXIF/GPS stripping,
+in a worker with pixel and size limits) and `@tiptap/extension-image` (MIT, 3.31.4; inline images).
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
