@@ -131,7 +131,7 @@ class TenantStorageUsage(TenantKeyed, Base):
 
 
 class FileSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
-    """A tenant's file rules (D-081 D7): size limit, batch size, blocked extensions."""
+    """A tenant's file rules (D-082 D7): size limit, batch size, blocked extensions."""
 
     __tablename__ = "file_settings"
 

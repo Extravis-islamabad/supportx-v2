@@ -3563,7 +3563,7 @@ export interface components {
         };
         /**
          * RulesIn
-         * @description New rules (D-081 D7: up to 100 MB per file).
+         * @description New rules (D-082 D7: up to 100 MB per file).
          */
         RulesIn: {
             /** Blocked Extensions */

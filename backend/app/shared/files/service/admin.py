@@ -1,4 +1,4 @@
-"""Administering files: the tenant's rules, usage, and whether scanning works (D-081 D3, D7).
+"""Administering files: the tenant's rules, usage, and whether scanning works (D-082 D3, D7).
 
 The scanning status is never silent: no scanner installed, scanner unreachable and signatures
 older than the limit (7 days by default) each show as a warning to administrators, together with

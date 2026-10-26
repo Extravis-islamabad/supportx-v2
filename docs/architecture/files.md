@@ -1,6 +1,6 @@
 # Files and safe attachments
 
-How SupportX stores, scans, encrypts and serves files (WP-022). Decisions: ADR-028 and D-081.
+How SupportX stores, scans, encrypts and serves files (WP-022). Decisions: ADR-028 and D-082.
 Requirement: REQ-INC-079, plus REQ-INC-064 AC2 for inline images.
 
 ## Shape
@@ -14,7 +14,7 @@ Requirement: REQ-INC-079, plus REQ-INC-064 AC2 for inline images.
 | Who may see, attach or remove (owner modules answer) | `ports.py`; for work items: `app/modules/work_items/service/file_access.py` |
 | HTTP routes, scan consumer, schedules, realtime, quota, usage counter | the `system` module (`api/files.py`, `service/files.py`) |
 
-Files are a platform service (architecture.md §6.8, D-081 D5): the code lives in `app/shared`,
+Files are a platform service (architecture.md §6.8, D-082 D5): the code lives in `app/shared`,
 which owns the tables. Only modules can be registered, so the `system` module mounts it.
 Event types are therefore `system.file.*`. Owner modules never share their tables: they answer
 `FileOwnerAccess` questions, and the files service never reads their rows.
@@ -45,7 +45,7 @@ multipart). It runs these steps in order:
 An `Idempotency-Key` replays the same file. Several files mean one request each; the console
 sends at most three at a time.
 
-**Blocking (D-081):**
+**Blocking (D-082):**
 
 - Default blocked extensions: executables and scripts (`exe msi bat cmd com scr pif cpl dll sys
   msc ps1 psm1 vbs vbe js jse wsf wsh hta sh bash zsh csh ksh command jar apk app lnk reg`). The
@@ -55,7 +55,7 @@ sends at most three at a time.
   its family is on the list.
 - SVG and HTML are stored but never rendered inline.
 
-## Encryption (ADR-028 item 2, D-081 D2)
+## Encryption (ADR-028 item 2, D-082 D2)
 
 - **Format:** objects are `header | chunks`. Each chunk is 1 MiB of AES-256-GCM, with the nonce
   being the per-file prefix plus the chunk counter. The associated data is the file ID, the
@@ -97,7 +97,7 @@ installer's escrow, WP-014c). Treat it like the database superuser password.
 Download-link signatures derive from the active key, so links issued before a rotation stop
 working (they live minutes).
 
-## Scanning (ADR-028 item 3, D-081 D3)
+## Scanning (ADR-028 item 3, D-082 D3)
 
 1. The `system__file_scan` consumer (and `system__files_scan_sweep` every 5 minutes) decrypts
    each waiting file and streams it to clamd (`INSTREAM`).
@@ -121,7 +121,7 @@ working (they live minutes).
 Offline sites update them from a private mirror, or load the offline bundle (chart and installer
 steps come with WP-022 session 3).
 
-## Images (ADR-028 item 4, D-081 D4)
+## Images (ADR-028 item 4, D-082 D4)
 
 After a clean scan, in the worker:
 
@@ -165,7 +165,7 @@ Content responses always carry:
   download as `application/octet-stream`.
 
 Opening a private note's file is an audited read (`file.downloaded`); public files are not
-audited (D-081 D7).
+audited (D-082 D7).
 
 ## Deletion and purge
 
@@ -177,7 +177,7 @@ audited (D-081 D7).
 
 Usage always drops in the same transaction as the removal.
 
-## Quota (D-081 D6)
+## Quota (D-082 D6)
 
 - **Limit:** the licence limit `storage_gb`. Placeholders: Essentials 50, Professional 250,
   Enterprise 1,000.

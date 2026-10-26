@@ -3,7 +3,7 @@
 Shared code (`app/shared/files`) cannot reach modules, so the `system` module plugs it in:
 
 - the scan consumer and the schedules (scan sweep, purge, scanner check) for the worker;
-- the storage quota from the entitlement interface (`storage_gb`, D-081 D6);
+- the storage quota from the entitlement interface (`storage_gb`, D-082 D6);
 - audit entries for what the worker does (a blocked file, a purge);
 - realtime: a file change reaches the record's channel (or, for an editor draft, the uploader's
   personal channel) with the file ID only; screens refetch through the API.

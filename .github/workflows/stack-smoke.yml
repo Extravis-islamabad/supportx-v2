@@ -14,6 +14,9 @@ on:
       - "backend/migrations/**"
       - "backend/tests/integration/**"
       - "backend/app/modules/licensing/**"
+      - "backend/app/modules/system/**"
+      - "backend/app/modules/work_items/**"
+      - "backend/app/shared/**"
       - "backend/tooling/**"
       - "frontend/apps/**"
       - "frontend/packages/**"
@@ -34,7 +37,7 @@ jobs:
   core:
     name: core profile, integration and e2e
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,6 +52,26 @@ jobs:
         run: make dev-up
       - name: dev-check
         run: make dev-check
+      # The files journey scans with the real ClamAV (D-082 D9). Signatures are cached for a week:
+      # downloading ~300 MB on every run would hit ClamAV's mirror rate limits.
+      - name: ClamAV signature cache key (ISO week)
+        id: week
+        run: echo "week=$(date -u +%G-%V)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/clamav-db
+          key: clamav-db-${{ steps.week.outputs.week }}
+          restore-keys: clamav-db-
+      - name: Start ClamAV (real scanner for the files journey)
+        run: |
+          mkdir -p ~/clamav-db && chmod 777 ~/clamav-db
+          docker run -d --name clamav -p 127.0.0.1:23310:3310 -v ~/clamav-db:/var/lib/clamav \
+            -e CLAMD_CONF_StreamMaxLength=101M clamav/clamav:1.5.4-debian
+          for _ in $(seq 1 120); do
+            docker exec clamav clamdcheck.sh >/dev/null 2>&1 && break
+            sleep 5
+          done
+          docker exec clamav clamdcheck.sh
       - uses: ./.github/actions/setup-backend
       - uses: ./.github/actions/setup-frontend
       - name: Configure, migrate and seed the dev database; RLS guard
@@ -88,6 +111,7 @@ jobs:
           tail -n 200 api.log relay.log consumers.log fanout.log console.log portal.log || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \
             --profile full logs --no-color --tail=200 keycloak postgres pgbouncer centrifugo
+          docker logs --tail=100 clamav || true
       - name: Upload Playwright report
         if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -97,4 +121,6 @@ jobs:
           retention-days: 7
       - name: Tear down
         if: ${{ always() }}
-        run: make dev-down
+        run: |
+          make dev-down
+          docker rm -f clamav || true

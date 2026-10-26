@@ -31,7 +31,7 @@ import {
 import { FilesBanner } from './FilesBanner';
 
 /**
- * Admin › Files (WP-022, D-081): the tenant's file rules (largest file up to 100 MB, files per
+ * Admin › Files (WP-022, D-082): the tenant's file rules (largest file up to 100 MB, files per
  * upload, blocked types), storage use against the plan's limit, and the malware-scanning status.
  * Changing the rules is audited with the old and new values.
  */

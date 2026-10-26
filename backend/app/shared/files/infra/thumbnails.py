@@ -1,4 +1,4 @@
-"""Image thumbnails with Pillow, in the worker, under strict limits (D-081 D4).
+"""Image thumbnails with Pillow, in the worker, under strict limits (D-082 D4).
 
 A decompression bomb is a small file that decodes into a huge image. Defences, in order:
 

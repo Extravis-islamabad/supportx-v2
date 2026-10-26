@@ -58,7 +58,7 @@ def test_executables_are_blocked_whatever_their_name(head: bytes, family: Family
     found = sniff(head)
     assert found.family == family
     assert blocked_reason("holiday-photo.jpg", found, BLOCKED) == "blocked_content"
-    # An administrator who takes the family off the list accepts it (D-081: editable list).
+    # An administrator who takes the family off the list accepts it (D-082: editable list).
     assert blocked_reason("tool.bin", found, [b for b in BLOCKED if b != family.value]) is None
 
 

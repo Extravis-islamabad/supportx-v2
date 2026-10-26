@@ -21,8 +21,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
-from app.core.database import TenantSession
+from app.core.database import Database, TenantSession, get_database
 from app.core.errors import ProblemDetail, ValidationFailed
+from app.core.tenancy import TenantContext
 from app.modules.audit import AuditNote, audited
 from app.modules.system.service.files import api_services
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -132,6 +133,7 @@ async def upload_file(  # noqa: PLR0913 - the upload's facts, explicit
     *,
     request: Request,
     session: TenantSession,
+    database: Annotated[Database, Depends(get_database)],
     subject: SignedIn,
     files: Files,
     idempotency: Idempotency,
@@ -151,21 +153,32 @@ async def upload_file(  # noqa: PLR0913 - the upload's facts, explicit
         inline=inline,
     )
 
-    async def run() -> Created:
-        stored, link = await uploads.upload(
-            session,
-            files,
-            subject,
-            uploads.Target(owner_type, owner_id, inline=inline),
-            name=name,
-            declared_size=target.size,
-            body=_body(request),
+    # Checks and the data key in a short transaction of their own; the bytes then stream with no
+    # database connection held (slow or many uploads never exhaust the pool); the rows are written
+    # in the request's transaction, which also claims the Idempotency-Key.
+    async with database.tenant_session(TenantContext(subject.tenant_id, subject.user_id)) as early:
+        prepared = await uploads.prepare(
+            early, files, subject, uploads.Target(owner_type, owner_id, inline=inline), target.size
         )
+    staged = await uploads.stage(files, prepared, name=name, body=_body(request))
+    finished = False
+
+    async def run() -> Created:
+        nonlocal finished
+        stored, link = await uploads.finish(session, files, prepared, staged)
+        finished = True
         note.object_id = str(stored.id)
         note.details = {"owner_type": owner_type.value, "size": stored.size}
         return Created(_out(stored, link, files))
 
-    return await idempotency.run(target, run, status_code=201)
+    try:
+        response = await idempotency.run(target, run, status_code=201)
+    except BaseException:
+        await uploads.discard(files, prepared)
+        raise
+    if not finished:  # a replayed Idempotency-Key: the first upload's file is the answer
+        await uploads.discard(files, prepared)
+    return response
 
 
 class AttachIn(BaseModel):
@@ -283,7 +296,7 @@ async def file_content(  # noqa: PLR0913 - the link, the reader and the audit no
     content = await access.open_by_link(
         session, files, subject, token, range_header=request.headers.get("range")
     )
-    # Reads are audited for private-note files only (D-081 D7); public ones would be noise.
+    # Reads are audited for private-note files only (D-082 D7); public ones would be noise.
     note.skip = not content.private
     note.object_id = str(content.file_id)
     return _stream(content, cache="private, no-store")
@@ -375,7 +388,7 @@ async def get_rules(response: Response, session: TenantSession, subject: SignedI
 
 
 class RulesIn(BaseModel):
-    """New rules (D-081 D7: up to 100 MB per file)."""
+    """New rules (D-082 D7: up to 100 MB per file)."""
 
     max_file_mb: int = Field(ge=1, le=100)
     max_batch: int = Field(ge=1, le=50)

@@ -1,4 +1,4 @@
-"""The scan worker's job for one file (D-081 D3, D4; ADR-028 items 3 and 4).
+"""The scan worker's job for one file (D-082 D3, D4; ADR-028 items 3 and 4).
 
 1. Decrypt the file and stream it to the scanner.
 2. Infected: block it for good, delete its object at once, keep the row (name, hash, signature)
@@ -30,7 +30,7 @@ from app.shared.files.domain.states import SCAN_ATTEMPTS_MAX, FileState, may_bec
 from app.shared.files.events import FileChanged
 from app.shared.files.infra import blobs, thumbnails
 from app.shared.files.infra.models import FileLink, StoredFile
-from app.shared.files.infra.scanner import ScannerUnavailableError
+from app.shared.files.infra.scanner import ScannerUnavailableError, Verdict
 from app.shared.files.service.core import (
     FileServices,
     current_data_key,
@@ -103,16 +103,28 @@ async def _unavailable(
     return ScanOutcome(stored.id, FileState.SCAN_FAILED)
 
 
-async def _read(
+# Images up to this size are cleaned of metadata and get a thumbnail, both of which need the
+# whole image in the worker's memory; bigger ones (rare: phone photos are 3-12 MB) keep theirs and
+# say so in the log. Everything is scanned, streamed, whatever its size.
+IMAGE_PROCESSING_MAX_BYTES = 50 << 20
+
+
+def _plaintext(services: FileServices, stored: StoredFile, key: bytes) -> AsyncIterator[bytes]:
+    storage, _ = services.require_storage()
+    return blobs.read(storage, stored.object_key, data_key=key, file_id=stored.id, size=stored.size)
+
+
+async def _check(
     session: AsyncSession, services: FileServices, stored: StoredFile
-) -> bytes | ScanOutcome:
-    """The file's plaintext, or the outcome when it cannot be read now (or ever)."""
-    storage, keyring = services.require_storage()
+) -> tuple[bytes | None, Verdict] | ScanOutcome:
+    """(the image's bytes when it will be processed, the verdict), or why there is none yet."""
+    _, keyring = services.require_storage()
     key = await data_key(session, keyring, stored.data_key_id)
+    image = stored.kind == "image" and stored.size <= IMAGE_PROCESSING_MAX_BYTES
     try:
-        return await blobs.read_all(
-            storage, stored.object_key, data_key=key, file_id=stored.id, size=stored.size
-        )
+        whole = b"".join([p async for p in _plaintext(services, stored, key)]) if image else None
+        source = _single(whole) if whole is not None else _plaintext(services, stored, key)
+        return whole, await services.scanner.scan(source)
     except StorageUnavailable:
         log.warning("file_scan_storage_unavailable", file_id=str(stored.id))
         return await _unavailable(session, services, stored, scanner_down=True)
@@ -121,6 +133,8 @@ async def _read(
         log.exception("file_object_unreadable", file_id=str(stored.id))
         await _set(session, stored, FileState.SCAN_FAILED)
         return ScanOutcome(stored.id, FileState.SCAN_FAILED)
+    except ScannerUnavailableError:
+        return await _unavailable(session, services, stored, scanner_down=True)
 
 
 async def scan(session: AsyncSession, services: FileServices, file_id: uuid.UUID) -> ScanOutcome:
@@ -131,21 +145,20 @@ async def scan(session: AsyncSession, services: FileServices, file_id: uuid.UUID
         return ScanOutcome(file_id, state)
     if not services.scanner.available:
         return await _unavailable(session, services, stored)
-    data = await _read(session, services, stored)
-    if isinstance(data, ScanOutcome):
-        return data
-    try:
-        verdict = await services.scanner.scan(data)
-    except ScannerUnavailableError:
-        return await _unavailable(session, services, stored, scanner_down=True)
+    checked = await _check(session, services, stored)
+    if isinstance(checked, ScanOutcome):
+        return checked
+    whole, verdict = checked
     if verdict.infected:
         stored.scan_signature = verdict.signature
         await _set(session, stored, FileState.INFECTED)
         await _drop_objects(session, services, stored)
         log.warning("file_blocked", file_id=str(file_id), signature=verdict.signature)
         return ScanOutcome(file_id, FileState.INFECTED, verdict.signature)
-    if stored.kind == "image":
-        await _clean_image(session, services, stored, data)
+    if whole is not None:
+        await _clean_image(session, services, stored, whole)
+    elif stored.kind == "image":
+        log.warning("file_image_not_processed", file_id=str(file_id), size=stored.size)
     await _set(session, stored, FileState.CLEAN)
     return ScanOutcome(file_id, FileState.CLEAN)
 

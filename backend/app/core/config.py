@@ -196,6 +196,9 @@ class Settings(BaseSettings):
     files_scan_required: bool = True
     files_signature_max_age_days: int = Field(default=7, ge=1, le=90)
     files_link_ttl_seconds: int = Field(default=300, ge=30, le=3600)
+    # Uploads written to storage at once per API process; more wait their turn (their bodies stay
+    # in the network, not in memory). Each holds about one 5 MiB S3 part plus its encryption.
+    files_upload_concurrency: int = Field(default=8, ge=1, le=64)
 
     # Audit log (WP-018, ADR-027, docs/architecture/audit.md). Anchors (signed checkpoints of each
     # tenant's chain) are signed with an Ed25519 installation key, "<key id>:<base64 32-byte

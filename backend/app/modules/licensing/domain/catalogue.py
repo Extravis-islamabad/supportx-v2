@@ -62,7 +62,7 @@ class LimitKey(StrEnum):
     DEPARTMENTS = "departments"
     MSP_CUSTOMERS = "msp_customers"
     AI_AGENT_RUNS_PER_MONTH = "ai_agent_runs_per_month"
-    # Stored files in GB (WP-022, D-081 D6): counted in whole GB for display; uploads compare bytes.
+    # Stored files in GB (WP-022, D-082 D6): counted in whole GB for display; uploads compare bytes.
     STORAGE_GB = "storage_gb"
 
 

@@ -1,4 +1,4 @@
-"""What a file really is, and whether a tenant accepts it (WP-022, D-081, ADR-028 item 6).
+"""What a file really is, and whether a tenant accepts it (WP-022, D-082, ADR-028 item 6).
 
 Pure functions, no I/O. The type comes from the file's first bytes, never from the browser's
 `Content-Type`; the name's extension is a second signal. A file is refused when its extension is
@@ -15,7 +15,7 @@ from enum import StrEnum
 SNIFF_BYTES = 8192
 NAME_MAX_BYTES = 255
 
-# D-081: executables and scripts are blocked by default; the list is the tenant's to edit.
+# D-082: executables and scripts are blocked by default; the list is the tenant's to edit.
 DEFAULT_BLOCKED_EXTENSIONS: tuple[str, ...] = (
     "exe", "msi", "bat", "cmd", "com", "scr", "pif", "cpl", "dll", "sys", "msc",
     "ps1", "psm1", "vbs", "vbe", "js", "jse", "wsf", "wsh", "hta",

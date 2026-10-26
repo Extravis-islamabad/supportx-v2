@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-26
-- **Source:** WP-022; architecture.md §6.8 (files), §11.3 (data protection); docs/specs/parity/01-work-items-incidents.md REQ-INC-079, REQ-INC-064; D-016, D-054, D-076, D-077, D-081
+- **Source:** WP-022; architecture.md §6.8 (files), §11.3 (data protection); docs/specs/parity/01-work-items-incidents.md REQ-INC-079, REQ-INC-064; D-016, D-054, D-076, D-077, D-082
 - **Owner:** Haider (Product Owner)
 
 ## Context
@@ -19,13 +19,13 @@ SeaweedFS, our on-prem store (D-016, ADR-012).
 
 ## Decision
 
-1. **Uploads stream through the API** (D-081 D1). The browser sends the raw file body to
+1. **Uploads stream through the API** (D-082 D1). The browser sends the raw file body to
    `POST /api/v1/files`. The API checks the target's access, the type and size rules and the quota
    before storing anything. It then streams the body: it counts bytes (and aborts at the limit),
    sniffs the real type from the first bytes, hashes, and encrypts into an S3 multipart upload. The
    bucket only ever holds ciphertext, and no S3 URL is ever handed out. Downloads come back through
    the API too, from short-lived signed links.
-2. **Per-tenant envelope encryption** (D-081 D2):
+2. **Per-tenant envelope encryption** (D-082 D2):
    - Each tenant has random 256-bit data keys, stored only wrapped (AES-256-GCM) by an
      **installation key**: `SUPPORTX_FILES_KEYS`, a Kubernetes secret on-prem; KMS behind the same
      port later.
@@ -38,7 +38,7 @@ SeaweedFS, our on-prem store (D-016, ADR-012).
    - **Crypto-shredding:** deleting a tenant's keys makes its files unreadable.
    - Losing the installation key loses every file, so backup and restore must include it
      (docs/architecture/files.md).
-3. **Scan before availability** (D-081 D3). A worker decrypts each new file and streams it to
+3. **Scan before availability** (D-082 D3). A worker decrypts each new file and streams it to
    clamd (`INSTREAM`):
    - only `clean` files can be previewed or downloaded;
    - `infected` files are blocked for good, and their object is deleted at once;
@@ -48,12 +48,12 @@ SeaweedFS, our on-prem store (D-016, ADR-012).
      silence;
    - signatures older than 7 days raise an alert;
    - offline sites update signatures from a private mirror or an offline bundle.
-4. **Images are processed in the worker** (D-081 D4):
+4. **Images are processed in the worker** (D-082 D4):
    - Metadata (EXIF, including GPS; XMP; text chunks) is stripped losslessly from JPEG, PNG and
      WebP after a clean scan.
    - Pillow makes 320 px thumbnails under pixel and byte limits (decompression-bomb protection).
    - SVG and HTML are never rendered inline.
-5. **Files are a shared platform service** (D-081 D5):
+5. **Files are a shared platform service** (D-082 D5):
    - `app/shared/files` owns the tables (`files`, `file_links`, `tenant_data_keys`,
      `tenant_storage_usage`, `file_settings`) and the logic.
    - The `system` module (platform services, ADR-018) mounts its routes, scan consumer and
@@ -61,7 +61,7 @@ SeaweedFS, our on-prem store (D-016, ADR-012).
    - Who may see a file is answered by its owner module through a port (`FileOwnerAccess`).
      `work_items` answers for incidents, replies and notes, including private notes (staff only).
      Visibility is never copied onto the file, so making a note public takes its files along.
-6. **Dangerous types are blocked by the real type** (D-081 addition):
+6. **Dangerous types are blocked by the real type** (D-082 addition):
    - A tenant-editable extension list blocks executables and scripts by default.
    - Each file's type is sniffed from its content, and a native executable, shebang script or
      Java archive is refused under any name when its family is on the list.

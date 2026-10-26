@@ -1,8 +1,8 @@
-"""Files and safe attachments over HTTP (WP-022; REQ-INC-079 AC1-AC4; D-081; ADR-028).
+"""Files and safe attachments over HTTP (WP-022; REQ-INC-079 AC1-AC4; D-082; ADR-028).
 
 Same world as test_incidents_api.py. Files go to a fresh bucket on real S3-compatible storage
 (MinIO in dev, SeaweedFS in CI); scanning uses the fake scanner (EICAR is malware), the real ClamAV
-runs in the e2e job (D-081 D9). The scan consumer is driven by hand (`scan_waiting`).
+runs in the e2e job (D-082 D9). The scan consumer is driven by hand (`scan_waiting`).
 """
 
 import base64
@@ -29,6 +29,7 @@ from app.shared.storage import S3Storage
 from tests.db.test_audit_exports import storage
 from tests.db.test_conversation_api import say
 from tests.db.test_incidents_api import CONSOLE, Org, World, problem, role, world
+from tooling import files_keys
 
 if TYPE_CHECKING:
     from app.core.database import Database
@@ -150,7 +151,7 @@ async def test_upload_scan_and_download_with_a_short_lived_link(
     raw = await files.storage.get(f"tenants/{a.tenant}/files/{stored['id']}")
     assert raw is not None
     assert b"report line" not in raw
-    # Audited: the upload (download of a public file is not, D-081 D7).
+    # Audited: the upload (download of a public file is not, D-082 D7).
     actions = await audit_actions(world, a)
     assert "file.uploaded" in actions
     assert "file.downloaded" not in actions
@@ -242,7 +243,7 @@ async def test_ac2_size_limit_refused_before_upload_with_the_limit(
         json={"max_file_mb": 101, "max_batch": 5, "blocked_extensions": []},
         headers={"If-Match": '"1"'},
     )
-    assert over.status_code == 422  # D-081 D7: at most 100 MB
+    assert over.status_code == 422  # D-082 D7: at most 100 MB
     refused = await world.call("GET", "/files/settings/usage", a, a.tech_a)
     assert refused.status_code == 403  # files.manage only
 
@@ -262,7 +263,7 @@ async def test_dangerous_types_blocked_by_name_and_by_real_type(
     assert renamed.json()["params"]["reason"] == "blocked_content"
     script = await upload(world, a, a.tech_a, owner, b"#!/bin/sh\nrm -rf /", "readme.txt")
     assert problem(script) == (422, "file_type_blocked")
-    # The list is the tenant's (D-081): an administrator may allow executables knowingly.
+    # The list is the tenant's (D-082): an administrator may allow executables knowingly.
     saved = await world.call(
         "PUT",
         "/files/settings/rules",
@@ -316,7 +317,7 @@ async def test_private_note_files_are_for_staff_only(world: World, files: FileSe
             404,
             "file_not_found",
         )
-    # Staff opening a private note's file is an audited read (D-081 D7).
+    # Staff opening a private note's file is an audited read (D-082 D7).
     opened = await open_file(world, a, a.tech_a, secret.json()["id"])
     assert opened.status_code == 200
     assert "file.downloaded" in await audit_actions(world, a)
@@ -494,7 +495,7 @@ async def test_images_lose_their_metadata_and_get_a_thumbnail(
     assert inline.status_code == 200
     assert b"serial 42" not in inline.content
     with Image.open(io.BytesIO(inline.content)) as cleaned:
-        assert 0x8825 not in cleaned.getexif()  # GPS gone (D-081 D4)
+        assert 0x8825 not in cleaned.getexif()  # GPS gone (D-082 D4)
         assert cleaned.getexif().get(0x0112) == 6  # orientation kept
     thumb = await world.call("GET", f"/files/{stored['id']}/thumbnail", a, a.tech_a)
     assert thumb.status_code == 200
@@ -627,7 +628,7 @@ Check = Callable[[], None]
 
 
 async def test_key_rotation_keeps_old_files_readable(world: World, files: FileServices) -> None:
-    """D-081 D2: rotate the tenant key and the installation key; every file still opens."""
+    """D-082 D2: rotate the tenant key and the installation key; every file still opens."""
     a = world.a
     item = await world.create(a, a.tech_a)
     old = (await upload(world, a, a.tech_a, ("work_item", item["id"]), b"before")).json()
@@ -696,3 +697,24 @@ async def test_ac4_a_pdf_previews_in_the_browser(world: World, files: FileServic
         world, a, a.tech_a, stored["id"], disposition="inline", headers={"Range": "bytes=0-7"}
     )
     assert (page.status_code, page.content) == (206, b"%PDF-1.4")
+
+
+async def test_operator_key_commands_check_rotate_and_rewrap(
+    world: World, files: FileServices
+) -> None:
+    """tooling/files_keys: after a restore `check` names a missing installation key."""
+    a = world.a
+    item = await world.create(a, a.tech_a)
+    await upload(world, a, a.tech_a, ("work_item", item["id"]), b"kept")
+    database: Database = world.app.state.db
+    assert files.keyring is not None
+    checked = await files_keys.run(database, files.keyring, "check")
+    assert checked.ok
+    assert checked.done[a.tenant] >= 1
+    rotated = await files_keys.run(database, files.keyring, "rotate")
+    assert rotated.ok
+    # Restored without the installation key that wrapped the data keys: named, not a crash.
+    stranger = KeyRing.parse(KeyRing.generate("k9"))
+    broken = await files_keys.run(database, stranger, "check")
+    assert not broken.ok
+    assert "not in the key ring" in broken.failed[a.tenant]

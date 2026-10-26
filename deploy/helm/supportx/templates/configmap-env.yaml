@@ -32,6 +32,11 @@ data:
   SUPPORTX_OBJECT_STORAGE_BUCKET: {{ .Values.objectStorage.bucket | quote }}
   SUPPORTX_OBJECT_STORAGE_REGION: {{ .Values.objectStorage.region | quote }}
   SUPPORTX_AUDIT_TRUSTED_KEYS: {{ .Values.audit.trustedKeys | quote }}
+  # Files (WP-022): the release's clamd, and whether files wait for it.
+  SUPPORTX_FILES_SCAN_REQUIRED: {{ .Values.files.scanRequired | quote }}
+  {{- if .Values.clamav.enabled }}
+  SUPPORTX_FILES_CLAMD_ADDRESS: {{ printf "%s-clamav:3310" .Release.Name | quote }}
+  {{- end }}
   {{- if eq .Values.app.entitlementProvider "licence_file" }}
   SUPPORTX_LICENCE_FILE: /etc/supportx/licence/licence.json
   {{- end }}

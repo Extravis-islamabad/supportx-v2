@@ -1,4 +1,4 @@
-"""Files and safe attachments (WP-022, ADR-028, D-081).
+"""Files and safe attachments (WP-022, ADR-028, D-082).
 
 Tables (all tenant-scoped with RLS):
 

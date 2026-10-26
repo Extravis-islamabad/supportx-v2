@@ -1,4 +1,4 @@
-"""The installation key ring that wraps each tenant's data keys (D-081 D2, ADR-028 item 2).
+"""The installation key ring that wraps each tenant's data keys (D-082 D2, ADR-028 item 2).
 
 `SUPPORTX_FILES_KEYS` = "<key id>:<base64 32 bytes>, <older id>:<base64>, ..." with the active key
 first. A tenant data key is stored only wrapped by one of these (AES-256-GCM, bound to the tenant),

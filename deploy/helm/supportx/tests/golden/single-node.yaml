@@ -237,6 +237,37 @@ spec:
 
 ---
 # Source: supportx/templates/networkpolicies.yaml
+# clamd (WP-022): the consumers worker sends files to scan; the API asks only for the version
+# (signature date) for Admin > Files. Nothing else reaches it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: supportx-clamav-ingress
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: network
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: clamav
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/instance, operator: In, values: ["supportx"]}
+              - {key: app.kubernetes.io/component, operator: In, values: [api, consumers]}
+      ports:
+        - {port: 3310, protocol: TCP}
+
+---
+# Source: supportx/templates/networkpolicies.yaml
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the
 # other instances (replication) and the CloudNativePG operator (instance manager on 8000).
 apiVersion: networking.k8s.io/v1
@@ -557,6 +588,45 @@ data:
     }
 
 ---
+# Source: supportx/templates/clamav.yaml
+# Malware scanning for files (WP-022, D-082 D3, ADR-028 item 3). clamd answers INSTREAM on 3310 to
+# the consumers worker only (network policy); a freshclam sidecar keeps the signatures current from
+# the public mirrors or a private one; air-gapped sites load the offline bundle into the volume
+# (deploy/scripts/clamav-signatures.sh). Runs as the image's `clamav` user (1000), our own config:
+# the image's start script needs root, so it is not used.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: supportx-clamav
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: clamav
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+data:
+  clamd.conf: |
+    Foreground yes
+    TCPSocket 3310
+    DatabaseDirectory /var/lib/clamav
+    TemporaryDirectory /tmp
+    LogTime yes
+    # Files up to 100 MB (D-082 D7), with headroom.
+    StreamMaxLength 101M
+    MaxFileSize 101M
+    MaxScanSize 400M
+    # New signatures from the sidecar are picked up within 10 minutes; one copy in memory.
+    SelfCheck 600
+    ConcurrentDatabaseReload no
+  freshclam.conf: |
+    Foreground yes
+    DatabaseDirectory /var/lib/clamav
+    Checks 12
+    DatabaseMirror database.clamav.net
+
+---
 # Source: supportx/templates/configmap-env.yaml
 # Non-secret SUPPORTX_* settings shared by the API and the workers (app/core/config.py).
 apiVersion: v1
@@ -593,6 +663,9 @@ data:
   SUPPORTX_OBJECT_STORAGE_BUCKET: "supportx"
   SUPPORTX_OBJECT_STORAGE_REGION: "us-east-1"
   SUPPORTX_AUDIT_TRUSTED_KEYS: ""
+  # Files (WP-022): the release's clamd, and whether files wait for it.
+  SUPPORTX_FILES_SCAN_REQUIRED: "true"
+  SUPPORTX_FILES_CLAMD_ADDRESS: "supportx-clamav:3310"
 
 ---
 # Source: supportx/templates/keycloak.yaml
@@ -1068,6 +1141,27 @@ spec:
     - {name: http, port: 8000, targetPort: http}
 
 ---
+# Source: supportx/templates/clamav.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: supportx-clamav
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: clamav
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  selector:
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: clamav
+  ports:
+    - {name: clamd, port: 3310, targetPort: clamd}
+
+---
 # Source: supportx/templates/keycloak.yaml
 apiVersion: v1
 kind: Service
@@ -1331,7 +1425,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
+        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -1778,7 +1872,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
+        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -1924,7 +2018,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
+        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2026,8 +2120,8 @@ spec:
               drop: ["ALL"]
           resources:
             limits:
-              cpu: 500m
-              memory: 384Mi
+              cpu: "1"
+              memory: 768Mi
             requests:
               cpu: 50m
               memory: 160Mi
@@ -2071,7 +2165,7 @@ spec:
         app.kubernetes.io/part-of: supportx
         helm.sh/chart: supportx-0.1.0
       annotations:
-        checksum/env: ed308a941c69fd7ff187783494fd602115880bd34f716a3bf0d8b9b0dcc84c47
+        checksum/env: f1c17492e2244169ae6ca91962fbb64b39aa84578a390daa3631ec74583c7579
         
         prometheus.io/scrape: "true"
         prometheus.io/port: "9464"
@@ -2353,6 +2447,136 @@ spec:
       resources:
         requests:
           storage: 20Gi
+
+---
+# Source: supportx/templates/clamav.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: supportx-clamav
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: clamav
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  serviceName: supportx-clamav
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: supportx
+      app.kubernetes.io/component: clamav
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: clamav
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+      annotations:
+        checksum/config: 6b51d431df5d7f141cbececcf79edf3dd861c3b4069f0b11661a3eefacbba918
+    spec:
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000               # the image's `clamav` user
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        # First signatures before clamd starts. With no mirror reachable, an existing database
+        # (earlier download or the offline bundle) is used; with none at all the pod waits, files
+        # wait as "scanning" and administrators see that the scanner is unreachable.
+        - name: signatures
+          image: clamav/clamav:1.5.4-debian
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              freshclam --foreground --config-file=/etc/clamav-sx/freshclam.conf
+              || ls /var/lib/clamav/main.c?d >/dev/null 2>&1
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 1Gi
+          volumeMounts:
+            - {name: signatures, mountPath: /var/lib/clamav}
+            - {name: config, mountPath: /etc/clamav-sx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: clamd
+          image: clamav/clamav:1.5.4-debian
+          command: ["clamd", "--foreground", "--config-file=/etc/clamav-sx/clamd.conf"]
+          ports:
+            - {name: clamd, containerPort: 3310}
+          startupProbe:
+            tcpSocket: {port: clamd}
+            periodSeconds: 5
+            failureThreshold: 60      # loading the signatures takes a minute or two
+          readinessProbe:
+            tcpSocket: {port: clamd}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: clamd}
+            periodSeconds: 30
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            limits:
+              cpu: "2"
+              memory: 2Gi
+            requests:
+              cpu: 100m
+              memory: 1Gi
+          volumeMounts:
+            - {name: signatures, mountPath: /var/lib/clamav, readOnly: true}
+            - {name: config, mountPath: /etc/clamav-sx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+        - name: freshclam
+          image: clamav/clamav:1.5.4-debian
+          command: ["freshclam", "--daemon", "--foreground", "--config-file=/etc/clamav-sx/freshclam.conf"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          volumeMounts:
+            - {name: signatures, mountPath: /var/lib/clamav}
+            - {name: config, mountPath: /etc/clamav-sx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap: {name: supportx-clamav}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: signatures
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 2Gi
 
 ---
 # Source: supportx/templates/seaweedfs.yaml

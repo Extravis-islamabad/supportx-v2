@@ -1,4 +1,4 @@
-"""Remove metadata from images without re-encoding them (D-081 D4: strip GPS/EXIF).
+"""Remove metadata from images without re-encoding them (D-082 D4: strip GPS/EXIF).
 
 Phone photos carry EXIF with GPS coordinates, camera serials and timestamps; editors add XMP,
 IPTC and text chunks. These are removed losslessly, by dropping the segments that hold them:

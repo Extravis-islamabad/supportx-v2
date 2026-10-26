@@ -1,4 +1,4 @@
-"""Malware scanning (D-081 D3, ADR-028 item 3): clamd over TCP, or no scanner at all.
+"""Malware scanning (D-082 D3, ADR-028 item 3): clamd over TCP, or no scanner at all.
 
 `ClamdScanner` speaks clamd's INSTREAM protocol (length-prefixed chunks, then a zero length) and
 asks VERSION for the signature date. `NoScanner` says scanning is not available, so files wait
@@ -8,7 +8,7 @@ warned. `FakeScanner` (tests) treats the EICAR test string as malware, like real
 
 import asyncio
 import re
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Protocol
@@ -50,8 +50,8 @@ class Scanner(Protocol):
         """Whether a scanner is installed at all."""
         ...
 
-    async def scan(self, data: bytes) -> Verdict:
-        """The verdict for `data`, or ScannerUnavailableError."""
+    async def scan(self, data: AsyncIterator[bytes]) -> Verdict:
+        """The verdict for the streamed file, or ScannerUnavailableError."""
         ...
 
     async def version(self) -> ScannerVersion:
@@ -64,7 +64,7 @@ class NoScanner:
 
     available = False
 
-    async def scan(self, data: bytes) -> Verdict:
+    async def scan(self, data: AsyncIterator[bytes]) -> Verdict:
         """Never called: files are not sent to a scanner that does not exist."""
         del data
         raise ScannerUnavailableError
@@ -82,11 +82,11 @@ class FakeScanner:
     signature_date: datetime | None = None
     available: bool = True
 
-    async def scan(self, data: bytes) -> Verdict:
+    async def scan(self, data: AsyncIterator[bytes]) -> Verdict:
         """EICAR found, or clean."""
         if self.down:
             raise ScannerUnavailableError
-        if EICAR in data:
+        if EICAR in b"".join([piece async for piece in data]):
             return Verdict(infected=True, signature="Eicar-Test-Signature")
         return Verdict(infected=False)
 
@@ -99,7 +99,7 @@ class FakeScanner:
 
 def parse_version(reply: str) -> ScannerVersion:
     """Parse the VERSION reply of clamd, e.g. `ClamAV 1.5.4/27801/Sun Oct 25 08:24:12 2026`."""
-    match = _VERSION.match(reply.strip())
+    match = _VERSION.match(reply.strip().rstrip("\x00"))  # clamd ends z-replies with NUL
     if match is None:
         raise ScannerUnavailableError
     try:
@@ -135,13 +135,15 @@ class ClamdScanner:
         host, _, port = address.rpartition(":")
         return cls(host, int(port), timeout)
 
-    async def _exchange(self, command: bytes, body: Callable[[asyncio.StreamWriter], None]) -> str:
+    async def _exchange(
+        self, command: bytes, body: Callable[[asyncio.StreamWriter], Awaitable[None]]
+    ) -> str:
         try:
             async with asyncio.timeout(self.timeout):
                 reader, writer = await asyncio.open_connection(self.host, self.port)
                 try:
                     writer.write(command)
-                    body(writer)
+                    await body(writer)
                     await writer.drain()
                     reply = await reader.read(4096)
                 finally:
@@ -150,17 +152,23 @@ class ClamdScanner:
             raise ScannerUnavailableError from error
         return reply.decode("utf-8", errors="replace")
 
-    async def scan(self, data: bytes) -> Verdict:
-        """Stream `data` to clamd and read its verdict."""
+    async def scan(self, data: AsyncIterator[bytes]) -> Verdict:
+        """Stream the file to clamd piece by piece (never whole in memory) and read its verdict."""
 
-        def send(writer: asyncio.StreamWriter) -> None:
-            for offset in range(0, len(data), _INSTREAM_PIECE):
-                piece = data[offset : offset + _INSTREAM_PIECE]
-                writer.write(len(piece).to_bytes(4, "big") + piece)
+        async def send(writer: asyncio.StreamWriter) -> None:
+            async for chunk in data:
+                for offset in range(0, len(chunk), _INSTREAM_PIECE):
+                    piece = chunk[offset : offset + _INSTREAM_PIECE]
+                    writer.write(len(piece).to_bytes(4, "big") + piece)
+                    await writer.drain()
             writer.write(b"\x00\x00\x00\x00")
 
         return parse_verdict(await self._exchange(b"zINSTREAM\x00", send))
 
     async def version(self) -> ScannerVersion:
         """Engine and signature date."""
-        return parse_version(await self._exchange(b"zVERSION\x00", lambda _: None))
+
+        async def nothing(writer: asyncio.StreamWriter) -> None:
+            del writer
+
+        return parse_version(await self._exchange(b"zVERSION\x00", nothing))

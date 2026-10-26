@@ -39,6 +39,7 @@ class FileServices:
     scan_required: bool = True
     link_ttl: timedelta = timedelta(minutes=5)
     signature_max_age: timedelta = timedelta(days=7)
+    upload_concurrency: int = 8
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "FileServices":
@@ -62,6 +63,7 @@ class FileServices:
             scan_required=settings.files_scan_required,
             link_ttl=timedelta(seconds=settings.files_link_ttl_seconds),
             signature_max_age=timedelta(days=settings.files_signature_max_age_days),
+            upload_concurrency=settings.files_upload_concurrency,
         )
 
     def require_storage(self) -> tuple[ObjectStorage, KeyRing]:

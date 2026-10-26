@@ -5,7 +5,7 @@ import { useFileStatus } from '@supportx/api-client';
 import { useAccess, useLabel } from '@supportx/ui';
 
 /**
- * File scanning that needs an administrator (D-081 D3, never silent): no scanner installed, the
+ * File scanning that needs an administrator (D-082 D3, never silent): no scanner installed, the
  * scanner not answering, signatures older than 7 days, files that could not be checked or were
  * stored unscanned. Shown to holders of `files.manage` until the cause is gone.
  */

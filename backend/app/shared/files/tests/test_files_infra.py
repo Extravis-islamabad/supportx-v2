@@ -35,12 +35,17 @@ def test_clamd_replies_are_read() -> None:
     assert (found.infected, found.signature) == (True, "Win.Test.EICAR_HDB-1")
     with pytest.raises(ScannerUnavailableError):
         parse_verdict("INSTREAM size limit exceeded. ERROR")
-    version = parse_version("ClamAV 1.5.4/27801/Sun Oct 25 08:24:12 2026\n")
+    version = parse_version("ClamAV 1.5.4/27801/Sun Oct 25 08:24:12 2026\x00")
     assert (version.engine, version.signatures) == ("1.5.4", 27801)
     assert version.signature_date == datetime(2026, 10, 25, 8, 24, 12, tzinfo=UTC)
     assert parse_version("ClamAV 1.5.4/1/not a date").signature_date is None
     with pytest.raises(ScannerUnavailableError):
         parse_version("garbage")
+
+
+async def _pieces(data: bytes, size: int = 70_000) -> AsyncIterator[bytes]:
+    for offset in range(0, len(data), size):
+        yield data[offset : offset + size]
 
 
 async def _fake_clamd() -> tuple[asyncio.Server, int]:
@@ -58,7 +63,9 @@ async def _fake_clamd() -> tuple[asyncio.Server, int]:
                     break
                 data += await reader.readexactly(length)
             writer.write(
-                b"stream: Eicar-Signature FOUND\x00" if EICAR in data else b"stream: OK\x00"
+                b"stream: Eicar-Signature FOUND\x00"
+                if data.startswith(EICAR)
+                else b"stream: OK\x00"
             )
         await writer.drain()
         writer.close()
@@ -72,23 +79,23 @@ async def test_clamd_scanner_streams_files_in_pieces() -> None:
     async with server:
         scanner = ClamdScanner.from_address(f"127.0.0.1:{port}", timeout=5)
         assert scanner.available
-        assert not (await scanner.scan(b"x" * 200_000)).infected  # several 64 KiB pieces
-        assert (await scanner.scan(b"prefix" + EICAR)).infected
+        assert not (await scanner.scan(_pieces(b"x" * 200_000))).infected  # many 64 KiB pieces
+        assert (await scanner.scan(_pieces(EICAR))).infected
         assert (await scanner.version()).signatures == 27801
     down = ClamdScanner.from_address("127.0.0.1:1", timeout=1)
     with pytest.raises(ScannerUnavailableError):
-        await down.scan(b"x")
+        await down.scan(_pieces(b"x"))
 
 
 async def test_no_and_fake_scanners() -> None:
     assert not NoScanner().available
     with pytest.raises(ScannerUnavailableError):
-        await NoScanner().scan(b"x")
+        await NoScanner().scan(_pieces(b"x"))
     with pytest.raises(ScannerUnavailableError):
         await NoScanner().version()
     fake = FakeScanner(down=True)
     with pytest.raises(ScannerUnavailableError):
-        await fake.scan(b"x")
+        await fake.scan(_pieces(b"x"))
     with pytest.raises(ScannerUnavailableError):
         await fake.version()
 

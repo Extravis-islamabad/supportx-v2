@@ -11,9 +11,10 @@ Order matters, so nothing is stored that should have been refused:
    usage and the `system.file.uploaded` event. If that fails, the stored object is removed.
 """
 
+import asyncio
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +23,13 @@ from app.core.errors import LimitReached, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.shared.events import record_event
 from app.shared.files.domain.states import FileState
-from app.shared.files.domain.types import blocked_reason, extension, normalise_name, sniff
+from app.shared.files.domain.types import (
+    Sniffed,
+    blocked_reason,
+    extension,
+    normalise_name,
+    sniff,
+)
 from app.shared.files.events import FileChanged, FileUploaded
 from app.shared.files.infra import blobs
 from app.shared.files.infra.models import FileLink, StoredFile
@@ -31,6 +38,7 @@ from app.shared.files.service.core import (
     GB,
     MB,
     FileServices,
+    Rules,
     current_data_key,
     lock_usage,
     object_key,
@@ -42,6 +50,16 @@ from app.shared.ids import new_id
 from app.shared.storage import StorageUnavailable
 
 log = get_logger(__name__)
+# One gate per event loop: how many uploads write to storage at once (upload_concurrency).
+_GATES: dict[asyncio.AbstractEventLoop, asyncio.Semaphore] = {}
+
+
+def _gate(size: int) -> asyncio.Semaphore:
+    loop = asyncio.get_running_loop()
+    gate = _GATES.get(loop)
+    if gate is None:
+        gate = _GATES[loop] = asyncio.Semaphore(size)
+    return gate
 
 
 @dataclass(frozen=True)
@@ -92,6 +110,151 @@ def initial_state(services: FileServices) -> FileState:
     return FileState.NOT_SCANNED
 
 
+@dataclass(frozen=True)
+class Prepared:
+    """What the checks decided before any byte is read (no database needed afterwards)."""
+
+    target: Target
+    owner: Owner | None
+    rules: Rules
+    tenant_id: uuid.UUID
+    file_id: uuid.UUID
+    data_key_id: uuid.UUID
+    data_key: bytes = field(repr=False)
+
+    @property
+    def object_key(self) -> str:
+        """Where the encrypted bytes go."""
+        return object_key(self.tenant_id, self.file_id)
+
+
+@dataclass(frozen=True)
+class Staged:
+    """The encrypted object written, and what the first bytes said the file is."""
+
+    name: str
+    sniffed: Sniffed
+    written: blobs.Written
+
+
+async def prepare(
+    session: AsyncSession,
+    services: FileServices,
+    actor: Actor,
+    target: Target,
+    declared_size: int | None,
+) -> Prepared:
+    """Owner, size and quota checks, and the data key (steps 1-3; a short transaction)."""
+    _, keyring = services.require_storage()
+    owner = await resolve_owner(session, actor, target, Action.ATTACH)
+    tenant_rules = await rules(session)
+    if declared_size is not None and declared_size > tenant_rules.max_file_bytes:
+        raise _too_large(tenant_rules.max_file_mb, declared_size)
+    await _check_quota(session, declared_size or 0, lock=False)
+    key_id, key = await current_data_key(session, keyring)
+    return Prepared(target, owner, tenant_rules, tenant_of(session), new_id(), key_id, key)
+
+
+async def stage(
+    services: FileServices, prepared: Prepared, *, name: str, body: AsyncIterator[bytes]
+) -> Staged:
+    """Real type against the blocked list, then the encrypted stream (steps 4-5; no database).
+
+    Memory stays bounded however many people upload at once: past `upload_concurrency`, uploads
+    wait here with their bodies still in the network.
+    """
+    storage, _ = services.require_storage()
+    clean_name = normalise_name(name)
+    head, stream = await blobs.read_head(body)
+    sniffed = sniff(head)
+    reason = blocked_reason(clean_name, sniffed, prepared.rules.blocked)
+    if reason is not None:
+        raise ValidationFailed(
+            code="file_type_blocked",
+            params={"reason": reason, "extension": extension(clean_name) or "-"},
+        )
+    try:
+        async with _gate(services.upload_concurrency):
+            written = await blobs.write(
+                storage,
+                prepared.object_key,
+                data_key=prepared.data_key,
+                data_key_id=prepared.data_key_id,
+                file_id=prepared.file_id,
+                source=stream,
+                limit=prepared.rules.max_file_bytes,
+            )
+    except blobs.TooLargeError:
+        raise _too_large(prepared.rules.max_file_mb, None) from None
+    return Staged(clean_name, sniffed, written)
+
+
+async def finish(
+    session: AsyncSession,
+    services: FileServices,
+    prepared: Prepared,
+    staged: Staged,
+    source: str = "ui",
+) -> tuple[StoredFile, FileLink]:
+    """Quota with the real size (row lock), the rows, usage and the event (step 6).
+
+    The caller removes the staged object (`discard`) if this fails or never runs.
+    """
+    written = staged.written
+    await _check_quota(session, written.size, lock=True)
+    state = initial_state(services)
+    target, owner = prepared.target, prepared.owner
+    stored = StoredFile(
+        id=prepared.file_id,
+        tenant_id=prepared.tenant_id,
+        name=staged.name,
+        size=written.size,
+        sha256=written.sha256,
+        content_type=staged.sniffed.content_type,
+        kind=staged.sniffed.kind.value,
+        active_markup=staged.sniffed.active_markup,
+        state=state.value,
+        data_key_id=prepared.data_key_id,
+        object_key=prepared.object_key,
+        stored_size=written.stored_size,
+        source=source,
+    )
+    link = FileLink(
+        tenant_id=prepared.tenant_id,
+        file_id=prepared.file_id,
+        owner_type=target.owner_type.value,
+        owner_id=target.owner_id,
+        record_type=owner.record_type if owner else None,
+        record_id=owner.record_id if owner else None,
+        inline=target.inline,
+    )
+    session.add(stored)
+    await session.flush()  # no ORM relationship orders the inserts: the file goes first
+    session.add(link)
+    counter = await lock_usage(session)
+    counter.bytes_used += written.size
+    counter.files_count += 1
+    await session.flush()
+    await record_event(
+        session,
+        FileUploaded(
+            file_id=prepared.file_id,
+            owner_type=link.owner_type,
+            owner_id=link.owner_id,
+            record_type=link.record_type,
+            record_id=link.record_id,
+        ),
+        aggregate_id=prepared.file_id,
+    )
+    log.info("file_uploaded", file_id=str(prepared.file_id), size=written.size, state=state.value)
+    return stored, link
+
+
+async def discard(services: FileServices, prepared: Prepared) -> None:
+    """Remove a staged object whose rows were never written (refused, failed, or a replay)."""
+    await _forget(services, prepared.object_key)
+
+
 async def upload(  # noqa: PLR0913 - the upload's facts, explicit
     session: AsyncSession,
     services: FileServices,
@@ -103,90 +266,18 @@ async def upload(  # noqa: PLR0913 - the upload's facts, explicit
     body: AsyncIterator[bytes],
     source: str = "ui",
 ) -> tuple[StoredFile, FileLink]:
-    """Store one file for `target` and queue its scan."""
-    storage, keyring = services.require_storage()
-    owner = await resolve_owner(session, actor, target, Action.ATTACH)
-    tenant_rules = await rules(session)
-    if declared_size is not None and declared_size > tenant_rules.max_file_bytes:
-        raise _too_large(tenant_rules.max_file_mb, declared_size)
-    await _check_quota(session, declared_size or 0, lock=False)
+    """All steps in one session (callers without a long-running client, e.g. email intake).
 
-    clean_name = normalise_name(name)
-    head, stream = await blobs.read_head(body)
-    sniffed = sniff(head)
-    reason = blocked_reason(clean_name, sniffed, tenant_rules.blocked)
-    if reason is not None:
-        raise ValidationFailed(
-            code="file_type_blocked",
-            params={"reason": reason, "extension": extension(clean_name) or "-"},
-        )
-
-    tenant = tenant_of(session)
-    file_id = new_id()
-    key_id, key = await current_data_key(session, keyring)
-    stored_at = object_key(tenant, file_id)
+    The API route instead prepares in a short transaction and streams with no connection held
+    (system/api/files.py), so slow uploads never hold database connections.
+    """
+    prepared = await prepare(session, services, actor, target, declared_size)
+    staged = await stage(services, prepared, name=name, body=body)
     try:
-        written = await blobs.write(
-            storage,
-            stored_at,
-            data_key=key,
-            data_key_id=key_id,
-            file_id=file_id,
-            source=stream,
-            limit=tenant_rules.max_file_bytes,
-        )
-    except blobs.TooLargeError:
-        raise _too_large(tenant_rules.max_file_mb, None) from None
-    try:
-        await _check_quota(session, written.size, lock=True)
-        state = initial_state(services)
-        stored = StoredFile(
-            id=file_id,
-            tenant_id=tenant,
-            name=clean_name,
-            size=written.size,
-            sha256=written.sha256,
-            content_type=sniffed.content_type,
-            kind=sniffed.kind.value,
-            active_markup=sniffed.active_markup,
-            state=state.value,
-            data_key_id=key_id,
-            object_key=stored_at,
-            stored_size=written.stored_size,
-            source=source,
-        )
-        link = FileLink(
-            tenant_id=tenant,
-            file_id=file_id,
-            owner_type=target.owner_type.value,
-            owner_id=target.owner_id,
-            record_type=owner.record_type if owner else None,
-            record_id=owner.record_id if owner else None,
-            inline=target.inline,
-        )
-        session.add(stored)
-        await session.flush()  # no ORM relationship orders the inserts: the file goes first
-        session.add(link)
-        counter = await lock_usage(session)
-        counter.bytes_used += written.size
-        counter.files_count += 1
-        await session.flush()
-        await record_event(
-            session,
-            FileUploaded(
-                file_id=file_id,
-                owner_type=link.owner_type,
-                owner_id=link.owner_id,
-                record_type=link.record_type,
-                record_id=link.record_id,
-            ),
-            aggregate_id=file_id,
-        )
+        return await finish(session, services, prepared, staged, source)
     except BaseException:
-        await _forget(services, stored_at)
+        await discard(services, prepared)
         raise
-    log.info("file_uploaded", file_id=str(file_id), size=written.size, state=state.value)
-    return stored, link
 
 
 async def _forget(services: FileServices, key: str) -> None:

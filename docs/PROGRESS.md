@@ -345,8 +345,8 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
 
-### [ ] WP-022 — Files and safe attachments (lane B; D-081; ADR-028; in progress, 3 sessions)
-Plan: ~/Desktop/wp-022-plan.md (approved with D-081). Branch `feat/wp-022-files`.
+### [ ] WP-022 — Files and safe attachments (lane B; D-082; ADR-028; in progress, 3 sessions)
+Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`.
 - [x] **Session 1 (backend core, 2026-10-26):**
   - shared platform service `app/shared/files`, mounted by the `system` module;
   - migration 0018: `files`, `file_links`, `tenant_data_keys`, `tenant_storage_usage`,

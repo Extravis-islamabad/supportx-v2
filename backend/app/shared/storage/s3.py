@@ -18,8 +18,9 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 _MISSING = {"NoSuchKey", "404", "NotFound"}
-# S3 multipart parts must be at least 5 MiB (except the last); 8 MiB keeps uploads to a few parts.
-PART_BYTES = 8 << 20
+# S3 multipart parts must be at least 5 MiB (except the last): the smallest part keeps the memory
+# an upload holds as low as S3 allows (one part in flight per upload).
+PART_BYTES = 5 << 20
 _READ_PIECE = 256 << 10
 
 
@@ -156,46 +157,51 @@ class S3Storage:
 
         A failure part-way aborts the multipart upload, so no half object is left behind.
         """
-        buffer = bytearray()
+        pending: list[bytes] = []
+        pending_size = 0
         written = 0
         upload_id: str | None = None
         numbers: list[dict[str, object]] = []
         try:
             async with self._client() as client:
-                async for part in parts:
-                    buffer += part
-                    written += len(part)
-                    while len(buffer) >= PART_BYTES:
-                        if upload_id is None:
-                            created = await client.create_multipart_upload(
-                                Bucket=self.bucket, Key=key, ContentType=content_type
-                            )
-                            upload_id = created["UploadId"]
-                        piece, buffer = bytes(buffer[:PART_BYTES]), buffer[PART_BYTES:]
-                        number = len(numbers) + 1
-                        sent = await client.upload_part(
-                            Bucket=self.bucket,
-                            Key=key,
-                            UploadId=upload_id,
-                            PartNumber=number,
-                            Body=piece,
+
+                async def send(body: bytes) -> None:
+                    nonlocal upload_id
+                    if upload_id is None:
+                        created = await client.create_multipart_upload(
+                            Bucket=self.bucket, Key=key, ContentType=content_type
                         )
-                        numbers.append({"PartNumber": number, "ETag": sent["ETag"]})
-                if upload_id is None:
-                    await client.put_object(
-                        Bucket=self.bucket, Key=key, Body=bytes(buffer), ContentType=content_type
-                    )
-                    return written
-                if buffer:
+                        upload_id = created["UploadId"]
                     number = len(numbers) + 1
                     sent = await client.upload_part(
                         Bucket=self.bucket,
                         Key=key,
                         UploadId=upload_id,
                         PartNumber=number,
-                        Body=bytes(buffer),
+                        Body=body,
                     )
                     numbers.append({"PartNumber": number, "ETag": sent["ETag"]})
+
+                async for part in parts:
+                    pending.append(part)
+                    pending_size += len(part)
+                    written += len(part)
+                    if pending_size >= PART_BYTES:
+                        # One join per part: the pieces are not copied again and again.
+                        body = b"".join(pending)
+                        pending, pending_size = [], 0
+                        await send(body)
+                        del body
+                if upload_id is None:
+                    await client.put_object(
+                        Bucket=self.bucket,
+                        Key=key,
+                        Body=b"".join(pending),
+                        ContentType=content_type,
+                    )
+                    return written
+                if pending:
+                    await send(b"".join(pending))
                 await client.complete_multipart_upload(
                     Bucket=self.bucket,
                     Key=key,
