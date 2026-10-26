@@ -483,8 +483,10 @@ class PolicyService:
             ),
         )
         order: list[Any] = [User.display_name, User.id]
-        found = await ENGINE.match(session, PEOPLE, search) if search else None
-        if found is not None:
+        if search:
+            found = await ENGINE.match(session, PEOPLE, search)
+            if found is None:
+                return []  # typed, but nothing searchable (only punctuation): nobody matches
             # Name or email words, word forms in Arabic and Urdu, and typos (WP-027).
             query = query.where(found.predicate)
             order.insert(0, found.rank.desc())

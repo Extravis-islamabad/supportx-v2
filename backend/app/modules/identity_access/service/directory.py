@@ -17,7 +17,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 from zoneinfo import available_timezones
 
-from sqlalchemy import select
+from sqlalchemy import false, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
@@ -108,9 +108,10 @@ async def list_users(
     visible_rows = select(User).where(
         User.deleted_at.is_(None), scope_filter(subject, "users.view", USERS)
     )
-    found = await ENGINE.match(session, PEOPLE, text) if text else None
-    if found is not None:
-        visible_rows = visible_rows.where(found.predicate)
+    if text:
+        found = await ENGINE.match(session, PEOPLE, text)
+        # Typed, but nothing searchable (only punctuation): nobody matches.
+        visible_rows = visible_rows.where(found.predicate if found is not None else false())
     return await paginate(session, visible_rows, query)
 
 

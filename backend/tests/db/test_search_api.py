@@ -227,6 +227,7 @@ async def test_people_search_names_typos_and_arabic(world: World) -> None:
     assert str(arabic) in await users("أحمد")
     assert str(urdu) in await users("عایشه")  # Urdu yeh and heh typed as Arabic letters
     assert await users("zzzz") == set()
+    assert await users("%%") == set()  # nothing searchable typed: nobody, not everybody
     # Assignee picker: the same search.
     response = await world.call("GET", f"{BASE}/assignees", a, a.lead, params={"search": "Tech"})
     assert response.status_code == 200, response.text
