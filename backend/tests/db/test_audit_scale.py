@@ -51,7 +51,10 @@ CHUNK = 50_000
 SEAL_BATCH = 5000  # the most audit_seal() takes per call
 SEALS_PER_TRANSACTION = 10
 OLD_SHARE = 80  # percent of the entries past retention
-SEARCH_LIMIT_SECONDS = 1.0  # the screen's first page, filtered by person and the last 7 days
+SEARCH_LIMIT_SECONDS = 1.0
+# Sealing must stay linear in the backlog: without the queue index (migration 0015) 10M queued
+# entries never finished. A deliberately low floor that still catches a quadratic slide.
+MIN_SEAL_PER_SECOND = 1000  # the screen's first page, filtered by person and the last 7 days
 ACTIONS = ("role.updated", "user.role_assigned", "incident.deleted", "read.audit_log")
 COLUMNS = (
     "tenant_id",
@@ -270,6 +273,7 @@ async def test_audit_log_at_volume(
     timings["seal_seconds"] = round(seal_seconds, 1)
     timings["seal_per_second"] = round(sealed / max(seal_seconds, 1e-9))
     assert sealed == ROWS
+    assert timings["seal_per_second"] >= MIN_SEAL_PER_SECOND
 
     began = time.perf_counter()
     async with app_db.tenant_session(TenantContext(tenant)) as session:
