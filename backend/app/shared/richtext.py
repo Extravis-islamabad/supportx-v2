@@ -5,8 +5,11 @@ knowledge articles later) goes through `sanitize_html` before it is saved: the s
 what an editor or an inbound email sends. The allow-list is exactly what the console's Tiptap
 editor produces (StarterKit, link, table, and since WP-020b alignment, indent, text colour,
 highlight and mentions; packages/ui/src/richtext), so a value written in the editor survives
-unchanged and anything else (scripts, event handlers, styles, fonts, sizes, iframes, images until
-file storage exists, WP-022) is removed.
+unchanged and anything else (scripts, event handlers, styles, fonts, sizes, iframes) is removed.
+
+Images (WP-022, ADR-028): only `<img data-file-id="<uuid>" alt="…">`, a file stored and scanned by
+SupportX. No `src` is ever stored: the screen asks the files API for the image, which checks the
+reader's access and the scan state, so remote tracking images and `data:` URLs never get in.
 
 Colours, alignment and indent are codes in `data-*` attributes, never inline styles: the palette
 is fixed (no free colour, font or size), and each theme (light, dark, high contrast) decides the
@@ -20,9 +23,10 @@ import re
 
 import nh3
 
-# Tags the editor produces. Images come with file storage (WP-022).
+# Tags the editor produces.
 ALLOWED_TAGS = frozenset(
     {
+        "img",  # inline images: files by ID only (WP-022)
         "p",
         "br",
         "strong",
@@ -64,6 +68,7 @@ ALLOWED_ATTRIBUTES: dict[str, set[str]] = {
     "col": {"span"},
     "ol": {"start"},
     "span": {"data-id", "data-label"},  # mentions (data-id checked as a UUID)
+    "img": {"data-file-id", "alt"},  # a stored file (data-file-id checked as a UUID)
 }
 URL_SCHEMES = frozenset({"http", "https", "mailto"})
 # Fixed palettes (the console's editor and its CSS use the same codes).
@@ -111,14 +116,24 @@ def sanitize_html(value: str) -> str:
         link_rel="noopener noreferrer nofollow",
         strip_comments=True,
     )
-    return _DEAD_LINK.sub(r"\1", cleaned)
+    # An image that lost its file ID (a remote or pasted `src` only) has nothing to show: drop it.
+    return _IMAGE_WITHOUT_FILE.sub("", _DEAD_LINK.sub(r"\1", cleaned))
 
 
 def _attribute(tag: str, name: str, value: str) -> str | None:
-    """A mention's data-id must be a user ID; everything else was checked by the lists above."""
-    if tag == "span" and name == "data-id":
+    """IDs must be UUIDs (a mention's user, an image's file); the rest was checked by the lists."""
+    if (tag, name) in {("span", "data-id"), ("img", "data-file-id")}:
         return value if _UUID.fullmatch(value) else None
     return value
+
+
+_IMAGE_WITHOUT_FILE = re.compile(r"<img(?![^>]*\bdata-file-id=)[^>]*>")
+_FILE_IDS = re.compile(r'<img[^>]*\bdata-file-id="([0-9a-fA-F-]{36})"')
+
+
+def image_file_ids(html: str) -> list[str]:
+    """The file IDs of the inline images in sanitised HTML, in order (WP-022)."""
+    return _FILE_IDS.findall(html)
 
 
 def is_blank(html: str) -> bool:

@@ -62,6 +62,15 @@ export const queryKeys = {
     archives: ['audit', 'archives'] as const,
     restored: (id: string) => ['audit', 'restored', id] as const,
   },
+  files: {
+    all: ['files'] as const,
+    record: (recordType: string, recordId: string) =>
+      ['files', 'record', recordType, recordId] as const,
+    detail: (id: string) => ['files', 'detail', id] as const,
+    rules: ['files', 'rules'] as const,
+    usage: ['files', 'usage'] as const,
+    status: ['files', 'status'] as const,
+  },
   users: {
     all: ['users'] as const,
     list: (query: UsersQuery) => ['users', 'list', query] as const,

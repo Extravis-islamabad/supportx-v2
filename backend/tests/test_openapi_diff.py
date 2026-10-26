@@ -90,3 +90,17 @@ def test_cli(tmp_path: Path, base: dict[str, Any]) -> None:
     new.write_text(json.dumps(broken))
     assert openapi_diff.main([str(old), str(new)]) == 1
     assert openapi_diff.main([str(old)]) == 2
+
+
+def test_enum_values_may_be_added_not_removed(base: dict[str, Any]) -> None:
+    def limit_key(document: dict[str, Any]) -> list[str]:
+        values: list[str] = document["components"]["schemas"]["LimitKey"]["enum"]
+        return values
+
+    grown = copy.deepcopy(base)
+    limit_key(grown).append("new_limit")
+    assert openapi_diff.breaking_changes(base, grown) == []
+    shrunk = copy.deepcopy(base)
+    limit_key(shrunk).pop(0)
+    problems = openapi_diff.breaking_changes(base, shrunk)
+    assert any("lost enum values" in p for p in problems), problems

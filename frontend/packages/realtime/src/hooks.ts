@@ -58,6 +58,15 @@ export function useTenantChannel(onMessage: Listener): void {
 }
 
 /**
+ * Follow the signed-in user's own channel (`t:{tenant}:user:{id}`): what concerns only them, such
+ * as the scan state of the images they just pasted into an editor (WP-022).
+ */
+export function usePersonalChannel(onMessage: Listener): void {
+  const context = useContext(RealtimeContext);
+  useChannel(context === null ? null : `t:${context.tenantId}:user:${context.userId}`, onMessage);
+}
+
+/**
  * Follow a list (`users`, `roles`…): the API says which channels this user may join (one per
  * audience: everyone, their sites, their groups, their own records), then all are followed.
  */

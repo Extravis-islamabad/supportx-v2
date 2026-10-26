@@ -10,6 +10,7 @@ export const ADMIN_PERMISSIONS = [
   'sites.manage',
   'groups.manage',
   'settings.manage',
+  'files.manage',
   'licence.manage',
   'audit.view',
 ] as const;

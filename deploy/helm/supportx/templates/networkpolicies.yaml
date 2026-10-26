@@ -109,6 +109,31 @@ spec:
       ports:
         - {port: 8333, protocol: TCP}
 {{- end }}
+{{- if .Values.clamav.enabled }}
+---
+# clamd (WP-022): the consumers worker sends files to scan; the API asks only for the version
+# (signature date) for Admin > Files. Nothing else reaches it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ $rel }}-clamav-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ $rel }}
+      app.kubernetes.io/component: clamav
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - {key: app.kubernetes.io/instance, operator: In, values: [{{ $rel | quote }}]}
+              - {key: app.kubernetes.io/component, operator: In, values: [api, consumers]}
+      ports:
+        - {port: 3310, protocol: TCP}
+{{- end }}
 {{- if eq .Values.postgresql.mode "cnpg" }}
 ---
 # PostgreSQL instances: SupportX's pods (relay, migrate, Keycloak go direct), the pooler, the

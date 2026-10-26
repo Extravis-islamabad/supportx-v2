@@ -4,7 +4,7 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020c (incident settings screens and templates, D-082), 2026-10-26.
+- **Last completed:** WP-020c (incident settings screens and templates, D-083), 2026-10-26.
   Before it: WP-020b-FIX (all WP-020b QA findings) and WP-020b.
 - **Next work package:** the WP-020c QA findings (Desktop/qa-wp020c/QA-REPORT.md), **when the
   product owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan:
@@ -345,12 +345,12 @@ Every finding of Desktop/qa-wp020b/QA-REPORT.md has a test named after its ID th
 - [x] D-081: warning before sending a mention of someone who cannot see the incident; the record
   opens on the last-used tab per user (Conversation first). Demo data restored.
 
-### [x] WP-020c — Incident settings screens and templates (D-082; done 2026-10-26)
+### [x] WP-020c — Incident settings screens and templates (D-083; done 2026-10-26)
 REQ-INC-035, REQ-INC-006, REQ-INC-007 (V1, pulled forward on request), REQ-INC-009 AC4,
 REQ-INC-044 AC4, REQ-INC-045 AC3 (values only, D-056), REQ-INC-047 AC3, REQ-INC-093 (the list),
 REQ-INC-017 AC1, REQ-ADM-043, REQ-ADM-045 (incidents), REQ-WI-002 AC4, REQ-WI-009 AC4, Impact
 details (REQ-INC-001). One session (planned two).
-- [x] Migration 0018: `work_item_templates` (RLS, no DELETE grant, actor triggers; one default per
+- [x] Migration 0019 (0018 when built; renumbered after lane B's files migration): `work_item_templates` (RLS, no DELETE grant, actor triggers; one default per
   type), `work_items.template_id`, `level`, `impact_details`; `work_item_reasons` is the pick-list
   table (lists `level` and `closure_code`, optional colour); `work_item_type_settings.seed_version`
   (tenants seeded before WP-020c get levels, closure codes and the standard template on their next
@@ -404,6 +404,68 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   including the login page and e-mails; an unknown host falls back to the default brand; a colour
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
+
+### [x] WP-022 — Files and safe attachments (lane B; D-082; ADR-028; done 2026-10-26, 3 sessions)
+Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`.
+- [x] **Session 1 (backend core, 2026-10-26):**
+  - shared platform service `app/shared/files`, mounted by the `system` module;
+  - migration 0018: `files`, `file_links`, `tenant_data_keys`, `tenant_storage_usage`,
+    `file_settings`, all with RLS;
+  - real-type sniffing and blocking (default list of executables and scripts, tenant-editable);
+  - safe names; chunked AES-256-GCM with range reads; per-tenant data keys wrapped by the
+    installation key ring (`SUPPORTX_FILES_KEYS`; rotation and re-wrap);
+  - streaming upload through the API (size, quota, type checked before storing; S3 multipart);
+  - scan consumer and sweep with clamd, no-scanner and fake adapters (retries, "could not be
+    checked", rescan);
+  - lossless EXIF/GPS/XMP stripping (orientation kept) and Pillow thumbnails under bomb limits;
+  - links valid 5 minutes, bound to the user; ranged content route with nosniff and sandbox CSP;
+  - inline images and thumbnails; delete with a 24 h grace; purge; purge with the record;
+  - `storage_gb` licence limit; rules, usage and scanning status for administrators (warnings
+    for no scanner, unreachable scanner, signatures older than 7 days, unscanned and failed
+    files); hourly scanner check with a metric;
+  - the work_items access port (private-note files for staff only);
+  - audit actions; labels en/ar/ur; dev key ring and clamd address; chart env wiring;
+  - `docs/architecture/files.md` (backup and restore of the key ring, rotation);
+  - tests: 35 unit, 19 with Postgres and S3 storage.
+- [x] **Session 2 (screens and editor, 2026-10-26):**
+  - api-client `files.ts`: raw-body uploads with progress (XHR, same CSRF, client and idempotency
+    headers), record files, links, delete, drafts attach, rules, usage, status, rescan;
+  - `@supportx/ui` `files/`: `Attachments` (drag and drop, picker, paste; the tenant's size and
+    type rules checked before sending; at most 3 uploads at once with progress; live state in
+    words; preview, download, delete, rescan; "Staff only" for private notes), `FilePreview`
+    (image in the dialog, PDF in the browser's viewer via a fresh link), `FileStateTag`;
+  - incident page: the record's files under the description; each reply's or note's files on its
+    card; the composer takes files and pasted images as drafts and attaches them to the saved
+    entry; the description's pasted images too; live through `files.changed` on the record
+    channel (drafts: the personal channel, `usePersonalChannel`);
+  - editor: `@tiptap/extension-image` node holding only `data-file-id` (uploading, checking,
+    blocked or image), paste and drop of image files; lane A's placeholder replaced; the
+    server sanitiser keeps `<img data-file-id alt>` only (UUID-checked, no `src`, no remote or
+    `data:` images); read-only view fills the address from the ID;
+  - Admin > Files (rules with If-Match, usage against `storage_gb`, scanning status) and the
+    administrators' banner (`files.manage`);
+  - inline PDFs are served without CSP `sandbox` (browsers refuse their PDF viewer in a sandbox;
+    still `default-src 'none'`), every other file with it;
+  - labels en/ar/ur; tests: ui 10, console 4, API 21, sanitiser.
+- [x] **Session 3 (platform and hardening, 2026-10-26):**
+  - ClamAV chart component: clamd and freshclam as non-root, signatures init container, PVC,
+    network policy, private mirror value; `deploy/scripts/clamav-signatures.sh` for air-gapped
+    signature bundles; verified 2/2 Running on k3d, EICAR found by the real clamd;
+  - operator commands `python -m tooling.files_keys check|rewrap|rotate` (tested);
+  - uploads reworked for load: owner, size and quota in a short transaction of their own, the
+    stream with no database connection held, at most 8 writing per process
+    (`SUPPORTX_FILES_UPLOAD_CONCURRENCY`), 5 MiB S3 parts; load check 50 x 25 MB all stored,
+    57 MB/s, peak 389 MB;
+  - scans stream to clamd (no whole file in the worker); image processing only up to 50 MB;
+    consumers memory limit 768Mi;
+  - stack-smoke runs a real ClamAV (signatures cached weekly); Playwright journey
+    `files.spec.ts`: checking then ready live, image preview, EICAR blocked, too-large refused,
+    axe in light, dark, high contrast and Arabic, Admin › Files;
+  - `docs/architecture/files.md`: memory and connections, ClamAV, offline signatures, key
+    commands.
+  - Not built: a per-tenant "rotate data key" button for administrators. D-082 D2 rotation is
+    covered by the operator command; a tenant button adds little (data keys are wrapped by the
+    installation key either way). Recorded as a follow-up.
 
 ### [x] BRAND — SupportX branding (lane B; product owner request; D-078; done 2026-10-26)
 - **Goal:** The SupportX logo and colours everywhere SupportX shows its own brand, from one place
@@ -490,8 +552,8 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ### 2026-10-26 — WP-020c: incident settings screens and templates
 
-- **Built:** see the WP-020c entry. Decision D-082 (defaults per D-074). Migration 0018 on top of
-  0017 (applied to the dev database). PR #56.
+- **Built:** see the WP-020c entry. Decision D-083 (defaults per D-074; renumbered from D-082 when merging main, lane B took
+  it). Migration 0019 on top of lane B's 0018 (renumbered when merging main) (applied to the dev database). PR #56.
 - **No new dependencies.** Shared changes: `users.form_density` (identity_access, BFF `/auth/me`),
   `display_ids.last_number` / `set_next_number`, the console frame listens to
   `work_items.settings_changed`, `@supportx/api-client` `incidentSettings.ts`, e2e cleanup of
@@ -505,6 +567,18 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   (14 s), filtered list 100k (12 s), brand assets generation (9 s), audit retention archive
   (7.5 s), OpenAPI export (6.7 s), two parallel relays (6.4 s), and the incidents API tests whose
   *setup* (two orgs with roles, sites and groups) takes 6-22 s under load. Timeouts unchanged.
+
+### 2026-10-26 — WP-022 files and safe attachments (lane B, sessions 1–3)
+
+- Built WP-022 in `../supportx-v2-wp022` (branch `feat/wp-022-files`) as planned and approved
+  (D-082, ADR-028); see the WP entry for what each session delivered.
+- Decision renumbered from D-081 to D-082 when merging main (lane A recorded D-081 meanwhile).
+  Migration 0018 follows lane A's 0017: one head.
+- Found: the console announcements test is flaky under full parallel load (passes alone,
+  pre-existing, not touched here). Real clamd flags EICAR only at the start of a file; the fake
+  scanner in tests now matches that.
+- Follow-ups: an administrators' per-tenant data-key rotate action (optional); Urdu
+  `limit.storage_gb` (limits have en/ar only, like the other limit labels).
 
 ### 2026-10-26 — WP-020b-FIX: the WP-020b QA findings
 

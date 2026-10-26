@@ -9,15 +9,32 @@ Licensing: no module-wide feature; each type's router is guarded by its own feat
 exactly those routes.
 
 Public interface for other modules: none yet (notes, tasks, links and the SLA module will use
-the work item service through here in WP-020b+).
+the work item service through here in WP-020b+). Files (WP-022): the module answers the files
+service's access questions for records, replies and notes (`service/file_access.py`), registered
+at startup.
 """
+
+from fastapi import FastAPI
 
 from app.core.modules import ModuleSpec
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
+from app.shared.files.ports import register_owner_access, unregister_owner_access
+
+
+async def _startup(app: FastAPI) -> None:
+    del app
+    register_owner_access(FILE_ACCESS)
+
+
+async def _shutdown(app: FastAPI) -> None:
+    del app
+    unregister_owner_access(FILE_ACCESS.owner_types)
+
 
 module = ModuleSpec(
     name="work_items",
@@ -27,6 +44,8 @@ module = ModuleSpec(
     permissions=tuple(spec for wtype in TYPES.values() for spec in permissions(wtype)),
     channels=CHANNELS,
     realtime=ROUTES,
+    on_startup=[_startup],
+    on_shutdown=[_shutdown],
 )
 
 __all__ = ["module"]

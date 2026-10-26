@@ -40,7 +40,7 @@ class PickList(StrEnum):
 
 REASON_LISTS = frozenset(PickList(r.value) for r in ReasonList)
 
-# Appendix A has no levels or closure codes; these defaults are D-082 (WP-020c plan).
+# Appendix A has no levels or closure codes; these defaults are D-083 (WP-020c plan).
 DEFAULT_LIST_VALUES: Mapping[PickList, tuple[str, ...]] = {
     PickList.LEVEL: ("tier_1", "tier_2", "tier_3", "tier_4"),
     PickList.CLOSURE_CODE: ("fixed", "workaround", "no_fault_found", "duplicate", "user_error"),

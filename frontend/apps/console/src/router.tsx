@@ -103,6 +103,12 @@ export const routes: RouteObject[] = [
                 .IncidentSettingsPage,
             }),
           },
+          {
+            path: 'files',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/files/FilesPage')).FilesPage,
+            }),
+          },
         ],
       },
       {

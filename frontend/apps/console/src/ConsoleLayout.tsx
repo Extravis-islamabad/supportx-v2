@@ -28,6 +28,7 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
+import { FilesBanner } from './pages/admin/files/FilesBanner';
 
 import { NAV } from './nav';
 
@@ -123,6 +124,7 @@ export function ConsoleLayout() {
           <ConnectivityBanner />
           <LicenceBanners />
           <AuditAlertBanner />
+          <FilesBanner />
           <AnnouncementBanners
             enabled={licence.has('incident')}
             onOpen={(id) => void navigate(`/announcements/${id}`)}

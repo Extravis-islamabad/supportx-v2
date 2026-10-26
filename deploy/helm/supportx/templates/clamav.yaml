@@ -1,0 +1,145 @@
+{{- if .Values.clamav.enabled }}
+{{- $c := dict "root" . "component" "clamav" -}}
+# Malware scanning for files (WP-022, D-082 D3, ADR-028 item 3). clamd answers INSTREAM on 3310 to
+# the consumers worker only (network policy); a freshclam sidecar keeps the signatures current from
+# the public mirrors or a private one; air-gapped sites load the offline bundle into the volume
+# (deploy/scripts/clamav-signatures.sh). Runs as the image's `clamav` user (1000), our own config:
+# the image's start script needs root, so it is not used.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+data:
+  clamd.conf: |
+    Foreground yes
+    TCPSocket 3310
+    DatabaseDirectory /var/lib/clamav
+    TemporaryDirectory /tmp
+    LogTime yes
+    # Files up to 100 MB (D-082 D7), with headroom.
+    StreamMaxLength 101M
+    MaxFileSize 101M
+    MaxScanSize 400M
+    # New signatures from the sidecar are picked up within 10 minutes; one copy in memory.
+    SelfCheck 600
+    ConcurrentDatabaseReload no
+  freshclam.conf: |
+    Foreground yes
+    DatabaseDirectory /var/lib/clamav
+    Checks {{ .Values.clamav.checksPerDay }}
+    {{- if .Values.clamav.privateMirror }}
+    PrivateMirror {{ .Values.clamav.privateMirror }}
+    {{- else }}
+    DatabaseMirror database.clamav.net
+    {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: clamd, port: 3310, targetPort: clamd}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  serviceName: {{ include "supportx.name" $c }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+      annotations:
+        checksum/config: {{ print .Values.clamav.privateMirror .Values.clamav.checksPerDay | sha256sum }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000               # the image's `clamav` user
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile: {type: RuntimeDefault}
+      initContainers:
+        # First signatures before clamd starts. With no mirror reachable, an existing database
+        # (earlier download or the offline bundle) is used; with none at all the pod waits, files
+        # wait as "scanning" and administrators see that the scanner is unreachable.
+        - name: signatures
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.clamav) }}
+          command: ["/bin/sh", "-c"]
+          args:
+            - >-
+              freshclam --foreground --config-file=/etc/clamav-sx/freshclam.conf
+              || ls /var/lib/clamav/main.c?d >/dev/null 2>&1
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.clamav.resources | nindent 12 }}
+          volumeMounts:
+            - {name: signatures, mountPath: /var/lib/clamav}
+            - {name: config, mountPath: /etc/clamav-sx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      containers:
+        - name: clamd
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.clamav) }}
+          command: ["clamd", "--foreground", "--config-file=/etc/clamav-sx/clamd.conf"]
+          ports:
+            - {name: clamd, containerPort: 3310}
+          startupProbe:
+            tcpSocket: {port: clamd}
+            periodSeconds: 5
+            failureThreshold: 60      # loading the signatures takes a minute or two
+          readinessProbe:
+            tcpSocket: {port: clamd}
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket: {port: clamd}
+            periodSeconds: 30
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.clamav.resources | nindent 12 }}
+          volumeMounts:
+            - {name: signatures, mountPath: /var/lib/clamav, readOnly: true}
+            - {name: config, mountPath: /etc/clamav-sx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+        - name: freshclam
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.clamav) }}
+          command: ["freshclam", "--daemon", "--foreground", "--config-file=/etc/clamav-sx/freshclam.conf"]
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          volumeMounts:
+            - {name: signatures, mountPath: /var/lib/clamav}
+            - {name: config, mountPath: /etc/clamav-sx, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: config
+          configMap: {name: {{ include "supportx.name" $c }}}
+        - name: tmp
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: signatures
+      spec:
+        accessModes: [ReadWriteOnce]
+        {{- with .Values.clamav.storage.storageClass }}
+        storageClassName: {{ . }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.clamav.storage.size }}
+{{- end }}

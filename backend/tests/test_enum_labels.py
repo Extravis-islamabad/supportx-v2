@@ -79,6 +79,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "WorkItemHistoryEntryOut.actor_type": "actor_type",
     "WorkItemHistoryEntryOut.kind": "change_kind",
     "WorkItemHistoryEntryOut.source": "change_source",
+    # Files (WP-022)
+    "Disposition": "file_disposition",
+    "FileState": "file_state",
+    "Kind": "file_kind",
+    "OwnerType": "file_owner_type",
+    "StatusOut.warnings[]": "file_warning",
 }
 
 

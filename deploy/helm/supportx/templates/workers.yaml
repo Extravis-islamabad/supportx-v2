@@ -57,6 +57,8 @@ spec:
             # Signs the audit log's anchors (ADR-027); only this worker holds the key.
             - name: SUPPORTX_AUDIT_SIGNING_KEY
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: audit-signing-key}}
+            # Decrypts new files to scan them and writes thumbnails (WP-022).
+            {{- include "supportx.filesEnv" $ | nindent 12 }}
             {{- end }}
           ports:
             - {name: metrics, containerPort: 9464}

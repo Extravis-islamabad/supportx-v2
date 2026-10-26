@@ -22,7 +22,8 @@ jobs:
   backend:
     name: backend
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    # The test step alone took 19 minutes on main on 2026-10-26 (shared runners vary).
+    timeout-minutes: 30
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
     # NATS JetStream is started as a step below (service containers cannot pass `-js`).

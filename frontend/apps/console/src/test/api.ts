@@ -1,6 +1,8 @@
 import {
   fakeApi,
   fakeAuditStatus,
+  fakeFileRules,
+  fakeFileStatus,
   fakeEntitlements,
   fakeSession,
   fakeUser,
@@ -30,6 +32,8 @@ export function consoleApi({
     'GET /api/v1/health': { body: { status: 'ok', version: '0.1.0' } },
     [`GET ${ME}`]: { body: fakeUser(), headers: { ETag: '"3"' } },
     'GET /api/v1/audit/status': { body: fakeAuditStatus() },
+    'GET /api/v1/files/settings/status': { body: fakeFileStatus() },
+    'GET /api/v1/files/settings/rules': { body: fakeFileRules() },
     ...routes,
   });
 }

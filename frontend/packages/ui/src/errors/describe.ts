@@ -54,6 +54,16 @@ export function describeError(error: unknown, t: Translate): ErrorDescription {
         reference,
       };
     }
+    // Files (WP-022): the limits and the refused type are part of the message (AC2).
+    case 'file_too_large':
+    case 'file_type_blocked':
+    case 'storage_quota_exceeded': {
+      const values: Record<string, string | number> = {};
+      for (const [key, value] of Object.entries(params)) {
+        if (typeof value === 'string' || typeof value === 'number') values[key] = value;
+      }
+      return { title: t(error.messageKey, values), reference };
+    }
     default:
       return { title: t(error.messageKey), reference };
   }

@@ -24,6 +24,16 @@ export function setCsrfToken(token: string | null): void {
   csrfToken = token;
 }
 
+/** The CSRF token for requests made outside openapi-fetch (file uploads with progress). */
+export function currentCsrfToken(): string | null {
+  return csrfToken;
+}
+
+/** The app making calls (console / portal), for requests made outside openapi-fetch. */
+export function currentClientApp(): App | null {
+  return clientApp;
+}
+
 let clientApp: App | null = null;
 let preferredTimeZone: string | null = null;
 
