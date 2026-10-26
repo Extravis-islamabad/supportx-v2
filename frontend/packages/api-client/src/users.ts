@@ -9,6 +9,7 @@ export type UserDetail = components['schemas']['UserDetail'];
 export type UserPage = components['schemas']['UserPage'];
 export type UserPreferencesPatch = components['schemas']['UserPreferencesPatch'];
 export type NavLayout = components['schemas']['NavLayout'];
+export type FormDensity = components['schemas']['FormDensity'];
 export type FilterExpression = components['schemas']['FilterExpression'];
 export type FilterCondition = components['schemas']['FilterCondition'];
 
@@ -133,6 +134,46 @@ export function useSetNavLayout(userId: string) {
     },
     onError: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.session }); // undo the optimism
+    },
+  });
+}
+
+/**
+ * Change the signed-in user's record form layout (WP-020c): comfortable (one column, labels
+ * above) or compact (two columns, labels on the left). Stored with the user like the navigation
+ * layout; applied at once (optimistic).
+ */
+export function useSetFormDensity(userId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (density: FormDensity) => {
+      const latest = await queryClient.query({
+        queryKey: queryKeys.users.detail(userId),
+        queryFn: () =>
+          call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: userId } } })),
+        staleTime: 0,
+      });
+      return call(
+        api.PATCH('/api/v1/users/{user_id}', {
+          params: {
+            path: { user_id: userId },
+            header: { 'If-Match': `"${String(latest.version)}"` },
+          },
+          body: { form_density: density },
+        }),
+      );
+    },
+    onMutate: (density) => {
+      queryClient.setQueryData<MeResponse | null>(queryKeys.session, (me) =>
+        me ? { ...me, user: { ...me.user, form_density: density } } : me,
+      );
+    },
+    onSuccess: (user) => {
+      rememberEtag(`/api/v1/users/${userId}`, `"${String(user.version)}"`);
+      queryClient.setQueryData(queryKeys.users.detail(userId), user);
+    },
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.session });
     },
   });
 }

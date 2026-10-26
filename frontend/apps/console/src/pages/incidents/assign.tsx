@@ -88,7 +88,7 @@ function AssignBody({
   };
   const movingGroups = item.group_id !== null && group !== item.group_id;
   const reasons = (catalogue.data?.reasons ?? [])
-    .filter((r) => r.list === 'reassign')
+    .filter((r) => r.list === 'reassign' && !r.disabled)
     .map((r) => {
       const label = labelled(r.labels, locale, () => t(`reason.reassign.${r.code}`));
       return { value: r.code, label, 'aria-label': label };

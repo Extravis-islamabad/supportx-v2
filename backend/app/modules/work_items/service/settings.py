@@ -33,16 +33,21 @@ LABEL_LANGUAGES = frozenset({"en", "ar", "ur"})
 LABEL_MAX = 120
 
 
-def _invalid(field: str, field_code: str) -> ValidationFailed:
+def invalid(field: str, field_code: str, **params: Any) -> ValidationFailed:  # noqa: ANN401 - problem params
+    """One field problem (422) in the shared shape."""
     return ValidationFailed(
         errors=[
             FieldError(
                 field=f"body.{field}",
                 code=field_code,
                 message_key=f"errors.field.{field_code}",
+                params=params,
             )
         ]
     )
+
+
+_invalid = invalid
 
 
 async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
@@ -164,8 +169,11 @@ async def list_categories(session: AsyncSession, wtype: WorkItemType) -> list[Wo
     )
 
 
-def _labels(raw: Mapping[str, Any] | None) -> dict[str, str] | None:
+def labels_of(raw: Mapping[str, Any] | None, *, allow_none: bool) -> dict[str, str] | None:
+    """Clean translations {en, ar, ur}; English required. None only where shipped labels exist."""
     if raw is None:
+        if not allow_none:
+            raise _invalid(field="labels", field_code="english_label_required")
         return None
     labels = {k: " ".join(str(v).split()) for k, v in raw.items() if v is not None}
     if not labels.get("en"):
@@ -222,7 +230,7 @@ async def create_category(  # noqa: PLR0913 - the node's inputs, explicit
         type=wtype.code,
         parent_id=parent_id,
         level=level,
-        labels=_labels(labels),
+        labels=labels_of(labels, allow_none=False),
         sort_order=int(siblings or 0),
         default_group_id=default_group_id,
     )
@@ -269,9 +277,7 @@ async def update_category(  # noqa: PLR0913 - the change and its context, explic
         raise NotFound(code="category_not_found")
     changes: dict[str, Any] = {}
     if "labels" in values:
-        changes["labels"] = _labels(values["labels"])
-        if changes["labels"] is None and node.code is None:
-            raise _invalid(field="labels", field_code="english_label_required")
+        changes["labels"] = labels_of(values["labels"], allow_none=node.code is not None)
     if "default_group_id" in values:
         await _group_ok(session, values["default_group_id"])
         changes["default_group_id"] = values["default_group_id"]

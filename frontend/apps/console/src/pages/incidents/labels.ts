@@ -1,4 +1,11 @@
-import type { IncidentCatalogue, IncidentCategory, IncidentPerson } from '@supportx/api-client';
+import type {
+  IncidentCatalogue,
+  IncidentCategory,
+  IncidentPerson,
+  IncidentScale,
+  IncidentTemplate,
+  ListValue,
+} from '@supportx/api-client';
 
 type Translate = (key: string, params?: Record<string, string | number>) => string;
 type Labels = Record<string, string> | null | undefined;
@@ -19,6 +26,72 @@ export function statusLabel(
 ): string {
   const status = catalogue?.statuses.find((s) => s.code === code);
   return labelled(status?.labels, locale, () => t(`work_item_status.${code}`));
+}
+
+/** An impact, urgency or priority value with the admin's labels (WP-020c), else the shipped one. */
+export function scaleLabel(
+  t: Translate,
+  catalogue: IncidentCatalogue | undefined,
+  scale: IncidentScale,
+  code: string,
+  locale: string,
+): string {
+  const value = catalogue?.scales.find((v) => v.scale === scale && v.code === code);
+  return labelled(value?.labels, locale, () => t(`${scale}.${code}`));
+}
+
+/** Levels and closure codes: admin values carry their own labels, seeded ones a shipped label. */
+export type ValueList = 'level' | 'closure_code';
+
+export function listValueLabel(
+  t: Translate,
+  list: ValueList,
+  value: Pick<ListValue, 'code' | 'labels'>,
+  locale: string,
+): string {
+  return labelled(value.labels, locale, () => t(`${list}.${value.code}`));
+}
+
+/** A level code as people read it; a code the catalogue no longer has reads "Unknown value". */
+export function levelLabel(
+  t: Translate,
+  catalogue: IncidentCatalogue | undefined,
+  code: string | null,
+  locale: string,
+): string {
+  if (code === null) return '';
+  const value = catalogue?.levels.find((v) => v.code === code);
+  return value === undefined
+    ? t('incidents.unknown_value')
+    : listValueLabel(t, 'level', value, locale);
+}
+
+/**
+ * A reason code as people read it: the admin's labels, else the shipped label of its list.
+ * A code no list has any more reads "Unknown value", never the code itself (rule d).
+ */
+export function reasonValueLabel(
+  t: Translate,
+  catalogue: IncidentCatalogue | undefined,
+  code: string,
+  locale: string,
+  list?: string | null,
+): string {
+  const reasons = catalogue?.reasons ?? [];
+  const reason =
+    reasons.find((r) => r.code === code && (list == null || r.list === list)) ??
+    reasons.find((r) => r.code === code);
+  if (reason === undefined) return t('incidents.unknown_value');
+  return labelled(reason.labels, locale, () => t(`reason.${reason.list}.${reason.code}`));
+}
+
+/** A template's name: its own translations, or the shipped name of a seeded template. */
+export function templateLabel(
+  t: Translate,
+  template: Pick<IncidentTemplate, 'code' | 'labels'>,
+  locale: string,
+): string {
+  return labelled(template.labels, locale, () => t(`incident_template.${template.code ?? ''}`));
 }
 
 export function categoryLabel(t: Translate, node: IncidentCategory, locale: string): string {

@@ -4,10 +4,11 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020b-FIX (all WP-020b QA findings: BUG-01..10, C1..C7, D-081), 2026-10-26.
-  Before it: WP-020b (conversation, notes, followers, richer editor).
-- **Next work package:** WP-020c (incident settings screens and templates), **when the product
-  owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan: ~/Desktop/wp-020-plan.md.
+- **Last completed:** WP-020c (incident settings screens and templates, D-082), 2026-10-26.
+  Before it: WP-020b-FIX (all WP-020b QA findings) and WP-020b.
+- **Next work package:** the WP-020c QA findings (Desktop/qa-wp020c/QA-REPORT.md), **when the
+  product owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan:
+  ~/Desktop/wp-020-plan.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -343,6 +344,43 @@ Every finding of Desktop/qa-wp020b/QA-REPORT.md has a test named after its ID th
   gap; C6 group name isolated (bidi); C7 paste into an empty line keeps the first block's alignment.
 - [x] D-081: warning before sending a mention of someone who cannot see the incident; the record
   opens on the last-used tab per user (Conversation first). Demo data restored.
+
+### [x] WP-020c — Incident settings screens and templates (D-082; done 2026-10-26)
+REQ-INC-035, REQ-INC-006, REQ-INC-007 (V1, pulled forward on request), REQ-INC-009 AC4,
+REQ-INC-044 AC4, REQ-INC-045 AC3 (values only, D-056), REQ-INC-047 AC3, REQ-INC-093 (the list),
+REQ-INC-017 AC1, REQ-ADM-043, REQ-ADM-045 (incidents), REQ-WI-002 AC4, REQ-WI-009 AC4, Impact
+details (REQ-INC-001). One session (planned two).
+- [x] Migration 0018: `work_item_templates` (RLS, no DELETE grant, actor triggers; one default per
+  type), `work_items.template_id`, `level`, `impact_details`; `work_item_reasons` is the pick-list
+  table (lists `level` and `closure_code`, optional colour); `work_item_type_settings.seed_version`
+  (tenants seeded before WP-020c get levels, closure codes and the standard template on their next
+  read, once, race-safe); `users.form_density`.
+- [x] API (all admin writes `settings.manage`, If-Match on the catalogue version, field history on
+  the settings record, outbox event, audited): status labels and colours, reason prompt per
+  transition, scale labels and colours, the matrix (saved whole, a gap refused), pick lists (add,
+  rename, colour, retire / bring back, reorder; "Other" kept), next number (never backwards);
+  templates (list for `incidents.view`, create, change, copy, default, turn off); create applies the
+  template's required fields on the server and refuses a turned-off template; catalogue carries
+  retired values (marked) so old records keep their labels. New audit actions
+  `incident.template_created` / `incident.template_changed`.
+- [x] Console: Admin › Incidents (General: numbering, defaults, automatic steps, first response;
+  Templates with editor drawer; Statuses and reason prompts; Reasons; Priority: matrix and scale
+  names; Categories tree; Levels; Closure codes; Reply templates, moved out of the composer). New
+  incident form: template picker (searchable, grouped, default preselected), switching keeps typed
+  values and asks before clearing, hidden fields listed, retired starting values announced,
+  template-required fields checked; 3-level category picker with "search all levels" and a
+  clearing notice; Level; Impact details; comfortable / compact layout (user preference, also on
+  My profile). Record: Level, Impact details, Template; admin names and colours of priority,
+  impact and urgency everywhere; retired reasons not offered, unknown codes read "Unknown value".
+  Settings changes reach every open screen live (`work_items.settings_changed` in the console
+  frame).
+- [x] Labels en/ar/ur for every new key (202 each; Arabic plural forms).
+- Not done here: REQ-INC-020 (log an incident already resolved) needs the resolution field
+  (WP-020f); REQ-INC-011 AC2/3 (no-SLA marker and view) with WP-025; category merge (REQ-ADM-043
+  AC3) and reordering categories; the duplicate-name warning (REQ-WI-027 AC2, WP-021); the
+  all-record-types numbering page (REQ-ADM-045) once a second type exists; the portal flags take
+  effect with WP-028; template life cycle and workflow (REQ-INC-035 last sentence) with the
+  designers (V1).
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views

@@ -1,7 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import {
+  fakeIncident,
+  fakeIncidentCatalogue,
+  fakeIncidentTemplate,
+} from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi, fakeSession, problem } from '../../test/api';
@@ -32,6 +36,7 @@ const ITEM = fakeIncident();
 const PATH = `/api/v1/incidents/${ITEM.id}`;
 const COMMON = {
   'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+  'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate()] },
   'GET /api/v1/incidents/categories': { body: [] },
   'GET /api/v1/organization/groups': {
     body: [{ id: 'g-a', name: 'Service Desk', member_ids: [] }],

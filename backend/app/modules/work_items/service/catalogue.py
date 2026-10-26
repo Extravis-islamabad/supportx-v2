@@ -9,13 +9,17 @@ structural life-cycle changes wait for the designer (REQ-INC-049).
 Seeding is idempotent and safe under concurrency: the type-settings row is inserted with ON
 CONFLICT DO NOTHING, and only the transaction that inserted it writes the rest, so two first
 requests at the same moment never seed twice (the second waits for the first's row lock).
+
+Defaults added later (WP-020c: levels, closure codes, the standard template) are versioned:
+`seed_version` says what a tenant has, and an older tenant is topped up by whichever transaction
+moves its `seed_version` forward first (UPDATE ... WHERE seed_version < n RETURNING).
 """
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +41,12 @@ from app.modules.work_items.domain.lifecycle import (
     TransitionDef,
     WorkItemAction,
 )
+from app.modules.work_items.domain.templates import (
+    DEFAULT_LIST_VALUES,
+    PickList,
+    default_rules,
+    rules_to_json,
+)
 from app.modules.work_items.domain.types import DEFAULT_CATEGORIES, WorkItemType
 from app.modules.work_items.infra.models import (
     WorkItemCategory,
@@ -44,10 +54,17 @@ from app.modules.work_items.infra.models import (
     WorkItemReason,
     WorkItemScaleValue,
     WorkItemStatus,
+    WorkItemTemplate,
     WorkItemTransition,
     WorkItemTypeSettings,
 )
+from app.shared.db.display_ids import last_number
 from app.shared.ids import new_id
+
+# 1: WP-020 (life cycle, scales, matrix, reasons, categories); 2: WP-020c (levels, closure
+# codes, the standard template).
+SEED_VERSION = 2
+STANDARD_TEMPLATE = "standard"
 
 
 @dataclass(frozen=True)
@@ -75,11 +92,14 @@ class ScaleValue:
 
 @dataclass(frozen=True)
 class ReasonInfo:
-    """One reason of a pick list."""
+    """One value of a pick list (a reason list, levels or closure codes)."""
 
     list: str
     code: str
     labels: dict[str, str] | None
+    sort_order: int = 0
+    colour: str | None = None
+    disabled: bool = False
 
 
 @dataclass(frozen=True)
@@ -98,16 +118,22 @@ class Catalogue:
     statuses: list[StatusInfo]
     matrix: Mapping[tuple[str, str], str]
     scales: list[ScaleValue]
-    reasons: list[ReasonInfo]
+    reasons: list[ReasonInfo]  # every pick list, retired values included (marked)
+    last_number: int = 0  # the last display number handed out (0: none yet)
 
-    def reason_codes(self, reason_list: ReasonList | None) -> list[str]:
-        """Enabled codes of a pick list."""
+    def reason_codes(self, reason_list: ReasonList | PickList | None) -> list[str]:
+        """Enabled codes of a pick list (offered for new input)."""
         if reason_list is None:
             return []
-        return [r.code for r in self.reasons if r.list == reason_list]
+        return [r.code for r in self.reasons if r.list == reason_list and not r.disabled]
+
+    def list_values(self, pick_list: PickList) -> list[ReasonInfo]:
+        """Every value of a pick list in order, retired ones included."""
+        return [r for r in self.reasons if r.list == pick_list]
 
 
-def _tenant(session: AsyncSession) -> Any:  # noqa: ANN401 - uuid of the session's tenant
+def tenant_of(session: AsyncSession) -> Any:  # noqa: ANN401 - uuid of the session's tenant
+    """The tenant of a tenant session (for rows whose tenant is part of the key)."""
     context = session.info.get(SESSION_TENANT_KEY)
     if not isinstance(context, TenantContext):  # pragma: no cover - every request has one
         msg = "work item configuration needs a tenant session"
@@ -117,11 +143,13 @@ def _tenant(session: AsyncSession) -> Any:  # noqa: ANN401 - uuid of the session
 
 async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     """Copy the defaults of `wtype` into the tenant's rows once (idempotent)."""
-    tenant = _tenant(session)
+    tenant = tenant_of(session)
     existing = await session.scalar(
-        select(WorkItemTypeSettings.type).where(WorkItemTypeSettings.type == wtype.code)
+        select(WorkItemTypeSettings.seed_version).where(WorkItemTypeSettings.type == wtype.code)
     )
     if existing is not None:
+        if existing < SEED_VERSION:
+            await _top_up(session, wtype, tenant)
         return
     inserted = await session.scalar(
         insert(WorkItemTypeSettings)
@@ -130,12 +158,14 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
             type=wtype.code,
             prefix=wtype.default_prefix,
             default_priority=DEFAULT_PRIORITY,
+            seed_version=SEED_VERSION,
         )
         .on_conflict_do_nothing()
         .returning(WorkItemTypeSettings.type)
     )
     if inserted is None:  # another transaction seeded it first
         return
+    _seed_v2(session, wtype, tenant)
     rows: list[Any] = [
         WorkItemStatus(
             tenant_id=tenant,
@@ -165,7 +195,7 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
         ]
         + [
             WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
-            for lst, codes in DEFAULT_REASONS.items()
+            for lst, codes in DEFAULT_REASONS.items()  # the WP-020 reason lists
             for i, code in enumerate(codes)
         ]
         + [
@@ -223,6 +253,44 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     await session.flush()
 
 
+def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> None:  # noqa: ANN401 - uuid
+    """Levels, closure codes and the standard (default) template."""
+    session.add_all(
+        [
+            WorkItemReason(tenant_id=tenant, type=wtype.code, list=lst, code=code, sort_order=i)
+            for lst, codes in DEFAULT_LIST_VALUES.items()
+            for i, code in enumerate(codes)
+        ]
+    )
+    session.add(
+        WorkItemTemplate(
+            tenant_id=tenant,
+            type=wtype.code,
+            code=STANDARD_TEMPLATE,
+            is_default=True,
+            field_rules=rules_to_json(default_rules()),
+            defaults={},
+        )
+    )
+
+
+async def _top_up(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> None:  # noqa: ANN401 - uuid
+    """Give a tenant seeded by an older version the newer defaults, exactly once."""
+    moved = await session.scalar(
+        update(WorkItemTypeSettings)
+        .where(
+            WorkItemTypeSettings.type == wtype.code,
+            WorkItemTypeSettings.seed_version < SEED_VERSION,
+        )
+        .values(seed_version=SEED_VERSION)
+        .returning(WorkItemTypeSettings.seed_version)
+    )
+    if moved is None:  # another transaction topped it up first
+        return
+    _seed_v2(session, wtype, tenant)
+    await session.flush()
+
+
 async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
     """The tenant's configuration of `wtype` (seeding it first if needed)."""
     await ensure_seeded(session, wtype)
@@ -267,8 +335,8 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
     )
     reasons = await session.scalars(
         select(WorkItemReason)
-        .where(WorkItemReason.type == wtype.code, WorkItemReason.disabled_at.is_(None))
-        .order_by(WorkItemReason.list, WorkItemReason.sort_order)
+        .where(WorkItemReason.type == wtype.code)
+        .order_by(WorkItemReason.list, WorkItemReason.sort_order, WorkItemReason.code)
     )
     return Catalogue(
         prefix=settings.prefix,
@@ -286,5 +354,9 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         ],
         matrix={(c.impact, c.urgency): c.priority for c in cells},
         scales=[ScaleValue(v.scale, v.code, v.rank, v.colour, v.labels) for v in scales],
-        reasons=[ReasonInfo(r.list, r.code, r.labels) for r in reasons],
+        reasons=[
+            ReasonInfo(r.list, r.code, r.labels, r.sort_order, r.colour, r.disabled_at is not None)
+            for r in reasons
+        ],
+        last_number=await last_number(session, wtype.counter_key),
     )

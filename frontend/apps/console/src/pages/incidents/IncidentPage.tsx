@@ -27,6 +27,7 @@ import {
   useIncident,
   useIncidentCatalogue,
   useIncidentCategories,
+  useIncidentTemplates,
   useSession,
   useUnits,
   useUpdateIncident,
@@ -54,9 +55,18 @@ import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { IncidentHistory } from './IncidentHistory';
-import { categoryPath, personName } from './labels';
-import { CategoryPicker, SitePicker, UserPicker } from './pickers';
-import { SUBJECT_MAX } from './form';
+import { CategoryCascade } from './CategoryCascade';
+import {
+  categoryPath,
+  levelLabel,
+  listValueLabel,
+  personName,
+  reasonValueLabel,
+  scaleLabel,
+  templateLabel,
+} from './labels';
+import { SitePicker, UserPicker } from './pickers';
+import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { StatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
 
@@ -106,6 +116,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const catalogue = useIncidentCatalogue();
+  const { locale } = useAppearance();
   const groups = useUnits('groups');
   const others = useRef<PresenceMember[]>([]);
   const editing = useRef(0);
@@ -217,7 +228,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               {t('incidents.status_reason')}:{' '}
               {item.status_reason_code === null
                 ? ''
-                : reasonLabel(t, catalogue.data, item.status_reason_code)}
+                : reasonValueLabel(t, catalogue.data, item.status_reason_code, locale)}
               {item.status_reason_text === null ? (
                 ''
               ) : (
@@ -359,17 +370,6 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   );
 }
 
-function reasonLabel(
-  t: (key: string) => string,
-  catalogue:
-    | { reasons: { list: string; code: string; labels: Record<string, string> | null }[] }
-    | undefined,
-  code: string,
-): string {
-  const reason = catalogue?.reasons.find((r) => r.code === code);
-  return reason === undefined ? t(code) : t(`reason.${reason.list}.${code}`);
-}
-
 /** Properties edited in place (REQ-INC-123) and the description (rich text). */
 function Details({
   item,
@@ -386,7 +386,20 @@ function Details({
   const { locale } = useAppearance();
   const dates = useDateTime();
   const categories = useIncidentCategories();
+  const catalogue = useIncidentCatalogue();
+  const templates = useIncidentTemplates();
   const sites = useUnits('sites');
+  const scale = (name: 'impact' | 'urgency', code: string) =>
+    scaleLabel(t, catalogue.data, name, code, locale);
+  const template = templates.data?.find((x) => x.id === item.template_id);
+  const levelOptions = (catalogue.data?.levels ?? [])
+    .filter((v) => !v.disabled || v.code === item.level)
+    .map((v) => ({
+      value: v.code,
+      label: v.disabled
+        ? t('categories.retired_value', { name: listValueLabel(t, 'level', v, locale) })
+        : listValueLabel(t, 'level', v, locale),
+    }));
   const canEdit = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const canPriority = item.operations.find((o) => o.action === 'change_priority')?.allowed === true;
   const person = (id: string | null) =>
@@ -430,23 +443,39 @@ function Details({
       edit: { kind: 'category', value: item.category_id },
     },
     {
+      key: 'level',
+      label: t('work_item.field.level'),
+      view: levelLabel(t, catalogue.data, item.level, locale),
+      edit: { kind: 'choice', value: item.level, options: levelOptions },
+    },
+    {
       key: 'impact',
       label: t('work_item.field.impact'),
-      view: item.impact === null ? '' : t(`impact.${item.impact}`),
+      view: item.impact === null ? '' : scale('impact', item.impact),
       edit: {
         kind: 'choice',
         value: item.impact,
-        options: IMPACTS.map((v) => ({ value: v, label: t(`impact.${v}`) })),
+        options: IMPACTS.map((v) => ({ value: v, label: scale('impact', v) })),
       },
+    },
+    {
+      key: 'impact_details',
+      label: t('work_item.field.impact_details'),
+      view: (
+        <bdi dir="auto" style={{ whiteSpace: 'pre-wrap' }}>
+          {item.impact_details ?? ''}
+        </bdi>
+      ),
+      edit: { kind: 'longtext', value: item.impact_details ?? '' },
     },
     {
       key: 'urgency',
       label: t('work_item.field.urgency'),
-      view: item.urgency === null ? '' : t(`urgency.${item.urgency}`),
+      view: item.urgency === null ? '' : scale('urgency', item.urgency),
       edit: {
         kind: 'choice',
         value: item.urgency,
-        options: URGENCIES.map((v) => ({ value: v, label: t(`urgency.${v}`) })),
+        options: URGENCIES.map((v) => ({ value: v, label: scale('urgency', v) })),
       },
     },
     {
@@ -465,6 +494,19 @@ function Details({
       label: t('work_item.field.tags'),
       view: item.tags.join(', '),
       edit: { kind: 'tags', value: item.tags },
+    },
+    {
+      key: 'template_id',
+      label: t('work_item.field.template_id'),
+      view:
+        template === undefined ? (
+          ''
+        ) : (
+          <>
+            <bdi dir="auto">{templateLabel(t, template, locale)}</bdi>
+            {template.disabled && <> ({t('templates.disabled')})</>}
+          </>
+        ),
     },
     {
       key: 'created_at',
@@ -530,6 +572,7 @@ function Person({ item, id }: { item: Incident; id: string | null }) {
 
 type EditorSpec =
   | { kind: 'text'; value: string }
+  | { kind: 'longtext'; value: string }
   | {
       kind: 'user';
       value: string | null;
@@ -563,6 +606,8 @@ function InlineEdit({
   const t = useLabel();
   const { message } = App.useApp();
   const update = useUpdateIncident(item.id);
+  const catalogue = useIncidentCatalogue();
+  const { locale } = useAppearance();
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState<unknown>(spec.value);
   const [reason, setReason] = useState('');
@@ -649,6 +694,23 @@ function InlineEdit({
             data-testid={`inc-input-${field}`}
           />
         );
+      case 'longtext':
+        return (
+          <Input.TextArea
+            id={id}
+            aria-label={label}
+            dir="auto"
+            autoFocus
+            autoSize={{ minRows: 2, maxRows: 6 }}
+            value={typeof value === 'string' ? value : ''}
+            maxLength={IMPACT_DETAILS_MAX}
+            showCount
+            onChange={(event) => {
+              setValue(event.target.value);
+            }}
+            data-testid={`inc-input-${field}`}
+          />
+        );
       case 'user':
         return (
           <UserPicker
@@ -672,12 +734,11 @@ function InlineEdit({
         );
       case 'category':
         return (
-          <CategoryPicker
+          <CategoryCascade
             id={id}
             value={(value as string | null) ?? null}
             onChange={setValue}
             testId={`inc-input-${field}`}
-            ariaLabel={label}
           />
         );
       case 'choice':
@@ -705,7 +766,10 @@ function InlineEdit({
               onChange={setValue}
               options={[
                 { value: 'matrix', label: t('incidents.priority_from_matrix') },
-                ...PRIORITIES.map((p) => ({ value: p, label: t(`priority.${p}`) })),
+                ...PRIORITIES.map((p) => ({
+                  value: p,
+                  label: scaleLabel(t, catalogue.data, 'priority', p, locale),
+                })),
               ]}
               style={{ width: '100%' }}
               data-testid="inc-input-priority"

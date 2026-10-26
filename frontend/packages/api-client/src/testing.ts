@@ -167,6 +167,7 @@ export function fakeSession(
       user_type: 'technician',
       roles: ['technician'],
       nav_layout: 'top',
+      form_density: 'comfortable',
       ...user,
     },
     tenant: DEMO_TENANT,
@@ -230,6 +231,7 @@ export function fakeUser(overrides: Partial<UserDetail> = {}): UserDetail {
     time_zone: null,
     signature: null,
     nav_layout: 'top',
+    form_density: 'comfortable',
     last_login_at: '2026-10-20T08:00:00Z',
     created_at: '2026-10-01T08:00:00Z',
     updated_at: '2026-10-20T08:00:00Z',
@@ -344,9 +346,12 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     technician_id: null,
     category_id: null,
     impact: null,
+    impact_details: null,
     urgency: null,
     priority: 'p3',
     priority_source: 'default',
+    level: null,
+    template_id: STANDARD_TEMPLATE_ID,
     status: 'new',
     status_category: 'open',
     status_reason_code: null,
@@ -463,13 +468,84 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     matrix: impacts.flatMap((impact, i) =>
       urgencies.map((urgency, j) => ({ impact, urgency, priority: rows[i]?.[j] ?? 'p3' })),
     ),
-    reasons: [
-      { list: 'cancel', code: 'duplicate', labels: null },
-      { list: 'cancel', code: 'other', labels: null },
-      { list: 'reassign', code: 'wrong_group', labels: null },
-      { list: 'reassign', code: 'other', labels: null },
-      { list: 'pause', code: 'other', labels: null },
-    ],
+    reasons: (
+      [
+        ['cancel', 'duplicate'],
+        ['cancel', 'other'],
+        ['reassign', 'wrong_group'],
+        ['reassign', 'other'],
+        ['pause', 'other'],
+      ] as const
+    ).map(([list, code], sort_order) => ({
+      list,
+      code,
+      labels: null,
+      sort_order,
+      colour: null,
+      disabled: false,
+    })),
+    levels: ['tier_1', 'tier_2', 'tier_3', 'tier_4'].map((code, sort_order) => ({
+      code,
+      labels: null,
+      sort_order,
+      colour: null,
+      disabled: false,
+    })),
+    closure_codes: ['fixed', 'workaround', 'no_fault_found', 'duplicate', 'user_error'].map(
+      (code, sort_order) => ({ code, labels: null, sort_order, colour: null, disabled: false }),
+    ),
+    next_number: 8,
+  };
+}
+
+type IncidentTemplate = components['schemas']['TemplateOut'];
+type TemplateFieldName = components['schemas']['TemplateField'];
+
+export const STANDARD_TEMPLATE_ID = '01900000-0000-7000-8000-0000000007e1';
+const TEMPLATE_FIELDS: TemplateFieldName[] = [
+  'subject',
+  'requester_id',
+  'on_behalf_of_id',
+  'channel',
+  'site_id',
+  'category_id',
+  'level',
+  'group_id',
+  'technician_id',
+  'impact',
+  'urgency',
+  'impact_details',
+  'description',
+  'tags',
+];
+
+/** GET /incidents/templates: the seeded standard template (every field shown), as the default. */
+export function fakeIncidentTemplate(overrides: Partial<IncidentTemplate> = {}): IncidentTemplate {
+  const fixed = new Set<TemplateFieldName>(['subject', 'requester_id']);
+  return {
+    id: STANDARD_TEMPLATE_ID,
+    code: 'standard',
+    labels: null,
+    description: null,
+    group_name: null,
+    is_default: true,
+    for_requesters: false,
+    disabled: false,
+    copied_from_id: null,
+    fields: Object.fromEntries(
+      TEMPLATE_FIELDS.map((name) => [
+        name,
+        {
+          shown: true,
+          required: fixed.has(name),
+          requester_can_see: true,
+          requester_can_fill: fixed.has(name) || name === 'description',
+        },
+      ]),
+    ),
+    defaults: {},
+    version: 1,
+    ...overrides,
   };
 }
 

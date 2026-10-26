@@ -13,6 +13,7 @@ import {
   fakeConversationEntry,
   fakeIncident,
   fakeIncidentCatalogue,
+  fakeIncidentTemplate,
   problem,
 } from '@supportx/api-client/testing';
 import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime';
@@ -50,6 +51,7 @@ const REPLY = fakeConversationEntry({
 const NO_FOLLOWERS = { items: [], may_manage: true, people: {} };
 const COMMON = {
   'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+  'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate()] },
   'GET /api/v1/incidents/categories': { body: [] },
   'GET /api/v1/organization/groups': {
     body: [{ id: 'g-a', name: 'Service Desk', member_ids: [] }],

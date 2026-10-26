@@ -23,6 +23,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_record_routes,
 )
 from app.modules.work_items.api.people import PersonOut, people_out
+from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -40,6 +41,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, REASON_LISTS, PickList
 from app.modules.work_items.domain.types import (
     DESCRIPTION_MAX,
     SUBJECT_MAX,
@@ -51,7 +53,7 @@ from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.access import FIELDS
-from app.modules.work_items.service.catalogue import Catalogue
+from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query, request_zone
@@ -95,7 +97,14 @@ class WorkItemIn(BaseModel):
     technician_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
+    impact_details: str | None = Field(
+        default=None, max_length=IMPACT_DETAILS_MAX * 2, description="Plain text."
+    )
     urgency: Urgency | None = None
+    level: str | None = Field(default=None, max_length=40, description="A `level` list code.")
+    template_id: uuid.UUID | None = Field(
+        default=None, description="Default: the tenant's default template (its rules apply)."
+    )
     priority: Priority | None = Field(
         default=None, description="Set by hand (needs change_priority and a reason)."
     )
@@ -123,7 +132,9 @@ class WorkItemPatch(BaseModel):
     site_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
+    impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
     urgency: Urgency | None = None
+    level: str | None = Field(default=None, max_length=40)
     priority: Priority | None = Field(
         default=None,
         description="A value sets it by hand (with a reason); null: back to the matrix.",
@@ -205,9 +216,12 @@ class WorkItemOut(BaseModel):
     technician_id: uuid.UUID | None
     category_id: uuid.UUID | None
     impact: Impact | None
+    impact_details: str | None
     urgency: Urgency | None
     priority: Priority
     priority_source: PrioritySource
+    level: str | None = Field(description="A `level` list code (may be a retired one).")
+    template_id: uuid.UUID | None = Field(description="The template it was created from.")
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -279,9 +293,12 @@ _RECORD_FIELDS = (
     "technician_id",
     "category_id",
     "impact",
+    "impact_details",
     "urgency",
     "priority",
     "priority_source",
+    "level",
+    "template_id",
     "status",
     "status_category",
     "status_reason_code",
@@ -331,6 +348,7 @@ class WorkItemListItem(BaseModel):
     category_id: uuid.UUID | None
     priority: Priority
     priority_source: PrioritySource
+    level: str | None
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -399,11 +417,24 @@ class WorkItemScaleValueOut(BaseModel):
 
 
 class WorkItemReasonOut(BaseModel):
-    """One reason of a pick list."""
+    """One reason of a pick list (retired ones included, marked: they still label records)."""
 
     list: ReasonList
     code: str
     labels: dict[str, str] | None
+    sort_order: int = 0
+    colour: str | None = None
+    disabled: bool = False
+
+
+class WorkItemListValueOut(BaseModel):
+    """One value of a level or closure-code list (retired ones included, marked)."""
+
+    code: str
+    labels: dict[str, str] | None = Field(description="Null: labelled by the UI from the code.")
+    sort_order: int
+    colour: str | None
+    disabled: bool
 
 
 class WorkItemMatrixCellOut(BaseModel):
@@ -412,6 +443,16 @@ class WorkItemMatrixCellOut(BaseModel):
     impact: Impact
     urgency: Urgency
     priority: Priority
+
+
+def _value(v: ReasonInfo) -> WorkItemListValueOut:
+    return WorkItemListValueOut(
+        code=v.code,
+        labels=v.labels,
+        sort_order=v.sort_order,
+        colour=v.colour,
+        disabled=v.disabled,
+    )
 
 
 class WorkItemCatalogueOut(BaseModel):
@@ -435,6 +476,9 @@ class WorkItemCatalogueOut(BaseModel):
     scales: list[WorkItemScaleValueOut]
     matrix: list[WorkItemMatrixCellOut]
     reasons: list[WorkItemReasonOut]
+    levels: list[WorkItemListValueOut] = Field(description="Support levels (REQ-INC-007).")
+    closure_codes: list[WorkItemListValueOut] = Field(description="REQ-INC-093.")
+    next_number: int = Field(description="The display number the next record gets.")
 
     @classmethod
     def of(cls, cat: Catalogue) -> "WorkItemCatalogueOut":
@@ -482,9 +526,20 @@ class WorkItemCatalogueOut(BaseModel):
                 for (i, u), p in sorted(cat.matrix.items())
             ],
             reasons=[
-                WorkItemReasonOut(list=ReasonList(r.list), code=r.code, labels=r.labels)
+                WorkItemReasonOut(
+                    list=ReasonList(r.list),
+                    code=r.code,
+                    labels=r.labels,
+                    sort_order=r.sort_order,
+                    colour=r.colour,
+                    disabled=r.disabled,
+                )
                 for r in cat.reasons
+                if r.list in REASON_LISTS
             ],
+            levels=[_value(v) for v in cat.list_values(PickList.LEVEL)],
+            closure_codes=[_value(v) for v in cat.list_values(PickList.CLOSURE_CODE)],
+            next_number=cat.last_number + 1,
         )
 
 
@@ -854,6 +909,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return WorkItemCategoryOut.of(node)
 
     add_collection_routes(router, wtype)
+    add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
     @router.post(
         "",

@@ -7,6 +7,7 @@ import { NoAccess, useAccess, useLabel } from '@supportx/ui';
 const TABS = [
   { key: 'users', labelKey: 'nav.admin_users', permission: 'users.view' },
   { key: 'roles', labelKey: 'nav.admin_roles', permission: 'roles.view' },
+  { key: 'incidents', labelKey: 'nav.admin_incidents', permission: 'settings.manage' },
   { key: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
 ] as const;
 

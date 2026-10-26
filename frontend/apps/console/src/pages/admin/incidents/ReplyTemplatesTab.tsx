@@ -1,4 +1,4 @@
-import { Alert, App, Button, Flex, Input, List, Modal, Popconfirm, Space, Typography } from 'antd';
+import { Alert, App, Button, Card, Flex, Input, List, Popconfirm, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -20,13 +20,14 @@ import {
 type Editing = { kind: 'create' } | { kind: 'update'; template: ReplyTemplate } | null;
 
 /**
- * Reply templates (REQ-INC-058), managed by admins (settings.manage) from the composer. The
- * incident settings screens (WP-020c) will list this beside the other incident settings.
+ * Reply templates (REQ-INC-058), managed by admins (settings.manage) here, beside the other
+ * incident settings (WP-020c; the composer only inserts them and links here). Open composers
+ * reload the list live (`work_items.reply_templates_changed`).
  */
-export function ReplyTemplatesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ReplyTemplatesTab() {
   const t = useLabel();
   const { message } = App.useApp();
-  const templates = useReplyTemplates(open);
+  const templates = useReplyTemplates();
   const change = useReplyTemplateChange();
   const [editing, setEditing] = useState<Editing>(null);
   const [name, setName] = useState('');
@@ -62,17 +63,7 @@ export function ReplyTemplatesDialog({ open, onClose }: { open: boolean; onClose
     );
   };
   return (
-    <Modal
-      open={open}
-      title={t('reply_templates.title')}
-      onCancel={() => {
-        start(null);
-        onClose();
-      }}
-      footer={null}
-      width={760}
-      destroyOnHidden
-    >
+    <Card title={t('reply_templates.title')} data-testid="settings-reply-templates">
       {editing === null ? (
         <Space direction="vertical" style={{ width: '100%' }}>
           <Flex justify="end">
@@ -176,6 +167,6 @@ export function ReplyTemplatesDialog({ open, onClose }: { open: boolean; onClose
           </Flex>
         </Space>
       )}
-    </Modal>
+    </Card>
   );
 }

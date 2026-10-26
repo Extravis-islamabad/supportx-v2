@@ -2,7 +2,11 @@ import { act, fireEvent, render, screen, waitFor, within } from '@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { Incident } from '@supportx/api-client';
-import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
+import {
+  fakeIncident,
+  fakeIncidentCatalogue,
+  fakeIncidentTemplate,
+} from '@supportx/api-client/testing';
 
 import { App } from '../../App';
 import { consoleApi, problem } from '../../test/api';
@@ -47,6 +51,7 @@ const TAKEN: Incident = {
 };
 const COMMON = {
   'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+  'GET /api/v1/incidents/templates': { body: [fakeIncidentTemplate()] },
   'GET /api/v1/incidents/categories': { body: [] },
   'GET /api/v1/organization/groups': {
     body: [

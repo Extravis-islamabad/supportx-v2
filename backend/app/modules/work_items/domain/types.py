@@ -195,6 +195,23 @@ FIELD_PROBLEMS = frozenset(
         "replies_are_public",
         "cannot_see_record",
         "duplicate_name",
+        # WP-020c: settings, pick lists, numbering and templates
+        "invalid_colour",
+        "matrix_incomplete",
+        "value_required_by_system",
+        "last_value",
+        "order_must_list_every_value",
+        "number_already_used",
+        "template_not_found",
+        "template_disabled",
+        "default_required",
+        "default_cannot_be_disabled",
+        "disabled_cannot_be_default",
+        "unknown_field",
+        "field_always_required",
+        "hidden_required_needs_default",
+        "fill_needs_see",
+        "no_default_allowed",
     }
 )
 

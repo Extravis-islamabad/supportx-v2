@@ -100,6 +100,8 @@ FIELDS = ResourceFields(
         "group_id": FilterField(WorkItem.group_id, FieldType.UUID),
         "site_id": FilterField(WorkItem.site_id, FieldType.UUID),
         "category_id": FilterField(WorkItem.category_id, FieldType.UUID),
+        "level": FilterField(WorkItem.level, FieldType.STRING, sortable=True),
+        "template_id": FilterField(WorkItem.template_id, FieldType.UUID),
         "sla_policy_id": FilterField(WorkItem.sla_policy_id, FieldType.UUID),
         "created_by": FilterField(WorkItem.created_by, FieldType.UUID),
         "updated_by": FilterField(WorkItem.updated_by, FieldType.UUID),

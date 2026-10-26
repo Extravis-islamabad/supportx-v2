@@ -33,12 +33,13 @@ import {
   NoAccess,
   reportError,
   useAccess,
+  useAppearance,
   useDateTime,
   useLabel,
   WriteButton,
 } from '@supportx/ui';
 
-import { personName } from './labels';
+import { personName, scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
@@ -102,6 +103,7 @@ export function IncidentsPage() {
   // Counter views say what they leave out like the built-in ones (Area 15; QA BUG-06).
   const counters = useIncidentCounters(allowed && !trash);
   const catalogue = useIncidentCatalogue(allowed);
+  const { locale } = useAppearance();
   const groups = useUnits('groups', allowed);
   const groupNames = new Map((groups.data ?? []).map((g) => [g.id, g.name]));
 
@@ -203,7 +205,10 @@ export function IncidentsPage() {
           }}
           options={[
             { value: '', label: t('users.any') },
-            ...PRIORITIES.map((p) => ({ value: p, label: t(`priority.${p}`) })),
+            ...PRIORITIES.map((p) => ({
+              value: p,
+              label: scaleLabel(t, catalogue.data, 'priority', p, locale),
+            })),
           ]}
           style={{ minWidth: 'min(200px, 100%)' }}
           data-testid="inc-filter-priority"

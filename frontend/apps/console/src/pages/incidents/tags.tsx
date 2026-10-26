@@ -1,12 +1,13 @@
 import { EditOutlined, WarningOutlined } from '@ant-design/icons';
 import { Badge, Tag, Tooltip } from 'antd';
 
-import type { IncidentCatalogue, Priority } from '@supportx/api-client';
+import { useIncidentCatalogue, type IncidentCatalogue, type Priority } from '@supportx/api-client';
 import { useAppearance, useLabel } from '@supportx/ui';
 
-import { statusLabel } from './labels';
+import { scaleLabel, statusLabel } from './labels';
 
 // A coloured dot plus normal text: coloured tag fills (gold, white on blue) fail WCAG contrast.
+// The tenant's colours and names win (WP-020c); these are the fallback while they load.
 const PRIORITY_COLOURS: Record<Priority, string> = {
   p1: '#cf1322',
   p2: '#fa541c',
@@ -35,10 +36,15 @@ export function StatusTag({
 /** Priority, with a marker when set by hand (REQ-INC-010) or defaulted (REQ-INC-011). */
 export function PriorityTag({ priority, source }: { priority: Priority; source: string }) {
   const t = useLabel();
+  const { locale } = useAppearance();
+  const catalogue = useIncidentCatalogue();
+  const colour =
+    catalogue.data?.scales.find((v) => v.scale === 'priority' && v.code === priority)?.colour ??
+    PRIORITY_COLOURS[priority];
   return (
     <Tag data-testid="inc-priority" data-priority={priority}>
-      <Badge color={PRIORITY_COLOURS[priority]} style={{ marginInlineEnd: 6 }} />
-      {t(`priority.${priority}`)}
+      <Badge color={colour} style={{ marginInlineEnd: 6 }} />
+      {scaleLabel(t, catalogue.data, 'priority', priority, locale)}
       {source === 'manual' && (
         <Tooltip title={t('priority_source.manual')}>
           <EditOutlined aria-label={t('priority_source.manual')} style={{ marginInlineStart: 4 }} />

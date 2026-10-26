@@ -16,7 +16,7 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.audit import RequestFacts, record_alone
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
-from app.modules.identity_access.domain.identity import NavLayout, UserType
+from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.auth import AuthService, LoginFailure
@@ -71,6 +71,9 @@ class UserOut(BaseModel):
     roles: list[str]
     nav_layout: NavLayout = Field(
         default=NavLayout.TOP, description="The user's navigation layout preference."
+    )
+    form_density: FormDensity = Field(
+        default=FormDensity.COMFORTABLE, description="The user's record form layout preference."
     )
     time_zone: str | None = Field(
         default=None,
@@ -217,12 +220,15 @@ async def _describe(request: Request, session: Session) -> MeResponse:
         async with database.tenant_session(context) as db:
             row = (
                 await db.execute(
-                    select(User.nav_layout, User.time_zone, User.ui_locale).where(
-                        User.id == session.user_uuid
-                    )
+                    select(
+                        User.nav_layout, User.form_density, User.time_zone, User.ui_locale
+                    ).where(User.id == session.user_uuid)
                 )
             ).first()
         described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.TOP
+        described["user"]["form_density"] = (
+            row.form_density if row else None
+        ) or FormDensity.COMFORTABLE
         described["user"]["time_zone"] = row.time_zone if row else None
         # The language picked in the app wins over Keycloak's (QA BUG-04): it follows the user.
         if row is not None and row.ui_locale is not None:

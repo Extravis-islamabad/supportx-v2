@@ -96,6 +96,13 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/admin/audit/AuditPage')).AuditPage,
             }),
           },
+          {
+            path: 'incidents/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/incidents/IncidentSettingsPage'))
+                .IncidentSettingsPage,
+            }),
+          },
         ],
       },
       {
