@@ -19,6 +19,7 @@ from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.templates import (
+    FIXED_FIELDS,
     TEMPLATE_DESCRIPTION_MAX,
     TEMPLATE_GROUP_MAX,
     FieldRule,
@@ -464,3 +465,38 @@ def required_problems(
 ) -> list[tuple[str, str]]:
     """Fields the template requires that the create left empty."""
     return missing_required(rules_from_json(template.field_rules), values)
+
+
+async def emptied_required(
+    session: AsyncSession,
+    template_id: uuid.UUID | None,
+    before: Mapping[str, Any],
+    after: Mapping[str, Any],
+) -> list[tuple[str, str]]:
+    """Fields the record's template requires that this change would empty (D-086).
+
+    Only emptying is refused: a field made required after the record was created blocks
+    nothing until someone tries to clear it. A turned-off template still counts (the record was
+    created with its rules).
+    """
+    if template_id is None:
+        return []
+    template = await session.scalar(
+        select(WorkItemTemplate).where(WorkItemTemplate.id == template_id)
+    )
+    if template is None:
+        return []
+    rules = rules_from_json(template.field_rules)
+    return [
+        (name, "required")
+        for name, value in after.items()
+        if name in rules
+        and rules[name].required
+        and TemplateField(name) not in FIXED_FIELDS
+        and _empty(value)
+        and not _empty(before.get(name))
+    ]
+
+
+def _empty(value: Any) -> bool:  # noqa: ANN401 - any field value
+    return value is None or value in ("", [])

@@ -55,35 +55,54 @@ export function GeneralTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   );
 }
 
-/** Prefix and next number (REQ-WI-002 AC4, REQ-ADM-045). */
+/** A field's problem in place (QA C1), else its help. */
+function FieldHelp({ problem, help, testId }: { problem?: string; help: string; testId: string }) {
+  return problem === undefined ? (
+    help
+  ) : (
+    <span role="alert" data-testid={testId}>
+      {problem}
+    </span>
+  );
+}
+
+/** Prefix and next number (REQ-WI-002 AC4, REQ-ADM-045): one all-or-nothing save (QA BUG-01). */
 function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
-  const { save, pending, problems } = useSettingsSave();
+  const { save, pending, byField, clear } = useSettingsSave();
   const source = { prefix: catalogue.prefix, next: catalogue.next_number };
-  const { draft, edit, reset, stale, dirty } = useDraft(source, catalogue.version);
+  const draftState = useDraft(source, catalogue.version);
+  const { draft, edit, stale, dirty } = draftState;
+  // Reset takes the saved values and the problems shown with the old ones away (QA BUG-07).
+  const reset = () => {
+    clear();
+    draftState.reset();
+  };
   const submit = () => {
     const prefix = draft.prefix.trim().toUpperCase();
-    const afterPrefix = () => {
-      if (draft.next !== catalogue.next_number) {
-        save({ kind: 'numbering', nextNumber: draft.next }, reset);
-      } else {
-        reset();
-      }
-    };
-    if (prefix !== catalogue.prefix) save({ kind: 'settings', body: { prefix } }, afterPrefix);
-    else afterPrefix();
+    const body: { prefix?: string; next_number?: number } = {};
+    if (prefix !== catalogue.prefix) body.prefix = prefix;
+    if (draft.next !== catalogue.next_number) body.next_number = draft.next;
+    save({ kind: 'settings', body }, reset);
   };
+  const problemAt = (field: string) => byField[field];
   return (
     <Card title={t('settings.numbering')} data-testid="settings-numbering">
       {stale && <StaleNotice onReload={reset} />}
-      <Problems problems={problems} />
       <Typography.Paragraph type="secondary">{t('settings.numbering_help')}</Typography.Paragraph>
       <Form layout="vertical" component="div">
         <Flex gap={16} wrap>
           <Form.Item
             label={t('settings.prefix')}
             htmlFor="settings-prefix"
-            help={t('settings.prefix_help')}
+            validateStatus={problemAt('prefix') === undefined ? undefined : 'error'}
+            help={
+              <FieldHelp
+                problem={problemAt('prefix')}
+                help={t('settings.prefix_help')}
+                testId="settings-numbering-error-prefix"
+              />
+            }
           >
             <Input
               id="settings-prefix"
@@ -100,7 +119,14 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           <Form.Item
             label={t('settings.next_number')}
             htmlFor="settings-next-number"
-            help={t('settings.next_number_help', { minimum: catalogue.next_number })}
+            validateStatus={problemAt('next_number') === undefined ? undefined : 'error'}
+            help={
+              <FieldHelp
+                problem={problemAt('next_number')}
+                help={t('settings.next_number_help', { minimum: catalogue.next_number })}
+                testId="settings-numbering-error-next_number"
+              />
+            }
           >
             <InputNumber
               id="settings-next-number"

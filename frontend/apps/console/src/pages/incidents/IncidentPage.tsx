@@ -72,6 +72,7 @@ import { SitePicker, UserPicker } from './pickers';
 import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { StatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
+import { TagsInput } from './TagsInput';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
 const URGENCIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -400,6 +401,9 @@ function Details({
   const scale = (name: 'impact' | 'urgency', code: string) =>
     scaleLabel(t, catalogue.data, name, code, locale);
   const template = templates.data?.find((x) => x.id === item.template_id);
+  // Retired values stay on the records that use them, marked as retired (QA C8).
+  const retiredMark = (text: string, retired: boolean) =>
+    retired && text !== '' ? t('categories.retired_value', { name: text }) : text;
   const levelOptions = (catalogue.data?.levels ?? [])
     .filter((v) => !v.disabled || v.code === item.level)
     .map((v) => ({
@@ -447,13 +451,19 @@ function Details({
     {
       key: 'category_id',
       label: t('work_item.field.category_id'),
-      view: categoryPath(t, categories.data ?? [], item.category_id, locale),
+      view: retiredMark(
+        categoryPath(t, categories.data ?? [], item.category_id, locale),
+        categories.data?.find((n) => n.id === item.category_id)?.disabled === true,
+      ),
       edit: { kind: 'category', value: item.category_id },
     },
     {
       key: 'level',
       label: t('work_item.field.level'),
-      view: levelLabel(t, catalogue.data, item.level, locale),
+      view: retiredMark(
+        levelLabel(t, catalogue.data, item.level, locale),
+        catalogue.data?.levels.find((v) => v.code === item.level)?.disabled === true,
+      ),
       edit: { kind: 'choice', value: item.level, options: levelOptions },
     },
     {
@@ -799,15 +809,12 @@ function InlineEdit({
         );
       case 'tags':
         return (
-          <Select
+          <TagsInput
             id={id}
-            mode="tags"
-            aria-label={label}
+            ariaLabel={label}
             value={value as string[]}
             onChange={setValue}
-            tokenSeparators={[',']}
-            style={{ width: '100%' }}
-            data-testid={`inc-input-${field}`}
+            testId={`inc-input-${field}`}
           />
         );
     }

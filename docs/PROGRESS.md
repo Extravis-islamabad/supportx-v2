@@ -4,11 +4,10 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020c (incident settings screens and templates, D-083), 2026-10-26.
-  Before it: WP-020b-FIX (all WP-020b QA findings) and WP-020b.
-- **Next work package:** the WP-020c QA findings (Desktop/qa-wp020c/QA-REPORT.md), **when the
-  product owner says so**; then the sequence below (WP-020d..020f, WP-021..028). Plan:
-  ~/Desktop/wp-020-plan.md.
+- **Last completed:** WP-020c-FIX (all WP-020c QA findings, D-086), 2026-10-26. Before it:
+  WP-020c (incident settings screens and templates, D-083).
+- **Next work package:** WP-026 (custom fields), the critical path (mvp-build-plan.md); then
+  WP-020d..020f, WP-021..028. Lane B builds WP-027 (search) in parallel.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -381,6 +380,38 @@ details (REQ-INC-001). One session (planned two).
   all-record-types numbering page (REQ-ADM-045) once a second type exists; the portal flags take
   effect with WP-028; template life cycle and workflow (REQ-INC-035 last sentence) with the
   designers (V1).
+
+### [x] WP-020c-FIX — WP-020c QA findings (D-086; done 2026-10-26)
+Every finding of Desktop/qa-wp020c/QA-REPORT.md has a test named after its ID that failed first
+(backend `tests/db/test_incident_settings_qa.py`, Vitest `admin/incidents/qa-wp020c.test.tsx`,
+Playwright `qa-wp020c.spec.ts`).
+- [x] BUG-01 settings saves are all-or-nothing: `PATCH /settings` takes `next_number` too, checks
+  every field first, names every problem at its field (one version step). BUG-02 own saves never
+  read as "changed elsewhere" (the api-client remembers the versions this tab made). BUG-03 no
+  sideways scroll at 390 px on any admin screen (tables scroll in their own box, app-wide; the
+  settings tab bar folds into "more"). BUG-04 transitions in life-cycle order. BUG-05 the copy
+  dialog suggests a name in every language from that language's labels (English stays
+  required). BUG-06 category tree opens expanded. BUG-07 Reset clears the problem shown. BUG-08
+  no null radio value. BUG-09 name dialogs focus their first field.
+- [x] C1 numbering problems at their fields; C2 rename starts from the built-in names in every
+  language, "No colour" in our words; C3 no colons; C4 "Without a group" (headings only when some
+  template has a group); C5 "Other" offers no Retire, with the reason; C6 the tag picker opens only
+  while typing (shared `TagsInput`); C7 reply templates: New in the header, "Remove" says replies
+  already sent keep their text; C8 records mark retired category and level; C9 a retired starting
+  subcategory falls back to its active category.
+- [x] D-086 (recorded as D-084, renumbered on merge: lane B's WP-022 answers took D-084): a field the template requires cannot be emptied later (edits and assignment; a field
+  made required later blocks only emptying); subject and requester locked "requester can see /
+  fill in" with an explanation. Found on the way: a partial field rule sent to the API reset the
+  other flags (nested defaults); now only the flags sent change.
+- [x] Flaky `qa-fixes` BUG-04 (language after reload): a real race, not only a test one. The
+  choice applies at once but its save takes two requests; a reload in between aborted the save
+  and the abort cleared the choice. Preferences (language, navigation, form density) are now kept
+  in the browser until the server confirms them and re-sent on the next start; only a refusal
+  forgets them. The test now runs with a slowed save (1.5 s) and passes; three runs green.
+- [x] Dev Keycloak: login theme restored (`docker compose restart keycloak`; the bind mount had
+  gone empty); `docs/dev-setup.md` troubleshooting.
+- [x] Accessibility: the WP-022 file-scanning banner's link is underlined (axe
+  `link-in-text-block`, on every console screen while no scanner is installed). Lane B informed.
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views

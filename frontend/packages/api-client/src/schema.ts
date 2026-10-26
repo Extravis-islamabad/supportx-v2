@@ -5137,6 +5137,11 @@ export interface components {
             /** Keep Following On Handover */
             keep_following_on_handover?: boolean | null;
             /**
+             * Next Number
+             * @description The number the next record gets (never lower).
+             */
+            next_number?: number | null;
+            /**
              * Prefix
              * @description 2-6 capital letters.
              */

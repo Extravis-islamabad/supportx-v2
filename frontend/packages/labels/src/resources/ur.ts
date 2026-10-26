@@ -1321,7 +1321,7 @@ export const ur: LabelResource = {
   'templates.problem_default': '{{field}} (ابتدائی قدر): {{message}}',
   'incident_template.standard': 'معیاری واقعہ',
   'templates.field': 'سانچہ',
-  'templates.ungrouped': 'سانچے',
+  'templates.ungrouped': 'بغیر گروپ',
   'templates.load_failed':
     'سانچے لوڈ نہیں ہو سکے، اس لیے فارم شروع نہیں ہو سکتا۔ دوبارہ کوشش کے لیے صفحہ ری لوڈ کریں۔',
   'templates.disabled_meanwhile':
@@ -1329,7 +1329,7 @@ export const ur: LabelResource = {
   'templates.hidden_fields':
     'یہ سانچہ چھپاتا ہے: {{fields}}۔ ان کی ابتدائی قدریں، اگر ہوں، پھر بھی محفوظ ہوتی ہیں۔',
   'templates.default_retired':
-    'اس سانچے کی کچھ ابتدائی قدریں ریٹائر ہو چکی ہیں اور خالی چھوڑ دی گئیں: {{fields}}۔',
+    'اس سانچے کی کچھ ابتدائی قدریں ریٹائر ہو چکی ہیں؛ یہ قریب ترین زیرِ استعمال قدر سے شروع ہوتی ہیں، یا خالی: {{fields}}۔',
   'templates.switch_title': '"{{name}}" پر جائیں؟',
   'templates.switch_body':
     'آپ کے بھرے ہوئے یہ فیلڈز اس سانچے میں نہیں ہیں اور صاف ہو جائیں گے: {{fields}}۔ باقی سب کچھ جو آپ نے لکھا، برقرار رہے گا۔',
@@ -1375,4 +1375,15 @@ export const ur: LabelResource = {
   'audit.action.incident.template_created': 'واقعے کا سانچہ شامل کیا',
   'audit.action.incident.template_changed': 'واقعے کا سانچہ بدلا',
   'audit.object.incident_template': 'واقعے کا سانچہ',
+  // WP-020c-FIX
+  'settings.no_colour': 'کوئی رنگ نہیں',
+  'settings.other_stays': '"دیگر" ہمیشہ رہتا ہے: جب کوئی وجہ موزوں نہ ہو تو یہی راستہ ہے۔',
+  'reply_templates.remove': 'ہٹائیں',
+  'reply_templates.remove_explained':
+    'یہ کمپوزر سے ہٹ جائے گا۔ پہلے بھیجے گئے جوابات اپنا متن رکھیں گے۔',
+  'templates.requester_always_needed': 'درخواست گزار یہ فیلڈ ہمیشہ دیکھتے اور بھرتے ہیں',
+  'templates.locked_note':
+    'موضوع اور درخواست گزار مقفل ہیں: ان کے بغیر درخواست گزار پورٹل سے واقعہ درج نہیں کر سکتے۔',
+  'errors.field.requester_always_needed':
+    'درخواست گزار موضوع اور درخواست گزار ہمیشہ دیکھتے اور بھرتے ہیں۔',
 };

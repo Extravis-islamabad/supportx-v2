@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import {
   ApiError,
+  isOwnSettingsVersion,
   useIncidentSettingsChange,
   type Labels,
   type PickList,
@@ -29,8 +30,11 @@ export function useSettingsSave() {
   const { message } = App.useApp();
   const change = useIncidentSettingsChange();
   const [problems, setProblems] = useState<string[]>([]);
+  // The same problems by field ("prefix", "next_number"), for forms that show them in place (C1).
+  const [byField, setByField] = useState<Record<string, string>>({});
   const save = (next: SettingsChange, onDone?: () => void) => {
     setProblems([]);
+    setByField({});
     change.mutate(
       { change: next },
       {
@@ -46,6 +50,16 @@ export function useSettingsSave() {
           const found = fieldMessages(t, error);
           if (found.length > 0) {
             setProblems(found);
+            if (error instanceof ApiError) {
+              setByField(
+                Object.fromEntries(
+                  error.fieldErrors.map((f) => [
+                    f.field.replace(/^body\./, ''),
+                    t(f.message_key, f.params ?? {}),
+                  ]),
+                ),
+              );
+            }
             return;
           }
           reportError(error);
@@ -57,8 +71,10 @@ export function useSettingsSave() {
     save,
     pending: change.isPending,
     problems,
+    byField,
     clear: () => {
       setProblems([]);
+      setByField({});
     },
   };
 }
@@ -82,6 +98,9 @@ export function useDraft<T>(source: T, version: number) {
   const [state, setState] = useState({ draft: source, base: version, dirty: false });
   if (version !== state.base && !state.dirty) {
     setState({ draft: source, base: version, dirty: false });
+  } else if (version !== state.base && isOwnSettingsVersion(version)) {
+    // This tab saved another part of the settings (QA BUG-02): not someone else's change.
+    setState({ ...state, base: version });
   }
   return {
     draft: state.dirty || version === state.base ? state.draft : source,

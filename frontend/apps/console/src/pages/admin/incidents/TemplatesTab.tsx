@@ -22,6 +22,7 @@ import {
   type Labels,
   type TemplateChange,
 } from '@supportx/api-client';
+import { useLabelsIn } from '@supportx/labels';
 import { EmptyText, reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { templateLabel } from '../../incidents/labels';
@@ -37,6 +38,7 @@ import { templateProblems } from './helpers';
  */
 export function TemplatesTab() {
   const t = useLabel();
+  const tIn = useLabelsIn();
   const { locale } = useAppearance();
   const { message } = App.useApp();
   const templates = useIncidentTemplates();
@@ -158,15 +160,20 @@ export function TemplatesTab() {
                   size="small"
                   onClick={() => {
                     setCopyProblems([]);
-                    // Only names that exist are suggested; the admin completes the others.
+                    // A name in every language the original has one in, each in its own
+                    // language (QA BUG-05, D-086); a built-in template has all of them, so the
+                    // required English name is always there, whatever the UI language.
                     setCopyName(
                       Object.fromEntries(
                         (['en', 'ar', 'ur'] as const).flatMap((language) => {
                           const base =
-                            x.labels?.[language] ?? (language === locale ? name(x) : undefined);
+                            x.labels?.[language] ??
+                            (x.code === null
+                              ? undefined
+                              : tIn(language, `incident_template.${x.code}`));
                           return base === undefined
                             ? []
-                            : [[language, t('templates.copy_name', { name: base })]];
+                            : [[language, tIn(language, 'templates.copy_name', { name: base })]];
                         }),
                       ),
                     );
