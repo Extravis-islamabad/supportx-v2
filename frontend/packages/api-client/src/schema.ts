@@ -2983,6 +2983,182 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a report
+         * @description Needs `reports.create`. A copy of a built-in report names it in `copied_from`.
+         */
+        post: operations["create_report_api_v1_reports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/entities/{entity}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What a report on an entity can use
+         * @description Fields (filter and grouping) and measures of an entity, as you may use them.
+         */
+        get: operations["entity_fields_api_v1_reports_entities__entity__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/favourites/{report_ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Star a report
+         * @description `builtin:<code>` or a saved report id.
+         */
+        put: operations["star_api_v1_reports_favourites__report_ref__put"];
+        post?: never;
+        /**
+         * Unstar a report
+         * @description Remove a star (no error when there was none).
+         */
+        delete: operations["unstar_api_v1_reports_favourites__report_ref__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a shared folder
+         * @description Needs `reports.manage_folders`.
+         */
+        post: operations["create_folder_api_v1_reports_folders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/folders/{folder_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a shared folder
+         * @description Needs `reports.manage_folders`; you must say where its reports go (REQ-RPT-045 AC3).
+         */
+        delete: operations["delete_folder_api_v1_reports_folders__folder_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a shared folder
+         * @description Needs `reports.manage_folders` and If-Match.
+         */
+        patch: operations["rename_folder_api_v1_reports_folders__folder_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/reports/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The reports home
+         * @description Built-in reports you can run now, shared folders, your and shared reports, your stars.
+         */
+        get: operations["get_library_api_v1_reports_library_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a report definition
+         * @description Run a definition over the records you may see, in your time zone (`X-Time-Zone`).
+         */
+        post: operations["run_api_v1_reports_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/{report_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a saved report
+         * @description Yours, or one in a shared folder; 404 otherwise.
+         */
+        get: operations["get_report_api_v1_reports__report_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a saved report
+         * @description Needs If-Match.
+         */
+        delete: operations["delete_report_api_v1_reports__report_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a saved report
+         * @description The fields you send. Needs If-Match; built-in reports are never changed (copy them).
+         */
+        patch: operations["update_report_api_v1_reports__report_id__patch"];
+        trace?: never;
+    };
     "/api/v1/roles": {
         parameters: {
             query?: never;
@@ -4315,6 +4491,17 @@ export interface components {
             };
         };
         /**
+         * BuiltinReportOut
+         * @description A shipped report; `report.<code>` and `report.<code>.description` label it.
+         */
+        BuiltinReportOut: {
+            /** Code */
+            code: string;
+            definition: components["schemas"]["ReportDefinition-Output"];
+            /** Folder */
+            folder: string;
+        };
+        /**
          * CertificateIn
          * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
          */
@@ -4330,6 +4517,12 @@ export interface components {
          * @enum {string}
          */
         Channel: "phone" | "walk_up" | "email" | "portal" | "chat" | "virtual_agent" | "teams" | "slack" | "whatsapp" | "mobile_app" | "api" | "monetx" | "alert_webhook";
+        /**
+         * ChartType
+         * @description MVP chart types (REQ-RPT-044 AC3); the rest follow at V1.
+         * @enum {string}
+         */
+        ChartType: "bar" | "stacked_bar" | "line" | "area" | "doughnut" | "gauge" | "kpi" | "table";
         /**
          * CheckCode
          * @description Each text/background pair the brand colours make (labels: `branding.check.<code>`).
@@ -4683,6 +4876,12 @@ export interface components {
              */
             required: boolean;
         };
+        /**
+         * DateBucket
+         * @description How a date grouping is cut, in the viewer's time zone (REQ-DSH-044).
+         * @enum {string}
+         */
+        DateBucket: "day" | "week" | "month" | "quarter" | "year" | "age";
         /**
          * DeliveryReason
          * @description Why a reply is not (yet) sent.
@@ -5129,6 +5328,22 @@ export interface components {
             and: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd"] | components["schemas"]["FilterOr"])[];
         };
         /**
+         * FilterAnd
+         * @description All of the nodes.
+         */
+        "FilterAnd-Input": {
+            /** And */
+            and: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Input"] | components["schemas"]["FilterOr-Input"])[];
+        };
+        /**
+         * FilterAnd
+         * @description All of the nodes.
+         */
+        "FilterAnd-Output": {
+            /** And */
+            and: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Output"] | components["schemas"]["FilterOr-Output"])[];
+        };
+        /**
          * FilterCondition
          * @description `{field, op, value?}`. Which fields and operators are allowed depends on the endpoint.
          */
@@ -5154,6 +5369,22 @@ export interface components {
         FilterOr: {
             /** Or */
             or: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd"] | components["schemas"]["FilterOr"])[];
+        };
+        /**
+         * FilterOr
+         * @description Any of the nodes.
+         */
+        "FilterOr-Input": {
+            /** Or */
+            or: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Input"] | components["schemas"]["FilterOr-Input"])[];
+        };
+        /**
+         * FilterOr
+         * @description Any of the nodes.
+         */
+        "FilterOr-Output": {
+            /** Or */
+            or: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Output"] | components["schemas"]["FilterOr-Output"])[];
         };
         /**
          * FirstResponseAction
@@ -6130,6 +6361,259 @@ export interface components {
             version: number;
         };
         /**
+         * ReportDefinition
+         * @description A report as stored and as sent to `POST /reports/run`.
+         */
+        "ReportDefinition-Input": {
+            /** @default bar */
+            chart: components["schemas"]["ChartType"];
+            /** Entity */
+            entity: string;
+            /** Filter */
+            filter?: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Input"] | components["schemas"]["FilterOr-Input"] | null;
+            /** Group By */
+            group_by?: components["schemas"]["ReportGroupBy"][];
+            /** Limit */
+            limit?: number | null;
+            /** Measures */
+            measures?: string[];
+            /** @default key */
+            order: components["schemas"]["ResultOrder"];
+            /**
+             * Percent
+             * @default false
+             */
+            percent: boolean;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+        };
+        /**
+         * ReportDefinition
+         * @description A report as stored and as sent to `POST /reports/run`.
+         */
+        "ReportDefinition-Output": {
+            /** @default bar */
+            chart: components["schemas"]["ChartType"];
+            /** Entity */
+            entity: string;
+            /** Filter */
+            filter?: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Output"] | components["schemas"]["FilterOr-Output"] | null;
+            /** Group By */
+            group_by?: components["schemas"]["ReportGroupBy"][];
+            /** Limit */
+            limit?: number | null;
+            /** Measures */
+            measures?: string[];
+            /** @default key */
+            order: components["schemas"]["ResultOrder"];
+            /**
+             * Percent
+             * @default false
+             */
+            percent: boolean;
+            /**
+             * Schema Version
+             * @default 1
+             * @constant
+             */
+            schema_version: 1;
+        };
+        /**
+         * ReportEntityOut
+         * @description What a report on this entity can use (the copy-and-adjust form, REQ-RPT-019).
+         */
+        ReportEntityOut: {
+            /** Entity */
+            entity: string;
+            /** Fields */
+            fields: components["schemas"]["ReportFieldOut"][];
+            /** List Path */
+            list_path: string;
+            /** Measures */
+            measures: components["schemas"]["ReportMeasureOut"][];
+        };
+        /**
+         * ReportFieldOut
+         * @description A field of an entity: filterable always, groupable when `dimension` is set.
+         */
+        ReportFieldOut: {
+            dimension: components["schemas"]["ReportGroupOut"] | null;
+            /** Multiple */
+            multiple: boolean;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
+            /** Values */
+            values: string[];
+        };
+        /**
+         * ReportFolderIn
+         * @description A shared folder's name.
+         */
+        ReportFolderIn: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * ReportFolderOut
+         * @description A shared folder.
+         */
+        ReportFolderOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ReportGroupBy
+         * @description One grouping: a field of the entity; date fields also need a bucket.
+         */
+        ReportGroupBy: {
+            bucket?: components["schemas"]["DateBucket"] | null;
+            /** Field */
+            field: string;
+        };
+        /**
+         * ReportGroupOut
+         * @description How to label one grouping's keys.
+         */
+        ReportGroupOut: {
+            /** Bucket */
+            bucket: string | null;
+            /** Field */
+            field: string;
+            /** Kind */
+            kind: string;
+            /** Label Prefix */
+            label_prefix: string | null;
+            /** Reference */
+            reference: string | null;
+        };
+        /**
+         * ReportIn
+         * @description A new saved report; with no folder it goes to "My reports", private (REQ-RPT-047).
+         */
+        ReportIn: {
+            /** Copied From */
+            copied_from?: string | null;
+            definition: components["schemas"]["ReportDefinition-Input"];
+            /** Description */
+            description?: string | null;
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ReportLibraryOut
+         * @description The reports home: built-in reports the viewer can run, folders, saved reports, stars.
+         */
+        ReportLibraryOut: {
+            /** Builtin */
+            builtin: components["schemas"]["BuiltinReportOut"][];
+            /** Favourites */
+            favourites: string[];
+            /** Folders */
+            folders: components["schemas"]["ReportFolderOut"][];
+            /** Reports */
+            reports: components["schemas"]["SavedReportOut"][];
+        };
+        /**
+         * ReportMeasureOut
+         * @description A measure: its code labels it (`measure.<entity>.<code>`), its unit formats it.
+         */
+        ReportMeasureOut: {
+            /** Better */
+            better: string;
+            /** Code */
+            code: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * ReportPatch
+         * @description The fields to change.
+         */
+        ReportPatch: {
+            definition?: components["schemas"]["ReportDefinition-Input"] | null;
+            /** Description */
+            description?: string | null;
+            /** Folder Id */
+            folder_id?: string | null;
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * ReportResultOut
+         * @description A run's result.
+         */
+        ReportResultOut: {
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Drill All
+             * @description Filter DSL behind the totals.
+             */
+            drill_all: unknown;
+            /** Entity */
+            entity: string;
+            /** Groups */
+            groups: components["schemas"]["ReportGroupOut"][];
+            /** List Path */
+            list_path: string;
+            /** Measures */
+            measures: components["schemas"]["ReportMeasureOut"][];
+            /** Rows */
+            rows: components["schemas"]["ReportRowOut"][];
+            /** Time Zone */
+            time_zone: string;
+            /** Totals */
+            totals: (number | null)[];
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * ReportRowOut
+         * @description One group: keys (codes, ids, ISO bucket starts), values, and the list filter behind it.
+         */
+        ReportRowOut: {
+            /**
+             * Drill
+             * @description Filter DSL for the entity's list: exactly these records.
+             */
+            drill: unknown;
+            /** Keys */
+            keys: unknown[];
+            /** Values */
+            values: (number | null)[];
+        };
+        /**
+         * ReportRunIn
+         * @description A definition to run (a built-in one, a saved one, or one being adjusted).
+         */
+        ReportRunIn: {
+            definition: components["schemas"]["ReportDefinition-Input"];
+        };
+        /**
+         * ResultOrder
+         * @description Order of grouped rows.
+         * @enum {string}
+         */
+        ResultOrder: "key" | "value_desc" | "value_asc";
+        /**
          * RoleCreate
          * @description A new custom role.
          */
@@ -6520,6 +7004,40 @@ export interface components {
             occurred_at: string;
             /** Outcome */
             outcome: string;
+        };
+        /**
+         * SavedReportOut
+         * @description A saved report.
+         */
+        SavedReportOut: {
+            /** Can Edit */
+            can_edit: boolean;
+            /** Copied From */
+            copied_from: string | null;
+            definition: components["schemas"]["ReportDefinition-Output"];
+            /** Description */
+            description: string | null;
+            /** Folder Id */
+            folder_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
         };
         /**
          * Scale
@@ -21522,6 +22040,871 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_report_api_v1_reports_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    entity_fields_api_v1_reports_entities__entity__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entity: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportEntityOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    star_api_v1_reports_favourites__report_ref__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    unstar_api_v1_reports_favourites__report_ref__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_folder_api_v1_reports_folders_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportFolderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportFolderOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_folder_api_v1_reports_folders__folder_id__delete: {
+        parameters: {
+            query: {
+                /** @description Where its reports go: a folder id, or `owners` (each owner's own). */
+                move_to: string;
+            };
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                folder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    rename_folder_api_v1_reports_folders__folder_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                folder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportFolderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportFolderOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_library_api_v1_reports_library_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportLibraryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    run_api_v1_reports_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportRunIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReportResultOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description invalid_report or report_timeout. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description report_queue_full: try again shortly. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_report_api_v1_reports__report_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_report_api_v1_reports__report_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_report_api_v1_reports__report_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                report_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReportPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedReportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such report visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
             };
             /** @description Validation Error */
             422: {

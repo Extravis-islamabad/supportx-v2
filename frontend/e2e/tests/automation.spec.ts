@@ -81,7 +81,7 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
   test.setTimeout(300_000);
   const tag = stamp();
   const subject = `E2E automation ${tag}`;
-  const admin = await open(browser, 'admin', '/admin/incidents/business-rules');
+  const admin = await open(browser, 'admin', '/admin/automation/business-rules');
   const tech = await open(browser, 'tech', '/incidents/new');
   try {
     // 1. A business rule built on the screen: subject contains the stamp → priority P1.
@@ -192,7 +192,7 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
 
     // 7. The admin screens, in Arabic too.
     for (const section of ['triggers', 'transitions', 'routing']) {
-      await admin.page.goto(`/admin/incidents/${section}`);
+      await admin.page.goto(`/admin/automation/${section}`);
       await expectAccessible(admin.page, `admin ${section}`);
     }
   } finally {

@@ -27,7 +27,7 @@ export function LoopBanner() {
             triggers: latest.triggers.join(t('list.separator')),
           })}{' '}
           <Link to={`/incidents/${latest.record_id}`}>{t('automation.loop.open')}</Link>{' '}
-          <Link to="/admin/incidents/triggers">{t('automation.loop.open_triggers')}</Link>
+          <Link to="/admin/automation/triggers">{t('automation.loop.open_triggers')}</Link>
         </>
       }
     />

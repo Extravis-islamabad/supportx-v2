@@ -120,7 +120,7 @@ describe('Admin › Incidents › Triggers (WP-029 part 2)', () => {
 
   it('lists triggers with their events and state (REQ-RUL-009)', async () => {
     routes();
-    open('/admin/incidents/triggers');
+    open('/admin/automation/triggers');
     const row = await screen.findByTestId('trigger-row-Resolved check');
     expect(within(row).getByText('When the status changes')).toBeDefined();
     expect(within(row).getByText('On')).toBeDefined();
@@ -128,7 +128,7 @@ describe('Admin › Incidents › Triggers (WP-029 part 2)', () => {
 
   it('a new trigger offers "changed from" for the status only', async () => {
     routes();
-    open('/admin/incidents/triggers');
+    open('/admin/automation/triggers');
     fireEvent.click(await screen.findByTestId('trigger-add'));
     fireEvent.click(await screen.findByTestId('condition-add'));
     const pickField = async (label: string) => {
@@ -161,7 +161,7 @@ describe('Admin › Incidents › Triggers (WP-029 part 2)', () => {
     setDefaultClientFactory(realtime.factory);
     let triggers = [trigger({})];
     routes({ 'GET /api/v1/automation/triggers': () => ({ body: triggers }) });
-    open('/admin/incidents/triggers');
+    open('/admin/automation/triggers');
     await screen.findByText('Resolved check');
     triggers = [trigger({ name: 'Renamed', version: 2 })];
     act(() => {
@@ -188,7 +188,7 @@ describe('Admin › Incidents › Transitions (REQ-WF-003, 004)', () => {
         },
       },
     });
-    open('/admin/incidents/transitions');
+    open('/admin/automation/transitions');
     expect((await screen.findByTestId('transition-summary-resolve')).textContent).toBe(
       'Everyone with the permission',
     );

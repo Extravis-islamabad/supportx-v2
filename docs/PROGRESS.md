@@ -11,6 +11,8 @@
 - **Next work package:** WP-029 QA (~/Desktop/qa-wp029/, parts 1 and 2), then WP-020f,
   WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
+- **Lane C (reports and dashboards):** WP-035 session 1 done (engine, D-100); session 2 (viewer)
+  next. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -543,7 +545,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Every automated change is a history line naming the rule, method and loads ("why" line in
   the record history); run log `GET /automation/runs` (30 days).
 - [x] A group, site, department or custom field a rule uses cannot be removed (REQ-RUL-029 AC3).
-- [x] Screens: Admin › Incidents › Business rules and Routing and assignment; header
+- [x] Screens: Admin › Automation (own section: Business rules, Routing and assignment); header
   Available/Away switch for technicians; all live through `automation.changed`.
 - [x] Reporting provider for lane C (WP-035 port): every work item type registers its list query.
 - [x] Part 2 (D-102; migration 0028; plan ~/Desktop/wp-029b-plan.md): triggers after commit
@@ -635,6 +637,45 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
+### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; session 1 of 4 done 2026-10-27)
+Plan: ~/Desktop/wp-035-plan.md (approved with D-100). Branches `feat/reporting-port` (PR #72, the
+port alone, so lane A can write the incident provider) and `feat/wp-035-reporting`.
+- [x] **Session 1 — engine.**
+  - Reporting port `app/shared/reporting` (ADR-033): a module registers a provider whose source is
+    its own scope-filtered list query, filter allowlist and groupable fields. Reports therefore
+    count exactly what the viewer could list (REQ-RPT-002, D-052), and analytics never names
+    another module's tables.
+  - `analytics` module: report definition (versioned JSON), compiler (groupings, date buckets in
+    the viewer's zone, ageing buckets, measures, drill-down filter per row), standard measures
+    defined once (REQ-RPT-004), runner, 23 built-in incident reports (set A), saved reports,
+    shared folders, favourites, permissions `reports.view` (moved from the reserved list),
+    `reports.create`, `reports.manage_folders`.
+  - Read-only reporting: role `supportx_report` (NOLOGIN, SELECT only, checked by the RLS guard),
+    entered with `SET LOCAL ROLE`, read-only transaction and `statement_timeout`; its own pool and
+    `reporting_database_url` for a replica; per-tenant concurrency cap (in-process).
+  - Migration 0027: `report_folders`, `reports`, `report_favourites` (RLS, soft delete, events,
+    field history) and SELECT for the reporting role on `work_items`, `work_item_followers`,
+    `field_changes`.
+  - Server-side labels (ADR-034): `make labels-json`, `app.shared.labels.label()`, checked on
+    both sides. Labels for every new code in en, ar and ur.
+  - Tests: 10 domain; 11 with Postgres (scope parity for five users incl. drill-down counts,
+    tenant isolation, read-only role and timeout, ageing, custom-field grouping, time zones,
+    built-ins run without set-up, copy/share/folders/permissions/outbox); labels checks.
+- [ ] **Session 2 — viewer.** Reports home, viewer, copy-and-adjust form, shared filter builder
+  in `packages/forms` (D-100 D6), chart kit (doughnut, gauge, stacked, area, KPI, table), drill-down
+  to the list, names of groups/sites/people in results, live re-run on list signals, Sunday week
+  start for Arabic tenants, tenant-editable query limits (D-041), e2e and axe in en and ar.
+- [ ] **Session 3 — export.** CSV, XLSX (openpyxl write-only), PDF (WeasyPrint in the worker image
+  only, URL fetcher refusing everything but bundled fonts and our data URIs, D-100 D8), formula
+  injection protection in every path, background jobs with progress, audit, `reports.export`,
+  1M-row performance harness and indexes.
+- [ ] **Session 4 — scheduled reports**, after lane B's `app/shared/mail` is on main (D-100 D3).
+- [ ] Report set B with lane A's WP-020e (worklogs), WP-020f (reopen, FCR, completion), WP-025
+  (SLA), WP-030 (service requests, approvals); backlog over time and time in status (field
+  history source).
+- Waiting on lane A: the incident provider `work_items/service/reporting.py` and the three report
+  indexes (WP-029 PR, migration 0025); until then tests use a test-only provider built the same way.
+
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
 - Search port `app/shared/search`, with PostgreSQL full-text and pg_trgm as the MVP engine
@@ -835,6 +876,16 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   provider for lane C. Plan defaults recorded as D-097 (no fallback group by default); ADR-035.
 - Split: triggers, loop guard and transition hooks moved to WP-029 part 2 (business rules run
   once per save and cannot trigger each other, so part 1 cannot loop).
+### 2026-10-27 — WP-035 session 1: reporting engine (lane C)
+- Lane C started (coordination rules, three lanes). Plan approved as D-100; ADR-033 (reporting
+  engine) and ADR-034 (server-side labels) accepted.
+- PR #72 ships the reporting port alone so lane A can write the incident provider in WP-029.
+- Session 1 built the engine, the read-only reporting role, migration 0027, 23 built-in incident
+  reports, saved reports, folders, favourites and server-side labels; see WP-035 above.
+- DB tests ran on a lane C PostgreSQL container (not the shared dev stack), Valkey shared with
+  per-test key prefixes.
+- Lane B told: WP-039 mail templates and WP-023 notifications use `app.shared.labels.label()`;
+  scheduled reports need attachments, per-message language and `mail_configured()`.
 ### 2026-10-27 — WP-039 session 1: service account, sessions, single sign-on (lane B)
 
 - Built in `../supportx-v2-wp039` (branch `feat/wp-039-identity`), migration 0024 after lane

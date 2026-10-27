@@ -100,7 +100,7 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
 
   it('lists rules in order with the stop marker and state (REQ-RUL-005)', async () => {
     routes();
-    open('/admin/incidents/business-rules');
+    open('/admin/automation/business-rules');
     const table = await screen.findByTestId('rules-table');
     await within(table).findByText('VIP first');
     expect(within(table).getAllByTestId('rule-stop-marker')).toHaveLength(1);
@@ -110,7 +110,7 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
 
   it('moving a rule down sends the new order', async () => {
     const fake = routes({ 'PUT /api/v1/automation/rules-order': { body: [] } });
-    open('/admin/incidents/business-rules');
+    open('/admin/automation/business-rules');
     fireEvent.click(await screen.findByRole('button', { name: 'Move “VIP first” down' }));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/automation/rules-order')).toHaveLength(1);
@@ -137,7 +137,7 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
         }),
       },
     });
-    open('/admin/incidents/business-rules');
+    open('/admin/automation/business-rules');
     fireEvent.click(await screen.findByText('VIP first'));
     const name = await screen.findByTestId('rule-name');
     fireEvent.change(name, { target: { value: 'VIP first!' } });
@@ -151,7 +151,7 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
 
   it('a refusal takes its message in English, Arabic (RTL) and Urdu (RTL)', async () => {
     routes();
-    open('/admin/incidents/business-rules');
+    open('/admin/automation/business-rules');
     fireEvent.click(await screen.findByTestId('rule-add'));
     const kind = await screen.findByTestId('action-0-kind');
     fireEvent.mouseDown(kind.querySelector('.ant-select-selector') ?? kind);
@@ -173,7 +173,7 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
     setDefaultClientFactory(realtime.factory);
     let rules = [rule({})];
     routes({ 'GET /api/v1/automation/rules': () => ({ body: rules }) });
-    open('/admin/incidents/business-rules');
+    open('/admin/automation/business-rules');
     await screen.findByText('VIP first');
     rules = [rule({ name: 'Renamed', version: 2 })];
     act(() => {
@@ -190,7 +190,7 @@ describe('Admin › Incidents › Routing (WP-029)', () => {
         body: { ...SETTINGS, fallback_group_id: 'g-1', version: 1 },
       },
     });
-    open('/admin/incidents/routing');
+    open('/admin/automation/routing');
     const fallback = await screen.findByTestId('routing-fallback');
     expect(within(fallback).getByText('No fallback group')).toBeDefined();
     fireEvent.mouseDown(fallback.querySelector('.ant-select-selector') ?? fallback);

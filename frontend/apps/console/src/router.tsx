@@ -111,6 +111,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'automation/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/automation/AutomationPage')).AutomationPage,
+            }),
+          },
+          {
             path: 'files',
             lazy: async () => ({
               Component: (await import('./pages/admin/files/FilesPage')).FilesPage,
