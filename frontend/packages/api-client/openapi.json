@@ -5281,6 +5281,91 @@
         "title": "HistoryOut",
         "type": "object"
       },
+      "IdentitySettingsBody": {
+        "additionalProperties": false,
+        "description": "Sessions per app and people creation on first sign-in.\n\nAbsolute: at least the idle timeout; at most 7 days for the console, 30 for the portal.",
+        "properties": {
+          "console_absolute_seconds": {
+            "description": "Absolute session length in seconds.",
+            "title": "Console Absolute Seconds",
+            "type": "integer"
+          },
+          "console_idle_seconds": {
+            "description": "Idle timeout in seconds (300 to 86400).",
+            "title": "Console Idle Seconds",
+            "type": "integer"
+          },
+          "create_people_on_sign_in": {
+            "description": "A first sign-in creates the person as requester (REQ-SEC-013).",
+            "title": "Create People On Sign In",
+            "type": "boolean"
+          },
+          "portal_absolute_seconds": {
+            "description": "Absolute session length in seconds.",
+            "title": "Portal Absolute Seconds",
+            "type": "integer"
+          },
+          "portal_idle_seconds": {
+            "description": "Idle timeout in seconds (300 to 86400).",
+            "title": "Portal Idle Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "console_idle_seconds",
+          "console_absolute_seconds",
+          "portal_idle_seconds",
+          "portal_absolute_seconds",
+          "create_people_on_sign_in"
+        ],
+        "title": "IdentitySettingsBody",
+        "type": "object"
+      },
+      "IdentitySettingsOut": {
+        "description": "The settings and their version (0: never saved, the Appendix A defaults).",
+        "properties": {
+          "console_absolute_seconds": {
+            "description": "Absolute session length in seconds.",
+            "title": "Console Absolute Seconds",
+            "type": "integer"
+          },
+          "console_idle_seconds": {
+            "description": "Idle timeout in seconds (300 to 86400).",
+            "title": "Console Idle Seconds",
+            "type": "integer"
+          },
+          "create_people_on_sign_in": {
+            "description": "A first sign-in creates the person as requester (REQ-SEC-013).",
+            "title": "Create People On Sign In",
+            "type": "boolean"
+          },
+          "portal_absolute_seconds": {
+            "description": "Absolute session length in seconds.",
+            "title": "Portal Absolute Seconds",
+            "type": "integer"
+          },
+          "portal_idle_seconds": {
+            "description": "Idle timeout in seconds (300 to 86400).",
+            "title": "Portal Idle Seconds",
+            "type": "integer"
+          },
+          "version": {
+            "description": "Send back as If-Match.",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "console_idle_seconds",
+          "console_absolute_seconds",
+          "portal_idle_seconds",
+          "portal_absolute_seconds",
+          "create_people_on_sign_in",
+          "version"
+        ],
+        "title": "IdentitySettingsOut",
+        "type": "object"
+      },
       "Impact": {
         "description": "How widely it is felt, lowest first.",
         "enum": [
@@ -7567,6 +7652,520 @@
           }
         },
         "title": "SitePatch",
+        "type": "object"
+      },
+      "SsoBody": {
+        "additionalProperties": false,
+        "description": "A set-up.\n\nOpenID Connect: issuer, client ID and secret (write-only), scopes. SAML: the provider's\nmetadata (text or URL), or its sign-in address and certificate.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Write-only; leave out to keep the saved one.",
+            "title": "Client Secret"
+          },
+          "display_name": {
+            "description": "Shown on the sign-in button.",
+            "title": "Display Name",
+            "type": "string"
+          },
+          "domains": {
+            "description": "The email domains of the people who use it.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "email_redirect": {
+            "default": false,
+            "description": "Once on, send people of these domains straight to it.",
+            "title": "Email Redirect",
+            "type": "boolean"
+          },
+          "entity_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entity Id"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "mapping": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SsoMappingBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "metadata": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "SAML metadata XML (write-only).",
+            "title": "Metadata"
+          },
+          "metadata_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metadata Url"
+          },
+          "preset": {
+            "enum": [
+              "entra",
+              "okta",
+              "google",
+              "oidc",
+              "saml"
+            ],
+            "title": "Preset",
+            "type": "string"
+          },
+          "scopes": {
+            "default": "openid email profile",
+            "title": "Scopes",
+            "type": "string"
+          },
+          "slo_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Slo Url"
+          },
+          "sso_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sso Url"
+          }
+        },
+        "required": [
+          "preset",
+          "display_name",
+          "domains"
+        ],
+        "title": "SsoBody",
+        "type": "object"
+      },
+      "SsoCheckOut": {
+        "description": "The last connection check.",
+        "properties": {
+          "certificate_not_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Not After"
+          },
+          "checked_at": {
+            "format": "date-time",
+            "title": "Checked At",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "problems": {
+            "description": "Codes: labels `sso_check.<code>`.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          }
+        },
+        "required": [
+          "ok",
+          "problems",
+          "checked_at"
+        ],
+        "title": "SsoCheckOut",
+        "type": "object"
+      },
+      "SsoListOut": {
+        "description": "The tenant's set-ups.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SsoOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "SsoListOut",
+        "type": "object"
+      },
+      "SsoMappingBody": {
+        "additionalProperties": false,
+        "description": "Which claim (OpenID Connect) or attribute (SAML) carries each field; empty = not used.",
+        "properties": {
+          "department": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "email": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Email",
+            "type": "string"
+          },
+          "first_name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "First Name",
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Last Name",
+            "type": "string"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "maxLength": 300,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          }
+        },
+        "required": [
+          "email",
+          "first_name",
+          "last_name"
+        ],
+        "title": "SsoMappingBody",
+        "type": "object"
+      },
+      "SsoOut": {
+        "description": "A set-up as saved (never the secret).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "email_redirect": {
+            "title": "Email Redirect",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_check": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SsoCheckOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "preset": {
+            "enum": [
+              "entra",
+              "okta",
+              "google",
+              "oidc",
+              "saml"
+            ],
+            "title": "Preset",
+            "type": "string"
+          },
+          "protocol": {
+            "enum": [
+              "oidc",
+              "saml"
+            ],
+            "title": "Protocol",
+            "type": "string"
+          },
+          "redirect_uri": {
+            "description": "Where the provider sends people back (OIDC).",
+            "title": "Redirect Uri",
+            "type": "string"
+          },
+          "service_provider_metadata_url": {
+            "description": "SupportX's SAML metadata for this set-up (give it to the provider).",
+            "title": "Service Provider Metadata Url",
+            "type": "string"
+          },
+          "settings": {
+            "additionalProperties": true,
+            "description": "Connection settings shown again, and mapping.",
+            "title": "Settings",
+            "type": "object"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "tested",
+              "on",
+              "off"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "switched_on_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Switched On At"
+          },
+          "tested_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tested At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "protocol",
+          "preset",
+          "display_name",
+          "state",
+          "domains",
+          "email_redirect",
+          "settings",
+          "last_check",
+          "tested_at",
+          "switched_on_at",
+          "service_provider_metadata_url",
+          "redirect_uri",
+          "version"
+        ],
+        "title": "SsoOut",
+        "type": "object"
+      },
+      "SsoTestIdentityOut": {
+        "description": "What the provider sent for the person who signed in.",
+        "properties": {
+          "department": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site"
+          }
+        },
+        "required": [
+          "email",
+          "name"
+        ],
+        "title": "SsoTestIdentityOut",
+        "type": "object"
+      },
+      "SsoTestResultOut": {
+        "description": "pending, passed or failed (`reason`: labels `sso_test.<reason>`).",
+        "properties": {
+          "identity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SsoTestIdentityOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "passed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "identity"
+        ],
+        "title": "SsoTestResultOut",
+        "type": "object"
+      },
+      "SsoTestStartedOut": {
+        "description": "Open `url` in a pop-up; poll the result with `test_id`.",
+        "properties": {
+          "test_id": {
+            "title": "Test Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "test_id",
+          "url"
+        ],
+        "title": "SsoTestStartedOut",
         "type": "object"
       },
       "StateReason": {
@@ -16757,6 +17356,1128 @@
         "summary": "Liveness",
         "tags": [
           "system"
+        ]
+      }
+    },
+    "/api/v1/identity/settings": {
+      "get": {
+        "description": "The tenant's sign-in settings, or the defaults (version 0).",
+        "operationId": "get_settings_api_v1_identity_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Sign-in settings",
+        "tags": [
+          "identity"
+        ]
+      },
+      "put": {
+        "description": "Session limits apply to sessions begun from now on; people creation at once.",
+        "operationId": "put_settings_api_v1_identity_settings_put",
+        "parameters": [
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentitySettingsBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save sign-in settings",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/sso": {
+      "get": {
+        "description": "Every set-up of the tenant, oldest first.",
+        "operationId": "list_sso_api_v1_identity_sso_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Single sign-on set-ups",
+        "tags": [
+          "identity"
+        ]
+      },
+      "post": {
+        "description": "Checked and saved in draft: test it, then switch it on.",
+        "operationId": "create_sso_api_v1_identity_sso_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoOut"
+                }
+              }
+            },
+            "description": "Created in draft (or replayed)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a single sign-on set-up",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/sso/{provider_id}": {
+      "delete": {
+        "description": "Deletes it in Keycloak; the email domains only it claimed are given back.",
+        "operationId": "remove_sso_api_v1_identity_sso__provider_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a single sign-on set-up",
+        "tags": [
+          "identity"
+        ]
+      },
+      "get": {
+        "description": "The set-up, with its last check.",
+        "operationId": "get_sso_api_v1_identity_sso__provider_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "One single sign-on set-up",
+        "tags": [
+          "identity"
+        ]
+      },
+      "put": {
+        "description": "A connection change sends it back to draft (an \"on\" set-up: switch it off first).",
+        "operationId": "update_sso_api_v1_identity_sso__provider_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SsoBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a single sign-on set-up",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/sso/{provider_id}/switch-off": {
+      "post": {
+        "description": "Nobody signs in through it until it is switched on again.",
+        "operationId": "switch_off_api_v1_identity_sso__provider_id__switch_off_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Switch a single sign-on set-up off",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/sso/{provider_id}/switch-on": {
+      "post": {
+        "description": "Shown on the tenant's sign-in page (needs a passed test since the last change).",
+        "operationId": "switch_on_api_v1_identity_sso__provider_id__switch_on_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Switch a single sign-on set-up on",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/sso/{provider_id}/tests": {
+      "post": {
+        "description": "No session and no person are created by the test; the tested sign-in ends at once.",
+        "operationId": "start_test_api_v1_identity_sso__provider_id__tests_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoTestStartedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Start a test sign-in",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/sso/{provider_id}/tests/{test_id}": {
+      "get": {
+        "description": "Pending until the pop-up comes back (or the provider's answer is refused).",
+        "operationId": "test_result_api_v1_identity_sso__provider_id__tests__test_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Provider Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "test_id",
+            "required": true,
+            "schema": {
+              "title": "Test Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SsoTestResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Result of a test sign-in",
+        "tags": [
+          "identity"
         ]
       }
     },

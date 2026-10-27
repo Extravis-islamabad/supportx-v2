@@ -1896,4 +1896,68 @@ export const ur: LabelResource = {
   'access_settings.banner':
     'جب تک آپ انتخاب نہ کریں، ٹیکنیشن اپنے گروپوں کے، اپنے، اور اپنی سائٹس کے نئے غیر تفویض ریکارڈ دیکھتے ہیں۔',
   'access_settings.choose': 'منتخب کریں',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.manage': 'سائن اِن اور سیکیورٹی کا انتظام',
+  'permission.identity.manage.description': 'سنگل سائن آن، سیشن کی مہلتیں اور پہلی بار سائن اِن کرنے والوں کی ترتیب۔',
+  'permission_module.identity': 'سائن اِن اور سیکیورٹی',
+  'event_type.identity_access.identity_settings.changed': 'سائن اِن کی ترتیبات بدلیں',
+  'event_type.identity_access.sso_provider.changed': 'سنگل سائن آن کا سیٹ اپ بدلا',
+  'audit.action.identity.settings_changed': 'سائن اِن کی ترتیبات بدلیں',
+  'audit.action.sso.added': 'سنگل سائن آن کا سیٹ اپ شامل کیا',
+  'audit.action.sso.updated': 'سنگل سائن آن کا سیٹ اپ بدلا',
+  'audit.action.sso.tested': 'سنگل سائن آن کا سیٹ اپ آزمایا',
+  'audit.action.sso.switched_on': 'سنگل سائن آن چالو کیا',
+  'audit.action.sso.switched_off': 'سنگل سائن آن بند کیا',
+  'audit.action.sso.removed': 'سنگل سائن آن کا سیٹ اپ ہٹایا',
+  'errors.sign_in_unknown_person':
+    'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
+  'errors.identity_admin_not_configured':
+    'اس انسٹالیشن پر سائن اِن کی ترتیبات ابھی تیار نہیں۔ اپنے ایڈمنسٹریٹر سے شناخت کے سیٹ اپ کا مرحلہ چلانے کو کہیں۔',
+  'errors.identity_admin_unavailable':
+    'سائن اِن کی سروس سے ابھی رابطہ نہیں ہو پا رہا۔ تھوڑی دیر میں دوبارہ کوشش کریں۔',
+  'errors.identity_organization_missing':
+    'آپ کی تنظیم ابھی سائن اِن کے لیے تیار نہیں۔ اپنے ایڈمنسٹریٹر سے پوچھیں۔',
+  'errors.sso_not_tested': 'چالو کرنے سے پہلے سیٹ اپ کو ایک سائن اِن سے آزمائیں۔',
+  'errors.sso_provider_limit': 'آپ زیادہ سے زیادہ {{max}} سنگل سائن آن سیٹ اپ رکھ سکتے ہیں۔',
+  'errors.sso_provider_missing':
+    'یہ سیٹ اپ سائن اِن کی سروس میں موجود نہیں۔ اسے ہٹا کر دوبارہ شامل کریں۔',
+  'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
+  'errors.sso_provider_refused':
+    'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
+  'errors.sso_switch_off_first':
+    'رابطے کا طریقہ بدلنے سے پہلے سیٹ اپ بند کریں، تاکہ کوئی باہر نہ رہ جائے۔',
+  'errors.sso_switched_off': 'آزمانے سے پہلے سیٹ اپ چالو کریں یا اسے بدلیں۔',
+  'errors.sso_test_not_found': 'یہ آزمائش ختم ہو گئی۔ نئی شروع کریں۔',
+  'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
+  'errors.field.session_absolute_out_of_range':
+    'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
+  'errors.field.sso_certificate_expired':
+    'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے۔ شناخت فراہم کنندہ سے نیا لیں۔',
+  'errors.field.sso_certificate_missing': 'میٹا ڈیٹا میں دستخطی سرٹیفکیٹ نہیں ہے۔',
+  'errors.field.sso_certificate_required': 'شناخت فراہم کنندہ کا دستخطی سرٹیفکیٹ چسپاں کریں۔',
+  'errors.field.sso_certificate_unreadable':
+    'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM صورت میں چسپاں کریں۔',
+  'errors.field.sso_client_id_required': 'کلائنٹ آئی ڈی درج کریں۔',
+  'errors.field.sso_client_rejected':
+    'شناخت فراہم کنندہ نے یہ کلائنٹ آئی ڈی اور سیکرٹ قبول نہیں کیے۔',
+  'errors.field.sso_client_secret_required': 'کلائنٹ سیکرٹ درج کریں۔',
+  'errors.field.sso_discovery_invalid': 'یہ پتا OpenID Connect جاری کنندہ کی طرح جواب نہیں دیتا۔',
+  'errors.field.sso_discovery_unreachable': 'SupportX اس جاری کنندہ تک نہیں پہنچ سکا۔ پتا جانچیں۔',
+  'errors.field.sso_domain_invalid': '{{domain}} ڈومین کا نام نہیں، جیسے example.com۔',
+  'errors.field.sso_domain_public':
+    '{{domain}} عوامی میل سروس ہے اور سنگل سائن آن کے لیے استعمال نہیں ہو سکتی۔',
+  'errors.field.sso_domain_required': 'کم از کم ایک ای میل ڈومین شامل کریں۔',
+  'errors.field.sso_domain_taken': 'ان میں سے ایک ڈومین کسی اور تنظیم کے پاس ہے۔',
+  'errors.field.sso_domains_too_many': 'زیادہ سے زیادہ {{max}} ڈومین رکھیں۔',
+  'errors.field.sso_issuer_mismatch':
+    'یہ پتا کسی اور جاری کنندہ کا نام دیتا ہے۔ جاری کنندہ کا عین پتا استعمال کریں۔',
+  'errors.field.sso_issuer_required': 'جاری کنندہ کا پتا درج کریں۔',
+  'errors.field.sso_metadata_required':
+    'میٹا ڈیٹا اپ لوڈ کریں، اس کا پتا دیں، یا سائن اِن کا پتا بھریں۔',
+  'errors.field.sso_metadata_unreachable': 'SupportX اس پتے سے میٹا ڈیٹا نہیں لا سکا۔',
+  'errors.field.sso_metadata_unreadable': 'یہ فائل قابلِ مطالعہ SAML میٹا ڈیٹا نہیں۔',
+  'errors.field.sso_name_length': '1 سے {{max}} حروف رکھیں۔',
+  'errors.field.sso_protocol_fixed':
+    'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
+  'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
 };

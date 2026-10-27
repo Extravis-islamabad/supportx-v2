@@ -23,6 +23,34 @@ Protocol = Literal["oidc", "saml"]
 Preset = Literal["entra", "okta", "google", "oidc", "saml"]
 State = Literal["draft", "tested", "on", "off"]
 
+# Every field problem a set-up can be refused with (labels `errors.field.<code>`, CI-checked).
+FIELD_PROBLEMS = frozenset(
+    {
+        "sso_certificate_expired",
+        "sso_certificate_missing",
+        "sso_certificate_required",
+        "sso_certificate_unreadable",
+        "sso_client_id_required",
+        "sso_client_rejected",
+        "sso_client_secret_required",
+        "sso_discovery_invalid",
+        "sso_discovery_unreachable",
+        "sso_domain_invalid",
+        "sso_domain_public",
+        "sso_domain_required",
+        "sso_domain_taken",
+        "sso_domains_too_many",
+        "sso_issuer_mismatch",
+        "sso_issuer_required",
+        "sso_metadata_required",
+        "sso_metadata_unreachable",
+        "sso_metadata_unreadable",
+        "sso_name_length",
+        "sso_protocol_fixed",
+        "sso_sign_in_url_missing",
+    }
+)
+
 MAX_PROVIDERS = 5
 MAX_DOMAINS = 20
 DEPARTMENT_ATTRIBUTE = "sx_department"

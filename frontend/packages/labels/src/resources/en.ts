@@ -2301,6 +2301,69 @@ export const en = {
   'access_settings.banner':
     "Until you choose, technicians see their own groups' records, their own, and new unassigned ones at their sites.",
   'access_settings.choose': 'Choose',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.manage': 'Manage sign-in and security',
+  'permission.identity.manage.description': 'Set up single sign-on, session timeouts and who may sign in for the first time.',
+  'permission_module.identity': 'Sign-in and security',
+  'event_type.identity_access.identity_settings.changed': 'Sign-in settings changed',
+  'event_type.identity_access.sso_provider.changed': 'Single sign-on set-up changed',
+  'audit.action.identity.settings_changed': 'Changed the sign-in settings',
+  'audit.action.sso.added': 'Added a single sign-on set-up',
+  'audit.action.sso.updated': 'Changed a single sign-on set-up',
+  'audit.action.sso.tested': 'Tested a single sign-on set-up',
+  'audit.action.sso.switched_on': 'Switched single sign-on on',
+  'audit.action.sso.switched_off': 'Switched single sign-on off',
+  'audit.action.sso.removed': 'Removed a single sign-on set-up',
+  'errors.sign_in_unknown_person':
+    'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
+  'errors.identity_admin_not_configured':
+    'Sign-in settings are not set up on this installation yet. Ask your administrator to run the identity set-up step.',
+  'errors.identity_admin_unavailable':
+    'The sign-in service cannot be reached right now. Try again in a moment.',
+  'errors.identity_organization_missing':
+    'Your organisation is not set up for sign-in yet. Ask your administrator.',
+  'errors.sso_not_tested': 'Test the set-up with a sign-in before switching it on.',
+  'errors.sso_provider_limit': 'You can have at most {{max}} single sign-on set-ups.',
+  'errors.sso_provider_missing':
+    'This set-up is missing in the sign-in service. Remove it and add it again.',
+  'errors.sso_provider_not_found': 'This single sign-on set-up was not found.',
+  'errors.sso_provider_refused':
+    'The sign-in service refused these settings. Check them and try again.',
+  'errors.sso_switch_off_first':
+    'Switch the set-up off before changing how it connects, so nobody is locked out.',
+  'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',
+  'errors.sso_test_not_found': 'This test has ended. Start a new one.',
+  'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
+  'errors.field.session_absolute_out_of_range':
+    'Use at least the idle timeout and at most {{max}} hours.',
+  'errors.field.sso_certificate_expired':
+    'The certificate has expired. Ask the identity provider for a current one.',
+  'errors.field.sso_certificate_missing': 'The metadata has no signing certificate.',
+  'errors.field.sso_certificate_required': "Paste the identity provider's signing certificate.",
+  'errors.field.sso_certificate_unreadable':
+    'The certificate cannot be read: paste it in PEM format.',
+  'errors.field.sso_client_id_required': 'Enter the client ID.',
+  'errors.field.sso_client_rejected': 'The identity provider refused this client ID and secret.',
+  'errors.field.sso_client_secret_required': 'Enter the client secret.',
+  'errors.field.sso_discovery_invalid':
+    'This address does not answer like an OpenID Connect issuer.',
+  'errors.field.sso_discovery_unreachable': 'SupportX cannot reach this issuer. Check the address.',
+  'errors.field.sso_domain_invalid': '{{domain}} is not a domain name, such as example.com.',
+  'errors.field.sso_domain_public':
+    '{{domain}} is a public mail service and cannot be used for single sign-on.',
+  'errors.field.sso_domain_required': 'Add at least one email domain.',
+  'errors.field.sso_domain_taken': 'One of these domains is already used by another organisation.',
+  'errors.field.sso_domains_too_many': 'Use at most {{max}} domains.',
+  'errors.field.sso_issuer_mismatch':
+    'The issuer this address names is a different one. Use the exact issuer address.',
+  'errors.field.sso_issuer_required': 'Enter the issuer address.',
+  'errors.field.sso_metadata_required':
+    'Upload the metadata, give its address, or fill in the sign-in address.',
+  'errors.field.sso_metadata_unreachable': 'SupportX cannot fetch the metadata from this address.',
+  'errors.field.sso_metadata_unreadable': 'This file is not readable SAML metadata.',
+  'errors.field.sso_name_length': 'Use 1 to {{max}} characters.',
+  'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
+  'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
 } as const;
 
 export type LabelKey = keyof typeof en;

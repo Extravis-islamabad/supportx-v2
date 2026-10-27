@@ -20,6 +20,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from app.core.config import Settings
+from app.core.errors import NotFound
 from app.modules.identity_access.bff.cookies import (
     DEV_COOKIE_NAME,
     PRODUCTION_COOKIE_NAME,
@@ -27,9 +28,11 @@ from app.modules.identity_access.bff.cookies import (
     set_session_cookie,
 )
 from app.modules.identity_access.infra.crypto import SessionCipher
+from app.modules.identity_access.infra.keycloak_admin import LoginEvent
 from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.tests.fake_idp import ISSUER, FakeIdp, FakeUser, MemoryKeyValue
 from app.shared.clock import FrozenClock
@@ -916,3 +919,182 @@ async def test_a_refused_browser_login_returns_to_the_address_it_started_on(
     )
     assert done.status_code == 303
     assert done.headers["location"] == f"http://{host}/?auth_error=no_organization"
+
+
+# --- WP-039: sessions per tenant, ending sessions, the SSO test sign-in ---------------------------
+
+
+async def _tenant_sql(bff: Bff, sql: str, *args: object) -> None:
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        await conn.execute(sql, *args)
+    finally:
+        await conn.close()
+
+
+async def test_sessions_take_their_tenants_limits(bff: Bff) -> None:
+    """REQ-SEC-029: a tenant's idle timeout applies to sessions begun after it was set."""
+    a, _ = bff.tenants
+    await _tenant_sql(
+        bff, "INSERT INTO identity_settings (tenant_id, console_idle_seconds) VALUES ($1, 600)", a
+    )
+    await bff.login(bff.user("a"))
+    bff.clock.advance(timedelta(seconds=540))
+    assert (await bff.me()).status_code == 200
+    bff.clock.advance(timedelta(seconds=600))
+    assert (await bff.me()).json()["code"] == "session_expired"
+
+
+async def test_after_a_timeout_signing_in_asks_for_the_password_again(bff: Bff) -> None:
+    """Keycloak's longer session never signs a timed-out browser back in silently."""
+    fresh = await bff.client.get("/api/v1/auth/login")
+    assert "prompt=login" not in fresh.headers["location"]
+    await bff.login(bff.user("a"))
+    bff.clock.advance(timedelta(seconds=CONSOLE_LIMITS["idle"]))
+    assert (await bff.me()).status_code == 401
+    again = await bff.client.get("/api/v1/auth/login")
+    assert "prompt=login" in again.headers["location"]
+
+
+async def test_ending_a_persons_sessions_closes_their_live_connections(bff: Bff) -> None:
+    """REQ-SEC-031 AC1: deactivation ends sessions and the live connection at once."""
+    await bff.login(bff.user("a"))
+    me = (await bff.me()).json()
+    closed: list[tuple[uuid.UUID, uuid.UUID]] = []
+
+    async def record(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        closed.append((tenant_id, user_id))
+
+    auth: AuthService = bff.app.state.auth
+    auth.end_realtime = record
+    tenant, user = uuid.UUID(me["tenant"]["id"]), uuid.UUID(me["user"]["id"])
+    await auth.end_sessions(tenant, user)
+    assert closed == [(tenant, user)]
+    assert (await bff.me()).status_code == 401
+
+
+async def _sso_world(bff: Bff) -> tuple[uuid.UUID, uuid.UUID, Any]:
+    from tests.db.test_identity_api import FakeAdmin  # noqa: PLC0415 - shared fake
+
+    a, _ = bff.tenants
+    provider = uuid.uuid4()
+    await _tenant_sql(
+        bff,
+        "INSERT INTO sso_providers (id, tenant_id, alias, protocol, preset, display_name)"
+        " VALUES ($1, $2, 'sx-a-test', 'oidc', 'entra', 'Acme')",
+        provider,
+        a,
+    )
+    admin = FakeAdmin()
+    auth: AuthService = bff.app.state.auth
+    auth.identity_admin = admin
+    return a, provider, admin
+
+
+async def _start_test(
+    auth: AuthService, tenant: uuid.UUID, provider: uuid.UUID
+) -> sso_test.TestStarted:
+    return await sso_test.start(
+        auth,
+        tenant_id=tenant,
+        slug="a",
+        admin_user_id=uuid.uuid4(),
+        provider_id=provider,
+        alias="sx-a-test",
+    )
+
+
+async def test_the_sso_test_sign_in_creates_no_session_and_marks_the_set_up_tested(
+    bff: Bff,
+) -> None:
+    """REQ-SEC-007/008: test before switching on; the test is not a sign-in."""
+    a, provider, admin = await _sso_world(bff)
+    tester = bff.user("a", email="alice@acme.test", subject="sub-alice")
+    admin.attributes["sub-alice"] = {"sx_department": ["Finance"]}
+    auth: AuthService = bff.app.state.auth
+    started = await sso_test.start(
+        auth,
+        tenant_id=a,
+        slug="a",
+        admin_user_id=uuid.uuid4(),
+        provider_id=provider,
+        alias="sx-a-test",
+    )
+    assert "kc_idp_hint=sx-a-test" in started.url
+    assert "prompt=login" in started.url
+    code, state = bff.idp.issue_code(started.url, tester)
+    done = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert done.status_code == 303
+    assert done.headers["location"] == f"{CONSOLE}/sso-test-done"
+    assert bff.cookie() is None  # no SupportX session
+    assert bff.idp.ended_sessions  # the tested Keycloak session ended at once
+    assert await user_rows(bff.db, "alice@acme.test") == []  # nobody created
+    found = await sso_test.result(auth, started.test_id, tenant_id=a, provider_id=provider)
+    assert found["status"] == "passed"
+    assert found["identity"]["email"] == "alice@acme.test"
+    assert found["identity"]["department"] == "Finance"
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        row = await conn.fetchrow(
+            "SELECT state, tested_at FROM sso_providers WHERE id = $1", provider
+        )
+        audit = await conn.fetchval(
+            "SELECT details->>'passed' FROM audit_entries WHERE action = 'sso.tested'"
+        )
+    finally:
+        await conn.close()
+    assert row is not None
+    assert (row["state"], row["tested_at"] is not None) == ("tested", True)
+    assert audit == "true"
+    # Only the tenant and set-up it was started for may read it.
+    with pytest.raises(NotFound):
+        await sso_test.result(auth, started.test_id, tenant_id=bff.tenants[1], provider_id=provider)
+
+
+async def test_a_failed_sso_test_says_why_and_leaves_the_set_up_untested(bff: Bff) -> None:
+    """REQ-SEC-007 AC1: a plain reason; the set-up stays off."""
+    a, provider, admin = await _sso_world(bff)
+    auth: AuthService = bff.app.state.auth
+    # Signed in at the provider, but their email is in none of the tenant's domains.
+    outsider = bff.user(email="mallory@elsewhere.test", subject="sub-mallory")
+    started = await sso_test.start(
+        auth,
+        tenant_id=a,
+        slug="a",
+        admin_user_id=uuid.uuid4(),
+        provider_id=provider,
+        alias="sx-a-test",
+    )
+    code, state = bff.idp.issue_code(started.url, outsider)
+    await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    found = await sso_test.result(auth, started.test_id, tenant_id=a, provider_id=provider)
+    assert (found["status"], found["reason"]) == ("failed", "not_in_tenant_domains")
+    # The provider's answer was refused by Keycloak (its own error page): the login error event.
+    second = await sso_test.start(
+        auth,
+        tenant_id=a,
+        slug="a",
+        admin_user_id=uuid.uuid4(),
+        provider_id=provider,
+        alias="sx-a-test",
+    )
+    assert (await sso_test.result(auth, second.test_id, tenant_id=a, provider_id=provider))[
+        "status"
+    ] == "pending"
+    admin.events.append(
+        LoginEvent(
+            "IDENTITY_PROVIDER_LOGIN_ERROR",
+            int(bff.clock.now().timestamp() * 1000) + 1,
+            "identity_provider_login_failure",
+            None,
+            None,
+        )
+    )
+    failed = await sso_test.result(auth, second.test_id, tenant_id=a, provider_id=provider)
+    assert (failed["status"], failed["reason"]) == ("failed", "answer_not_verified")
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        state = await conn.fetchval("SELECT state FROM sso_providers WHERE id = $1", provider)
+    finally:
+        await conn.close()
+    assert state == "draft"

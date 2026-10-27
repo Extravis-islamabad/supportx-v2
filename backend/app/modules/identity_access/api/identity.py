@@ -129,7 +129,7 @@ Admin = Annotated[IdentityAdmin | None, Depends(_admin)]
 AllowLoopback = Annotated[bool, Depends(_allow_loopback)]
 
 
-class MappingBody(BaseModel):
+class SsoMappingBody(BaseModel):
     """Which claim (OpenID Connect) or attribute (SAML) carries each field; empty = not used."""
 
     model_config = ConfigDict(extra="forbid")
@@ -156,7 +156,7 @@ class SsoBody(BaseModel):
     email_redirect: bool = Field(
         default=False, description="Once on, send people of these domains straight to it."
     )
-    mapping: MappingBody | None = None
+    mapping: SsoMappingBody | None = None
     issuer: str | None = None
     client_id: str | None = None
     client_secret: str | None = Field(
@@ -177,7 +177,7 @@ class SsoBody(BaseModel):
         return sso.SsoInput(**data, mapping=mapping)
 
 
-class CheckOut(BaseModel):
+class SsoCheckOut(BaseModel):
     """The last connection check."""
 
     ok: bool
@@ -197,7 +197,7 @@ class SsoOut(BaseModel):
     domains: list[str]
     email_redirect: bool
     settings: dict[str, Any] = Field(description="Connection settings shown again, and mapping.")
-    last_check: CheckOut | None
+    last_check: SsoCheckOut | None
     tested_at: datetime | None
     switched_on_at: datetime | None
     service_provider_metadata_url: str = Field(
@@ -224,7 +224,7 @@ def _sso_out(request: Request, view: sso.SsoView) -> SsoOut:
         domains=view.domains,
         email_redirect=view.email_redirect,
         settings=view.settings,
-        last_check=None if view.last_check is None else CheckOut(**view.last_check),
+        last_check=None if view.last_check is None else SsoCheckOut(**view.last_check),
         tested_at=view.tested_at,
         switched_on_at=view.switched_on_at,
         service_provider_metadata_url=issuer + view.service_provider_metadata_path,
@@ -385,14 +385,14 @@ async def remove_sso(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-class TestStartedOut(BaseModel):
+class SsoTestStartedOut(BaseModel):
     """Open `url` in a pop-up; poll the result with `test_id`."""
 
     test_id: str
     url: str
 
 
-class TestIdentityOut(BaseModel):
+class SsoTestIdentityOut(BaseModel):
     """What the provider sent for the person who signed in."""
 
     email: str | None
@@ -401,18 +401,18 @@ class TestIdentityOut(BaseModel):
     site: str | None = None
 
 
-class TestResultOut(BaseModel):
+class SsoTestResultOut(BaseModel):
     """pending, passed or failed (`reason`: labels `sso_test.<reason>`)."""
 
     status: Literal["pending", "passed", "failed"]
     reason: str | None
-    identity: TestIdentityOut | None
+    identity: SsoTestIdentityOut | None
 
 
 @router.post("/sso/{provider_id}/tests", summary="Start a test sign-in")
 async def start_test(
     provider_id: uuid.UUID, request: Request, session: TenantSession, subject: Manage
-) -> TestStartedOut:
+) -> SsoTestStartedOut:
     """No session and no person are created by the test; the tested sign-in ends at once."""
     auth = getattr(request.app.state, "auth", None)
     if auth is None or _admin(request) is None:
@@ -427,13 +427,13 @@ async def start_test(
         provider_id=view.id,
         alias=view.alias,
     )
-    return TestStartedOut(test_id=started.test_id, url=started.url)
+    return SsoTestStartedOut(test_id=started.test_id, url=started.url)
 
 
 @router.get("/sso/{provider_id}/tests/{test_id}", summary="Result of a test sign-in")
 async def test_result(
     provider_id: uuid.UUID, test_id: str, request: Request, subject: Manage
-) -> TestResultOut:
+) -> SsoTestResultOut:
     """Pending until the pop-up comes back (or the provider's answer is refused)."""
     auth = getattr(request.app.state, "auth", None)
     if auth is None:
@@ -441,4 +441,4 @@ async def test_result(
     found = await sso_test.result(
         auth, test_id, tenant_id=subject.tenant_id, provider_id=provider_id
     )
-    return TestResultOut.model_validate(found)
+    return SsoTestResultOut.model_validate(found)

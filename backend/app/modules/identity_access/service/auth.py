@@ -40,6 +40,11 @@ from app.modules.identity_access.domain.identity import (
     validate_claims,
 )
 from app.modules.identity_access.domain.session import Session, TenantChoice
+from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
+from app.modules.identity_access.infra.keycloak_admin import (
+    IdentityAdminNotConfigured,
+    IdentityAdminUnavailable,
+)
 from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import (
     ClientCredentials,
@@ -317,6 +322,7 @@ class AuthService:
             client=app,
             reason="login",
             on_roles_mapped=self.on_roles_mapped,
+            directory=self._directory,
         )
         return Session(
             subject=identity.subject,
@@ -341,6 +347,21 @@ class AuthService:
             idle_seconds=user.session_idle_seconds,
             absolute_seconds=user.session_absolute_seconds,
         )
+
+    async def _directory(self, subject: str) -> dict[str, str | None]:
+        """Department and site the person's identity provider sent (best effort, WP-039)."""
+        if self.identity_admin is None:
+            return {}
+        try:
+            attributes = await self.identity_admin.user_attributes(subject)
+        except (IdentityAdminUnavailable, IdentityAdminNotConfigured):
+            log.warning("directory_attributes_unavailable")
+            return {}
+        found: dict[str, str | None] = {}
+        for key, name in (("department", DEPARTMENT_ATTRIBUTE), ("site", SITE_ATTRIBUTE)):
+            values = attributes.get(name) or []
+            found[key] = values[0] if values else None
+        return found
 
     async def _save_new(self, session: Session) -> str:
         session_id = secrets.token_urlsafe(32)

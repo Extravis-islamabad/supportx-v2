@@ -2272,4 +2272,62 @@ export const ar: LabelResource = {
   'access_settings.banner':
     'حتى تختار، يرى الفنيون سجلات مجموعاتهم وسجلاتهم والسجلات الجديدة غير المسندة في مواقعهم.',
   'access_settings.choose': 'اختر',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.manage': 'إدارة تسجيل الدخول والأمان',
+  'permission.identity.manage.description': 'إعداد تسجيل الدخول الموحّد ومهل الجلسات ومن يمكنه تسجيل الدخول لأول مرة.',
+  'permission_module.identity': 'تسجيل الدخول والأمان',
+  'event_type.identity_access.identity_settings.changed': 'تغيّرت إعدادات تسجيل الدخول',
+  'event_type.identity_access.sso_provider.changed': 'تغيّر إعداد تسجيل الدخول الموحّد',
+  'audit.action.identity.settings_changed': 'غيّر إعدادات تسجيل الدخول',
+  'audit.action.sso.added': 'أضاف إعداد تسجيل دخول موحّد',
+  'audit.action.sso.updated': 'غيّر إعداد تسجيل دخول موحّد',
+  'audit.action.sso.tested': 'اختبر إعداد تسجيل دخول موحّد',
+  'audit.action.sso.switched_on': 'شغّل تسجيل الدخول الموحّد',
+  'audit.action.sso.switched_off': 'أوقف تسجيل الدخول الموحّد',
+  'audit.action.sso.removed': 'أزال إعداد تسجيل دخول موحّد',
+  'errors.sign_in_unknown_person':
+    'لم تُضِفك مؤسستك إلى SupportX بعد. تواصل مع مكتب الخدمة للحصول على الوصول.',
+  'errors.identity_admin_not_configured':
+    'إعدادات تسجيل الدخول غير مهيأة في هذا التثبيت بعد. اطلب من المسؤول تشغيل خطوة إعداد الهوية.',
+  'errors.identity_admin_unavailable':
+    'تعذّر الوصول إلى خدمة تسجيل الدخول الآن. حاول مجددًا بعد قليل.',
+  'errors.identity_organization_missing': 'مؤسستك غير مهيأة لتسجيل الدخول بعد. اسأل المسؤول.',
+  'errors.sso_not_tested': 'اختبر الإعداد بتسجيل دخول قبل تشغيله.',
+  'errors.sso_provider_limit': 'يمكنك إضافة {{max}} إعدادات تسجيل دخول موحّد على الأكثر.',
+  'errors.sso_provider_missing': 'هذا الإعداد غير موجود في خدمة تسجيل الدخول. أزِله وأضفه من جديد.',
+  'errors.sso_provider_not_found': 'لم يُعثر على إعداد تسجيل الدخول الموحّد هذا.',
+  'errors.sso_provider_refused': 'رفضت خدمة تسجيل الدخول هذه الإعدادات. راجعها وحاول مجددًا.',
+  'errors.sso_switch_off_first': 'أوقف الإعداد قبل تغيير طريقة اتصاله، حتى لا يُحرم أحد من الدخول.',
+  'errors.sso_switched_off': 'شغّل الإعداد أو غيّره قبل اختباره.',
+  'errors.sso_test_not_found': 'انتهى هذا الاختبار. ابدأ اختبارًا جديدًا.',
+  'errors.field.session_idle_out_of_range': 'استخدم ما بين {{min}} و{{max}} دقيقة.',
+  'errors.field.session_absolute_out_of_range':
+    'استخدم مدة لا تقل عن مهلة عدم النشاط ولا تزيد على {{max}} ساعة.',
+  'errors.field.sso_certificate_expired': 'انتهت صلاحية الشهادة. اطلب شهادة سارية من مزوّد الهوية.',
+  'errors.field.sso_certificate_missing': 'لا تحتوي البيانات الوصفية على شهادة توقيع.',
+  'errors.field.sso_certificate_required': 'الصق شهادة التوقيع الخاصة بمزوّد الهوية.',
+  'errors.field.sso_certificate_unreadable': 'تعذّرت قراءة الشهادة: الصقها بصيغة PEM.',
+  'errors.field.sso_client_id_required': 'أدخل معرّف العميل.',
+  'errors.field.sso_client_rejected': 'رفض مزوّد الهوية معرّف العميل وكلمة السر هذين.',
+  'errors.field.sso_client_secret_required': 'أدخل كلمة سر العميل.',
+  'errors.field.sso_discovery_invalid': 'هذا العنوان لا يجيب كجهة إصدار OpenID Connect.',
+  'errors.field.sso_discovery_unreachable':
+    'تعذّر على SupportX الوصول إلى جهة الإصدار هذه. تحقق من العنوان.',
+  'errors.field.sso_domain_invalid': '{{domain}} ليس اسم نطاق، مثل example.com.',
+  'errors.field.sso_domain_public':
+    '{{domain}} خدمة بريد عامة ولا يمكن استخدامها لتسجيل الدخول الموحّد.',
+  'errors.field.sso_domain_required': 'أضف نطاق بريد واحدًا على الأقل.',
+  'errors.field.sso_domain_taken': 'أحد هذه النطاقات مستخدم من مؤسسة أخرى.',
+  'errors.field.sso_domains_too_many': 'استخدم {{max}} نطاقات على الأكثر.',
+  'errors.field.sso_issuer_mismatch':
+    'جهة الإصدار التي يذكرها هذا العنوان مختلفة. استخدم عنوان جهة الإصدار بدقة.',
+  'errors.field.sso_issuer_required': 'أدخل عنوان جهة الإصدار.',
+  'errors.field.sso_metadata_required':
+    'ارفع البيانات الوصفية أو أدخل عنوانها أو املأ عنوان تسجيل الدخول.',
+  'errors.field.sso_metadata_unreachable':
+    'تعذّر على SupportX جلب البيانات الوصفية من هذا العنوان.',
+  'errors.field.sso_metadata_unreadable': 'هذا الملف ليس بيانات وصفية SAML مقروءة.',
+  'errors.field.sso_name_length': 'استخدم من 1 إلى {{max}} حرفًا.',
+  'errors.field.sso_protocol_fixed': 'يحتفظ الإعداد ببروتوكوله. أضف إعدادًا جديدًا بدلًا من ذلك.',
+  'errors.field.sso_sign_in_url_missing': 'لا تحتوي البيانات الوصفية على عنوان تسجيل دخول.',
 };
