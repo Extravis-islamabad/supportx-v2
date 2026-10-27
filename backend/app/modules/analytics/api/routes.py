@@ -6,7 +6,8 @@ per run (REQ-RPT-048). Results carry codes and ids with the metadata the UI need
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from datetime import time as time_type
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
 from zoneinfo import ZoneInfo
@@ -29,8 +30,9 @@ from app.core.errors import (
 from app.core.tenancy import TenantContext, resolve_tenant
 from app.modules.analytics.domain.builtin import BUILTIN_REPORTS
 from app.modules.analytics.domain.definition import ReportDefinition
-from app.modules.analytics.infra.models import ReportExport, ReportSettings
-from app.modules.analytics.service import exports, library
+from app.modules.analytics.domain.schedule import Frequency
+from app.modules.analytics.infra.models import ReportExport, ReportSchedule, ReportSettings
+from app.modules.analytics.service import exports, library, schedules
 from app.modules.analytics.service.compiler import available_measures, compile_report
 from app.modules.analytics.service.jobs import storage_or_none
 from app.modules.analytics.service.runner import (
@@ -47,6 +49,7 @@ from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
+from app.shared.mail import mail_configured
 from app.shared.reporting import ReportingSource, registered_entities
 from app.shared.storage import ObjectStorage
 
@@ -569,6 +572,208 @@ async def download_export(
             "Cache-Control": "private, no-store",
             "X-Content-Type-Options": "nosniff",
         },
+    )
+
+
+# --- schedules ------------------------------------------------------------------------------------
+
+
+class ReportScheduleIn(BaseModel):
+    """A scheduled report: what, when, to whom, in which file type."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=200)
+    report_ref: str = Field(
+        min_length=1, max_length=100, description="builtin:<code> or a saved report id"
+    )
+    frequency: Literal["daily", "weekly", "monthly"]
+    at_time: time_type = Field(description="Wall-clock time in `time_zone`, e.g. 07:00")
+    time_zone: str = Field(min_length=1, max_length=64)
+    start_date: date
+    end_date: date | None = None
+    weekdays: list[int] = Field(default_factory=list, max_length=7, description="0 = Monday")
+    day_of_month: int | None = Field(default=None, ge=1, le=28)
+    recipient_users: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    recipient_groups: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+    format: Literal["csv", "xlsx", "pdf"] = "xlsx"
+    content: Literal["summary", "records"] = "summary"
+    message: str | None = Field(default=None, max_length=2000)
+
+    def values(self) -> schedules.ScheduleInput:
+        """For the service."""
+        return schedules.ScheduleInput(
+            title=self.title,
+            report_ref=self.report_ref,
+            frequency=Frequency(self.frequency),
+            at_time=self.at_time.replace(second=0, microsecond=0),
+            time_zone=self.time_zone,
+            start_date=self.start_date,
+            end_date=self.end_date,
+            weekdays=tuple(self.weekdays),
+            day_of_month=self.day_of_month,
+            recipient_users=tuple(self.recipient_users),
+            recipient_groups=tuple(self.recipient_groups),
+            format=self.format,
+            content=self.content,
+            message=self.message,
+        )
+
+
+class ReportScheduleOut(BaseModel):
+    """A schedule with its next run and the result of its last one (REQ-RPT-052 AC2)."""
+
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    title: str
+    report_ref: str
+    frequency: Literal["daily", "weekly", "monthly"]
+    at_time: time_type
+    time_zone: str
+    start_date: date
+    end_date: date | None
+    weekdays: list[int]
+    day_of_month: int | None
+    recipient_users: list[uuid.UUID]
+    recipient_groups: list[uuid.UUID]
+    format: Literal["csv", "xlsx", "pdf"]
+    content: Literal["summary", "records"]
+    message: str | None
+    status: Literal["active", "paused", "finished"]
+    paused_reason: str | None
+    next_run_at: datetime | None
+    last_run_at: datetime | None
+    last_result: str | None
+    last_sent: int | None
+    last_failed: int | None
+    version: int
+
+    @classmethod
+    def of(cls, row: ReportSchedule) -> "ReportScheduleOut":
+        """From the row."""
+        return cls.model_validate(
+            {
+                **{name: getattr(row, name) for name in cls.model_fields},
+                "weekdays": list(row.weekdays or ()),
+            }
+        )
+
+
+class ReportSchedulesOut(BaseModel):
+    """Your schedules, and whether e-mail can be sent at all (REQ-RPT-055)."""
+
+    mail_configured: bool
+    items: list[ReportScheduleOut]
+
+
+@router.get("/schedules", summary="Scheduled reports")
+async def list_schedules(
+    session: TenantSession, subject: View, request: Request
+) -> ReportSchedulesOut:
+    """Yours (administrators: every one), next run first."""
+    rows = await schedules.list_schedules(session, subject)
+    return ReportSchedulesOut(
+        mail_configured=mail_configured(request.app.state.settings),
+        items=[ReportScheduleOut.of(r) for r in rows],
+    )
+
+
+@router.post(
+    "/schedules",
+    summary="Schedule a report",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ReportScheduleOut,
+    responses={409: {"model": ProblemDetail, "description": "mail_not_configured"}},
+)
+async def create_schedule(
+    body: ReportScheduleIn,
+    session: TenantSession,
+    subject: View,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """Needs `reports.schedule` and outgoing mail."""
+
+    async def go() -> Created:
+        row = await schedules.create_schedule(
+            session,
+            subject,
+            body.values(),
+            settings=request.app.state.settings,
+            source=source_of(request),
+        )
+        return Created(body=ReportScheduleOut.of(row), headers={"ETag": f'"{row.version}"'})
+
+    return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+@router.put("/schedules/{schedule_id}", summary="Change a scheduled report", responses=CONFLICT)
+async def update_schedule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    schedule_id: uuid.UUID,
+    body: ReportScheduleIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    response: Response,
+    request: Request,
+) -> ReportScheduleOut:
+    """Replace its settings (If-Match)."""
+    row = await schedules.update_schedule(
+        session,
+        subject,
+        schedule_id,
+        body.values(),
+        expected_version=version,
+        settings=request.app.state.settings,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return ReportScheduleOut.of(row)
+
+
+@router.post(
+    "/schedules/{schedule_id}/{action}",
+    summary="Pause or resume a scheduled report",
+    responses=CONFLICT,
+)
+async def pause_or_resume(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    schedule_id: uuid.UUID,
+    action: Literal["pause", "resume"],
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    response: Response,
+    request: Request,
+) -> ReportScheduleOut:
+    """Resuming clears the failure count and plans the next run."""
+    row = await schedules.set_paused(
+        session,
+        subject,
+        schedule_id,
+        paused=action == "pause",
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return ReportScheduleOut.of(row)
+
+
+@router.delete(
+    "/schedules/{schedule_id}",
+    summary="Delete a scheduled report",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=CONFLICT,
+)
+async def delete_schedule(
+    schedule_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    request: Request,
+) -> None:
+    """Needs If-Match."""
+    await schedules.delete_schedule(
+        session, subject, schedule_id, expected_version=version, source=source_of(request)
     )
 
 

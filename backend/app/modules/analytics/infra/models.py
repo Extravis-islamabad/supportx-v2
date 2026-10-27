@@ -8,7 +8,8 @@ group or user is V1, REQ-RPT-046).
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
+from datetime import time as time_type
 from typing import Any
 
 from sqlalchemy import (
@@ -17,13 +18,14 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     UniqueConstraint,
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, TenantScoped
@@ -183,3 +185,64 @@ class ReportExport(TenantScoped, Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     finished_at: Mapped[datetime | None]
     expires_at: Mapped[datetime | None]
+
+
+class ReportSchedule(TenantEntity):
+    """A report sent by e-mail on a schedule (REQ-RPT-052 to 056; D-100 D3: minimal at MVP).
+
+    Each run builds one file per recipient with that recipient's permissions and language
+    (REQ-RPT-053). Recipients are users and groups of the tenant; external addresses are V1.
+    """
+
+    __tablename__ = "report_schedules"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_report_schedules_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_report_schedules_owner",
+        ),
+        CheckConstraint("char_length(btrim(title)) BETWEEN 1 AND 200", name="title_length"),
+        CheckConstraint("char_length(report_ref) BETWEEN 1 AND 100", name="ref_length"),
+        CheckConstraint("frequency IN ('daily', 'weekly', 'monthly')", name="frequency_code"),
+        CheckConstraint("format IN ('csv', 'xlsx', 'pdf')", name="format_code"),
+        CheckConstraint("content IN ('summary', 'records')", name="content_code"),
+        CheckConstraint("status IN ('active', 'paused', 'finished')", name="status_code"),
+        CheckConstraint(
+            "day_of_month IS NULL OR day_of_month BETWEEN 1 AND 28", name="day_of_month_range"
+        ),
+        CheckConstraint("end_date IS NULL OR end_date >= start_date", name="dates_order"),
+        CheckConstraint("message IS NULL OR char_length(message) <= 2000", name="message_length"),
+        Index(
+            "ix_report_schedules_tenant_due",
+            "tenant_id",
+            "next_run_at",
+            postgresql_where=text("status = 'active' AND deleted_at IS NULL"),
+        ),
+        Index("ix_report_schedules_tenant_owner", "tenant_id", "owner_id"),
+    )
+
+    owner_id: Mapped[uuid.UUID]
+    title: Mapped[str] = mapped_column(String(200))
+    # `builtin:<code>` or a saved report's id; the definition is read at each run.
+    report_ref: Mapped[str] = mapped_column(String(100))
+    frequency: Mapped[str] = mapped_column(String(10))
+    at_time: Mapped[time_type]
+    time_zone: Mapped[str] = mapped_column(String(64))
+    weekdays: Mapped[list[int]] = mapped_column(ARRAY(SmallInteger), server_default="{}")
+    day_of_month: Mapped[int | None] = mapped_column(SmallInteger)
+    start_date: Mapped[date]
+    end_date: Mapped[date | None]
+    recipient_users: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
+    recipient_groups: Mapped[list[str]] = mapped_column(JSONB, server_default="[]")
+    format: Mapped[str] = mapped_column(String(10))
+    content: Mapped[str] = mapped_column(String(10), server_default="summary")
+    message: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(10), server_default="active")
+    paused_reason: Mapped[str | None] = mapped_column(String(60))
+    failures: Mapped[int] = mapped_column(SmallInteger, server_default="0")
+    next_run_at: Mapped[datetime | None]
+    last_run_at: Mapped[datetime | None]
+    last_result: Mapped[str | None] = mapped_column(String(60))  # "sent" or a problem code
+    last_sent: Mapped[int | None] = mapped_column(SmallInteger)
+    last_failed: Mapped[int | None] = mapped_column(SmallInteger)

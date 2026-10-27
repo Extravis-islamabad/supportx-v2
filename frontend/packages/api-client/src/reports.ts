@@ -257,3 +257,66 @@ export function useUpdateReportSettings() {
     },
   });
 }
+
+export type ReportSchedule = components['schemas']['ReportScheduleOut'];
+export type ReportScheduleInput = components['schemas']['ReportScheduleIn'];
+
+/** Your scheduled reports (administrators: all), and whether e-mail is set up at all. */
+export function useReportSchedules(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.reports.schedules,
+    queryFn: () => call(api.GET('/api/v1/reports/schedules')),
+    enabled,
+  });
+}
+
+/** Create, replace, pause, resume or delete a schedule (If-Match on every change). */
+export function useScheduleChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (
+      change:
+        | { kind: 'create'; body: ReportScheduleInput; key: string }
+        | { kind: 'update'; id: string; version: number; body: ReportScheduleInput }
+        | { kind: 'pause' | 'resume'; id: string; version: number }
+        | { kind: 'delete'; id: string; version: number },
+    ) => {
+      switch (change.kind) {
+        case 'create':
+          return call(
+            api.POST('/api/v1/reports/schedules', {
+              params: { header: { 'Idempotency-Key': change.key } },
+              body: change.body,
+            }),
+          );
+        case 'update':
+          return call(
+            api.PUT('/api/v1/reports/schedules/{schedule_id}', {
+              params: { path: { schedule_id: change.id }, header: ifMatch(change.version) },
+              body: change.body,
+            }),
+          );
+        case 'pause':
+        case 'resume':
+          return call(
+            api.POST('/api/v1/reports/schedules/{schedule_id}/{action}', {
+              params: {
+                path: { schedule_id: change.id, action: change.kind },
+                header: ifMatch(change.version),
+              },
+            }),
+          );
+        case 'delete':
+          return call(
+            api.DELETE('/api/v1/reports/schedules/{schedule_id}', {
+              params: { path: { schedule_id: change.id }, header: ifMatch(change.version) },
+            }),
+          );
+      }
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.reports.schedules });
+    },
+  });
+}

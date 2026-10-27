@@ -58,6 +58,7 @@ export const queryKeys = {
     entity: (entity: string) => ['reports', 'entity', entity] as const,
     detail: (id: string) => ['reports', 'detail', id] as const,
     exports: ['reports', 'exports'] as const,
+    schedules: ['reports', 'schedules'] as const,
     settings: ['reports', 'settings'] as const,
     // Every run, so a list signal can refresh all reports on screen at once.
     runs: ['reports', 'run'] as const,

@@ -23,7 +23,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import IO, Any
+from typing import IO, Any, Protocol
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -77,6 +77,28 @@ RECORD_FIELDS: dict[str, tuple[str, ...]] = {
         "resolved_at",
     ),
 }
+
+
+class FileSpec(Protocol):
+    """What one report file is: an export row, or one recipient's copy of a scheduled report."""
+
+    @property
+    def tenant_id(self) -> uuid.UUID: ...  # noqa: D102 - fields of the protocol
+    @property
+    def requested_by(self) -> uuid.UUID: ...  # noqa: D102 - whose permissions build the file
+    @property
+    def title(self) -> str: ...  # noqa: D102
+    @property
+    def definition(self) -> dict[str, Any]: ...  # noqa: D102
+    @property
+    def format(self) -> str: ...  # noqa: D102
+    @property
+    def content(self) -> str: ...  # noqa: D102
+    @property
+    def language(self) -> str: ...  # noqa: D102
+    @property
+    def time_zone(self) -> str: ...  # noqa: D102
+
 
 SubjectLoader = Callable[[AsyncSession, uuid.UUID, uuid.UUID], Awaitable[Subject]]
 # Renders the summary (and a few records) as PDF bytes; only the worker image has one.
@@ -196,7 +218,7 @@ def _number(value: Any) -> Value:  # noqa: ANN401 - a database aggregate
 class _Job:
     """One export being built: its row, the compiled report, the source and the reader."""
 
-    row: ReportExport
+    row: FileSpec
     rs: AsyncSession  # the read-only reporting transaction
     compiled: CompiledReport
     definition: ReportDefinition
@@ -355,7 +377,7 @@ class _Job:
         return len(records) if self.row.content == "records" else len(rows)
 
 
-def _header_lines(row: ReportExport, ran_at: datetime, zone: ZoneInfo) -> list[str]:
+def _header_lines(row: FileSpec, ran_at: datetime, zone: ZoneInfo) -> list[str]:
     language = row.language
     return [
         row.title,
@@ -383,10 +405,8 @@ class Worker:
     week_start: str = "monday"
 
 
-async def _job(session: AsyncSession, row: ReportExport, worker: Worker) -> "_Job | str":
+async def _job(session: AsyncSession, row: FileSpec, worker: Worker) -> "_Job | str":
     """The job for `row`, or the problem code that stops it before any query runs."""
-    if worker.storage is None:
-        return "storage_not_configured"
     if row.format == "pdf" and worker.render_pdf is None:
         return "pdf_not_available"
     if worker.load_subject is None:
@@ -409,6 +429,40 @@ async def _job(session: AsyncSession, row: ReportExport, worker: Worker) -> "_Jo
     return _Job(row, session, compiled, definition, source, namer, header, worker.max_rows)
 
 
+async def render_file(
+    session: AsyncSession, spec: FileSpec, worker: Worker
+) -> tuple[Path, int] | str:
+    """Write the report file for `spec` to a temp file: (path, rows), or a problem code.
+
+    The caller removes the file. Built with the permissions of `spec.requested_by`, read-only
+    as supportx_report, with the background time limit.
+    """
+    job = await _job(session, spec, worker)
+    if isinstance(job, str):
+        return job
+    handle, name = tempfile.mkstemp(prefix="sx-report-", suffix=f".{spec.format}")
+    path = Path(name)
+    try:
+        context = TenantContext(spec.tenant_id, spec.requested_by)
+        async with worker.reporting.reporting_session(
+            context, timeout_seconds=worker.timeout_seconds
+        ) as rs:
+            job.rs = rs
+            with open(handle, "wb") as out:  # noqa: PTH123, ASYNC230 - local temp file from mkstemp
+                if spec.format == "csv":
+                    count = await job.csv(out)
+                elif spec.format == "xlsx":
+                    count = await job.xlsx(out)
+                else:
+                    assert worker.render_pdf is not None  # noqa: S101 - _job checked it
+                    count = await job.pdf(out, worker.render_pdf)
+    except DBAPIError as error:
+        path.unlink(missing_ok=True)  # noqa: ASYNC240 - a local temp file in the worker
+        cancelled = getattr(error.orig, "sqlstate", None) == "57014"
+        return "report_timeout" if cancelled else "report_failed"
+    return path, count
+
+
 async def build_export(
     session: AsyncSession, export_id: uuid.UUID, worker: Worker
 ) -> ReportExport | None:
@@ -416,38 +470,22 @@ async def build_export(
     row = await session.get(ReportExport, export_id, with_for_update=True)
     if row is None or row.status != "running":
         return row
-    job = await _job(session, row, worker)
-    if isinstance(job, str):
-        return await _finish(session, row, job)
-    assert worker.storage is not None  # noqa: S101 - _job checked it
+    if worker.storage is None:
+        return await _finish(session, row, "storage_not_configured")
+    rendered = await render_file(session, row, worker)
+    if isinstance(rendered, str):
+        log.warning("report_export_failed", export_id=str(row.id), problem=rendered)
+        return await _finish(session, row, rendered)
+    path, count = rendered
     key = f"reports/exports/{row.tenant_id}/{row.id}.{row.format}"
-    handle, name = tempfile.mkstemp(prefix="sx-report-", suffix=f".{row.format}")
-    path = Path(name)
     try:
-        context = TenantContext(row.tenant_id, row.requested_by)
-        async with worker.reporting.reporting_session(
-            context, timeout_seconds=worker.timeout_seconds
-        ) as rs:
-            job.rs = rs
-            with open(handle, "wb") as out:  # noqa: PTH123, ASYNC230 - local temp file from mkstemp
-                if row.format == "csv":
-                    count = await job.csv(out)
-                elif row.format == "xlsx":
-                    count = await job.xlsx(out)
-                else:
-                    assert worker.render_pdf is not None  # noqa: S101 - _job checked it
-                    count = await job.pdf(out, worker.render_pdf)
         await worker.storage.put_stream(key, _chunks(path), CONTENT_TYPES[row.format])
-        size = path.stat().st_size  # noqa: ASYNC240 - a local temp file in the worker
-    except DBAPIError as error:
-        log.warning("report_export_query_failed", export_id=str(row.id))
-        cancelled = getattr(error.orig, "sqlstate", None) == "57014"
-        return await _finish(session, row, "report_timeout" if cancelled else "report_failed")
+        size = path.stat().st_size
     except StorageUnavailable:
         log.exception("report_export_storage_failed", export_id=str(row.id))
         return await _finish(session, row, "storage_unavailable")
     finally:
-        path.unlink(missing_ok=True)  # noqa: ASYNC240 - a local temp file in the worker
+        path.unlink(missing_ok=True)
     row.status = "ready"
     row.object_key = key
     row.size_bytes = size
