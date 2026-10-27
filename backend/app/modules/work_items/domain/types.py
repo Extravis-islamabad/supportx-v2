@@ -181,6 +181,7 @@ FIELD_PROBLEMS = frozenset(
         "category_not_found",
         "category_disabled",
         "site_not_found",
+        "department_not_found",
         "group_not_found",
         "technician_not_allowed",
         "technician_not_in_group",
