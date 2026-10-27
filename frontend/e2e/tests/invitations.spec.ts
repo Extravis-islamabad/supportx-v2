@@ -92,6 +92,7 @@ test('an invited person sets a password that meets the policy and signs in', asy
 
     // Invited from their record.
     await page.reload();
+    await page.getByTestId('users-search').fill(PERSON.email);
     await page.getByTestId('users-table').getByText(`${PERSON.first} ${PERSON.last}`).click();
     const drawer = page.getByTestId('person-drawer');
     const actions = drawer.getByTestId('person-sign-in-actions');
@@ -130,13 +131,13 @@ test('an invited person sets a password that meets the policy and signs in', asy
     await setPassword(person, PASSWORD);
     await expect(person.locator('#password-new')).toHaveCount(0);
 
+    // Setting the password left no session: the person signs in to the portal like anyone.
     await person.goto(PORTAL_URL);
-    if (await person.locator('#username').isVisible()) {
-      await person.locator('#username').fill(PERSON.email);
-      await person.locator('#kc-login').click();
-      await person.locator('#password').fill(PASSWORD);
-      await person.locator('#kc-login').click();
-    }
+    await expect(person).toHaveURL(/\/realms\/supportx\/protocol\/openid-connect\/auth/);
+    await person.locator('#username').fill(PERSON.email);
+    await person.locator('#kc-login').click();
+    await person.locator('#password').fill(PASSWORD);
+    await person.locator('#kc-login').click();
     await expect(person.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
     await expect(row.getByTestId('invitation-status')).toHaveText('Accepted', { timeout: 15_000 });
 
