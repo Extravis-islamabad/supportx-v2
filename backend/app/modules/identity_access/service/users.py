@@ -12,12 +12,12 @@ back, so it records neither the sign-in time nor an event.
 """
 
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Literal
 
-from sqlalchemy import Boolean, func, literal_column, select
+from sqlalchemy import Boolean, func, literal_column, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -35,13 +35,36 @@ from app.modules.identity_access.events import (
     UserUpdated,
 )
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.roles import map_identity_roles
 from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
-from app.modules.organization import TenantStatus, get_current_tenant
+from app.modules.organization import TenantStatus, find_department, find_site, get_current_tenant
 from app.shared.events import Actor, DomainEvent, record_event
 from app.shared.ids import new_id
 
 SessionReason = Literal["login", "tenant_switch"]
+# What the identity provider said about a person (WP-039: department and site from single
+# sign-on, by name or code), read only when the person is created.
+Directory = Callable[[str], Awaitable[Mapping[str, str | None]]]
+
+
+async def _place(
+    session: AsyncSession, user_id: uuid.UUID, found: Mapping[str, str | None]
+) -> None:
+    """Department and site from the provider on first sign-in (REQ-SEC-007 AC3, D-089 D6).
+
+    Matched to the tenant's active departments (code or name) and sites (name); an unknown
+    value is left out, never created.
+    """
+    department = found.get("department")
+    site = found.get("site")
+    values: dict[str, uuid.UUID] = {}
+    if department and (department_id := await find_department(session, department)):
+        values["department_id"] = department_id
+    if site and (site_id := await find_site(session, site)):
+        values["site_id"] = site_id
+    if values:
+        await session.execute(update(User).where(User.id == user_id).values(**values))
 
 
 @dataclass(frozen=True)
@@ -51,6 +74,9 @@ class ProvisionedUser:
     user_id: uuid.UUID
     tenant_id: uuid.UUID
     tenant_name: str
+    # The tenant's session limits for the app signed in to (REQ-SEC-029), in seconds.
+    session_idle_seconds: int
+    session_absolute_seconds: int
 
 
 async def count_technicians(session: AsyncSession) -> int:
@@ -154,16 +180,29 @@ async def _create_person(
     return user_id, version, inserted
 
 
-async def _sign_in(
-    session: AsyncSession, tenant_id: uuid.UUID, identity: Identity, now: datetime
+async def _sign_in(  # noqa: PLR0913 - the sign-in and two keyword-only tenant policies
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    identity: Identity,
+    now: datetime,
+    *,
+    create_people: bool,
+    directory: Directory | None = None,
 ) -> tuple[uuid.UUID, int, list[DomainEvent]]:
-    """The signed-in person (found, linked or created): id, version and the events so far."""
+    """The signed-in person (found, linked or created): id, version and the events so far.
+
+    `create_people` off (REQ-SEC-013 AC3): someone the tenant does not know yet is refused.
+    """
     if identity.user_type is UserType.TECHNICIAN:
         # Taken first, so parallel first sign-ins of technicians claim seats one at a time.
         await hold_limit(session, LimitKey.TECHNICIANS)
     person, linked = await _find_person(session, identity)
+    if person is None and not create_people:
+        raise PermissionDenied(code="sign_in_unknown_person")
     if person is None:
         user_id, version, inserted = await _create_person(session, tenant_id, identity, now)
+        if inserted and directory is not None:
+            await _place(session, user_id, await directory(identity.subject))
         if inserted:
             created = UserProvisioned(
                 user_id=user_id, user_type=identity.user_type.value, locale=identity.locale
@@ -194,6 +233,7 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
     client: ClientApp,
     reason: SessionReason,
     on_roles_mapped: Callable[[uuid.UUID], Awaitable[None]] | None = None,
+    directory: Directory | None = None,
 ) -> ProvisionedUser:
     """Find, link or create the person in `tenant_id`; refuses unknown, suspended or disabled.
 
@@ -207,7 +247,15 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
             raise PermissionDenied(code="tenant_not_provisioned") from exc
         if tenant.status is not TenantStatus.ACTIVE:
             raise PermissionDenied(code="tenant_suspended")
-        user_id, version, events = await _sign_in(session, tenant_id, identity, now)
+        settings = await get_identity_settings(session)
+        user_id, version, events = await _sign_in(
+            session,
+            tenant_id,
+            identity,
+            now,
+            create_people=settings.create_people_on_sign_in,
+            directory=directory,
+        )
         actor = Actor.user(user_id)
         if reason == "login":
             events.append(UserLoggedIn(user_id=user_id, client=client))
@@ -223,7 +271,14 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
         # Committed: drop any compiled permissions cached from before (the events do it too,
         # but the browser asks for /auth/me immediately after this login).
         await on_roles_mapped(tenant_id)
-    return ProvisionedUser(user_id=user_id, tenant_id=tenant_id, tenant_name=tenant.name)
+    idle, absolute = settings.session_limits(client)
+    return ProvisionedUser(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        tenant_name=tenant.name,
+        session_idle_seconds=idle,
+        session_absolute_seconds=absolute,
+    )
 
 
 async def record_logout(
