@@ -2569,4 +2569,6 @@ export const ur: LabelResource = {
   'audit.action.invitation.revoked': 'دعوت نامہ واپس لیا',
   'audit.action.user.password_reset_forced': 'نیا پاس ورڈ لازمی کیا',
   'audit.action.identity.password_policy_reapplied': 'پاس ورڈ پالیسی دوبارہ لاگو کی',
+  'forms.start_empty': 'خالی سے شروع کریں',
+  'forms.draft_restored': 'آپ کا غیر محفوظ اندراج بحال کر دیا گیا۔',
 };
