@@ -1,10 +1,10 @@
-"""Integration: BFF login against the REAL Keycloak of the dev stack (realm import in
-deploy/helm/supportx/files/keycloak/dev). Needs `make dev-up`; skipped automatically otherwise.
-CI runs these in the stack-smoke workflow, where the stack is up.
+"""Integration: BFF login against a REAL Keycloak with the dev realm (realm import in
+deploy/helm/supportx/files/keycloak/dev), private to this test process (keycloak_container.py):
+never the shared dev Keycloak, so another lane's sign-ins can never fail these tests.
 
-The API runs in-process with a throwaway, migrated database; Keycloak, Valkey and PgBouncer are the
-dev stack's own. The OIDC redirect URI is http://localhost:5173/api/v1/auth/callback, as registered
-for the console client.
+The API runs in-process with a throwaway, migrated database and the tests' Valkey; skipped when
+Docker, the database or Valkey is missing. The OIDC redirect URI is
+http://localhost:5173/api/v1/auth/callback, as registered for the console client.
 """
 
 import asyncio
@@ -21,8 +21,9 @@ from httpx import ASGITransport, AsyncClient
 
 from conftest import PRODUCTION_REQUIRED, make_settings
 from tests.db.test_api_tenancy import build_app
+from tests.db.test_rate_limit import valkey_url
 from tests.integration.keycloak_browser import KeycloakBrowser
-from tests.integration.test_ready_dev_stack import port_open, read_stack_env
+from tests.integration.keycloak_container import PrivateKeycloak
 from tooling import seed_dev
 from tooling.db_testing import ThrowawayDatabase
 
@@ -41,19 +42,16 @@ PASSWORDS = {
 
 
 @pytest.fixture(scope="module")
-def stack() -> dict[str, str]:
-    env = read_stack_env()
-    if env is None or not all(
-        port_open(int(env[k])) for k in ("KEYCLOAK_PORT", "VALKEY_PORT", "PGBOUNCER_PORT")
-    ):
-        pytest.skip("dev stack not running (make dev-up)")
-    assert env is not None
-    return env
+def valkey() -> str:
+    url = valkey_url()
+    if url is None:
+        pytest.skip("Valkey is not configured")
+    return url
 
 
 @pytest.fixture(scope="module")
-def seeded(stack: dict[str, str], migrated_db: ThrowawayDatabase) -> ThrowawayDatabase:
-    del stack  # requested only so a missing dev stack skips before seeding
+def seeded(valkey: str, migrated_db: ThrowawayDatabase) -> ThrowawayDatabase:
+    del valkey  # requested only so a missing Valkey skips before seeding
     asyncio.run(seed_dev.seed(migrated_db.migrator_url))
     return migrated_db
 
@@ -77,14 +75,16 @@ class Session:
 
 
 @pytest_asyncio.fixture
-async def session(stack: dict[str, str], seeded: ThrowawayDatabase) -> AsyncIterator[Session]:
+async def session(
+    private_keycloak: PrivateKeycloak, valkey: str, seeded: ThrowawayDatabase
+) -> AsyncIterator[Session]:
     settings = make_settings(
         profile="test",
         database_url=seeded.app_url,
-        valkey_url=f"valkey://:{stack['VALKEY_PASSWORD']}@127.0.0.1:{stack['VALKEY_PORT']}/0",
-        oidc_issuer=f"http://localhost:{stack['KEYCLOAK_PORT']}/realms/supportx",
-        oidc_console_client_secret=stack["KEYCLOAK_CONSOLE_CLIENT_SECRET"],
-        oidc_portal_client_secret=stack["KEYCLOAK_PORTAL_CLIENT_SECRET"],
+        valkey_url=valkey,
+        oidc_issuer=private_keycloak.issuer,
+        oidc_console_client_secret=private_keycloak.console_secret,
+        oidc_portal_client_secret=private_keycloak.portal_secret,
         session_secret=secrets.token_hex(32),
         session_cookie_secure=False,
         dev_tenant_header=True,  # proves the session still wins over the header
@@ -230,14 +230,14 @@ async def test_multi_organization_user_can_switch(session: Session) -> None:
 
 
 async def test_production_ignores_x_tenant_id_against_the_real_stack(
-    stack: dict[str, str], seeded: ThrowawayDatabase
+    private_keycloak: PrivateKeycloak, valkey: str, seeded: ThrowawayDatabase
 ) -> None:
     settings = make_settings(
         **{
             **PRODUCTION_REQUIRED,
             "database_url": seeded.app_url,
-            "valkey_url": f"valkey://:{stack['VALKEY_PASSWORD']}@127.0.0.1:{stack['VALKEY_PORT']}/0",
-            "oidc_issuer": f"http://localhost:{stack['KEYCLOAK_PORT']}/realms/supportx",
+            "valkey_url": valkey,
+            "oidc_issuer": private_keycloak.issuer,
             "dev_tenant_header": True,
         }
     )
@@ -252,15 +252,15 @@ async def test_production_ignores_x_tenant_id_against_the_real_stack(
     assert (response.status_code, response.json()["code"]) == (401, "unauthenticated")
 
 
-def _admin(stack: dict[str, str]) -> httpx.Client:
-    base = f"http://localhost:{stack['KEYCLOAK_PORT']}"
+def _admin(keycloak: PrivateKeycloak) -> httpx.Client:
+    base = keycloak.base_url
     token = httpx.post(
         f"{base}/realms/master/protocol/openid-connect/token",
         data={
             "grant_type": "password",
             "client_id": "admin-cli",
-            "username": stack["KEYCLOAK_ADMIN_USER"],
-            "password": stack["KEYCLOAK_ADMIN_PASSWORD"],
+            "username": keycloak.admin_user,
+            "password": keycloak.admin_password,
         },
     ).json()["access_token"]
     return httpx.Client(
@@ -268,8 +268,10 @@ def _admin(stack: dict[str, str]) -> httpx.Client:
     )
 
 
-def test_realm_enforces_password_policy_and_brute_force_protection(stack: dict[str, str]) -> None:
-    with _admin(stack) as admin:
+def test_realm_enforces_password_policy_and_brute_force_protection(
+    private_keycloak: PrivateKeycloak,
+) -> None:
+    with _admin(private_keycloak) as admin:
         realm = admin.get("").json()
         assert realm["bruteForceProtected"] is True
         assert realm["failureFactor"] == 5
@@ -292,7 +294,7 @@ def test_realm_enforces_password_policy_and_brute_force_protection(stack: dict[s
             assert strong.status_code == 204
             browser = KeycloakBrowser()
             authorize = (
-                f"http://localhost:{stack['KEYCLOAK_PORT']}/realms/supportx/protocol/openid-connect/auth"
+                f"{private_keycloak.issuer}/protocol/openid-connect/auth"
                 "?client_id=supportx-console&response_type=code&scope=openid"
                 "&redirect_uri=http%3A%2F%2Flocalhost%3A5173%2Fapi%2Fv1%2Fauth%2Fcallback"
                 "&code_challenge=" + "x" * 43 + "&code_challenge_method=S256"
