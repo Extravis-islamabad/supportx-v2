@@ -2366,6 +2366,11 @@ export const en = {
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
   // WP-039 identity: Admin > Sign-in and security
+  'security.sso.test_private':
+    'Copy the link and open it in a private window, then sign in there as a person of your organisation. This window is signed in as you, so the test cannot run here.',
+  'security.sso.test_link': 'Copy the test link',
+  'sso_test.signed_in_as_someone_else':
+    'This browser is signed in as you, so the sign-in service would not sign in another person here. Open the test link in a private window.',
   'actions.close': 'Close',
   'nav.admin_security': 'Sign-in and security',
   'security.intro':
@@ -2449,15 +2454,13 @@ export const en = {
     'People can no longer sign in through it. Their SupportX records stay.',
   'security.sso.test_title': 'Test sign-in: {{name}}',
   'security.sso.test_pending':
-    'Sign in through your identity provider in the window that opened. No session is created.',
-  'security.sso.test_blocked': 'The window was blocked.',
-  'security.sso.test_open': 'Open the test sign-in',
+    'Waiting for the test sign-in. No session and no person are created by it.',
   'security.sso.test_passed': 'The test sign-in worked',
   'security.sso.test_failed': 'The test sign-in did not work',
   'security.sso.test_name': 'Name',
   'security.sso.test_not_sent': 'Not sent',
   'security.sso.test_next': 'You can switch this set-up on now.',
-  'security.sso.test_done': 'Test finished. You can close this window.',
+  'security.sso.test_done': 'Test finished. Close this window: the result is on the settings page.',
   'sso_preset.entra': 'Microsoft Entra ID',
   'sso_preset.okta': 'Okta',
   'sso_preset.google': 'Google',

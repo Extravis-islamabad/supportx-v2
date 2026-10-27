@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IdentitySettings, SsoProvider } from '@supportx/api-client';
@@ -6,7 +6,6 @@ import { fakeSession, problem } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
-import { SsoTestDonePage } from './SsoTestDonePage';
 
 // WP-039 session 1: Admin › Sign-in and security (REQ-SEC-007, 008, 013, 017, 029).
 
@@ -204,12 +203,8 @@ describe('single sign-on', () => {
     ).toContain('is not a domain name');
   });
 
-  it('REQ-SEC-007/008: a set-up is tested in a pop-up before it can be switched on', async () => {
-    const opened: string[] = [];
-    vi.spyOn(window, 'open').mockImplementation((url) => {
-      opened.push(String(url));
-      return {} as Window;
-    });
+  it('REQ-SEC-007/008: a set-up is tested with a link for a private window before it can be switched on', async () => {
+    const open = vi.spyOn(window, 'open');
     let status = 'pending';
     api(
       routes({
@@ -242,36 +237,23 @@ describe('single sign-on', () => {
     expect(within(row).getByTestId('sso-switch').hasAttribute('disabled')).toBe(true);
     fireEvent.click(within(row).getByTestId('sso-test'));
     const dialog = await screen.findByTestId('sso-test-dialog');
-    await waitFor(() => {
-      expect(opened).toEqual(['http://kc.test/auth?kc_idp_hint=sx-a']);
-    });
-    expect(within(dialog).getByText(/No session is created/)).toBeTruthy();
+    expect(await within(dialog).findByTestId('sso-test-link')).toBeTruthy();
+    expect(within(dialog).getByText(/open it in a private window/)).toBeTruthy();
+    // Never in this browser: it is signed in as the admin (the sign-in service would refuse).
+    expect(open).not.toHaveBeenCalled();
     status = 'passed';
-    act(() => {
-      window.dispatchEvent(
-        new MessageEvent('message', {
-          data: 'supportx.sso_test_done',
-          origin: window.location.origin,
-        }),
-      );
-    });
-    expect(await within(dialog).findByTestId('sso-test-passed')).toBeTruthy();
+    expect(
+      await within(dialog).findByTestId('sso-test-passed', {}, { timeout: 4000 }),
+    ).toBeTruthy();
     expect(within(dialog).getByText('alice@acme.test')).toBeTruthy();
     expect(within(dialog).getByText('Finance')).toBeTruthy();
     expect(within(dialog).getByText('Not sent')).toBeTruthy(); // site
   });
 
-  it('the pop-up page tells the admin screen it is done', () => {
-    const post = vi.fn();
-    const close = vi.spyOn(window, 'close').mockImplementation(() => undefined);
-    Object.defineProperty(window, 'opener', {
-      configurable: true,
-      value: { postMessage: post },
-    });
-    api({ me: ADMIN });
-    render(<SsoTestDonePage />);
-    expect(post).toHaveBeenCalledWith('supportx.sso_test_done', window.location.origin);
-    expect(close).toHaveBeenCalled();
-    Object.defineProperty(window, 'opener', { configurable: true, value: null });
+  it('the test lands on a page that needs no session', async () => {
+    api({ me: null });
+    window.history.pushState({}, '', '/sso-test-done');
+    render(<App />);
+    expect(await screen.findByTestId('sso-test-done')).toBeTruthy();
   });
 });

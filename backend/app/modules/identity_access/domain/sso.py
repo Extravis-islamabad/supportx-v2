@@ -4,10 +4,11 @@ A set-up becomes a Keycloak identity provider linked to the tenant's organizatio
 
 - created hidden (not on the sign-in page) and only usable by the admin's test sign-in, which
   asks for it by name (`kc_idp_hint`);
-- `kc.org.domain = ANY`: a first sign-in through it makes the person a member of the tenant's
-  organization when their email is in one of the tenant's domains (proved on Keycloak 26.8.1);
+- its email domains become domains of the tenant's organization routed to it (Keycloak 26.8:
+  `identityProviderAlias` on the organization's domain); a first sign-in through it makes the
+  person a member of the organization when their email is in one of them (proved on 26.8.1);
 - switched on: shown on the tenant's sign-in page, and, when chosen, people whose email domain
-  matches are sent straight to it (`kc.org.broker.redirect.mode.email-matches`).
+  matches are sent straight to it (`autoRedirect` on those domains).
 
 Attributes (email, names, department, site) are mapped to Keycloak user attributes; SupportX
 reads department and site once, when it creates the person (REQ-SEC-007 AC3).
@@ -35,6 +36,7 @@ FIELD_PROBLEMS = frozenset(
         "sso_client_secret_required",
         "sso_discovery_invalid",
         "sso_discovery_unreachable",
+        "sso_domain_in_use",
         "sso_domain_invalid",
         "sso_domain_public",
         "sso_domain_required",
@@ -152,9 +154,7 @@ def alias_for(slug: str, token: str) -> str:
     return f"sx-{slug}-{token}"[:60]
 
 
-def oidc_config(
-    discovery: dict[str, Any], *, client_id: str, scopes: str, email_redirect: bool
-) -> dict[str, str]:
+def oidc_config(discovery: dict[str, Any], *, client_id: str, scopes: str) -> dict[str, str]:
     """Keycloak OIDC broker settings from the provider's discovery document."""
     config = {
         "issuer": str(discovery["issuer"]),
@@ -174,10 +174,10 @@ def oidc_config(
         config["userInfoUrl"] = str(discovery["userinfo_endpoint"])
     if discovery.get("end_session_endpoint"):
         config["logoutUrl"] = str(discovery["end_session_endpoint"])
-    return config | _org_config(email_redirect=email_redirect)
+    return config
 
 
-def saml_config(parsed: dict[str, str], *, email_redirect: bool) -> dict[str, str]:
+def saml_config(parsed: dict[str, str]) -> dict[str, str]:
     """Keycloak SAML broker settings from Keycloak's reading of the metadata (or the fields)."""
     keep = (
         "singleSignOnServiceUrl",
@@ -199,14 +199,37 @@ def saml_config(parsed: dict[str, str], *, email_redirect: bool) -> dict[str, st
         "nameIDPolicyFormat": parsed.get("nameIDPolicyFormat") or EMAIL_NAME_ID,
         "syncMode": "IMPORT",
     }
-    return config | _org_config(email_redirect=email_redirect)
+    return config
 
 
-def _org_config(*, email_redirect: bool) -> dict[str, str]:
-    return {
-        "kc.org.domain": "ANY",
-        "kc.org.broker.redirect.mode.email-matches": "true" if email_redirect else "false",
-    }
+def route_domains(
+    current: list[dict[str, Any]], *, alias: str, mine: list[str], drop: set[str], redirect: bool
+) -> list[dict[str, Any]]:
+    """The organization's domains after a set-up's change (Keycloak 26.8 domain routing).
+
+    `mine` are routed to `alias` (sending people straight there when `redirect`), `drop` are
+    removed (only domains SupportX added); a domain once routed to `alias` but no longer the
+    set-up's is unrouted; every other domain stays exactly as it was.
+    """
+    found: list[dict[str, Any]] = []
+    for domain in current:
+        name = domain["name"]
+        if name in drop:
+            continue
+        if name in mine:
+            found.append({**domain, "identityProviderAlias": alias, "autoRedirect": redirect})
+        elif domain.get("identityProviderAlias") == alias:
+            kept = {k: v for k, v in domain.items() if k != "identityProviderAlias"}
+            found.append({**kept, "autoRedirect": False})
+        else:
+            found.append(domain)
+    names = {d["name"] for d in found}
+    found += [
+        {"name": name, "verified": False, "identityProviderAlias": alias, "autoRedirect": redirect}
+        for name in mine
+        if name not in names
+    ]
+    return found
 
 
 def representation(  # noqa: PLR0913 - every part of the provider, keyword-only

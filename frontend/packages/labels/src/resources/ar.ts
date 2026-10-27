@@ -2332,6 +2332,11 @@ export const ar: LabelResource = {
   'errors.field.sso_protocol_fixed': 'يحتفظ الإعداد ببروتوكوله. أضف إعدادًا جديدًا بدلًا من ذلك.',
   'errors.field.sso_sign_in_url_missing': 'لا تحتوي البيانات الوصفية على عنوان تسجيل دخول.',
   // WP-039 identity: Admin > Sign-in and security
+  'security.sso.test_private':
+    'انسخ الرابط وافتحه في نافذة خاصة، ثم سجّل الدخول هناك كشخص من مؤسستك. هذه النافذة مسجّلة الدخول باسمك، لذا لا يمكن إجراء الاختبار هنا.',
+  'security.sso.test_link': 'نسخ رابط الاختبار',
+  'sso_test.signed_in_as_someone_else':
+    'هذا المتصفح مسجّل الدخول باسمك، لذا لن تسجّل خدمة تسجيل الدخول شخصًا آخر هنا. افتح رابط الاختبار في نافذة خاصة.',
   'actions.close': 'إغلاق',
   'nav.admin_security': 'تسجيل الدخول والأمان',
   'security.intro':
@@ -2413,16 +2418,13 @@ export const ar: LabelResource = {
   'security.sso.remove_body':
     'لن يتمكن الأشخاص من تسجيل الدخول عبره بعد الآن. تبقى سجلاتهم في SupportX.',
   'security.sso.test_title': 'اختبار تسجيل الدخول: {{name}}',
-  'security.sso.test_pending':
-    'سجّل الدخول عبر مزوّد الهوية في النافذة التي فُتحت. لا تُنشأ أي جلسة.',
-  'security.sso.test_blocked': 'حُظرت النافذة.',
-  'security.sso.test_open': 'فتح اختبار تسجيل الدخول',
+  'security.sso.test_pending': 'بانتظار تسجيل الدخول التجريبي. لا يُنشئ أي جلسة أو شخص.',
   'security.sso.test_passed': 'نجح اختبار تسجيل الدخول',
   'security.sso.test_failed': 'لم ينجح اختبار تسجيل الدخول',
   'security.sso.test_name': 'الاسم',
   'security.sso.test_not_sent': 'لم يُرسل',
   'security.sso.test_next': 'يمكنك تشغيل هذا الإعداد الآن.',
-  'security.sso.test_done': 'انتهى الاختبار. يمكنك إغلاق هذه النافذة.',
+  'security.sso.test_done': 'انتهى الاختبار. أغلق هذه النافذة: النتيجة في صفحة الإعدادات.',
   'sso_preset.entra': 'Microsoft Entra ID',
   'sso_preset.okta': 'Okta',
   'sso_preset.google': 'Google',

@@ -1,6 +1,9 @@
 """The test sign-in of a single sign-on set-up (WP-039; REQ-SEC-007, REQ-SEC-008; D-094).
 
-Before a set-up is switched on, an admin signs in through it once, in a pop-up:
+Before a set-up is switched on, an admin signs in through it once, **in a private window**: the
+admin's own browser is signed in to Keycloak as the admin, and Keycloak never switches to another
+person in that session (`different_user_authenticated`, after it already created the person's
+account; proved on 26.8.1). So the admin's screen offers a link and shows the result here.
 
 1. `start`: a one-time login state marked as a test, and Keycloak's sign-in URL going straight
    to the set-up's provider (`kc_idp_hint`), for the tenant's organization, always asking for
@@ -9,12 +12,12 @@ Before a set-up is switched on, an admin signs in through it once, in a pop-up:
    but **no SupportX session and no person are created**. The result says whether the person
    arrived as a member of this tenant (their email in one of its domains) and what the provider
    sent for department and site. The tested person's Keycloak session is ended at once. Keycloak
-   itself made them a member of the tenant's organization on this first sign-in: they are now a
-   person the tenant may let in, which is what switching on will do anyway.
-3. `result`: what the admin's screen polls. Still pending after the provider answered with an
-   error: Keycloak showed its own error page and records only that the identity provider's
-   answer could not be used (no reason, no provider name, proved on 26.8.1). A login error
-   event since the test began is reported as that plain reason (REQ-SEC-007 AC1).
+   itself made them a member of the tenant's organization on this first sign-in: a person the
+   tenant may let in, which switching on does anyway.
+3. `result`: what the admin's screen polls. When the provider's answer is refused, Keycloak
+   shows its own error page and records only a login error without a reason or the provider's
+   name: an error since the test began is reported as that plain reason (REQ-SEC-007 AC1), or,
+   for `different_user_authenticated`, as "open it in a private window".
 
 The record lives 15 minutes in Valkey, encrypted (it names the person).
 """
@@ -194,7 +197,11 @@ async def result(
         except IdentityAdminUnavailable:
             errors = []
         if errors:
-            record = {**record, "status": "failed", "reason": "answer_not_verified"}
+            # Keycloak refuses a sign-in in a browser already signed in as someone else (the
+            # admin themselves, proved on 26.8.1): the test belongs in a private window.
+            other_user = any(e.error == "different_user_authenticated" for e in errors)
+            reason = "signed_in_as_someone_else" if other_user else "answer_not_verified"
+            record = {**record, "status": "failed", "reason": reason}
     return {
         "status": record["status"],
         "reason": record.get("reason"),

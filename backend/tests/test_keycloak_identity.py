@@ -36,6 +36,7 @@ class FakeKeycloak:
         self.secrets: dict[str, str] = {}
         self.held: list[dict[str, str]] = []
         self.events: dict[str, Any] = {"eventsEnabled": False, "eventsListeners": ["jboss-logging"]}
+        self.profile: dict[str, Any] = {"attributes": [{"name": "email"}], "groups": []}
         self.writes: list[str] = []
         self.password = "right"
 
@@ -81,6 +82,11 @@ class FakeKeycloak:
             elif method == "DELETE":
                 self.held = [r for r in self.held if r not in body]
             return httpx.Response(200 if method == "GET" else 204, json=self.held)
+        if path == "/admin/realms/supportx/users/profile":
+            if method == "PUT":
+                self.profile = body
+                return httpx.Response(200, json=body)
+            return httpx.Response(200, json=self.profile)
         if path == "/admin/realms/supportx/events/config":
             if method == "PUT":
                 self.events = body
@@ -115,6 +121,9 @@ async def test_sets_up_the_service_account_once_then_changes_nothing() -> None:
     assert keycloak.events["eventsListeners"] == ["jboss-logging"]  # the operator's kept
     assert keycloak.realm is not None
     assert keycloak.realm["ssoSessionMaxLifespan"] == SSO_MAX_SECONDS
+    declared = {a["name"]: a for a in keycloak.profile["attributes"]}
+    assert set(declared) == {"email", "sx_department", "sx_site"}  # the realm's own kept
+    assert declared["sx_department"]["permissions"] == {"view": ["admin"], "edit": ["admin"]}
     keycloak.writes.clear()
     second = await _run(keycloak)
     assert (second.outcome, keycloak.writes) == (Outcome.READY, [])

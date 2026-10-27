@@ -1,24 +1,18 @@
 import { Result } from 'antd';
-import { useEffect } from 'react';
 
 import { useLabel } from '@supportx/ui';
 
-import { TEST_DONE_MESSAGE } from './SsoCard';
+export const SSO_TEST_DONE_PATH = '/sso-test-done';
 
 /**
- * Where the single sign-on test's pop-up lands (WP-039): it tells the admin's screen that the
- * test is done, then closes. Opened by hand (pop-up blocked), it just says so.
+ * Where a single sign-on test lands (WP-039), outside the session gate: the test runs in a
+ * private window, signed in to SupportX as nobody. The admin's screen shows the result.
  */
 export function SsoTestDonePage() {
   const t = useLabel();
-  useEffect(() => {
-    const opener = window.opener as Window | null;
-    if (opener !== null) {
-      opener.postMessage(TEST_DONE_MESSAGE, window.location.origin);
-      window.close();
-    }
-  }, []);
   return (
-    <Result status="success" title={t('security.sso.test_done')} data-testid="sso-test-done" />
+    <div data-testid="sso-test-done">
+      <Result status="success" title={t('security.sso.test_done')} />
+    </div>
   );
 }

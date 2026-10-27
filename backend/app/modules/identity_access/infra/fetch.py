@@ -92,9 +92,9 @@ async def client_accepted(
 ) -> bool:
     """Whether the provider accepts the client ID and secret (same address limits).
 
-    A client-credentials request: providers check the client before the grant, so only
-    `invalid_client` (or 401) means the ID or secret is wrong; any other answer (the grant not
-    allowed, a missing scope) means they were accepted. Nothing is kept from the answer.
+    A client-credentials request: providers check the client before the grant, so only a
+    refusal of the client itself (`rejected`) means the ID or secret is wrong; any other answer
+    (the grant not allowed, a missing scope) means they were accepted. Nothing is kept.
     """
     parts = urlsplit(token_url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -117,10 +117,25 @@ async def client_accepted(
             )
     except httpx.HTTPError:
         raise FetchError(UNREACHABLE) from None
-    if response.status_code == httpx.codes.UNAUTHORIZED:
-        return False
     try:
-        error = response.json().get("error") if response.content else None
+        body = response.json() if response.content else {}
     except ValueError:
-        error = None
-    return error != "invalid_client"
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    return not rejected(response.status_code, body)
+
+
+def rejected(status: int, body: dict[str, object]) -> bool:
+    """Whether a token endpoint's answer means the client ID or secret is wrong.
+
+    The standard says `invalid_client` (Entra ID, Okta, Google). Keycloak as the customer's
+    provider answers `unauthorized_client` both for a wrong secret and for a right one without
+    client-credentials rights, telling them apart only in its description (proved on 26.8.1).
+    A 401 with no error at all is taken as a refusal.
+    """
+    error = body.get("error")
+    description = str(body.get("error_description") or "").lower()
+    if error == "invalid_client" or "invalid client" in description:
+        return True
+    return status == httpx.codes.UNAUTHORIZED and error is None

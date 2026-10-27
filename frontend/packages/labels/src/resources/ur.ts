@@ -1962,6 +1962,11 @@ export const ur: LabelResource = {
     'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
   'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
   // WP-039 identity: Admin > Sign-in and security
+  'security.sso.test_private':
+    'لنک کاپی کریں اور اسے نجی ونڈو میں کھولیں، پھر وہاں اپنی تنظیم کے کسی فرد کے طور پر سائن اِن کریں۔ یہ ونڈو آپ کے نام سے سائن اِن ہے، اس لیے آزمائش یہاں نہیں ہو سکتی۔',
+  'security.sso.test_link': 'آزمائشی لنک کاپی کریں',
+  'sso_test.signed_in_as_someone_else':
+    'یہ براؤزر آپ کے نام سے سائن اِن ہے، اس لیے سائن اِن کی سروس یہاں کسی اور کو سائن اِن نہیں کرے گی۔ آزمائشی لنک نجی ونڈو میں کھولیں۔',
   'actions.close': 'بند کریں',
   'nav.admin_security': 'سائن اِن اور سیکیورٹی',
   'security.intro':
@@ -2044,16 +2049,13 @@ export const ur: LabelResource = {
   'security.sso.remove_body':
     'لوگ اس کے ذریعے مزید سائن اِن نہیں کر سکیں گے۔ ان کے SupportX ریکارڈ باقی رہیں گے۔',
   'security.sso.test_title': 'سائن اِن کی آزمائش: {{name}}',
-  'security.sso.test_pending':
-    'کھلنے والی ونڈو میں اپنے شناخت فراہم کنندہ سے سائن اِن کریں۔ کوئی سیشن نہیں بنتا۔',
-  'security.sso.test_blocked': 'ونڈو روک دی گئی۔',
-  'security.sso.test_open': 'آزمائشی سائن اِن کھولیں',
+  'security.sso.test_pending': 'آزمائشی سائن اِن کا انتظار ہے۔ اس سے کوئی سیشن یا فرد نہیں بنتا۔',
   'security.sso.test_passed': 'آزمائشی سائن اِن کامیاب رہا',
   'security.sso.test_failed': 'آزمائشی سائن اِن کامیاب نہیں ہوا',
   'security.sso.test_name': 'نام',
   'security.sso.test_not_sent': 'نہیں بھیجا گیا',
   'security.sso.test_next': 'اب آپ یہ سیٹ اپ چالو کر سکتے ہیں۔',
-  'security.sso.test_done': 'آزمائش مکمل۔ آپ یہ ونڈو بند کر سکتے ہیں۔',
+  'security.sso.test_done': 'آزمائش مکمل۔ یہ ونڈو بند کریں: نتیجہ ترتیبات کے صفحے پر ہے۔',
   'sso_preset.entra': 'Microsoft Entra ID',
   'sso_preset.okta': 'Okta',
   'sso_preset.google': 'Google',

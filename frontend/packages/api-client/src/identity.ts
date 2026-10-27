@@ -127,7 +127,10 @@ export function useStartSsoTest() {
   });
 }
 
-/** A test's result, polled every 2 seconds while pending. */
+/**
+ * A test's result, polled every 2 seconds while pending, and while refused because this browser
+ * is signed in as someone else (the admin then runs the test in a private window).
+ */
 export function useSsoTestResult(id: string, testId: string | null) {
   return useQuery({
     queryKey: queryKeys.identity.test(id, testId ?? ''),
@@ -138,7 +141,12 @@ export function useSsoTestResult(id: string, testId: string | null) {
         }),
       ),
     enabled: testId !== null,
-    refetchInterval: (query) => (query.state.data?.status === 'pending' ? 2000 : false),
+    refetchInterval: (query) => {
+      const found = query.state.data;
+      const waiting =
+        found?.status === 'pending' || found?.reason === 'signed_in_as_someone_else';
+      return waiting ? 2000 : false;
+    },
     meta: { silent: true },
   });
 }

@@ -73,7 +73,7 @@ class IdentityAdmin(Protocol):
     async def organization(self, slug: str, tenant_id: str) -> Organization | None: ...  # noqa: D102 - see KeycloakAdmin
 
     async def set_organization_domains(  # noqa: D102
-        self, organization: Organization, domains: list[str]
+        self, organization: Organization, domains: list[dict[str, Any]]
     ) -> None: ...
 
     async def provider(self, alias: str) -> dict[str, Any] | None: ...  # noqa: D102
@@ -240,14 +240,13 @@ class KeycloakAdmin:
         return None
 
     async def set_organization_domains(
-        self, organization: Organization, domains: list[str]
+        self, organization: Organization, domains: list[dict[str, Any]]
     ) -> None:
-        """Replace the organization's email domains (Keycloak keeps a domain in one only)."""
-        known = {d["name"]: d for d in organization.raw.get("domains") or []}
-        body = {
-            **organization.raw,
-            "domains": [known.get(name, {"name": name, "verified": False}) for name in domains],
-        }
+        """Replace the organization's domains (name, verified, routing).
+
+        Keycloak keeps a domain in one organization only and refuses one another organization has.
+        """
+        body = {**organization.raw, "domains": domains}
         await self._call("PUT", f"/organizations/{organization.id}", json=body)
 
     async def provider(self, alias: str) -> dict[str, Any] | None:

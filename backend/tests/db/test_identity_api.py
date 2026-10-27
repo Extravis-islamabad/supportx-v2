@@ -69,13 +69,15 @@ class FakeAdmin:
         return found if found is not None and found.alias == slug else None
 
     async def set_organization_domains(
-        self, organization: Organization, domains: list[str]
+        self, organization: Organization, domains: list[dict[str, Any]]
     ) -> None:
+        names = [d["name"] for d in domains]
         for tenant, other in self.orgs.items():
-            if other.id != organization.id and set(other.domains) & set(domains):
+            if other.id != organization.id and set(other.domains) & set(names):
                 raise IdentityAdminRefused(409, "domain in use")
             if other.id == organization.id:
-                self.orgs[tenant] = replace(other, domains=tuple(domains))
+                raw = {**other.raw, "domains": domains}
+                self.orgs[tenant] = replace(other, domains=tuple(names), raw=raw)
 
     async def provider(self, alias: str) -> dict[str, Any] | None:
         found = self.providers.get(alias)
@@ -448,8 +450,10 @@ async def test_an_oidc_set_up_is_saved_hidden_linked_and_without_its_secret(worl
     assert (provider["enabled"], provider["hideOnLogin"]) == (True, True)  # only the test uses it
     assert provider["config"]["clientSecret"] == "right-secret"  # Keycloak keeps it
     assert provider["config"]["authorizationUrl"] == DISCOVERY["authorization_endpoint"]
-    assert provider["config"]["kc.org.domain"] == "ANY"
     org = world.admin.orgs[str(world.a.tenant)]
+    routed = {d["name"]: d for d in org.raw["domains"]}["acme.test"]
+    # Routed to the set-up, nobody sent there yet (draft).
+    assert (routed["identityProviderAlias"], routed["autoRedirect"]) == (alias, False)
     assert alias in world.admin.links[org.id]
     assert set(org.domains) == {f"{slug}.test", "acme.test"}
     rows = await _admin_rows(world.db, "SELECT settings::text AS s FROM sso_providers")

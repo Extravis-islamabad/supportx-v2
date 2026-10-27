@@ -1,5 +1,5 @@
 import { App, Button, Card, Descriptions, Flex, List, Modal, Space, Spin, Typography } from 'antd';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   useRemoveSso,
@@ -19,47 +19,38 @@ const STATE_TONE: Record<SsoProvider['state'], Tone> = {
   on: 'success',
   off: 'warning',
 };
-/** The pop-up page tells its opener it is done (SsoTestDonePage). */
-export const TEST_DONE_MESSAGE = 'supportx.sso_test_done';
 
 /**
- * A test sign-in in a pop-up (REQ-SEC-007/008: test before switching on). The result is polled;
- * the pop-up page also says when it is done. No session and no person are created by it.
+ * A test sign-in (REQ-SEC-007/008: test before switching on), in a private window: this browser is
+ * signed in to the sign-in service as the admin, and it never signs a second person in where
+ * someone already is (it refuses, and would leave a half-made account behind). The admin opens
+ * the link in a private window and signs in there as a person of the organisation; the result
+ * shows here as it comes. No SupportX session and no person are created by the test.
  */
 function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () => void }) {
   const t = useLabel();
   const start = useStartSsoTest();
   const [testId, setTestId] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
-  const [blocked, setBlocked] = useState(false);
   const result = useSsoTestResult(provider.id, testId);
+  // One test per opening of the dialog (React's development double effect would start two,
+  // and the link shown would not be the one polled).
+  const started = useRef(false);
   useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     start.mutate(provider.id, {
       onSuccess: (started) => {
         setTestId(started.test_id);
         setUrl(started.url);
-        const popup = window.open(started.url, 'supportx-sso-test', 'width=520,height=720');
-        setBlocked(popup === null);
       },
       onError: (error) => {
         reportError(error);
         onClose();
       },
     });
-    // One test per opening of the dialog.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start once, when opened
   }, []);
-  useEffect(() => {
-    const done = (event: MessageEvent) => {
-      if (event.origin === window.location.origin && event.data === TEST_DONE_MESSAGE) {
-        void result.refetch();
-      }
-    };
-    window.addEventListener('message', done);
-    return () => {
-      window.removeEventListener('message', done);
-    };
-  }, [result]);
   const found = result.data;
   return (
     <Modal
@@ -70,19 +61,17 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
       data-testid="sso-test-dialog"
     >
       <Flex vertical gap={12} role="status">
-        {(found === undefined || found.status === 'pending') && (
-          <Space>
-            <Spin size="small" />
-            <Typography.Text>{t('security.sso.test_pending')}</Typography.Text>
-          </Space>
-        )}
-        {blocked && url !== null && (
-          <Typography.Text>
-            {t('security.sso.test_blocked')}{' '}
-            <Typography.Link href={url} target="supportx-sso-test">
-              {t('security.sso.test_open')}
-            </Typography.Link>
-          </Typography.Text>
+        {url !== null && found?.status !== 'passed' && (
+          <Flex vertical gap={8}>
+            <Typography.Text>{t('security.sso.test_private')}</Typography.Text>
+            <Typography.Text copyable={{ text: url }} strong data-testid="sso-test-link">
+              {t('security.sso.test_link')}
+            </Typography.Text>
+            <Space>
+              <Spin size="small" />
+              <Typography.Text type="secondary">{t('security.sso.test_pending')}</Typography.Text>
+            </Space>
+          </Flex>
         )}
         {found?.status === 'passed' && (
           <>
@@ -119,12 +108,12 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
           </>
         )}
         {found?.status === 'failed' && (
-          <>
+          <Flex vertical gap={4}>
             <ToneTag tone="error" testId="sso-test-failed">
               {t('security.sso.test_failed')}
             </ToneTag>
             <Typography.Text>{t(`sso_test.${found.reason ?? 'provider_error'}`)}</Typography.Text>
-          </>
+          </Flex>
         )}
       </Flex>
     </Modal>
@@ -256,9 +245,9 @@ export function SsoCard() {
                   </Typography.Text>
                 )}
                 {(provider.last_check?.problems ?? []).map((code) => (
-                  <Typography.Text key={code} type="warning">
+                  <ToneTag key={code} tone="warning">
                     {t(`sso_check.${code}`)}
-                  </Typography.Text>
+                  </ToneTag>
                 ))}
                 <Typography.Text type="secondary">
                   {t(

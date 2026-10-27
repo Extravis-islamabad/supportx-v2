@@ -13,9 +13,10 @@ provider whether it accepts the client; SAML reads the metadata with Keycloak's 
 (D-089) and checks the signing certificate's dates. The client secret goes to Keycloak only and
 never comes back (REQ-SEC-042).
 
-Email domains: the set-up's domains become the organization's domains in Keycloak (a domain
-belongs to one organization only, so another tenant's domain is refused); SupportX removes only
-the domains it added.
+Email domains: the set-up's domains become the organization's domains in Keycloak, routed to its
+provider (a domain belongs to one organization only, so another tenant's domain is refused; two
+set-ups of a tenant never share one), with people sent straight there only while it is on and
+when chosen. SupportX removes only the domains it added.
 
 The Keycloak calls are not in the database transaction: Keycloak is changed first and the row
 last, and a failed row write undoes a provider just created.
@@ -261,7 +262,6 @@ async def _connect_oidc(
         discovery,
         client_id=(values.client_id or "").strip(),
         scopes=values.scopes,
-        email_redirect=values.email_redirect,
     )
     if not issuer.startswith("https://"):
         problems.append("not_https")
@@ -324,7 +324,7 @@ async def _connect_saml(
     problems = [] if dates[0] <= now else ["certificate_not_yet_valid"]
     if not parsed["singleSignOnServiceUrl"].startswith("https://"):
         problems.append("not_https")
-    config = sso.saml_config(parsed, email_redirect=values.email_redirect)
+    config = sso.saml_config(parsed)
     return config, problems, dates[1].isoformat()
 
 
@@ -350,22 +350,39 @@ def _public_settings(values: SsoInput, config: dict[str, str]) -> dict[str, Any]
     return found
 
 
-async def _set_domains(
-    admin: IdentityAdmin, organization: Organization, add: list[str], remove: set[str]
+async def _set_domains(  # noqa: PLR0913 - the organization and the set-up's routing, explicit
+    admin: IdentityAdmin,
+    organization: Organization,
+    *,
+    alias: str,
+    mine: list[str],
+    drop: set[str],
+    redirect: bool,
 ) -> list[str]:
-    """Claim `add` for the organization and give back `remove`; returns those newly claimed.
+    """Route `mine` to the set-up's provider, give back `drop`; returns the domains newly added.
 
-    `remove` holds only domains SupportX added and no other set-up uses; the organization's other
-    domains stay.
+    `drop` holds only domains SupportX added and no other set-up uses; the organization's other
+    domains stay as they are. A domain another organization has is refused (Keycloak).
     """
-    current = [d for d in organization.domains if d not in remove]
-    newly = [d for d in add if d not in current]
-    if newly or len(current) != len(organization.domains):
+    current = list(organization.raw.get("domains") or [])
+    routed = sso.route_domains(current, alias=alias, mine=mine, drop=drop, redirect=redirect)
+    if routed != current:
         try:
-            await admin.set_organization_domains(organization, current + newly)
+            await admin.set_organization_domains(organization, routed)
         except IdentityAdminRefused as exc:
             raise _invalid([sso.Problem("domains", "sso_domain_taken")]) from exc
-    return newly
+    known = {d["name"] for d in current}
+    return [d for d in mine if d not in known]
+
+
+async def _check_overlap(
+    session: AsyncSession, domains: list[str], provider_id: uuid.UUID | None
+) -> None:
+    """Two of a tenant's set-ups never share a domain (it can be routed to one only)."""
+    others = await _domains_of_others(session, provider_id)
+    shared = [d for d in domains if d in others]
+    if shared:
+        raise _invalid([sso.Problem("domains", "sso_domain_in_use", {"domain": shared[0]})])
 
 
 async def _changed(session: AsyncSession, row: SsoProvider, change: str) -> None:
@@ -394,6 +411,7 @@ async def create_provider(
     )
     if (count or 0) >= sso.MAX_PROVIDERS:
         raise Conflict(code="sso_provider_limit", params={"max": sso.MAX_PROVIDERS})
+    await _check_overlap(session, domains, None)
     organization = await _organization(session, keycloak)
     if values.protocol == "oidc":
         config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
@@ -422,7 +440,9 @@ async def create_provider(
     try:
         await keycloak.link_provider(organization.id, alias)
         await keycloak.replace_mappers(alias, sso.mappers(values.protocol, mapping))
-        added = await _set_domains(keycloak, organization, domains, set())
+        added = await _set_domains(
+            keycloak, organization, alias=alias, mine=domains, drop=set(), redirect=False
+        )
         context = session.info[SESSION_TENANT_KEY]
         row = SsoProvider(
             id=new_id(),
@@ -472,6 +492,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     domains, problems = _validate(values, creating=False)
     if problems:
         raise _invalid(problems)
+    await _check_overlap(session, domains, row.id)
     organization = await _organization(session, keycloak)
     if values.protocol == "oidc":
         config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
@@ -481,7 +502,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
         if reuse:
             stored = await keycloak.provider(row.alias)
             config = dict((stored or {}).get("config") or {})
-            config |= sso.saml_config(config, email_redirect=values.email_redirect)
+            config |= sso.saml_config(config)
             warnings, not_after = [], (row.last_check or {}).get("certificate_not_after")
         else:
             config, warnings, not_after = await _connect_saml(
@@ -513,9 +534,15 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     )
     await keycloak.replace_mappers(row.alias, sso.mappers(values.protocol, mapping))
     ours = set(row.settings.get("added_domains") or [])
-    others = await _domains_of_others(session, row.id)
-    gone = {d for d in ours if d not in domains and d not in others}
-    added = await _set_domains(keycloak, organization, domains, gone)
+    gone = {d for d in ours if d not in domains}
+    added = await _set_domains(
+        keycloak,
+        organization,
+        alias=row.alias,
+        mine=domains,
+        drop=gone,
+        redirect=state == "on" and values.email_redirect,
+    )
     row.display_name = values.display_name.strip()
     row.domains = domains
     row.email_redirect = values.email_redirect
@@ -538,12 +565,11 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     return _view(row)
 
 
-async def _domains_of_others(session: AsyncSession, provider_id: uuid.UUID) -> set[str]:
-    rows = await session.scalars(
-        select(SsoProvider.domains).where(
-            SsoProvider.deleted_at.is_(None), SsoProvider.id != provider_id
-        )
-    )
+async def _domains_of_others(session: AsyncSession, provider_id: uuid.UUID | None) -> set[str]:
+    query = select(SsoProvider.domains).where(SsoProvider.deleted_at.is_(None))
+    if provider_id is not None:
+        query = query.where(SsoProvider.id != provider_id)
+    rows = await session.scalars(query)
     return {d for domains in rows for d in domains}
 
 
@@ -567,12 +593,16 @@ async def switch_provider(
     state: sso.State = "on" if on else "off"
     stored["enabled"] = state != "off"
     stored["hideOnLogin"] = state != "on"
-    config = dict(stored.get("config") or {})
-    config["kc.org.broker.redirect.mode.email-matches"] = (
-        "true" if on and row.email_redirect else "false"
-    )
-    stored["config"] = config
     await keycloak.update_provider(row.alias, stored)
+    # People of the set-up's domains go straight to it only while it is on (and if chosen).
+    await _set_domains(
+        keycloak,
+        await _organization(session, keycloak),
+        alias=row.alias,
+        mine=list(row.domains),
+        drop=set(),
+        redirect=on and row.email_redirect,
+    )
     row.state = state
     row.switched_on_at = datetime.now(UTC) if on else row.switched_on_at
     row.version += 1
@@ -593,10 +623,9 @@ async def remove_provider(
     row = await _row(session, provider_id)
     _check_version(row, expected_version)
     organization = await _organization(session, keycloak)
-    others = await _domains_of_others(session, row.id)
-    ours = {d for d in row.settings.get("added_domains") or [] if d not in others}
+    ours = set(row.settings.get("added_domains") or [])
     await keycloak.delete_provider(row.alias)
-    await _set_domains(keycloak, organization, [], ours)
+    await _set_domains(keycloak, organization, alias=row.alias, mine=[], drop=ours, redirect=False)
     row.deleted_at = datetime.now(UTC)
     row.state = "off"
     row.version += 1

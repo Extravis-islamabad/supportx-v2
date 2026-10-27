@@ -119,6 +119,7 @@ export function SessionsCard() {
                     update({ idle: { ...draft.idle, [app]: value } }, `${app}_idle_seconds`);
                   }}
                   suffix={t('security.sessions.minutes')}
+                  style={{ width: 168 }}
                   status={shown[`${app}_idle_seconds`] ? 'error' : undefined}
                   aria-describedby={`security-${app}-idle-problem`}
                   data-testid={`security-${app}-idle`}
@@ -141,6 +142,7 @@ export function SessionsCard() {
                     );
                   }}
                   suffix={t('security.sessions.hours')}
+                  style={{ width: 168 }}
                   status={shown[`${app}_absolute_seconds`] ? 'error' : undefined}
                   aria-describedby={`security-${app}-absolute-problem`}
                   data-testid={`security-${app}-absolute`}

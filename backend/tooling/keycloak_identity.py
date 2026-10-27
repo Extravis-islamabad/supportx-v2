@@ -12,7 +12,10 @@ makes the realm ready for that, on fresh and upgraded installations alike:
 - login events are recorded (only the types SupportX reads: sign-ins through identity providers
   and their errors), kept 7 days; event types or listeners an operator added are kept;
 - the realm's SSO session lasts at least the platform's longest SupportX session, so SupportX's
-  own per-tenant timeouts decide (REQ-SEC-029); shorter realm values are raised, longer kept.
+  own per-tenant timeouts decide (REQ-SEC-029); shorter realm values are raised, longer kept;
+- the user profile declares the attributes single sign-on brings (department and site, read by
+  SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
+  Only admins see or change them; the realm's other attributes are kept as they are.
 
 It is never part of the realm import file: a placeholder without its value would leave a
 guessable secret. Run by the chart's `keycloak-identity` Job on every Helm revision and by
@@ -58,6 +61,11 @@ EVENTS_EXPIRATION_SECONDS = 7 * 86400
 SSO_IDLE_SECONDS = 24 * 3600
 SSO_MAX_SECONDS = 30 * 86400
 RETRY_SECONDS = 5.0
+# What identity provider mappers store on a person (domain/sso.py DEPARTMENT/SITE_ATTRIBUTE).
+PROFILE_ATTRIBUTES = {
+    "sx_department": "Department (from single sign-on)",
+    "sx_site": "Site (from single sign-on)",
+}
 MIN_SECRET_LENGTH = 16
 
 
@@ -208,6 +216,34 @@ async def _ensure_sso_session(
     return ["SSO session raised to the SupportX maximum"]
 
 
+async def _ensure_user_profile(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The single sign-on attributes declared in the user profile (admins only)."""
+    path = f"/admin/realms/{realm}/users/profile"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    profile = current.json()
+    attributes = list(profile.get("attributes") or [])
+    known = {attribute["name"] for attribute in attributes}
+    missing = [name for name in PROFILE_ATTRIBUTES if name not in known]
+    if not missing:
+        return []
+    attributes += [
+        {
+            "name": name,
+            "displayName": PROFILE_ATTRIBUTES[name],
+            "permissions": {"view": ["admin"], "edit": ["admin"]},
+            "multivalued": False,
+        }
+        for name in missing
+    ]
+    (
+        await client.put(path, headers=headers, json={**profile, "attributes": attributes})
+    ).raise_for_status()
+    return ["user profile: " + ", ".join(missing)]
+
+
 async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Result:
     """Everything in the module docstring, idempotent."""
     token = await admin_token(client, target.user, target.password)
@@ -222,6 +258,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _ensure_roles(client, headers, target.realm, internal)
     changes += await _ensure_events(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
+    changes += await _ensure_user_profile(client, headers, target.realm)
     return Result(Outcome.UPDATED if changes else Outcome.READY, tuple(changes))
 
 
