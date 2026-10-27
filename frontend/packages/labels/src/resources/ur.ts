@@ -1515,4 +1515,33 @@ export const ur: LabelResource = {
     'ریکارڈز میں اس خانے کی قدریں موجود ہیں۔ ریٹائر کرنا تجویز کیا جاتا ہے: یہ نئے واقعات پر پیش نہیں ہوگا لیکن جن ریکارڈز میں ہے وہاں نظر آتا رہے گا۔ ہٹانے سے یہ ہر جگہ چھپ جائے گا؛ پرانی قدریں صرف ہر ریکارڈ کے تاریخچے میں رہیں گی۔',
   'custom_fields.retire_recommended': 'ریٹائر کریں (تجویز کردہ)',
   'custom_fields.remove_anyway': 'پھر بھی ہٹائیں',
+  'permission.branding.manage': 'برانڈنگ کا انتظام',
+  'permission.branding.manage.description':
+    'کنسول، پورٹل، سائن اِن صفحے اور ای میلز پر دکھایا جانے والا لوگو، رنگ اور نام، اور ادارے کے اپنے پتے تبدیل کریں۔',
+  'permission_module.branding': 'برانڈنگ',
+  'event_type.organization.branding.changed': 'برانڈنگ تبدیل ہوئی',
+  'event_type.organization.domain.changed': 'کسٹم ڈومین تبدیل ہوا',
+  'errors.brand_colour_contrast':
+    'یہ رنگ پڑھنے میں مشکل ہے: اس پر متن WCAG AA کنٹراسٹ سے کم ہے۔ تجویز کردہ رنگ استعمال کریں یا گہرا رنگ چنیں۔',
+  'errors.branding_not_found': 'یہ برانڈ نہیں ملا۔',
+  'errors.file_not_an_image': 'یہ فائل تصویر نہیں ہے۔',
+  'errors.field.english_text_required':
+    'انگریزی متن شامل کریں: جہاں ترجمہ نہ ہو وہاں یہی دکھایا جاتا ہے۔',
+  'errors.field.logo_required': 'پہلے لوگو اپ لوڈ کریں۔',
+  'errors.field.brand_image_too_large': 'یہ تصویر بہت بڑی ہے: زیادہ سے زیادہ 5 MB اور 25 میگاپکسل۔',
+  'errors.field.brand_image_too_small': 'یہ تصویر بہت چھوٹی ہے: ہر طرف کم از کم 16 پکسل۔',
+  'errors.field.brand_image_unreadable':
+    'یہ تصویر پڑھی نہیں جا سکی۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
+  'audit.action.branding.updated': 'برانڈنگ تبدیل کی',
+  'audit.action.domain.added': 'کسٹم ڈومین شامل کیا',
+  'audit.action.domain.verified': 'کسٹم ڈومین کی تصدیق کی',
+  'audit.action.domain.removed': 'کسٹم ڈومین ہٹایا',
+  'audit.action.domain.certificate_uploaded': 'کسٹم ڈومین کے لیے سرٹیفکیٹ اپ لوڈ کیا',
+  'branding.check.text_on_primary': 'بنیادی رنگ پر سفید متن',
+  'branding.check.links_on_white': 'سفید پر لنکس',
+  'branding.check.text_on_hover': 'اشارہ کیے گئے بٹن پر سفید متن',
+  'branding.check.dark_links': 'ڈارک موڈ میں لنکس',
+  'branding.check.dark_links_raised': 'ڈارک موڈ میں پینلز پر لنکس',
+  'branding.check.high_contrast': 'ہائی کنٹراسٹ میں بنیادی رنگ',
+  'branding.check.text_on_gradient': 'گریڈیئنٹ پر سفید متن',
 };

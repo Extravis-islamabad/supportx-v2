@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from app.modules.organization.domain.branding import DARK_BG, WHITE, contrast, hex_colour, mix
 from tooling import brand_assets as brand
 from tooling.brand_assets import Image
 
@@ -135,14 +136,14 @@ def test_fit_square_ico_and_preview() -> None:
     assert ico[6] == 16
     assert ico[22] == 0  # 0 means 256 px
     sheet = brand.preview([square], height=8, pad=2)
-    assert sheet.get(0, 0)[:3] == brand.WHITE
-    assert sheet.get(0, sheet.height - 1)[:3] == brand.DARK_BG
+    assert sheet.get(0, 0)[:3] == WHITE
+    assert sheet.get(0, sheet.height - 1)[:3] == DARK_BG
 
 
 def test_contrast_matches_wcag() -> None:
-    assert brand.contrast((0, 0, 0), brand.WHITE) == pytest.approx(21)
-    assert brand.contrast(brand.WHITE, brand.WHITE) == pytest.approx(1)
-    assert brand.mix("#7e40d1", 0.5, 255) == "#bea0e8"  # same as theme.ts lighten
+    assert contrast((0, 0, 0), WHITE) == pytest.approx(21)
+    assert contrast(WHITE, WHITE) == pytest.approx(1)
+    assert mix("#7e40d1", 0.5, 255) == "#bea0e8"  # same as theme.ts lighten
 
 
 def test_the_supportx_palette_meets_aa_and_matches_the_logo() -> None:
@@ -150,7 +151,7 @@ def test_the_supportx_palette_meets_aa_and_matches_the_logo() -> None:
     checks = palette.checks()
     assert all(ratio >= need for _, ratio, need in checks), checks
     logo = brand.build(brand.decode_png(brand.SOURCE.read_bytes()))
-    sampled = tuple(brand.hex_colour(colour) for colour in logo.gradient)
+    sampled = tuple(hex_colour(colour) for colour in logo.gradient)
     assert sampled == palette.sampled
 
 
@@ -170,7 +171,7 @@ def test_generate_writes_every_asset(tmp_path: Path, monkeypatch: pytest.MonkeyP
     source = tmp_path / "logo.png"
     source.write_bytes(brand.encode_png(_logo()))
     monkeypatch.setattr(brand, "REPO", tmp_path)
-    for name in ("UI_ASSETS", "UI_PUBLIC", "KEYCLOAK_THEME", "DOCS"):
+    for name in ("UI_ASSETS", "UI_PUBLIC", "KEYCLOAK_THEME", "DOCS", "DEFAULT_PALETTE_MODULE"):
         monkeypatch.setattr(brand, name, tmp_path / name.lower())
     assets, palette = brand.generate(source, brand.PALETTE)
     written = sorted(path.name for path in tmp_path.rglob("*") if path.is_file())

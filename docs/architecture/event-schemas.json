@@ -820,6 +820,59 @@
         "type": "object"
       }
     },
+    "organization.branding.changed": {
+      "1": {
+        "description": "The tenant's branding was saved or reset (WP-017): open screens reload the brand.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "changed_fields"
+        ],
+        "title": "BrandingChanged",
+        "type": "object"
+      }
+    },
+    "organization.domain.changed": {
+      "1": {
+        "description": "A custom domain was added, checked, given a certificate or removed (WP-017).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "verified",
+              "failed",
+              "certificate",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "domain_id": {
+            "format": "uuid",
+            "title": "Domain Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain_id",
+          "change"
+        ],
+        "title": "DomainChanged",
+        "type": "object"
+      }
+    },
     "organization.membership.changed": {
       "1": {
         "description": "A user was added to or removed from a site or support group.",

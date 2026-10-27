@@ -1738,6 +1738,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organization/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your tenant's brand
+         * @description What the console and portal show: colours, texts and logo URLs (default where unset).
+         */
+        get: operations["get_branding_api_v1_organization_branding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/branding/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check brand colours
+         * @description WCAG AA checks for colours being chosen, with the nearest passing ones (no save).
+         */
+        post: operations["check_colours_api_v1_organization_branding_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/branding/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Branding settings
+         * @description The branding screen's values (send the ETag back as If-Match to save; "0" creates).
+         */
+        get: operations["get_settings_api_v1_organization_branding_settings_get"];
+        /**
+         * Save the branding
+         * @description Save the whole branding; every open console and portal shows it without a reload.
+         */
+        put: operations["put_settings_api_v1_organization_branding_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/groups": {
         parameters: {
             query?: never;
@@ -1906,6 +1970,68 @@ export interface paths {
          * @description Every permission, with whether the tenant's plan includes it.
          */
         get: operations["list_permissions_api_v1_permissions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/branding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Brand of this address
+         * @description The brand of the address used (subdomain or verified custom domain); default otherwise.
+         *
+         *     Only a hint for what to show before sign-in: it never decides access.
+         */
+        get: operations["public_branding_api_v1_public_branding_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/branding/{slug}/login.css": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign-in page stylesheet
+         * @description The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003).
+         */
+        get: operations["login_stylesheet_api_v1_public_branding__slug__login_css_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/branding/{slug}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A brand image
+         * @description One generated image. Cached for a year when `v` is the current version.
+         */
+        get: operations["brand_image_api_v1_public_branding__slug___name__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2958,11 +3084,150 @@ export interface components {
             sealed_entries: number;
         };
         /**
+         * BrandingIn
+         * @description The whole branding; null or empty restores that part's default.
+         */
+        BrandingIn: {
+            /** Gradient */
+            gradient?: [
+                string,
+                string
+            ] | null;
+            /** Icon File Id */
+            icon_file_id?: string | null;
+            /** Logo Dark File Id */
+            logo_dark_file_id?: string | null;
+            /** Logo File Id */
+            logo_file_id?: string | null;
+            /** Portal Name */
+            portal_name?: {
+                [key: string]: string;
+            };
+            /** Primary Colour */
+            primary_colour?: string | null;
+            /** Product Name */
+            product_name?: {
+                [key: string]: string;
+            };
+            /** Welcome Text */
+            welcome_text?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * BrandingOut
+         * @description The brand a surface shows. Empty texts and null logos mean the default.
+         */
+        BrandingOut: {
+            /** Customised */
+            customised: boolean;
+            /** Gradient */
+            gradient: [
+                string,
+                string
+            ];
+            logos: components["schemas"]["Logos"];
+            /** Portal Name */
+            portal_name: {
+                [key: string]: string;
+            };
+            /**
+             * Primary Colour
+             * @description The seed of every primary shade.
+             */
+            primary_colour: string;
+            /** Product Name */
+            product_name: {
+                [key: string]: string;
+            };
+            /**
+             * Tenant Slug
+             * @description None for the default brand (unknown address).
+             */
+            tenant_slug: string | null;
+            /** Version */
+            version: number;
+            /** Welcome Text */
+            welcome_text: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * BrandingSettingsOut
+         * @description The branding screen: what was chosen (null = default) and the uploads behind the logos.
+         */
+        BrandingSettingsOut: {
+            /** Chosen Gradient */
+            chosen_gradient: [
+                string,
+                string
+            ] | null;
+            /** Chosen Primary Colour */
+            chosen_primary_colour: string | null;
+            /** Customised */
+            customised: boolean;
+            /** Gradient */
+            gradient: [
+                string,
+                string
+            ];
+            /** Icon File Id */
+            icon_file_id: string | null;
+            /** Logo Dark File Id */
+            logo_dark_file_id: string | null;
+            /** Logo File Id */
+            logo_file_id: string | null;
+            logos: components["schemas"]["Logos"];
+            /** Portal Name */
+            portal_name: {
+                [key: string]: string;
+            };
+            /**
+             * Primary Colour
+             * @description The seed of every primary shade.
+             */
+            primary_colour: string;
+            /** Product Name */
+            product_name: {
+                [key: string]: string;
+            };
+            /**
+             * Tenant Slug
+             * @description None for the default brand (unknown address).
+             */
+            tenant_slug: string | null;
+            /** Version */
+            version: number;
+            /** Welcome Text */
+            welcome_text: {
+                [key: string]: string;
+            };
+        };
+        /**
          * Channel
          * @description Where a work item came from (REQ-INC-005). Set by the entry point, not by hand.
          * @enum {string}
          */
         Channel: "phone" | "walk_up" | "email" | "portal" | "chat" | "virtual_agent" | "teams" | "slack" | "whatsapp" | "mobile_app" | "api" | "monetx" | "alert_webhook";
+        /**
+         * CheckCode
+         * @description Each text/background pair the brand colours make (labels: `branding.check.<code>`).
+         * @enum {string}
+         */
+        CheckCode: "text_on_primary" | "links_on_white" | "text_on_hover" | "dark_links" | "dark_links_raised" | "high_contrast" | "text_on_gradient";
+        /**
+         * CheckOut
+         * @description One contrast check (labels: `branding.check.<code>`).
+         */
+        CheckOut: {
+            code: components["schemas"]["CheckCode"];
+            /** Passed */
+            passed: boolean;
+            /** Ratio */
+            ratio: number;
+            /** Required */
+            required: number;
+        };
         /**
          * CheckResponse
          * @description One dependency's readiness.
@@ -2995,6 +3260,36 @@ export interface components {
          * @enum {string}
          */
         ChoiceDisplay: "list" | "radio";
+        /**
+         * ColourReportOut
+         * @description Every check, and the nearest passing colours when one fails.
+         */
+        ColourReportOut: {
+            /** Checks */
+            checks: components["schemas"]["CheckOut"][];
+            /** Passes */
+            passes: boolean;
+            /** Suggested Gradient */
+            suggested_gradient: [
+                string,
+                string
+            ] | null;
+            /** Suggested Primary */
+            suggested_primary: string | null;
+        };
+        /**
+         * ColoursIn
+         * @description Colours to check before saving (the live preview).
+         */
+        ColoursIn: {
+            /** Gradient */
+            gradient?: [
+                string,
+                string
+            ] | null;
+            /** Primary Colour */
+            primary_colour?: string | null;
+        };
         /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
@@ -3802,6 +4097,30 @@ export interface components {
             channels: string[];
         };
         /**
+         * Logos
+         * @description Public URLs of the generated images (None: the SupportX default is shown).
+         */
+        Logos: {
+            /** Apple Touch Icon */
+            apple_touch_icon?: string | null;
+            /** Favicon */
+            favicon?: string | null;
+            /** Full */
+            full?: string | null;
+            /** Full High Contrast */
+            full_high_contrast?: string | null;
+            /** Full On Dark */
+            full_on_dark?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Icon 192 */
+            icon_192?: string | null;
+            /** Icon 512 */
+            icon_512?: string | null;
+            /** Icon High Contrast */
+            icon_high_contrast?: string | null;
+        };
+        /**
          * MatrixCellIn
          * @description One cell.
          */
@@ -3896,7 +4215,7 @@ export interface components {
          * @description What a file can be attached to.
          * @enum {string}
          */
-        OwnerType: "work_item" | "conversation_entry" | "draft";
+        OwnerType: "work_item" | "conversation_entry" | "draft" | "branding";
         /**
          * PermissionOut
          * @description A catalogue permission. Labels: `permission.<key>` and `permission.<key>.description`.
@@ -12739,6 +13058,232 @@ export interface operations {
             };
         };
     };
+    get_branding_api_v1_organization_branding_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    check_colours_api_v1_organization_branding_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColoursIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColourReportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_organization_branding_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_organization_branding_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description A colour fails WCAG AA (`brand_colour_contrast`, with the failing checks and the nearest passing colour), a text is too long, or an image is unusable. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_units_api_v1_organization_groups_get: {
         parameters: {
             query?: never;
@@ -13587,6 +14132,137 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    public_branding_api_v1_public_branding_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandingOut"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    login_stylesheet_api_v1_public_branding__slug__login_css_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/css": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    brand_image_api_v1_public_branding__slug___name__get: {
+        parameters: {
+            query?: {
+                v?: string | null;
+            };
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                    "image/x-icon": unknown;
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */

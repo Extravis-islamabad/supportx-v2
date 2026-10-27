@@ -35,9 +35,16 @@ import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
+from app.modules.organization.domain.branding import (
+    DARK_BG,
+    WHITE,
+    CheckCode,
+    Colours,
+    hex_colour,
+)
+from app.modules.organization.domain.login_css import LoginLogos, login_css
+
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-WHITE = (255, 255, 255)
-DARK_BG = (20, 20, 20)  # #141414, Ant Design's dark layout background
 # Text pixels are near-neutral (black with anti-aliasing alpha); gradient pixels are saturated.
 NEUTRAL_SPREAD = 40
 # A run of fully transparent columns at least this wide separates the icon from the wordmark.
@@ -50,6 +57,7 @@ UI_PUBLIC = REPO / "frontend/packages/ui/src/brand/public"
 PALETTE = REPO / "frontend/packages/ui/src/brand/palette.json"
 KEYCLOAK_THEME = REPO / "deploy/helm/supportx/files/keycloak/themes/supportx/login"
 DOCS = REPO / "docs/brand"
+DEFAULT_PALETTE_MODULE = REPO / "backend/app/modules/organization/domain/default_palette.py"
 
 # Heights the UI renders (CSS px) times 3 for high-density screens.
 LOGO_HEIGHT = 40 * 3
@@ -373,28 +381,6 @@ def composite(base: Image, top: Image, left: int, top_y: int) -> Image:
 # --- Colour ------------------------------------------------------------------------------------
 
 
-def hex_colour(rgb: tuple[int, int, int]) -> str:
-    """#rrggbb."""
-    return "#{:02x}{:02x}{:02x}".format(*rgb)
-
-
-def luminance(rgb: tuple[int, int, int]) -> float:
-    """WCAG 2.x relative luminance."""
-
-    def channel(value: int) -> float:
-        c = value / 255
-        return c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4  # noqa: PLR2004
-
-    r, g, b = (channel(v) for v in rgb)
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b
-
-
-def contrast(a: tuple[int, int, int], b: tuple[int, int, int]) -> float:
-    """WCAG contrast ratio, 1 to 21."""
-    la, lb = sorted((luminance(a), luminance(b)), reverse=True)
-    return (la + 0.05) / (lb + 0.05)
-
-
 def gradient_ends(
     icon: Image, share: float = 0.04
 ) -> tuple[tuple[int, int, int], tuple[int, int, int]]:
@@ -471,8 +457,8 @@ def preview(images: list[Image], height: int = 64, pad: int = 16) -> Image:
 class Palette:
     """frontend/packages/ui/src/brand/palette.json, and the shades derived from it.
 
-    The derivations match ``frontend/packages/ui/src/theme.ts`` (same mix toward black or white),
-    so the login page and the app show the same colours in each mode.
+    The derivations live in the organization module's branding rules (shared with tenant
+    branding, WP-017) and match ``frontend/packages/ui/src/theme.ts``.
     """
 
     sampled: tuple[str, str]
@@ -490,140 +476,69 @@ class Palette:
         )
 
     @property
+    def colours(self) -> Colours:
+        """The chosen colours, with their derived shades."""
+        return Colours(self.primary, self.gradient)
+
+    @property
     def hover(self) -> str:
         """Buttons darken on hover and press, so white text stays above AA in every state."""
-        return mix(self.primary, HOVER_DARKEN, 0)
+        return self.colours.hover
 
     @property
     def dark_text(self) -> str:
         """Links and selected text on dark backgrounds."""
-        return mix(self.primary, DARK_TEXT_LIGHTEN, 255)
+        return self.colours.dark_text
 
     @property
     def high_contrast(self) -> str:
         """Primary for high contrast (AAA with white)."""
-        return mix(self.primary, HIGH_CONTRAST_DARKEN, 0)
+        return self.colours.high_contrast
 
     def checks(self) -> list[tuple[str, float, float]]:
         """(what, ratio, required) for every text/background pair the brand colours make."""
-        rgb = parse_hex
-        pairs = [
-            ("white text on primary (light, dark)", rgb(self.primary), WHITE, AA),
-            ("primary links on white", rgb(self.primary), WHITE, AA),
-            ("white text on hovered primary", rgb(self.hover), WHITE, AA),
-            ("dark-mode links on #141414", rgb(self.dark_text), DARK_BG, AA),
-            ("dark-mode links on #1f1f1f", rgb(self.dark_text), DARK_CONTAINER, AA),
-            ("high-contrast primary with white", rgb(self.high_contrast), WHITE, AAA),
-        ]
-        steps = 32
-        a, b = rgb(self.gradient[0]), rgb(self.gradient[1])
-        along = [
-            (
-                round(a[0] + (b[0] - a[0]) * n / steps),
-                round(a[1] + (b[1] - a[1]) * n / steps),
-                round(a[2] + (b[2] - a[2]) * n / steps),
-            )
-            for n in range(steps + 1)
-        ]
-        worst = min(contrast(colour, WHITE) for colour in along)
-        checks = [(what, contrast(fg, bg), need) for what, fg, bg, need in pairs]
-        return [*checks, ("white text anywhere on the gradient", worst, AA)]
+        return [(CHECK_TEXT[c.code], c.ratio, c.required) for c in self.colours.checks()]
 
 
-AA, AAA = 4.5, 7.0
-DARK_CONTAINER = (31, 31, 31)  # #1f1f1f, raised surfaces in dark mode
-HOVER_DARKEN = 0.12
-DARK_TEXT_LIGHTEN = 0.5
-HIGH_CONTRAST_DARKEN = 0.35
+CHECK_TEXT = {
+    CheckCode.TEXT_ON_PRIMARY: "white text on primary (light, dark)",
+    CheckCode.LINKS_ON_WHITE: "primary links on white",
+    CheckCode.TEXT_ON_HOVER: "white text on hovered primary",
+    CheckCode.DARK_LINKS: "dark-mode links on #141414",
+    CheckCode.DARK_LINKS_RAISED: "dark-mode links on #1f1f1f",
+    CheckCode.HIGH_CONTRAST: "high-contrast primary with white",
+    CheckCode.TEXT_ON_GRADIENT: "white text anywhere on the gradient",
+}
 
 
-def parse_hex(value: str) -> tuple[int, int, int]:
-    """(r, g, b) of #rrggbb."""
-    digits = value.removeprefix("#")
-    return int(digits[0:2], 16), int(digits[2:4], 16), int(digits[4:6], 16)
+def default_palette_module(palette: Palette) -> str:
+    """The backend's copy of the default colours (e-mails and unknown hosts need them too)."""
+    return DEFAULT_PALETTE.format(
+        primary=palette.primary, start=palette.gradient[0], end=palette.gradient[1]
+    )
 
 
-def mix(value: str, amount: float, target: int) -> str:
-    """`value` moved `amount` (0..1) toward black (0) or white (255), as theme.ts does."""
-    r, g, b = (round(c + (target - c) * amount) for c in parse_hex(value))
-    return hex_colour((r, g, b))
+DEFAULT_PALETTE = '''"""SupportX default colours from palette.json (generated: make brand-assets).
 
-
-KEYCLOAK_CSS = """\
-/* Generated by backend/tooling/brand_assets.py from frontend/packages/ui/src/brand/palette.json.
-   Do not edit: run `make brand-assets`. SupportX colours and logo on the keycloak.v2 login page
-   (light, dark through keycloak.v2's own dark-mode class, and high contrast). */
-:root {{
-  --keycloak-card-top-color: {primary};
-  --pf-v5-global--primary-color--100: {primary};
-  --pf-v5-global--primary-color--200: {hover};
-  --pf-v5-global--link--Color: {primary};
-  --pf-v5-global--link--Color--hover: {hover};
-  --supportx-button: {primary};
-  --supportx-button-hover: {hover};
-  --supportx-card-top: linear-gradient(90deg, {gradient_start}, {gradient_end});
-  --supportx-logo-url: url("../img/logo-dark-text.png");
-}}
-:root.pf-v5-theme-dark {{
-  --pf-v5-global--primary-color--100: {primary};
-  --pf-v5-global--primary-color--200: {hover};
-  --pf-v5-global--link--Color: {dark_text};
-  --pf-v5-global--link--Color--hover: {dark_text};
-  --supportx-logo-url: url("../img/logo-white-text.png");
-}}
-/* High contrast on a light page: the one-colour logo and the darker primary. A dark page keeps
-   the dark settings above (its link colour is already above 7:1). */
-@media (prefers-contrast: more) {{
-  :root:not(.pf-v5-theme-dark) {{
-    --pf-v5-global--primary-color--100: {high_contrast};
-    --pf-v5-global--primary-color--200: #000000;
-    --pf-v5-global--link--Color: {high_contrast};
-    --pf-v5-global--link--Color--hover: #000000;
-    --supportx-button: {high_contrast};
-    --supportx-button-hover: #000000;
-    --supportx-card-top: linear-gradient(#000000, #000000);
-    --supportx-logo-url: url("../img/logo-high-contrast.png");
-  }}
-}}
-.login-pf body {{
-  background: #f5f5f5;
-}}
-:root.pf-v5-theme-dark.login-pf body {{
-  background: #141414;
-}}
-.pf-v5-c-login__main-header {{
-  border-top: 4px solid;
-  border-image: var(--supportx-card-top) 1;
-}}
-.pf-v5-c-button.pf-m-primary {{
-  --pf-v5-c-button--m-primary--BackgroundColor: var(--supportx-button);
-  --pf-v5-c-button--m-primary--hover--BackgroundColor: var(--supportx-button-hover);
-  --pf-v5-c-button--m-primary--focus--BackgroundColor: var(--supportx-button-hover);
-  --pf-v5-c-button--m-primary--active--BackgroundColor: var(--supportx-button-hover);
-  --pf-v5-c-button--m-primary--Color: #ffffff;
-  --pf-v5-c-button--m-primary--hover--Color: #ffffff;
-  --pf-v5-c-button--m-primary--focus--Color: #ffffff;
-  --pf-v5-c-button--m-primary--active--Color: #ffffff;
-}}
-/* The realm name stays in the page for screen readers; the logo is drawn behind it. */
-#kc-header-wrapper {{
-  background: var(--supportx-logo-url) center / contain no-repeat;
-  height: 48px;
-  color: transparent !important;
-  overflow: hidden;
-}}
+The backend cannot read frontend/packages/ui/src/brand/palette.json at run time (it is not in
+the API image), so `make brand-assets` writes this copy and `--check` keeps it in sync.
 """
+
+PRIMARY = "{primary}"
+GRADIENT_START = "{start}"
+GRADIENT_END = "{end}"
+'''
 
 
 def keycloak_css(palette: Palette) -> str:
-    """The login theme's stylesheet for `palette`."""
-    return KEYCLOAK_CSS.format(
-        primary=palette.primary,
-        hover=palette.hover,
-        dark_text=palette.dark_text,
-        high_contrast=palette.high_contrast,
-        gradient_start=palette.gradient[0],
-        gradient_end=palette.gradient[1],
+    """The login theme's stylesheet for `palette` (the logos sit next to it in the theme)."""
+    return login_css(
+        palette.colours,
+        LoginLogos(
+            "../img/logo-dark-text.png",
+            "../img/logo-white-text.png",
+            "../img/logo-high-contrast.png",
+        ),
     )
 
 
@@ -690,6 +605,7 @@ def generate(source_path: Path = SOURCE, palette_path: Path = PALETTE) -> tuple[
         write(KEYCLOAK_THEME / "resources/img" / name, encode_png(ui[name]))
     write(KEYCLOAK_THEME / "resources/img/favicon.ico", ico)
     write(KEYCLOAK_THEME / "resources/css/supportx.css", keycloak_css(palette))
+    write(DEFAULT_PALETTE_MODULE, default_palette_module(palette))
 
     write(DOCS / "supportx-logo-white-text.png", encode_png(assets.logo_white_text))
     write(DOCS / "supportx-icon.png", encode_png(fit_square(assets.icon, 512, 0.0, transparent)))
@@ -732,6 +648,7 @@ def check(palette_path: Path = PALETTE) -> bool:
     expected = {
         KEYCLOAK_THEME / "resources/css/supportx.css": keycloak_css(palette),
         UI_PUBLIC / "site.webmanifest": manifest(palette.primary),
+        DEFAULT_PALETTE_MODULE: default_palette_module(palette),
     }
     for path, text in expected.items():
         current = path.read_text(encoding="utf-8") if path.is_file() else ""

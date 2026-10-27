@@ -14,6 +14,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, UniqueConstraint, func, text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.organization.domain.tenant import SLUG_PATTERN
@@ -119,3 +120,96 @@ class GroupMember(TenantKeyed, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     created_by: Mapped[uuid.UUID | None]
+
+
+class TenantBranding(TenantEntity):
+    """A tenant's brand (WP-017): colours, texts and the uploaded originals. One row per tenant.
+
+    Empty values mean "the SupportX default". The originals are files (WP-022, owner `branding`);
+    the variants every surface shows are generated from them into `branding_assets`, and
+    `assets_version` (a hash of those variants) goes into their public URLs so they cache forever.
+    """
+
+    __tablename__ = "tenant_branding"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", name="uq_tenant_branding_tenant_id"),
+        CheckConstraint(
+            "primary_colour IS NULL OR primary_colour ~ '^#[0-9a-f]{6}$'", name="primary_colour"
+        ),
+        CheckConstraint(
+            "(gradient_start IS NULL) = (gradient_end IS NULL)", name="gradient_both_or_none"
+        ),
+        CheckConstraint(
+            "gradient_start IS NULL OR (gradient_start ~ '^#[0-9a-f]{6}$'"
+            " AND gradient_end ~ '^#[0-9a-f]{6}$')",
+            name="gradient_colours",
+        ),
+    )
+
+    primary_colour: Mapped[str | None]
+    gradient_start: Mapped[str | None]
+    gradient_end: Mapped[str | None]
+    product_name: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    portal_name: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    welcome_text: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    logo_file_id: Mapped[uuid.UUID | None]
+    logo_dark_file_id: Mapped[uuid.UUID | None]
+    icon_file_id: Mapped[uuid.UUID | None]
+    assets_version: Mapped[str | None]
+
+
+class BrandingAsset(TenantKeyed, Base):
+    """One generated brand image (logo per theme, icon, favicons), served publicly.
+
+    A cache of what is made from the originals in the files service: small (kilobytes), public by
+    nature (the sign-in page and e-mails show them before anyone signs in), regenerated on save.
+    """
+
+    __tablename__ = "branding_assets"
+    __table_args__ = (CheckConstraint("octet_length(content) <= 1048576", name="content_size"),)
+
+    name: Mapped[str] = mapped_column(primary_key=True)
+    content_type: Mapped[str]
+    content: Mapped[bytes]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class TenantDomain(TenantEntity):
+    """A custom domain for the tenant's console and portal (REQ-PRT-016 AC3, REQ-SEC-004).
+
+    The subdomain `<slug>.<base domain>` needs no row. A custom domain is `pending` until the
+    tenant proves it points here (an HTTP token, D-090), then `verified`; only verified domains
+    resolve to the tenant. A host is unique across all tenants.
+    """
+
+    __tablename__ = "tenant_domains"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'verified', 'failed')", name="status_code"),
+        CheckConstraint("tls_mode IN ('automatic', 'uploaded')", name="tls_mode_code"),
+        CheckConstraint(
+            "tls_status IN ('waiting', 'pending', 'issued', 'failed', 'not_managed')",
+            name="tls_status_code",
+        ),
+        CheckConstraint("host = lower(host) AND length(host) BETWEEN 4 AND 253", name="host"),
+        Index(
+            "uq_tenant_domains_host",
+            "host",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index("ix_tenant_domains_tenant_id_status", "tenant_id", "status"),
+    )
+
+    host: Mapped[str]
+    status: Mapped[str] = mapped_column(server_default="pending")
+    verify_token: Mapped[str]
+    verified_at: Mapped[datetime | None]
+    checked_at: Mapped[datetime | None]
+    failure_code: Mapped[str | None]
+    tls_mode: Mapped[str] = mapped_column(server_default="automatic")
+    tls_status: Mapped[str] = mapped_column(server_default="waiting")
+    certificate_pem: Mapped[str | None]
+    private_key: Mapped[bytes | None]  # AES-256-GCM with the tenant's data key (files keyring)
+    private_key_key_id: Mapped[uuid.UUID | None]
+    certificate_not_after: Mapped[datetime | None]
+    certificate_error: Mapped[str | None]

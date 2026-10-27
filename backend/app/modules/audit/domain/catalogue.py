@@ -102,6 +102,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("group.renamed", AuditCategory.ORGANISATION, "organization"),
     ("group.member_added", AuditCategory.ORGANISATION, "organization"),
     ("group.member_removed", AuditCategory.ORGANISATION, "organization"),
+    # branding and addresses (WP-017)
+    ("branding.updated", AuditCategory.CONFIGURATION, "organization"),
+    ("domain.added", AuditCategory.CONFIGURATION, "organization"),
+    ("domain.verified", AuditCategory.CONFIGURATION, "organization"),
+    ("domain.removed", AuditCategory.CONFIGURATION, "organization"),
+    ("domain.certificate_uploaded", AuditCategory.CONFIGURATION, "organization"),
     # configuration
     ("incident.settings_changed", AuditCategory.CONFIGURATION, "work_items"),
     ("incident.category_created", AuditCategory.CONFIGURATION, "work_items"),

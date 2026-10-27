@@ -48,4 +48,32 @@ class MembershipChanged(DomainEvent):
     change: Literal["added", "removed"]
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (SiteChanged, SupportGroupChanged, MembershipChanged)
+class BrandingChanged(DomainEvent):
+    """The tenant's branding was saved or reset (WP-017): open screens reload the brand."""
+
+    event_type: ClassVar[str] = "organization.branding.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant_branding"
+
+    version: int
+    changed_fields: list[str]
+
+
+class DomainChanged(DomainEvent):
+    """A custom domain was added, checked, given a certificate or removed (WP-017)."""
+
+    event_type: ClassVar[str] = "organization.domain.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant_domain"
+
+    domain_id: uuid.UUID
+    change: Literal["added", "verified", "failed", "certificate", "removed"]
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (
+    SiteChanged,
+    SupportGroupChanged,
+    MembershipChanged,
+    BrandingChanged,
+    DomainChanged,
+)

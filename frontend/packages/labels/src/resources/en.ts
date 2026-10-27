@@ -1919,6 +1919,35 @@ export const en = {
     "Records hold values in this field. Retiring it is recommended: it stops being offered on new incidents but stays visible on the records that have it. Removing it hides it everywhere; old values stay only in each record's history.",
   'custom_fields.retire_recommended': 'Retire (recommended)',
   'custom_fields.remove_anyway': 'Remove anyway',
+  'permission.branding.manage': 'Manage branding',
+  'permission.branding.manage.description':
+    "Change the logo, colours and names shown on the console, portal, sign-in page and emails, and the organisation's own addresses.",
+  'permission_module.branding': 'Branding',
+  'event_type.organization.branding.changed': 'Branding changed',
+  'event_type.organization.domain.changed': 'Custom domain changed',
+  'errors.brand_colour_contrast':
+    'This colour is hard to read: text on it falls below the WCAG AA contrast level. Use the suggested colour or choose a darker one.',
+  'errors.branding_not_found': 'This brand was not found.',
+  'errors.file_not_an_image': 'This file is not an image.',
+  'errors.field.english_text_required':
+    'Add the English text: it is shown wherever no translation exists.',
+  'errors.field.logo_required': 'Upload a logo first.',
+  'errors.field.brand_image_too_large': 'This image is too large: at most 5 MB and 25 megapixels.',
+  'errors.field.brand_image_too_small': 'This image is too small: at least 16 pixels on each side.',
+  'errors.field.brand_image_unreadable':
+    'This image cannot be read. Use a PNG, JPEG, WebP or ICO file.',
+  'audit.action.branding.updated': 'Changed the branding',
+  'audit.action.domain.added': 'Added a custom domain',
+  'audit.action.domain.verified': 'Verified a custom domain',
+  'audit.action.domain.removed': 'Removed a custom domain',
+  'audit.action.domain.certificate_uploaded': 'Uploaded a certificate for a custom domain',
+  'branding.check.text_on_primary': 'White text on the primary colour',
+  'branding.check.links_on_white': 'Links on white',
+  'branding.check.text_on_hover': 'White text on a button you point at',
+  'branding.check.dark_links': 'Links in dark mode',
+  'branding.check.dark_links_raised': 'Links on panels in dark mode',
+  'branding.check.high_contrast': 'Primary colour in high contrast',
+  'branding.check.text_on_gradient': 'White text on the gradient',
 } as const;
 
 export type LabelKey = keyof typeof en;

@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     # the UI's own base path.
     console_url: str = "http://localhost:5173"
     portal_url: str = "http://localhost:5174"
+    # Tenant addresses (WP-017): each tenant is also reached on `<slug>.<tenant_base_domain>`
+    # (e.g. acme.support.example.com). None = no subdomains (on-prem single installation domain);
+    # verified custom domains still resolve. The address only pre-selects where to sign in.
+    tenant_base_domain: str | None = None
 
     # BFF sessions: opaque cookie, records encrypted in Valkey (D-021).
     session_secret: SecretStr | None = None
