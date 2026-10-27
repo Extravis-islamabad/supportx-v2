@@ -874,6 +874,264 @@ metadata:
     app.kubernetes.io/part-of: supportx
     helm.sh/chart: supportx-0.1.0
 data:
+  email__html__executeActions.ftl: |
+    <#-- SupportX (WP-039 session 2, D-099): set-password e-mail for invitations and resets, in the
+         tenant's brand from attributes SupportX sets before sending (escaped: HTML output). -->
+    <#assign kind = (user.attributes.sx_mail_kind)!"reset">
+    <#assign brandName = (user.attributes.sx_brand_name)!realmName>
+    <#assign brandLogo = (user.attributes.sx_brand_logo)!"">
+    <#assign brandColour = (user.attributes.sx_brand_colour)!"#7e40d1">
+    <#assign rtl = !(ltr!true)>
+    <#assign start = rtl?then("right", "left")>
+    <html lang="${locale.language}" dir="${rtl?then('rtl','ltr')}">
+    <body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,Helvetica,sans-serif;color:#262626;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f5;">
+    <tr><td align="center" style="padding:24px 12px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:8px;">
+    <tr><td style="padding:20px 24px;text-align:${start};">
+    <#if brandLogo?has_content><img src="${brandLogo}" alt="${brandName}" height="40" style="display:block;height:40px;width:auto;border:0"><#else><span style="font-size:20px;font-weight:bold;">${brandName}</span></#if>
+    </td></tr>
+    <tr><td style="height:4px;background:${brandColour};"></td></tr>
+    <tr><td style="padding:24px;font-size:15px;line-height:1.6;text-align:${start};">
+    <p>${msg("supportx." + kind + ".intro", brandName)}</p>
+    <p style="margin:24px 0;"><a href="${link}" style="background:${brandColour};color:#ffffff;text-decoration:none;padding:12px 20px;border-radius:6px;display:inline-block;">${msg("supportx." + kind + ".button")}</a></p>
+    <p>${msg("supportx.expiry", linkExpirationFormatter(linkExpiration))}</p>
+    <p style="color:#595959;font-size:13px;">${msg("supportx." + kind + ".ignore")}</p>
+    </td></tr>
+    </table></td></tr></table>
+    </body>
+    </html>
+    
+  email__messages__messages_ar.properties: |
+    # SupportX e-mail texts (WP-039 session 2, D-099).
+    executeActionsSubject=عيّن كلمة المرور
+    supportx.invitation.intro=تدعوك {0} إلى مكتب الخدمة الخاص بها. عيّن كلمة مرور لتسجيل الدخول.
+    supportx.invitation.button=تعيين كلمة المرور
+    supportx.invitation.ignore=إذا لم تكن تتوقع هذه الدعوة فتجاهل هذه الرسالة.
+    supportx.reset.intro=طلب أحدهم إعادة تعيين كلمة مرورك لدى {0}.
+    supportx.reset.button=اختيار كلمة مرور جديدة
+    supportx.reset.ignore=إذا لم تطلب ذلك فتجاهل هذه الرسالة: تبقى كلمة مرورك كما هي.
+    supportx.expiry=يعمل الرابط مرة واحدة خلال {0}.
+    
+  email__messages__messages_en.properties: |
+    # SupportX e-mail texts (WP-039 session 2, D-099).
+    executeActionsSubject=Set your password
+    supportx.invitation.intro={0} invites you to its service desk. Set a password to sign in.
+    supportx.invitation.button=Set my password
+    supportx.invitation.ignore=If you did not expect this invitation, ignore this message.
+    supportx.reset.intro=Someone asked to reset your password for {0}.
+    supportx.reset.button=Choose a new password
+    supportx.reset.ignore=If you did not ask for this, ignore this message: your password stays as it is.
+    supportx.expiry=The link works once, for {0}.
+    
+  email__messages__messages_ur.properties: |
+    # SupportX e-mail texts (WP-039 session 2, D-099).
+    executeActionsSubject=اپنا پاس ورڈ مقرر کریں
+    supportx.invitation.intro={0} آپ کو اپنے سروس ڈیسک پر مدعو کرتا ہے۔ سائن اِن کے لیے پاس ورڈ مقرر کریں۔
+    supportx.invitation.button=میرا پاس ورڈ مقرر کریں
+    supportx.invitation.ignore=اگر آپ کو اس دعوت کی توقع نہیں تھی تو یہ پیغام نظرانداز کریں۔
+    supportx.reset.intro=کسی نے {0} پر آپ کا پاس ورڈ ری سیٹ کرنے کی درخواست کی۔
+    supportx.reset.button=نیا پاس ورڈ منتخب کریں
+    supportx.reset.ignore=اگر آپ نے یہ درخواست نہیں کی تو یہ پیغام نظرانداز کریں: آپ کا پاس ورڈ ویسا ہی رہے گا۔
+    supportx.expiry=یہ لنک ایک بار، {0} کے اندر کام کرتا ہے۔
+    
+  email__text__executeActions.ftl: |
+    <#ftl output_format="plainText">
+    <#assign kind = (user.attributes.sx_mail_kind)!"reset">
+    <#assign brandName = (user.attributes.sx_brand_name)!realmName>
+    ${msg("supportx." + kind + ".intro", brandName)}
+    
+    ${link}
+    
+    ${msg("supportx.expiry", linkExpirationFormatter(linkExpiration))}
+    
+    ${msg("supportx." + kind + ".ignore")}
+    
+  email__theme.properties: |
+    # SupportX e-mail theme (WP-039 session 2, D-099): Keycloak's password and invitation e-mails in
+    # the tenant's brand, matching SupportX's own (app/shared/mail layout). SupportX sets the brand on
+    # the person (sx_mail_kind, sx_brand_name, sx_brand_logo, sx_brand_colour) right before it asks
+    # Keycloak to send; the person's locale picks the language.
+    parent=base
+    locales=en,ar,ur
+    
+  login__field.ftl: |
+    <#-- keycloak.v2's login field.ftl from Keycloak 26.8.1, unchanged except the block marked
+         "SupportX" (on a Keycloak upgrade, copy the new upstream file and put the block back;
+         backend/tests/test_keycloak_theme.py checks it is there). -->
+    <#macro group name label error="" required=false>
+    
+    <div class="${properties.kcFormGroupClass}">
+        <div class="${properties.kcFormGroupLabelClass}">
+            <label for="${name}" class="${properties.kcFormLabelClass}">
+            <span class="${properties.kcFormLabelTextClass}">
+                ${label}
+            </span>
+                <#if required>
+                    <span class="${properties.kcInputRequiredClass}" aria-hidden="true">&#42;</span>
+                </#if>
+            </label>
+        </div>
+    
+        <#nested>
+    
+        <div id="input-error-container-${name}">
+            <#if error?has_content>
+                <div class="${properties.kcFormHelperTextClass}" aria-live="polite">
+                    <div class="${properties.kcInputHelperTextClass}">
+                        <div class="${properties.kcInputHelperTextItemClass} ${properties.kcError}" id="input-error-${name}">
+                            <span class="${properties.kcInputErrorMessageClass}">
+                                ${error}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </#if>
+        </div>
+    </div>
+    
+    </#macro>
+    
+    <#macro errorIcon error="">
+      <#if error?has_content>
+        <span class="${properties.kcFormControlUtilClass}">
+            <span class="${properties.kcInputErrorIconStatusClass}">
+              <i class="${properties.kcInputErrorIconClass}" aria-hidden="true"></i>
+            </span>
+        </span>
+      </#if>
+    </#macro>
+    
+    <#macro input name label value="" required=false autocomplete="off" fieldName=name error=messagesPerField.get(fieldName) autofocus=false>
+      <@group name=name label=label error=error required=required>
+        <span class="${properties.kcInputClass} <#if error?has_content>${properties.kcError}</#if>">
+            <input id="${name}" name="${name}" value="${value}" type="text" autocomplete="${autocomplete}" <#if autofocus>autofocus</#if>
+                    <#if autocomplete == "one-time-code">inputmode="numeric"</#if>
+                    aria-invalid="<#if error?has_content>true</#if>"/>
+            <@errorIcon error=error/>
+        </span>
+      </@group>
+    </#macro>
+    
+    <#macro password name label value="" required=false forgotPassword=false fieldName=name error=messagesPerField.get(fieldName) autocomplete="off" autofocus=false>
+      <@group name=name label=label error=error required=required>
+        <div class="${properties.kcInputGroup}">
+          <div class="${properties.kcInputGroupItemClass} ${properties.kcFill}">
+            <span class="${properties.kcInputClass} <#if error?has_content>${properties.kcError}</#if>">
+              <input id="${name}" name="${name}" value="${value}" type="password" autocomplete="${autocomplete}" <#if autofocus>autofocus</#if>
+                      aria-invalid="<#if error?has_content>true</#if>"/>
+              <@errorIcon error=error/>
+            </span>
+          </div>
+          <div class="${properties.kcInputGroupItemClass}">
+            <button class="${properties.kcFormPasswordVisibilityButtonClass}" type="button" aria-label="${msg('showPassword')}"
+                    aria-controls="${name}" data-password-toggle
+                    data-icon-show="${properties.kcFormPasswordVisibilityIconShow}" data-icon-hide="${properties.kcFormPasswordVisibilityIconHide}"
+                    data-label-show="${msg('showPassword')}" data-label-hide="${msg('hidePassword')}" id="${name}-show-password">
+                <i class="${properties.kcFormPasswordVisibilityIconShow}" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="${properties.kcFormHelperTextClass}" aria-live="polite">
+            <div class="${properties.kcInputHelperTextClass}">
+                <#-- Additional helper items -->
+                <#nested>
+                <#-- SupportX (WP-039 session 2, D-099): "Forgot password?" leads to SupportX's page,
+                     which limits requests per address (REQ-SEC-035) and asks Keycloak for its
+                     set-password e-mail in the tenant's brand. Keycloak's own reset flow stays off. -->
+                <#assign supportxReset = (properties.supportxPasswordResetUrl)!"">
+                <#if supportxReset?has_content && name == "password">
+                    <div class="${properties.kcInputHelperTextItemClass}">
+                      <span class="${properties.kcInputHelperTextItemTextClass}">
+                          <a id="supportx-forgot-password" href="${supportxReset}">${msg("doForgotPassword")}</a>
+                      </span>
+                    </div>
+                <#elseif forgotPassword>
+                    <div class="${properties.kcInputHelperTextItemClass}">
+                      <span class="${properties.kcInputHelperTextItemTextClass}">
+                          <a href="${url.loginResetCredentialsUrl}">${msg("doForgotPassword")}</a>
+                      </span>
+                    </div>
+                </#if>
+                <#-- /SupportX -->
+            </div>
+        </div>
+    
+      </@group>
+    </#macro>
+    
+    <#macro clipboard name label ariaLabel=label value="" readonly=true>
+      <@group name=name label=label>
+        <div class="${properties.kcCodeClipboardCopyClass}" id="kc-${name}-clipboard">
+          <div class="${properties.kcCodeClipboardCopyGroupClass}">
+            <div class="${properties.kcInputGroup}">
+              <div class="${properties.kcInputGroupItemClass}">
+                <button 
+                  class="${properties.kcFormPasswordVisibilityButtonClass}" 
+                  type="button" 
+                  aria-label="${msg("code-clipboard-label")}"
+                  aria-expanded="false"
+                  aria-controls="kc-${name}-content"
+                  data-icon-expanded-class="${properties.kcAngleDownIconClass}"
+                  data-icon-collapsed-class="${properties.kcAngleRightIconClass}"
+                  data-expanded-class="${properties.kcExpandedClass}"
+                  id="kc-${name}-toggle"
+                >
+                  <i id="kc-${name}-toggle-icon" class="${properties.kcAngleRightIconClass}" aria-hidden="true"></i>
+                </button>
+              </div>
+              <div class="${properties.kcInputGroupItemClass} ${properties.kcFill}">
+                <span class="${properties.kcInputClass} <#if readonly>${properties.kcFormReadOnlyClass}</#if>">
+                  <input
+                    id="${name}"
+                    name="${name}"
+                    value="${value}"
+                    type="text"
+                    <#if readonly>readonly</#if>
+                    aria-label="${ariaLabel}"
+                  />
+                </span>
+              </div>
+              <div class="${properties.kcInputGroupItemClass}">
+                <button
+                  class="${properties.kcFormPasswordVisibilityButtonClass}"
+                  type="button"
+                  aria-label="${msg("code-copy-label")}"
+                  data-icon-success="${properties.kcCheckIconClass}"
+                  data-icon-failure="${properties.kcInputErrorIconClass}"
+                  data-success-label="${msg("code-copy-success")}"
+                  data-failure-label="${msg("code-copy-failure")}"
+                  id="kc-${name}-copy-button"
+                >
+                  <i id="kc-${name}-copy-icon" class="${properties.kcCopyIconClass}" aria-hidden="true"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="${properties.kcCodeClipboardCopyContentClass}" id="kc-${name}-content" hidden>
+            <pre><code aria-label="${ariaLabel}">${value}</code></pre>
+          </div>
+        </div>
+      </@group>
+    </#macro>
+    
+    <#macro checkbox name label value=false required=false>
+      <div class="${properties.kcCheckboxClass}">
+        <label for="${name}" class="${properties.kcCheckboxClass}">
+          <input
+            class="${properties.kcCheckboxInputClass}"
+            type="checkbox"
+            id="${name}"
+            name="${name}"
+            <#if value>checked</#if>
+          />
+          <span class="${properties.kcCheckboxLabelClass}">${label}</span>
+          <#if required>
+            <span class="${properties.kcCheckboxLabelRequiredClass}" aria-hidden="true">&#42;</span>
+          </#if>
+        </label>
+      </div>
+    </#macro>
   login__resources__css__supportx.css: |
     /* Generated by backend/tooling/brand_assets.py from frontend/packages/ui/src/brand/palette.json.
        Do not edit: run `make brand-assets`. SupportX colours and logo on the keycloak.v2 login page
@@ -1277,6 +1535,9 @@ data:
     # SupportX API. Kubernetes serves Keycloak and the API on one host (D-038), so the default path
     # works there; Compose points it at the console's dev server, which proxies /api.
     supportxBrandingUrl=${env.SUPPORTX_BRANDING_URL:/api/v1/public/branding}
+    
+    # Where "Forgot password?" leads (WP-039, D-099): SupportX's reset page; empty = Keycloak's own.
+    supportxPasswordResetUrl=${env.SUPPORTX_PASSWORD_RESET_URL:}
     
 binaryData:
   login__resources__img__favicon.ico: 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
@@ -2047,6 +2308,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
             - {name: SUPPORTX_KC_CONSOLE_ORIGIN, value: "https://supportx.example.com"}
             - {name: SUPPORTX_KC_PORTAL_ORIGIN, value: "https://supportx.example.com"}
+            # "Forgot password?" on the sign-in page: the portal's reset page (WP-039, D-099).
+            - {name: SUPPORTX_PASSWORD_RESET_URL, value: "https://supportx.example.com/portal/password-reset"}
           ports:
             - {name: http, containerPort: 8080}
             - {name: management, containerPort: 9000}
@@ -2085,6 +2348,13 @@ spec:
           configMap:
             name: supportx-keycloak-theme
             items:
+              - {key: email__html__executeActions.ftl, path: email/html/executeActions.ftl}
+              - {key: email__messages__messages_ar.properties, path: email/messages/messages_ar.properties}
+              - {key: email__messages__messages_en.properties, path: email/messages/messages_en.properties}
+              - {key: email__messages__messages_ur.properties, path: email/messages/messages_ur.properties}
+              - {key: email__text__executeActions.ftl, path: email/text/executeActions.ftl}
+              - {key: email__theme.properties, path: email/theme.properties}
+              - {key: login__field.ftl, path: login/field.ftl}
               - {key: login__resources__css__supportx.css, path: login/resources/css/supportx.css}
               - {key: login__resources__img__favicon.ico, path: login/resources/img/favicon.ico}
               - {key: login__resources__img__logo-dark-text.png, path: login/resources/img/logo-dark-text.png}

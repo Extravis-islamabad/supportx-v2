@@ -188,3 +188,9 @@ class MemoryKeyValue:
 
     async def delete(self, key: str) -> int:
         return 1 if self.data.pop(key, None) is not None else 0
+
+    async def count(self, key: str, *, px: int) -> int:
+        assert px > 0
+        value = int(self.data.get(key, b"0")) + 1
+        self.data[key] = str(value).encode()
+        return value

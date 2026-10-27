@@ -28,7 +28,13 @@ from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdminNotConfigured,
 )
 from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_SECONDS
-from app.modules.identity_access.service import identity_settings, sso, sso_test
+from app.modules.identity_access.service import (
+    identity_settings,
+    invitations,
+    password_reset,
+    sso,
+    sso_test,
+)
 from app.modules.organization import get_current_tenant
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -457,3 +463,153 @@ async def test_result(
         auth, test_id, tenant_id=subject.tenant_id, provider_id=provider_id
     )
     return SsoTestResultOut.model_validate(found)
+
+
+# --- invitations and password resets (REQ-SEC-006, REQ-SEC-018..020; D-099) ---------------------
+
+ManagePeople = Annotated[Subject, Depends(require_permission("users.manage"))]
+
+
+class InvitationIn(BaseModel):
+    """Who to invite: a person the tenant knows who has not signed in yet (WP-021)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    user_id: uuid.UUID
+
+
+class InvitationOut(BaseModel):
+    """An invitation (`expired`: pending past its expiry; ask for a new one)."""
+
+    id: uuid.UUID
+    user_id: uuid.UUID
+    email: str
+    status: Literal["pending", "accepted", "expired", "revoked"]
+    delivery: Literal["email", "existing_account"] = Field(
+        description="existing_account: they already have a password and can sign in now."
+    )
+    sent_at: datetime
+    expires_at: datetime
+    accepted_at: datetime | None
+    sends: int
+    version: int
+
+
+class InvitationListOut(BaseModel):
+    """The tenant's invitations, newest first."""
+
+    items: list[InvitationOut]
+
+
+def _invitation_out(view: invitations.InvitationView) -> InvitationOut:
+    return InvitationOut(**view.__dict__)
+
+
+@router.get("/invitations", summary="Invitations")
+async def list_invitations(session: TenantSession, subject: ManagePeople) -> InvitationListOut:
+    """Who was invited, when, until when, and what became of it."""
+    del subject
+    return InvitationListOut(
+        items=[_invitation_out(v) for v in await invitations.list_invitations(session)]
+    )
+
+
+@router.post(
+    "/invitations",
+    summary="Invite a person",
+    status_code=status.HTTP_201_CREATED,
+    response_model=InvitationOut,
+    responses={201: {"model": InvitationOut, "description": "Sent (or replayed)."}},
+)
+async def create_invitation(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    body: InvitationIn,
+    request: Request,
+    session: TenantSession,
+    subject: ManagePeople,
+    admin: Admin,
+    idempotency: Idempotency,
+    note: Annotated[AuditNote, audited("invitation.sent", object_type="invitation")],
+) -> Response:
+    """Keycloak sends the set-password e-mail from the tenant's sender, in the person's language."""
+    del subject
+    note.skip = True
+
+    async def operation() -> Created:
+        view = await invitations.invite(session, request.app.state.settings, admin, body.user_id)
+        note.skip = False
+        note.object_id = str(view.id)
+        note.details = {"user_id": str(view.user_id), "delivery": view.delivery}
+        return Created(_invitation_out(view), {"ETag": f'"{view.version}"'})
+
+    return await idempotency.run(body, operation)
+
+
+@router.post(
+    "/invitations/{invitation_id}/resend",
+    summary="Send an invitation again",
+    dependencies=[
+        audited("invitation.resent", object_type="invitation", object_param="invitation_id")
+    ],
+)
+async def resend_invitation(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    invitation_id: uuid.UUID,
+    version: ExpectedVersion,
+    request: Request,
+    response: Response,
+    session: TenantSession,
+    subject: ManagePeople,
+    admin: Admin,
+) -> InvitationOut:
+    """A new e-mail and a new expiry."""
+    del subject
+    view = await invitations.resend(
+        session, request.app.state.settings, admin, invitation_id, expected_version=version
+    )
+    set_etag(response, view.version)
+    return _invitation_out(view)
+
+
+@router.post(
+    "/invitations/{invitation_id}/revoke",
+    summary="Revoke an invitation",
+    dependencies=[
+        audited("invitation.revoked", object_type="invitation", object_param="invitation_id")
+    ],
+)
+async def revoke_invitation(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    invitation_id: uuid.UUID,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: ManagePeople,
+    admin: Admin,
+) -> InvitationOut:
+    """Its link stops working at once (REQ-SEC-020 AC2)."""
+    del subject
+    view = await invitations.revoke(session, admin, invitation_id, expected_version=version)
+    set_etag(response, view.version)
+    return _invitation_out(view)
+
+
+@router.post(
+    "/people/{user_id}/require-new-password",
+    summary="Require a new password at the next sign-in",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("user.password_reset_forced", object_type="user", object_param="user_id")
+    ],
+)
+async def require_new_password(
+    user_id: uuid.UUID,
+    request: Request,
+    session: TenantSession,
+    subject: ManagePeople,
+    admin: Admin,
+) -> Response:
+    """The person sets a new password at their next sign-in; their sessions end now (SEC-006)."""
+    person = await password_reset.signed_in_subject(session, user_id)
+    await password_reset.force_reset(admin, person)
+    auth = getattr(request.app.state, "auth", None)
+    if auth is not None:
+        await auth.end_sessions(subject.tenant_id, user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

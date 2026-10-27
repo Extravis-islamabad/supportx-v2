@@ -122,6 +122,8 @@ spec:
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-portal-secret}}
             - {name: SUPPORTX_KC_CONSOLE_ORIGIN, value: {{ .Values.publicUrl | quote }}}
             - {name: SUPPORTX_KC_PORTAL_ORIGIN, value: {{ .Values.publicUrl | quote }}}
+            # "Forgot password?" on the sign-in page: the portal's reset page (WP-039, D-099).
+            - {name: SUPPORTX_PASSWORD_RESET_URL, value: {{ printf "%s/portal/password-reset" (.Values.publicUrl | trimSuffix "/") | quote }}}
           ports:
             - {name: http, containerPort: 8080}
             - {name: management, containerPort: 9000}

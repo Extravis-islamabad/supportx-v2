@@ -126,6 +126,8 @@ class IdentityAdmin(Protocol):
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
 
+    async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
+
     async def login_events(  # noqa: D102
         self, types: list[str], since_ms: int, user_id: str | None = None
     ) -> list[LoginEvent]: ...
@@ -419,6 +421,15 @@ class KeycloakAdmin:
             return
         wanted = sorted({*(current.get("requiredActions") or []), *actions})
         await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": wanted})
+
+    async def member_tenants(self, user_id: str) -> list[str]:
+        """The tenant IDs of the organizations the user is a member of."""
+        found = await self._json("GET", f"/organizations/members/{user_id}/organizations") or []
+        tenants: list[str] = []
+        for brief in found:
+            item = await self._json("GET", f"/organizations/{brief['id']}", missing_ok=True) or {}
+            tenants += (item.get("attributes") or {}).get("tenant_id") or []
+        return tenants
 
     async def login_events(
         self, types: list[str], since_ms: int, user_id: str | None = None
