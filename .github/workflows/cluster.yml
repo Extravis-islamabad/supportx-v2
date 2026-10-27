@@ -45,18 +45,18 @@ jobs:
         run: |
           {
             echo "### Image sizes (uncompressed, linux/amd64)"
-            docker image ls --format '| {{.Repository}}:{{.Tag}} | {{.Size}} |' | grep -E 'supportx-(backend|web)'
+            docker image ls --format '| {{.Repository}}:{{.Tag}} | {{.Size}} |' | grep -E 'supportx-(backend|worker|web)'
           } >> "$GITHUB_STEP_SUMMARY"
       - name: Trivy - report every finding
         run: |
-          for image in supportx-backend:dev supportx-web:dev; do
+          for image in supportx-backend:dev supportx-worker:dev supportx-web:dev; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
               -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
               image --scanners vuln,secret --exit-code 0 "$image"
           done
       - name: Trivy - fail on high/critical with a fix available
         run: |
-          for image in supportx-backend:dev supportx-web:dev; do
+          for image in supportx-backend:dev supportx-worker:dev supportx-web:dev; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
               -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
               image --scanners vuln,secret --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 "$image"
@@ -64,7 +64,7 @@ jobs:
       - name: SBOM (CycloneDX)
         run: |
           mkdir -p sbom
-          for image in supportx-backend supportx-web; do
+          for image in supportx-backend supportx-worker supportx-web; do
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
               -v "$HOME/.cache/trivy:/root/.cache/trivy" -v "$PWD/sbom:/sbom" "$TRIVY_IMAGE" \
               image --format cyclonedx --output "/sbom/$image.cdx.json" "$image:dev"

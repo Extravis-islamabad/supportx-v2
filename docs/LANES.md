@@ -9,7 +9,7 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 |---|---|---|---|---|---|---|
 | A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-021-FIX, then WP-029 | `fix/wp-021-qa` (then `feat/wp-029-rules`) | main folder (`supportx-v2`) | 0025 (WP-029) | D-096, D-097; ADR-034 |
 | B | Identity, mail, notifications | WP-039 (session 1 PR, then session 2) | `feat/wp-039-identity` | `../supportx-v2-wp039` | 0024, 0026 | D-098, D-099 |
-| C | Reports and dashboards | WP-035: session 1 merged (#73); session 2 viewer (#77); next session 3 export, session 4 scheduling | `feat/wp-035-viewer` | `../supportx-v2-lanec2` (also `../supportx-v2-lanec`) | 0027 (merged) | D-100, D-101; ADR-033, ADR-034 |
+| C | Reports and dashboards | WP-035: sessions 1-2 merged (#73, #77); session 3 export (this PR); next session 4 scheduling | `feat/wp-035-export` | `../supportx-v2-lanec2` (also `../supportx-v2-lanec`) | 0027 (merged), 0029 | D-100, D-101; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
 

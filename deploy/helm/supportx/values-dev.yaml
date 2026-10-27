@@ -4,6 +4,7 @@ publicUrl: http://supportx.localhost:8080
 
 images:
   backend: {repository: supportx-backend, tag: dev, pullPolicy: Never}
+  worker: {repository: supportx-worker, tag: dev, pullPolicy: Never}
   web: {repository: supportx-web, tag: dev, pullPolicy: Never}
 
 app:

@@ -41,6 +41,25 @@ async def _report_changed(envelope: EventEnvelope, session: AsyncSession) -> Rea
     return RealtimeEffects(publications=[own, shared] if moved else [own])
 
 
+EXPORT_FINISHED = "reports.export_finished"
+
+
+async def _export_finished(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Only the person who asked hears that their file is ready (or why it failed)."""
+    del session
+    payload = envelope.payload
+    owner = uuid.UUID(str(payload["requested_by"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, owner),
+                EXPORT_FINISHED,
+                ids=(str(payload["export_id"]),),
+            )
+        ]
+    )
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -50,5 +69,6 @@ ROUTES = [
             "analytics.report_folder.deleted",
         ),
         _report_changed,
-    )
+    ),
+    RealtimeRoute(("analytics.report_export.finished",), _export_finished),
 ]
