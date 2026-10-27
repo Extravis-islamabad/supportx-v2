@@ -1,4 +1,4 @@
-# ADR-033: Identity administration through Keycloak's admin API
+# ADR-036: Identity administration through Keycloak's admin API
 
 - **Status:** Accepted (WP-039; D-089, D-094)
 - **Date:** 2026-10-27

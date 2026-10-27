@@ -1,4 +1,4 @@
-"""Sign-in settings and single sign-on per tenant (WP-039 session 1; ADR-033; D-089, D-094).
+"""Sign-in settings and single sign-on per tenant (WP-039 session 1; ADR-036; D-089, D-094).
 
 - identity_settings (new): per tenant, the console and portal session timeouts (REQ-SEC-029,
   Appendix A defaults and caps) and whether a first sign-in creates the person (REQ-SEC-013).

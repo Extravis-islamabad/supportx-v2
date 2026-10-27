@@ -263,7 +263,7 @@ keycloak:
   # Upgrade step (D-078, branding.md): a Job per revision gives the realm the SupportX login
   # theme when it has none. A theme someone chose (incl. a tenant's own) is never overwritten.
   setLoginTheme: true
-  # Upgrade step (WP-039, ADR-033): a Job per revision makes sure the `supportx-identity`
+  # Upgrade step (WP-039, ADR-036): a Job per revision makes sure the `supportx-identity`
   # service account (least-privileged admin roles) exists with the secret
   # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's.
   setUpIdentityAdmin: true

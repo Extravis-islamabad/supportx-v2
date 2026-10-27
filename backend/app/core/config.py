@@ -78,7 +78,7 @@ class Settings(BaseSettings):
     oidc_portal_client_id: str = "supportx-portal"
     oidc_portal_client_secret: SecretStr | None = None
     oidc_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
-    # Identity administration (WP-039, ADR-033): the service account SupportX manages SSO,
+    # Identity administration (WP-039, ADR-036): the service account SupportX manages SSO,
     # sessions and MFA with through Keycloak's admin API (tooling/keycloak_identity.py sets it up).
     # The admin API is reached on the same base as the back channel. None = not set up: identity
     # settings that need Keycloak answer `identity_admin_not_configured`.

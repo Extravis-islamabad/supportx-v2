@@ -52,7 +52,7 @@ jobs:
         run: make dev-up
       - name: dev-check
         run: make dev-check
-      # The service account SupportX manages SSO and sessions with (WP-039, ADR-033).
+      # The service account SupportX manages SSO and sessions with (WP-039, ADR-036).
       - name: Keycloak identity service account
         run: make keycloak-identity
       # The files journey scans with the real ClamAV (D-082 D9). Signatures are cached for a week:

@@ -6,7 +6,7 @@
   (WP-014 = part 1 of 4; 014b-d are planned below).
 - **Last completed:** WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
   2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
-  Lane B: WP-017-FIX (D-093, ADR-031 accepted, merged); WP-039 session 1 of 3 (D-094, ADR-033).
+  Lane B: WP-017-FIX (D-093, ADR-031 accepted, merged); WP-039 session 1 of 3 (D-094, ADR-036).
 - **Next work package:** WP-021 QA (~/Desktop/qa-wp021/), then WP-029 (business rules,
   routing; needs WP-026) on the critical path; WP-020d..020f, WP-022..028.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
@@ -530,7 +530,7 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   AC2) needs WP-039 SSO.
 - **Depends on:** WP-010, WP-014, WP-016
 
-### [ ] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-033; session 1 of 3 done 2026-10-27)
+### [ ] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-036; session 1 of 3 done 2026-10-27)
 Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
 - [x] Session 1 — foundations and SSO:
   - service account `supportx-identity` (least privilege, verified on 26.8.1) and its upgrade
@@ -762,7 +762,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 ### 2026-10-27 — WP-039 session 1: service account, sessions, single sign-on (lane B)
 
 - Built in `../supportx-v2-wp039` (branch `feat/wp-039-identity`), migration 0024 after lane
-  A's 0023, D-094 and ADR-033 (numbers agreed with lane A).
+  A's 0023, D-094 and ADR-036 (numbers agreed with lane A).
 - Proved on a throwaway Keycloak 26.8.1 before building: the least-privileged roles; that
   organization domain routing moved onto the organization's domains in 26.8 (the old
   `kc.org.*` provider settings are dropped); that Keycloak refuses a second person in a browser
@@ -787,7 +787,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   throwaway Keycloak 26.8.1 (name shown, markup escaped, axe clean in four variants).
 - Housekeeping with lane A's OK: the 8 QA uploads purged (files service purge, audited
   `file.purged`), the shared Keycloak container recreated (`--no-deps keycloak`). Numbers agreed:
-  D-093/D-094, ADR-033 and migration 0024 for lane B; D-095 for lane A.
+  D-093/D-094, ADR-036 and migration 0024 for lane B; D-095 for lane A.
 
 ### 2026-10-27 — WP-026-FIX merged; WP-021 people and organisation (lane A)
 

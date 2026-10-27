@@ -1,4 +1,4 @@
-"""Integration: the identity service account against a REAL Keycloak (WP-039, ADR-033).
+"""Integration: the identity service account against a REAL Keycloak (WP-039, ADR-036).
 
 Uses the dev stack's Keycloak after `make keycloak-identity` (CI: stack-smoke), or another one
 given by SUPPORTX_TEST_KEYCLOAK_URL and SUPPORTX_TEST_KEYCLOAK_IDENTITY_SECRET. Skipped when the

@@ -1,4 +1,4 @@
-"""Keycloak's admin API, as SupportX's identity service account (WP-039, ADR-033).
+"""Keycloak's admin API, as SupportX's identity service account (WP-039, ADR-036).
 
 Signs in with client credentials as `supportx-identity`, whose roles are only those
 `tooling/keycloak_identity.py` grants (people, identity providers, organizations, reading login

@@ -1,4 +1,4 @@
-"""Sign-in settings and single sign-on over HTTP (WP-039 session 1; ADR-033; D-094).
+"""Sign-in settings and single sign-on over HTTP (WP-039 session 1; ADR-036; D-094).
 
 Real PostgreSQL (throwaway database, RLS on); the session is faked by headers as in the other API
 tests, Keycloak's admin API by `FakeAdmin` (the real one is proved in

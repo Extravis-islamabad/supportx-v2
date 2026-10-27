@@ -3174,7 +3174,7 @@ spec:
 
 ---
 # Source: supportx/templates/keycloak-identity-job.yaml
-# Upgrade step (WP-039, ADR-033, docs/architecture/identity.md): one Job per Helm revision makes
+# Upgrade step (WP-039, ADR-036, docs/architecture/identity.md): one Job per Helm revision makes
 # sure the `supportx-identity` service account exists with exactly its least-privileged admin
 # roles and the secret `keycloak-identity-secret`, login events are recorded, and the realm's SSO
 # session is at least SupportX's longest (tooling/keycloak_identity.py). Idempotent; it retries

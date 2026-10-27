@@ -1,6 +1,6 @@
 # Identity: sign-in settings and single sign-on
 
-WP-039 (REQ-SEC-007, 008, 013, 017, 029, 031), ADR-033, D-089, D-094. Session 1 of 3: the
+WP-039 (REQ-SEC-007, 008, 013, 017, 029, 031), ADR-036, D-089, D-094. Session 1 of 3: the
 Keycloak service account, sessions per tenant, people creation, single sign-on. Passwords,
 invitations, resets and mail come in session 2; MFA and "my account" in session 3.
 
@@ -67,7 +67,7 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
 
 ### Security notes
 
-- The service account can manage every user of the realm: tenant scoping is SupportX's (ADR-033
+- The service account can manage every user of the realm: tenant scoping is SupportX's (ADR-036
   item 2), tested in `tests/db/test_identity_api.py`.
 - Existing Keycloak accounts are linked only through Keycloak's default flow (confirm, then
   prove the account). Automatic linking is never configured: in a shared realm one tenant's

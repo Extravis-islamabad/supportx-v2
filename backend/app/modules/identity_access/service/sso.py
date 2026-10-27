@@ -1,4 +1,4 @@
-"""Single sign-on set-ups of a tenant (WP-039; REQ-SEC-007, REQ-SEC-008; ADR-033, D-094).
+"""Single sign-on set-ups of a tenant (WP-039; REQ-SEC-007, REQ-SEC-008; ADR-036, D-094).
 
 Life cycle: **draft** (saved: Keycloak has the provider, hidden, linked to the tenant's
 organization) → **tested** (an admin signed in through it, service/sso_test.py) → **on** (on the

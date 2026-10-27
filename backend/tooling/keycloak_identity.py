@@ -1,6 +1,6 @@
 """`python -m tooling.keycloak_identity`: the service account SupportX manages identity with.
 
-WP-039 (D-089 D7, D-094, ADR-033): tenant admins set up single sign-on, sessions and (later)
+WP-039 (D-089 D7, D-094, ADR-036): tenant admins set up single sign-on, sessions and (later)
 MFA and passwords in SupportX screens; SupportX carries them out through Keycloak's admin API as
 the confidential client `supportx-identity` (client credentials only, no browser flow). This step
 makes the realm ready for that, on fresh and upgraded installations alike:
