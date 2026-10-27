@@ -65,7 +65,6 @@ RESERVED_PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec("cmdb.manage", "cmdb"),
     PermissionSpec("knowledge.view", "knowledge"),
     PermissionSpec("knowledge.manage", "knowledge", ("all", "group")),
-    PermissionSpec("reports.view", None, NOT_OWN),
 )
 
 # Permissions that make the console's Admin area visible (any one of them).
@@ -108,7 +107,6 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("cmdb.view", "all"),
             ("knowledge.view", "all"),
             ("knowledge.manage", "group"),
-            ("reports.view", "all"),
         ),
         REQUESTER: (
             ("profile.edit", "own"),
