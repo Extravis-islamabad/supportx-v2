@@ -20,11 +20,11 @@ pytestmark = pytest.mark.pdf
 
 
 def _pdf_module() -> ModuleType:
-    try:
-        from app.modules.analytics.infra import pdf  # noqa: PLC0415 - optional dependency
-    except (ImportError, OSError) as error:
+    from app.modules.analytics.infra import pdf  # noqa: PLC0415 - loads anywhere; renders where it can
+
+    if not pdf.available():
         if os.environ.get("SUPPORTX_REQUIRE_PDF_TESTS") == "1":
-            pytest.fail(f"PDF tests are required here but WeasyPrint cannot load: {error}")
+            pytest.fail("PDF tests are required here but WeasyPrint or Pango cannot load")
         pytest.skip("WeasyPrint/Pango not installed (uv sync --group pdf)")
     return pdf
 
@@ -79,7 +79,7 @@ def test_req_dsh_046_arabic_pdf_is_shaped_right_to_left_with_the_bundled_font() 
 
 def test_d100_the_fetcher_serves_only_the_bundled_fonts() -> None:
     pdf = _pdf_module()
-    fetcher = pdf.ReportFetcher()
+    fetcher = pdf.report_fetcher()
     for url in (
         "http://169.254.169.254/latest/meta-data/",  # cloud metadata
         "http://127.0.0.1:8000/api/v1/users",  # the API itself
@@ -100,7 +100,7 @@ def test_d100_report_content_never_makes_the_pdf_fetch_anything() -> None:
         '<img src="http://169.254.169.254/x"><link rel=stylesheet href="http://10.0.0.1/s.css">'
         "<style>@import url(http://127.0.0.1:1/x.css);</style>"
     )
-    fetcher = pdf.ReportFetcher()
+    fetcher = pdf.report_fetcher()
     data = pdf.render_pdf(_input(rtl=False, title=hostile), fetcher)
     assert fetcher.refused == []  # escaped text: nothing even asked for
     assert "169.254.169.254" in _text(data)  # shown as text, harmlessly
@@ -110,7 +110,7 @@ def test_d100_a_url_in_markup_is_refused_by_the_fetcher_not_fetched() -> None:
     pdf = _pdf_module()
     from weasyprint import HTML  # noqa: PLC0415 - optional dependency
 
-    fetcher = pdf.ReportFetcher()
+    fetcher = pdf.report_fetcher()
     HTML(
         string='<img src="http://169.254.169.254/x"><img src="file:///etc/hosts">',
         url_fetcher=fetcher,

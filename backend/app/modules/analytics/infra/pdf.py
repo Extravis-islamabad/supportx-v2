@@ -1,8 +1,9 @@
 """PDF exports with WeasyPrint (REQ-RPT-058, REQ-DSH-046; D-100 D8).
 
-Only the worker image installs WeasyPrint (dependency group `pdf`); the API never imports this
-module. Arabic and Urdu are shaped by Pango/HarfBuzz and laid out right to left with the bundled
-Noto fonts.
+Only the worker image installs WeasyPrint (dependency group `pdf`). This module imports it only
+inside the functions that render, so it loads anywhere (the API image, test discovery) and
+`available()` says whether this process can render. Arabic and Urdu are shaped by
+Pango/HarfBuzz and laid out right to left with the bundled Noto fonts.
 
 D-100 D8 conditions:
 - The URL fetcher refuses everything except the bundled fonts: no network, no other file path.
@@ -12,13 +13,11 @@ D-100 D8 conditions:
 """
 
 import datetime as dt
+from functools import cache
 from html import escape
 from pathlib import Path
 from typing import Any
 from urllib.request import url2pathname
-
-from weasyprint import HTML
-from weasyprint.urls import URLFetcher, URLFetcherResponse
 
 from app.modules.analytics.domain.tables import CellKind, Column, PdfInput, Value
 from app.modules.analytics.infra.svgchart import chart_svg
@@ -37,25 +36,52 @@ class RefusedURL(ValueError):
     """A resource the PDF may not load."""
 
 
-class ReportFetcher(URLFetcher):  # type: ignore[misc]  # untyped base class
-    """Serves the bundled fonts; refuses every other URL (D-100 D8)."""
+def bundled_font(url: str) -> Path | None:
+    """The bundled font a `file:` URL names, or None for anything else (D-100 D8)."""
+    if not url.startswith("file:"):
+        return None
+    path = Path(url2pathname(url.split("?", maxsplit=1)[0].removeprefix("file:"))).resolve()
+    return path if path.parent == FONTS and path.name in _FONT_FILES.values() else None
 
-    def __init__(self) -> None:
-        super().__init__(allowed_protocols=("file",), allow_redirects=False)
-        self.refused: list[str] = []
 
-    def fetch(self, url: str, headers: Any = None) -> Any:  # noqa: ANN401 - WeasyPrint's response type
-        """A bundled font file, or RefusedURL."""
-        del headers
-        if url.startswith("file:"):
-            path = Path(url2pathname(url.split("?", maxsplit=1)[0].removeprefix("file:"))).resolve()
-            if path.parent == FONTS and path.name in _FONT_FILES.values():
+def available() -> bool:
+    """Whether WeasyPrint and its Pango libraries load in this process (the worker image)."""
+    try:
+        import weasyprint  # noqa: F401, PLC0415 - probe only
+    except (ImportError, OSError):
+        return False
+    return True
+
+
+@cache
+def _fetcher_class() -> type:
+    from weasyprint.urls import URLFetcher, URLFetcherResponse  # noqa: PLC0415 - worker image only
+
+    class ReportFetcher(URLFetcher):  # type: ignore[misc]  # untyped base class
+        """Serves the bundled fonts; refuses every other URL (D-100 D8)."""
+
+        def __init__(self) -> None:
+            super().__init__(allowed_protocols=("file",), allow_redirects=False)
+            self.refused: list[str] = []
+
+        def fetch(self, url: str, headers: Any = None) -> Any:  # noqa: ANN401 - WeasyPrint's response type
+            """A bundled font file, or RefusedURL."""
+            del headers
+            font = bundled_font(url)
+            if font is not None:
                 return URLFetcherResponse(
-                    url, body=path.read_bytes(), headers={"Content-Type": "font/ttf"}
+                    url, body=font.read_bytes(), headers={"Content-Type": "font/ttf"}
                 )
-        self.refused.append(url)
-        msg = "resource refused"
-        raise RefusedURL(msg)
+            self.refused.append(url)
+            msg = "resource refused"
+            raise RefusedURL(msg)
+
+    return ReportFetcher
+
+
+def report_fetcher() -> Any:  # noqa: ANN401 - a WeasyPrint URLFetcher subclass instance
+    """A fresh fetcher that records what it refused (`.refused`)."""
+    return _fetcher_class()()
 
 
 def _font_faces() -> str:
@@ -155,11 +181,13 @@ figcaption {{ color: #595959; }}
     )
 
 
-def render_pdf(data: PdfInput, fetcher: ReportFetcher | None = None) -> bytes:
-    """The PDF bytes of `data`."""
+def render_pdf(data: PdfInput, fetcher: Any = None) -> bytes:  # noqa: ANN401 - see report_fetcher
+    """The PDF bytes of `data` (worker image only)."""
+    from weasyprint import HTML  # noqa: PLC0415 - worker image only
+
     pdf: bytes = HTML(
         string=report_html(data),
         base_url=FONTS.as_uri() + "/",
-        url_fetcher=fetcher or ReportFetcher(),
+        url_fetcher=fetcher or report_fetcher(),
     ).write_pdf()
     return pdf

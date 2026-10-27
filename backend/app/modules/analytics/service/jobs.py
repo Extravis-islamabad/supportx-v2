@@ -39,12 +39,10 @@ def set_pdf_renderer(renderer: PdfRenderer | None) -> None:
 
 def _pdf_renderer() -> PdfRenderer | None:
     if "pdf" not in _state:
-        try:  # only the worker image installs the `pdf` dependency group (D-100 D8)
-            from app.modules.analytics.infra.pdf import render_pdf  # noqa: PLC0415 - optional dependency
+        # Only the worker image installs the `pdf` dependency group (D-100 D8).
+        from app.modules.analytics.infra import pdf  # noqa: PLC0415 - loaded once, on first export
 
-            _state["pdf"] = render_pdf
-        except ImportError:
-            _state["pdf"] = None
+        _state["pdf"] = pdf.render_pdf if pdf.available() else None
     renderer: PdfRenderer | None = _state["pdf"]
     return renderer
 
