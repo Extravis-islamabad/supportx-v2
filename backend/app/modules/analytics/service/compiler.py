@@ -1,0 +1,253 @@
+"""Report definition + reporting source → one SELECT (architecture.md §6.10, ADR-033).
+
+The SELECT is the source's own scope-filtered list query with its columns replaced by groupings
+and aggregates, the report's filter added, and nothing removed. Every name in the definition is
+resolved against the source; user input becomes bound parameters through the filter DSL, never
+SQL text. PostgreSQL dialect only for now; ClickHouse comes as a second dialect at V1 (ADR-008).
+"""
+
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Any, NoReturn
+
+from sqlalchemy import (
+    BigInteger,
+    ColumnElement,
+    Float,
+    Select,
+    case,
+    cast,
+    func,
+    literal,
+    true,
+)
+
+from app.core.errors import FieldError, ValidationFailed
+from app.modules.analytics.domain.definition import (
+    AGE_BUCKETS,
+    DateBucket,
+    ReportDefinition,
+    ResultOrder,
+)
+from app.modules.analytics.domain.measures import MeasureKind, MeasureSpec, measures_of
+from app.shared.api.filters import FieldType, compile_filter
+from app.shared.reporting import Dimension, DimensionKind, ReportingSource
+
+
+@dataclass(frozen=True)
+class CompiledGroup:
+    """One grouping of the compiled query."""
+
+    field: str
+    dimension: Dimension
+    bucket: DateBucket | None
+
+
+@dataclass(frozen=True)
+class CompiledReport:
+    """What the runner executes and how to read its rows."""
+
+    grouped: Select[Any]  # one row per group: keys..., measures...
+    totals: Select[Any]  # one row: measures over every visible record
+    groups: tuple[CompiledGroup, ...]
+    measures: tuple[MeasureSpec, ...]
+
+
+def _invalid(field: str, code: str) -> NoReturn:
+    raise ValidationFailed(
+        code="invalid_report",
+        errors=[FieldError(field=field, code=code, message_key=f"errors.field.{code}")],
+    )
+
+
+def _filter_fields(tree: Any) -> list[str]:  # noqa: ANN401 - filter DSL JSON tree
+    if isinstance(tree, dict):
+        if "field" in tree:
+            return [str(tree["field"])]
+        nodes = tree.get("and") or tree.get("or") or []
+        return [name for node in nodes for name in _filter_fields(node)]
+    return []
+
+
+def available_measures(source: ReportingSource) -> dict[str, MeasureSpec]:
+    """Standard measures whose fields this source offers (others wait for their module's data)."""
+    out: dict[str, MeasureSpec] = {}
+    for code, spec in measures_of(source.entity).items():
+        names = [n for n in (spec.field, spec.start, spec.end, spec.minus) if n is not None]
+        names += _filter_fields(spec.where)
+        if all(source.fields.get(n) is not None for n in names):
+            out[code] = spec
+    return out
+
+
+def _aged(column: Any, now: datetime) -> ColumnElement[Any]:  # noqa: ANN401 - SQLAlchemy column
+    # Index into AGE_BUCKETS (0 = youngest), so the natural order is the age order.
+    whens = [
+        (column > now - timedelta(days=high), index)
+        for index, (_code, _low, high) in enumerate(AGE_BUCKETS)
+        if high is not None
+    ]
+    return case(*whens, else_=len(AGE_BUCKETS) - 1)
+
+
+def _bucketed(column: Any, bucket: DateBucket, zone: str) -> ColumnElement[Any]:  # noqa: ANN401 - SQLAlchemy column
+    # The day, week... of the viewer's zone: `timezone(zone, t)` turns the UTC instant into the
+    # zone's wall-clock time, which date_trunc then cuts (REQ-DSH-044 AC1, AC3). Weeks start on
+    # Monday (PostgreSQL); the Sunday start for Arabic tenants (Appendix A) is a tenant setting
+    # that arrives with the report viewer.
+    return func.date_trunc(bucket.value, func.timezone(zone, column))
+
+
+def _column(source: ReportingSource, name: str | None, path: str) -> Any:  # noqa: ANN401 - SQLAlchemy column
+    field = source.fields.get(name or "")
+    if field is None:  # available_measures() keeps these out; a guard for programming errors
+        _invalid(path, "measure_not_available")
+    return field.column
+
+
+def _measure_sql(
+    spec: MeasureSpec, source: ReportingSource, now: datetime, path: str
+) -> ColumnElement[Any]:
+    if spec.kind in {MeasureKind.COUNT_WHERE, MeasureKind.RATE}:
+        matched = func.count().filter(
+            compile_filter(spec.where, source.fields, now=now, path=f"{path}.where")
+        )
+        if spec.kind == MeasureKind.COUNT_WHERE:
+            return matched
+        return case((func.count() == 0, None), else_=100.0 * cast(matched, Float) / func.count())
+    if spec.kind == MeasureKind.AVERAGE:
+        return func.avg(_column(source, spec.field, path))
+    if spec.kind == MeasureKind.TOTAL:
+        return func.sum(_column(source, spec.field, path))
+    if spec.kind == MeasureKind.AVERAGE_DURATION:
+        end = _column(source, spec.end, path)
+        seconds: ColumnElement[Any] = func.extract("epoch", end - _column(source, spec.start, path))
+        if spec.minus is not None:
+            minus = _column(source, spec.minus, path)
+            seconds = seconds - func.coalesce(minus, literal(0, BigInteger))
+        return func.avg(seconds).filter(end.is_not(None))
+    return func.count()
+
+
+def _groups(definition: ReportDefinition, source: ReportingSource) -> list[CompiledGroup]:
+    groups: list[CompiledGroup] = []
+    seen: set[str] = set()
+    for index, group in enumerate(definition.group_by):
+        path = f"group_by[{index}]"
+        field = source.fields.get(group.field)
+        dimension = source.dimensions.get(group.field)
+        if field is None or dimension is None:
+            _invalid(f"{path}.field", "unknown_dimension")
+        if group.field in seen:
+            _invalid(f"{path}.field", "duplicate_dimension")
+        seen.add(group.field)
+        if field.array:
+            # Multiple choice counts a record once per chosen value; grouping by it needs the
+            # report to say so on screen. Not at MVP (REQ-RPT-013 covers single choice).
+            _invalid(f"{path}.field", "dimension_not_groupable")
+        is_date = dimension.kind == DimensionKind.DATETIME or field.type in {
+            FieldType.DATETIME,
+            FieldType.DATE,
+        }
+        if is_date and group.bucket is None:
+            _invalid(f"{path}.bucket", "bucket_required")
+        if not is_date and group.bucket is not None:
+            _invalid(f"{path}.bucket", "bucket_not_allowed")
+        groups.append(CompiledGroup(group.field, dimension, group.bucket))
+    return groups
+
+
+def compile_report(
+    definition: ReportDefinition, source: ReportingSource, *, now: datetime, zone: str
+) -> CompiledReport:
+    """Validate `definition` against `source` and build its queries (422 invalid_report)."""
+    if definition.entity != source.entity:  # the caller picked the source by entity
+        _invalid("entity", "unknown_entity")
+    measures_available = available_measures(source)
+    specs: list[MeasureSpec] = []
+    for index, code in enumerate(definition.measures):
+        spec = measures_available.get(code)
+        if spec is None:
+            _invalid(f"measures[{index}]", "unknown_measure")
+        specs.append(spec)
+    if len(set(definition.measures)) != len(definition.measures):
+        _invalid("measures", "duplicate_measure")
+    groups = _groups(definition, source)
+
+    where = (
+        compile_filter(definition.filter_json(), source.fields, now=now)
+        if definition.filter is not None
+        else true()
+    )
+    keys: list[ColumnElement[Any]] = []
+    for index, group in enumerate(groups):
+        column = source.fields.fields[group.field].column
+        if group.bucket == DateBucket.AGE:
+            expression = _aged(column, now)
+        elif group.bucket is not None:
+            expression = _bucketed(column, group.bucket, zone)
+        else:
+            expression = column
+        keys.append(expression.label(f"k{index}"))
+    values = [
+        _measure_sql(spec, source, now, f"measures[{i}]").label(f"m{i}")
+        for i, spec in enumerate(specs)
+    ]
+    base = source.rows.where(where)
+    totals = base.with_only_columns(*values, maintain_column_froms=True)
+    grouped = totals
+    if keys:
+        grouped = base.with_only_columns(*keys, *values, maintain_column_froms=True).group_by(
+            *[k.element for k in keys]
+        )
+        grouped = grouped.order_by(*_order(definition.order, keys, values))
+        limit = definition.limit
+        if limit is not None:
+            grouped = grouped.limit(limit + 1)  # one extra row tells the caller it was cut
+    return CompiledReport(grouped, totals, tuple(groups), tuple(specs))
+
+
+def _order(
+    order: ResultOrder, keys: Sequence[ColumnElement[Any]], values: Sequence[ColumnElement[Any]]
+) -> list[ColumnElement[Any]]:
+    natural: list[ColumnElement[Any]] = [k.asc().nulls_last() for k in keys]
+    if order == ResultOrder.KEY:
+        return natural
+    first = values[0]
+    by_value = first.desc().nulls_last() if order == ResultOrder.VALUE_DESC else first.asc()
+    return [by_value, *natural]
+
+
+def drill_filter(
+    definition: ReportDefinition,
+    groups: Sequence[CompiledGroup],
+    keys: Sequence[Any],
+    *,
+    bucket_bounds: Mapping[int, tuple[str, str]],
+) -> Any:  # noqa: ANN401 - filter DSL JSON tree
+    """The list filter behind one row (REQ-RPT-037): the report's filter AND each group's value.
+
+    Opening the entity's list with it shows exactly the records counted in that row, because the
+    list applies the same scope and the same DSL. `bucket_bounds[i]` is the [from, to) of a date
+    bucket as ISO instants.
+    """
+    parts: list[Any] = []
+    if definition.filter is not None:
+        parts.append(definition.filter_json())
+    for index, (group, key) in enumerate(zip(groups, keys, strict=True)):
+        if group.bucket is not None:
+            low, high = bucket_bounds[index]
+            parts.extend(
+                [
+                    {"field": group.field, "op": "gte", "value": low},
+                    {"field": group.field, "op": "lt", "value": high},
+                ]
+            )
+        elif key is None:
+            parts.append({"field": group.field, "op": "is_null"})
+        else:
+            parts.append({"field": group.field, "op": "eq", "value": key})
+    if not parts:
+        return None
+    return parts[0] if len(parts) == 1 else {"and": parts}

@@ -2303,6 +2303,149 @@ export const en = {
   'access_settings.banner':
     "Until you choose, technicians see their own groups' records, their own, and new unassigned ones at their sites.",
   'access_settings.choose': 'Choose',
+  // Reports (WP-035)
+  'report_chart.bar': 'Bar',
+  'report_chart.stacked_bar': 'Stacked bar',
+  'report_chart.line': 'Line',
+  'report_chart.area': 'Area',
+  'report_chart.doughnut': 'Doughnut',
+  'report_chart.gauge': 'Gauge',
+  'report_chart.kpi': 'Key figure',
+  'report_chart.table': 'Table',
+  'report_bucket.day': 'By day',
+  'report_bucket.week': 'By week',
+  'report_bucket.month': 'By month',
+  'report_bucket.quarter': 'By quarter',
+  'report_bucket.year': 'By year',
+  'report_bucket.age': 'By age',
+  'report_order.key': 'In natural order',
+  'report_order.value_desc': 'Largest first',
+  'report_order.value_asc': 'Smallest first',
+  'errors.invalid_report': 'This report cannot run as it is. Check the highlighted parts.',
+  'errors.report_timeout':
+    'The report took longer than {{seconds}} seconds and was stopped. Narrow the date range or the filters and try again.',
+  'errors.report_queue_full':
+    'Your organisation is running many reports right now. Please try again in a few seconds.',
+  'errors.report_not_found': 'This report does not exist or is not shared with you.',
+  'errors.report_entity_not_found': 'There is nothing of this kind to report on.',
+  'errors.report_not_allowed': 'You do not have permission to run reports on these records.',
+  'errors.report_not_editable':
+    'Only the owner, or someone who manages shared folders, can change this report. Copy it to make your own.',
+  'errors.too_many_favourites': 'You can star up to {{max}} reports.',
+  'errors.field.unknown_dimension': 'Reports cannot be grouped by this field.',
+  'errors.field.duplicate_dimension': 'This grouping is already used.',
+  'errors.field.dimension_not_groupable':
+    'Fields with several choices cannot be used for grouping yet.',
+  'errors.field.bucket_required':
+    'Choose how to group the dates: by day, week, month, quarter, year or age.',
+  'errors.field.bucket_not_allowed': 'Only date fields can be grouped by day, week or month.',
+  'errors.field.unknown_measure': 'This measure is not available for these records.',
+  'errors.field.duplicate_measure': 'Each measure can be used once.',
+  'errors.field.measure_not_available': 'This measure is not available yet.',
+  'errors.field.unknown_entity': 'There is nothing of this kind to report on.',
+  'errors.field.unknown_folder': 'This folder does not exist any more.',
+  'errors.field.unknown_builtin_report': 'This built-in report does not exist.',
+  'errors.field.same_folder': 'Choose a different folder for its reports.',
+  'permission.reports.create': 'Create reports',
+  'permission.reports.create.description':
+    'Save reports and copies of built-in reports, and change their own.',
+  'permission.reports.manage_folders': 'Manage shared report folders',
+  'permission.reports.manage_folders.description':
+    'Create, rename and delete shared folders, and change any report in them.',
+  'event_type.analytics.report.saved': 'Report saved',
+  'event_type.analytics.report.deleted': 'Report deleted',
+  'event_type.analytics.report_folder.saved': 'Report folder saved',
+  'event_type.analytics.report_folder.deleted': 'Report folder deleted',
+  'report_folder.incidents': 'Incidents',
+  'age_bucket.under_1_day': 'Under 1 day',
+  'age_bucket.1_to_3_days': '1 to 3 days',
+  'age_bucket.3_to_7_days': '3 to 7 days',
+  'age_bucket.7_to_30_days': '7 to 30 days',
+  'age_bucket.over_30_days': 'Over 30 days',
+  'measure.incident.count': 'Incidents',
+  'measure.incident.count.help': 'Every incident that matches the filters and that you may see.',
+  'measure.incident.open_count': 'Open incidents',
+  'measure.incident.open_count.help':
+    'Incidents that are open or waiting: not yet resolved, closed or canceled.',
+  'measure.incident.unassigned_open_count': 'Unassigned open incidents',
+  'measure.incident.unassigned_open_count.help':
+    'Open or waiting incidents with no group and no technician.',
+  'measure.incident.resolved_count': 'Resolved incidents',
+  'measure.incident.resolved_count.help':
+    'Incidents that have been resolved, including those closed since.',
+  'measure.incident.mean_time_to_assign': 'Mean time to assign',
+  'measure.incident.mean_time_to_assign.help':
+    'Average calendar time from creation to the first assignment, over incidents that have been assigned.',
+  'measure.incident.mean_time_to_respond': 'Mean time to respond',
+  'measure.incident.mean_time_to_respond.help':
+    'Average calendar time from creation to the first response, minus time spent waiting, over incidents that have a response.',
+  'measure.incident.mean_time_to_resolve': 'Mean time to resolve',
+  'measure.incident.mean_time_to_resolve.help':
+    'Average calendar time from creation to resolution, minus time spent waiting, over resolved incidents.',
+  'measure.incident.reopen_rate': 'Reopen rate',
+  'measure.incident.reopen_rate.help': 'Share of incidents reopened at least once.',
+  'measure.incident.reassigned_count': 'Reassigned incidents',
+  'measure.incident.reassigned_count.help':
+    'Incidents moved to another group or technician at least once.',
+  'measure.incident.average_reassignments': 'Average reassignments',
+  'measure.incident.average_reassignments.help':
+    'Average number of times an incident moved to another group or technician.',
+  'report.incidents_all': 'All incidents',
+  'report.incidents_all.description': 'Every incident created in the period, by status.',
+  'report.incidents_by_status': 'Incidents by status',
+  'report.incidents_by_status.description':
+    'Incidents created in the period, by their current status.',
+  'report.incidents_open_by_status': 'Open incidents by status',
+  'report.incidents_open_by_status.description':
+    'Incidents not yet resolved, closed or canceled, by status.',
+  'report.incidents_open_by_priority': 'Open incidents by priority',
+  'report.incidents_open_by_priority.description': 'Open and waiting incidents, by priority.',
+  'report.incidents_open_by_category': 'Open incidents by category',
+  'report.incidents_open_by_category.description': 'Open and waiting incidents, by category.',
+  'report.incidents_open_by_group': 'Open incidents by group',
+  'report.incidents_open_by_group.description': 'Open and waiting incidents, by support group.',
+  'report.incidents_open_by_technician': 'Open incidents by technician',
+  'report.incidents_open_by_technician.description':
+    'Open and waiting incidents, by assigned technician.',
+  'report.incidents_open_by_site': 'Open incidents by site',
+  'report.incidents_open_by_site.description': 'Open and waiting incidents, by site.',
+  'report.incidents_open_by_department': 'Open incidents by department',
+  'report.incidents_open_by_department.description': 'Open and waiting incidents, by department.',
+  'report.incidents_open_by_requester': 'Open incidents by requester',
+  'report.incidents_open_by_requester.description': 'Open and waiting incidents, by requester.',
+  'report.incidents_open_by_channel': 'Open incidents by channel',
+  'report.incidents_open_by_channel.description':
+    'Open and waiting incidents, by how they arrived.',
+  'report.incidents_open_by_level': 'Open incidents by level',
+  'report.incidents_open_by_level.description': 'Open and waiting incidents, by support level.',
+  'report.incidents_received_per_day': 'Incidents received per day',
+  'report.incidents_received_per_day.description': 'New incidents each day.',
+  'report.incidents_received_per_week': 'Incidents received per week',
+  'report.incidents_received_per_week.description': 'New incidents each week, over six months.',
+  'report.incidents_received_per_month': 'Incidents received per month',
+  'report.incidents_received_per_month.description': 'New incidents each month, over a year.',
+  'report.incidents_resolved_per_day': 'Incidents resolved per day',
+  'report.incidents_resolved_per_day.description': 'Incidents resolved each day.',
+  'report.incidents_open_ageing': 'Ageing of open incidents',
+  'report.incidents_open_ageing.description': 'How long open and waiting incidents have been open.',
+  'report.incidents_unassigned_by_site': 'Unassigned incidents by site',
+  'report.incidents_unassigned_by_site.description':
+    'Open incidents with no group and no technician, by site: each site’s new-ticket queue.',
+  'report.incidents_reassignments_by_group': 'Reassignments by group',
+  'report.incidents_reassignments_by_group.description':
+    'How often incidents moved, by their current group.',
+  'report.incidents_reassignments_by_technician': 'Reassignments by technician',
+  'report.incidents_reassignments_by_technician.description':
+    'How often incidents moved, by their current technician.',
+  'report.incidents_response_time_by_group': 'Response time by group',
+  'report.incidents_response_time_by_group.description':
+    'Mean time to the first response, by group.',
+  'report.incidents_response_time_by_priority': 'Response time by priority',
+  'report.incidents_response_time_by_priority.description':
+    'Mean time to the first response, by priority.',
+  'report.incidents_resolution_time_by_priority': 'Resolution time by priority',
+  'report.incidents_resolution_time_by_priority.description':
+    'Mean time to resolve, by priority, for incidents resolved in the period.',
 } as const;
 
 export type LabelKey = keyof typeof en;

@@ -69,7 +69,6 @@ MATRIX = {
     "problems.manage": (True, True, False),
     "knowledge.view": (True, True, True),
     "knowledge.manage": (True, True, False),
-    "reports.view": (True, True, False),
 }
 
 

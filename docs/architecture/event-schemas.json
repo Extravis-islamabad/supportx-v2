@@ -140,6 +140,143 @@
     "type": "object"
   },
   "events": {
+    "analytics.report.deleted": {
+      "1": {
+        "description": "A saved report was deleted (soft).",
+        "properties": {
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "owner_id",
+          "folder_id"
+        ],
+        "title": "ReportDeleted",
+        "type": "object"
+      }
+    },
+    "analytics.report.saved": {
+      "1": {
+        "description": "A saved report was created or changed (`changed_fields` empty on create).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "report_id": {
+            "format": "uuid",
+            "title": "Report Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "report_id",
+          "owner_id",
+          "folder_id",
+          "created",
+          "changed_fields"
+        ],
+        "title": "ReportSaved",
+        "type": "object"
+      }
+    },
+    "analytics.report_folder.deleted": {
+      "1": {
+        "description": "A shared folder was deleted; its reports moved to `moved_to` (None: their owners' own).",
+        "properties": {
+          "folder_id": {
+            "format": "uuid",
+            "title": "Folder Id",
+            "type": "string"
+          },
+          "moved_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved To"
+          }
+        },
+        "required": [
+          "folder_id",
+          "moved_to"
+        ],
+        "title": "ReportFolderDeleted",
+        "type": "object"
+      }
+    },
+    "analytics.report_folder.saved": {
+      "1": {
+        "description": "A shared folder was created or renamed.",
+        "properties": {
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "folder_id": {
+            "format": "uuid",
+            "title": "Folder Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "folder_id",
+          "created"
+        ],
+        "title": "ReportFolderSaved",
+        "type": "object"
+      }
+    },
     "announcements.announcement.created": {
       "1": {
         "description": "A new announcement was saved (always as a draft).",
