@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { renameSuiteUser, USERS } from '../stack';
+import { USERS } from '../stack';
 import { deleteE2eRoles, signInAs } from './helpers';
 
 /**
@@ -23,27 +23,38 @@ async function csrf(page: Page): Promise<string> {
   return me.csrf_token;
 }
 
-test("users list: another user's change appears in the admin's list without a reload", async ({
+/** Set the suite user's last name in SupportX (People admin API) as `page`'s user. */
+async function setLastName(page: Page, email: string, lastName: string): Promise<void> {
+  const found = await page.request.get('/api/v1/users', { params: { q: email } });
+  const items = ((await found.json()) as { items: { id: string; version: number }[] }).items;
+  const person = items[0];
+  if (person === undefined) throw new Error(`${email} not found`);
+  const saved = await page.request.patch(`/api/v1/users/${person.id}/person`, {
+    data: { last_name: lastName },
+    headers: { 'X-CSRF-Token': await csrf(page), 'If-Match': `"${String(person.version)}"` },
+  });
+  expect(saved.status(), await saved.text()).toBe(200);
+}
+
+test("users list: another admin's change appears in the admin's list without a reload", async ({
   browser,
 }) => {
+  // Since D-092 SupportX owns the person record: the change is made by a second admin here,
+  // not synced from Keycloak at sign-in.
   const admin = await open(browser, 'admin', '/admin/users');
+  const other = await open(browser, 'admin', '/');
   const live = `E2E Live ${String(Date.now()).slice(-6)}`;
   try {
     await admin.page
       .getByRole('searchbox', { name: 'Search by name or email' })
       .fill('e2e.limited');
     await expect(admin.page.getByText('Lina E2E Limited')).toBeVisible();
-
-    // The user's name changes in Keycloak and syncs to SupportX at their next sign-in.
-    await renameSuiteUser('limited', live);
-    const user = await open(browser, 'limited', '/');
+    await setLastName(other.page, USERS.limited.email, live);
     await expect(admin.page.getByText(`Lina ${live}`)).toBeVisible(LIVE);
-    await user.context.close();
   } finally {
-    await renameSuiteUser('limited', USERS.limited.last);
-    const restore = await open(browser, 'limited', '/'); // syncs the name back
-    await restore.context.close();
+    await setLastName(other.page, USERS.limited.email, USERS.limited.last);
     await expect(admin.page.getByText('Lina E2E Limited')).toBeVisible(LIVE);
+    await other.context.close();
     await admin.context.close();
   }
 });

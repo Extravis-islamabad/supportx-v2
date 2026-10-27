@@ -494,6 +494,9 @@ Every finding of Desktop/qa-wp026/QA-REPORT.md has a test named after its ID tha
 - [x] Migration 0023 (after lane B's 0022): desks, departments, group_sites, access_settings,
   people_imports (RLS, isolation tests), person columns, record and template desks; existing
   tenants get an IT desk and a default site. Reversible.
+- [x] D-095: the six breaking API changes this WP needs (nullable email, `desks` limit key,
+  site and group schemas) are accepted on /api/v1 in `docs/architecture/openapi-accepted-breaks.json`
+  until the first external API release; CI enforces the end date flag.
 - [ ] Remove the leftover QA-Desk A, QA-Desk B and QA-Site from the dev data (after merge).
 - [ ] Later: the invitation email when sign-in is turned on (WP-024, on lane B's mail sender);
   department and site sync from directory attributes is lane B's WP-039.

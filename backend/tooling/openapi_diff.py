@@ -12,11 +12,15 @@ Breaking (within a major version):
   type of that name would vanish from packages/api-client).
 
 Additive changes pass: new operations, new optional parameters and fields, new response
-properties, new enum values (each has a label, rule 5d), wording. Breaking changes belong in
-/api/v2 (§10 versioning).
+properties, new enum values (each has a label, rule 5d; also as map keys), a request field that
+accepts more than before (e.g. also null), wording. Breaking changes belong in
+/api/v2 (§10 versioning). Until the first external API release, a break a decision accepted is
+listed in docs/architecture/openapi-accepted-breaks.json (D-095); after it, that list must stay
+empty (`--check-accepted` fails otherwise).
 """
 
 import json
+import re
 import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -99,7 +103,7 @@ class _Walk:
     rn: Resolver
     response: bool  # True: the server sends it (may add fields); False: the client sends it
 
-    def diff(self, label: str, old: Any, new: Any, depth: int = 0) -> list[str]:  # noqa: ANN401 - JSON Schema
+    def diff(self, label: str, old: Any, new: Any, depth: int = 0) -> list[str]:  # noqa: ANN401, PLR0911 - JSON Schema; one return per schema form
         """Breaking differences between `old` and `new` at `label`."""
         old, new = self.ro.resolve(old) or {}, self.rn.resolve(new) or {}
         if depth > MAX_DEPTH or not isinstance(old, dict) or not isinstance(new, dict):
@@ -108,6 +112,10 @@ class _Walk:
             return self._object(label, old, new, depth)
         if "items" in old and "items" in new:
             return self.diff(f"{label}[]", old["items"], new["items"], depth + 1)
+        if "propertyNames" in old and "propertyNames" in new:
+            return self._map(label, old, new, depth)
+        if self._widened(label, old, new, depth):
+            return []
         for union in ("anyOf", "oneOf"):
             if union in old and union in new and len(old[union]) == len(new[union]):
                 return [
@@ -116,6 +124,36 @@ class _Walk:
                     for problem in self.diff(label, a, b, depth + 1)
                 ]
         return self._leaf(label, old, new)
+
+    def _map(self, label: str, old: dict[str, Any], new: dict[str, Any], depth: int) -> list[str]:
+        """A map keyed by codes: keys and values follow the usual rules, the rest must stay.
+
+        A new key code is additive (D-084).
+        """
+        rest = ("propertyNames", "additionalProperties")
+        problems = self.diff(
+            f"{label}{{key}}", old["propertyNames"], new["propertyNames"], depth + 1
+        )
+        problems += self.diff(
+            f"{label}{{}}",
+            old.get("additionalProperties"),
+            new.get("additionalProperties"),
+            depth + 1,
+        )
+        old_rest = {k: v for k, v in old.items() if k not in rest}
+        new_rest = {k: v for k, v in new.items() if k not in rest}
+        if _shape(old_rest, self.ro) != _shape(new_rest, self.rn):
+            problems.append(f"{label} changed type")
+        return problems
+
+    def _widened(self, label: str, old: dict[str, Any], new: dict[str, Any], depth: int) -> bool:
+        """The client sends it and it now accepts more (e.g. also null): old requests stay valid."""
+        return (
+            not self.response
+            and "anyOf" in new
+            and "anyOf" not in old
+            and any(not self.diff(label, old, option, depth + 1) for option in new["anyOf"])
+        )
 
     def _leaf(self, label: str, old: dict[str, Any], new: dict[str, Any]) -> list[str]:
         if "enum" in old and "enum" in new:
@@ -197,18 +235,65 @@ def breaking_changes(base: Mapping[str, Any], current: Mapping[str, Any]) -> lis
     return problems
 
 
+ACCEPTED_FILE = (
+    Path(__file__).resolve().parents[2] / "docs/architecture/openapi-accepted-breaks.json"
+)
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_DECISION = re.compile(r"^D-\d{3,}$")
+
+
+def accepted_breaks(document: Mapping[str, Any]) -> tuple[set[str], list[str]]:
+    """The accepted problems, and what is wrong with the list itself (D-095).
+
+    Each entry names its decision and date. Once the public API is released the list must be
+    empty: breaking changes then always mean /api/v2.
+    """
+    entries = document.get("accepted", [])
+    errors: list[str] = []
+    if document.get("public_api_released") is True and entries:
+        errors.append(
+            "the public API is released: empty the accepted-breaks list; breaking changes now"
+            " need /api/v2 (D-095)"
+        )
+    accepted: set[str] = set()
+    for entry in entries:
+        text = entry.get("break")
+        if not isinstance(text, str) or not text:
+            errors.append(f"accepted break without a problem text: {entry!r}")
+            continue
+        if not _DECISION.fullmatch(str(entry.get("decision", ""))):
+            errors.append(f"accepted break without a decision (D-nnn): {text}")
+        if not _DATE.fullmatch(str(entry.get("date", ""))):
+            errors.append(f"accepted break without a date (YYYY-MM-DD): {text}")
+        accepted.add(text)
+    return accepted, errors
+
+
 def main(argv: list[str]) -> int:
-    """CLI: exit 1 and list the problems when CURRENT breaks BASE."""
+    """CLI: exit 1 and list the problems when CURRENT breaks BASE (minus accepted ones).
+
+    `--check-accepted` only validates the accepted-breaks list (CI lint).
+    """
+    rules = json.loads(ACCEPTED_FILE.read_text(encoding="utf-8")) if ACCEPTED_FILE.exists() else {}
+    accepted, errors = accepted_breaks(rules)
+    for error in errors:
+        sys.stderr.write(f"FAIL {error}\n")
+    if argv == ["--check-accepted"]:
+        return 1 if errors else 0
     if len(argv) != 2:  # noqa: PLR2004 - two file arguments
-        sys.stderr.write("usage: python -m tooling.openapi_diff BASE CURRENT\n")
+        sys.stderr.write("usage: python -m tooling.openapi_diff BASE CURRENT | --check-accepted\n")
         return 2
     base, current = (json.loads(Path(name).read_text(encoding="utf-8")) for name in argv)
     problems = breaking_changes(base, current)
     for problem in problems:
-        sys.stderr.write(f"FAIL {problem}\n")
-    if not problems:
-        sys.stdout.write("OpenAPI: no breaking changes\n")
-    return 1 if problems else 0
+        if problem in accepted:
+            sys.stdout.write(f"ACCEPTED {problem}\n")
+        else:
+            sys.stderr.write(f"FAIL {problem}\n")
+    failed = [p for p in problems if p not in accepted]
+    if not failed and not errors:
+        sys.stdout.write("OpenAPI: no breaking changes beyond the accepted ones\n")
+    return 1 if failed or errors else 0
 
 
 if __name__ == "__main__":  # pragma: no cover - CLI entry point

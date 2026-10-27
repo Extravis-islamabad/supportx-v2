@@ -564,8 +564,9 @@ function PersonStatus({ user }: { user: UserDetail }) {
         />
       </Flex>
       <Flex gap={16} wrap align="center">
-        <Typography.Text>{t('people.field.can_sign_in')}</Typography.Text>
+        <Typography.Text id="person-sign-in-label">{t('people.field.can_sign_in')}</Typography.Text>
         <Switch
+          aria-labelledby="person-sign-in-label"
           data-testid="person-sign-in"
           checked={user.can_sign_in}
           disabled={busy}

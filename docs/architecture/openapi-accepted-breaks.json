@@ -1,0 +1,42 @@
+{
+  "_about": "Breaking API changes accepted on /api/v1 before the first external API release (D-095). Each entry is one exact problem reported by tooling.openapi_diff, with the decision and date that accepted it. When public_api_released is set to true (WP-041 or the first customer install, whichever comes first), this list must be empty: from then on a breaking change means /api/v2. CI fails otherwise.",
+  "public_api_released": false,
+  "accepted": [
+    {
+      "break": "schema 'UnitIn' was removed or renamed",
+      "decision": "D-095",
+      "date": "2026-10-27",
+      "why": "WP-021: sites and groups have their own detailed inputs (SiteIn, GroupIn)."
+    },
+    {
+      "break": "schema 'UnitOut' was removed or renamed",
+      "decision": "D-095",
+      "date": "2026-10-27",
+      "why": "WP-021: sites and groups have their own detailed outputs (SiteOut, GroupOut)."
+    },
+    {
+      "break": "GET /api/v1/entitlements 200: response.limits[].key lost enum values",
+      "decision": "D-095",
+      "date": "2026-10-27",
+      "why": "D-092: the licence limit departments is renamed desks."
+    },
+    {
+      "break": "GET /api/v1/users 200: response.items[].email changed type",
+      "decision": "D-095",
+      "date": "2026-10-27",
+      "why": "D-092: a contact may have no email address (null)."
+    },
+    {
+      "break": "GET /api/v1/users/{user_id} 200: response.email changed type",
+      "decision": "D-095",
+      "date": "2026-10-27",
+      "why": "D-092: a contact may have no email address (null)."
+    },
+    {
+      "break": "PATCH /api/v1/users/{user_id} 200: response.email changed type",
+      "decision": "D-095",
+      "date": "2026-10-27",
+      "why": "D-092: a contact may have no email address (null)."
+    }
+  ]
+}

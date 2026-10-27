@@ -59,7 +59,7 @@ class SiteIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(max_length=200)
+    name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     region: str | None = Field(default=None, max_length=100)
     time_zone: str | None = Field(
@@ -76,7 +76,7 @@ class SitePatch(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, max_length=200)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     region: str | None = Field(default=None, max_length=100)
     time_zone: str | None = Field(default=None, max_length=64)
@@ -215,11 +215,11 @@ class GroupIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(max_length=200)
+    name: str = Field(min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     lead_id: uuid.UUID | None = None
     email: str | None = Field(default=None, max_length=320)
-    sender_name: str | None = Field(default=None, max_length=200)
+    sender_name: str | None = Field(default=None, min_length=1, max_length=200)
     desk_id: uuid.UUID | None = Field(default=None, description="Default: the IT desk.")
     site_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
 
@@ -229,11 +229,11 @@ class GroupPatch(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, max_length=200)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = Field(default=None, max_length=2000)
     lead_id: uuid.UUID | None = None
     email: str | None = Field(default=None, max_length=320)
-    sender_name: str | None = Field(default=None, max_length=200)
+    sender_name: str | None = Field(default=None, min_length=1, max_length=200)
     desk_id: uuid.UUID | None = None
     site_ids: list[uuid.UUID] | None = Field(default=None, max_length=500)
     disabled: bool | None = None
@@ -377,7 +377,7 @@ class DepartmentIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str = Field(max_length=200)
+    name: str = Field(min_length=1, max_length=200)
     code: str | None = Field(default=None, max_length=50)
     site_id: uuid.UUID | None = None
     head_id: uuid.UUID | None = None
@@ -390,7 +390,7 @@ class DepartmentPatch(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str | None = Field(default=None, max_length=200)
+    name: str | None = Field(default=None, min_length=1, max_length=200)
     code: str | None = Field(default=None, max_length=50)
     site_id: uuid.UUID | None = None
     head_id: uuid.UUID | None = None
