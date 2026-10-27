@@ -20,6 +20,7 @@ from app.core.modules import ModuleSpec
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
+from app.modules.work_items.service import report_names
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.file_access import FILE_ACCESS
@@ -46,6 +47,9 @@ register_types()
 # At import, not only at app startup: the consumers worker imports modules without running
 # their startup hooks, and report exports run there (lane C, WP-035 session 3).
 register_sources()
+
+# Names for report files (WP-035): at import, so the consumers worker has them too.
+report_names.register()
 
 module = ModuleSpec(
     name="work_items",

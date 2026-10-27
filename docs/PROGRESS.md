@@ -11,8 +11,8 @@
 - **Next work package:** WP-029 part 2 (triggers, loop guard, transition hooks), then
   WP-020f, WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Lane C (reports and dashboards):** WP-035 sessions 1 (engine, PR #73) and 2 (viewer) done;
-  session 3 (export) next. Lanes and claimed numbers: docs/LANES.md.
+- **Lane C (reports and dashboards):** WP-035 sessions 1-3 done (engine #73, viewer #77, export);
+  session 4 (scheduled reports, on lane B's mail foundation) next. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -646,7 +646,7 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
-### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-2 of 4 done 2026-10-27)
+### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-3 of 4 done 2026-10-28)
 Plan: ~/Desktop/wp-035-plan.md (approved with D-100). Branches `feat/reporting-port` (PR #72, the
 port alone, so lane A can write the incident provider) and `feat/wp-035-reporting`.
 - [x] **Session 1 — engine.**
@@ -692,10 +692,30 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   - Carried to session 3: Sunday week start for Arabic tenants and tenant-editable query limits
     (both need the per-tenant report settings that export adds); e2e and axe in English and
     Arabic (needs the shared dev stack and the QA lock).
-- [ ] **Session 3 — export.** CSV, XLSX (openpyxl write-only), PDF (WeasyPrint in the worker image
-  only, URL fetcher refusing everything but bundled fonts and our data URIs, D-100 D8), formula
-  injection protection in every path, background jobs with progress, audit, `reports.export`,
-  1M-row performance harness and indexes.
+- [x] **Session 3 — export and settings** (2026-10-28, branch `feat/wp-035-export`).
+  - Exports are background jobs (REQ-RPT-058): the API validates and records the request
+    (`reports.export`, 503 without storage); the consumers worker rebuilds the requester's
+    subject (`identity_access.subject_for`, lane B #82), runs the report read-only as
+    supportx_report with the background time limit, streams rows into the file, uploads it and
+    marks it ready or failed with a reason shown in "My exports" (REQ-RPT-056). Downloads only by
+    the requester, signed in, until expiry; exported and downloaded are audited (AC3).
+  - CSV with BOM, XLSX through openpyxl write-only (RTL sheets for ar/ur, typed numbers and dates,
+    summary and records sheets), PDF with WeasyPrint: bundled Noto Sans and Noto Naskh Arabic
+    (OFL), inline SVG chart, a URL fetcher that serves only the bundled fonts, with tests that
+    nothing else is fetched (D-100 D8). Formula injection neutralised in every text cell (D-100).
+  - Worker image: `worker` target with Pango and the `pdf` dependency group; the API image has no
+    WeasyPrint (checked). Consumers Deployment, `make images`, k3d import, Trivy and SBOM use it;
+    CI job `pdf (worker image)` runs the PDF tests in the `worker-test` target.
+  - Per-tenant report settings (D-041): week start (Sunday when the default site speaks Arabic),
+    interactive time limit, export link days, rows per file; migration 0029.
+  - Server-side names: a resolver registry in the reporting port; resolvers in organization,
+    work_items and metadata (written by lane C for lane A's review), registered at import so the
+    consumers worker has them.
+  - Console: Export dialog, live "My exports", report settings for admins.
+  - Tests: 9 writers, 5 PDF (local with Pango and in the worker image), 5 database (scope-limited
+    CSV with names and neutralised formulas, Arabic XLSX, permission and storage, PDF without the
+    worker image fails visibly, settings and Sunday weeks), 1 console.
+  - Not yet: the 1M-row performance harness and its indexes (with lane A's indexes in #74).
 - [ ] **Session 4 — scheduled reports**, after lane B's `app/shared/mail` is on main (D-100 D3).
 - [ ] Report set B with lane A's WP-020e (worklogs), WP-020f (reopen, FCR, completion), WP-025
   (SLA), WP-030 (service requests, approvals); backlog over time and time in status (field
@@ -892,6 +912,12 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   provider for lane C. Plan defaults recorded as D-097 (no fallback group by default); ADR-035.
 - Split: triggers, loop guard and transition hooks moved to WP-029 part 2 (business rules run
   once per save and cannot trigger each other, so part 1 cannot loop).
+### 2026-10-28 — WP-035 session 3: exports and report settings (lane C)
+- Built in `../supportx-v2-lanec2` (branch `feat/wp-035-export`): background CSV/XLSX/PDF
+  exports, worker image with Pango, per-tenant report settings, server-side names; see above.
+- Pango installed on the dev Mac with Homebrew (product owner, 2026-10-28) for the PDF tests.
+- Lane B added `subject_for` (#82); lane A moved its reporting provider to import time (#74).
+
 ### 2026-10-28 — Backend CI in parallel shards, PR #76 (lane B; product owner priority)
 
 - The backend gate is three jobs: `backend checks` (lint, schema checks, mypy, migrate + RLS

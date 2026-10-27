@@ -189,6 +189,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("audit.entries_archived", AuditCategory.DATA, "audit"),
     ("audit.archive_failed", AuditCategory.SECURITY, "audit"),
     ("audit.archive_restore_requested", AuditCategory.DATA, "audit"),
+    # reports (WP-035): settings, and every export with its row count (REQ-RPT-058 AC3)
+    ("report.settings_changed", AuditCategory.CONFIGURATION, "analytics"),
+    ("report.exported", AuditCategory.DATA, "analytics"),
+    ("report.export_downloaded", AuditCategory.DATA, "analytics"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category
