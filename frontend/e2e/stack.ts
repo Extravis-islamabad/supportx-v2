@@ -138,3 +138,42 @@ export async function renameSuiteUser(user: E2eUser, lastName: string): Promise<
   if (id === null) throw new Error(`${USERS[user].email} is missing`);
   await admin(`/users/${id}`, { method: 'PUT', body: JSON.stringify({ lastName }) });
 }
+
+/**
+ * The dev tenants' own addresses (WP-017): demo.localhost and other.localhost, on the console and
+ * portal ports. Their callbacks are registered on the clients for the run (`add`) and removed
+ * after it (`remove`); realm files never carry UI origins.
+ */
+const TENANT_ADDRESS_CALLBACKS: Record<string, string[]> = {
+  'supportx-console': ['demo', 'other'].map(
+    (t) => `http://${t}.localhost:5173/api/v1/auth/callback`,
+  ),
+  'supportx-portal': ['demo', 'other'].map(
+    (t) => `http://${t}.localhost:5174/api/v1/auth/callback`,
+  ),
+};
+
+export async function tenantAddressCallbacks(
+  admin: KeycloakAdmin,
+  action: 'add' | 'remove',
+): Promise<void> {
+  for (const [clientId, uris] of Object.entries(TENANT_ADDRESS_CALLBACKS)) {
+    const found = (await (await admin(`/clients?clientId=${clientId}`)).json()) as {
+      id: string;
+      redirectUris?: string[];
+    }[];
+    const client = found[0];
+    if (client === undefined) continue;
+    const current = client.redirectUris ?? [];
+    const next =
+      action === 'add'
+        ? [...current, ...uris.filter((uri) => !current.includes(uri))]
+        : current.filter((uri) => !uris.includes(uri));
+    if (next.length === current.length && next.every((uri, i) => uri === current[i])) continue;
+    const updated = await admin(`/clients/${client.id}`, {
+      method: 'PUT',
+      body: JSON.stringify({ ...client, redirectUris: next }),
+    });
+    if (!updated.ok) throw new Error(`could not update ${clientId}: ${String(updated.status)}`);
+  }
+}

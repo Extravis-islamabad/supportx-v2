@@ -1,6 +1,13 @@
 import { randomBytes } from 'node:crypto';
 
-import { fixtures, keycloakAdmin, keycloakUserId, USERS, type E2eUser } from './stack';
+import {
+  fixtures,
+  keycloakAdmin,
+  keycloakUserId,
+  tenantAddressCallbacks,
+  USERS,
+  type E2eUser,
+} from './stack';
 
 /**
  * Before the suite: make sure the e2e users exist in Keycloak (Demo Company, with their roles),
@@ -51,5 +58,7 @@ export default async function globalSetup(): Promise<void> {
     });
     process.env[`SUPPORTX_E2E_PASSWORD_${key.toUpperCase()}`] = password;
   }
+  // The tenant-address journey (WP-017) signs in on demo.localhost and other.localhost.
+  await tenantAddressCallbacks(admin, 'add');
   fixtures('create');
 }

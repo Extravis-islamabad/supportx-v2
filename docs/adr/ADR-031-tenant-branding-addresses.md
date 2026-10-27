@@ -50,8 +50,9 @@ Organizations (D-010), and Keycloak and the API share one host in Kubernetes (D-
   on the installation's shared address.
 - A Keycloak upgrade means copying the new upstream `template.ftl` and putting the SupportX block
   back (a test checks the block).
-- Each custom domain must be a valid redirect URI of the console and portal clients. The dev realm
-  lists the dev addresses; production registration comes with certificate provisioning (open).
+- Each custom domain must be a valid redirect URI of the console and portal clients (realm files
+  never carry UI origins). The e2e setup registers the dev addresses for its run; production
+  registration comes with certificate provisioning (open).
 
 ## Open
 
