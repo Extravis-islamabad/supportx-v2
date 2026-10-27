@@ -21,6 +21,8 @@ async function call(page: Page, method: string, path: string, body?: unknown) {
 }
 
 async function palette(page: Page, typed: string) {
+  // The shortcut is registered by the header: pressing it before the shell is up does nothing.
+  await expect(page.getByTestId('appearance-menu')).toBeVisible();
   await page.keyboard.press('Control+k');
   const input = page.getByRole('combobox', { name: 'Type a page name…' });
   await expect(input).toBeVisible();

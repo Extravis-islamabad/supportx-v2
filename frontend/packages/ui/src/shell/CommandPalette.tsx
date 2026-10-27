@@ -1,4 +1,4 @@
-import { Input, List, Modal, Spin, Typography } from 'antd';
+import { Input, Modal, Spin, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 
 import { useLabel } from '../appearance';
@@ -31,14 +31,17 @@ export interface CommandPaletteProps {
   records?: PaletteRecords;
 }
 
-interface Row {
-  command: PaletteCommand;
+interface Group {
+  key: string;
+  /** Shown above the group (only when records are searched, so pages get a heading too). */
   heading?: string;
+  items: PaletteCommand[];
 }
 
 /**
  * Command palette (Ctrl+K): go to a page, or to a record found by search. Type to filter, arrows
  * to move, Enter to go. Pages are filtered here; records come from the server through `records`.
+ * Plain listbox > group > option markup: a list component in between breaks the ARIA tree.
  */
 export function CommandPalette({
   open,
@@ -52,21 +55,24 @@ export function CommandPalette({
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
 
-  const rows = useMemo(() => {
+  const groups = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     const pages =
       needle === ''
         ? commands
         : commands.filter((command) => command.title.toLocaleLowerCase().includes(needle));
-    const list: Row[] = pages.map((command, index) => ({
-      command,
-      heading: index === 0 && records !== undefined ? t('palette.pages') : undefined,
-    }));
-    for (const [index, command] of (records?.items ?? []).entries()) {
-      list.push({ command, heading: index === 0 ? records?.title : undefined });
-    }
+    const list: Group[] = [];
+    if (pages.length > 0)
+      list.push({
+        key: 'pages',
+        heading: records === undefined ? undefined : t('palette.pages'),
+        items: pages,
+      });
+    if (records !== undefined && records.items.length > 0)
+      list.push({ key: 'records', heading: records.title, items: records.items });
     return list;
   }, [commands, query, records, t]);
+  const rows = groups.flatMap((group) => group.items);
 
   const close = () => {
     onOpenChange(false);
@@ -92,8 +98,9 @@ export function CommandPalette({
       <Input
         autoFocus
         role="combobox"
-        aria-expanded
-        aria-controls="command-palette-list"
+        aria-expanded={rows.length > 0}
+        aria-controls={rows.length > 0 ? 'command-palette-list' : undefined}
+        aria-activedescendant={rows.length > 0 ? `palette-option-${String(active)}` : undefined}
         aria-label={t('palette.placeholder')}
         placeholder={t(
           records === undefined ? 'palette.placeholder' : 'palette.placeholder_search',
@@ -108,67 +115,85 @@ export function CommandPalette({
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown') setActive((index) => Math.min(index + 1, rows.length - 1));
           if (event.key === 'ArrowUp') setActive((index) => Math.max(index - 1, 0));
-          if (event.key === 'Enter') go(rows[active]?.command);
+          if (event.key === 'Enter') go(rows[active]);
         }}
       />
-      <div id="command-palette-list" role="listbox" aria-label={t('palette.title')}>
-        <List
+      {rows.length === 0 ? (
+        <div style={{ marginTop: 12 }}>
+          <EmptyText>
+            {t(records?.loading === true ? 'palette.searching' : 'palette.no_results')}
+          </EmptyText>
+        </div>
+      ) : (
+        <div
+          id="command-palette-list"
+          role="listbox"
+          aria-label={t('palette.title')}
           style={{ marginTop: 12 }}
-          dataSource={rows}
-          locale={{
-            emptyText: (
-              <EmptyText>
-                {t(records?.loading === true ? 'palette.searching' : 'palette.no_results')}
-              </EmptyText>
-            ),
-          }}
-          renderItem={({ command, heading }, index) => (
-            <>
-              {heading !== undefined && (
-                <Typography.Text
-                  type="secondary"
-                  role="presentation"
-                  style={{ display: 'block', fontSize: 12, marginBlock: 8, paddingInline: 12 }}
-                >
-                  {heading}
-                </Typography.Text>
-              )}
-              <List.Item
-                role="option"
-                aria-selected={index === active}
-                aria-label={
-                  command.subtitle === undefined
-                    ? command.title
-                    : `${command.title}, ${command.subtitle}`
+        >
+          {groups.map((group, groupIndex) => {
+            const offset = groups
+              .slice(0, groupIndex)
+              .reduce((count, before) => count + before.items.length, 0);
+            return (
+              <div
+                key={group.key}
+                role="group"
+                aria-labelledby={
+                  group.heading === undefined ? undefined : `palette-group-${group.key}`
                 }
-                data-testid={`palette-${command.key}`}
-                onClick={() => {
-                  go(command);
-                }}
-                style={{
-                  cursor: 'pointer',
-                  paddingInline: 12,
-                  borderRadius: 6,
-                  display: 'block',
-                  background:
-                    index === active
-                      ? 'var(--ant-control-item-bg-active, rgba(150,25,181,0.12))'
-                      : undefined,
-                }}
               >
-                <Typography.Text style={{ display: 'block' }}>
-                  <bdi>{command.title}</bdi>
-                </Typography.Text>
-                {command.subtitle !== undefined && (
-                  <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-                    <bdi>{command.subtitle}</bdi>
+                {group.heading !== undefined && (
+                  <Typography.Text
+                    id={`palette-group-${group.key}`}
+                    type="secondary"
+                    style={{ display: 'block', fontSize: 12, marginBlock: 8, paddingInline: 12 }}
+                  >
+                    {group.heading}
                   </Typography.Text>
                 )}
-              </List.Item>
-            </>
-          )}
-        />
-      </div>
+                {group.items.map((command, position) => {
+                  const index = offset + position;
+                  return (
+                    <div
+                      key={command.key}
+                      id={`palette-option-${String(index)}`}
+                      role="option"
+                      aria-selected={index === active}
+                      data-testid={`palette-${command.key}`}
+                      onClick={() => {
+                        go(command);
+                      }}
+                      style={{
+                        cursor: 'pointer',
+                        paddingBlock: 8,
+                        paddingInline: 12,
+                        borderRadius: 6,
+                        background:
+                          index === active
+                            ? 'var(--ant-control-item-bg-active, rgba(150,25,181,0.12))'
+                            : undefined,
+                      }}
+                    >
+                      <Typography.Text style={{ display: 'block' }}>
+                        <bdi>{command.title}</bdi>
+                      </Typography.Text>
+                      {command.subtitle !== undefined && (
+                        <Typography.Text
+                          type="secondary"
+                          style={{ display: 'block', fontSize: 12 }}
+                        >
+                          <bdi>{command.subtitle}</bdi>
+                        </Typography.Text>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Modal>
   );
 }
