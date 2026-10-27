@@ -7,8 +7,8 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 
 | Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
 |---|---|---|---|---|---|---|
-| A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-029 part 1 (#74) and part 2 (#78) in CI, then the WP-029 QA round on main | `feat/wp-029-rules` (#74), `feat/wp-029b-triggers` (#78) | main folder (`supportx-v2`) | 0025 (WP-029), 0028 (WP-029 part 2) | D-096, D-097, D-102; ADR-035 |
-| B | Identity, mail, notifications | WP-039 (session 1 PR, then session 2) | `feat/wp-039-identity` | `../supportx-v2-wp039` | 0024, 0026 | D-098, D-099 |
+| A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-029 merged (#74, #78); QA done (~/Desktop/qa-wp029, 5 bugs); next WP-029-FIX, then WP-020f | main | main folder (`supportx-v2`) | 0025 (WP-029), 0028 (WP-029 part 2) | D-096, D-097, D-102; ADR-035 |
+| B | Identity, mail, notifications | WP-039 session 3 (MFA, my account, idle timeout, lock-out): e2e 55/55, PR next | `feat/wp-039-session3` | `../supportx-v2-wp039` | 0024, 0026, 0032 (session 3, after 0028) | D-098, D-099, D-103, D-104 |
 | C | Reports and dashboards | WP-035: sessions 1-3 merged (#73, #77, #84); session 4 scheduled reports (this PR) | `feat/wp-035-schedules` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029 (merged), 0031 | D-100, D-101; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
@@ -20,7 +20,7 @@ Take the lock by writing your lane here (and telling the other lanes); release i
 
 | Holder | Since | Purpose |
 |---|---|---|
-| B | 2026-10-28 | WP-039 session 3 e2e (handed over by A): Keycloak deploy step (lock-out, recovery codes); lane B API/workers/web on the shared ports against a throwaway DB `supportx_laneb_qa` |
+| (free) | | |
 
 The shared stack (API :8000, workers, console 5173, portal 5174) currently runs from lane A's
 main folder. k3d stays stopped unless the lock holder needs it.
