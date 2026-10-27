@@ -340,6 +340,108 @@
         "type": "object"
       }
     },
+    "analytics.report_schedule.due": {
+      "1": {
+        "description": "A schedule's time came; the worker sends it.",
+        "properties": {
+          "run_at": {
+            "format": "date-time",
+            "title": "Run At",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "run_at"
+        ],
+        "title": "ReportScheduleDue",
+        "type": "object"
+      }
+    },
+    "analytics.report_schedule.ran": {
+      "1": {
+        "description": "A run finished: how many recipients got it, and why a failed run failed.",
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "result",
+          "sent",
+          "failed",
+          "paused"
+        ],
+        "title": "ReportScheduleRan",
+        "type": "object"
+      }
+    },
+    "analytics.report_schedule.saved": {
+      "1": {
+        "description": "A schedule was created, changed, paused, resumed or deleted.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "status",
+          "changed_fields"
+        ],
+        "title": "ReportScheduleSaved",
+        "type": "object"
+      }
+    },
     "analytics.report_settings.changed": {
       "1": {
         "description": "The tenant's report settings changed (week start, limits).",

@@ -60,6 +60,25 @@ async def _export_finished(envelope: EventEnvelope, session: AsyncSession) -> Re
     )
 
 
+SCHEDULES_CHANGED = "reports.schedules_changed"
+
+
+async def _schedule_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """The owner's schedule list refreshes: a change, or a run's result (REQ-RPT-052 AC2)."""
+    del session
+    payload = envelope.payload
+    owner = uuid.UUID(str(payload["owner_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, owner),
+                SCHEDULES_CHANGED,
+                ids=(str(payload["schedule_id"]),),
+            )
+        ]
+    )
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -71,4 +90,7 @@ ROUTES = [
         _report_changed,
     ),
     RealtimeRoute(("analytics.report_export.finished",), _export_finished),
+    RealtimeRoute(
+        ("analytics.report_schedule.saved", "analytics.report_schedule.ran"), _schedule_changed
+    ),
 ]

@@ -10,8 +10,9 @@
 - **Next work package:** WP-021 QA (~/Desktop/qa-wp021/), then WP-029 (business rules,
   routing; needs WP-026) on the critical path; WP-020d..020f, WP-022..028.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Lane C (reports and dashboards):** WP-035 sessions 1-3 done (engine #73, viewer #77, export);
-  session 4 (scheduled reports, on lane B's mail foundation) next. Lanes and claimed numbers: docs/LANES.md.
+- **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
+  #84, scheduled reports); next: lane A's incident provider in the DB tests, English/Arabic e2e
+  under the QA lock, the 1M-row performance harness. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -616,7 +617,7 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
-### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-3 of 4 done 2026-10-28)
+### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-4 of 4 done 2026-10-28)
 Plan: ~/Desktop/wp-035-plan.md (approved with D-100). Branches `feat/reporting-port` (PR #72, the
 port alone, so lane A can write the incident provider) and `feat/wp-035-reporting`.
 - [x] **Session 1 — engine.**
@@ -686,7 +687,31 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
     CSV with names and neutralised formulas, Arabic XLSX, permission and storage, PDF without the
     worker image fails visibly, settings and Sunday weeks), 1 console.
   - Not yet: the 1M-row performance harness and its indexes (with lane A's indexes in #74).
-- [ ] **Session 4 — scheduled reports**, after lane B's `app/shared/mail` is on main (D-100 D3).
+- [x] **Session 4 — scheduled reports** (2026-10-28, branch `feat/wp-035-schedules`; D-100 D3).
+  - Schedules (REQ-RPT-052): daily (optionally on chosen weekdays), weekly, monthly (day 1-28),
+    at a wall-clock time in the schedule's own time zone, from a start date to an optional end;
+    the next run is computed on the wall clock, so it stays at 07:00 local across DST changes.
+    Pure domain `analytics/domain/schedule.py`.
+  - Recipients are people (up to 50) and groups (up to 200 people once expanded). Each gets
+    their own file, built with their own scope and language (REQ-RPT-053): the worker rebuilds
+    each recipient's subject, renders through the export path (`render_file`, formula
+    neutralisation included), and queues one mail per person through lane B's
+    `app.shared.mail.queue_mail` (D-089), branded, attachment ≤ the mail limit.
+  - `identity_access.mail_recipients` (written by lane C for lane B's review): active users with
+    an address, in their language.
+  - Every run records its result (sent, failed and why); 3 failed runs in a row, a removed report
+    or an owner who lost access pause the schedule with the reason (REQ-RPT-056); resume, pause
+    and delete with If-Match. Without outgoing mail, schedules cannot be made (409) and the UI
+    says why (REQ-RPT-055).
+  - Minute sweep (`analytics__report_schedules`, every tenant) writes a `report_schedule.due`
+    event per due schedule; the consumers worker runs it. Owner sees changes live (personal
+    channel). Permission `reports.schedule` (admins by default).
+  - Migration 0031 `report_schedules` (RLS, soft delete, partial due index).
+  - Console: "Schedule" on a report, "Scheduled reports" drawer on the reports home with next
+    run, last result and pause/resume/delete.
+  - Tests: 5 domain (DST, monthly, weekdays, end date, validation); 6 database (no mail → 409,
+    per-recipient scope and language with group expansion, removed report pauses and resume,
+    validation codes, mail_recipients, RLS); 1 console.
 - [ ] Report set B with lane A's WP-020e (worklogs), WP-020f (reopen, FCR, completion), WP-025
   (SLA), WP-030 (service requests, approvals); backlog over time and time in status (field
   history source).
@@ -873,6 +898,11 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-035 session 4: scheduled reports (lane C)
+- Built in `../supportx-v2-lanec` (branch `feat/wp-035-schedules`, on #84): schedules, per-recipient
+  files and mails on lane B's mail foundation, live schedule list; see WP-035 above.
+- Added `identity_access.mail_recipients` in lane B's module (lane B to review).
 
 ### 2026-10-28 — WP-035 session 3: exports and report settings (lane C)
 - Built in `../supportx-v2-lanec2` (branch `feat/wp-035-export`): background CSV/XLSX/PDF

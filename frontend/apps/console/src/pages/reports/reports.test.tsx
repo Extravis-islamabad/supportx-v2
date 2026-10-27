@@ -130,6 +130,61 @@ describe('Reports', () => {
     });
   });
 
+  it('lists schedules with their next run and last result, and pauses one (REQ-RPT-052, 056)', async () => {
+    window.history.pushState({}, '', '/reports');
+    const schedule = {
+      id: '01900000-0000-7000-8000-00000000s001',
+      owner_id: '01900000-0000-7000-8000-000000000101',
+      title: 'Weekly open incidents',
+      report_ref: 'builtin:incidents_open_by_priority',
+      frequency: 'weekly',
+      at_time: '07:00:00',
+      time_zone: 'Asia/Riyadh',
+      start_date: '2026-10-01',
+      end_date: null,
+      weekdays: [0],
+      day_of_month: null,
+      recipient_users: [],
+      recipient_groups: [],
+      format: 'xlsx',
+      content: 'summary',
+      message: null,
+      status: 'active',
+      paused_reason: null,
+      next_run_at: '2026-11-02T04:00:00Z',
+      last_run_at: '2026-10-26T04:00:00Z',
+      last_result: 'attachment_too_large',
+      last_sent: 0,
+      last_failed: 3,
+      version: 4,
+    };
+    const fake = api({
+      me: fakeSession({ roles: ['tenant_admin', 'technician'] }),
+      routes: routes({
+        'GET /api/v1/reports/schedules': { body: { mail_configured: false, items: [schedule] } },
+        [`POST /api/v1/reports/schedules/${schedule.id}/pause`]: {
+          body: { ...schedule, status: 'paused', version: 5 },
+        },
+      }),
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('report-schedules'));
+    expect(
+      await screen.findByText(
+        'Outgoing e-mail is not set up, so reports cannot be sent on a schedule. Ask your administrator.',
+      ),
+    ).toBeDefined();
+    const last = await screen.findByTestId(`schedule-last-${schedule.id}`);
+    expect(last.textContent).toContain('The file was larger than 10 MB');
+    expect(document.body.textContent).not.toMatch(/attachment_too_large|weekly\b/);
+    fireEvent.click(screen.getByTestId(`schedule-pause-${schedule.id}`));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/reports/schedules/${schedule.id}/pause`)).toHaveLength(1);
+    });
+    const call = fake.find('POST', `/api/v1/reports/schedules/${schedule.id}/pause`)[0];
+    expect(call?.headers.get('If-Match')).toBe('"4"');
+  });
+
   describe('viewer', () => {
     beforeEach(() => {
       window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');

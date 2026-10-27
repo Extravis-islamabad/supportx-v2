@@ -28,6 +28,7 @@ import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/rea
 import { lengthLimit, NoAccess, useAccess, WriteButton } from '@supportx/ui';
 
 import { MyExportsButton, ReportSettingsButton } from './exports';
+import { SchedulesButton } from './schedules';
 
 interface Entry {
   ref: string;
@@ -111,6 +112,7 @@ export function ReportsHomePage() {
         <Space wrap>
           {can(MANAGE_FOLDERS) && <FolderTools folders={data?.folders ?? []} />}
           <MyExportsButton />
+          <SchedulesButton />
           <ReportSettingsButton />
         </Space>
       </Flex>

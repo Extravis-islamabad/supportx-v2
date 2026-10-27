@@ -14,6 +14,7 @@ Field visibility: `last_login_at` only for subjects holding `users.manage`.
 
 import uuid
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 from zoneinfo import available_timezones
 
@@ -332,3 +333,45 @@ async def display_names(session: AsyncSession, user_ids: Sequence[str]) -> list[
     """Display names in the given order (unknown IDs skipped)."""
     names = await user_names(session, user_ids)
     return [names[str(user_id)] for user_id in user_ids if str(user_id) in names]
+
+
+@dataclass(frozen=True)
+class MailRecipient:
+    """Who gets a system e-mail and in which language (WP-035 scheduled reports)."""
+
+    name: str
+    email: str
+    language: str  # en | ar | ur
+
+
+_MAIL_LANGUAGES = frozenset({"en", "ar", "ur"})
+
+
+async def mail_recipients(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, MailRecipient]:
+    """Active users of the session's tenant with an e-mail address, in one query.
+
+    The language is the user's interface language, else their locale, else English. Inactive,
+    deleted, unknown and address-less users are left out, so nobody gets mail they should not.
+    """
+    if not user_ids:
+        return {}
+    rows = await session.execute(
+        select(User.id, User.display_name, User.email, User.ui_locale, User.locale).where(
+            User.id.in_(list(user_ids)),
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
+    )
+    found: dict[uuid.UUID, MailRecipient] = {}
+    for row in rows:
+        if not row.email:
+            continue
+        language = row.ui_locale or row.locale
+        found[row.id] = MailRecipient(
+            name=row.display_name,
+            email=row.email,
+            language=language if language in _MAIL_LANGUAGES else "en",
+        )
+    return found
