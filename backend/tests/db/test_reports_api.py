@@ -1,9 +1,8 @@
 """Reports over HTTP (WP-035). Test names cite parity file 09 criteria.
 
 Real PostgreSQL and Valkey, the incident world of tests/db/test_incidents_api.py (orgs Alpha and
-Beta, technicians with the D-052 `group` scope). Until lane A's incident reporting provider lands
-(WP-029 PR, D-100 D9), a test-only provider registers the incident list query exactly as the list
-endpoint builds it: `staff_rows` plus the list's filter fields.
+Beta, technicians with the D-052 `group` scope). Reports run through lane A's incident source
+(`work_items/service/reporting.py`, D-100 D9): the list's own query and filter fields.
 """
 
 import json
@@ -16,23 +15,11 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
-from app.modules import metadata
-from app.modules.work_items.domain.types import INCIDENT
-from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service.access import FIELDS
-from app.modules.work_items.service.work_items import staff_rows
-from app.shared.api.filters import FieldType, FilterField, ResourceFields
-from app.shared.reporting import (
-    Dimension,
-    DimensionKind,
-    ReportingSource,
-    register_source,
-    unregister_source,
-)
+from app.modules.work_items.service.reporting import WorkItemSource
+from app.shared.reporting import provider_for
 from tests.db import test_incidents_api
 from tests.db.test_custom_fields_api import add_field, choices
 from tests.db.test_incidents_api import BASE, CONSOLE, World
@@ -42,68 +29,14 @@ pytestmark = pytest.mark.db
 world = test_incidents_api.world  # the incident world fixture, reused
 
 RUN = "/reports/run"
-_D = DimensionKind
-DIMENSIONS: Mapping[str, Dimension] = {
-    "priority": Dimension(_D.CODE, label_prefix="priority"),
-    "status_category": Dimension(_D.CODE, label_prefix="status_category"),
-    "channel": Dimension(_D.CODE, label_prefix="work_item_channel"),
-    "impact": Dimension(_D.CODE, label_prefix="impact"),
-    "urgency": Dimension(_D.CODE, label_prefix="urgency"),
-    "status": Dimension(_D.ADMIN_CODE),
-    "level": Dimension(_D.ADMIN_CODE),
-    "group_id": Dimension(_D.REFERENCE, reference="group"),
-    "site_id": Dimension(_D.REFERENCE, reference="site"),
-    "department_id": Dimension(_D.REFERENCE, reference="department"),
-    "technician_id": Dimension(_D.REFERENCE, reference="user"),
-    "requester_id": Dimension(_D.REFERENCE, reference="user"),
-    "category_id": Dimension(_D.REFERENCE, reference="category"),
-    "created_at": Dimension(_D.DATETIME),
-    "resolved_at": Dimension(_D.DATETIME),
-    "reopen_count": Dimension(_D.NUMBER),
-    "reassignment_count": Dimension(_D.NUMBER),
-}
-EXTRA_FIELDS = {
-    "first_responded_at": FilterField(
-        WorkItem.first_responded_at, FieldType.DATETIME, sortable=True, simple=False
-    ),
-    "paused_seconds": FilterField(WorkItem.paused_seconds, FieldType.INTEGER),
-    "department_id": FilterField(WorkItem.department_id, FieldType.UUID),
-}
-
-
-class IncidentTestProvider:
-    """What lane A's provider will register (D-100 D9), built from the list's own pieces."""
-
-    entity = "incident"
-    feature = "incident"
-    permission = "incidents.view"
-
-    async def source(self, session: AsyncSession, subject: Any) -> ReportingSource:  # noqa: ANN401 - Subject
-        custom = await metadata.filter_fields(session, "incident", "work_items")
-        fields = ResourceFields(
-            FIELDS.name, {**FIELDS.fields, **EXTRA_FIELDS, **custom}, FIELDS.id_column
-        )
-        dimensions = dict(DIMENSIONS)
-        for name, spec in custom.items():
-            if spec.type == FieldType.ENUM:
-                dimensions[name] = Dimension(_D.ADMIN_CODE)
-        return ReportingSource(
-            entity="incident",
-            rows=staff_rows(subject, INCIDENT),
-            fields=fields,
-            dimensions=dimensions,
-            list_path="incidents",
-        )
 
 
 @pytest_asyncio.fixture
 async def reports(world: World) -> AsyncIterator[World]:
-    """The incident world with the incident reporting source registered."""
-    register_source(IncidentTestProvider())
-    try:
-        yield world
-    finally:
-        unregister_source("incident")
+    """The incident world, reporting through lane A's real incident source (D-100 D9)."""
+    provider = provider_for("incident")
+    assert isinstance(provider, WorkItemSource)  # never a test stand-in
+    yield world
 
 
 async def run(world: World, org: Any, user: uuid.UUID, **definition: Any) -> httpx.Response:  # noqa: ANN401 - JSON
