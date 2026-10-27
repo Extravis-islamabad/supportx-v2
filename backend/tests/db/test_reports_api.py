@@ -46,7 +46,7 @@ _D = DimensionKind
 DIMENSIONS: Mapping[str, Dimension] = {
     "priority": Dimension(_D.CODE, label_prefix="priority"),
     "status_category": Dimension(_D.CODE, label_prefix="status_category"),
-    "channel": Dimension(_D.CODE, label_prefix="channel"),
+    "channel": Dimension(_D.CODE, label_prefix="work_item_channel"),
     "impact": Dimension(_D.CODE, label_prefix="impact"),
     "urgency": Dimension(_D.CODE, label_prefix="urgency"),
     "status": Dimension(_D.ADMIN_CODE),
