@@ -103,7 +103,10 @@ def _invalid(
             FieldError(
                 field=f"body.{name}",
                 code=code,
-                message_key=f"errors.field.{code}",
+                # A limit in the message when the check knows it (D-091; QA WP-021 BUG-02).
+                message_key=f"errors.field.{code}_max"
+                if code == "value_too_long" and "max_length" in params
+                else f"errors.field.{code}",
                 params=dict(params),
             )
             for name, code, params in problems
@@ -310,7 +313,7 @@ async def _save(
         record_id=current.id,
         version=updated.version,
         kind="updated",
-        changes=[Change(name, before[name], values[name]) for name in changed],
+        changes=[Change(name, _logged(before[name]), _logged(values[name])) for name in changed],
         source=source,
     )
     await record_event(
@@ -320,6 +323,15 @@ async def _save(
         aggregate_version=updated.version,
     )
     return updated
+
+
+def _logged(value: Any) -> Any:  # noqa: ANN401 - any person field value
+    """The value as the field history stores it (JSON): IDs and times as text (QA BUG-08)."""
+    if isinstance(value, uuid.UUID):
+        return str(value)
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return value
 
 
 async def set_user_type(
@@ -338,6 +350,11 @@ async def set_user_type(
             await hold_limit(session, LimitKey.TECHNICIANS)
             await reserve_capacity(session, LimitKey.TECHNICIANS, code="technician_limit_reached")
         await grant_system_role(session, user_id, UserType.TECHNICIAN.value)
+        # The type's system role replaces the other one (QA WP-021 BUG-06).
+        held = await _held(session, user_id)
+        await revoke_roles(
+            session, user_id, [role_id for key, role_id in held if key == UserType.REQUESTER.value]
+        )
     else:
         if await holds_tenant_admin(session, user_id):
             raise Conflict(code="tenant_admin_is_technician")

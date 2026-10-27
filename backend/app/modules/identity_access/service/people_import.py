@@ -41,7 +41,7 @@ from app.modules.identity_access.service.people import (
     set_user_type,
     update_person,
 )
-from app.modules.organization import find_department, find_site
+from app.modules.organization import department_site, find_department, find_site
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 
@@ -232,6 +232,7 @@ async def apply_row(
         existing = await session.scalar(
             select(User).where(column == wanted, User.deleted_at.is_(None))
         )
+    await _suggest_site(session, fields, existing)
     try:
         if existing is None:
             await create_person(
@@ -261,6 +262,20 @@ async def apply_row(
         field = "user_type" if "technician" in refused.instance_code else "row"
         raise RowProblem(field, refused.instance_code) from refused
     return "updated"
+
+
+async def _suggest_site(
+    session: AsyncSession, fields: dict[str, Any], existing: User | None
+) -> None:
+    """D-096: a department's site fills an empty site; a site in the file or on record stays."""
+    department_id = fields.get("department_id")
+    if department_id is None or "site_id" in fields:
+        return
+    if existing is not None and existing.site_id is not None:
+        return
+    site_id = await department_site(session, department_id)
+    if site_id is not None:
+        fields["site_id"] = site_id
 
 
 async def _row_values(  # noqa: C901, PLR0912 - one rule per column, flat

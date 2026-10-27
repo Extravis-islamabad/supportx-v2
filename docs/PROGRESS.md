@@ -497,9 +497,32 @@ Every finding of Desktop/qa-wp026/QA-REPORT.md has a test named after its ID tha
 - [x] D-095: the six breaking API changes this WP needs (nullable email, `desks` limit key,
   site and group schemas) are accepted on /api/v1 in `docs/architecture/openapi-accepted-breaks.json`
   until the first external API release; CI enforces the end date flag.
-- [ ] Remove the leftover QA-Desk A, QA-Desk B and QA-Site from the dev data (after merge).
+- [x] Removed the leftover QA-Desk A, QA-Desk B and QA-Site from the dev data (in the QA, with the
+  new Remove action).
 - [ ] Later: the invitation email when sign-in is turned on (WP-024, on lane B's mail sender);
   department and site sync from directory attributes is lane B's WP-039.
+
+### [x] WP-021-FIX — WP-021 QA findings (D-096; done 2026-10-27)
+Every finding of Desktop/qa-wp021/QA-REPORT.md has a test named after its ID that failed first
+(backend `tests/db/test_people_qa.py`, Vitest `admin/people/qa-wp021.test.tsx`).
+- [x] BUG-01 request-validation codes in the app's own words: a missing or null value is
+  `required`, Pydantic's `string_too_long` is `value_too_long` with its limit (app-wide).
+- [x] BUG-02 too-long values say the limit ("Use at most 200 characters.",
+  `errors.field.value_too_long_max`) in people and organisation forms and request checks.
+- [x] BUG-03 the person editor follows the record while clean, never takes its own type,
+  sign-in or status changes for someone else's, and after a save (also "keep mine", which now
+  reads the latest version first) shows the stored record.
+- [x] BUG-04 the new-incident form fills the requester's department and site as soon as they
+  are picked (never over a value already there).
+- [x] BUG-05 phone numbers stay left to right in Arabic (inline style; Ant Design's RTL CSS beat
+  the `dir` attribute).
+- [x] BUG-06 a type change swaps the system role (no Requester role left on a technician).
+- [x] BUG-07 no null select option in the person form.
+- [x] BUG-08 (found while fixing) changing a person's site, department or manager failed with a
+  500 (field history got raw IDs); an import updating them failed as a whole.
+- [x] C1 "Site" column for departments; C2 "N people"; C3 plain "Saved."; C4 (D-096) the
+  department's site suggested, never overwriting; C5 making someone a technician asks first (seat).
+- [x] docs/LANES.md: three lanes, worktrees, claimed numbers, dev-stack QA lock.
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
