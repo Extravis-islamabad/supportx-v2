@@ -36,12 +36,10 @@ package = false
 [dependency-groups]
 # PDF exports (D-100 D8): WeasyPrint and its companions, installed ONLY in the worker image and on
 # developer machines (`uv sync --group pdf`, needs Pango). Never in the API image.
-pdf = [
-    "weasyprint>=66.0",
+pdf = ["weasyprint>=66.0"]
+dev = [
     # test helper: reads the text back out of generated PDFs (BSD-3, D-012)
     "pypdf>=6.0",
-]
-dev = [
     "asyncpg-stubs>=0.32.0",
     "import-linter>=2.15",
     "mypy>=2.4.0",
@@ -100,7 +98,7 @@ disallow_subclassing_any = false
 [[tool.mypy.overrides]]
 # WeasyPrint (D-100 D8) is in the worker-only `pdf` group and ships no type hints; CI's default
 # install does not have it, the worker image job does.
-module = ["weasyprint", "weasyprint.*", "pypdf", "pypdf.*"]
+module = ["weasyprint", "weasyprint.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

@@ -20,6 +20,7 @@ from app.modules.metadata.domain.fields import (
     FieldType,
 )
 from app.modules.metadata.events import EVENTS
+from app.modules.metadata.service import report_names
 from app.modules.metadata.service.custom_fields import (
     clean,
     definitions,
@@ -31,6 +32,9 @@ from app.modules.metadata.service.custom_fields import (
 from app.modules.metadata.service.realtime import ROUTES
 
 FEATURE = "incident"
+
+# Names for report files (WP-035): at import, so the consumers worker has them too.
+report_names.register()
 
 module = ModuleSpec(
     name="metadata",

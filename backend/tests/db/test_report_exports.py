@@ -144,6 +144,12 @@ async def test_req_rpt_058_records_csv_holds_exactly_what_the_user_may_list(
     assert '\'=HYPERLINK("http://x","y")' in subjects  # neutralised (D-100)
     assert not any(s.startswith("=") for s in subjects)
     assert not any(r[0] in {"p1", "p2", "p3", "p4"} for r in table[1:])  # labels, never codes
+    header = table[0]
+    groups = {r[header.index("Group")] for r in table[1:]}
+    assert "Alpha GA" in groups  # named by organization's resolver, not an id
+    statuses = {r[header.index("Status")] for r in table[1:]}
+    assert statuses <= {"New", "Not set"}, statuses
+    assert "Unknown value" not in {cell for r in table[1:] for cell in r}
 
     # Only the person who asked can download it.
     other = await world.call("GET", f"/reports/exports/{export['id']}/file", a, a.tech_b)

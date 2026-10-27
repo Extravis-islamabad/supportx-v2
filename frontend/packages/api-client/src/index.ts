@@ -284,8 +284,13 @@ export {
 } from './identity';
 export { queryKeys } from './keys';
 export {
+  exportFileUrl,
   useCreateReport,
   useDeleteReport,
+  useMyExports,
+  useReportSettings,
+  useRequestExport,
+  useUpdateReportSettings,
   useReportEntity,
   useReportFolderChange,
   useReportLibrary,
@@ -298,6 +303,10 @@ export {
   type DateBucket,
   type ReportDefinition,
   type ReportEntity,
+  type ReportExport,
+  type ReportExportInput,
+  type ReportSettings,
+  type ReportSettingsPatch,
   type ReportField,
   type ReportFolder,
   type ReportGroup,

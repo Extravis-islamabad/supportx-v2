@@ -261,8 +261,10 @@ chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Char
 chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
 	@bash deploy/scripts/chart-lint.sh
 
-images: ## Build the INTERNAL/DEV backend and web images for this machine's architecture
+images: ## Build the INTERNAL/DEV backend, worker (PDF) and web images for this machine's architecture
 	docker build -f deploy/images/backend.Dockerfile -t supportx-backend:$(IMAGE_TAG) \
+		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
+	docker build -f deploy/images/backend.Dockerfile --target worker -t supportx-worker:$(IMAGE_TAG) \
 		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
 	docker build -f deploy/images/web.Dockerfile -t supportx-web:$(IMAGE_TAG) \
 		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
@@ -278,7 +280,7 @@ cluster-secrets: ## Create the chart's Secrets with random values (never overwri
 HELM_TEST = helm test supportx -n $(NAMESPACE) --logs --filter '!name=supportx-valkey-test-auth-existing'
 
 deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgrade the dev profile on k3d
-	k3d image import supportx-backend:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	k3d image import supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
 	$(HELM_TEST)

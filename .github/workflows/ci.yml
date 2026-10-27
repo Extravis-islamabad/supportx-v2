@@ -239,6 +239,22 @@ jobs:
       - name: Production builds (console, portal)
         run: make build
 
+  # Report PDFs (D-100 D8): WeasyPrint and Pango exist only in the worker image, so the PDF tests run
+  # inside that image (its `worker-test` target), the real production setup. The sharded backend
+  # tests skip them (no Pango there); here SUPPORTX_REQUIRE_PDF_TESTS=1 makes a skip a failure.
+  pdf:
+    name: pdf (worker image)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the worker image with its test tools
+        run: docker build -f deploy/images/backend.Dockerfile --target worker-test -t supportx-worker-test:ci .
+      - name: PDF tests inside the worker image
+        run: docker run --rm supportx-worker-test:ci
+
   chart:
     # Every PR (WP-014): the Helm chart lints, renders and validates for every profile, and the
     # production render matches the reviewed golden file (deploy/scripts/chart-lint.sh).
