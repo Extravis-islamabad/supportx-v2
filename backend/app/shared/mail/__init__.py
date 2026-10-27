@@ -8,6 +8,7 @@ from app.shared.mail.domain.layout import MailBrand, wrap_html
 from app.shared.mail.domain.message import (
     MAX_ATTACHMENT_BYTES,
     Attachment,
+    Language,
     MailRefused,
     OutgoingMail,
 )
@@ -16,6 +17,7 @@ from app.shared.mail.service.outgoing import MailNotConfigured, mail_configured,
 __all__ = [
     "MAX_ATTACHMENT_BYTES",
     "Attachment",
+    "Language",
     "MailBrand",
     "MailNotConfigured",
     "MailRefused",

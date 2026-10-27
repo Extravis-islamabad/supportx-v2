@@ -87,6 +87,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['automation.view', 'all'],
   ['automation.manage', 'all'],
   ['reports.manage_folders', 'all'],
+  ['reports.schedule', 'all'],
   ['identity.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [

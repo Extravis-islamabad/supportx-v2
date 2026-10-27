@@ -9,7 +9,7 @@
   field_changes by field over time.
 
 Revision ID: 0025
-Revises: 0029
+Revises: 0031
 Created: 2026-10-27 21:39:41.193434
 """
 
@@ -22,7 +22,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0025"
-down_revision: str | None = "0029"
+down_revision: str | None = "0031"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
