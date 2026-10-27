@@ -5772,6 +5772,11 @@ export interface components {
             /** Csrf Token */
             csrf_token: string;
             /**
+             * Idle Timeout Seconds
+             * @description Signed out after this long without activity (the screens warn 2 minutes ahead).
+             */
+            idle_timeout_seconds?: number | null;
+            /**
              * Mfa Due At
              * @description MFA is required here and not set up yet: set it up by then (a reminder).
              */

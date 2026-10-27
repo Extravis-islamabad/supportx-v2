@@ -122,6 +122,10 @@ class MeResponse(BaseModel):
     tenants: list[TenantOut]
     csrf_token: str
     permissions: list[EffectivePermission] = Field(default_factory=list)
+    idle_timeout_seconds: int | None = Field(
+        default=None,
+        description="Signed out after this long without activity (warned 2 minutes ahead).",
+    )
     mfa_due_at: datetime | None = Field(
         default=None,
         description="MFA is required here and not set up yet: set it up by then (a reminder).",
@@ -328,6 +332,10 @@ async def me(found: CurrentSession, request: Request) -> MeResponse:
 async def _describe(request: Request, session: Session) -> MeResponse:
     """Session summary plus the user's SupportX roles and effective permissions."""
     described = AuthService.describe(session)
+    auth: AuthService | None = getattr(request.app.state, "auth", None)
+    if auth is not None:  # this session's own limit (its tenant's, when it began; REQ-SEC-029)
+        idle, _ = session.limits(idle=auth.idle, absolute=auth.absolute)
+        described["idle_timeout_seconds"] = int(idle.total_seconds())
     # Preferences live in the users row (they change after login, on any device).
     database: Database | None = getattr(request.app.state, "db", None)
     if database is not None:

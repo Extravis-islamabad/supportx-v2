@@ -6503,6 +6503,18 @@
             "title": "Csrf Token",
             "type": "string"
           },
+          "idle_timeout_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signed out after this long without activity (the screens warn 2 minutes ahead).",
+            "title": "Idle Timeout Seconds"
+          },
           "mfa_due_at": {
             "anyOf": [
               {

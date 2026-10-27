@@ -2920,6 +2920,12 @@ export const en = {
   'people.reset_mfa_explain':
     'Check who is asking first. Their authenticator app and recovery codes stop working; they set it up again at their next sign-in and get an e-mail about it.',
   'people.reset_mfa_done': '{{name}} sets up two-step sign-in again at their next sign-in.',
+  'session.idle.title': 'Are you still there?',
+  'session.idle.body':
+    'You will be signed out in {{time}} because nothing happened for a while. Anything you typed is kept and comes back when you sign in again.',
+  'session.idle.stay': 'Stay signed in',
+  'session.idle.sign_out': 'Sign out now',
+  'forms.draft_restored': 'Your unsaved input was restored.',
 } as const;
 
 export type LabelKey = keyof typeof en;
