@@ -2311,6 +2311,194 @@ export const en = {
   'people.make_technician.title': 'Make {{name}} a technician?',
   'people.make_technician.explain':
     'This uses one technician licence seat. Making them a requester again frees it.',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.manage': 'Manage sign-in and security',
+  'permission.identity.manage.description':
+    'Set up single sign-on, session timeouts and who may sign in for the first time.',
+  'permission_module.identity': 'Sign-in and security',
+  'event_type.identity_access.identity_settings.changed': 'Sign-in settings changed',
+  'event_type.identity_access.sso_provider.changed': 'Single sign-on set-up changed',
+  'audit.action.identity.settings_changed': 'Changed the sign-in settings',
+  'audit.action.sso.added': 'Added a single sign-on set-up',
+  'audit.action.sso.updated': 'Changed a single sign-on set-up',
+  'audit.action.sso.tested': 'Tested a single sign-on set-up',
+  'audit.action.sso.switched_on': 'Switched single sign-on on',
+  'audit.action.sso.switched_off': 'Switched single sign-on off',
+  'audit.action.sso.removed': 'Removed a single sign-on set-up',
+  'errors.sign_in_unknown_person':
+    'Your organisation has not added you to SupportX yet. Contact your service desk to get access.',
+  'errors.identity_admin_not_configured':
+    'Sign-in settings are not set up on this installation yet. Ask your administrator to run the identity set-up step.',
+  'errors.identity_admin_unavailable':
+    'The sign-in service cannot be reached right now. Try again in a moment.',
+  'errors.identity_organization_missing':
+    'Your organisation is not set up for sign-in yet. Ask your administrator.',
+  'errors.sso_not_tested': 'Test the set-up with a sign-in before switching it on.',
+  'errors.sso_provider_limit': 'You can have at most {{max}} single sign-on set-ups.',
+  'errors.sso_provider_missing':
+    'This set-up is missing in the sign-in service. Remove it and add it again.',
+  'errors.sso_provider_not_found': 'This single sign-on set-up was not found.',
+  'errors.sso_provider_refused':
+    'The sign-in service refused these settings. Check them and try again.',
+  'errors.sso_switch_off_first':
+    'Switch the set-up off before changing how it connects, so nobody is locked out.',
+  'errors.sso_switched_off': 'Switch the set-up on, or change it, before testing it.',
+  'errors.sso_test_not_found': 'This test has ended. Start a new one.',
+  'errors.field.session_idle_out_of_range': 'Use between {{min}} and {{max}} minutes.',
+  'errors.field.session_absolute_out_of_range':
+    'Use at least the idle timeout and at most {{max}} hours.',
+  'errors.field.sso_certificate_expired':
+    'The certificate has expired. Ask the identity provider for a current one.',
+  'errors.field.sso_certificate_missing': 'The metadata has no signing certificate.',
+  'errors.field.sso_certificate_required': "Paste the identity provider's signing certificate.",
+  'errors.field.sso_certificate_unreadable':
+    'The certificate cannot be read: paste it in PEM format.',
+  'errors.field.sso_client_id_required': 'Enter the client ID.',
+  'errors.field.sso_client_rejected': 'The identity provider refused this client ID and secret.',
+  'errors.field.sso_client_secret_required': 'Enter the client secret.',
+  'errors.field.sso_discovery_invalid':
+    'This address does not answer like an OpenID Connect issuer.',
+  'errors.field.sso_discovery_unreachable': 'SupportX cannot reach this issuer. Check the address.',
+  'errors.field.sso_domain_invalid': '{{domain}} is not a domain name, such as example.com.',
+  'errors.field.sso_domain_public':
+    '{{domain}} is a public mail service and cannot be used for single sign-on.',
+  'errors.field.sso_domain_required': 'Add at least one email domain.',
+  'errors.field.sso_domain_taken': 'One of these domains is already used by another organisation.',
+  'errors.field.sso_domains_too_many': 'Use at most {{max}} domains.',
+  'errors.field.sso_issuer_mismatch':
+    'The issuer this address names is a different one. Use the exact issuer address.',
+  'errors.field.sso_issuer_required': 'Enter the issuer address.',
+  'errors.field.sso_metadata_required':
+    'Upload the metadata, give its address, or fill in the sign-in address.',
+  'errors.field.sso_metadata_unreachable': 'SupportX cannot fetch the metadata from this address.',
+  'errors.field.sso_metadata_unreadable': 'This file is not readable SAML metadata.',
+  'errors.field.sso_name_length': 'Use 1 to {{max}} characters.',
+  'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
+  'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
+  // WP-039 identity: Admin > Sign-in and security
+  'errors.field.sso_domain_in_use':
+    '{{domain}} is already used by another single sign-on set-up of yours.',
+  'sso_protocol.oidc': 'OpenID Connect',
+  'sso_protocol.saml': 'SAML 2.0',
+  'sso_test_status.pending': 'Waiting',
+  'sso_test_status.passed': 'Worked',
+  'sso_test_status.failed': 'Did not work',
+  'errors.field.sso_domain_unverified':
+    'Prove that your organisation owns {{domain}} before single sign-on can use it.',
+  'security.sso.test_slow':
+    "No answer yet. If the other window shows an error from the sign-in service, that is the reason: the identity provider's certificate or settings do not match what is saved here. The set-up stays off.",
+  'security.sso.test_private':
+    'Copy the link and open it in a private window, then sign in there as a person of your organisation. This window is signed in as you, so the test cannot run here.',
+  'security.sso.test_link': 'Copy the test link',
+  'sso_test.signed_in_as_someone_else':
+    'This browser is signed in as you, so the sign-in service would not sign in another person here. Open the test link in a private window.',
+  'actions.close': 'Close',
+  'nav.admin_security': 'Sign-in and security',
+  'security.intro':
+    'How people sign in to your organisation: single sign-on, session timeouts and who may sign in for the first time. Every change is recorded in the audit log.',
+  'security.sessions.title': 'Sessions',
+  'security.sessions.intro':
+    'People are signed out after the idle time without activity, and always after the session length. Changes apply to sessions that begin after saving.',
+  'security.sessions.console': 'Console (technicians and administrators)',
+  'security.sessions.portal': 'Portal (requesters)',
+  'security.sessions.idle': 'Sign out after inactivity',
+  'security.sessions.absolute': 'Longest session',
+  'security.sessions.minutes': 'minutes',
+  'security.sessions.hours': 'hours',
+  'security.sessions.saved': 'Sign-in settings saved.',
+  'security.people.create': 'Create people when they first sign in',
+  'security.people.create_on':
+    'Someone your identity provider lets in, and who is not in SupportX yet, is added as a requester on their first sign-in.',
+  'security.people.create_off':
+    'Only people you added, imported or invited can sign in. Others are told to contact your service desk.',
+  'security.sso.title': 'Single sign-on',
+  'security.sso.intro':
+    "Let people sign in with your organisation's identity provider. A new set-up starts as a draft: test it with a real sign-in, then switch it on.",
+  'security.sso.add': 'Add single sign-on',
+  'security.sso.none': 'No single sign-on yet. People sign in with a SupportX password.',
+  'security.sso.add_title': 'Add single sign-on',
+  'security.sso.edit_title': 'Change single sign-on',
+  'security.sso.display_name': 'Name on the sign-in button',
+  'security.sso.domains': 'Email domains',
+  'security.sso.domains_hint':
+    'People whose email is in one of these domains can sign in through this provider, for example example.com.',
+  'security.sso.domains_list': 'Domains: {{domains}}',
+  'security.sso.issuer': 'Issuer address',
+  'security.sso.client_id': 'Client ID',
+  'security.sso.client_secret': 'Client secret',
+  'security.sso.secret_hint': 'Stored in the sign-in service only. It is never shown again.',
+  'security.sso.secret_kept': 'Saved. Type a new one to replace it.',
+  'security.sso.scopes': 'Scopes',
+  'security.sso.metadata': 'Identity provider metadata (XML file)',
+  'security.sso.metadata_hint':
+    'Download it from your identity provider, or give its address below.',
+  'security.sso.metadata_kept': 'The saved metadata stays unless you upload a new file.',
+  'security.sso.metadata_url': 'Metadata address',
+  'security.sso.by_hand': 'Enter the details by hand',
+  'security.sso.sso_url': 'Sign-in address',
+  'security.sso.certificate': 'Signing certificate',
+  'security.sso.mapping': 'Attributes',
+  'security.sso.mapping_hint_oidc':
+    'Which claims carry each detail. The defaults suit most providers.',
+  'security.sso.mapping_hint_saml':
+    'Which attributes carry each detail. The defaults suit Microsoft Entra ID and AD FS.',
+  'security.sso.map.email': 'Email',
+  'security.sso.map.first_name': 'First name',
+  'security.sso.map.last_name': 'Last name',
+  'security.sso.map.department': 'Department',
+  'security.sso.map.site': 'Site',
+  'security.sso.email_redirect': 'Send people of these domains straight to this provider',
+  'security.sso.email_redirect_hint':
+    'Once it is on, people who type an email in these domains skip the password page.',
+  'security.sso.preset_hint.entra':
+    'Register an app in Microsoft Entra ID with the redirect address shown after saving, and give its client ID and secret.',
+  'security.sso.preset_hint.okta':
+    'Create an OpenID Connect web app in Okta with the redirect address shown after saving.',
+  'security.sso.preset_hint.google':
+    'Create an OAuth client in Google Cloud with the redirect address shown after saving.',
+  'security.sso.preset_hint.oidc': 'Any provider that supports OpenID Connect discovery.',
+  'security.sso.preset_hint.saml':
+    "Upload your identity provider's metadata. Give it SupportX's metadata, shown after saving.",
+  'security.sso.issuer_hint.entra': 'https://login.microsoftonline.com/<your tenant ID>/v2.0',
+  'security.sso.issuer_hint.okta': 'https://<your organisation>.okta.com',
+  'security.sso.issuer_hint.google': 'https://accounts.google.com',
+  'security.sso.issuer_hint.oidc':
+    'The address whose /.well-known/openid-configuration describes the provider.',
+  'security.sso.redirect_uri': 'Redirect address for your provider:',
+  'security.sso.sp_metadata': 'SupportX metadata for your provider:',
+  'security.sso.tested_at': 'Tested {{when}}',
+  'security.sso.test': 'Test sign-in',
+  'security.sso.switch_on': 'Switch on',
+  'security.sso.switch_off': 'Switch off',
+  'security.sso.remove_title': 'Remove {{name}}?',
+  'security.sso.remove_body':
+    'People can no longer sign in through it. Their SupportX records stay.',
+  'security.sso.test_title': 'Test sign-in: {{name}}',
+  'security.sso.test_pending':
+    'Waiting for the test sign-in. No session and no person are created by it.',
+  'security.sso.test_passed': 'The test sign-in worked',
+  'security.sso.test_failed': 'The test sign-in did not work',
+  'security.sso.test_name': 'Name',
+  'security.sso.test_not_sent': 'Not sent',
+  'security.sso.test_next': 'You can switch this set-up on now.',
+  'security.sso.test_done': 'Test finished. Close this window: the result is on the settings page.',
+  'sso_preset.entra': 'Microsoft Entra ID',
+  'sso_preset.okta': 'Okta',
+  'sso_preset.google': 'Google',
+  'sso_preset.oidc': 'Other OpenID Connect',
+  'sso_preset.saml': 'SAML 2.0',
+  'sso_state.draft': 'Draft',
+  'sso_state.tested': 'Tested',
+  'sso_state.on': 'On',
+  'sso_state.off': 'Off',
+  'sso_check.not_https': 'The provider is not reached over HTTPS.',
+  'sso_check.certificate_not_yet_valid': 'The certificate is not valid yet.',
+  'sso_test.provider_error': 'The identity provider ended the sign-in with an error.',
+  'sso_test.answer_not_verified':
+    "The identity provider's answer could not be verified. Check the certificate or the client secret, and that the provider's clock is right.",
+  'sso_test.not_in_tenant_domains':
+    "The person signed in, but their email is not in this set-up's domains.",
+  'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
 } as const;
 
 export type LabelKey = keyof typeof en;

@@ -47,6 +47,8 @@ USER_RECORD = "users"
 USERS_LIST = LiveList("users", "users.view")
 ROLES_LIST = LiveList("roles", "roles.view")
 IMPORTS_LIST = LiveList("people_imports", "users.manage")
+# Admin > Sign-in and security (WP-039): the settings and SSO set-ups, for identity managers.
+IDENTITY_LIST = LiveList("identity", "identity.manage")
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})
@@ -85,6 +87,7 @@ CHANNELS = [
     USERS_LIST.spec(),
     ROLES_LIST.spec(),
     IMPORTS_LIST.spec(),
+    IDENTITY_LIST.spec(),
 ]
 
 
@@ -223,6 +226,19 @@ async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> 
     )
 
 
+async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """Sign-in settings or an SSO set-up changed: other admins' security screens refetch."""
+    del session
+    return RealtimeEffects(
+        publications=IDENTITY_LIST.publications(
+            envelope.tenant_id,
+            "identity.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -252,4 +268,8 @@ ROUTES = [
     # The technician defaults changed (D-073): like a plan change, everyone's access is redone.
     RealtimeRoute(("identity_access.access_settings.changed",), _plan_changed),
     RealtimeRoute(("identity_access.people_import.progressed",), _import_progressed),
+    RealtimeRoute(
+        ("identity_access.identity_settings.changed", "identity_access.sso_provider.changed"),
+        _identity_changed,
+    ),
 ]

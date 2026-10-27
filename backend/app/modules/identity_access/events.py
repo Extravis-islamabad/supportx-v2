@@ -146,6 +146,27 @@ class AccessSettingsChanged(DomainEvent):
     changed_fields: list[str]
 
 
+class IdentitySettingsChanged(DomainEvent):
+    """The tenant's sign-in settings changed (WP-039): sessions, people creation."""
+
+    event_type: ClassVar[str] = "identity_access.identity_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant"
+
+    changed_fields: list[str]
+
+
+class SsoProviderChanged(DomainEvent):
+    """A single sign-on set-up was added, changed, tested, switched on or off, or removed."""
+
+    event_type: ClassVar[str] = "identity_access.sso_provider.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sso_provider"
+
+    change: Literal["added", "updated", "tested", "switched_on", "switched_off", "removed"]
+    state: Literal["draft", "tested", "on", "off"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -158,4 +179,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserStatusChanged,
     PeopleImportProgressed,
     AccessSettingsChanged,
+    IdentitySettingsChanged,
+    SsoProviderChanged,
 )

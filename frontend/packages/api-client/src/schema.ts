@@ -1038,6 +1038,162 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/identity/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign-in settings
+         * @description The tenant's sign-in settings, or the defaults (version 0).
+         */
+        get: operations["get_settings_api_v1_identity_settings_get"];
+        /**
+         * Save sign-in settings
+         * @description Session limits apply to sessions begun from now on; people creation at once.
+         */
+        put: operations["put_settings_api_v1_identity_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Single sign-on set-ups
+         * @description Every set-up of the tenant, oldest first.
+         */
+        get: operations["list_sso_api_v1_identity_sso_get"];
+        put?: never;
+        /**
+         * Add a single sign-on set-up
+         * @description Checked and saved in draft: test it, then switch it on.
+         */
+        post: operations["create_sso_api_v1_identity_sso_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/sso/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One single sign-on set-up
+         * @description The set-up, with its last check.
+         */
+        get: operations["get_sso_api_v1_identity_sso__provider_id__get"];
+        /**
+         * Change a single sign-on set-up
+         * @description A connection change sends it back to draft (an "on" set-up: switch it off first).
+         */
+        put: operations["update_sso_api_v1_identity_sso__provider_id__put"];
+        post?: never;
+        /**
+         * Remove a single sign-on set-up
+         * @description Deletes it in Keycloak; the email domains only it claimed are given back.
+         */
+        delete: operations["remove_sso_api_v1_identity_sso__provider_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/sso/{provider_id}/switch-off": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a single sign-on set-up off
+         * @description Nobody signs in through it until it is switched on again.
+         */
+        post: operations["switch_off_api_v1_identity_sso__provider_id__switch_off_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/sso/{provider_id}/switch-on": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch a single sign-on set-up on
+         * @description Shown on the tenant's sign-in page (needs a passed test since the last change).
+         */
+        post: operations["switch_on_api_v1_identity_sso__provider_id__switch_on_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/sso/{provider_id}/tests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a test sign-in
+         * @description No session and no person are created by the test; the tested sign-in ends at once.
+         */
+        post: operations["start_test_api_v1_identity_sso__provider_id__tests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/sso/{provider_id}/tests/{test_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Result of a test sign-in
+         * @description Pending until the pop-up comes back (or the provider's answer is refused).
+         */
+        get: operations["test_result_api_v1_identity_sso__provider_id__tests__test_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents": {
         parameters: {
             query?: never;
@@ -4685,6 +4841,75 @@ export interface components {
             next_cursor: string | null;
         };
         /**
+         * IdentitySettingsBody
+         * @description Sessions per app and people creation on first sign-in.
+         *
+         *     Absolute: at least the idle timeout; at most 7 days for the console, 30 for the portal.
+         */
+        IdentitySettingsBody: {
+            /**
+             * Console Absolute Seconds
+             * @description Absolute session length in seconds.
+             */
+            console_absolute_seconds: number;
+            /**
+             * Console Idle Seconds
+             * @description Idle timeout in seconds (300 to 86400).
+             */
+            console_idle_seconds: number;
+            /**
+             * Create People On Sign In
+             * @description A first sign-in creates the person as requester (REQ-SEC-013).
+             */
+            create_people_on_sign_in: boolean;
+            /**
+             * Portal Absolute Seconds
+             * @description Absolute session length in seconds.
+             */
+            portal_absolute_seconds: number;
+            /**
+             * Portal Idle Seconds
+             * @description Idle timeout in seconds (300 to 86400).
+             */
+            portal_idle_seconds: number;
+        };
+        /**
+         * IdentitySettingsOut
+         * @description The settings and their version (0: never saved, the Appendix A defaults).
+         */
+        IdentitySettingsOut: {
+            /**
+             * Console Absolute Seconds
+             * @description Absolute session length in seconds.
+             */
+            console_absolute_seconds: number;
+            /**
+             * Console Idle Seconds
+             * @description Idle timeout in seconds (300 to 86400).
+             */
+            console_idle_seconds: number;
+            /**
+             * Create People On Sign In
+             * @description A first sign-in creates the person as requester (REQ-SEC-013).
+             */
+            create_people_on_sign_in: boolean;
+            /**
+             * Portal Absolute Seconds
+             * @description Absolute session length in seconds.
+             */
+            portal_absolute_seconds: number;
+            /**
+             * Portal Idle Seconds
+             * @description Idle timeout in seconds (300 to 86400).
+             */
+            portal_idle_seconds: number;
+            /**
+             * Version
+             * @description Send back as If-Match.
+             */
+            version: number;
+        };
+        /**
          * Impact
          * @description How widely it is felt, lowest first.
          * @enum {string}
@@ -5543,6 +5768,204 @@ export interface components {
             region?: string | null;
             /** Time Zone */
             time_zone?: string | null;
+        };
+        /**
+         * SsoBody
+         * @description A set-up.
+         *
+         *     OpenID Connect: issuer, client ID and secret (write-only), scopes. SAML: the provider's
+         *     metadata (text or URL), or its sign-in address and certificate.
+         */
+        SsoBody: {
+            /** Certificate */
+            certificate?: string | null;
+            /** Client Id */
+            client_id?: string | null;
+            /**
+             * Client Secret
+             * @description Write-only; leave out to keep the saved one.
+             */
+            client_secret?: string | null;
+            /**
+             * Display Name
+             * @description Shown on the sign-in button.
+             */
+            display_name: string;
+            /**
+             * Domains
+             * @description The email domains of the people who use it.
+             */
+            domains: string[];
+            /**
+             * Email Redirect
+             * @description Once on, send people of these domains straight to it.
+             * @default false
+             */
+            email_redirect: boolean;
+            /** Entity Id */
+            entity_id?: string | null;
+            /** Issuer */
+            issuer?: string | null;
+            mapping?: components["schemas"]["SsoMappingBody"] | null;
+            /**
+             * Metadata
+             * @description SAML metadata XML (write-only).
+             */
+            metadata?: string | null;
+            /** Metadata Url */
+            metadata_url?: string | null;
+            /**
+             * Preset
+             * @enum {string}
+             */
+            preset: "entra" | "okta" | "google" | "oidc" | "saml";
+            /**
+             * Scopes
+             * @default openid email profile
+             */
+            scopes: string;
+            /** Slo Url */
+            slo_url?: string | null;
+            /** Sso Url */
+            sso_url?: string | null;
+        };
+        /**
+         * SsoCheckOut
+         * @description The last connection check.
+         */
+        SsoCheckOut: {
+            /** Certificate Not After */
+            certificate_not_after?: string | null;
+            /**
+             * Checked At
+             * Format: date-time
+             */
+            checked_at: string;
+            /** Ok */
+            ok: boolean;
+            /**
+             * Problems
+             * @description Codes: labels `sso_check.<code>`.
+             */
+            problems: string[];
+        };
+        /**
+         * SsoListOut
+         * @description The tenant's set-ups.
+         */
+        SsoListOut: {
+            /** Items */
+            items: components["schemas"]["SsoOut"][];
+        };
+        /**
+         * SsoMappingBody
+         * @description Which claim (OpenID Connect) or attribute (SAML) carries each field; empty = not used.
+         */
+        SsoMappingBody: {
+            /** Department */
+            department?: string | null;
+            /** Email */
+            email: string;
+            /** First Name */
+            first_name: string;
+            /** Last Name */
+            last_name: string;
+            /** Site */
+            site?: string | null;
+        };
+        /**
+         * SsoOut
+         * @description A set-up as saved (never the secret).
+         */
+        SsoOut: {
+            /** Display Name */
+            display_name: string;
+            /** Domains */
+            domains: string[];
+            /** Email Redirect */
+            email_redirect: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            last_check: components["schemas"]["SsoCheckOut"] | null;
+            /**
+             * Preset
+             * @enum {string}
+             */
+            preset: "entra" | "okta" | "google" | "oidc" | "saml";
+            /**
+             * Protocol
+             * @enum {string}
+             */
+            protocol: "oidc" | "saml";
+            /**
+             * Redirect Uri
+             * @description Where the provider sends people back (OIDC).
+             */
+            redirect_uri: string;
+            /**
+             * Service Provider Metadata Url
+             * @description SupportX's SAML metadata for this set-up (give it to the provider).
+             */
+            service_provider_metadata_url: string;
+            /**
+             * Settings
+             * @description Connection settings shown again, and mapping.
+             */
+            settings: {
+                [key: string]: unknown;
+            };
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "draft" | "tested" | "on" | "off";
+            /** Switched On At */
+            switched_on_at: string | null;
+            /** Tested At */
+            tested_at: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SsoTestIdentityOut
+         * @description What the provider sent for the person who signed in.
+         */
+        SsoTestIdentityOut: {
+            /** Department */
+            department?: string | null;
+            /** Email */
+            email: string | null;
+            /** Name */
+            name: string | null;
+            /** Site */
+            site?: string | null;
+        };
+        /**
+         * SsoTestResultOut
+         * @description pending, passed or failed (`reason`: labels `sso_test.<reason>`).
+         */
+        SsoTestResultOut: {
+            identity: components["schemas"]["SsoTestIdentityOut"] | null;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "passed" | "failed";
+        };
+        /**
+         * SsoTestStartedOut
+         * @description Open `url` in a pop-up; poll the result with `test_id`.
+         */
+        SsoTestStartedOut: {
+            /** Test Id */
+            test_id: string;
+            /** Url */
+            url: string;
         };
         /**
          * StateReason
@@ -10933,6 +11356,863 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_identity_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentitySettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_identity_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentitySettingsBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentitySettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_sso_api_v1_identity_sso_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoListOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_sso_api_v1_identity_sso_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoBody"];
+            };
+        };
+        responses: {
+            /** @description Created in draft (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_sso_api_v1_identity_sso__provider_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_sso_api_v1_identity_sso__provider_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SsoBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    remove_sso_api_v1_identity_sso__provider_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    switch_off_api_v1_identity_sso__provider_id__switch_off_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    switch_on_api_v1_identity_sso__provider_id__switch_on_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    start_test_api_v1_identity_sso__provider_id__tests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoTestStartedOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    test_result_api_v1_identity_sso__provider_id__tests__test_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+                test_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SsoTestResultOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

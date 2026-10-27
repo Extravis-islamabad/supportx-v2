@@ -266,6 +266,22 @@ export {
   type BrandingSettings,
   type PublicBrandingResult,
 } from './branding';
+export {
+  useCreateSso,
+  useIdentitySettings,
+  useRemoveSso,
+  useSaveIdentitySettings,
+  useSsoProviders,
+  useSsoTestResult,
+  useStartSsoTest,
+  useSwitchSso,
+  useUpdateSso,
+  type IdentitySettings,
+  type IdentitySettingsInput,
+  type SsoInput,
+  type SsoProvider,
+  type SsoTestResult,
+} from './identity';
 export { queryKeys } from './keys';
 export {
   fetchConnectionToken,

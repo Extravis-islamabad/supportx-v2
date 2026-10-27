@@ -54,7 +54,7 @@ class KeycloakUnavailableError(RuntimeError):
     """Keycloak did not answer (or answered 5xx) for the whole wait."""
 
 
-async def _admin_token(client: httpx.AsyncClient, user: str, password: str) -> str | None:
+async def admin_token(client: httpx.AsyncClient, user: str, password: str) -> str | None:
     """A master-realm admin token, or None when the credentials are refused."""
     response = await client.post(
         "/realms/master/protocol/openid-connect/token",
@@ -76,7 +76,7 @@ async def ensure_login_theme(
     client: httpx.AsyncClient, *, user: str, password: str, realm: str, theme: str
 ) -> Result:
     """Set `theme` as the realm's login theme if it has none; never replace a chosen one."""
-    token = await _admin_token(client, user, password)
+    token = await admin_token(client, user, password)
     if token is None:
         return Result(Outcome.ADMIN_REFUSED)
     headers = {"Authorization": f"Bearer {token}"}
