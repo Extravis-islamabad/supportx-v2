@@ -572,7 +572,7 @@
     },
     "identity_access.identity_settings.changed": {
       "1": {
-        "description": "The tenant's sign-in settings changed (WP-039): sessions, people creation.",
+        "description": "The tenant's sign-in settings changed (WP-039).\n\nSessions, people creation, invitations, the password policy, or the worker's result\napplying it (`password_policy_state`).",
         "properties": {
           "changed_fields": {
             "items": {
@@ -586,6 +586,46 @@
           "changed_fields"
         ],
         "title": "IdentitySettingsChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.invitation.changed": {
+      "1": {
+        "description": "An invitation was sent, resent, accepted or revoked (WP-039 session 2).",
+        "properties": {
+          "change": {
+            "enum": [
+              "sent",
+              "resent",
+              "accepted",
+              "revoked"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "revoked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change",
+          "status"
+        ],
+        "title": "InvitationChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.password_policy.changed": {
+      "1": {
+        "description": "An admin saved the password policy, or asked to apply it again.\n\nThe worker writes it into the realm, reading it from the settings when applied, so only the\nnewest policy is ever written.",
+        "properties": {},
+        "title": "PasswordPolicyChanged",
         "type": "object"
       }
     },
@@ -1310,6 +1350,28 @@
           "version"
         ],
         "title": "FileSettingsUpdated",
+        "type": "object"
+      }
+    },
+    "system.mail.queued": {
+      "1": {
+        "description": "A message was queued; the mail worker sends it.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mail_id": {
+            "format": "uuid",
+            "title": "Mail Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mail_id",
+          "kind"
+        ],
+        "title": "MailQueued",
         "type": "object"
       }
     },
