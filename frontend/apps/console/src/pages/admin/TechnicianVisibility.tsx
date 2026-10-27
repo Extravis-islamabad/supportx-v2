@@ -54,7 +54,7 @@ function useSave(onDone?: () => void) {
         { scope, version },
         {
           onSuccess: () => {
-            void message.success(t('settings.saved'));
+            void message.success(t('common.saved'));
             onDone?.();
           },
           onError: (error) => {

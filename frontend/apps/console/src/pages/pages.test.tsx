@@ -227,7 +227,7 @@ describe('Admin › Users', () => {
     });
     render(<App />);
     expect(await screen.findByText('Aisha Tech')).toBeDefined();
-    expect(screen.getByTestId('users-total').textContent).toBe('2 users');
+    expect(screen.getByTestId('users-total').textContent).toBe('2 people');
     scrollToEnd();
     expect(await screen.findByText('Bilal Requester')).toBeDefined();
     expect(screen.getByText('Requester')).toBeDefined(); // the label, never the code

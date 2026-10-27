@@ -65,6 +65,8 @@ const ADMIN_EXTRA: Grant[] = [
   ['roles.manage', 'all'],
   ['sites.manage', 'all'],
   ['groups.manage', 'all'],
+  ['departments.view', 'all'],
+  ['departments.manage', 'all'],
   ['settings.manage', 'all'],
   ['licence.manage', 'all'],
   ['changes.approve', 'all'],

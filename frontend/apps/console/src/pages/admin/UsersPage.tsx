@@ -124,7 +124,7 @@ export function UsersPage() {
         <Flex gap={12} align="baseline" wrap>
           {total !== undefined && total !== null && (
             <Typography.Text type="secondary" data-testid="users-total">
-              {t('users.total', { count: total })}
+              {t('people.total', { count: total })}
             </Typography.Text>
           )}
           {manage && (

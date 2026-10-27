@@ -130,10 +130,12 @@ async def test_request_validation_returns_field_level_errors(
     body = response.json()
     assert body["code"] == "validation_failed"
     by_field = {e["field"]: e for e in body["errors"]}
-    assert by_field["body.title"]["code"] == "string_too_long"
-    assert by_field["body.title"]["message_key"] == "errors.field.string_too_long"
+    # In the app's own words, with the limit (QA WP-021 BUG-01, BUG-02).
+    assert by_field["body.title"]["code"] == "value_too_long"
+    assert by_field["body.title"]["message_key"] == "errors.field.value_too_long_max"
     assert by_field["body.title"]["params"] == {"max_length": 5}
-    assert by_field["body.count"]["code"] == "missing"
+    assert by_field["body.count"]["code"] == "required"
+    assert by_field["body.count"]["message_key"] == "errors.field.required"
 
 
 async def test_unhandled_exception_returns_generic_500_without_internals(

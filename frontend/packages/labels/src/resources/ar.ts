@@ -2274,6 +2274,18 @@ export const ar: LabelResource = {
   'access_settings.banner':
     'حتى تختار، يرى الفنيون سجلات مجموعاتهم وسجلاتهم والسجلات الجديدة غير المسندة في مواقعهم.',
   'access_settings.choose': 'اختر',
+  'errors.field.value_too_long_max': 'استخدم {{max_length}} حرفًا كحد أقصى.',
+  'common.saved': 'تم الحفظ.',
+  'people.total_one': 'شخص واحد',
+  'people.total_other': '{{count}} شخص',
+  'people.total_zero': 'لا يوجد أشخاص',
+  'people.total_two': 'شخصان',
+  'people.total_few': '{{count}} أشخاص',
+  'people.total_many': '{{count}} شخصًا',
+  'people.make_technician': 'جعله فنيًا',
+  'people.make_technician.title': 'جعل {{name}} فنيًا؟',
+  'people.make_technician.explain':
+    'يستخدم هذا مقعد ترخيص فني واحد. إعادته مقدم طلب تُحرّر المقعد.',
   // Reports (WP-035)
   'report_chart.bar': 'أعمدة',
   'report_chart.stacked_bar': 'أعمدة متراكمة',
