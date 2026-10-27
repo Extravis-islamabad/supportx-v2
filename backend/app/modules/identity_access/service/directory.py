@@ -41,6 +41,7 @@ from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, explain_conflict, record_changes
+from app.shared.mail import Language
 from app.shared.search import ENGINE
 
 USER_RECORD_TYPE = "user"
@@ -341,10 +342,13 @@ class MailRecipient:
 
     name: str
     email: str
-    language: str  # en | ar | ur
+    language: Language
 
 
-_MAIL_LANGUAGES = frozenset({"en", "ar", "ur"})
+def _mail_language(code: str | None) -> Language:
+    # Imports and Keycloak can bring regional codes ("ar-SA"): the language part decides.
+    base = (code or "en").split("-")[0].lower()
+    return "ar" if base == "ar" else "ur" if base == "ur" else "en"
 
 
 async def mail_recipients(
@@ -368,10 +372,9 @@ async def mail_recipients(
     for row in rows:
         if not row.email:
             continue
-        language = row.ui_locale or row.locale
         found[row.id] = MailRecipient(
             name=row.display_name,
             email=row.email,
-            language=language if language in _MAIL_LANGUAGES else "en",
+            language=_mail_language(row.ui_locale or row.locale),
         )
     return found

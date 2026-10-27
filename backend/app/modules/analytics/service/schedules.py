@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
 from datetime import time as time_type
 from html import escape
-from typing import Any, Literal
+from typing import Any
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,6 +48,7 @@ from app.shared.labels import label
 from app.shared.mail import (
     MAX_ATTACHMENT_BYTES,
     Attachment,
+    Language,
     MailBrand,
     MailNotConfigured,
     MailRefused,
@@ -428,18 +429,11 @@ class _Outcome:
     problems: list[str] = field(default_factory=list)
 
 
-MailLanguage = Literal["en", "ar", "ur"]
-
-
-def _language(value: str) -> MailLanguage:
-    return "ar" if value == "ar" else "ur" if value == "ur" else "en"
-
-
 def _mail(  # noqa: PLR0913 - the message's parts, keyword-only
     row: ReportSchedule,
     *,
     title: str,
-    language: MailLanguage,
+    language: Language,
     data: bytes,
     brand: MailBrand,
     to: str,
@@ -530,7 +524,7 @@ async def run_schedule(  # noqa: C901 - one run, every outcome explicit
         mail = _mail(
             row,
             title=copy.title,
-            language=_language(language),
+            language=language,
             data=data,
             brand=brands[language],
             to=recipient.email,
