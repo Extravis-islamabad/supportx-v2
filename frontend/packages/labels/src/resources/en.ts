@@ -2492,6 +2492,8 @@ export const en = {
     "The person signed in, but their email is not in this set-up's domains.",
   'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
   // WP-039 session 2: passwords, invitations, reset, mail
+  'security.changed_elsewhere':
+    'Another administrator saved these settings first. Their changes are loaded: check yours and save again.',
   'security.password.title': 'Password policy',
   'security.password.intro':
     'The rules every new password must meet: when someone accepts an invitation, resets a password or changes it. Passwords are kept by the sign-in service, never by SupportX.',

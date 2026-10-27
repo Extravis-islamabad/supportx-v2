@@ -2087,6 +2087,8 @@ export const ur: LabelResource = {
     'شخص نے سائن اِن کیا، لیکن اس کا ای میل اس سیٹ اپ کے ڈومینز میں نہیں۔',
   'errors.field.sso_url_invalid': 'مکمل پتا درج کریں جو https:// سے شروع ہو۔',
   // WP-039 session 2: passwords, invitations, reset, mail
+  'security.changed_elsewhere':
+    'کسی اور ایڈمنسٹریٹر نے یہ سیٹنگز پہلے محفوظ کیں۔ ان کی تبدیلیاں لوڈ ہو گئی ہیں: اپنی تبدیلیاں دیکھیں اور دوبارہ محفوظ کریں۔',
   'security.password.title': 'پاس ورڈ پالیسی',
   'security.password.intro':
     'وہ اصول جن پر ہر نیا پاس ورڈ پورا اترے: جب کوئی دعوت قبول کرے، پاس ورڈ ری سیٹ کرے یا بدلے۔ پاس ورڈ سائن اِن سروس رکھتی ہے، SupportX کبھی نہیں۔',

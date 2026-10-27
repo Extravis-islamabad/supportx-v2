@@ -546,7 +546,21 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   - Admin › Sign-in and security, live, en/ar/ur, axe clean in three themes.
 - [ ] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
   reset (SEC-006), installation password policy and breached list (D1 c, D2; SEC-005), rate
-  limits (SEC-035).
+  limits (SEC-035). Built on `feat/wp-039-session2` (D-099, D-102); waiting for: the e2e
+  `invitations.spec.ts` on the shared stack (QA lock; Keycloak recreated for the breached-list
+  mount and the reset address), `make check`, PR.
+  - [x] mail foundation: `app/shared/mail` (outbox `system.mail.queued`, worker send, retry with
+    backoff, content purge), interface for lanes A and C in docs/architecture/mail.md;
+  - [x] Keycloak's realm SMTP and e-mail theme from the same settings (D-099), en/ar/ur;
+  - [x] invitations: invite from the person's record, resend, withdraw, accepted at first sign-in,
+    7 days (1 to 30), live list (`invitations` channel);
+  - [x] reset page `/password-reset` (console, portal; no session), 5 per address and 20 per
+    network address an hour, always 202; admin "require a new password" (sessions end);
+  - [x] password policy (installation-wide; read-only on multi-tenant installations) applied by
+    the worker as `supportx-realm` (manage-realm only), breached list shipped (46,941 entries),
+    Urdu policy messages and Urdu right to left on Keycloak's pages;
+  - [x] audit-integrity banner axe fix (failing test first);
+  - [ ] REQ-SEC-005 AC2's "try again at" lock-out message: session 3.
 - [ ] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
   warning and kept drafts (SEC-029 UI), the "everything through SupportX" e2e (SEC-017),
   Security administrator role (D7).
@@ -758,6 +772,22 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-27 — WP-039 session 2: mail, invitations, reset, password policy (lane B)
+
+- Built on `feat/wp-039-session2` (stacked on PR #70): see the WP-039 checklist. Decisions
+  D-099 (Keycloak's e-mails, done properly) and D-102 (session 2 defaults, pending review).
+- Proved on a throwaway Keycloak 26.8.1 (`wp039-kc`): the breached list loads (46,941) and
+  refuses a listed password that meets every other rule; a short one gets the length message;
+  `supportx-realm` sets the policy and `supportx-identity` gets 403; Urdu users see the rules'
+  messages in Urdu, right to left; invitation and reset e-mails branded, single use, expiring.
+- Tests: backend unit and DB (identity API 29, mail 17, Keycloak set-up 8, theme 12, labels);
+  console Vitest (admin 86), portal (reset page). The e2e `invitations.spec.ts` is written and
+  not yet run: it needs the shared stack with Keycloak recreated (QA lock).
+- CI: PR #70's backend job was cancelled at the 30-minute limit (the suite reached 31% of
+  tests in 28 minutes; lane A's #71 too); the limit is now 45 (agreed with lane A).
+- Found outside scope: the realm's brute-force settings do not match Appendix A (15 minutes,
+  doubling) and Keycloak says "invalid username or password" while locked: session 3.
 
 ### 2026-10-27 — WP-039 session 1: service account, sessions, single sign-on (lane B)
 

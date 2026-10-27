@@ -1101,3 +1101,43 @@ async def test_multi_tenant_installations_keep_the_platforms_password_policy(
         headers={"If-Match": '"0"'},
     )
     assert sessions.status_code == 200, sessions.text
+
+
+async def test_two_cards_saved_at_once_conflict_and_never_overwrite_each_other(
+    world: World,
+) -> None:
+    """D-102 (4), product owner's condition: a partial save still needs the version it read."""
+    # Two admins open the page at version 0. The first saves the sessions card.
+    first = await world.call(
+        "PUT",
+        "/identity/settings",
+        world.a,
+        json={"portal_idle_seconds": 900},
+        headers={"If-Match": '"0"'},
+    )
+    assert first.status_code == 200, first.text
+    # The second saves the password card from what they read: refused, nothing overwritten.
+    second = await world.call(
+        "PUT",
+        "/identity/settings",
+        world.a,
+        json={"password_min_length": 16},
+        headers={"If-Match": '"0"'},
+    )
+    assert (second.status_code, second.json()["code"]) == (409, "version_conflict")
+    # Without the version read, a save is refused outright, never applied blindly.
+    blind = await world.call("PUT", "/identity/settings", world.a, json={"password_min_length": 16})
+    assert blind.status_code == 428
+    found = (await world.call("GET", "/identity/settings", world.a)).json()
+    assert (found["portal_idle_seconds"], found["password_min_length"]) == (900, 12)
+    assert found["version"] == 1
+    # After reloading (version 1), the second admin's change goes through and keeps the first's.
+    again = await world.call(
+        "PUT",
+        "/identity/settings",
+        world.a,
+        json={"password_min_length": 16},
+        headers={"If-Match": '"1"'},
+    )
+    assert again.status_code == 200, again.text
+    assert (again.json()["portal_idle_seconds"], again.json()["password_min_length"]) == (900, 16)

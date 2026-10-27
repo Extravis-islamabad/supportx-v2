@@ -194,6 +194,43 @@ describe('password policy (WP-039 session 2, REQ-SEC-005)', () => {
     expect(screen.getByTestId('security-password-state').textContent).toBe('Being applied');
   });
 
+  it('a save sends the version read; when another admin saved first it says so and takes their version', async () => {
+    let reads = 0;
+    const fake = api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/settings': () => {
+            reads += 1;
+            return { body: { ...DEFAULTS, version: reads === 1 ? 0 : 1 } };
+          },
+          'PUT /api/v1/identity/settings': {
+            status: 409,
+            body: problem(409, 'version_conflict', { params: { expected_version: 0 } }),
+          },
+        },
+      }),
+    );
+    render(<App />);
+    fireEvent.change(await screen.findByTestId('security-password_min_length'), {
+      target: { value: '16' },
+    });
+    fireEvent.click(screen.getByTestId('security-password-save'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/identity/settings')).toHaveLength(1);
+    });
+    expect(fake.find('PUT', '/api/v1/identity/settings')[0]?.headers.get('If-Match')).toBe('"0"');
+    expect(
+      await screen.findByText(
+        'Another administrator saved these settings first. Their changes are loaded: check yours and save again.',
+      ),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(reads).toBeGreaterThan(1); // their version, fetched again
+    });
+    // What was typed is kept, to save again on top of their change.
+    expect(screen.getByTestId<HTMLInputElement>('security-password_min_length').value).toBe('16');
+  });
+
   it('a policy the sign-in service did not take says why and is applied again', async () => {
     const fake = api(
       routes({

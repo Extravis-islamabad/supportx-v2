@@ -2454,6 +2454,8 @@ export const ar: LabelResource = {
   'sso_test.not_in_tenant_domains': 'سجّل الشخص الدخول، لكن بريده ليس في نطاقات هذا الإعداد.',
   'errors.field.sso_url_invalid': 'أدخل عنوانًا كاملًا يبدأ بـ https://.',
   // WP-039 session 2: passwords, invitations, reset, mail
+  'security.changed_elsewhere':
+    'حفظ مسؤول آخر هذه الإعدادات أولًا. حُمّلت تغييراته: راجع تغييراتك واحفظ مجددًا.',
   'security.password.title': 'سياسة كلمات المرور',
   'security.password.intro':
     'القواعد التي يجب أن تستوفيها كل كلمة مرور جديدة: عند قبول دعوة أو إعادة تعيين كلمة مرور أو تغييرها. تحفظ خدمة تسجيل الدخول كلمات المرور، ولا يحفظها SupportX أبدًا.',
