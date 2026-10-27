@@ -1,7 +1,7 @@
 # Identity: sign-in settings, single sign-on, passwords and invitations
 
 WP-039 (REQ-SEC-005..008, 013, 017..020, 029, 031, 035), ADR-036, D-089, D-094, D-098, D-099,
-D-102. Session 1: the Keycloak service account, sessions per tenant, people creation, single
+D-103. Session 1: the Keycloak service account, sessions per tenant, people creation, single
 sign-on. Session 2: the password policy and breached list, invitations, password reset, mail
 (docs/architecture/mail.md). Session 3: MFA and "my account".
 

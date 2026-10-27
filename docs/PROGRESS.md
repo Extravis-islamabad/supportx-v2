@@ -546,7 +546,7 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   - Admin › Sign-in and security, live, en/ar/ur, axe clean in three themes.
 - [ ] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
   reset (SEC-006), installation password policy and breached list (D1 c, D2; SEC-005), rate
-  limits (SEC-035). Built on `feat/wp-039-session2` (D-099, D-102); waiting for: the e2e
+  limits (SEC-035). Built on `feat/wp-039-session2` (D-099, D-103); waiting for: the e2e
   `invitations.spec.ts` on the shared stack (QA lock; Keycloak recreated for the breached-list
   mount and the reset address), `make check`, PR.
   - [x] mail foundation: `app/shared/mail` (outbox `system.mail.queued`, worker send, retry with
@@ -776,7 +776,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 ### 2026-10-27 — WP-039 session 2: mail, invitations, reset, password policy (lane B)
 
 - Built on `feat/wp-039-session2` (stacked on PR #70): see the WP-039 checklist. Decisions
-  D-099 (Keycloak's e-mails, done properly) and D-102 (session 2 defaults, pending review).
+  D-099 (Keycloak's e-mails, done properly) and D-103 (session 2 defaults, pending review).
 - Proved on a throwaway Keycloak 26.8.1 (`wp039-kc`): the breached list loads (46,941) and
   refuses a listed password that meets every other rule; a short one gets the length message;
   `supportx-realm` sets the policy and `supportx-identity` gets 403; Urdu users see the rules'

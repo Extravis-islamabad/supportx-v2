@@ -239,7 +239,7 @@ export function PasswordPolicyCard() {
                         return;
                       }
                       if (error instanceof ApiError && error.isConflict) {
-                        // Another admin saved first: keep what was typed, take their version (D-102 (4)).
+                        // Another admin saved first: keep what was typed, take their version (D-103 (4)).
                         void settings.refetch();
                         void message.warning(t('security.changed_elsewhere'));
                         return;

@@ -1106,7 +1106,7 @@ async def test_multi_tenant_installations_keep_the_platforms_password_policy(
 async def test_two_cards_saved_at_once_conflict_and_never_overwrite_each_other(
     world: World,
 ) -> None:
-    """D-102 (4), product owner's condition: a partial save still needs the version it read."""
+    """D-103 (4), product owner's condition: a partial save still needs the version it read."""
     # Two admins open the page at version 0. The first saves the sessions card.
     first = await world.call(
         "PUT",
