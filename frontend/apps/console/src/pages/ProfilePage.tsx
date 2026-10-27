@@ -26,7 +26,16 @@ import {
 } from '@supportx/api-client';
 import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx/forms';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
-import { ConflictDialog, PresenceAvatars, reportError, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  PresenceAvatars,
+  reportError,
+  useLabel,
+  useLicence,
+  WriteButton,
+} from '@supportx/ui';
+
+import { AvailabilityCard } from '../AvailabilitySwitch';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -87,6 +96,7 @@ export function ProfilePage() {
   const t = useLabel();
   const me = useSession().data?.user;
   const user = useUser(me?.id);
+  const licence = useLicence();
 
   if (me === undefined || user.data === undefined) return <Skeleton active />;
   return (
@@ -103,6 +113,9 @@ export function ProfilePage() {
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
       <FormDensityCard userId={me.id} value={me.form_density} />
+      {me.user_type === 'technician' && licence.has('incident') && (
+        <AvailabilityCard userId={me.id} />
+      )}
       <ProfileForm
         user={user.data}
         selfName={me.display_name}
