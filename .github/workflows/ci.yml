@@ -19,16 +19,16 @@ env:
   FORCE_COLOR: "1"
 
 jobs:
-  backend:
-    name: backend
+  # The backend gate runs as three jobs (product owner, 2026-10-27: under 15 minutes; one job
+  # reached 38). `backend-checks` lints, type-checks and migrates; `backend-tests` runs the suite
+  # in SHARDS parallel jobs, each with its own services and pytest-xdist inside
+  # (tooling/pytest_shards.py balances the files); `backend` (the required check) combines their
+  # coverage and enforces the threshold. Opt-in slow tests (the audit volume test) run nightly
+  # only (audit-scale.yml).
+  backend-checks:
+    name: backend checks
     runs-on: ubuntu-24.04
-    # The test step alone took 19 minutes on main on 2026-10-26 and 28 on 2026-10-27, when two
-    # lanes' runs were cancelled at 30 (shared runners vary; three lanes add tests daily).
-    timeout-minutes: 45
-    # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
-    # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
-    # NATS JetStream is started as a step below (service containers cannot pass `-js`).
-    # Passwords are throwaway values unique to this run; the containers die with the job.
+    timeout-minutes: 15
     services:
       postgres:
         image: pgvector/pgvector:0.8.7-pg16-bookworm
@@ -40,69 +40,17 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
           --health-retries 20
-      pgbouncer:
-        image: edoburu/pgbouncer:v1.26.1-p0
-        env:
-          DB_HOST: postgres
-          DB_PORT: "5432"
-          DB_USER: supportx_app
-          DB_PASSWORD: ci-app-${{ github.run_id }}
-          AUTH_TYPE: scram-sha-256
-          POOL_MODE: transaction
-          LISTEN_PORT: "6432"
-          DEFAULT_POOL_SIZE: "5"
-          # 0 = PgBouncer does NOT track prepared statements (like older or third-party poolers),
-          # which proves our asyncpg settings work without that feature (app/core/database.py).
-          MAX_PREPARED_STATEMENTS: "0"
-        ports: ["6432:6432"]
-      # Rate limiting (WP-008) runs against real Valkey; no password on this throwaway container.
-      valkey:
-        image: valkey/valkey:9.1.2-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
-          --health-retries 20
     env:
       SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
       SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
       SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
       SUPPORTX_TEST_RELAY_PASSWORD: ci-relay-${{ github.run_id }}
-      SUPPORTX_TEST_PGBOUNCER: 127.0.0.1:6432
-      SUPPORTX_REQUIRE_DB_TESTS: "1"
-      # Outbox relay, consumers, DLQ and latency/throughput tests (WP-007) cannot be skipped.
-      SUPPORTX_TEST_NATS_URL: nats://127.0.0.1:4222
-      SUPPORTX_REQUIRE_NATS_TESTS: "1"
-      SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
-      SUPPORTX_REQUIRE_VALKEY_TESTS: "1"
-      # Audit exports (WP-018) on SeaweedFS, the on-prem object store (ADR-012); started below.
-      SUPPORTX_TEST_S3_ENDPOINT: http://127.0.0.1:8333
-      SUPPORTX_REQUIRE_S3_TESTS: "1"
-      # Audit log volume test (WP-018, D-076 item 11): 100k entries here, 10M nightly
-      # (audit-scale.yml).
-      SUPPORTX_AUDIT_SCALE_ROWS: "100000"
       SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0 # the event schema check compares with the target branch
-      - name: Start NATS JetStream (same image as the dev stack)
-        run: |
-          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2.15.1-alpine -js -m 8222
-          for _ in $(seq 1 30); do
-            curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' && break
-            sleep 1
-          done
-          curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' # fail the job if never up
-      - name: Start SeaweedFS (S3 API; same image as the Helm chart)
-        run: |
-          docker run -d --name seaweedfs -p 8333:8333 chrislusf/seaweedfs:4.48 \
-            server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -master.volumeSizeLimitMB=256
-          for _ in $(seq 1 30); do
-            curl -s -o /dev/null http://127.0.0.1:8333 && break
-            sleep 1
-          done
-          curl -s -o /dev/null http://127.0.0.1:8333 # fail the job if never up
       - uses: ./.github/actions/setup-backend
       - name: Lint (ruff check, ruff format --check, import-linter, OpenAPI + event schema drift)
         run: make backend-lint
@@ -128,10 +76,101 @@ jobs:
         run: uv run python -m tooling.db_bootstrap --database supportx
       - name: Migrate to head, then check tenant isolation (RLS guard)
         run: make db-migrate db-current db-guard
-      - name: Test (pytest incl. database + event bus tests, coverage threshold from pyproject.toml)
+
+  backend-tests:
+    name: backend tests ${{ matrix.shard }}/3
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false # every shard reports its failures in one run
+      matrix:
+        shard: [1, 2, 3] # keep in step with SUPPORTX_TEST_SHARD below
+    # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
+    # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
+    # NATS JetStream is started as a step below (service containers cannot pass `-js`).
+    # Passwords are throwaway values unique to this run; the containers die with the job.
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg16-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-${{ github.run_id }}
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      pgbouncer:
+        image: edoburu/pgbouncer:v1.26.1-p0
+        env:
+          DB_HOST: postgres
+          DB_PORT: "5432"
+          DB_USER: supportx_app
+          DB_PASSWORD: ci-app-${{ github.run_id }}
+          AUTH_TYPE: scram-sha-256
+          POOL_MODE: transaction
+          LISTEN_PORT: "6432"
+          # Four test workers share it (pytest-xdist).
+          DEFAULT_POOL_SIZE: "20"
+          # 0 = PgBouncer does NOT track prepared statements (like older or third-party poolers),
+          # which proves our asyncpg settings work without that feature (app/core/database.py).
+          MAX_PREPARED_STATEMENTS: "0"
+        ports: ["6432:6432"]
+      # Rate limiting (WP-008) runs against real Valkey; no password on this throwaway container.
+      valkey:
+        image: valkey/valkey:9.1.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    env:
+      SUPPORTX_TEST_SHARD: ${{ matrix.shard }}/3
+      SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
+      SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
+      SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+      SUPPORTX_TEST_RELAY_PASSWORD: ci-relay-${{ github.run_id }}
+      SUPPORTX_TEST_PGBOUNCER: 127.0.0.1:6432
+      SUPPORTX_REQUIRE_DB_TESTS: "1"
+      # Outbox relay, consumers, DLQ and latency/throughput tests (WP-007) cannot be skipped.
+      SUPPORTX_TEST_NATS_URL: nats://127.0.0.1:4222
+      SUPPORTX_REQUIRE_NATS_TESTS: "1"
+      SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
+      SUPPORTX_REQUIRE_VALKEY_TESTS: "1"
+      # Audit exports (WP-018) on SeaweedFS, the on-prem object store (ADR-012); started below.
+      SUPPORTX_TEST_S3_ENDPOINT: http://127.0.0.1:8333
+      SUPPORTX_REQUIRE_S3_TESTS: "1"
+      SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
+      COVERAGE_FILE: ${{ github.workspace }}/backend/.coverage.shard${{ matrix.shard }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start NATS JetStream (same image as the dev stack)
+        run: |
+          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2.15.1-alpine -js -m 8222
+          for _ in $(seq 1 30); do
+            curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' && break
+            sleep 1
+          done
+          curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' # fail the job if never up
+      - name: Start SeaweedFS (S3 API; same image as the Helm chart)
+        run: |
+          docker run -d --name seaweedfs -p 8333:8333 chrislusf/seaweedfs:4.48 \
+            server -dir=/data -ip.bind=0.0.0.0 -s3 -s3.port=8333 -master.volumeSizeLimitMB=256
+          for _ in $(seq 1 30); do
+            curl -s -o /dev/null http://127.0.0.1:8333 && break
+            sleep 1
+          done
+          curl -s -o /dev/null http://127.0.0.1:8333 # fail the job if never up
+      - uses: ./.github/actions/setup-backend
+      - name: Create roles and database (same code as the test fixtures)
+        working-directory: backend
+        run: uv run python -m tooling.db_bootstrap --database supportx
+      - name: Test this shard (4 workers; coverage combined and checked by the backend job)
+        working-directory: backend
         env:
           SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
-        run: make backend-test
+        run: uv run pytest -n 4 --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
       - name: Event bus latency and throughput (job summary)
         if: ${{ !cancelled() }}
         run: |
@@ -139,9 +178,48 @@ jobs:
             { echo '### Event bus performance'; echo '```json'; cat "$RUNNER_TEMP/event-perf.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
             cat "$RUNNER_TEMP/event-perf.json"
           fi
+      - name: Keep this shard's coverage for the backend job
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-coverage-${{ matrix.shard }}
+          path: backend/.coverage.shard${{ matrix.shard }}
+          include-hidden-files: true
+          retention-days: 1
+          if-no-files-found: error
       - name: NATS logs on failure
         if: ${{ failure() }}
         run: docker logs --tail 200 nats
+
+  backend:
+    name: backend
+    needs: [backend-checks, backend-tests]
+    # Always runs, so a failed or cancelled shard fails this required check instead of skipping it
+    # (a skipped required check would count as passed).
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Every backend job passed
+        env:
+          CHECKS: ${{ needs.backend-checks.result }}
+          TESTS: ${{ needs.backend-tests.result }}
+        run: |
+          echo "backend checks: $CHECKS, backend tests: $TESTS"
+          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ]
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: backend-coverage-*
+          path: backend
+          merge-multiple: true
+      - name: Coverage of all shards together (threshold from pyproject.toml)
+        working-directory: backend
+        run: |
+          uv run coverage combine .coverage.shard*
+          uv run coverage report --skip-covered --sort=cover
 
   frontend:
     name: frontend

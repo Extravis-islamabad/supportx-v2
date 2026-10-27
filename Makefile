@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
+.PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend backend-test-timings \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -169,6 +169,9 @@ backend-typecheck:
 
 backend-test:
 	$(BACKEND) uv run pytest
+
+backend-test-timings: ## Time every backend test file, to refresh the CI shard weights (tests/shard_weights.json)
+	$(BACKEND) SUPPORTX_TEST_TIMINGS=tests/shard_weights.json uv run pytest -n 4 --dist loadgroup --no-cov
 
 # Exactly CI's install (WP-012 follow-up d): fails here, not after a push, when the lockfile or
 # pnpm's build-script approvals (pnpm-workspace.yaml allowBuilds) are out of date.
