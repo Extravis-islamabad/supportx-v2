@@ -27,6 +27,9 @@ import { useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { lengthLimit, NoAccess, useAccess, WriteButton } from '@supportx/ui';
 
+import { MyExportsButton, ReportSettingsButton } from './exports';
+import { SchedulesButton } from './schedules';
+
 interface Entry {
   ref: string;
   path: string;
@@ -106,7 +109,12 @@ export function ReportsHomePage() {
         <Typography.Title level={1} style={{ margin: 0 }}>
           {t('reports.title')}
         </Typography.Title>
-        {can(MANAGE_FOLDERS) && <FolderTools folders={data?.folders ?? []} />}
+        <Space wrap>
+          {can(MANAGE_FOLDERS) && <FolderTools folders={data?.folders ?? []} />}
+          <MyExportsButton />
+          <SchedulesButton />
+          <ReportSettingsButton />
+        </Space>
       </Flex>
       <Input.Search
         allowClear

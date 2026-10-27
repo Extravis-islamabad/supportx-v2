@@ -130,6 +130,61 @@ describe('Reports', () => {
     });
   });
 
+  it('lists schedules with their next run and last result, and pauses one (REQ-RPT-052, 056)', async () => {
+    window.history.pushState({}, '', '/reports');
+    const schedule = {
+      id: '01900000-0000-7000-8000-00000000s001',
+      owner_id: '01900000-0000-7000-8000-000000000101',
+      title: 'Weekly open incidents',
+      report_ref: 'builtin:incidents_open_by_priority',
+      frequency: 'weekly',
+      at_time: '07:00:00',
+      time_zone: 'Asia/Riyadh',
+      start_date: '2026-10-01',
+      end_date: null,
+      weekdays: [0],
+      day_of_month: null,
+      recipient_users: [],
+      recipient_groups: [],
+      format: 'xlsx',
+      content: 'summary',
+      message: null,
+      status: 'active',
+      paused_reason: null,
+      next_run_at: '2026-11-02T04:00:00Z',
+      last_run_at: '2026-10-26T04:00:00Z',
+      last_result: 'attachment_too_large',
+      last_sent: 0,
+      last_failed: 3,
+      version: 4,
+    };
+    const fake = api({
+      me: fakeSession({ roles: ['tenant_admin', 'technician'] }),
+      routes: routes({
+        'GET /api/v1/reports/schedules': { body: { mail_configured: false, items: [schedule] } },
+        [`POST /api/v1/reports/schedules/${schedule.id}/pause`]: {
+          body: { ...schedule, status: 'paused', version: 5 },
+        },
+      }),
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('report-schedules'));
+    expect(
+      await screen.findByText(
+        'Outgoing e-mail is not set up, so reports cannot be sent on a schedule. Ask your administrator.',
+      ),
+    ).toBeDefined();
+    const last = await screen.findByTestId(`schedule-last-${schedule.id}`);
+    expect(last.textContent).toContain('The file was larger than 10 MB');
+    expect(document.body.textContent).not.toMatch(/attachment_too_large|weekly\b/);
+    fireEvent.click(screen.getByTestId(`schedule-pause-${schedule.id}`));
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/reports/schedules/${schedule.id}/pause`)).toHaveLength(1);
+    });
+    const call = fake.find('POST', `/api/v1/reports/schedules/${schedule.id}/pause`)[0];
+    expect(call?.headers.get('If-Match')).toBe('"4"');
+  });
+
   describe('viewer', () => {
     beforeEach(() => {
       window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');
@@ -164,6 +219,63 @@ describe('Reports', () => {
         RESULT.rows[0]?.drill,
       );
       expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
+    });
+
+    it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
+      const ready = {
+        id: '01900000-0000-7000-8000-00000000e001',
+        title: 'Open incidents by priority',
+        format: 'xlsx',
+        content: 'summary',
+        status: 'ready',
+        problem: null,
+        row_count: 2,
+        size_bytes: 1200,
+        created_at: '2026-10-28T09:00:00Z',
+        expires_at: '2026-11-04T09:00:00Z',
+      };
+      const failed = {
+        ...ready,
+        id: '01900000-0000-7000-8000-00000000e002',
+        format: 'pdf',
+        status: 'failed',
+        problem: 'pdf_not_available',
+        row_count: null,
+      };
+      const fake = api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/exports': { status: 202, body: { ...ready, status: 'running' } },
+          'GET /api/v1/reports/exports': { body: [ready, failed] },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      fireEvent.click(await screen.findByText('CSV'));
+      fireEvent.click(screen.getByText('Every record behind it'));
+      fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      await waitFor(() => {
+        expect(fake.find('POST', '/api/v1/reports/exports')).toHaveLength(1);
+      });
+      const body = fake.find('POST', '/api/v1/reports/exports')[0]?.body as {
+        format: string;
+        content: string;
+        title: string;
+        language: string;
+      };
+      expect(body).toMatchObject({
+        format: 'csv',
+        content: 'records',
+        title: 'Open incidents by priority',
+        language: 'en',
+      });
+      fireEvent.click(screen.getByTestId('report-my-exports'));
+      const link = await screen.findByTestId(`report-export-download-${ready.id}`);
+      expect(link.getAttribute('href')).toBe(`/api/v1/reports/exports/${ready.id}/file`);
+      expect(screen.getByTestId(`report-export-status-${failed.id}`).textContent).toBe('Failed');
+      expect(screen.getByText('PDF export is not available on this server.')).toBeDefined();
+      expect(document.body.textContent).not.toMatch(/pdf_not_available/);
     });
 
     it('does not run while a condition has no value, and says why (REQ-RPT-029 AC2)', async () => {

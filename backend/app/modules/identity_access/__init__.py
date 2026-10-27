@@ -55,7 +55,9 @@ from app.modules.identity_access.service import directory, mfa
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.directory import (
+    MailRecipient,
     display_names,
+    mail_recipients,
     people_matching,
     user_contacts,
     user_names,
@@ -268,6 +270,7 @@ register_people_usage()
 
 __all__ = [
     "FieldRule",
+    "MailRecipient",
     "Placement",
     "PolicyService",
     "RecordFacts",
@@ -279,6 +282,7 @@ __all__ = [
     "authorize_stored",
     "display_names",
     "get_policy",
+    "mail_recipients",
     "module",
     "people_matching",
     "person_placement",

@@ -61,6 +61,8 @@ import {
 import { useDebounced } from '../../useDebounced';
 import { PRIORITY_COLOURS } from '../incidents/priorityColours';
 import { DrillDrawer, type Drill } from './DrillDrawer';
+import { ExportButton, MyExportsButton } from './exports';
+import { ScheduleButton } from './schedules';
 import { INCIDENT_REPORT_FIELDS, useReportWords, type ReportWords } from './names';
 
 const CHARTS: ChartType[] = [
@@ -367,13 +369,22 @@ function ReportView({ base }: { base: Base }) {
           </Typography.Paragraph>
         </Card>
       )}
-      <Actions
-        base={base}
-        definition={definition}
-        canSave={problems.size === 0 && can('reports.create')}
-        onSaved={(id) => void navigate(`/reports/${id}`)}
-        onDeleted={() => void navigate('/reports')}
-      />
+      <Flex gap={12} wrap align="center">
+        <Actions
+          base={base}
+          definition={definition}
+          canSave={problems.size === 0 && can('reports.create')}
+          onSaved={(id) => void navigate(`/reports/${id}`)}
+          onDeleted={() => void navigate('/reports')}
+        />
+        <ExportButton title={base.name} definition={definition} canRun={problems.size === 0} />
+        <ScheduleButton
+          reportRef={base.ref}
+          title={base.name}
+          changed={JSON.stringify(definition) !== JSON.stringify(base.definition)}
+        />
+        <MyExportsButton />
+      </Flex>
       <DrillDrawer
         drill={drill}
         onClose={() => {

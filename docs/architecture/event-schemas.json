@@ -225,6 +225,69 @@
         "type": "object"
       }
     },
+    "analytics.report_export.finished": {
+      "1": {
+        "description": "An export is ready or failed (`problem` says why).",
+        "properties": {
+          "export_id": {
+            "format": "uuid",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "problem": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Problem"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id",
+          "requested_by",
+          "status",
+          "problem"
+        ],
+        "title": "ReportExportFinished",
+        "type": "object"
+      }
+    },
+    "analytics.report_export.requested": {
+      "1": {
+        "description": "Someone asked for a report export; the worker builds it.",
+        "properties": {
+          "export_id": {
+            "format": "uuid",
+            "title": "Export Id",
+            "type": "string"
+          },
+          "requested_by": {
+            "format": "uuid",
+            "title": "Requested By",
+            "type": "string"
+          }
+        },
+        "required": [
+          "export_id",
+          "requested_by"
+        ],
+        "title": "ReportExportRequested",
+        "type": "object"
+      }
+    },
     "analytics.report_folder.deleted": {
       "1": {
         "description": "A shared folder was deleted; its reports moved to `moved_to` (None: their owners' own).",
@@ -274,6 +337,127 @@
           "created"
         ],
         "title": "ReportFolderSaved",
+        "type": "object"
+      }
+    },
+    "analytics.report_schedule.due": {
+      "1": {
+        "description": "A schedule's time came; the worker sends it.",
+        "properties": {
+          "run_at": {
+            "format": "date-time",
+            "title": "Run At",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "run_at"
+        ],
+        "title": "ReportScheduleDue",
+        "type": "object"
+      }
+    },
+    "analytics.report_schedule.ran": {
+      "1": {
+        "description": "A run finished: how many recipients got it, and why a failed run failed.",
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "paused": {
+            "title": "Paused",
+            "type": "boolean"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "sent": {
+            "title": "Sent",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "result",
+          "sent",
+          "failed",
+          "paused"
+        ],
+        "title": "ReportScheduleRan",
+        "type": "object"
+      }
+    },
+    "analytics.report_schedule.saved": {
+      "1": {
+        "description": "A schedule was created, changed, paused, resumed or deleted.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "schedule_id": {
+            "format": "uuid",
+            "title": "Schedule Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schedule_id",
+          "owner_id",
+          "status",
+          "changed_fields"
+        ],
+        "title": "ReportScheduleSaved",
+        "type": "object"
+      }
+    },
+    "analytics.report_settings.changed": {
+      "1": {
+        "description": "The tenant's report settings changed (week start, limits).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "ReportSettingsChanged",
         "type": "object"
       }
     },

@@ -2733,7 +2733,7 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
       containers:
         - name: consumers
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/devhat-pm/supportx-worker:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.consumers"]
           envFrom:

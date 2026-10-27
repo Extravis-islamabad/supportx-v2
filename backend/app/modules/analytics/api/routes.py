@@ -6,11 +6,14 @@ per run (REQ-RPT-048). Results carry codes and ids with the metadata the UI need
 """
 
 import uuid
-from datetime import datetime
-from typing import Annotated, Any
+from datetime import date, datetime
+from datetime import time as time_type
+from typing import Annotated, Any, Literal
+from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,21 +30,28 @@ from app.core.errors import (
 from app.core.tenancy import TenantContext, resolve_tenant
 from app.modules.analytics.domain.builtin import BUILTIN_REPORTS
 from app.modules.analytics.domain.definition import ReportDefinition
-from app.modules.analytics.service import library
+from app.modules.analytics.domain.schedule import Frequency
+from app.modules.analytics.infra.models import ReportExport, ReportSchedule, ReportSettings
+from app.modules.analytics.service import exports, library, schedules
 from app.modules.analytics.service.compiler import available_measures, compile_report
+from app.modules.analytics.service.jobs import storage_or_none
 from app.modules.analytics.service.runner import (
     ReportResult,
     TenantSlots,
     resolve_provider,
     run_report,
 )
+from app.modules.analytics.service.settings import limits_of, tenant_settings, update_settings
+from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
+from app.shared.mail import mail_configured
 from app.shared.reporting import ReportingSource, registered_entities
+from app.shared.storage import ObjectStorage
 
 REPORTING_DB_STATE = "reporting_db"
 SLOTS_STATE = "report_slots"
@@ -321,7 +331,7 @@ async def run(
     request: Request,
 ) -> ReportResultOut:
     """Run a definition over the records you may see, in your time zone (`X-Time-Zone`)."""
-    settings = request.app.state.settings
+    limits = limits_of(await tenant_settings(session), request.app.state.settings)
     slots: TenantSlots = getattr(request.app.state, SLOTS_STATE)
     source = await _source(request, session, context, subject, body.definition.entity)
     result = await run_report(
@@ -332,7 +342,8 @@ async def run(
         body.definition,
         source=source,
         zone=_zone(request),
-        timeout_seconds=settings.report_interactive_timeout_seconds,
+        timeout_seconds=limits.interactive_timeout_seconds,
+        week_start=limits.week_start,
         slots=slots,
     )
     return ReportResultOut.of(result)
@@ -432,6 +443,407 @@ async def star(report_ref: str, session: TenantSession, subject: View) -> None:
 async def unstar(report_ref: str, session: TenantSession, subject: View) -> None:
     """Remove a star (no error when there was none)."""
     await library.set_favourite(session, subject, report_ref, starred=False)
+
+
+# --- exports --------------------------------------------------------------------------------------
+
+
+class ReportExportIn(BaseModel):
+    """What to export: the definition on screen, the file format and what it holds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    definition: ReportDefinition
+    format: Literal["csv", "xlsx", "pdf"]
+    content: Literal["summary", "records"] = "summary"
+    title: str = Field(min_length=1, max_length=200)
+    language: Literal["en", "ar", "ur"] = "en"
+
+
+class ReportExportOut(BaseModel):
+    """An export and where it stands; `problem` says why a failed one failed."""
+
+    id: uuid.UUID
+    title: str
+    format: str
+    content: str
+    status: Literal["running", "ready", "failed", "expired"]
+    problem: str | None
+    row_count: int | None
+    size_bytes: int | None
+    created_at: datetime
+    expires_at: datetime | None
+
+    @classmethod
+    def of(cls, row: ReportExport) -> "ReportExportOut":
+        """From the row."""
+        return cls(
+            id=row.id,
+            title=row.title,
+            format=row.format,
+            content=row.content,
+            status=row.status,  # type: ignore[arg-type]  # CHECK constraint keeps it to these
+            problem=row.problem,
+            row_count=row.row_count,
+            size_bytes=row.size_bytes,
+            created_at=row.created_at,
+            expires_at=row.expires_at,
+        )
+
+
+STORAGE_STATE = "report_storage"
+
+
+def _storage(request: Request) -> ObjectStorage | None:
+    # app.state.report_storage replaces the configured store (tests); normally unset.
+    injected: ObjectStorage | None = getattr(request.app.state, STORAGE_STATE, None)
+    return injected or storage_or_none(request.app.state.settings)
+
+
+@router.post(
+    "/exports",
+    summary="Export a report to a file",
+    status_code=status.HTTP_202_ACCEPTED,
+    response_model=ReportExportOut,
+    responses={503: {"model": ProblemDetail, "description": "storage_not_configured"}},
+)
+@read_only_exempt
+async def request_export(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    body: ReportExportIn,
+    session: TenantSession,
+    subject: View,
+    context: Tenant,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """Needs `reports.export`. Built in the background; you are told live when it is ready."""
+
+    async def go() -> Created:
+        row = await exports.request_export(
+            session,
+            subject,
+            exports.ExportRequest(
+                definition=body.definition,
+                format=body.format,
+                content=body.content,
+                title=body.title,
+                language=body.language,
+                time_zone=_zone(request).key,
+            ),
+            validate=_validator(request, session, context, subject),
+            storage_ready=_storage(request) is not None,
+        )
+        return Created(body=ReportExportOut.of(row))
+
+    return await idempotency.run(body, go, status_code=status.HTTP_202_ACCEPTED)
+
+
+@router.get("/exports", summary="Your recent exports")
+async def my_exports(session: TenantSession, subject: View) -> list[ReportExportOut]:
+    """Newest first; files can be downloaded until they expire."""
+    return [ReportExportOut.of(r) for r in await exports.list_exports(session, subject)]
+
+
+@router.get(
+    "/exports/{export_id}/file",
+    summary="Download an export",
+    response_class=StreamingResponse,
+    responses={409: {"model": ProblemDetail, "description": "report_export_not_ready"}},
+    dependencies=[audited("report.export_downloaded", object_param="export_id")],
+)
+async def download_export(
+    export_id: uuid.UUID, session: TenantSession, subject: View, request: Request
+) -> StreamingResponse:
+    """Only for the person who asked, signed in, before the file expires."""
+    row = await exports.download(session, subject, export_id)
+    storage = _storage(request)
+    if storage is None or row.object_key is None or row.size_bytes is None:
+        raise ServiceUnavailable(code="storage_not_configured")
+    name = f"{row.title}.{row.format}"
+    ascii_name = name.encode("ascii", "replace").decode().replace('"', "")
+    return StreamingResponse(
+        storage.read_range(row.object_key, 0, max(row.size_bytes - 1, 0)),
+        media_type=exports.CONTENT_TYPES[row.format],
+        headers={
+            "Content-Disposition": (
+                f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{quote(name)}"
+            ),
+            "Content-Length": str(row.size_bytes),
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
+
+# --- schedules ------------------------------------------------------------------------------------
+
+
+class ReportScheduleIn(BaseModel):
+    """A scheduled report: what, when, to whom, in which file type."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str = Field(min_length=1, max_length=200)
+    report_ref: str = Field(
+        min_length=1, max_length=100, description="builtin:<code> or a saved report id"
+    )
+    frequency: Literal["daily", "weekly", "monthly"]
+    at_time: time_type = Field(description="Wall-clock time in `time_zone`, e.g. 07:00")
+    time_zone: str = Field(min_length=1, max_length=64)
+    start_date: date
+    end_date: date | None = None
+    weekdays: list[int] = Field(default_factory=list, max_length=7, description="0 = Monday")
+    day_of_month: int | None = Field(default=None, ge=1, le=28)
+    recipient_users: list[uuid.UUID] = Field(default_factory=list, max_length=50)
+    recipient_groups: list[uuid.UUID] = Field(default_factory=list, max_length=20)
+    format: Literal["csv", "xlsx", "pdf"] = "xlsx"
+    content: Literal["summary", "records"] = "summary"
+    message: str | None = Field(default=None, max_length=2000)
+
+    def values(self) -> schedules.ScheduleInput:
+        """For the service."""
+        return schedules.ScheduleInput(
+            title=self.title,
+            report_ref=self.report_ref,
+            frequency=Frequency(self.frequency),
+            at_time=self.at_time.replace(second=0, microsecond=0),
+            time_zone=self.time_zone,
+            start_date=self.start_date,
+            end_date=self.end_date,
+            weekdays=tuple(self.weekdays),
+            day_of_month=self.day_of_month,
+            recipient_users=tuple(self.recipient_users),
+            recipient_groups=tuple(self.recipient_groups),
+            format=self.format,
+            content=self.content,
+            message=self.message,
+        )
+
+
+class ReportScheduleOut(BaseModel):
+    """A schedule with its next run and the result of its last one (REQ-RPT-052 AC2)."""
+
+    id: uuid.UUID
+    owner_id: uuid.UUID
+    title: str
+    report_ref: str
+    frequency: Literal["daily", "weekly", "monthly"]
+    at_time: time_type
+    time_zone: str
+    start_date: date
+    end_date: date | None
+    weekdays: list[int]
+    day_of_month: int | None
+    recipient_users: list[uuid.UUID]
+    recipient_groups: list[uuid.UUID]
+    format: Literal["csv", "xlsx", "pdf"]
+    content: Literal["summary", "records"]
+    message: str | None
+    status: Literal["active", "paused", "finished"]
+    paused_reason: str | None
+    next_run_at: datetime | None
+    last_run_at: datetime | None
+    last_result: str | None
+    last_sent: int | None
+    last_failed: int | None
+    version: int
+
+    @classmethod
+    def of(cls, row: ReportSchedule) -> "ReportScheduleOut":
+        """From the row."""
+        return cls.model_validate(
+            {
+                **{name: getattr(row, name) for name in cls.model_fields},
+                "weekdays": list(row.weekdays or ()),
+            }
+        )
+
+
+class ReportSchedulesOut(BaseModel):
+    """Your schedules, and whether e-mail can be sent at all (REQ-RPT-055)."""
+
+    mail_configured: bool
+    items: list[ReportScheduleOut]
+
+
+@router.get("/schedules", summary="Scheduled reports")
+async def list_schedules(
+    session: TenantSession, subject: View, request: Request
+) -> ReportSchedulesOut:
+    """Yours (administrators: every one), next run first."""
+    rows = await schedules.list_schedules(session, subject)
+    return ReportSchedulesOut(
+        mail_configured=mail_configured(request.app.state.settings),
+        items=[ReportScheduleOut.of(r) for r in rows],
+    )
+
+
+@router.post(
+    "/schedules",
+    summary="Schedule a report",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ReportScheduleOut,
+    responses={409: {"model": ProblemDetail, "description": "mail_not_configured"}},
+)
+async def create_schedule(
+    body: ReportScheduleIn,
+    session: TenantSession,
+    subject: View,
+    idempotency: Idempotency,
+    request: Request,
+) -> Response:
+    """Needs `reports.schedule` and outgoing mail."""
+
+    async def go() -> Created:
+        row = await schedules.create_schedule(
+            session,
+            subject,
+            body.values(),
+            settings=request.app.state.settings,
+            source=source_of(request),
+        )
+        return Created(body=ReportScheduleOut.of(row), headers={"ETag": f'"{row.version}"'})
+
+    return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+@router.put("/schedules/{schedule_id}", summary="Change a scheduled report", responses=CONFLICT)
+async def update_schedule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    schedule_id: uuid.UUID,
+    body: ReportScheduleIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    response: Response,
+    request: Request,
+) -> ReportScheduleOut:
+    """Replace its settings (If-Match)."""
+    row = await schedules.update_schedule(
+        session,
+        subject,
+        schedule_id,
+        body.values(),
+        expected_version=version,
+        settings=request.app.state.settings,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return ReportScheduleOut.of(row)
+
+
+@router.post(
+    "/schedules/{schedule_id}/{action}",
+    summary="Pause or resume a scheduled report",
+    responses=CONFLICT,
+)
+async def pause_or_resume(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    schedule_id: uuid.UUID,
+    action: Literal["pause", "resume"],
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    response: Response,
+    request: Request,
+) -> ReportScheduleOut:
+    """Resuming clears the failure count and plans the next run."""
+    row = await schedules.set_paused(
+        session,
+        subject,
+        schedule_id,
+        paused=action == "pause",
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return ReportScheduleOut.of(row)
+
+
+@router.delete(
+    "/schedules/{schedule_id}",
+    summary="Delete a scheduled report",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=CONFLICT,
+)
+async def delete_schedule(
+    schedule_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    request: Request,
+) -> None:
+    """Needs If-Match."""
+    await schedules.delete_schedule(
+        session, subject, schedule_id, expected_version=version, source=source_of(request)
+    )
+
+
+# --- settings -------------------------------------------------------------------------------------
+
+
+class ReportSettingsOut(BaseModel):
+    """The tenant's reporting defaults (D-041: editable by an admin)."""
+
+    week_start: Literal["monday", "sunday"]
+    interactive_timeout_seconds: int
+    export_link_days: int
+    max_export_rows: int
+    version: int
+
+
+class ReportSettingsPatch(BaseModel):
+    """The settings to change."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    week_start: Literal["monday", "sunday"] | None = None
+    interactive_timeout_seconds: int | None = Field(default=None, ge=5, le=60)
+    export_link_days: int | None = Field(default=None, ge=1, le=30)
+    max_export_rows: int | None = Field(default=None, ge=1000, le=1_000_000)
+
+
+def _settings_out(row: ReportSettings) -> ReportSettingsOut:
+    return ReportSettingsOut(
+        week_start="sunday" if row.week_start == "sunday" else "monday",
+        interactive_timeout_seconds=row.interactive_timeout_seconds,
+        export_link_days=row.export_link_days,
+        max_export_rows=row.max_export_rows,
+        version=row.version,
+    )
+
+
+@router.get("/settings", summary="Report settings of your organisation")
+async def get_settings(
+    session: TenantSession, subject: View, response: Response
+) -> ReportSettingsOut:
+    """Week start, query time limit, export link lifetime and row cap."""
+    del subject
+    row = await tenant_settings(session)
+    set_etag(response, row.version)
+    return _settings_out(row)
+
+
+@router.patch(
+    "/settings",
+    summary="Change report settings",
+    responses=CONFLICT,
+    dependencies=[audited("report.settings_changed", object_type="report_settings")],
+)
+async def patch_settings(
+    body: ReportSettingsPatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: View,
+    response: Response,
+) -> ReportSettingsOut:
+    """Needs `settings.manage` and If-Match."""
+    row = await update_settings(
+        session,
+        subject,
+        {name: getattr(body, name) for name in body.model_fields_set},
+        expected_version=version,
+    )
+    set_etag(response, row.version)
+    return _settings_out(row)
 
 
 # --- folders --------------------------------------------------------------------------------------
