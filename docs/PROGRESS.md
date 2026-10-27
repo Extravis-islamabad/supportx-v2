@@ -4,11 +4,12 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
+- **Last completed:** WP-029 part 1 (rules, routing, auto-assignment; D-097, ADR-035) and
+  WP-021-FIX (D-096), 2026-10-27. Before them WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
   2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
   Lane B: WP-017-FIX (D-093, ADR-031 accepted), then WP-039 (identity; D-089) next.
-- **Next work package:** WP-021 QA (~/Desktop/qa-wp021/), then WP-029 (business rules,
-  routing; needs WP-026) on the critical path; WP-020d..020f, WP-022..028.
+- **Next work package:** WP-029 part 2 (triggers, loop guard, transition hooks), then
+  WP-020f, WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -524,6 +525,31 @@ Every finding of Desktop/qa-wp021/QA-REPORT.md has a test named after its ID tha
   department's site suggested, never overwriting; C5 making someone a technician asks first (seat).
 - [x] docs/LANES.md: three lanes, worktrees, claimed numbers, dev-stack QA lock.
 
+### [x] WP-029 part 1 — Business rules, routing, auto-assignment (D-097; ADR-035; built 2026-10-27)
+New `automation` module (migration 0025); incidents register their rule fields (work_items
+`service/automation.py`). Tests: `automation/tests/test_domain.py`, `tests/db/test_automation_api.py`
+(31, incl. RLS for 7 tables), Vitest `admin/automation/automation.test.tsx`.
+- [x] Business rules (REQ-RUL-001..005, 029): conditions with AND/OR and "changed / changed from /
+  changed to", set a field (only if empty / replace) or refuse with an en/ar/ur message; order,
+  "stop after this rule", drafts; checked when saved. Run on create, edit, assignment and
+  life-cycle moves (rules cannot set the status).
+- [x] Order inside the save (REQ-RUL-006): rules → priority matrix → routing → auto-assignment.
+- [x] Routing (REQ-ASG-001): ordered routing rules (site-scoped, "replace a chosen group"), the
+  category's group, then a fallback group (none by default, D-097).
+- [x] Auto-assignment (REQ-ASG-002..006, 011): per group, off by default; round robin (row-locked
+  turns) and load balancing (weights 4/3/2/1, loads named); only Available members of the
+  record's group; nobody available → stays in the queue with `automation.assignment.waiting` and
+  a log entry. On create and on a move to the group.
+- [x] Every automated change is a history line naming the rule, method and loads ("why" line in
+  the record history); run log `GET /automation/runs` (30 days).
+- [x] A group, site, department or custom field a rule uses cannot be removed (REQ-RUL-029 AC3).
+- [x] Screens: Admin › Incidents › Business rules and Routing and assignment; header
+  Available/Away switch for technicians; all live through `automation.changed`.
+- [x] Reporting provider for lane C (WP-035 port): every work item type registers its list query.
+- [ ] Part 2: triggers after commit (REQ-RUL-009/010) with the loop guard (REQ-RUL-028: depth 5,
+  20 per record per minute, never on its own change), transition hooks and "who may run"
+  (REQ-WF-003/004), "test against an existing record", drag-and-drop ordering, e2e journey.
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -755,6 +781,15 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-27 — WP-021-FIX merged path, WP-029 part 1 (lane A)
+
+- WP-021-FIX (PR #71): BUG-01..08 and C1..C5 each with a failing test first; main (#72) merged in.
+- WP-029 part 1: automation module, business rules, routing, auto-assignment, screens, history
+  "why" lines, in-use refusals, availability switch, live updates; the work item reporting
+  provider for lane C. Plan defaults recorded as D-097 (no fallback group by default); ADR-035.
+- Split: triggers, loop guard and transition hooks moved to WP-029 part 2 (business rules run
+  once per save and cannot trigger each other, so part 1 cannot loop).
 
 ### 2026-10-27 — WP-017-FIX and ADR-031 (lane B)
 

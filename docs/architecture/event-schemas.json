@@ -551,6 +551,169 @@
         "type": "object"
       }
     },
+    "automation.assignment.waiting": {
+      "1": {
+        "description": "Auto-assignment found nobody (REQ-ASG-011): the record waits in its group's queue.\n\nThe group head is told (notifications, WP-023) once per record; the record is offered again\nwhen a member becomes available.",
+        "properties": {
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "nobody_available",
+              "all_at_cap",
+              "no_members"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "group_id",
+          "reason"
+        ],
+        "title": "AssignmentWaiting",
+        "type": "object"
+      }
+    },
+    "automation.availability.changed": {
+      "1": {
+        "description": "A technician set themselves (or was set) Available or Away (REQ-ASG-006 AC3: live).",
+        "properties": {
+          "state": {
+            "enum": [
+              "available",
+              "away"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "state"
+        ],
+        "title": "AvailabilityChanged",
+        "type": "object"
+      }
+    },
+    "automation.definition.changed": {
+      "1": {
+        "description": "A business rule, routing rule, trigger or setting was added, changed, reordered or removed.\n\nAdmin screens reload the list; the engine reads definitions per save, so nothing is cached.",
+        "properties": {
+          "change": {
+            "enum": [
+              "created",
+              "updated",
+              "deleted",
+              "reordered"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "definition_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definition Id"
+          },
+          "kind": {
+            "enum": [
+              "business_rule",
+              "routing_rule",
+              "routing_settings",
+              "assignment_settings",
+              "trigger"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Type"
+          }
+        },
+        "required": [
+          "kind",
+          "definition_id",
+          "record_type",
+          "change"
+        ],
+        "title": "AutomationChanged",
+        "type": "object"
+      }
+    },
+    "automation.loop.stopped": {
+      "1": {
+        "description": "A loop cap was hit (REQ-RUL-028): the chain stopped; the record and owners are told.",
+        "properties": {
+          "automation_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Automation Ids",
+            "type": "array"
+          },
+          "cap": {
+            "enum": [
+              "chain_depth",
+              "per_minute"
+            ],
+            "title": "Cap",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "cap",
+          "automation_ids"
+        ],
+        "title": "AutomationStopped",
+        "type": "object"
+      }
+    },
     "identity_access.access_settings.changed": {
       "1": {
         "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",
