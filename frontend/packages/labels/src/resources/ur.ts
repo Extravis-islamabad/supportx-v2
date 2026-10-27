@@ -1898,6 +1898,14 @@ export const ur: LabelResource = {
   'access_settings.banner':
     'جب تک آپ انتخاب نہ کریں، ٹیکنیشن اپنے گروپوں کے، اپنے، اور اپنی سائٹس کے نئے غیر تفویض ریکارڈ دیکھتے ہیں۔',
   'access_settings.choose': 'منتخب کریں',
+  'errors.field.value_too_long_max': 'زیادہ سے زیادہ {{max_length}} حروف استعمال کریں۔',
+  'common.saved': 'محفوظ ہو گیا۔',
+  'people.total_one': '{{count}} فرد',
+  'people.total_other': '{{count}} افراد',
+  'people.make_technician': 'ٹیکنیشن بنائیں',
+  'people.make_technician.title': '{{name}} کو ٹیکنیشن بنائیں؟',
+  'people.make_technician.explain':
+    'اس سے ٹیکنیشن لائسنس کی ایک نشست استعمال ہوتی ہے۔ دوبارہ درخواست گزار بنانے سے یہ خالی ہو جاتی ہے۔',
   // Reports (WP-035)
   'report_chart.bar': 'بار',
   'report_chart.stacked_bar': 'اسٹیکڈ بار',

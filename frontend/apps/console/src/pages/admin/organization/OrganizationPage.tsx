@@ -232,7 +232,12 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
             ? [
                 {
                   key: 'sites',
-                  title: t('organization.field.site_ids'),
+                  // One site per department, several per group (QA WP-021 C1).
+                  title: t(
+                    kind === 'departments'
+                      ? 'organization.field.site_id'
+                      : 'organization.field.site_ids',
+                  ),
                   render: (_: unknown, row: Row) => {
                     const ids =
                       (row.site_ids as string[] | undefined) ??
@@ -388,7 +393,7 @@ function UnitEditor({
   const save = (values: Record<string, unknown>, at = version) => {
     setProblems({});
     const done = () => {
-      void message.success(t('settings.saved'));
+      void message.success(t('common.saved'));
       onClose();
     };
     if (row === undefined) {

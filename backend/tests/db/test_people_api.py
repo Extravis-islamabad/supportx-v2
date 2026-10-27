@@ -7,6 +7,7 @@ API tests. Each test names the requirement or rule it proves.
 import io
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -83,8 +84,9 @@ class World:
         )
 
 
-@pytest_asyncio.fixture
-async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
+@asynccontextmanager
+async def people_world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
+    """Two organisations, the app with a faked session and a fake AuthService (WP-021 tests)."""
     app: FastAPI = create_app(make_settings(database_url=migrated_db.app_url))
     async with app.router.lifespan_context(app):
         setattr(app.state, SESSION_RESOLVER_STATE, fake_session)
@@ -100,6 +102,12 @@ async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
                 app,
                 auth,
             )
+
+
+@pytest_asyncio.fixture
+async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
+    async with people_world(migrated_db) as built:
+        yield built
 
 
 # --- tenant isolation of the new tables (CLAUDE.md rule a) ----------------------------------------

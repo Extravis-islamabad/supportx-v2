@@ -68,6 +68,11 @@ export function useUsers(query: UsersQuery, enabled = true) {
   });
 }
 
+/** GET /users/{id}, for code that needs one person once (e.g. a form filling its defaults). */
+export function fetchUser(id: string): Promise<UserDetail> {
+  return call(api.GET('/api/v1/users/{user_id}', { params: { path: { user_id: id } } }));
+}
+
 /** One user; its ETag is remembered by the client for the next PATCH (If-Match). */
 export function useUser(id: string | undefined) {
   return useQuery({
