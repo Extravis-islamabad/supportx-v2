@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
+    Uuid,
     func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
@@ -102,6 +103,27 @@ class RoutingSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     record_type: Mapped[str] = mapped_column(String(30), primary_key=True)
     fallback_group_id: Mapped[uuid.UUID | None]
     use_category_group: Mapped[bool] = mapped_column(Boolean, server_default="true")
+
+
+class TransitionSetting(TenantKeyed, Timestamps, Actors, Versioned, Base):
+    """One life-cycle action's settings: who, when, confirmation, "after" (REQ-WF-003, 004).
+
+    No row: the action behaves as before (permission only).
+    """
+
+    __tablename__ = "transition_settings"
+    __table_args__ = (
+        CheckConstraint("jsonb_typeof(after_actions) = 'array'", name="after_actions_array"),
+    )
+
+    record_type: Mapped[str] = mapped_column(String(30), primary_key=True)
+    action: Mapped[str] = mapped_column(String(40), primary_key=True)
+    roles: Mapped[list[str]] = mapped_column(ARRAY(String(80)), server_default="{}")
+    group_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid), server_default="{}")
+    relatives: Mapped[list[str]] = mapped_column(ARRAY(String(30)), server_default="{}")
+    conditions: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    confirmation: Mapped[dict[str, str] | None] = mapped_column(JSONB)
+    after_actions: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
 
 
 class AssignmentSettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
