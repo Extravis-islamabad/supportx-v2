@@ -42,6 +42,7 @@ from app.shared.events import record_event
 
 AppName = Literal["console", "portal"]
 MIN_INVITATION_DAYS, MAX_INVITATION_DAYS = 1, 30  # Appendix A: 7 days, at most 30
+MAX_MFA_GRACE_DAYS = 30  # Appendix A: 7 days, at most 30
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,7 @@ class IdentitySettingsView:
     password_history: int = 5
     password_expiry_days: int = 0
     password_breached_check: bool = True
+    mfa_grace_days: int = 7  # REQ-SEC-024: days to enrol once MFA is required (0 to 30)
     # Not edited: whether the worker has written the policy into the realm (models.py).
     password_policy_state: str = "default"  # noqa: S105 - a state code, not a password
     password_policy_error: str | None = None
@@ -137,6 +139,15 @@ def check_session_limits(values: IdentitySettingsView) -> None:
             )
         )
     errors += policy_rules.problems(values.password_policy())
+    if not 0 <= values.mfa_grace_days <= MAX_MFA_GRACE_DAYS:
+        errors.append(
+            FieldError(
+                field="mfa_grace_days",
+                code="mfa_grace_out_of_range",
+                message_key="errors.field.mfa_grace_out_of_range",
+                params={"min": 0, "max": MAX_MFA_GRACE_DAYS},
+            )
+        )
     if errors:
         raise ValidationFailed(errors=errors)
 

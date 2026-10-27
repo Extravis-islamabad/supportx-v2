@@ -939,6 +939,9 @@ export const ar: LabelResource = {
   'richtext.link_placeholder': 'https://',
   // Audit log (WP-018)
   'nav.audit': 'سجل التدقيق',
+  'role.security_admin': 'مسؤول الأمان',
+  'role.security_admin.description':
+    'تسجيل الدخول والأمان: تسجيل الدخول الموحّد وكلمات المرور والمصادقة متعددة العوامل والجلسات والدعوات؛ دون الوصول إلى السجلات.',
   'role.auditor': 'مدقق',
   'role.auditor.description':
     'يقرأ سجل التدقيق ويبحث فيه ويصدّره ويتحقق منه ويقرأ إعدادات الوصول، ولا يغيّر شيئًا.',

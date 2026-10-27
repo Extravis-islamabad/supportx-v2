@@ -937,6 +937,9 @@ export const en = {
   'richtext.link_placeholder': 'https://',
   // Audit log (WP-018)
   'nav.audit': 'Audit log',
+  'role.security_admin': 'Security administrator',
+  'role.security_admin.description':
+    'Sign-in and security: single sign-on, passwords, MFA, sessions and invitations; no access to records.',
   'role.auditor': 'Auditor',
   'role.auditor.description':
     'Reads, searches, exports and verifies the audit log and reads access settings; changes nothing.',

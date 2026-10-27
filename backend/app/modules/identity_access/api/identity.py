@@ -102,6 +102,9 @@ class IdentitySettingsBody(BaseModel):
     password_breached_check: bool | None = Field(
         default=None, description="Refuse passwords on the installation's breached list."
     )
+    mfa_grace_days: int | None = Field(
+        default=None, description="Days to set up MFA once it is required (0 to 30)."
+    )
 
 
 class IdentitySettingsOut(BaseModel):
@@ -121,6 +124,7 @@ class IdentitySettingsOut(BaseModel):
     password_history: int
     password_expiry_days: int
     password_breached_check: bool
+    mfa_grace_days: int
     password_policy_editable: bool = Field(
         description="False on multi-tenant installations: the platform's policy applies."
     )

@@ -31,6 +31,7 @@ from app.modules.identity_access.domain.identity import Identity, Membership
 from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.fetch import FetchError
 from app.modules.identity_access.infra.keycloak_admin import (
+    Credential,
     IdentityAdminRefused,
     KeycloakUser,
     LoginEvent,
@@ -68,6 +69,8 @@ class FakeAdmin:
     account_attributes: dict[str, dict[str, str]] = field(default_factory=dict)
     emails: list[tuple[str, list[str], int]] = field(default_factory=list)
     required: dict[str, list[str]] = field(default_factory=dict)
+    # Keycloak user id -> its credentials (WP-039 session 3: MFA).
+    credentials_of: dict[str, list[Credential]] = field(default_factory=dict)
 
     async def close(self) -> None:
         return None
@@ -103,6 +106,14 @@ class FakeAdmin:
 
     async def require_actions(self, user_id: str, actions: list[str]) -> None:
         self.required[user_id] = actions
+
+    async def credentials(self, user_id: str) -> list[Credential]:
+        return list(self.credentials_of.get(user_id, []))
+
+    async def delete_credential(self, user_id: str, credential_id: str) -> None:
+        self.credentials_of[user_id] = [
+            c for c in self.credentials_of.get(user_id, []) if c.id != credential_id
+        ]
 
     async def member_tenants(self, user_id: str) -> list[str]:
         return [

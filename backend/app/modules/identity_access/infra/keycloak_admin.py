@@ -57,6 +57,15 @@ class Organization:
 
 
 @dataclass(frozen=True)
+class Credential:
+    """One of a user's Keycloak credentials (type: password, otp, recovery-authn-codes …)."""
+
+    id: str
+    type: str
+    created_ms: int | None = None
+
+
+@dataclass(frozen=True)
 class KeycloakUser:
     """A realm user (only what SupportX reads)."""
 
@@ -127,6 +136,10 @@ class IdentityAdmin(Protocol):
     async def require_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
 
     async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
+
+    async def credentials(self, user_id: str) -> list[Credential]: ...  # noqa: D102
+
+    async def delete_credential(self, user_id: str, credential_id: str) -> None: ...  # noqa: D102
 
     async def login_events(  # noqa: D102
         self, types: list[str], since_ms: int, user_id: str | None = None
@@ -449,6 +462,18 @@ class KeycloakAdmin:
             return
         wanted = sorted({*(current.get("requiredActions") or []), *actions})
         await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": wanted})
+
+    async def credentials(self, user_id: str) -> list[Credential]:
+        """The user's credentials (types and IDs only; never their secrets)."""
+        found = await self._json("GET", f"/users/{user_id}/credentials", missing_ok=True) or []
+        return [
+            Credential(str(item["id"]), str(item["type"]), item.get("createdDate"))
+            for item in found
+        ]
+
+    async def delete_credential(self, user_id: str, credential_id: str) -> None:
+        """Remove one credential (an MFA reset removes the authenticator and recovery codes)."""
+        await self._call("DELETE", f"/users/{user_id}/credentials/{credential_id}", missing_ok=True)
 
     async def member_tenants(self, user_id: str) -> list[str]:
         """The tenant IDs of the organizations the user is a member of."""

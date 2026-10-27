@@ -522,6 +522,9 @@ export const ur: LabelResource = {
   'richtext.link_placeholder': 'https://',
   // Audit log (WP-018)
   'nav.audit': 'آڈٹ لاگ',
+  'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
+  'role.security_admin.description':
+    'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',
   'role.auditor': 'آڈیٹر',
   'role.auditor.description':
     'آڈٹ لاگ پڑھتا، تلاش کرتا، برآمد کرتا اور اس کی تصدیق کرتا ہے اور رسائی کی ترتیبات پڑھتا ہے؛ کچھ تبدیل نہیں کرتا۔',

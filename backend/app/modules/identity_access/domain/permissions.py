@@ -28,7 +28,9 @@ REQUESTER = "requester"
 # Reads, searches, exports and verifies the audit log and reads access settings; changes nothing
 # (separation of duties, WP-018, D-076). Its audit permissions come from the audit module.
 AUDITOR = "auditor"
-SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR)
+# Sign-in, MFA, sessions and the people they apply to; no record access (Appendix A, D-089 D7).
+SECURITY_ADMIN = "security_admin"
+SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR, SECURITY_ADMIN)
 
 ALL = ALL_SCOPES
 OWN_ONLY: tuple[Scope, ...] = ("own",)
@@ -121,6 +123,12 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("roles.view", "all"),
             ("sites.view", "all"),
             ("groups.view", "all"),
+        ),
+        SECURITY_ADMIN: (
+            ("profile.edit", "own"),
+            ("users.view", "all"),
+            ("roles.view", "all"),
+            ("identity.manage", "all"),
         ),
     }
 )

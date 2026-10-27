@@ -22,7 +22,12 @@ from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import password_reset as password_reset_service
 from app.modules.identity_access.service import sso
-from app.modules.identity_access.service.auth import AuthService, LoginAddress, LoginFailure
+from app.modules.identity_access.service.auth import (
+    AuthService,
+    EnrolFirst,
+    LoginAddress,
+    LoginFailure,
+)
 from app.modules.identity_access.service.sso_test import TestFinished
 from app.modules.organization import tenant_for_host
 from app.shared.realtime import (
@@ -188,6 +193,8 @@ async def callback(
             base = failure.origin + urlsplit(base).path.rstrip("/")
         target = f"{base}/?{query}"
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
+        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)

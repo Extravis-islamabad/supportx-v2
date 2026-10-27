@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
@@ -56,6 +56,7 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
 from app.shared.clock import Clock
@@ -101,6 +102,17 @@ class LoginFailure(Exception):
         self.app = app
         self.problem = problem
         self.origin = origin  # a tenant's own address the login started on (WP-017), if any
+
+
+class MfaEnrolmentDue(Exception):
+    """The person is past their MFA grace period here: they enrol before they get a session."""
+
+
+@dataclass(frozen=True)
+class EnrolFirst:
+    """No session yet: the browser signs in again and Keycloak makes the person enrol MFA."""
+
+    redirect_to: str
 
 
 class LoginResult:
@@ -243,7 +255,7 @@ class AuthService:
         error: str | None,
         previous_session_id: str | None,
         host: str | None = None,
-    ) -> "LoginResult | sso_test.TestFinished":
+    ) -> "LoginResult | EnrolFirst | sso_test.TestFinished":
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
@@ -263,6 +275,11 @@ class AuthService:
             raise LoginFailure(app, BadRequest(code="login_failed"), origin)
         try:
             session = await self._login(app, code, pending)
+        except MfaEnrolmentDue:
+            # Keycloak now holds the enrol actions on the account; signing in again (its own
+            # session still stands) runs them before anything else (REQ-SEC-024 AC2).
+            query = urlencode({"app": app, "returnTo": pending["return_to"]})
+            return EnrolFirst(f"{origin or self.origin(app)}/api/v1/auth/login?{query}")
         except AppError as exc:
             raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
@@ -324,7 +341,17 @@ class AuthService:
             on_roles_mapped=self.on_roles_mapped,
             directory=self._directory,
         )
+        synced = await mfa_service.on_sign_in(
+            self.database, self.identity_admin, uuid.UUID(target.tenant_id), user.user_id
+        )
+        mfa = synced.status
+        if mfa.must_enrol(now):
+            if not synced.enforced:
+                # Keycloak could not be told: never loop through sign-in, say so instead.
+                raise PermissionDenied(code="mfa_enrolment_unavailable")
+            raise MfaEnrolmentDue
         return Session(
+            mfa_due_at=None if mfa.due_at is None else mfa.due_at.isoformat(),
             subject=identity.subject,
             user_id=str(user.user_id),
             tenant_id=target.tenant_id,
