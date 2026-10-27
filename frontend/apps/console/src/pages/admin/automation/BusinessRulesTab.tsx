@@ -91,7 +91,11 @@ export function BusinessRulesTab() {
         dataSource={list}
         pagination={false}
         data-testid="rules-table"
-        locale={{ emptyText: t('automation.rules.none') }}
+        locale={{
+          emptyText: (
+            <Typography.Text type="secondary">{t('automation.rules.none')}</Typography.Text>
+          ),
+        }}
         onRow={(rule) => ({
           onClick: () => {
             if (editable) setEditing(rule);

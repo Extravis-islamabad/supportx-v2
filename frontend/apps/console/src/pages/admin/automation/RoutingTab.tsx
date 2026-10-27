@@ -187,7 +187,11 @@ function RoutingRules() {
         dataSource={list}
         pagination={false}
         data-testid="routing-table"
-        locale={{ emptyText: t('automation.routing.none') }}
+        locale={{
+          emptyText: (
+            <Typography.Text type="secondary">{t('automation.routing.none')}</Typography.Text>
+          ),
+        }}
         onRow={(rule) => ({
           onClick: () => {
             if (editable) setEditing(rule);
