@@ -21,6 +21,7 @@ from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.main import create_app
 from conftest import create_tenant, make_settings
 from tests.db.test_users_api import fake_session
+from tooling import timing
 from tooling.db_testing import ThrowawayDatabase
 
 if TYPE_CHECKING:
@@ -82,6 +83,7 @@ def write_report(results: dict[str, dict[str, float | int]]) -> None:
         path.write_text(json.dumps(existing, indent=2))
 
 
+@pytest.mark.timing
 async def test_filtered_list_on_100k_rows(
     migrated_db: ThrowawayDatabase, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -138,4 +140,4 @@ async def test_filtered_list_on_100k_rows(
         for name, values in results.items():
             print(f"\n[perf] list_100k {name}: " + ", ".join(f"{k}={v}" for k, v in values.items()))  # noqa: T201
     write_report(results)
-    assert all(r["p50_ms"] < 1000 for r in results.values()), results
+    assert all(r["p50_ms"] < timing.limit(1000) for r in results.values()), results

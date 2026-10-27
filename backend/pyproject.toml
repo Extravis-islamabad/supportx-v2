@@ -124,6 +124,7 @@ markers = [
     "valkey: needs Valkey (dev stack or CI service); skipped locally if absent, required in CI",
     "pdf: needs WeasyPrint and Pango (`uv sync --group pdf`; the worker image in CI); skipped if absent, required with SUPPORTX_REQUIRE_PDF_TESTS=1",
     "scale: volume test, runs only with SUPPORTX_AUDIT_SCALE_ROWS (CI 100k, nightly 10M)",
+    "timing: asserts a speed (tooling/timing.py): 10x the target in PRs, the target nightly (perf.yml)",
 ]
 
 [tool.coverage.run]

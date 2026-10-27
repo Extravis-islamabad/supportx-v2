@@ -1,0 +1,105 @@
+# Nightly performance (product owner, 2026-10-28): every test marked `timing` against its real
+# target (SUPPORTX_PERF_STRICT=1, tooling/timing.py), in one process, without coverage tracing, on
+# a runner of its own. Pull requests assert ten times the target, so shared-runner load never
+# fails them. The measurements go to the job summary and an artifact kept 90 days: compare runs
+# to see trends.
+name: Performance
+
+on:
+  schedule:
+    - cron: "17 2 * * *" # nightly 02:17 UTC, after the audit scale run starts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  timing:
+    name: timing (strict)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg16-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-${{ github.run_id }}
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      pgbouncer:
+        image: edoburu/pgbouncer:v1.26.1-p0
+        env:
+          DB_HOST: postgres
+          DB_PORT: "5432"
+          DB_USER: supportx_app
+          DB_PASSWORD: ci-app-${{ github.run_id }}
+          AUTH_TYPE: scram-sha-256
+          POOL_MODE: transaction
+          LISTEN_PORT: "6432"
+          DEFAULT_POOL_SIZE: "5"
+          MAX_PREPARED_STATEMENTS: "0"
+        ports: ["6432:6432"]
+      valkey:
+        image: valkey/valkey:9.1.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    env:
+      SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
+      SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
+      SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+      SUPPORTX_TEST_RELAY_PASSWORD: ci-relay-${{ github.run_id }}
+      SUPPORTX_TEST_PGBOUNCER: 127.0.0.1:6432
+      SUPPORTX_REQUIRE_DB_TESTS: "1"
+      SUPPORTX_TEST_NATS_URL: nats://127.0.0.1:4222
+      SUPPORTX_REQUIRE_NATS_TESTS: "1"
+      SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
+      SUPPORTX_REQUIRE_VALKEY_TESTS: "1"
+      SUPPORTX_MIGRATION_DATABASE_URL: postgresql://supportx_migrator:ci-migrator-${{ github.run_id }}@127.0.0.1:5432/supportx
+      SUPPORTX_PERF_STRICT: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Start NATS JetStream (same image as the dev stack)
+        run: |
+          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2.15.1-alpine -js -m 8222
+          for _ in $(seq 1 30); do
+            curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' && break
+            sleep 1
+          done
+          curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' # fail the job if never up
+      - uses: ./.github/actions/setup-backend
+      - name: Create roles and database (same code as the test fixtures)
+        working-directory: backend
+        run: uv run python -m tooling.db_bootstrap --database supportx
+      - name: Timing tests against their targets (one process, no coverage)
+        working-directory: backend
+        env:
+          SUPPORTX_PERF_REPORT: ${{ runner.temp }}/perf.json
+        run: uv run pytest -m timing --no-cov -p no:cacheprovider -s tests app
+      - name: Measurements (job summary)
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/perf.json" ]; then
+            { echo '### Timing (strict targets)'; echo '```json'; cat "$RUNNER_TEMP/perf.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Keep the measurements for trends
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: perf-${{ github.run_number }}
+          path: ${{ runner.temp }}/perf.json
+          if-no-files-found: ignore
+          retention-days: 90
