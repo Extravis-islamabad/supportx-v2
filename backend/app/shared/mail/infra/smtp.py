@@ -9,7 +9,7 @@ import smtplib
 import ssl
 from dataclasses import dataclass, field
 from email.message import EmailMessage
-from typing import Literal
+from typing import Literal, Protocol
 
 Security = Literal["starttls", "tls", "none"]
 PERMANENT_FROM = 500
@@ -22,7 +22,7 @@ class TemporaryFailure(Exception):
 class PermanentFailure(Exception):
     """The server refused for good (5xx): `code` for the record."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, *, code: str) -> None:
         super().__init__(code)
         self.code = code
 
@@ -43,7 +43,9 @@ def _send(settings: SmtpSettings, message: EmailMessage) -> None:
     context = ssl.create_default_context()
     smtp: smtplib.SMTP
     if settings.security == "tls":
-        smtp = smtplib.SMTP_SSL(settings.host, settings.port, timeout=settings.timeout, context=context)
+        smtp = smtplib.SMTP_SSL(
+            settings.host, settings.port, timeout=settings.timeout, context=context
+        )
     else:
         smtp = smtplib.SMTP(settings.host, settings.port, timeout=settings.timeout)
     with smtp:
@@ -61,13 +63,19 @@ async def send(settings: SmtpSettings, message: EmailMessage) -> None:
     except smtplib.SMTPRecipientsRefused as exc:
         codes = [code for code, _ in exc.recipients.values()]
         if codes and min(codes) >= PERMANENT_FROM:
-            raise PermanentFailure("recipient_refused") from exc
+            raise PermanentFailure(code="recipient_refused") from exc
         raise TemporaryFailure from exc
     except smtplib.SMTPAuthenticationError as exc:
-        raise PermanentFailure("authentication_failed") from exc
+        raise PermanentFailure(code="authentication_failed") from exc
     except smtplib.SMTPResponseException as exc:
         if exc.smtp_code >= PERMANENT_FROM:
-            raise PermanentFailure("message_refused") from exc
+            raise PermanentFailure(code="message_refused") from exc
         raise TemporaryFailure from exc
     except (smtplib.SMTPException, OSError) as exc:
         raise TemporaryFailure from exc
+
+
+class Sender(Protocol):
+    """`send`, or a fake in tests."""
+
+    async def __call__(self, settings: SmtpSettings, message: EmailMessage) -> None: ...  # noqa: D102

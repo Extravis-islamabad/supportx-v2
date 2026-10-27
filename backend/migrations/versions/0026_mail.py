@@ -1,0 +1,146 @@
+"""The mail service (WP-039 session 2; D-089 D3, D-099): queued messages and attachments.
+
+- mail_messages: one outgoing message as queued (recipients, subject, bodies, state, attempts,
+  backoff); bodies cleared `mail_content_retention_days` after it is done (`purge_after`).
+- mail_attachments: files sent with a message (content cleared with the body).
+
+Both tenant-scoped with RLS. Reversible: the downgrade drops both tables.
+
+Revision ID: 0026
+Revises: 0024
+Created: 2026-10-27
+"""
+
+from collections.abc import Sequence
+
+import sqlalchemy as sa
+from alembic import op
+from sqlalchemy.dialects import postgresql
+
+from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
+
+revision: str = "0026"
+down_revision: str | None = "0024"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
+
+
+def upgrade() -> None:
+    op.create_table(
+        "mail_messages",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("tenant_id", sa.UUID(), nullable=False),
+        sa.Column("kind", sa.String(length=40), nullable=False),
+        sa.Column("language", sa.String(length=5), nullable=False),
+        sa.Column("recipients", postgresql.ARRAY(sa.String(length=320)), nullable=False),
+        sa.Column("reply_to", sa.String(length=320), nullable=True),
+        sa.Column("sender_name", sa.String(length=120), nullable=True),
+        sa.Column("subject", sa.String(length=300), nullable=False),
+        sa.Column("text_body", sa.Text(), nullable=True),
+        sa.Column("html_body", sa.Text(), nullable=True),
+        sa.Column("state", sa.String(length=10), server_default="queued", nullable=False),
+        sa.Column("attempts", sa.BigInteger(), server_default="0", nullable=False),
+        sa.Column("failure", sa.String(length=40), nullable=True),
+        sa.Column("next_attempt_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("sent_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("message_id", sa.String(length=255), nullable=True),
+        sa.Column("purge_after", sa.DateTime(timezone=True), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("created_by", sa.UUID(), nullable=True),
+        sa.Column("updated_by", sa.UUID(), nullable=True),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "language IN ('en', 'ar', 'ur')", name=op.f("ck_mail_messages_language_code")
+        ),
+        sa.CheckConstraint(
+            "state IN ('queued', 'sent', 'failed')", name=op.f("ck_mail_messages_state_code")
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenants.id"],
+            name=op.f("fk_mail_messages_tenant_id_tenants"),
+            ondelete="RESTRICT",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_mail_messages")),
+        sa.UniqueConstraint("tenant_id", "id", name=op.f("uq_mail_messages_tenant_id_id")),
+    )
+    op.create_index(
+        "ix_mail_messages_tenant_purge", "mail_messages", ["tenant_id", "purge_after"], unique=False
+    )
+    op.create_index(
+        "ix_mail_messages_tenant_state",
+        "mail_messages",
+        ["tenant_id", "state", "next_attempt_at"],
+        unique=False,
+    )
+    enable_tenant_rls("mail_messages")
+    grant_app("mail_messages", ("SELECT", "INSERT", "UPDATE"))
+    enable_actor_audit("mail_messages")
+    op.create_table(
+        "mail_attachments",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("tenant_id", sa.UUID(), nullable=False),
+        sa.Column("message_id", sa.UUID(), nullable=False),
+        sa.Column("name", sa.String(length=255), nullable=False),
+        sa.Column("content_type", sa.String(length=100), nullable=False),
+        sa.Column("size", sa.BigInteger(), nullable=False),
+        sa.Column("content", sa.LargeBinary(), nullable=True),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("created_by", sa.UUID(), nullable=True),
+        sa.Column("updated_by", sa.UUID(), nullable=True),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "message_id"],
+            ["mail_messages.tenant_id", "mail_messages.id"],
+            name="fk_mail_attachments_message",
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenants.id"],
+            name=op.f("fk_mail_attachments_tenant_id_tenants"),
+            ondelete="RESTRICT",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_mail_attachments")),
+    )
+    op.create_index(
+        "ix_mail_attachments_tenant_message",
+        "mail_attachments",
+        ["tenant_id", "message_id"],
+        unique=False,
+    )
+    enable_tenant_rls("mail_attachments")
+    grant_app("mail_attachments", ("SELECT", "INSERT", "UPDATE"))
+    enable_actor_audit("mail_attachments")
+
+
+def downgrade() -> None:
+    op.drop_index("ix_mail_attachments_tenant_message", table_name="mail_attachments")
+    op.drop_table("mail_attachments")
+    op.drop_index("ix_mail_messages_tenant_state", table_name="mail_messages")
+    op.drop_index("ix_mail_messages_tenant_purge", table_name="mail_messages")
+    op.drop_table("mail_messages")

@@ -14,6 +14,10 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   that never chose any records every type, as Keycloak does);
 - the realm's SSO session lasts at least the platform's longest SupportX session, so SupportX's
   own per-tenant timeouts decide (REQ-SEC-029); shorter realm values are raised, longer kept;
+- the realm's SMTP server is the installation's mail settings (D-099: one place to configure
+  mail), so Keycloak's password and invitation e-mails leave from the same sender; a realm
+  without mail settings keeps whatever it has. In Compose Keycloak reaches the mail server by
+  another name than the API does (`SUPPORTX_KEYCLOAK_SMTP_HOST`/`_PORT`);
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
@@ -96,6 +100,7 @@ class Target:
     password: str = field(repr=False)
     secret: str = field(repr=False, default="")
     realm: str = "supportx"
+    smtp: dict[str, str] | None = field(repr=False, default=None)  # Keycloak's smtpServer
 
 
 def _client_body(secret: str) -> dict[str, Any]:
@@ -245,6 +250,47 @@ async def _ensure_user_profile(
     return ["user profile: " + ", ".join(missing)]
 
 
+async def _ensure_smtp(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str, smtp: dict[str, str] | None
+) -> list[str]:
+    """The realm's SMTP server from the installation's mail settings (kept when none)."""
+    if smtp is None:
+        return []
+    path = f"/admin/realms/{realm}"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    found = current.json().get("smtpServer") or {}
+    # Keycloak masks a stored password: compare the rest; a set password is always written.
+    same = all(found.get(k) == v for k, v in smtp.items() if k != "password")
+    if same and "password" not in smtp:
+        return []
+    (await client.put(path, headers=headers, json={"smtpServer": smtp})).raise_for_status()
+    return [] if same else ["SMTP set from the mail settings"]
+
+
+def smtp_from_env(env: dict[str, str]) -> dict[str, str] | None:
+    """Keycloak's smtpServer from the SUPPORTX_MAIL_* settings; None when not configured."""
+    host = env.get("SUPPORTX_KEYCLOAK_SMTP_HOST") or env.get("SUPPORTX_MAIL_SMTP_HOST")
+    sender = env.get("SUPPORTX_MAIL_FROM_ADDRESS")
+    if not host or not sender:
+        return None
+    security = env.get("SUPPORTX_MAIL_SMTP_SECURITY", "starttls")
+    port = env.get("SUPPORTX_KEYCLOAK_SMTP_PORT") or env.get("SUPPORTX_MAIL_SMTP_PORT", "587")
+    smtp = {
+        "host": host,
+        "port": port,
+        "from": sender,
+        "fromDisplayName": env.get("SUPPORTX_MAIL_FROM_NAME", "SupportX"),
+        "ssl": "true" if security == "tls" else "false",
+        "starttls": "true" if security == "starttls" else "false",
+        "auth": "true" if env.get("SUPPORTX_MAIL_SMTP_USERNAME") else "false",
+    }
+    if env.get("SUPPORTX_MAIL_SMTP_USERNAME"):
+        smtp["user"] = env["SUPPORTX_MAIL_SMTP_USERNAME"]
+        smtp["password"] = env.get("SUPPORTX_MAIL_SMTP_PASSWORD", "")
+    return smtp
+
+
 async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Result:
     """Everything in the module docstring, idempotent."""
     token = await admin_token(client, target.user, target.password)
@@ -260,6 +306,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _ensure_events(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
+    changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
     return Result(Outcome.UPDATED if changes else Outcome.READY, tuple(changes))
 
 
@@ -301,6 +348,7 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
         password=env["SUPPORTX_KEYCLOAK_ADMIN_PASSWORD"],
         secret=secret,
         realm=realm,
+        smtp=smtp_from_env(dict(env)),
     )
     try:
         result = asyncio.run(

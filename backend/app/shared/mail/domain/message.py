@@ -13,10 +13,10 @@ Rules every message follows, whoever builds it:
 
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from email.headerregistry import Address
 from email.message import EmailMessage
 from email.utils import format_datetime, make_msgid
-from datetime import datetime
 from typing import Literal
 
 MAX_RECIPIENTS = 50
@@ -41,7 +41,7 @@ Language = Literal["en", "ar", "ur"]
 class MailRefused(ValueError):
     """The message breaks a rule above (`code` names it, for a translated message)."""
 
-    def __init__(self, code: str) -> None:
+    def __init__(self, *, code: str) -> None:
         super().__init__(code)
         self.code = code
 
@@ -76,32 +76,43 @@ def _no_breaks(value: str) -> bool:
 
 def check(mail: OutgoingMail) -> None:
     """Raise MailRefused when the message breaks a rule (module docstring)."""
+    _check_addresses(mail)
+    _check_headers(mail)
+    _check_attachments(mail.attachments)
+
+
+def _check_addresses(mail: OutgoingMail) -> None:
     if not mail.to or len(mail.to) > MAX_RECIPIENTS:
-        raise MailRefused("mail_recipients")
-    if any(not _ADDRESS.fullmatch(address) for address in mail.to):
-        raise MailRefused("mail_address_invalid")
-    if mail.reply_to is not None and not _ADDRESS.fullmatch(mail.reply_to):
-        raise MailRefused("mail_address_invalid")
+        raise MailRefused(code="mail_recipients")
+    addresses = [*mail.to, *([mail.reply_to] if mail.reply_to is not None else [])]
+    if any(not _ADDRESS.fullmatch(address) for address in addresses):
+        raise MailRefused(code="mail_address_invalid")
+
+
+def _check_headers(mail: OutgoingMail) -> None:
     if not mail.subject or len(mail.subject) > MAX_SUBJECT or not _no_breaks(mail.subject):
-        raise MailRefused("mail_subject_invalid")
+        raise MailRefused(code="mail_subject_invalid")
     if mail.sender_name is not None and not _no_breaks(mail.sender_name):
-        raise MailRefused("mail_sender_invalid")
+        raise MailRefused(code="mail_sender_invalid")
     if mail.language not in LANGUAGES:
-        raise MailRefused("mail_language_invalid")
+        raise MailRefused(code="mail_language_invalid")
     if not re.fullmatch(r"[a-z][a-z0-9_]{1,39}", mail.kind):
-        raise MailRefused("mail_kind_invalid")
+        raise MailRefused(code="mail_kind_invalid")
+
+
+def _check_attachments(attachments: tuple[Attachment, ...]) -> None:
     total = 0
-    for attachment in mail.attachments:
+    for attachment in attachments:
         if attachment.content_type not in ATTACHMENT_TYPES:
-            raise MailRefused("mail_attachment_type")
+            raise MailRefused(code="mail_attachment_type")
         if not attachment.name or not _no_breaks(attachment.name) or "/" in attachment.name:
-            raise MailRefused("mail_attachment_name")
+            raise MailRefused(code="mail_attachment_name")
         total += len(attachment.content)
     if total > MAX_ATTACHMENT_BYTES:
-        raise MailRefused("mail_attachments_too_large")
+        raise MailRefused(code="mail_attachments_too_large")
 
 
-def build_mime(  # noqa: PLR0913 - the message and its envelope, keyword-only
+def build_mime(
     mail: OutgoingMail,
     *,
     from_address: str,
@@ -119,7 +130,6 @@ def build_mime(  # noqa: PLR0913 - the message and its envelope, keyword-only
     message["Subject"] = mail.subject
     message["Date"] = format_datetime(sent_at)
     message["Message-ID"] = make_msgid(domain=message_id_domain)
-    message["Content-Language"] = mail.language
     message["Auto-Submitted"] = "auto-generated"  # RFC 3834: no auto-replies to it
     message.set_content(mail.text)
     if mail.html is not None:
@@ -129,4 +139,6 @@ def build_mime(  # noqa: PLR0913 - the message and its envelope, keyword-only
         message.add_attachment(
             attachment.content, maintype=main, subtype=sub, filename=attachment.name
         )
+    # After the body: setting content replaces every Content-* header.
+    message["Content-Language"] = mail.language
     return message

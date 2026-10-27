@@ -15,6 +15,7 @@ from tooling.keycloak_identity import (
     Result,
     Target,
     run,
+    smtp_from_env,
 )
 from tooling.keycloak_theme import KeycloakUnavailableError
 
@@ -170,3 +171,37 @@ async def test_unreachable_keycloak_is_an_error() -> None:
             transport=httpx.MockTransport(refuse),
             retry_seconds=0,
         )
+
+
+async def test_the_realm_sends_mail_through_the_installations_mail_settings() -> None:
+    """D-099: one place to configure mail; Keycloak's e-mails leave from the same sender."""
+    smtp = smtp_from_env(
+        {
+            "SUPPORTX_MAIL_SMTP_HOST": "127.0.0.1",
+            "SUPPORTX_KEYCLOAK_SMTP_HOST": "mailpit",  # as Keycloak reaches it (Compose)
+            "SUPPORTX_KEYCLOAK_SMTP_PORT": "1025",
+            "SUPPORTX_MAIL_SMTP_SECURITY": "none",
+            "SUPPORTX_MAIL_FROM_ADDRESS": "support@acme.test",
+            "SUPPORTX_MAIL_FROM_NAME": "Acme IT",
+        }
+    )
+    assert smtp == {
+        "host": "mailpit",
+        "port": "1025",
+        "from": "support@acme.test",
+        "fromDisplayName": "Acme IT",
+        "ssl": "false",
+        "starttls": "false",
+        "auth": "false",
+    }
+    keycloak = FakeKeycloak()
+    result = await run(
+        Target(BASE, user="admin", password="right", secret=SECRET, smtp=smtp),
+        wait_seconds=0,
+        transport=httpx.MockTransport(keycloak.handler),
+        retry_seconds=0,
+    )
+    assert "SMTP set from the mail settings" in result.changes
+    assert keycloak.realm is not None
+    assert keycloak.realm["smtpServer"] == smtp
+    assert smtp_from_env({"SUPPORTX_MAIL_SMTP_HOST": "x"}) is None  # no sender: not configured

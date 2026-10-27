@@ -31,7 +31,7 @@ class MailMessage(TenantEntity):
     __table_args__ = (
         CheckConstraint("state IN ('queued', 'sent', 'failed')", name="state_code"),
         CheckConstraint("language IN ('en', 'ar', 'ur')", name="language_code"),
-        Index("ix_mail_messages_tenant_state", "tenant_id", "state", "created_at"),
+        Index("ix_mail_messages_tenant_state", "tenant_id", "state", "next_attempt_at"),
         Index("ix_mail_messages_tenant_purge", "tenant_id", "purge_after"),
         # Target of the attachments' same-tenant foreign key.
         UniqueConstraint("tenant_id", "id"),
@@ -48,6 +48,8 @@ class MailMessage(TenantEntity):
     state: Mapped[str] = mapped_column(String(10), server_default="queued")
     attempts: Mapped[int] = mapped_column(server_default="0")
     failure: Mapped[str | None] = mapped_column(String(40))
+    # When a queued message is tried again after a temporary failure (backoff); None = now.
+    next_attempt_at: Mapped[datetime | None]
     sent_at: Mapped[datetime | None]
     message_id: Mapped[str | None] = mapped_column(String(255))
     purge_after: Mapped[datetime | None]
