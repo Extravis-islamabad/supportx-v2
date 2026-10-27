@@ -5,6 +5,8 @@ import { inertClientFactory, setDefaultClientFactory } from '@supportx/realtime'
 
 afterEach(() => {
   cleanup();
+  // Forms keep what was typed in session storage (useKeptDraft): never into the next test.
+  window.sessionStorage.clear();
 });
 
 // Pages are lazy routes: the first test of a file also waits for the page module to be

@@ -13,6 +13,7 @@ import {
   useSetUiLocale,
   useSwitchTenant,
 } from '@supportx/api-client';
+import { clearAllKeptDrafts } from '@supportx/forms';
 import {
   AnnouncementBanners,
   AppHeader,
@@ -144,7 +145,10 @@ export function ConsoleLayout() {
           onLocaleChange={(locale) => {
             setUiLocale.mutate(locale, { onError: reportError });
           }}
-          onLogout={() => void logout()}
+          onLogout={() => {
+            clearAllKeptDrafts(); // an explicit sign-out: the next person at this computer starts clean
+            void logout();
+          }}
           onProfile={() => void navigate('/profile')}
           onOpenPalette={openPalette}
           switchingTenant={switchTenant.isPending}

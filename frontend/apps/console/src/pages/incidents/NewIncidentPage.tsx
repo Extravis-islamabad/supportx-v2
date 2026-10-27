@@ -38,7 +38,7 @@ import {
   type IncidentTemplate,
   type TemplateField,
 } from '@supportx/api-client';
-import { applyServerErrors, FormField, useForm, zodResolver } from '@supportx/forms';
+import { applyServerErrors, FormField, useForm, useKeptDraft, zodResolver } from '@supportx/forms';
 import {
   NoAccess,
   reportError,
@@ -174,6 +174,8 @@ export function NewIncidentPage() {
   const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
+  // What was typed survives a session timeout in this tab (REQ-INC-019, REQ-SEC-029 AC2).
+  const draft = useKeptDraft(form, 'incident-new');
   const departments = useStructure('departments', true, true);
   /**
    * The requester's department and site fill the empty fields as soon as they are picked, so the
@@ -359,6 +361,7 @@ export function NewIncidentPage() {
       { body, key: confirm ? `${key}-confirmed${variant}` : key },
       {
         onSuccess: (saved) => {
+          draft.discard();
           setHandover(null);
           void message.success(t('incidents.created', { id: saved.display_id }));
           if (!saved.visible) {
@@ -498,6 +501,29 @@ export function NewIncidentPage() {
           data-testid="inc-form"
           data-density={density}
         >
+          {draft.restored && (
+            <Alert
+              type="info"
+              showIcon
+              role="status"
+              style={{ marginBottom: 16 }}
+              message={t('forms.draft_restored')}
+              data-testid="inc-draft-restored"
+              action={
+                <Button
+                  size="small"
+                  onClick={() => {
+                    draft.startEmpty(EMPTY);
+                    started.current = {};
+                    apply(template);
+                  }}
+                  data-testid="inc-draft-start-empty"
+                >
+                  {t('forms.start_empty')}
+                </Button>
+              }
+            />
+          )}
           <Form.Item label={t('templates.field')} htmlFor="inc-template-picker">
             <Select
               id="inc-template-picker"

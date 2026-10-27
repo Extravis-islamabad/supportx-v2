@@ -1,6 +1,7 @@
 import { Flex, Layout, Menu, Typography } from 'antd';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 
+import { clearAllKeptDrafts } from '@supportx/forms';
 import { useLogout, useSession, useSetUiLocale } from '@supportx/api-client';
 import type { LabelKey } from '@supportx/labels';
 import {
@@ -48,7 +49,10 @@ export function PortalLayout() {
           </Flex>
         }
         onProfile={() => void navigate('/account')}
-        onLogout={() => void logout()}
+        onLogout={() => {
+          clearAllKeptDrafts(); // an explicit sign-out: the next person at this computer starts clean
+          void logout();
+        }}
         onLocaleChange={(locale) => {
           setUiLocale.mutate(locale, { onError: reportError });
         }}

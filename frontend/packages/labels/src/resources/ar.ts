@@ -2878,4 +2878,6 @@ export const ar: LabelResource = {
     'سيتم تسجيل خروجك خلال {{time}} لعدم وجود نشاط منذ مدة. يُحفظ كل ما كتبته ويعود عند تسجيل الدخول مجددًا.',
   'session.idle.stay': 'البقاء مسجّلًا',
   'session.idle.sign_out': 'تسجيل الخروج الآن',
+  'forms.start_empty': 'البدء من جديد',
+  'forms.draft_restored': 'استُعيد ما أدخلته ولم يُحفظ.',
 };
