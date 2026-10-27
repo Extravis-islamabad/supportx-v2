@@ -85,6 +85,8 @@ test('every sign-in setting is set in SupportX screens (REQ-SEC-017)', async ({ 
     ).toHaveText('Required');
     await mfa.getByTestId('security-mfa-grace').fill('3');
     await mfa.getByTestId('security-mfa-grace-save').click();
+    // Each card saves with the settings version (D-103): the next card waits for this save.
+    await expect(page.getByText('Saved.', { exact: true })).toBeVisible();
     // Sessions: the portal signs out after 20 idle minutes.
     await page.getByTestId('security-portal-idle').fill('20');
     await page.getByTestId('security-sessions-save').click();
