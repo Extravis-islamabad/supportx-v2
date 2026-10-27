@@ -34,6 +34,13 @@ dependencies = [
 package = false
 
 [dependency-groups]
+# PDF exports (D-100 D8): WeasyPrint and its companions, installed ONLY in the worker image and on
+# developer machines (`uv sync --group pdf`, needs Pango). Never in the API image.
+pdf = [
+    "weasyprint>=66.0",
+    # test helper: reads the text back out of generated PDFs (BSD-3, D-012)
+    "pypdf>=6.0",
+]
 dev = [
     "asyncpg-stubs>=0.32.0",
     "import-linter>=2.15",
@@ -90,6 +97,12 @@ files = ["app", "workers", "tests", "tooling", "migrations", "conftest.py"]
 module = ["tooling.import_contracts"]
 disallow_subclassing_any = false
 
+[[tool.mypy.overrides]]
+# WeasyPrint (D-100 D8) is in the worker-only `pdf` group and ships no type hints; CI's default
+# install does not have it, the worker image job does.
+module = ["weasyprint", "weasyprint.*", "pypdf", "pypdf.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests", "app"]
@@ -110,6 +123,7 @@ markers = [
     "db: needs PostgreSQL (dev stack or CI service); skipped locally if absent, required in CI",
     "nats: needs NATS JetStream (dev stack or CI container); skipped locally if absent, required in CI",
     "valkey: needs Valkey (dev stack or CI service); skipped locally if absent, required in CI",
+    "pdf: needs WeasyPrint and Pango (`uv sync --group pdf`; the worker image in CI); skipped if absent, required with SUPPORTX_REQUIRE_PDF_TESTS=1",
     "scale: volume test, runs only with SUPPORTX_AUDIT_SCALE_ROWS (CI 100k, nightly 10M)",
 ]
 

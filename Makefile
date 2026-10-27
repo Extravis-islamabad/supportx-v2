@@ -111,6 +111,9 @@ dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | 
 	$(EVENTS_CLI) dlq-replay $(if $(seq),--seq $(seq)) $(if $(all),--all) \
 		$(if $(consumer),--consumer $(consumer))
 
+backend-test-pdf: ## PDF export tests (D-100 D8): needs `uv sync --group pdf` and Pango (macOS: brew install pango)
+	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
+
 labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034)
 	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json
 
