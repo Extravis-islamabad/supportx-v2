@@ -30,15 +30,23 @@ import {
 } from '@supportx/api-client';
 import { useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
-import { describeError, useAccess, useAppearance, useDateTime, WriteButton } from '@supportx/ui';
+import {
+  describeError,
+  ToneTag,
+  useAccess,
+  useAppearance,
+  useDateTime,
+  WriteButton,
+  type Tone,
+} from '@supportx/ui';
 
 type Format = ReportExportInput['format'];
 type Content = NonNullable<ReportExportInput['content']>;
 
 const FORMATS: Format[] = ['xlsx', 'csv', 'pdf'];
 const CONTENTS: Content[] = ['summary', 'records'];
-const STATUS_TONE: Record<ReportExport['status'], string> = {
-  running: 'processing',
+const STATUS_TONE: Record<ReportExport['status'], Tone> = {
+  running: 'info',
   ready: 'success',
   failed: 'error',
   expired: 'default',
@@ -192,12 +200,12 @@ export function MyExportsButton() {
                   <Space wrap>
                     <span>{item.title}</span>
                     <Tag>{t(`report_export_format.${item.format}`)}</Tag>
-                    <Tag
-                      color={STATUS_TONE[item.status]}
-                      data-testid={`report-export-status-${item.id}`}
+                    <ToneTag
+                      tone={STATUS_TONE[item.status]}
+                      testId={`report-export-status-${item.id}`}
                     >
                       {t(`report_export_status.${item.status}`)}
-                    </Tag>
+                    </ToneTag>
                   </Space>
                 }
                 description={

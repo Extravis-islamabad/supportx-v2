@@ -37,6 +37,8 @@ import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
   describeError,
   lengthLimit,
+  ToneTag,
+  type Tone,
   useAccess,
   useDateTime,
   useTimeZone,
@@ -49,7 +51,7 @@ type Format = NonNullable<ReportScheduleInput['format']>;
 const FREQUENCIES: Frequency[] = ['weekly', 'daily', 'monthly'];
 const WEEKDAYS = [6, 0, 1, 2, 3, 4, 5]; // shown from Sunday; stored 0 = Monday
 const FORMATS: Format[] = ['xlsx', 'csv', 'pdf'];
-const STATUS_TONE: Record<ReportSchedule['status'], string> = {
+const STATUS_TONE: Record<ReportSchedule['status'], Tone> = {
   active: 'success',
   paused: 'warning',
   finished: 'default',
@@ -391,12 +393,9 @@ export function SchedulesButton() {
                   <Space wrap>
                     <span>{item.title}</span>
                     <Tag>{t(`report_frequency.${item.frequency}`)}</Tag>
-                    <Tag
-                      color={STATUS_TONE[item.status]}
-                      data-testid={`schedule-status-${item.id}`}
-                    >
+                    <ToneTag tone={STATUS_TONE[item.status]} testId={`schedule-status-${item.id}`}>
                       {t(`report_schedule_status.${item.status}`)}
-                    </Tag>
+                    </ToneTag>
                   </Space>
                 }
                 description={

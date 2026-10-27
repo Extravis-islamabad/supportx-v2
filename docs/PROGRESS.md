@@ -758,8 +758,14 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   history source).
 - Lane A's incident provider `work_items/service/reporting.py` and the report indexes are on main
   (#74, migration 0025); the report DB tests run through it (2026-10-28, no test stand-in left).
-- Still to do: English/Arabic e2e under the QA lock; the 1M-row performance harness (timing tests,
-  #86 rules).
+- E2E (`reports.spec.ts`, 2026-10-28, under the QA lock): home and built-in report in English and
+  Arabic with axe; schedules drawer live. Found and fixed: status tags below contrast (now
+  `ToneTag`); a worker without a service it needs left exports "running" for ever, now they fail
+  visibly ("report_failed"), schedule runs record the failure, and a minute sweep fails exports
+  lost by a crashed worker. Found for lane B: `subject_for` needed the entitlement service the
+  consumers worker never installed (lane B #91).
+- Still to do: the CSV export journey in `reports.spec.ts` (after lane B #91); the 1M-row
+  performance harness (timing tests, #86 rules).
 
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
@@ -941,6 +947,11 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-035: reports e2e in English and Arabic (lane C)
+- QA lock from lane B/A; `reports.spec.ts` on the shared stack. Fixed: status tag contrast,
+  exports and schedule runs failing visibly when the worker lacks a service, a stalled-export
+  sweep. Reported to lane B: the consumers worker had no entitlement service (#91).
 
 ### 2026-10-28 — WP-035: report tests on the real incident source (lane C)
 - Lane A's #74 merged: the report, export and schedule DB tests now run through
