@@ -2984,6 +2984,125 @@ export const en = {
   'sso_test.not_in_tenant_domains':
     "The person signed in, but their email is not in this set-up's domains.",
   'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
+  // WP-039 session 2: passwords, invitations, reset, mail
+  'security.changed_elsewhere':
+    'Another administrator saved these settings first. Their changes are loaded: check yours and save again.',
+  'security.password.title': 'Password policy',
+  'security.password.intro':
+    'The rules every new password must meet: when someone accepts an invitation, resets a password or changes it. Passwords are kept by the sign-in service, never by SupportX.',
+  'security.password.min_length': 'Minimum length',
+  'security.password.characters': 'characters',
+  'security.password.needs': 'Each password needs',
+  'security.password.upper': 'An upper-case letter',
+  'security.password.lower': 'A lower-case letter',
+  'security.password.digits': 'A digit',
+  'security.password.special': 'A special character, such as ! or #',
+  'security.password.history': 'Refuse the last passwords used',
+  'security.password.history_hint':
+    'How many earlier passwords cannot be used again. 0 allows any.',
+  'security.password.passwords': 'passwords',
+  'security.password.expiry': 'Passwords expire after',
+  'security.password.expiry_hint': '0: passwords never expire (recommended).',
+  'security.password.days': 'days',
+  'security.password.breached': 'Refuse common and breached passwords',
+  'security.password.breached_hint':
+    'Checked against a list of known breached passwords that comes with SupportX. No online service is asked.',
+  'security.password.saved': 'Password policy saved. It applies to passwords set from now on.',
+  'security.password.platform':
+    'Several organisations share this installation, so the platform sets its password policy. It cannot be changed here.',
+  'security.password.installation':
+    'This policy applies to everyone who signs in to this installation.',
+  'security.password.apply_again': 'Apply again',
+  'password_policy_state.default': 'Installation default',
+  'password_policy_state.applying': 'Being applied',
+  'password_policy_state.applied': 'Applied',
+  'password_policy_state.failed': 'Not applied',
+  'password_policy_error.password_policy_not_configured':
+    'The sign-in service account for realm settings is not set up. Ask your operator to run the identity set-up step, then apply again.',
+  'password_policy_error.password_policy_keycloak_unavailable':
+    'The sign-in service could not be reached. Apply again in a moment.',
+  'password_policy_error.password_policy_refused':
+    'The sign-in service refused the policy. If the breached-password check is on, its list may be missing there: ask your operator.',
+  'errors.field.password_policy_out_of_range': 'Use between {{min}} and {{max}}.',
+  'errors.field.invitation_days_out_of_range': 'Use between {{min}} and {{max}} days.',
+  'security.invitations.title': 'Invitations',
+  'security.invitations.intro':
+    'Invite people you added or imported who have not signed in yet: from their record in People. The e-mail comes from your organisation, in their language, and its link works once.',
+  'security.invitations.valid_days': 'Invitation links work for',
+  'security.invitations.none': 'No invitations yet.',
+  'security.invitations.person': 'Person',
+  'security.invitations.status': 'Status',
+  'security.invitations.sent': 'Sent',
+  'security.invitations.expires': 'Link works until',
+  'security.invitations.resend': 'Send again',
+  'security.invitations.revoke': 'Withdraw',
+  'security.invitations.revoke_confirm':
+    'Withdraw the invitation to {{email}}? Its link stops working at once.',
+  'security.invitations.resent': 'Invitation sent again.',
+  'security.invitations.revoked': 'Invitation withdrawn.',
+  'security.invitations.saved': 'Saved.',
+  'invitation_status.pending': 'Waiting',
+  'invitation_status.accepted': 'Accepted',
+  'invitation_status.expired': 'Expired',
+  'invitation_status.revoked': 'Withdrawn',
+  'invitation_delivery.email': 'By e-mail',
+  'invitation_delivery.existing_account': 'Already has an account',
+  'people.sign_in': 'Sign-in',
+  'people.invite': 'Send an invitation',
+  'people.invited_until': 'Invited: the link works until {{date}}',
+  'people.invitation_expired': 'The invitation has expired. Send it again.',
+  'people.invite_sent': 'Invitation sent to {{email}}.',
+  'people.invite_existing': '{{email}} already has a sign-in account and can sign in now.',
+  'people.require_password': 'Require a new password',
+  'people.require_password_confirm': 'Ask {{name}} for a new password at their next sign-in?',
+  'people.require_password_explain':
+    'Their sessions end at once, in every organisation they belong to.',
+  'people.require_password_done': '{{name}} chooses a new password at their next sign-in.',
+  'reset.title': 'Reset your password',
+  'reset.intro':
+    'Type the email you sign in with. If it has a password here, we send it a link to choose a new one. The link works once, for 60 minutes.',
+  'reset.email': 'Email',
+  'reset.email_invalid': 'Enter an email address.',
+  'reset.send': 'Send the link',
+  'reset.sent_title': 'Check your email',
+  'reset.sent':
+    'If {{email}} has a password here, a link is on its way. Nothing arrived? Check your spam folder, or ask your service desk.',
+  'reset.back': 'Back to sign-in',
+  'errors.invitation_already_signed_in':
+    'This person has signed in already, so there is nothing to invite them to.',
+  'errors.invitation_needs_email': 'Add an email address to this person first.',
+  'errors.invitation_not_found': 'This invitation was not found.',
+  'errors.invitation_not_pending':
+    'This invitation is no longer waiting: it was accepted or withdrawn.',
+  'errors.invitation_pending': 'This person has an invitation waiting. Send it again instead.',
+  'errors.invitation_person_cannot_sign_in':
+    'This person is deactivated or not allowed to sign in.',
+  'errors.password_policy_not_saved': 'Save the password policy first.',
+  'errors.password_policy_platform': 'The platform sets the password policy on this installation.',
+  'errors.password_reset_not_signed_in':
+    'This person has not signed in yet. Send them an invitation instead.',
+  'errors.mail_not_configured':
+    'Outgoing mail is not set up on this installation. Ask your operator to configure it.',
+  'errors.mail_address_invalid': 'An email address is not valid.',
+  'errors.mail_attachment_name': 'An attachment name is not valid.',
+  'errors.mail_attachment_type': 'This type of file cannot be sent by email.',
+  'errors.mail_attachments_too_large': 'The attachments are larger than 10 MB together.',
+  'errors.mail_kind_invalid': 'This kind of email is not known.',
+  'errors.mail_language_invalid': 'This language is not available for email.',
+  'errors.mail_recipients': 'Send to between 1 and 50 recipients.',
+  'errors.mail_sender_invalid': 'The sender name or reply-to address is not valid.',
+  'errors.mail_subject_invalid': 'The subject must be one line of at most 300 characters.',
+  'errors.authentication_failed': 'The mail server refused the sign-in.',
+  'errors.message_refused': 'The mail server refused the message.',
+  'errors.recipient_refused': 'The mail server refused the recipient.',
+  'event_type.identity_access.invitation.changed': 'Invitation changed',
+  'event_type.identity_access.password_policy.changed': 'Password policy changed',
+  'event_type.system.mail.queued': 'Email queued',
+  'audit.action.invitation.sent': 'Sent an invitation',
+  'audit.action.invitation.resent': 'Sent an invitation again',
+  'audit.action.invitation.revoked': 'Withdrew an invitation',
+  'audit.action.user.password_reset_forced': 'Required a new password',
+  'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
 } as const;
 
 export type LabelKey = keyof typeof en;

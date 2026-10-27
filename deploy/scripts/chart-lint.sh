@@ -48,7 +48,17 @@ done
 GOLDEN="$CHART/tests/golden/single-node.yaml"
 SN_ARGS="${PROFILES[1]#*|}"
 # shellcheck disable=SC2086 # the flags are meant to be split
-helm template supportx "$CHART" --namespace supportx --skip-tests $SN_ARGS > "$OUT/single-node.installed.yaml"
+# The breached-password list (about 47,000 lines) stands in the golden file as its checksum, so a
+# change to it still shows up in review without burying everything else.
+LIST="$CHART/files/keycloak/password-blacklists/supportx-breached.txt"
+LIST_SUM="$(shasum -a 256 "$LIST" | cut -d' ' -f1)"
+helm template supportx "$CHART" --namespace supportx --skip-tests $SN_ARGS |
+  awk -v sum="$LIST_SUM" '
+    skipping && (/^    / || /^$/) { next }
+    skipping { skipping = 0 }
+    { print }
+    /^  supportx-breached.txt: \|$/ { print "    # sha256 " sum " (files/keycloak/password-blacklists)"; skipping = 1 }
+  ' > "$OUT/single-node.installed.yaml"
 if [ "${UPDATE_GOLDEN:-0}" = "1" ]; then
   mkdir -p "$(dirname "$GOLDEN")"
   cp "$OUT/single-node.installed.yaml" "$GOLDEN"

@@ -14,7 +14,8 @@ from sqlalchemy.pool import NullPool
 
 import app.shared.api.idempotency
 import app.shared.db.display_ids
-import app.shared.files.infra.models  # noqa: F401 - registers the files tables (WP-022)
+import app.shared.files.infra.models
+import app.shared.mail.infra.models  # noqa: F401 - registers the mail tables (WP-039)
 from app.core.config import Settings
 from app.core.database import to_async_url
 from app.core.modules import discover_modules

@@ -20,6 +20,7 @@ from app.modules.identity_access.bff.cookies import clear_session_cookie, set_se
 from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service import password_reset as password_reset_service
 from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import AuthService, LoginAddress, LoginFailure
 from app.modules.identity_access.service.sso_test import TestFinished
@@ -194,6 +195,55 @@ async def callback(
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, auth.settings, result.session_id)
     return response
+
+
+class PasswordResetIn(BaseModel):
+    """The address of the account whose password was forgotten."""
+
+    email: str = Field(max_length=320)
+
+
+@router.post(
+    "/password-reset",
+    summary="Forgot password: send a reset e-mail",
+    status_code=status.HTTP_202_ACCEPTED,
+)
+@entitlement_exempt
+@public_route
+async def password_reset(body: PasswordResetIn, request: Request, auth: Auth) -> Response:
+    """Always 202, whatever the address: nothing can be learned about accounts.
+
+    Within the limits (5 per address and 20 per network address per hour) Keycloak sends its
+    set-password e-mail in the tenant's brand, valid 60 minutes, once (REQ-SEC-006, 035; D-099).
+    """
+    database: Database | None = getattr(request.app.state, "db", None)
+    if database is not None:
+        address = await _address(request)
+        tenant = await _address_tenant(request, address)
+        await password_reset_service.request_reset(
+            database,
+            request.app.state.settings,
+            auth.store,
+            auth.identity_admin,
+            password_reset_service.ResetRequest(
+                email=body.email,
+                network=request.client.host if request.client else None,
+                tenant_id=tenant,
+            ),
+        )
+    return Response(status_code=status.HTTP_202_ACCEPTED)
+
+
+async def _address_tenant(request: Request, address: LoginAddress | None) -> uuid.UUID | None:
+    """The tenant whose own address this is (its brand for the reset e-mail), else None."""
+    if address is None:
+        return None
+    database: Database | None = getattr(request.app.state, "db", None)
+    host = request.headers.get("host")
+    if database is None or host is None:
+        return None
+    found = await tenant_for_host(database, host, request.app.state.settings.tenant_base_domain)
+    return None if found is None else found.tenant_id
 
 
 async def _record_sso_test(request: Request, finished: TestFinished) -> None:

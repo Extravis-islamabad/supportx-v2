@@ -9,6 +9,12 @@ People creation: whether a first sign-in creates the person (default on, as requ
 maps their starting role once). Off: only people an admin added, imported or invited sign in;
 others are refused with "contact your service desk".
 
+Password policy (session 2, REQ-SEC-005, domain/password_policy.py): installation-wide, so
+editable only on single-tenant installations (`multi_tenant` off; otherwise the platform's,
+`password_policy_platform`). A change sets `password_policy_state` to `applying` and emits
+`identity_access.password_policy.changed`; the worker (service/password_policy.py) writes it
+into the realm and records `applied` or `failed` with the reason.
+
 Saving needs `identity.manage` and follows If-Match (version 0 = never saved); the route audits
 it (`identity.settings_changed`, with the fields before and after). It emits
 `identity_access.identity_settings.changed` (realtime: other admins' settings pages follow).
@@ -24,7 +30,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import Conflict, FieldError, ValidationFailed
-from app.modules.identity_access.events import IdentitySettingsChanged
+from app.modules.identity_access.domain import password_policy as policy_rules
+from app.modules.identity_access.events import IdentitySettingsChanged, PasswordPolicyChanged
 from app.modules.identity_access.infra.models import (
     MAX_IDLE_SECONDS,
     MIN_IDLE_SECONDS,
@@ -34,6 +41,7 @@ from app.modules.identity_access.infra.models import (
 from app.shared.events import record_event
 
 AppName = Literal["console", "portal"]
+MIN_INVITATION_DAYS, MAX_INVITATION_DAYS = 1, 30  # Appendix A: 7 days, at most 30
 
 
 @dataclass(frozen=True)
@@ -46,6 +54,24 @@ class IdentitySettingsView:
     portal_absolute_seconds: int
     create_people_on_sign_in: bool
     version: int
+    invitation_valid_days: int = 7
+    password_min_length: int = 12
+    password_upper: bool = True
+    password_lower: bool = True
+    password_digits: bool = True
+    password_special: bool = True
+    password_history: int = 5
+    password_expiry_days: int = 0
+    password_breached_check: bool = True
+    # Not edited: whether the worker has written the policy into the realm (models.py).
+    password_policy_state: str = "default"  # noqa: S105 - a state code, not a password
+    password_policy_error: str | None = None
+
+    def password_policy(self) -> policy_rules.PasswordPolicy:
+        """The password rules these settings hold."""
+        return policy_rules.PasswordPolicy(
+            **{rule: getattr(self, column) for rule, column in policy_rules.FIELDS.items()}
+        )
 
     def session_limits(self, app: AppName) -> tuple[int, int]:
         """(idle, absolute) seconds for sessions of `app`."""
@@ -62,7 +88,9 @@ DEFAULTS = IdentitySettingsView(
     create_people_on_sign_in=True,
     version=0,
 )
-EDITABLE = tuple(f.name for f in fields(IdentitySettingsView) if f.name != "version")
+STATE_FIELDS = ("version", "password_policy_state", "password_policy_error")
+EDITABLE = tuple(f.name for f in fields(IdentitySettingsView) if f.name not in STATE_FIELDS)
+PASSWORD_FIELDS = tuple(policy_rules.FIELDS.values())
 
 
 async def get_identity_settings(session: AsyncSession) -> IdentitySettingsView:
@@ -71,12 +99,7 @@ async def get_identity_settings(session: AsyncSession) -> IdentitySettingsView:
     if row is None:
         return DEFAULTS
     return IdentitySettingsView(
-        console_idle_seconds=row.console_idle_seconds,
-        console_absolute_seconds=row.console_absolute_seconds,
-        portal_idle_seconds=row.portal_idle_seconds,
-        portal_absolute_seconds=row.portal_absolute_seconds,
-        create_people_on_sign_in=row.create_people_on_sign_in,
-        version=row.version,
+        **{name: getattr(row, name) for name in (*EDITABLE, *STATE_FIELDS)},
     )
 
 
@@ -104,12 +127,26 @@ def check_session_limits(values: IdentitySettingsView) -> None:
                     params={"max": cap // 3600},
                 )
             )
+    if not MIN_INVITATION_DAYS <= values.invitation_valid_days <= MAX_INVITATION_DAYS:
+        errors.append(
+            FieldError(
+                field="invitation_valid_days",
+                code="invitation_days_out_of_range",
+                message_key="errors.field.invitation_days_out_of_range",
+                params={"min": MIN_INVITATION_DAYS, "max": MAX_INVITATION_DAYS},
+            )
+        )
+    errors += policy_rules.problems(values.password_policy())
     if errors:
         raise ValidationFailed(errors=errors)
 
 
 async def save_identity_settings(
-    session: AsyncSession, values: IdentitySettingsView, *, expected_version: int
+    session: AsyncSession,
+    values: IdentitySettingsView,
+    *,
+    expected_version: int,
+    multi_tenant: bool = False,
 ) -> tuple[IdentitySettingsView, dict[str, object]]:
     """Save `values` (its version is ignored) if the stored version is `expected_version`.
 
@@ -125,9 +162,14 @@ async def save_identity_settings(
     changed = [name for name in EDITABLE if getattr(current, name) != getattr(values, name)]
     if not changed:
         return current, {}
+    policy_changed = any(name in PASSWORD_FIELDS for name in changed)
+    if policy_changed and multi_tenant:
+        raise Conflict(code="password_policy_platform")
     context = session.info[SESSION_TENANT_KEY]
     now = datetime.now(UTC)
-    columns = {name: getattr(values, name) for name in EDITABLE}
+    columns: dict[str, object] = {name: getattr(values, name) for name in EDITABLE}
+    if policy_changed:
+        columns |= {"password_policy_state": "applying", "password_policy_error": None}
     statement = (
         insert(IdentitySettings)
         .values(
@@ -158,8 +200,38 @@ async def save_identity_settings(
         aggregate_id=context.tenant_id,
         aggregate_version=version,
     )
+    if policy_changed:
+        await record_event(
+            session,
+            PasswordPolicyChanged(),
+            aggregate_id=context.tenant_id,
+            aggregate_version=version,
+        )
     details: dict[str, object] = {"changed_fields": changed, "version": version}
     for name in changed:
         details[f"{name}.before"] = getattr(current, name)
         details[f"{name}.after"] = getattr(values, name)
     return await get_identity_settings(session), details
+
+
+async def apply_password_policy_again(
+    session: AsyncSession, *, multi_tenant: bool
+) -> IdentitySettingsView:
+    """Ask the worker to write the saved policy into the realm again (after `failed`)."""
+    if multi_tenant:
+        raise Conflict(code="password_policy_platform")
+    row = await session.scalar(select(IdentitySettings).with_for_update())
+    if row is None:  # never saved: the realm keeps the deploy's policy; save first
+        raise Conflict(code="password_policy_not_saved")
+    row.password_policy_state, row.password_policy_error = "applying", None
+    await session.flush()
+    await record_event(
+        session, PasswordPolicyChanged(), aggregate_id=row.tenant_id, aggregate_version=row.version
+    )
+    await record_event(
+        session,
+        IdentitySettingsChanged(changed_fields=["password_policy_state"]),
+        aggregate_id=row.tenant_id,
+        aggregate_version=row.version,
+    )
+    return await get_identity_settings(session)
