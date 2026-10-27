@@ -276,10 +276,14 @@ MIN_IDLE_SECONDS = 300
 MAX_IDLE_SECONDS = 86400
 
 
+PASSWORD_POLICY_STATES = ("default", "applying", "applied", "failed")
+
+
 class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     """A tenant's sign-in settings (WP-039, REQ-SEC-017): sessions and people creation.
 
-    No row: the defaults of Appendix A. Password and MFA policy join with WP-039's later sessions.
+    No row: the defaults of Appendix A. The password policy joined in session 2; the MFA policy
+    joins in session 3.
     """
 
     __tablename__ = "identity_settings"
@@ -296,6 +300,15 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
             " AND portal_absolute_seconds BETWEEN portal_idle_seconds AND "
             f"{SESSION_LIMITS['portal']['max_absolute']}",
             name="absolute_range",
+        ),
+        CheckConstraint("invitation_valid_days BETWEEN 1 AND 30", name="invitation_days_range"),
+        CheckConstraint(
+            "password_min_length BETWEEN 8 AND 64 AND password_history BETWEEN 0 AND 24"
+            " AND password_expiry_days BETWEEN 0 AND 365",
+            name="password_policy_range",
+        ),
+        CheckConstraint(
+            f"password_policy_state IN {PASSWORD_POLICY_STATES!r}", name="password_policy_state"
         ),
     )
 
@@ -314,6 +327,21 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     # REQ-SEC-013: a first sign-in creates the person (as requester); off = invited or imported
     # people only.
     create_people_on_sign_in: Mapped[bool] = mapped_column(server_default="true")
+    # REQ-SEC-020, Appendix A: how long an invitation link works (7 days; at most 30).
+    invitation_valid_days: Mapped[int] = mapped_column(server_default="7")
+    # REQ-SEC-005, Appendix A (domain/password_policy.py): the installation's password policy,
+    # which a worker writes into the realm. `default`: never edited here (the realm keeps what
+    # the deploy gave it); `applying` until the worker wrote it; `failed` with the reason code.
+    password_min_length: Mapped[int] = mapped_column(server_default="12")
+    password_upper: Mapped[bool] = mapped_column(server_default="true")
+    password_lower: Mapped[bool] = mapped_column(server_default="true")
+    password_digits: Mapped[bool] = mapped_column(server_default="true")
+    password_special: Mapped[bool] = mapped_column(server_default="true")
+    password_history: Mapped[int] = mapped_column(server_default="5")
+    password_expiry_days: Mapped[int] = mapped_column(server_default="0")
+    password_breached_check: Mapped[bool] = mapped_column(server_default="true")
+    password_policy_state: Mapped[str] = mapped_column(String(20), server_default="default")
+    password_policy_error: Mapped[str | None] = mapped_column(String(60))
 
 
 SSO_PROTOCOLS = ("oidc", "saml")
@@ -354,3 +382,39 @@ class SsoProvider(TenantEntity):
     tested_at: Mapped[datetime | None]
     tested_by: Mapped[uuid.UUID | None]
     switched_on_at: Mapped[datetime | None]
+
+
+INVITATION_STATES = ("pending", "accepted", "revoked")
+INVITATION_DELIVERY = ("email", "existing_account")
+
+
+class Invitation(TenantEntity):
+    """An invitation of a person to sign in (WP-039 session 2; REQ-SEC-018..020, D-099).
+
+    Keycloak sends the e-mail (its update-password e-mail in the tenant's brand); SupportX keeps
+    the life cycle. "Expired" is not stored: a pending invitation past `expires_at` is expired.
+    """
+
+    __tablename__ = "invitations"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'accepted', 'revoked')", name="status_code"),
+        CheckConstraint("delivery IN ('email', 'existing_account')", name="delivery_code"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_invitations_user"
+        ),
+        Index("ix_invitations_tenant_user", "tenant_id", "user_id", "status"),
+        Index("ix_invitations_tenant_created", "tenant_id", "created_at", "id"),
+    )
+
+    user_id: Mapped[uuid.UUID]
+    email: Mapped[str] = mapped_column(String(320))
+    status: Mapped[str] = mapped_column(String(10), server_default="pending")
+    delivery: Mapped[str] = mapped_column(String(20), server_default="email")
+    keycloak_user_id: Mapped[str | None] = mapped_column(String(64))
+    # SupportX made the Keycloak account for this invitation (revoking an unused one deletes it).
+    created_account: Mapped[bool] = mapped_column(server_default="false")
+    sent_at: Mapped[datetime]
+    expires_at: Mapped[datetime]
+    accepted_at: Mapped[datetime | None]
+    revoked_at: Mapped[datetime | None]
+    sends: Mapped[int] = mapped_column(server_default="1")
