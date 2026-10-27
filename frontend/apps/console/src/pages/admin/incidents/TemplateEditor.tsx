@@ -25,7 +25,14 @@ import {
   type Labels,
   type TemplateField,
 } from '@supportx/api-client';
-import { reportError, RichTextField, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import {
+  reportError,
+  RichTextField,
+  useAppearance,
+  useLabel,
+  WriteButton,
+  lengthLimit,
+} from '@supportx/ui';
 
 import { CustomFieldControl } from '../../customFields/fields';
 import { fieldName } from '../../customFields/values';
@@ -231,7 +238,7 @@ export function TemplateEditor({
           <Input
             id={id}
             dir="auto"
-            maxLength={250}
+            count={lengthLimit(250)}
             value={typeof value === 'string' ? value : ''}
             onChange={(event) => {
               setDefault(f, event.target.value);
@@ -244,7 +251,7 @@ export function TemplateEditor({
           <Input.TextArea
             id={id}
             dir="auto"
-            maxLength={2000}
+            count={lengthLimit(2000)}
             autoSize={{ minRows: 2, maxRows: 4 }}
             value={typeof value === 'string' ? value : ''}
             onChange={(event) => {
@@ -410,7 +417,7 @@ export function TemplateEditor({
             <Input
               id="tpl-editor-group"
               dir="auto"
-              maxLength={60}
+              count={lengthLimit(60)}
               value={group}
               onChange={(event) => {
                 setGroup(event.target.value);
@@ -435,7 +442,7 @@ export function TemplateEditor({
           <Input.TextArea
             id="tpl-editor-description"
             dir="auto"
-            maxLength={500}
+            count={lengthLimit(500)}
             autoSize={{ minRows: 2, maxRows: 4 }}
             value={description}
             onChange={(event) => {

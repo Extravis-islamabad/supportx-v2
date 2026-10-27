@@ -3560,6 +3560,13 @@ export interface components {
          * @description A custom field. `key` is for the API only: screens show `labels`.
          */
         CustomFieldOut: {
+            /** Changed At */
+            changed_at?: string | null;
+            /**
+             * Changed By
+             * @description Who saved it last (an open editor says "changed by").
+             */
+            changed_by?: string | null;
             /** Choices */
             choices: components["schemas"]["CustomFieldChoiceIO"][];
             /** Currency */

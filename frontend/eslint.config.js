@@ -40,6 +40,15 @@ export default tseslint.config(
     rules: {
       'supportx/no-raw-enum': 'error',
       'supportx/no-literal-text': 'error',
+      // Ant Design's maxLength cuts typed or pasted text without a word (WP-026 QA BUG-03).
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "JSXAttribute[name.name='maxLength']",
+          message:
+            'maxLength cuts text silently: use count={lengthLimit(max)} from @supportx/ui (D-091).',
+        },
+      ],
     },
   },
   {

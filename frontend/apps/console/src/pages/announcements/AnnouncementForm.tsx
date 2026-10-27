@@ -3,7 +3,7 @@ import { useDeferredValue, useState, type ReactNode } from 'react';
 
 import { useAnnouncementOwnerCandidates, useUnits } from '@supportx/api-client';
 import { FormField, type UseFormReturn } from '@supportx/forms';
-import { DateTimeField, useAccess, useLabel } from '@supportx/ui';
+import { DateTimeField, useAccess, useLabel, lengthLimit } from '@supportx/ui';
 
 import { AUDIENCES, BODY_MAX, SEVERITIES, TITLE_MAX, type Values } from './form';
 
@@ -74,7 +74,9 @@ export function AnnouncementFields({
         control={form.control}
         name="title"
         labelKey="announcement.field.title"
-        render={(field) => <Input {...field} maxLength={TITLE_MAX} data-testid="ann-title" />}
+        render={(field) => (
+          <Input {...field} count={lengthLimit(TITLE_MAX)} data-testid="ann-title" />
+        )}
       />
       <FormField
         control={form.control}
@@ -82,7 +84,12 @@ export function AnnouncementFields({
         labelKey="announcement.field.body"
         helpKey="announcement.body_help"
         render={(field) => (
-          <Input.TextArea {...field} rows={6} maxLength={BODY_MAX} data-testid="ann-body" />
+          <Input.TextArea
+            {...field}
+            rows={6}
+            count={lengthLimit(BODY_MAX)}
+            data-testid="ann-body"
+          />
         )}
       />
       <Space size="large" wrap align="start">

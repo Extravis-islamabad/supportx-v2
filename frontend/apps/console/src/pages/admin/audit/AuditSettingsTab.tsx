@@ -9,6 +9,8 @@ import {
 } from '@supportx/api-client';
 import { useAccess, useLabel } from '@supportx/ui';
 
+import { numberProblem } from '../../../numbers';
+
 import { ProblemAlert } from './ProblemAlert';
 
 const NUMBERS = [
@@ -49,6 +51,12 @@ function SettingsForm({ saved }: { saved: AuditSettings }) {
     if (value !== null) setDraft({ ...draft, [key]: value });
   };
   const changed = JSON.stringify(draft) !== JSON.stringify(saved);
+  // Out-of-range numbers are refused at the field, never clamped (QA WP-026 BUG-03).
+  const problemOf = (key: NumberSetting) => {
+    const [min = 1, max = 3650] = draft.limits[key] ?? [];
+    return numberProblem(t, draft[key], { min, max, whole: true });
+  };
+  const invalid = NUMBERS.some((key) => problemOf(key) !== null);
 
   return (
     <Card title={t('audit.ui.tab.settings')}>
@@ -67,11 +75,18 @@ function SettingsForm({ saved }: { saved: AuditSettings }) {
             <Form.Item
               key={key}
               label={t(`audit.setting.${key}`)}
-              help={t(`audit.setting.${key}.help`, { min, max })}
+              validateStatus={problemOf(key) === null ? undefined : 'error'}
+              help={
+                problemOf(key) === null ? (
+                  t(`audit.setting.${key}.help`, { min, max })
+                ) : (
+                  <span role="alert" data-testid={`audit-setting-${key}-error`}>
+                    {problemOf(key)}
+                  </span>
+                )
+              }
             >
               <InputNumber
-                min={min}
-                max={max}
                 value={draft[key]}
                 onChange={(value) => {
                   setNumber(key, value);
@@ -108,7 +123,7 @@ function SettingsForm({ saved }: { saved: AuditSettings }) {
         {editable && (
           <Button
             type="primary"
-            disabled={!changed}
+            disabled={!changed || invalid}
             loading={update.isPending}
             data-testid="audit-settings-save"
             onClick={() => {

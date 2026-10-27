@@ -26,3 +26,4 @@ export {
   type BrandTexts,
   type ThemeMode,
 } from './theme';
+export { lengthLimit } from './lengthLimit';

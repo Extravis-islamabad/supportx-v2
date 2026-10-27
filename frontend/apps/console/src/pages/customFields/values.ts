@@ -24,7 +24,7 @@ export function choiceName(
   const choice = field.choices.find((c) => c.code === code);
   if (choice === undefined) return t('custom_fields.unknown_value');
   const name = localized(choice.labels, locale);
-  return choice.retired ? t('categories.retired_value', { name }) : name;
+  return choice.retired ? t('custom_fields.retired_value', { name }) : name;
 }
 
 export const TEXT_MAX = 250;

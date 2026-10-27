@@ -20,6 +20,7 @@ import {
 import { useMemo, useState } from 'react';
 
 import {
+  ApiError,
   usePermissionCatalogue,
   useRole,
   useRoleMutations,
@@ -30,7 +31,7 @@ import {
   type RoleSummary,
   type Scope,
 } from '@supportx/api-client';
-import { reportError, useAccess, useLabel, WriteButton } from '@supportx/ui';
+import { reportError, useAccess, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
 
 import { roleName } from './roleName';
 
@@ -104,6 +105,10 @@ function RoleForm({
     Object.fromEntries((initial?.permissions ?? []).map((g) => [g.permission, g])),
   );
   const [deleting, setDeleting] = useState(false);
+  // The version this form was filled from: the save sends it, so a role saved elsewhere meanwhile
+  // is refused, never overwritten (QA WP-026 BUG-01); the change is announced at once.
+  const [base] = useState(initial?.version ?? 0);
+  const stale = initial !== null && initial.version !== base;
   const readOnly = role?.is_system === true || !can('roles.manage');
   const modules = useMemo(() => groupByModule(catalogue), [catalogue]);
 
@@ -118,8 +123,17 @@ function RoleForm({
       create.mutate(body, { onSuccess: done, onError: reportError });
     } else {
       update.mutate(
-        { id: initial.id, version: initial.version, body },
-        { onSuccess: done, onError: reportError },
+        { id: initial.id, version: base, body },
+        {
+          onSuccess: done,
+          onError: (error) => {
+            if (error instanceof ApiError && error.code === 'version_conflict') {
+              void message.warning(t('settings.changed_elsewhere'));
+              return;
+            }
+            reportError(error);
+          },
+        },
       );
     }
   };
@@ -129,6 +143,15 @@ function RoleForm({
       {role?.is_system === true && (
         <Alert type="info" showIcon message={t('roles.system_read_only')} />
       )}
+      {stale && role?.is_system !== true && (
+        <Alert
+          type="warning"
+          showIcon
+          role="status"
+          message={t('settings.stale')}
+          data-testid="role-stale"
+        />
+      )}
       {role?.is_system !== true && (
         <Form layout="vertical">
           <Form.Item label={t('roles.name')} htmlFor="role-name" required>
@@ -136,7 +159,7 @@ function RoleForm({
               id="role-name"
               data-testid="role-name"
               value={name}
-              maxLength={200}
+              count={lengthLimit(200)}
               disabled={readOnly}
               onChange={(event) => {
                 setName(event.target.value);
@@ -147,7 +170,7 @@ function RoleForm({
             <Input.TextArea
               id="role-description"
               value={description}
-              maxLength={1000}
+              count={lengthLimit(1000)}
               rows={2}
               disabled={readOnly}
               onChange={(event) => {

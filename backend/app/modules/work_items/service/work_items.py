@@ -868,6 +868,19 @@ async def _custom_in(
     return {k: v for k, v in merged.items() if v is not None}, problems
 
 
+async def _value_errors(
+    session: AsyncSession, wtype: WorkItemType, problems: Sequence[tuple[str, str]]
+) -> ValidationFailed:
+    """The 422, with the limit each custom value problem names ("Maximum is 1000.5")."""
+    custom = [p for p in problems if is_custom(p[0])]
+    params = (
+        await metadata.problem_params(session, wtype.code.value, custom)
+        if custom and wtype.code.value in set(metadata.CustomFieldEntity)
+        else {}
+    )
+    return _errors(problems, **params)
+
+
 def _audience(record: WorkItem) -> Audience:
     return Audience(
         group_id=record.group_id,
@@ -1094,7 +1107,7 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
     )
     problems += _check_level(cat, cleaned.get("level"), current=None)
     if problems:
-        raise _errors(problems)
+        raise await _value_errors(session, wtype, problems)
     problems += await _check_people(session, cleaned)
     problems += await _check_units(session, {"site_id": cleaned.get("site_id")})
     problems += await _check_category(session, wtype, cleaned.get("category_id"), current=None)
@@ -1102,7 +1115,7 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
         session, subject, wtype, holders, group_id=group_id, technician_id=technician_id
     )
     if problems:
-        raise _errors(problems)
+        raise await _value_errors(session, wtype, problems)
     if cleaned.get("site_id") is None:
         sites = (await memberships(session, cleaned["requester_id"])).site_ids
         if len(sites) == 1:
@@ -1266,7 +1279,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
         {**cleaned, **(_flat(custom) if custom is not None else {}), **emptied},
     )
     if problems:
-        raise _errors(problems)
+        raise await _value_errors(session, wtype, problems)
     columns = {name: value for name, value in cleaned.items() if getattr(record, name) != value}
     if custom is not None and custom != (record.custom or {}):
         columns["custom"] = custom

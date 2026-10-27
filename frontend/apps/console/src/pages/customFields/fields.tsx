@@ -9,7 +9,7 @@ import {
   type FieldValues,
   type Path,
 } from '@supportx/forms';
-import { DateField, DateTimeField, useAppearance, useLabel } from '@supportx/ui';
+import { DateField, DateTimeField, useAppearance, useLabel, lengthLimit } from '@supportx/ui';
 
 import { UserPicker } from '../incidents/pickers';
 import {
@@ -121,7 +121,7 @@ export function CustomFieldControl({
             field.field_type === 'email' ? 'email' : field.field_type === 'url' ? 'url' : 'text'
           }
           inputMode={field.field_type === 'phone' ? 'tel' : undefined}
-          maxLength={rules.max_length ?? TEXT_MAX}
+          count={lengthLimit(rules.max_length ?? TEXT_MAX)}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => {
             text(event.target.value);
@@ -137,8 +137,7 @@ export function CustomFieldControl({
           autoFocus={autoFocus}
           dir="auto"
           autoSize={{ minRows: 2, maxRows: 8 }}
-          maxLength={rules.max_length ?? LONG_TEXT_MAX}
-          showCount
+          count={lengthLimit(rules.max_length ?? LONG_TEXT_MAX, true)}
           value={typeof value === 'string' ? value : ''}
           onChange={(event) => {
             text(event.target.value);
@@ -150,14 +149,13 @@ export function CustomFieldControl({
     case 'decimal':
     case 'currency':
       return (
+        // No min, max or precision: those would change the typed number without a word; the
+        // limits are refused with a message at the field instead (QA BUG-03).
         <InputNumber<string>
           id={id}
           aria-label={ariaLabel}
           autoFocus={autoFocus}
           stringMode
-          precision={field.field_type === 'integer' ? 0 : undefined}
-          min={rules.min ?? undefined}
-          max={rules.max ?? undefined}
           suffix={field.field_type === 'currency' ? field.currency : undefined}
           value={typeof value === 'number' || typeof value === 'string' ? String(value) : null}
           onChange={(next) => {

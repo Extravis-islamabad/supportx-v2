@@ -32,11 +32,16 @@ export function useSettingsSave() {
   const [problems, setProblems] = useState<string[]>([]);
   // The same problems by field ("prefix", "next_number"), for forms that show them in place (C1).
   const [byField, setByField] = useState<Record<string, string>>({});
-  const save = (next: SettingsChange, onDone?: () => void) => {
+  /**
+   * `version`: the catalogue version the form or dialog started from (useDraft's base,
+   * useOpenedVersion). A save from an older version is refused, never applied over someone
+   * else's change (QA WP-026 BUG-01); without it, the version on screen now is sent.
+   */
+  const save = (next: SettingsChange, onDone?: () => void, version?: number) => {
     setProblems([]);
     setByField({});
     change.mutate(
-      { change: next },
+      { change: next, version },
       {
         onSuccess: () => {
           void message.success(t('settings.saved'));
@@ -104,6 +109,8 @@ export function useDraft<T>(source: T, version: number) {
   }
   return {
     draft: state.dirty || version === state.base ? state.draft : source,
+    // The version the draft is based on: sent with the save (QA WP-026 BUG-01).
+    base: state.dirty ? state.base : version,
     dirty: state.dirty,
     stale: state.dirty && version !== state.base,
     edit: (next: T) => {
@@ -113,6 +120,17 @@ export function useDraft<T>(source: T, version: number) {
       setState({ draft: source, base: version, dirty: false });
     },
   };
+}
+
+/**
+ * The catalogue version when a dialog opened: its save sends it, so a change saved elsewhere
+ * meanwhile is refused instead of overwritten (QA WP-026 BUG-01).
+ */
+export function useOpenedVersion(open: boolean, version: number): number {
+  const [opened, setOpened] = useState<number | null>(null);
+  if (open && opened === null) setOpened(version);
+  if (!open && opened !== null) setOpened(null);
+  return opened ?? version;
 }
 
 /** The shipped label key of a seeded value of `list`. */

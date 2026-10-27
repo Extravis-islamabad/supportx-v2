@@ -3112,6 +3112,30 @@
       "CustomFieldOut": {
         "description": "A custom field. `key` is for the API only: screens show `labels`.",
         "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who saved it last (an open editor says \"changed by\").",
+            "title": "Changed By"
+          },
           "choices": {
             "items": {
               "$ref": "#/components/schemas/CustomFieldChoiceIO"

@@ -28,7 +28,7 @@ import {
   type BrandingSettings,
 } from '@supportx/api-client';
 import type { Locale } from '@supportx/labels';
-import { reportError, useLabel, WriteButton, type Branding } from '@supportx/ui';
+import { lengthLimit, reportError, useLabel, WriteButton, type Branding } from '@supportx/ui';
 
 import { useDebounced } from '../../../useDebounced';
 import { BrandPreview } from './BrandPreview';
@@ -351,7 +351,7 @@ export function BrandingPage() {
                     onChange={(event) => {
                       update({ primary: event.target.value === '' ? null : event.target.value });
                     }}
-                    maxLength={7}
+                    count={lengthLimit(7)}
                     style={{ width: 120 }}
                     aria-label={t('branding.primary')}
                     data-testid="branding-primary-input"
@@ -500,8 +500,7 @@ export function BrandingPage() {
                               <Input.TextArea
                                 id={id}
                                 value={value}
-                                maxLength={LIMITS[field]}
-                                showCount
+                                count={lengthLimit(LIMITS[field], true)}
                                 autoSize={{ minRows: 2, maxRows: 5 }}
                                 onChange={(event) => {
                                   set(event.target.value);
@@ -512,7 +511,7 @@ export function BrandingPage() {
                               <Input
                                 id={id}
                                 value={value}
-                                maxLength={LIMITS[field]}
+                                count={lengthLimit(LIMITS[field])}
                                 onChange={(event) => {
                                   set(event.target.value);
                                 }}

@@ -1,4 +1,5 @@
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -10,13 +11,15 @@ import {
   Select,
   Typography,
 } from 'antd';
-import { useEffect } from 'react';
+import { useState } from 'react';
 
 import {
+  ApiError,
   useFileRules,
   useFileStatus,
   useFileUsage,
   useUpdateFileRules,
+  type FileRules,
   type FileRulesInput,
 } from '@supportx/api-client';
 import {
@@ -28,6 +31,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { numberProblem } from '../../../numbers';
 import { FilesBanner } from './FilesBanner';
 
 /**
@@ -44,16 +48,26 @@ export function FilesPage() {
   const usage = useFileUsage();
   const status = useFileStatus();
   const save = useUpdateFileRules();
-  const [form] = Form.useForm<FileRulesInput>();
-  useEffect(() => {
-    if (rules.data !== undefined) {
-      form.setFieldsValue({
-        max_file_mb: rules.data.max_file_mb,
-        max_batch: rules.data.max_batch,
-        blocked_extensions: rules.data.blocked_extensions,
-      });
-    }
-  }, [rules.data, form]);
+  // The saved rules the form was filled from: their version goes with the save, so rules
+  // saved elsewhere meanwhile are never overwritten (QA WP-026 BUG-01). Live changes refill an
+  // untouched form; while the admin is editing they are announced instead.
+  const [base, setBase] = useState<FileRules | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const latest = rules.data;
+  if (latest !== undefined && latest.version !== base?.version && (base === null || !dirty)) {
+    setBase(latest);
+  }
+  const stale = base !== null && latest !== undefined && latest.version !== base.version;
+  // Out-of-range numbers are refused at the field, never clamped (QA WP-026 BUG-03).
+  const limits = (min: number, max: number) => [
+    { required: true, message: t('errors.field.required') },
+    {
+      validator: (_: unknown, value: number | null) => {
+        const problem = numberProblem(t, value, { min, max, whole: true });
+        return problem === null ? Promise.resolve() : Promise.reject(new Error(problem));
+      },
+    },
+  ];
 
   const used = usage.data?.bytes_used ?? 0;
   const limit = usage.data?.limit_bytes ?? null;
@@ -62,33 +76,70 @@ export function FilesPage() {
     <Flex vertical gap={16} data-testid="admin-files">
       <FilesBanner showLink={false} />
       <Card title={t('files.admin.rules')}>
+        {stale && (
+          <Alert
+            type="warning"
+            showIcon
+            role="status"
+            style={{ marginBottom: 12 }}
+            message={t('settings.stale')}
+            action={
+              <Button
+                size="small"
+                onClick={() => {
+                  setBase(latest);
+                  setDirty(false);
+                }}
+                data-testid="files-rules-stale-reload"
+              >
+                {t('live.reload')}
+              </Button>
+            }
+            data-testid="files-rules-stale"
+          />
+        )}
         <Form<FileRulesInput>
-          form={form}
+          // A new saved version is a new form, filled from it (no effect needed).
+          key={base?.version ?? 'loading'}
+          initialValues={
+            base === null
+              ? undefined
+              : {
+                  max_file_mb: base.max_file_mb,
+                  max_batch: base.max_batch,
+                  blocked_extensions: base.blocked_extensions,
+                }
+          }
           layout="vertical"
           style={{ maxWidth: 640 }}
+          onValuesChange={() => {
+            setDirty(true);
+          }}
           onFinish={(values) => {
             save.mutate(
-              { body: values, version: rules.data?.version ?? 0 },
+              { body: values, version: base?.version ?? latest?.version ?? 0 },
               {
-                onSuccess: () => void message.success(t('files.admin.saved')),
-                onError: reportError,
+                onSuccess: (saved) => {
+                  setBase(saved);
+                  setDirty(false);
+                  void message.success(t('files.admin.saved'));
+                },
+                onError: (error) => {
+                  if (error instanceof ApiError && error.code === 'version_conflict') {
+                    void message.warning(t('settings.changed_elsewhere'));
+                    return;
+                  }
+                  reportError(error);
+                },
               },
             );
           }}
         >
-          <Form.Item
-            name="max_file_mb"
-            label={t('files.admin.max_file_mb')}
-            rules={[{ required: true, type: 'number', min: 1, max: 100 }]}
-          >
-            <InputNumber min={1} max={100} data-testid="files-max-mb" />
+          <Form.Item name="max_file_mb" label={t('files.admin.max_file_mb')} rules={limits(1, 100)}>
+            <InputNumber data-testid="files-max-mb" />
           </Form.Item>
-          <Form.Item
-            name="max_batch"
-            label={t('files.admin.max_batch')}
-            rules={[{ required: true, type: 'number', min: 1, max: 50 }]}
-          >
-            <InputNumber min={1} max={50} data-testid="files-max-batch" />
+          <Form.Item name="max_batch" label={t('files.admin.max_batch')} rules={limits(1, 50)}>
+            <InputNumber data-testid="files-max-batch" />
           </Form.Item>
           <Form.Item
             name="blocked_extensions"

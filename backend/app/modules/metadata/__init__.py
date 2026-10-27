@@ -6,6 +6,7 @@ Definitions live here; values live on each module's records (typed JSON). Licens
 Public interface for other modules:
 - `definitions(session, entity)`: fields by key (types, choices, validation, retired);
 - `clean(session, entity, values, current=, creating=, defaults=)`: checked values + problems;
+- `problem_params(session, entity, problems)`: the limits value problems name ("Maximum is 5");
 - `mark_used(session, entity, keys)`: fields that now hold values (only retirable from then);
 - `filter_fields(session, entity, table)`: `custom.<key>` fields for the shared filter DSL;
 - `text_for_search(session, entity, values)`: free text for the search port (WP-027).
@@ -24,6 +25,7 @@ from app.modules.metadata.service.custom_fields import (
     definitions,
     filter_fields,
     mark_used,
+    problem_params,
     text_for_search,
 )
 from app.modules.metadata.service.realtime import ROUTES
@@ -48,5 +50,6 @@ __all__ = [
     "filter_fields",
     "mark_used",
     "module",
+    "problem_params",
     "text_for_search",
 ]
