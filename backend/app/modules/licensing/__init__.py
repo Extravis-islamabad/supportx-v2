@@ -13,6 +13,8 @@ The provider is configuration (SUPPORTX_ENTITLEMENT_PROVIDER), resolved here and
 """
 
 import uuid
+from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import valkey.asyncio
@@ -111,19 +113,25 @@ def validate_registry(registry: ModuleRegistry) -> dict[LimitKey, UsageCounter]:
     return counters
 
 
-async def _startup(app: FastAPI) -> None:
-    settings: Settings = app.state.settings
-    app.state.entitlements = None
-    setattr(app.state, ENTITLEMENT_GATE_STATE, None)
-    counters = validate_registry(app.state.modules)
+@dataclass(frozen=True)
+class _Built:
+    service: EntitlementService
+    client: "valkey.asyncio.Valkey | None"
+
+
+def _build_service(
+    settings: "Settings", database: "Database | None", registry: ModuleRegistry
+) -> _Built | None:
+    """Provider, cache and counters, as the API and every worker use them (None: no provider)."""
+    counters = validate_registry(registry)
     try:
-        provider = build_provider(settings, app.state.db)
+        provider = build_provider(settings, database)
     except LicenceRejectedError as exc:
         log.error("licence_rejected", reason=exc.reason)  # noqa: TRY400 - reason only, no trace
         raise
     if provider is None:
         log.warning("entitlements_unavailable", reason="no_database")
-        return
+        return None
     cache: EntitlementCache = NoCache()
     client = None
     if settings.valkey_url is not None and settings.entitlement_cache_ttl_seconds > 0:
@@ -133,9 +141,43 @@ async def _startup(app: FastAPI) -> None:
             prefix=settings.valkey_key_prefix,
             ttl_seconds=settings.entitlement_cache_ttl_seconds,
         )
-    service = EntitlementService(provider, cache=cache, counters=counters)
-    start_service(app, service)
-    app.state.entitlement_clients = client
+    return _Built(EntitlementService(provider, cache=cache, counters=counters), client)
+
+
+async def _startup(app: FastAPI) -> None:
+    app.state.entitlements = None
+    setattr(app.state, ENTITLEMENT_GATE_STATE, None)
+    built = _build_service(app.state.settings, app.state.db, app.state.modules)
+    if built is None:
+        return
+    start_service(app, built.service)
+    app.state.entitlement_clients = built.client
+
+
+async def start_worker_service(
+    settings: "Settings", database: "Database | None", modules: Sequence[ModuleSpec]
+) -> Callable[[], Awaitable[None]]:
+    """Install the entitlement service in a worker process; returns its shutdown.
+
+    Worker code asks the same interface as the API (identity_access.subject_for compiles a
+    subject with the plan's features; services check limits), so a worker needs the service
+    installed too. The API's route gate and rate-limit budgets have no place here.
+    """
+    built = _build_service(settings, database, ModuleRegistry.from_specs(modules))
+    if built is None:
+        return _nothing_to_stop
+    install(built.service)
+
+    async def stop() -> None:
+        uninstall(built.service)
+        if built.client is not None:
+            await built.client.aclose()
+
+    return stop
+
+
+async def _nothing_to_stop() -> None:
+    return None
 
 
 def start_service(app: FastAPI, service: EntitlementService) -> None:
@@ -264,5 +306,6 @@ __all__ = [
     "require_feature",
     "reserve_capacity",
     "start_service",
+    "start_worker_service",
     "summary",
 ]
