@@ -51,9 +51,20 @@ class Session:
     refresh_token: str = field(repr=False)
     id_token: str = field(repr=False)
     keycloak_session_id: str | None = None
+    # The tenant's limits when the session began (WP-039, REQ-SEC-029); None = the platform's.
+    idle_seconds: int | None = None
+    absolute_seconds: int | None = None
+
+    def limits(self, *, idle: timedelta, absolute: timedelta) -> tuple[timedelta, timedelta]:
+        """The (idle, absolute) limits of the session; `idle` and `absolute` when it has none."""
+        return (
+            idle if self.idle_seconds is None else timedelta(seconds=self.idle_seconds),
+            absolute if self.absolute_seconds is None else timedelta(seconds=self.absolute_seconds),
+        )
 
     def expiry(self, now: datetime, *, idle: timedelta, absolute: timedelta) -> ExpiryReason | None:
-        """Whether the session has expired at `now`, and why."""
+        """Whether the session has expired at `now`, and why (its own limits first)."""
+        idle, absolute = self.limits(idle=idle, absolute=absolute)
         if now - self.created_at >= absolute:
             return ExpiryReason.ABSOLUTE
         if now - self.last_seen_at >= idle:
@@ -62,6 +73,7 @@ class Session:
 
     def ttl(self, now: datetime, *, idle: timedelta, absolute: timedelta) -> timedelta:
         """How long the store should keep the record: the earlier of both deadlines."""
+        idle, absolute = self.limits(idle=idle, absolute=absolute)
         return min(self.last_seen_at + idle, self.created_at + absolute) - now
 
     def needs_refresh(self, now: datetime) -> bool:

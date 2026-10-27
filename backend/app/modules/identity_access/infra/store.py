@@ -18,6 +18,7 @@ LOGIN_PREFIX = "sx:login:"
 LOCK_PREFIX = "sx:session-lock:"
 # A person's sessions started before this moment are over (deactivation, sign-in turned off).
 ENDED_PREFIX = "sx:sessions-ended:"
+SSO_TEST_PREFIX = "sx:sso-test:"
 
 
 def _hashed(prefix: str, value: str) -> str:
@@ -82,6 +83,17 @@ class SessionStore:
         """Remember a pending login (PKCE verifier, nonce, returnTo) under its state value."""
         key = _hashed(LOGIN_PREFIX, state)
         await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def put_sso_test(self, test_id: str, data: dict[str, Any], ttl: timedelta) -> None:
+        """Keep a single sign-on test's progress and result (WP-039), encrypted: it names people."""
+        key = _hashed(SSO_TEST_PREFIX, test_id)
+        await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def get_sso_test(self, test_id: str) -> dict[str, Any] | None:
+        """A test's record, or None when unknown or expired."""
+        key = _hashed(SSO_TEST_PREFIX, test_id)
+        blob = await self._kv.get(key)
+        return self._cipher.decrypt(blob, bound_to=key) if blob else None
 
     async def take_login(self, state: str) -> dict[str, Any] | None:
         """Fetch and delete a pending login: each state is usable exactly once."""
