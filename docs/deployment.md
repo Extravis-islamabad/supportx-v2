@@ -57,6 +57,13 @@ k3s) by default; `routing.mode=ingress` for a plain Ingress.
 revision wait for it in an init container. Rolling back an upgrade (`helm rollback`) moves only the
 images; the schema is never downgraded.
 
+**Reporting role (WP-035, ADR-033).** `tooling/sql/roles.sql` also creates `supportx_report`
+(NOLOGIN, NOBYPASSRLS) and grants it to `supportx_app`; reports switch to it with `SET LOCAL ROLE`
+so they can only read. A DBA-managed database without the admin URL must run that part of
+`roles.sql` by hand before migration 0027. On HA profiles, point `SUPPORTX_REPORTING_DATABASE_URL`
+at the read replica (CloudNativePG's `-ro` service) so reports never load the primary; unset,
+reports use the main database through their own small pool (single node).
+
 ## Secrets
 
 The chart only references Secrets. `deploy/scripts/secrets.sh <namespace>` creates them with random

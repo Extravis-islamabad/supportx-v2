@@ -48,6 +48,9 @@ USER_SETTING = "app.user_id"
 SESSION_TENANT_KEY = "supportx.tenant"
 SESSION_PLATFORM_KEY = "supportx.platform"
 AFTER_COMMIT_KEY = "supportx.after_commit"
+# Report transactions (WP-035, ADR-033): the statement time limit in milliseconds.
+SESSION_REPORT_KEY = "supportx.report_timeout_ms"
+REPORT_ROLE = "supportx_report"
 # The request's open unit of work, so per-request helpers (the authorization subject) reuse its
 # connection instead of taking a second one: N concurrent requests each holding one connection
 # and waiting for another would exhaust a small pool (PgBouncer query_wait_timeout).
@@ -60,6 +63,13 @@ _SET_CONTEXT = text(
     "SELECT set_config('app.tenant_id', :tenant_id, true), "
     "set_config('app.user_id', :user_id, true)"
 )
+# A report transaction cannot write (read-only transaction AND a role with SELECT only) and is
+# cancelled in the database at its time limit, whatever SQL the report compiler produced.
+_SET_REPORT = text(
+    "SELECT set_config('statement_timeout', :timeout_ms, true), "
+    "set_config('transaction_read_only', 'on', true)"
+)
+_SET_REPORT_ROLE = text(f"SET LOCAL ROLE {REPORT_ROLE}")
 
 
 class TenantContextMissingError(RuntimeError):
@@ -138,6 +148,10 @@ def _apply_context(
             "user_id": str(context.user_id) if context.user_id else "",
         },
     )
+    timeout_ms = session.info.get(SESSION_REPORT_KEY)
+    if timeout_ms is not None:
+        connection.execute(_SET_REPORT, {"timeout_ms": str(int(timeout_ms))})
+        connection.execute(_SET_REPORT_ROLE)
 
 
 class Database:
@@ -174,6 +188,31 @@ class Database:
     async def platform_session(self) -> AsyncIterator[AsyncSession]:
         """A session with no tenant. RLS still applies: business tables return no rows."""
         async with self._sessions(info={SESSION_PLATFORM_KEY: True}) as session, session.begin():
+            yield session
+
+    @classmethod
+    def reporting_from_settings(cls, settings: Settings) -> "Database | None":
+        """The reporting pool (WP-035, ADR-033): a replica when configured, else the database."""
+        url = settings.reporting_database_url or settings.database_url
+        if url is None:
+            return None
+        return cls(
+            create_engine(
+                url.get_secret_value(),
+                application_name=f"{settings.service_name}-reports",
+                pool_size=settings.reporting_pool_size,
+                max_overflow=settings.reporting_max_overflow,
+                pool_timeout=settings.db_pool_timeout_seconds,
+            )
+        )
+
+    @asynccontextmanager
+    async def reporting_session(
+        self, context: TenantContext, *, timeout_seconds: float
+    ) -> AsyncIterator[AsyncSession]:
+        """A read-only tenant transaction as supportx_report, cancelled after `timeout_seconds`."""
+        info = {SESSION_TENANT_KEY: context, SESSION_REPORT_KEY: timeout_seconds * 1000}
+        async with self._sessions(info=info) as session, session.begin():
             yield session
 
     def session_without_context(self) -> AsyncSession:
