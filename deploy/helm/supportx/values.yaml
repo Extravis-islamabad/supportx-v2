@@ -263,9 +263,18 @@ keycloak:
   # Upgrade step (D-078, branding.md): a Job per revision gives the realm the SupportX login
   # theme when it has none. A theme someone chose (incl. a tenant's own) is never overwritten.
   setLoginTheme: true
+  # Upgrade step (WP-039, ADR-036): a Job per revision makes sure the `supportx-identity`
+  # service account (least-privileged admin roles) exists with the secret
+  # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's.
+  setUpIdentityAdmin: true
   resources:
     requests: {cpu: 250m, memory: 768Mi}
     limits: {cpu: "2", memory: 1536Mi}
+
+# Several tenants share this installation's Keycloak realm (the SaaS cell, WP-014d). A security
+# guard (D-098): single sign-on then routes only email domains whose ownership was proved.
+# Leave false for single-tenant installations (on-prem).
+multiTenant: false
 
 # --- routing (D2: Gateway API, plain Ingress as the supported fallback) ----------------------------
 routing:
