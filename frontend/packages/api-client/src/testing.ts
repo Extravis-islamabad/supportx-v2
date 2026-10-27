@@ -43,6 +43,7 @@ const TECHNICIAN: Grant[] = [
   ['knowledge.manage', 'group'],
   ['reports.view', 'all'],
   ['reports.create', 'own'],
+  ['reports.export', 'all'],
   ['announcements.view', 'all'],
   ['announcements.manage', 'own'],
   // D-052: technicians work on incidents at group scope (their groups, assigned, site queue).

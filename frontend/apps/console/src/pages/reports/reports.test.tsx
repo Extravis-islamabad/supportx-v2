@@ -166,6 +166,63 @@ describe('Reports', () => {
       expect(screen.getByTestId('report-drill-count').textContent).toBe('Records: 8');
     });
 
+    it('exports to a file in the background and lists my exports (REQ-RPT-058)', async () => {
+      const ready = {
+        id: '01900000-0000-7000-8000-00000000e001',
+        title: 'Open incidents by priority',
+        format: 'xlsx',
+        content: 'summary',
+        status: 'ready',
+        problem: null,
+        row_count: 2,
+        size_bytes: 1200,
+        created_at: '2026-10-28T09:00:00Z',
+        expires_at: '2026-11-04T09:00:00Z',
+      };
+      const failed = {
+        ...ready,
+        id: '01900000-0000-7000-8000-00000000e002',
+        format: 'pdf',
+        status: 'failed',
+        problem: 'pdf_not_available',
+        row_count: null,
+      };
+      const fake = api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/exports': { status: 202, body: { ...ready, status: 'running' } },
+          'GET /api/v1/reports/exports': { body: [ready, failed] },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      fireEvent.click(await screen.findByText('CSV'));
+      fireEvent.click(screen.getByText('Every record behind it'));
+      fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+      await waitFor(() => {
+        expect(fake.find('POST', '/api/v1/reports/exports')).toHaveLength(1);
+      });
+      const body = fake.find('POST', '/api/v1/reports/exports')[0]?.body as {
+        format: string;
+        content: string;
+        title: string;
+        language: string;
+      };
+      expect(body).toMatchObject({
+        format: 'csv',
+        content: 'records',
+        title: 'Open incidents by priority',
+        language: 'en',
+      });
+      fireEvent.click(screen.getByTestId('report-my-exports'));
+      const link = await screen.findByTestId(`report-export-download-${ready.id}`);
+      expect(link.getAttribute('href')).toBe(`/api/v1/reports/exports/${ready.id}/file`);
+      expect(screen.getByTestId(`report-export-status-${failed.id}`).textContent).toBe('Failed');
+      expect(screen.getByText('PDF export is not available on this server.')).toBeDefined();
+      expect(document.body.textContent).not.toMatch(/pdf_not_available/);
+    });
+
     it('does not run while a condition has no value, and says why (REQ-RPT-029 AC2)', async () => {
       const fake = api({ me: fakeSession(), routes: routes() });
       render(<App />);

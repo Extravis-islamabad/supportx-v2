@@ -20,6 +20,7 @@ from app.core.modules import ModuleSpec
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
+from app.modules.work_items.service import report_names
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
@@ -38,6 +39,9 @@ async def _shutdown(app: FastAPI) -> None:
 
 
 register_record_usage()
+
+# Names for report files (WP-035): at import, so the consumers worker has them too.
+report_names.register()
 
 module = ModuleSpec(
     name="work_items",
