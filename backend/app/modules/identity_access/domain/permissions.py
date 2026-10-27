@@ -168,17 +168,30 @@ class Catalogue:
         """A permission by key."""
         return self.permissions.get(key)
 
-    def system_grants(self, role: str) -> tuple[tuple[str, Scope], ...]:
-        """(permission, scope) pairs of a system role; the admin gets everything, broadest."""
+    def system_grants(
+        self, role: str, *, technician_scope: Scope = "group"
+    ) -> tuple[tuple[str, Scope], ...]:
+        """(permission, scope) pairs of a system role; the admin gets everything, broadest.
+
+        `technician_scope` is the tenant's answer to the first-run question (D-052, D-073):
+        "all" widens the technician defaults that modules declare at `group` (records' view and
+        work) to `all`, where the permission allows it.
+        """
         if role == TENANT_ADMIN:
             return tuple((key, spec.scopes[0]) for key, spec in self.permissions.items())
         declared = tuple(
-            (key, scope)
+            (key, _widened(spec, role, scope, technician_scope))
             for key, spec in self.permissions.items()
             for granted_to, scope in spec.defaults
             if granted_to == role
         )
         return SYSTEM_ROLE_GRANTS.get(role, ()) + declared
+
+
+def _widened(spec: PermissionSpec, role: str, scope: Scope, technician_scope: Scope) -> Scope:
+    if role == TECHNICIAN and scope == "group" and technician_scope in spec.scopes:
+        return technician_scope
+    return scope
 
 
 def covers(held: Scope, wanted: Scope) -> bool:

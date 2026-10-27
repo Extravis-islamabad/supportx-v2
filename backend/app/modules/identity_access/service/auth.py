@@ -71,6 +71,10 @@ def _client_app(session: Session) -> AppName:
     return "portal" if session.client == "portal" else "console"
 
 
+def _user_key(tenant_id: str, user_id: str) -> str:
+    return f"{tenant_id}:{user_id}"
+
+
 @dataclass(frozen=True)
 class LoginAddress:
     """A tenant's own address the login started on (WP-017): its host and organization alias."""
@@ -340,6 +344,11 @@ class AuthService:
         if session.expiry(now, idle=self.idle, absolute=self.absolute) is not None:
             await self.store.delete_session(session_id)
             raise Unauthenticated(code="session_expired")
+        ended = await self.store.user_sessions_ended(_user_key(session.tenant_id, session.user_id))
+        if ended is not None and session.created_at <= ended:
+            # Deactivated or sign-in turned off since (REQ-ADM-010 AC1): over at once.
+            await self.store.delete_session(session_id)
+            raise Unauthenticated(code="session_expired")
         if request.method not in SAFE_METHODS:
             self._check_csrf(request, session)
         if session.needs_refresh(now):
@@ -348,6 +357,12 @@ class AuthService:
             session = session.touched(now)
             await self._save(session_id, session)
         return session_id, session
+
+    async def end_sessions(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        """End every session of a person in a tenant, now (their next request gets 401)."""
+        await self.store.end_user_sessions(
+            _user_key(str(tenant_id), str(user_id)), self.clock.now(), self.absolute
+        )
 
     async def resolve(self, request: Request) -> TenantContext | None:
         """`SessionResolver` for app.core.tenancy: the session's tenant and user."""

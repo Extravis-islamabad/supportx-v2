@@ -29,6 +29,7 @@ import {
 } from '@supportx/ui';
 import { useTenantChannel } from '@supportx/realtime';
 
+import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
@@ -57,6 +58,12 @@ export function ConsoleLayout() {
   const queryClient = useQueryClient();
   useTenantChannel((event) => {
     // Custom fields changed (WP-026): forms, records, lists and filters reload them.
+    // Sites, groups, departments or desks changed (WP-021): pickers, lists and the admin pages.
+    if (event.type === 'organization.structure_changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
+      return;
+    }
     if (event.type === 'metadata.custom_fields_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.customFields.all });
       return;
@@ -156,6 +163,7 @@ export function ConsoleLayout() {
           <LicenceBanners />
           <AuditAlertBanner />
           <FilesBanner />
+          <TechnicianVisibilityQuestion />
           <AnnouncementBanners
             enabled={licence.has('incident')}
             onOpen={(id) => void navigate(`/announcements/${id}`)}

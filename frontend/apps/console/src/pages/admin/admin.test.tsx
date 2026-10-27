@@ -186,6 +186,8 @@ describe('Admin › Users access drawer', () => {
     const fake = adminRoutes({
       routes: {
         'GET /api/v1/users': { body: { items: [target], has_more: false, next_cursor: null } },
+        'GET /api/v1/users/u-9': { body: target },
+        'GET /api/v1/organization/departments': { body: [] },
         'GET /api/v1/users/u-9/access': {
           body: { user_id: 'u-9', role_ids: [], site_ids: [], group_ids: [] },
         },
@@ -196,6 +198,8 @@ describe('Admin › Users access drawer', () => {
     });
     render(<App />);
     fireEvent.click(await screen.findByText('Bilal Requester'));
+    // People admins open the person drawer (WP-021); roles are on its Access tab.
+    fireEvent.click(await screen.findByRole('tab', { name: 'Access' }));
     const drawer = await screen.findByTestId('user-access');
     fireEvent.click(await within(drawer).findByLabelText('HR desk'));
     await waitFor(() => {

@@ -5,7 +5,7 @@ session IDs nor tokens (the values are AES-GCM encrypted).
 """
 
 import hashlib
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Protocol
 
 from app.modules.identity_access.infra.crypto import SessionCipher
@@ -16,6 +16,8 @@ if TYPE_CHECKING:
 SESSION_PREFIX = "sx:session:"
 LOGIN_PREFIX = "sx:login:"
 LOCK_PREFIX = "sx:session-lock:"
+# A person's sessions started before this moment are over (deactivation, sign-in turned off).
+ENDED_PREFIX = "sx:sessions-ended:"
 
 
 def _hashed(prefix: str, value: str) -> str:
@@ -86,6 +88,15 @@ class SessionStore:
         key = _hashed(LOGIN_PREFIX, state)
         blob = await self._kv.getdel(key)
         return self._cipher.decrypt(blob, bound_to=key) if blob else None
+
+    async def end_user_sessions(self, user_key: str, at: datetime, ttl: timedelta) -> None:
+        """Mark every session of a person begun up to `at` as ended (kept for `ttl`)."""
+        await self._kv.set(_hashed(ENDED_PREFIX, user_key), at.isoformat().encode(), px=_ms(ttl))
+
+    async def user_sessions_ended(self, user_key: str) -> datetime | None:
+        """When a person's sessions were last ended, or None."""
+        blob = await self._kv.get(_hashed(ENDED_PREFIX, user_key))
+        return datetime.fromisoformat(blob.decode()) if blob else None
 
     async def lock(self, session_id: str, ttl: timedelta) -> bool:
         """Short exclusive lock (token refresh), True if acquired."""

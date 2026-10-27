@@ -31,7 +31,12 @@ _PARTITION = re.compile(r"^audit_entries_(p\d{6}|default)$")
 
 
 def _include_name(name: str | None, type_: str, _parent_names: object) -> bool:
-    return not (type_ == "table" and name is not None and _PARTITION.fullmatch(name))
+    if name is None:
+        return True
+    # Custom field indexes are tenant data, built by the index worker (D-088), not migrations.
+    if type_ == "index" and name.startswith("ix_cf_"):
+        return False
+    return not (type_ == "table" and _PARTITION.fullmatch(name))
 
 
 def _database_url() -> str:

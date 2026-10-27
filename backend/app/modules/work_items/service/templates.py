@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
 from app.modules import metadata
-from app.modules.organization import existing_unit_ids
+from app.modules.organization import default_desk_id, existing_departments, existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.templates import (
     CUSTOM_PREFIX,
@@ -173,6 +173,15 @@ async def _clean_defaults(  # noqa: C901, PLR0912, PLR0915 - one rule per field,
             if unit not in await existing_unit_ids(session, kind, [unit]):
                 problems.append((path, f"{kind}_not_found"))
             cleaned[name] = str(unit)
+        elif name == TemplateField.DEPARTMENT_ID:
+            try:
+                department = uuid.UUID(str(value))
+            except ValueError:
+                problems.append((path, "department_not_found"))
+                continue
+            if department not in await existing_departments(session, [department]):
+                problems.append((path, "department_not_found"))
+            cleaned[name] = str(department)
         elif name == TemplateField.CATEGORY_ID:
             try:
                 node_id = uuid.UUID(str(value))
@@ -318,6 +327,7 @@ async def create_template(
         raise _problems(problems)
     template = WorkItemTemplate(
         type=wtype.code,
+        desk_id=copied_from.desk_id if copied_from else await default_desk_id(session),
         labels=labels,
         description=description,
         group_name=group_name,

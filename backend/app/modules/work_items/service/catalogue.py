@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.tenancy import TenantContext
+from app.modules.organization import default_desk_id
 from app.modules.work_items.domain.classification import (
     DEFAULT_COLOURS,
     DEFAULT_MATRIX,
@@ -165,7 +166,7 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     )
     if inserted is None:  # another transaction seeded it first
         return
-    _seed_v2(session, wtype, tenant)
+    _seed_v2(session, wtype, tenant, await default_desk_id(session))
     rows: list[Any] = [
         WorkItemStatus(
             tenant_id=tenant,
@@ -253,7 +254,7 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     await session.flush()
 
 
-def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> None:  # noqa: ANN401 - uuid
+def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any, desk: Any) -> None:  # noqa: ANN401 - uuids
     """Levels, closure codes and the standard (default) template."""
     session.add_all(
         [
@@ -268,6 +269,7 @@ def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> None:  
             type=wtype.code,
             code=STANDARD_TEMPLATE,
             is_default=True,
+            desk_id=desk,
             field_rules=rules_to_json(default_rules()),
             defaults={},
         )
@@ -287,7 +289,7 @@ async def _top_up(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> No
     )
     if moved is None:  # another transaction topped it up first
         return
-    _seed_v2(session, wtype, tenant)
+    _seed_v2(session, wtype, tenant, await default_desk_id(session))
     await session.flush()
 
 

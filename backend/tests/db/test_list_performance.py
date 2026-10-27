@@ -31,10 +31,10 @@ ROWS = 100_000
 RUNS = 20
 
 SEED = """
-INSERT INTO users (id, tenant_id, external_subject, email, display_name, user_type, status,
-                   locale, created_at, updated_at, last_login_at)
+INSERT INTO users (id, tenant_id, external_subject, email, display_name, first_name,
+                   user_type, status, locale, created_at, updated_at, last_login_at)
 SELECT gen_random_uuid(), $1, 'sub-' || n, 'user' || n || '@perf.test',
-       'User ' || lpad(n::text, 6, '0'),
+       'User ' || lpad(n::text, 6, '0'), 'User',
        CASE WHEN n % 10 = 0 THEN 'technician' ELSE 'requester' END,
        CASE WHEN n % 50 = 0 THEN 'disabled' ELSE 'active' END,
        (ARRAY['en', 'ar', 'ur'])[1 + n % 3],
@@ -91,8 +91,9 @@ async def test_filtered_list_on_100k_rows(
     try:
         await conn.execute(SEED, tenant, ROWS)
         await conn.execute(
-            "INSERT INTO users (id, tenant_id, external_subject, email, display_name, user_type)"
-            " VALUES ($1, $2, 'sub-perf-tech', 'tech@perf.test', 'Perf Tech', 'technician')",
+            "INSERT INTO users (id, tenant_id, external_subject, email, display_name,"
+            " first_name, user_type) VALUES ($1, $2, 'sub-perf-tech', 'tech@perf.test',"
+            " 'Perf Tech', 'Perf', 'technician')",
             tech,
             tenant,
         )

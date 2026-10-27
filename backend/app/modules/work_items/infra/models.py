@@ -294,6 +294,9 @@ class WorkItemTemplate(TenantEntity):
             ["work_item_templates.tenant_id", "work_item_templates.id"],
             name="fk_work_item_templates_copied_from",
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "desk_id"], ["desks.tenant_id", "desks.id"], name="fk_wit_desk"
+        ),
         Index("ix_work_item_templates_tenant_type", "tenant_id", "type", "disabled_at"),
         Index(
             "uq_work_item_templates_tenant_type_default",
@@ -315,6 +318,8 @@ class WorkItemTemplate(TenantEntity):
     defaults: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     copied_from_id: Mapped[uuid.UUID | None]
     disabled_at: Mapped[datetime | None]
+    # The desk the template belongs to (REQ-ESM-002, D-061).
+    desk_id: Mapped[uuid.UUID]
 
 
 # Description is sanitised HTML: tags and entities become spaces before indexing (migration 0020);
@@ -368,6 +373,14 @@ class WorkItem(TenantEntity):
         ),
         ForeignKeyConstraint(
             ["tenant_id", "site_id"], ["sites.tenant_id", "sites.id"], name="fk_wi_site"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "department_id"],
+            ["departments.tenant_id", "departments.id"],
+            name="fk_wi_department",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "desk_id"], ["desks.tenant_id", "desks.id"], name="fk_wi_desk"
         ),
         ForeignKeyConstraint(
             ["tenant_id", "group_id"],
@@ -467,6 +480,10 @@ class WorkItem(TenantEntity):
     on_behalf_of_id: Mapped[uuid.UUID | None]
     channel: Mapped[str] = mapped_column(String(20))
     site_id: Mapped[uuid.UUID | None]
+    # From the requester by default, changeable (REQ-INC-016, WP-021).
+    department_id: Mapped[uuid.UUID | None]
+    # Every record belongs to a desk from MVP (REQ-ESM-002, D-061): the IT desk until ESM.
+    desk_id: Mapped[uuid.UUID]
     group_id: Mapped[uuid.UUID | None]
     technician_id: Mapped[uuid.UUID | None]
     category_id: Mapped[uuid.UUID | None]

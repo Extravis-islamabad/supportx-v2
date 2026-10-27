@@ -5,7 +5,7 @@ The file is JSON:
     {"licence_id": "LIC-2027-00418", "customer": "Example Bank PJSC", "installation_id": "0b9c..",
      "fingerprint": {"algo": "v1", "components": {...}, "min_match": 3},
      "edition": "enterprise", "features": ["problem", "change", ...],
-     "limits": {"technicians": 250, "assets": 5000, "departments": 10},
+     "limits": {"technicians": 250, "assets": 5000, "desks": 10},
      "issued_at": "2027-01-10", "expires_at": "2028-01-09", "maintenance_until": "2028-01-09",
      "grace_days": 14, "signature": "ed25519:..."}
 

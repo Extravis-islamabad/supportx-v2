@@ -93,6 +93,15 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.role_assigned", AuditCategory.ACCESS, "identity_access"),
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
+    # people (WP-021)
+    ("user.created", AuditCategory.ACCESS, "identity_access"),
+    ("user.changed", AuditCategory.ACCESS, "identity_access"),
+    ("user.type_changed", AuditCategory.ACCESS, "identity_access"),
+    ("user.sign_in_changed", AuditCategory.ACCESS, "identity_access"),
+    ("user.deactivated", AuditCategory.ACCESS, "identity_access"),
+    ("user.reactivated", AuditCategory.ACCESS, "identity_access"),
+    ("people.import_started", AuditCategory.ACCESS, "identity_access"),
+    ("access.settings_changed", AuditCategory.ACCESS, "identity_access"),
     # organisation
     ("site.created", AuditCategory.ORGANISATION, "organization"),
     ("site.renamed", AuditCategory.ORGANISATION, "organization"),
@@ -102,6 +111,16 @@ ACTIONS: dict[str, Action] = _actions(
     ("group.renamed", AuditCategory.ORGANISATION, "organization"),
     ("group.member_added", AuditCategory.ORGANISATION, "organization"),
     ("group.member_removed", AuditCategory.ORGANISATION, "organization"),
+    # WP-021: details, inactive, removal; departments and desks.
+    ("site.changed", AuditCategory.ORGANISATION, "organization"),
+    ("site.deleted", AuditCategory.ORGANISATION, "organization"),
+    ("group.changed", AuditCategory.ORGANISATION, "organization"),
+    ("group.deleted", AuditCategory.ORGANISATION, "organization"),
+    ("department.created", AuditCategory.ORGANISATION, "organization"),
+    ("department.changed", AuditCategory.ORGANISATION, "organization"),
+    ("department.deleted", AuditCategory.ORGANISATION, "organization"),
+    ("desk.created", AuditCategory.CONFIGURATION, "organization"),
+    ("desk.changed", AuditCategory.CONFIGURATION, "organization"),
     # branding and addresses (WP-017)
     ("branding.updated", AuditCategory.CONFIGURATION, "organization"),
     ("domain.added", AuditCategory.CONFIGURATION, "organization"),

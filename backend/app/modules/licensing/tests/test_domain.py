@@ -76,7 +76,7 @@ def test_add_ons_and_overrides_on_top_of_the_edition() -> None:
     assert not entitlement.has_feature("change")
     assert entitlement.limit(LimitKey.TECHNICIANS) == 3
     assert entitlement.limit(LimitKey.ASSETS) is None  # unlimited
-    assert entitlement.limit(LimitKey.DEPARTMENTS) == 1  # edition default
+    assert entitlement.limit(LimitKey.DESKS) == 1  # edition default
 
 
 @pytest.mark.parametrize(
@@ -184,7 +184,7 @@ SPEC_EXAMPLE: dict[str, Any] = {
     "fingerprint": {"algo": "v1", "components": {"cpu": "h:52"}, "min_match": 3},
     "edition": "enterprise",
     "features": ["problem", "change", "cmdb", "assets", "ai_agents", "discovery"],
-    "limits": {"technicians": 250, "assets": 5000, "departments": 10},
+    "limits": {"technicians": 250, "assets": 5000, "desks": 10},
     "issued_at": "2027-01-10",
     "expires_at": "2028-01-09",
     "maintenance_until": "2028-01-09",
@@ -203,7 +203,7 @@ def test_parses_the_spec_example() -> None:
     assert document.licence_id == "LIC-2027-00418"
     assert document.signature == "ed25519:MEUCIQ"
     assert entitlement.edition is Edition.ENTERPRISE
-    assert entitlement.limit(LimitKey.DEPARTMENTS) == 10
+    assert entitlement.limit(LimitKey.DESKS) == 10
     assert entitlement.term is not None
     # Valid from the start of the issue day through the END of the expiry day (UTC).
     assert entitlement.term.starts_at == datetime(2027, 1, 10, tzinfo=UTC)

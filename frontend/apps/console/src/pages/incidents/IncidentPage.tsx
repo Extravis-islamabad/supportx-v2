@@ -30,6 +30,7 @@ import {
   attachDrafts,
   useIncidentTemplates,
   useSession,
+  useStructure,
   useUnits,
   useCustomFields,
   useUpdateIncident,
@@ -74,7 +75,7 @@ import {
   scaleLabel,
   templateLabel,
 } from './labels';
-import { SitePicker, UserPicker } from './pickers';
+import { DepartmentPicker, SitePicker, UserPicker } from './pickers';
 import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { StatusActions } from './StatusActions';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
@@ -409,6 +410,7 @@ function Details({
   const templates = useIncidentTemplates();
   const customFields = useCustomFields('incident');
   const sites = useUnits('sites');
+  const departments = useStructure('departments');
   const scale = (name: 'impact' | 'urgency', code: string) =>
     scaleLabel(t, catalogue.data, name, code, locale);
   const template = templates.data?.find((x) => x.id === item.template_id);
@@ -458,6 +460,12 @@ function Details({
       label: t('work_item.field.site_id'),
       view: sites.data?.find((s) => s.id === item.site_id)?.name ?? '',
       edit: { kind: 'site', value: item.site_id },
+    },
+    {
+      key: 'department_id',
+      label: t('work_item.field.department_id'),
+      view: departments.data?.find((d) => d.id === item.department_id)?.name ?? '',
+      edit: { kind: 'department', value: item.department_id },
     },
     {
       key: 'category_id',
@@ -631,6 +639,7 @@ type EditorSpec =
       required?: boolean;
     }
   | { kind: 'site'; value: string | null }
+  | { kind: 'department'; value: string | null }
   | { kind: 'category'; value: string | null }
   | { kind: 'choice'; value: string | null; options: { value: string; label: string }[] }
   | { kind: 'priority'; value: string }
@@ -783,6 +792,16 @@ function InlineEdit({
       case 'site':
         return (
           <SitePicker
+            id={id}
+            value={(value as string | null) ?? null}
+            onChange={setValue}
+            testId={`inc-input-${field}`}
+            ariaLabel={label}
+          />
+        );
+      case 'department':
+        return (
+          <DepartmentPicker
             id={id}
             value={(value as string | null) ?? null}
             onChange={setValue}

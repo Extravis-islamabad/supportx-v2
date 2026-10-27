@@ -551,6 +551,63 @@
         "type": "object"
       }
     },
+    "identity_access.access_settings.changed": {
+      "1": {
+        "description": "The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "AccessSettingsChanged",
+        "type": "object"
+      }
+    },
+    "identity_access.people_import.progressed": {
+      "1": {
+        "description": "A people import moved on (WP-021): counts only, for the live progress bar.",
+        "properties": {
+          "import_id": {
+            "format": "uuid",
+            "title": "Import Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "import_id",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "PeopleImportProgressed",
+        "type": "object"
+      }
+    },
     "identity_access.role.changed": {
       "1": {
         "description": "A role was created, edited (name, description, permissions) or deleted (WP-016).",
@@ -609,6 +666,41 @@
           "client"
         ],
         "title": "SessionTenantSwitched",
+        "type": "object"
+      }
+    },
+    "identity_access.user.created": {
+      "1": {
+        "description": "An admin or an import added a person before their first sign-in (WP-021).",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreated",
         "type": "object"
       }
     },
@@ -695,9 +787,35 @@
         "type": "object"
       }
     },
+    "identity_access.user.status_changed": {
+      "1": {
+        "description": "A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.",
+        "properties": {
+          "status": {
+            "enum": [
+              "active",
+              "disabled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "status"
+        ],
+        "title": "UserStatusChanged",
+        "type": "object"
+      }
+    },
     "identity_access.user.updated": {
       "1": {
-        "description": "Profile fields changed (names only, never values).\n\nEither synced from Keycloak at login, or SupportX-owned preferences edited by the user (WP-008).",
+        "description": "Profile fields changed (names only, never values).\n\nPreferences edited by the user (WP-008), the person record edited by an admin (WP-021), or\n`sign_in_linked` when a person added by an admin first signs in (D-092).",
         "properties": {
           "changed_fields": {
             "items": {
@@ -844,6 +962,56 @@
         "type": "object"
       }
     },
+    "organization.department.changed": {
+      "1": {
+        "description": "A department was created, changed, made inactive or removed (WP-021).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "department_id": {
+            "format": "uuid",
+            "title": "Department Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "department_id",
+          "changed_fields"
+        ],
+        "title": "DepartmentChanged",
+        "type": "object"
+      }
+    },
+    "organization.desk.changed": {
+      "1": {
+        "description": "A desk was created or changed (WP-021, ESM).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "desk_id": {
+            "format": "uuid",
+            "title": "Desk Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "desk_id",
+          "changed_fields"
+        ],
+        "title": "DeskChanged",
+        "type": "object"
+      }
+    },
     "organization.domain.changed": {
       "1": {
         "description": "A custom domain was added, checked, given a certificate or removed (WP-017).",
@@ -916,7 +1084,7 @@
     },
     "organization.site.changed": {
       "1": {
-        "description": "A site was created or renamed.",
+        "description": "A site was created, changed, made inactive or removed.",
         "properties": {
           "changed_fields": {
             "items": {
@@ -941,7 +1109,7 @@
     },
     "organization.support_group.changed": {
       "1": {
-        "description": "A support group was created or renamed.",
+        "description": "A support group was created, changed, made inactive or removed.",
         "properties": {
           "changed_fields": {
             "items": {

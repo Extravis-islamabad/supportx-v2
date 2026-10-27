@@ -302,3 +302,35 @@ export {
   type UsersQuery,
 } from './users';
 export { readPending, type PendingPreferences } from './pendingPreferences';
+export {
+  useStructure,
+  useStructureChange,
+  type DepartmentIn,
+  type DepartmentOut,
+  type DepartmentPatch,
+  type DeskIn,
+  type DeskOut,
+  type DeskPatch,
+  type GroupIn,
+  type GroupOut,
+  type GroupPatch,
+  type SiteIn,
+  type SiteOut,
+  type SitePatch,
+  type StructureKind,
+} from './organization';
+export {
+  useAccessSettings,
+  usePeopleImports,
+  usePersonChange,
+  useReactivation,
+  useSaveAccessSettings,
+  useStartPeopleImport,
+  type AccessSettings,
+  type ImportProblem,
+  type PeopleImport,
+  type PersonFields,
+  type PersonIn,
+  type Reactivation,
+  type TechnicianScope,
+} from './people';

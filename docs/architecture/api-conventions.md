@@ -182,9 +182,16 @@ know**, in responses and events:
 - never use an exhaustive `switch` with no default, or a lookup that throws, on an API enum;
 - treat an unknown value as "other" in logic (for example, not counted in a known bucket).
 
-Removing or renaming a value stays breaking.
+Removing or renaming a value stays breaking. The same rule holds for a map keyed by codes (a new
+key code is additive), and a request field may accept more than before (for example also null):
+every request that was valid stays valid.
 
-Breaking changes go to `/api/v2`.
+Breaking changes go to `/api/v2`. **Until the first external API release** (WP-041 or the first
+customer install, whichever comes first) a breaking change that a product decision accepted may
+stay on `/api/v1`: it is listed, word for word as the diff reports it, with its decision and date
+in `docs/architecture/openapi-accepted-breaks.json` (D-095). At that release the list is emptied
+and `public_api_released` is set to true; from then on CI (`make openapi-check`) fails if the list
+is not empty, so every breaking change means `/api/v2`.
 
 ## Checklist: building a new list / detail / update endpoint
 

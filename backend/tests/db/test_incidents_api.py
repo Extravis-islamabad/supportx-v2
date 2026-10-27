@@ -1066,7 +1066,8 @@ RUNS = 30
 SEED = """
 INSERT INTO work_items (id, tenant_id, type, display_id, display_number, subject, requester_id,
                         channel, site_id, group_id, technician_id, priority, priority_source,
-                        status, status_category, created_by, updated_by, created_at, updated_at)
+                        status, status_category, created_by, updated_by, created_at, updated_at,
+                        desk_id)
 SELECT gen_random_uuid(), $1, 'incident', 'INC-' || (n + 1000), n + 1000,
        'Incident ' || lpad(n::text, 6, '0'), $2, 'phone',
        CASE WHEN n % 4 = 0 THEN $3::uuid ELSE NULL END,
@@ -1075,7 +1076,8 @@ SELECT gen_random_uuid(), $1, 'incident', 'INC-' || (n + 1000), n + 1000,
        (ARRAY['p1', 'p2', 'p3', 'p4'])[1 + n % 4], 'matrix',
        (ARRAY['new', 'in_progress', 'resolved', 'closed'])[1 + (n / 7) % 4],
        (ARRAY['open', 'open', 'resolved', 'closed'])[1 + (n / 7) % 4],
-       $2, $2, now() - (n || ' seconds')::interval, now() - (n || ' seconds')::interval
+       $2, $2, now() - (n || ' seconds')::interval, now() - (n || ' seconds')::interval,
+       (SELECT id FROM desks WHERE tenant_id = $1 AND is_default)
 FROM generate_series(1, $7) AS n
 """
 

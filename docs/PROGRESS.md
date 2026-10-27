@@ -4,10 +4,11 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-026 (custom fields on incidents, D-087, D-088, ADR-030), 2026-10-27.
+- **Last completed:** WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
+  2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
   Lane B: WP-027 (search, D-085, ADR-029), merged 2026-10-27.
-- **Next work package:** WP-026 QA (~/Desktop/qa-wp026/), then WP-029 (business rules,
-  routing; needs WP-026) on the critical path; WP-020d..020f, WP-021..028.
+- **Next work package:** WP-021 QA (~/Desktop/qa-wp021/), then WP-029 (business rules,
+  routing; needs WP-026) on the critical path; WP-020d..020f, WP-022..028.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -461,6 +462,45 @@ Every finding of Desktop/qa-wp026/QA-REPORT.md has a test named after its ID tha
   C6 the type is read-only text when editing; C7 no starting value is SQL NULL.
 - [x] D-091 (O5): retired fields under a "Retired fields" heading in the list filter.
 
+### [x] WP-021 — People, sites, departments, groups, desks (D-092; ADR-032; done 2026-10-27)
+- [x] The person record (REQ-ADM-002): first and last name (or an own display name), email
+  (optional: a contact who never signs in needs none), employee ID, job title, phones, VIP,
+  site, department, manager (loops refused), language, time zone, portal visibility override,
+  notes. SupportX owns it after the first sign-in (D-092): sign-in records only the time; the
+  first sign-in of a person added by an admin or an import links them by email.
+- [x] Admin › People: views (active, technicians, requesters, contacts, VIPs, deactivated),
+  site and department filters, add, edit (keeps the version it opened; conflict dialog),
+  technician or requester (a technician takes a licence seat), sign-in on/off (ends sessions),
+  deactivate (keeps records, roles, groups; ends sessions) and reactivate (keeps only the roles
+  and groups confirmed). The access drawer is now the person drawer's Access tab.
+- [x] Imports (REQ-ADM-003): CSV (UTF-8) and Excel (.xlsx, openpyxl read-only, values only),
+  5 MB / 5,000 rows / 40 columns / 5,000 characters per cell, zip "bomb" check; processed by the
+  `identity_access__people_imports` schedule in the consumers worker, one savepoint per row,
+  progress live; matches by email or employee ID; empty cells change nothing; rows beyond the
+  technician seats are refused with the reason. The file is cleared once read.
+- [x] Admin › Organisation: sites (details, default site), departments (code unique per tenant,
+  site, head, parent), support groups (description, lead, own address and sender name, sites
+  served, desk), desks (ESM only; licence limit `desks`, renamed from `departments`, D-092).
+  Inactive instead of removed while in use (409 with counts of people, records, members,
+  departments, groups); unused ones can be removed; live through `organization.structure_changed`.
+- [x] Every record, template and support group belongs to a desk (IT desk by default, D-061,
+  D-062). Incidents take the requester's department (and its site); department on the form and
+  the record. Deactivated people are marked in person pickers.
+- [x] Lane B's WP-039 lookups: `find_department` (code, then English name; active only) and
+  `find_site` (name), exported by organization.
+- [x] D-073: the technician-visibility question is a tenant setting (`access_settings`), asked of
+  role admins in a banner until answered ("their groups" preselected) and changeable in
+  Admin › Roles; "everything" widens the technician defaults modules declare at `group`.
+- [x] Migration 0023 (after lane B's 0022): desks, departments, group_sites, access_settings,
+  people_imports (RLS, isolation tests), person columns, record and template desks; existing
+  tenants get an IT desk and a default site. Reversible.
+- [x] D-095: the six breaking API changes this WP needs (nullable email, `desks` limit key,
+  site and group schemas) are accepted on /api/v1 in `docs/architecture/openapi-accepted-breaks.json`
+  until the first external API release; CI enforces the end date flag.
+- [ ] Remove the leftover QA-Desk A, QA-Desk B and QA-Site from the dev data (after merge).
+- [ ] Later: the invitation email when sign-in is turned on (WP-024, on lane B's mail sender);
+  department and site sync from directory attributes is lane B's WP-039.
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -667,6 +707,19 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-27 — WP-026-FIX merged; WP-021 people and organisation (lane A)
+
+- PR #67 (WP-026-FIX, D-091) merged under standing approval with every check green.
+- Built WP-021 on `feat/wp-021-people-org` (plan approved: D-092, ADR-032). Coordinated numbers
+  with lane B: D-089/D-090 and ADR-031 and migration 0022 are lane B's (WP-039, WP-017); this WP
+  takes D-092, ADR-032 and migration 0023.
+- Sign-in behaviour changed on purpose (D-092): two auth tests that expected Keycloak profile
+  changes to reach SupportX now prove the opposite; new tests cover linking by email and
+  refused contacts. The entitlement test for promotion now promotes in SupportX.
+- Raw-SQL test fixtures and the dev seed set `first_name` and the IT desk.
+- The first-run question is a banner, not a blocking dialog, so work (and the e2e suite) goes
+  on until an admin answers.
 
 ### 2026-10-27 — WP-017 tenant branding and domains (lane B)
 

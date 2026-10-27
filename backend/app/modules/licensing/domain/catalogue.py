@@ -59,7 +59,9 @@ class LimitKey(StrEnum):
 
     TECHNICIANS = "technicians"
     ASSETS = "assets"
-    DEPARTMENTS = "departments"
+    # Desks (ESM, D-061): one IT desk in Essentials and Professional. Renamed from "departments"
+    # (D-092) so it is never confused with organisational departments (REQ-ADM-039).
+    DESKS = "desks"
     MSP_CUSTOMERS = "msp_customers"
     AI_AGENT_RUNS_PER_MONTH = "ai_agent_runs_per_month"
     # Stored files in GB (WP-022, D-082 D6): counted in whole GB for display; uploads compare bytes.
@@ -111,7 +113,7 @@ EDITION_DEFAULT_LIMITS: Mapping[Edition, Mapping[LimitKey, int | None]] = Mappin
             {
                 LimitKey.TECHNICIANS: 10,
                 LimitKey.ASSETS: 1_000,
-                LimitKey.DEPARTMENTS: 1,
+                LimitKey.DESKS: 1,
                 LimitKey.MSP_CUSTOMERS: 0,
                 LimitKey.AI_AGENT_RUNS_PER_MONTH: 500,
                 LimitKey.STORAGE_GB: 50,
@@ -121,7 +123,7 @@ EDITION_DEFAULT_LIMITS: Mapping[Edition, Mapping[LimitKey, int | None]] = Mappin
             {
                 LimitKey.TECHNICIANS: 50,
                 LimitKey.ASSETS: 10_000,
-                LimitKey.DEPARTMENTS: 1,
+                LimitKey.DESKS: 1,
                 LimitKey.MSP_CUSTOMERS: 0,
                 LimitKey.AI_AGENT_RUNS_PER_MONTH: 5_000,
                 LimitKey.STORAGE_GB: 250,
@@ -132,7 +134,7 @@ EDITION_DEFAULT_LIMITS: Mapping[Edition, Mapping[LimitKey, int | None]] = Mappin
             {
                 LimitKey.TECHNICIANS: 250,
                 LimitKey.ASSETS: 50_000,
-                LimitKey.DEPARTMENTS: None,
+                LimitKey.DESKS: None,
                 LimitKey.MSP_CUSTOMERS: 25,
                 LimitKey.AI_AGENT_RUNS_PER_MONTH: 50_000,
                 LimitKey.STORAGE_GB: 1_000,
