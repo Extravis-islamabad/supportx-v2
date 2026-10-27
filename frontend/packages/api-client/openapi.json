@@ -2767,6 +2767,29 @@
         "title": "BrandingSettingsOut",
         "type": "object"
       },
+      "BuiltinReportOut": {
+        "description": "A shipped report; `report.<code>` and `report.<code>.description` label it.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition-Output"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "folder",
+          "definition"
+        ],
+        "title": "BuiltinReportOut",
+        "type": "object"
+      },
       "CertificateIn": {
         "description": "PEM certificate chain (the host's certificate first) and its unencrypted private key.",
         "properties": {
@@ -2808,6 +2831,21 @@
           "alert_webhook"
         ],
         "title": "Channel",
+        "type": "string"
+      },
+      "ChartType": {
+        "description": "MVP chart types (REQ-RPT-044 AC3); the rest follow at V1.",
+        "enum": [
+          "bar",
+          "stacked_bar",
+          "line",
+          "area",
+          "doughnut",
+          "gauge",
+          "kpi",
+          "table"
+        ],
+        "title": "ChartType",
         "type": "string"
       },
       "CheckCode": {
@@ -3718,6 +3756,19 @@
         },
         "title": "CustomFieldValidationIO",
         "type": "object"
+      },
+      "DateBucket": {
+        "description": "How a date grouping is cut, in the viewer's time zone (REQ-DSH-044).",
+        "enum": [
+          "day",
+          "week",
+          "month",
+          "quarter",
+          "year",
+          "age"
+        ],
+        "title": "DateBucket",
+        "type": "string"
       },
       "DeliveryReason": {
         "description": "Why a reply is not (yet) sent.",
@@ -4834,6 +4885,64 @@
         "title": "FilterAnd",
         "type": "object"
       },
+      "FilterAnd-Input": {
+        "additionalProperties": false,
+        "description": "All of the nodes.",
+        "properties": {
+          "and": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FilterCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterAnd-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterOr-Input"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "And",
+            "type": "array"
+          }
+        },
+        "required": [
+          "and"
+        ],
+        "title": "FilterAnd",
+        "type": "object"
+      },
+      "FilterAnd-Output": {
+        "additionalProperties": false,
+        "description": "All of the nodes.",
+        "properties": {
+          "and": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FilterCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterAnd-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterOr-Output"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "And",
+            "type": "array"
+          }
+        },
+        "required": [
+          "and"
+        ],
+        "title": "FilterAnd",
+        "type": "object"
+      },
       "FilterCondition": {
         "additionalProperties": false,
         "description": "`{field, op, value?}`. Which fields and operators are allowed depends on the endpoint.",
@@ -4913,6 +5022,64 @@
                 },
                 {
                   "$ref": "#/components/schemas/FilterOr"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Or",
+            "type": "array"
+          }
+        },
+        "required": [
+          "or"
+        ],
+        "title": "FilterOr",
+        "type": "object"
+      },
+      "FilterOr-Input": {
+        "additionalProperties": false,
+        "description": "Any of the nodes.",
+        "properties": {
+          "or": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FilterCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterAnd-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterOr-Input"
+                }
+              ]
+            },
+            "minItems": 1,
+            "title": "Or",
+            "type": "array"
+          }
+        },
+        "required": [
+          "or"
+        ],
+        "title": "FilterOr",
+        "type": "object"
+      },
+      "FilterOr-Output": {
+        "additionalProperties": false,
+        "description": "Any of the nodes.",
+        "properties": {
+          "or": {
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FilterCondition"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterAnd-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/FilterOr-Output"
                 }
               ]
             },
@@ -7226,6 +7393,692 @@
         "title": "ReplyTemplateOut",
         "type": "object"
       },
+      "ReportDefinition-Input": {
+        "additionalProperties": false,
+        "description": "A report as stored and as sent to `POST /reports/run`.",
+        "properties": {
+          "chart": {
+            "$ref": "#/components/schemas/ChartType",
+            "default": "bar"
+          },
+          "entity": {
+            "maxLength": 40,
+            "title": "Entity",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterCondition"
+              },
+              {
+                "$ref": "#/components/schemas/FilterAnd-Input"
+              },
+              {
+                "$ref": "#/components/schemas/FilterOr-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "group_by": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGroupBy"
+            },
+            "maxItems": 2,
+            "title": "Group By",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "measures": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Measures",
+            "type": "array"
+          },
+          "order": {
+            "$ref": "#/components/schemas/ResultOrder",
+            "default": "key"
+          },
+          "percent": {
+            "default": false,
+            "title": "Percent",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity"
+        ],
+        "title": "ReportDefinition",
+        "type": "object"
+      },
+      "ReportDefinition-Output": {
+        "additionalProperties": false,
+        "description": "A report as stored and as sent to `POST /reports/run`.",
+        "properties": {
+          "chart": {
+            "$ref": "#/components/schemas/ChartType",
+            "default": "bar"
+          },
+          "entity": {
+            "maxLength": 40,
+            "title": "Entity",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterCondition"
+              },
+              {
+                "$ref": "#/components/schemas/FilterAnd-Output"
+              },
+              {
+                "$ref": "#/components/schemas/FilterOr-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "group_by": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGroupBy"
+            },
+            "maxItems": 2,
+            "title": "Group By",
+            "type": "array"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "maximum": 500.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "measures": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Measures",
+            "type": "array"
+          },
+          "order": {
+            "$ref": "#/components/schemas/ResultOrder",
+            "default": "key"
+          },
+          "percent": {
+            "default": false,
+            "title": "Percent",
+            "type": "boolean"
+          },
+          "schema_version": {
+            "const": 1,
+            "default": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entity"
+        ],
+        "title": "ReportDefinition",
+        "type": "object"
+      },
+      "ReportEntityOut": {
+        "description": "What a report on this entity can use (the copy-and-adjust form, REQ-RPT-019).",
+        "properties": {
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/ReportFieldOut"
+            },
+            "title": "Fields",
+            "type": "array"
+          },
+          "list_path": {
+            "title": "List Path",
+            "type": "string"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/ReportMeasureOut"
+            },
+            "title": "Measures",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entity",
+          "list_path",
+          "fields",
+          "measures"
+        ],
+        "title": "ReportEntityOut",
+        "type": "object"
+      },
+      "ReportFieldOut": {
+        "description": "A field of an entity: filterable always, groupable when `dimension` is set.",
+        "properties": {
+          "dimension": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportGroupOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "values",
+          "multiple",
+          "dimension"
+        ],
+        "title": "ReportFieldOut",
+        "type": "object"
+      },
+      "ReportFolderIn": {
+        "additionalProperties": false,
+        "description": "A shared folder's name.",
+        "properties": {
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ReportFolderIn",
+        "type": "object"
+      },
+      "ReportFolderOut": {
+        "description": "A shared folder.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "version"
+        ],
+        "title": "ReportFolderOut",
+        "type": "object"
+      },
+      "ReportGroupBy": {
+        "additionalProperties": false,
+        "description": "One grouping: a field of the entity; date fields also need a bucket.",
+        "properties": {
+          "bucket": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateBucket"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "field": {
+            "maxLength": 64,
+            "title": "Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "title": "ReportGroupBy",
+        "type": "object"
+      },
+      "ReportGroupOut": {
+        "description": "How to label one grouping's keys.",
+        "properties": {
+          "bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Prefix"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          }
+        },
+        "required": [
+          "field",
+          "kind",
+          "label_prefix",
+          "reference",
+          "bucket"
+        ],
+        "title": "ReportGroupOut",
+        "type": "object"
+      },
+      "ReportIn": {
+        "additionalProperties": false,
+        "description": "A new saved report; with no folder it goes to \"My reports\", private (REQ-RPT-047).",
+        "properties": {
+          "copied_from": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copied From"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition-Input"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "definition"
+        ],
+        "title": "ReportIn",
+        "type": "object"
+      },
+      "ReportLibraryOut": {
+        "description": "The reports home: built-in reports the viewer can run, folders, saved reports, stars.",
+        "properties": {
+          "builtin": {
+            "items": {
+              "$ref": "#/components/schemas/BuiltinReportOut"
+            },
+            "title": "Builtin",
+            "type": "array"
+          },
+          "favourites": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Favourites",
+            "type": "array"
+          },
+          "folders": {
+            "items": {
+              "$ref": "#/components/schemas/ReportFolderOut"
+            },
+            "title": "Folders",
+            "type": "array"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/SavedReportOut"
+            },
+            "title": "Reports",
+            "type": "array"
+          }
+        },
+        "required": [
+          "builtin",
+          "folders",
+          "reports",
+          "favourites"
+        ],
+        "title": "ReportLibraryOut",
+        "type": "object"
+      },
+      "ReportMeasureOut": {
+        "description": "A measure: its code labels it (`measure.<entity>.<code>`), its unit formats it.",
+        "properties": {
+          "better": {
+            "title": "Better",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "unit",
+          "better"
+        ],
+        "title": "ReportMeasureOut",
+        "type": "object"
+      },
+      "ReportPatch": {
+        "additionalProperties": false,
+        "description": "The fields to change.",
+        "properties": {
+          "definition": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportDefinition-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "ReportPatch",
+        "type": "object"
+      },
+      "ReportResultOut": {
+        "description": "A run's result.",
+        "properties": {
+          "as_of": {
+            "format": "date-time",
+            "title": "As Of",
+            "type": "string"
+          },
+          "drill_all": {
+            "description": "Filter DSL behind the totals.",
+            "title": "Drill All"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/ReportGroupOut"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "list_path": {
+            "title": "List Path",
+            "type": "string"
+          },
+          "measures": {
+            "items": {
+              "$ref": "#/components/schemas/ReportMeasureOut"
+            },
+            "title": "Measures",
+            "type": "array"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/ReportRowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "time_zone": {
+            "title": "Time Zone",
+            "type": "string"
+          },
+          "totals": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Totals",
+            "type": "array"
+          },
+          "truncated": {
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "entity",
+          "list_path",
+          "as_of",
+          "time_zone",
+          "groups",
+          "measures",
+          "rows",
+          "totals",
+          "truncated",
+          "drill_all"
+        ],
+        "title": "ReportResultOut",
+        "type": "object"
+      },
+      "ReportRowOut": {
+        "description": "One group: keys (codes, ids, ISO bucket starts), values, and the list filter behind it.",
+        "properties": {
+          "drill": {
+            "description": "Filter DSL for the entity's list: exactly these records.",
+            "title": "Drill"
+          },
+          "keys": {
+            "items": {},
+            "title": "Keys",
+            "type": "array"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "keys",
+          "values",
+          "drill"
+        ],
+        "title": "ReportRowOut",
+        "type": "object"
+      },
+      "ReportRunIn": {
+        "additionalProperties": false,
+        "description": "A definition to run (a built-in one, a saved one, or one being adjusted).",
+        "properties": {
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition-Input"
+          }
+        },
+        "required": [
+          "definition"
+        ],
+        "title": "ReportRunIn",
+        "type": "object"
+      },
+      "ResultOrder": {
+        "description": "Order of grouped rows.",
+        "enum": [
+          "key",
+          "value_desc",
+          "value_asc"
+        ],
+        "title": "ResultOrder",
+        "type": "string"
+      },
       "RoleCreate": {
         "description": "A new custom role.",
         "properties": {
@@ -8256,6 +9109,89 @@
           "occurred_at"
         ],
         "title": "RunOut",
+        "type": "object"
+      },
+      "SavedReportOut": {
+        "description": "A saved report.",
+        "properties": {
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "copied_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copied From"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/ReportDefinition-Output"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "folder_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "owner_id",
+          "folder_id",
+          "copied_from",
+          "definition",
+          "version",
+          "updated_at",
+          "can_edit"
+        ],
+        "title": "SavedReportOut",
         "type": "object"
       },
       "Scale": {
@@ -29841,6 +30777,1141 @@
         "summary": "Realtime subscription token",
         "tags": [
           "realtime"
+        ]
+      }
+    },
+    "/api/v1/reports": {
+      "post": {
+        "description": "Needs `reports.create`. A copy of a built-in report names it in `copied_from`.",
+        "operationId": "create_report_api_v1_reports_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save a report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/entities/{entity}": {
+      "get": {
+        "description": "Fields (filter and grouping) and measures of an entity, as you may use them.",
+        "operationId": "entity_fields_api_v1_reports_entities__entity__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "entity",
+            "required": true,
+            "schema": {
+              "title": "Entity",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportEntityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "What a report on an entity can use",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/favourites/{report_ref}": {
+      "delete": {
+        "description": "Remove a star (no error when there was none).",
+        "operationId": "unstar_api_v1_reports_favourites__report_ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_ref",
+            "required": true,
+            "schema": {
+              "title": "Report Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Unstar a report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "put": {
+        "description": "`builtin:<code>` or a saved report id.",
+        "operationId": "star_api_v1_reports_favourites__report_ref__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_ref",
+            "required": true,
+            "schema": {
+              "title": "Report Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Star a report",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/folders": {
+      "post": {
+        "description": "Needs `reports.manage_folders`.",
+        "operationId": "create_folder_api_v1_reports_folders_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportFolderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportFolderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Create a shared folder",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/folders/{folder_id}": {
+      "delete": {
+        "description": "Needs `reports.manage_folders`; you must say where its reports go (REQ-RPT-045 AC3).",
+        "operationId": "delete_folder_api_v1_reports_folders__folder_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Folder Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Where its reports go: a folder id, or `owners` (each owner's own).",
+            "in": "query",
+            "name": "move_to",
+            "required": true,
+            "schema": {
+              "description": "Where its reports go: a folder id, or `owners` (each owner's own).",
+              "maxLength": 40,
+              "title": "Move To",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Delete a shared folder",
+        "tags": [
+          "reports"
+        ]
+      },
+      "patch": {
+        "description": "Needs `reports.manage_folders` and If-Match.",
+        "operationId": "rename_folder_api_v1_reports_folders__folder_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "folder_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Folder Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportFolderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportFolderOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Rename a shared folder",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/library": {
+      "get": {
+        "description": "Built-in reports you can run now, shared folders, your and shared reports, your stars.",
+        "operationId": "get_library_api_v1_reports_library_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportLibraryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "The reports home",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/run": {
+      "post": {
+        "description": "Run a definition over the records you may see, in your time zone (`X-Time-Zone`).",
+        "operationId": "run_api_v1_reports_run_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportRunIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportResultOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "invalid_report or report_timeout."
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "report_queue_full: try again shortly."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Run a report definition",
+        "tags": [
+          "reports"
+        ]
+      }
+    },
+    "/api/v1/reports/{report_id}": {
+      "delete": {
+        "description": "Needs If-Match.",
+        "operationId": "delete_report_api_v1_reports__report_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Delete a saved report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "get": {
+        "description": "Yours, or one in a shared folder; 404 otherwise.",
+        "operationId": "get_report_api_v1_reports__report_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Get a saved report",
+        "tags": [
+          "reports"
+        ]
+      },
+      "patch": {
+        "description": "The fields you send. Needs If-Match; built-in reports are never changed (copy them).",
+        "operationId": "update_report_api_v1_reports__report_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Report Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such report visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a saved report",
+        "tags": [
+          "reports"
         ]
       }
     },

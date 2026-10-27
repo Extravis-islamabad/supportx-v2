@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
+.PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -110,6 +110,9 @@ dlq-list: ## List dead letters: make dlq-list [consumer=<name>]
 dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | all=1 [consumer=<name>]
 	$(EVENTS_CLI) dlq-replay $(if $(seq),--seq $(seq)) $(if $(all),--all) \
 		$(if $(consumer),--consumer $(consumer))
+
+labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034)
+	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json
 
 events-schemas: ## Export every event schema to docs/architecture/event-schemas.json
 	$(BACKEND) uv run python -m tooling.event_schemas write $(EVENT_SCHEMAS)

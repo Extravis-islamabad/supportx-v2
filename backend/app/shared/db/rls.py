@@ -23,6 +23,8 @@ import re
 APP_ROLE = "supportx_app"
 MIGRATOR_ROLE = "supportx_migrator"
 RELAY_ROLE = "supportx_relay"  # outbox relay (WP-007, docs/architecture/events.md)
+# Reporting (WP-035, ADR-033): NOLOGIN, SELECT only; supportx_app enters it with SET LOCAL ROLE.
+REPORT_ROLE = "supportx_report"
 TENANT_COLUMN = "tenant_id"
 CURRENT_TENANT_SQL = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
 APP_DML_PRIVILEGES = ("SELECT", "INSERT", "UPDATE", "DELETE")
@@ -79,6 +81,17 @@ def app_grant_statements(table: str, privileges: tuple[str, ...] = APP_DML_PRIVI
     if privileges:
         statements.append(f"GRANT {', '.join(privileges)} ON {t} TO {APP_ROLE}")
     return statements
+
+
+def report_grant_statements(table: str) -> list[str]:
+    """Let the reporting role read `table` (SELECT only; RLS still filters by tenant)."""
+    t = _check(table)
+    return [f"REVOKE ALL ON {t} FROM {REPORT_ROLE}", f"GRANT SELECT ON {t} TO {REPORT_ROLE}"]
+
+
+def report_revoke_statements(table: str) -> list[str]:
+    """Reverse of `report_grant_statements` (downgrades)."""
+    return [f"REVOKE ALL ON {_check(table)} FROM {REPORT_ROLE}"]
 
 
 # Trigger function (created once by migration 0002) that stamps the acting user from the

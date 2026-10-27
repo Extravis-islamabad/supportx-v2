@@ -18,7 +18,10 @@ For every table in the `public` schema:
                              CROSS_TENANT_POLICIES and applies to exactly that role (never PUBLIC,
                              never supportx_app)
 
-Also: supportx_app and supportx_relay are not superusers and have no BYPASSRLS.
+                           - supportx_report (WP-035, ADR-033) has at most SELECT, and only on
+                             tenant-scoped tables (never a platform table, never a write)
+
+Also: supportx_app, supportx_relay and supportx_report are not superusers and have no BYPASSRLS.
 
 Adding to PLATFORM_TABLES or CROSS_TENANT_POLICIES needs a reason and a reviewer: it removes a
 table (or a role's view of it) from tenant isolation.
@@ -31,7 +34,7 @@ from dataclasses import dataclass, field
 import asyncpg
 
 from app.core.config import Settings
-from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE, RELAY_ROLE
+from app.shared.db.rls import APP_ROLE, MIGRATOR_ROLE, RELAY_ROLE, REPORT_ROLE
 
 SCHEMA = "public"
 # Tables that are deliberately not tenant-scoped, with what the app may do on them.
@@ -179,6 +182,27 @@ async def _check_common(
     )
     report.policies = [row["polname"] for row in policies]
     await _check_relay(conn, table["oid"], report)
+    await _check_report(conn, report)
+
+
+async def _check_report(conn: asyncpg.Connection, report: TableReport) -> None:
+    """supportx_report: SELECT only, and only on tenant-scoped tables (RLS filters it)."""
+    granted = {
+        row["privilege_type"]
+        for row in await conn.fetch(
+            """
+            SELECT privilege_type FROM information_schema.role_table_grants
+            WHERE grantee = $1 AND table_schema = $2 AND table_name = $3
+            """,
+            REPORT_ROLE,
+            SCHEMA,
+            report.name,
+        )
+    }
+    if granted - {"SELECT"}:
+        report.problems.append(f"{REPORT_ROLE} has {sorted(granted - {'SELECT'})}: read only")
+    if granted and report.name in PLATFORM_TABLES:
+        report.problems.append(f"{REPORT_ROLE} may not read a platform table")
 
 
 async def _check_relay(conn: asyncpg.Connection, oid: int, report: TableReport) -> None:
@@ -298,9 +322,9 @@ async def _check_indexes(conn: asyncpg.Connection, oid: int, report: TableReport
 
 
 async def role_problems(conn: asyncpg.Connection) -> list[str]:
-    """Problems with the runtime roles themselves (application and relay)."""
+    """Problems with the runtime roles themselves (application, relay and reporting)."""
     problems = []
-    for name in (APP_ROLE, RELAY_ROLE):
+    for name in (APP_ROLE, RELAY_ROLE, REPORT_ROLE):
         role = await conn.fetchrow(
             "SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = $1", name
         )
