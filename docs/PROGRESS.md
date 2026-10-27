@@ -449,21 +449,24 @@ WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom field
 WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-run setup must offer
 "technicians see all incidents" vs the group default.
 
-### [ ] WP-017 — Tenant branding and domains (D-027; planning only)
-- **Goal:** Each tenant gets its own address and look without a redesign: the WP-010 theme
-  already takes per-tenant seeds (`Branding` in `packages/ui/src/theme.ts`).
-- **Scope:** Per-tenant subdomain in SaaS (`<slug>.supportx...`); optional custom domain with
-  automatic TLS (ACME, certificate lifecycle per cell); tenant resolution from the request host as
-  a login hint (pre-selects the Keycloak organization, never an authorisation decision); logo,
-  favicon and brand colours on console, portal, the Keycloak login theme and outgoing e-mails;
-  a branding admin screen (preview, contrast check against WCAG AA before saving); assets stored
-  through the S3 API (D-016) and served with cache headers; works on-prem (one installation
-  domain) through the same entitlement and settings interfaces.
-- **Acceptance:** Two tenants on two hosts see their own logo and colours on every surface
-  including the login page and e-mails; an unknown host falls back to the default brand; a colour
-  failing contrast is refused with a translated message; e2e covers both hosts.
-- **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
-
+### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
+- **Goal:** Each tenant gets its own address and look without a redesign.
+- **Done:** REQ-ADM-055, REQ-PRT-016, REQ-SEC-003, REQ-SEC-004 (docs/architecture/branding.md):
+  - tenant colours, product and portal names, welcome text (en/ar/ur), logo, dark logo and icon;
+    WCAG AA checked on the server, failing colours refused with the nearest passing one;
+  - Pillow variants (logo per theme, icon, favicons) served publicly on versioned URLs;
+  - console and portal follow the address's brand before sign-in and the tenant's after it,
+    live on save (favicon included); portal name and welcome text on the portal;
+  - Keycloak sign-in page branded per organization (template block + per-tenant stylesheet);
+  - tenant addresses: subdomain `<slug>.<tenant_base_domain>`, custom domains proved by an HTTP
+    token, own certificate upload; sign-in on an address asks for that organization only;
+  - e-mail branding contract for the WP-039 mail foundation;
+  - Admin › Branding with live preview (light, dark, high contrast) and an Addresses card;
+    everything audited (`branding.updated`, `domain.*`).
+- **Open:** who provisions certificates and routes for custom domains in Kubernetes (ADR-031
+  "Open"); registering custom domains as Keycloak redirect URIs comes with it. Offering only the
+  sign-in methods a tenant enabled (REQ-SEC-003 AC2) needs WP-039 SSO.
+- **Depends on:** WP-010, WP-014, WP-016
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
 - Search port `app/shared/search`, with PostgreSQL full-text and pg_trgm as the MVP engine
@@ -644,6 +647,18 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-27 — WP-017 tenant branding and domains (lane B)
+
+- Planned and built in `../supportx-v2-wp017` (branch `feat/wp-017-branding`). Migration 0022
+  after lane A's 0021; decisions D-089 (the product owner's WP-039 answers) and D-090 (WP-017
+  defaults); ADR-031 (proposed). Lane A told: the mail foundation (D-089 D3), numbering (lane A
+  takes D-091, D-092, migration 0023), the SSO attribute lookup shape for WP-021.
+- A throwaway Keycloak 26.8.1 confirmed `org` in login templates, the `organization:<alias>`
+  scope (only that organization in the token; none for non-members; not combinable with
+  `organization:*`) and the theme property's environment substitution.
+- The colour rules moved from `tooling/brand_assets.py` into the organization domain, so the
+  default brand, tenants and the sign-in stylesheet share one implementation.
 
 ### 2026-10-27 — WP-026: custom fields (lane A)
 
