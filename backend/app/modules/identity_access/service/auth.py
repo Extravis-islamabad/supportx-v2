@@ -40,6 +40,12 @@ from app.modules.identity_access.domain.identity import (
     validate_claims,
 )
 from app.modules.identity_access.domain.session import Session, TenantChoice
+from app.modules.identity_access.domain.sso import DEPARTMENT_ATTRIBUTE, SITE_ATTRIBUTE
+from app.modules.identity_access.infra.keycloak_admin import (
+    IdentityAdminNotConfigured,
+    IdentityAdminUnavailable,
+)
+from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import (
     ClientCredentials,
     IdentityProviderUnavailable,
@@ -50,11 +56,14 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
 from app.shared.clock import Clock
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
+
+    from app.modules.identity_access.infra.keycloak_admin import IdentityAdmin
 
 log = get_logger(__name__)
 
@@ -65,6 +74,7 @@ CALLBACK_PATH = "/api/v1/auth/callback"
 LOGIN_STATE_TTL = timedelta(minutes=10)
 REFRESH_LOCK_TTL = timedelta(seconds=15)
 TOUCH_INTERVAL = timedelta(seconds=60)
+MAX_SESSION = timedelta(seconds=max(limit["max_absolute"] for limit in SESSION_LIMITS.values()))
 
 
 def _client_app(session: Session) -> AppName:
@@ -125,6 +135,10 @@ class AuthService:
         self.absolute = timedelta(seconds=settings.session_absolute_timeout_seconds)
         # Set by the module startup once the policy service exists (WP-016).
         self.on_roles_mapped: Callable[[uuid.UUID], Awaitable[None]] | None = None
+        # Set by the module startup: Keycloak's admin API as the identity service account.
+        self.identity_admin: IdentityAdmin | None = None
+        # Set by the module startup: closes a person's live connections in a tenant (WP-039).
+        self.end_realtime: Callable[[uuid.UUID, uuid.UUID], Awaitable[None]] | None = None
 
     # --- clients and origins -------------------------------------------------------------------
 
@@ -177,7 +191,12 @@ class AuthService:
     # --- login ---------------------------------------------------------------------------------
 
     async def start_login(
-        self, app: AppName, return_to: str | None, address: LoginAddress | None = None
+        self,
+        app: AppName,
+        return_to: str | None,
+        address: LoginAddress | None = None,
+        *,
+        reauthenticate: bool = False,
     ) -> str:
         """Remember a one-time login state and return Keycloak's authorization URL.
 
@@ -185,6 +204,9 @@ class AuthService:
         Keycloak is asked for that tenant's organization: its sign-in page shows the tenant's
         brand, and the token names only that organization. A hint, never access: someone who is
         not a member gets no organization and the usual `no_organization` refusal.
+
+        `reauthenticate` (a session of this browser timed out, REQ-SEC-029): Keycloak asks for
+        the password again instead of reusing its own, longer session.
         """
         origin = self.origin(app, address.host) if address is not None else None
         state, nonce, pkce = (
@@ -210,6 +232,7 @@ class AuthService:
             nonce=nonce,
             pkce=pkce,
             organization=address.organization if address is not None else None,
+            prompt="login" if reauthenticate else None,
         )
 
     async def complete_login(
@@ -220,8 +243,8 @@ class AuthService:
         error: str | None,
         previous_session_id: str | None,
         host: str | None = None,
-    ) -> LoginResult:
-        """Finish the OIDC callback and create a fresh session.
+    ) -> "LoginResult | sso_test.TestFinished":
+        """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
         browser back to the right app with a translatable error code.
@@ -229,6 +252,8 @@ class AuthService:
         pending = await self.store.take_login(state) if state else None
         if pending is None:
             raise LoginFailure("console", BadRequest(code="invalid_login_state"))  # noqa: EM101 - a code, not a message
+        if pending.get("test"):  # an admin's test of a single sign-on set-up (WP-039)
+            return await sso_test.finish(self, pending, code=code, error=error)
         app: AppName = "portal" if pending["app"] == "portal" else "console"
         origin = pending.get("origin")
         if origin is not None and urlsplit(origin).netloc != host:
@@ -297,6 +322,7 @@ class AuthService:
             client=app,
             reason="login",
             on_roles_mapped=self.on_roles_mapped,
+            directory=self._directory,
         )
         return Session(
             subject=identity.subject,
@@ -318,7 +344,24 @@ class AuthService:
             refresh_token=tokens.refresh_token,
             id_token=tokens.id_token,
             keycloak_session_id=identity.keycloak_session_id,
+            idle_seconds=user.session_idle_seconds,
+            absolute_seconds=user.session_absolute_seconds,
         )
+
+    async def _directory(self, subject: str) -> dict[str, str | None]:
+        """Department and site the person's identity provider sent (best effort, WP-039)."""
+        if self.identity_admin is None:
+            return {}
+        try:
+            attributes = await self.identity_admin.user_attributes(subject)
+        except (IdentityAdminUnavailable, IdentityAdminNotConfigured):
+            log.warning("directory_attributes_unavailable")
+            return {}
+        found: dict[str, str | None] = {}
+        for key, name in (("department", DEPARTMENT_ATTRIBUTE), ("site", SITE_ATTRIBUTE)):
+            values = attributes.get(name) or []
+            found[key] = values[0] if values else None
+        return found
 
     async def _save_new(self, session: Session) -> str:
         session_id = secrets.token_urlsafe(32)
@@ -359,10 +402,18 @@ class AuthService:
         return session_id, session
 
     async def end_sessions(self, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
-        """End every session of a person in a tenant, now (their next request gets 401)."""
+        """End every session of a person in a tenant, now (REQ-SEC-031).
+
+        Their next request gets 401, and their live connections in the tenant close at once
+        (AC1: within 5 seconds). The marker outlives the longest possible session (a tenant's
+        limits can exceed the platform default). Their Keycloak sessions stay: Keycloak's user is
+        shared by every tenant they belong to (D-094), and signing in again here is refused.
+        """
         await self.store.end_user_sessions(
-            _user_key(str(tenant_id), str(user_id)), self.clock.now(), self.absolute
+            _user_key(str(tenant_id), str(user_id)), self.clock.now(), MAX_SESSION
         )
+        if self.end_realtime is not None:
+            await self.end_realtime(tenant_id, user_id)
 
     async def resolve(self, request: Request) -> TenantContext | None:
         """`SessionResolver` for app.core.tenancy: the session's tenant and user."""
@@ -483,6 +534,10 @@ class AuthService:
             tenant_name=user.tenant_name,
             user_id=str(user.user_id),
             csrf_token=secrets.token_urlsafe(32),
+            # The new tenant's limits, counted from now: a new session in all but its tokens.
+            created_at=self.clock.now(),
+            idle_seconds=user.session_idle_seconds,
+            absolute_seconds=user.session_absolute_seconds,
         )
         await self.store.delete_session(session_id)
         return await self._save_new(switched), switched

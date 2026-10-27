@@ -1,0 +1,50 @@
+{{- if .Values.keycloak.setUpIdentityAdmin }}
+{{- $c := dict "root" . "component" "keycloak-identity" -}}
+# Upgrade step (WP-039, ADR-036, docs/architecture/identity.md): one Job per Helm revision makes
+# sure the `supportx-identity` service account exists with exactly its least-privileged admin
+# roles and the secret `keycloak-identity-secret`, login events are recorded, and the realm's SSO
+# session is at least SupportX's longest (tooling/keycloak_identity.py). Idempotent; it retries
+# while Keycloak starts and exits 0 if the bootstrap admin has been replaced.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "supportx.name" $c }}-{{ .Release.Revision }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: keycloak-identity
+          image: {{ include "supportx.image" (dict "root" . "name" "backend") }}
+          imagePullPolicy: {{ .Values.images.backend.pullPolicy }}
+          command: ["python", "-m", "tooling.keycloak_identity"]
+          env:
+            - name: SUPPORTX_KEYCLOAK_URL
+              value: {{ printf "http://%s-keycloak:8080/auth" .Release.Name | quote }}
+            - {name: SUPPORTX_KEYCLOAK_ADMIN_USER, value: admin}
+            - name: SUPPORTX_KEYCLOAK_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-admin-password}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-identity-secret}}
+            - {name: SUPPORTX_KEYCLOAK_WAIT_SECONDS, value: "600"}
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+{{- end }}

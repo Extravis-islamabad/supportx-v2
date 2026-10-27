@@ -41,6 +41,8 @@ IDENTITY_PERMISSIONS: tuple[PermissionSpec, ...] = (
     PermissionSpec("roles.view"),
     PermissionSpec("roles.manage"),
     PermissionSpec("profile.edit", scopes=OWN_ONLY),
+    # Sign-in and security settings: SSO, sessions, people creation (WP-039, D-089 D7).
+    PermissionSpec("identity.manage"),
 )
 
 # Reserved for the ITSM modules of Stage 1+ (each moves its entries into its ModuleSpec).
@@ -77,6 +79,7 @@ ADMIN_PERMISSIONS = frozenset(
         "settings.manage",
         "licence.manage",
         "audit.view",
+        "identity.manage",
     }
 )
 
