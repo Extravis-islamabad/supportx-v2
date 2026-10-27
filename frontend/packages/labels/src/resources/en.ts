@@ -3159,6 +3159,8 @@ export const en = {
   'audit.action.invitation.revoked': 'Withdrew an invitation',
   'audit.action.user.password_reset_forced': 'Required a new password',
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
+  'forms.start_empty': 'Start empty',
+  'forms.draft_restored': 'Your unsaved input was restored.',
 } as const;
 
 export type LabelKey = keyof typeof en;

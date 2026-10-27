@@ -344,6 +344,9 @@ importers:
       '@supportx/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@supportx/forms':
+        specifier: workspace:*
+        version: link:../../packages/forms
       '@supportx/labels':
         specifier: workspace:*
         version: link:../../packages/labels
@@ -513,6 +516,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.104.5(@types/react@18.3.31)(react@18.3.1)
       '@testing-library/dom':
         specifier: 'catalog:'
         version: 10.4.2
