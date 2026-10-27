@@ -19,3 +19,18 @@ export {
   type UseFormReturn,
 } from 'react-hook-form';
 export { z } from 'zod';
+export { FilterBuilder, type FilterBuilderProps } from './filter/FilterBuilder';
+export {
+  fromDsl,
+  needsValue,
+  OPERATORS,
+  rowProblems,
+  toDsl,
+  type FilterChoice,
+  type FilterFieldOption,
+  type FilterModel,
+  type FilterOp,
+  type FilterRow,
+  type FilterValue,
+  type FilterValueType,
+} from './filter/model';
