@@ -134,6 +134,18 @@ describe('Admin › Audit log', () => {
     expect(banner[0]?.textContent).toContain('An entry was changed after it was written.');
   });
 
+  it('the banner link reads as a link without its colour (axe link-in-text-block, WP-039 session 2)', async () => {
+    auditRoutes([entry()], {
+      'GET /api/v1/audit/status': { body: fakeAuditStatus({ alert: 'entry_changed' }) },
+    });
+    render(<App />);
+    const banner = (await screen.findAllByTestId('audit-alert-banner'))[0];
+    const link = banner?.querySelector<HTMLAnchorElement>('a[href="/admin/audit?tab=integrity"]');
+    expect(link).toBeTruthy();
+    // Inside a sentence a link needs more than colour to be seen (WCAG 1.4.1): underlined.
+    expect(link?.style.textDecoration).toBe('underline');
+  });
+
   it('is hidden from people without the audit permission', async () => {
     api({ me: fakeSession({ roles: ['technician'] }) });
     render(<App />);

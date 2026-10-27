@@ -1,6 +1,7 @@
 """The upgrade step giving existing realms the SupportX login theme (tooling/keycloak_theme.py)."""
 
 import json
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -143,3 +144,43 @@ def test_bug_08_the_login_page_names_the_tenant() -> None:
     assert ".supportx-org-name" in css
     generated = (theme / "supportx/login/resources/css/supportx.css").read_text(encoding="utf-8")
     assert ".supportx-org-name" in generated  # `make brand-assets` ran
+
+
+# --- the login theme's texts (WP-039 session 2, REQ-SEC-005 AC1 and AC3) ----------------------
+
+LOGIN_THEME = (
+    Path(__file__).resolve().parents[2]
+    / "deploy/helm/supportx/files/keycloak/themes/supportx/login"
+)
+# The messages Keycloak shows when a new password breaks the policy SupportX sets.
+POLICY_MESSAGES = (
+    "invalidPasswordMinLengthMessage",
+    "invalidPasswordMinDigitsMessage",
+    "invalidPasswordMinLowerCaseCharsMessage",
+    "invalidPasswordMinUpperCaseCharsMessage",
+    "invalidPasswordMinSpecialCharsMessage",
+    "invalidPasswordNotUsernameMessage",
+    "invalidPasswordNotEmailMessage",
+    "invalidPasswordHistoryMessage",
+    "invalidPasswordBlacklistedMessage",
+)
+
+
+def _messages(language: str) -> dict[str, str]:
+    path = LOGIN_THEME / "messages" / f"messages_{language}.properties"
+    lines = path.read_text(encoding="utf-8").splitlines()
+    return dict(line.split("=", 1) for line in lines if line and not line.startswith("#"))
+
+
+def test_urdu_has_every_password_rule_message_and_reads_right_to_left() -> None:
+    """Keycloak ships Arabic but no Urdu, and does not count Urdu as right to left."""
+    urdu = _messages("ur")
+    assert [key for key in POLICY_MESSAGES if key not in urdu] == []
+    assert "{0}" in urdu["invalidPasswordMinLengthMessage"]  # the length the policy asks for
+    template = (LOGIN_THEME / "template.ftl").read_text(encoding="utf-8")
+    assert "(locale.rtl || lang == 'ur')?then('rtl','ltr')" in template
+
+
+def test_a_breached_password_is_refused_with_a_reason_in_every_language() -> None:
+    for language in ("en", "ar", "ur"):
+        assert _messages(language)["invalidPasswordBlacklistedMessage"], language

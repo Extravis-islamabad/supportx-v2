@@ -165,7 +165,8 @@ def _check_ownership(organization: Organization, domains: list[str], *, required
         raise _invalid([sso.Problem("domains", "sso_domain_unverified", {"domain": unproved[0]})])
 
 
-async def _organization(session: AsyncSession, admin: IdentityAdmin) -> Organization:
+async def organization_of(session: AsyncSession, admin: IdentityAdmin) -> Organization:
+    """The session tenant's Keycloak organization (Conflict when Keycloak has none)."""
     tenant = await get_current_tenant(session)
     found = await admin.organization(tenant.slug, str(tenant.id))
     if found is None:
@@ -429,7 +430,7 @@ async def create_provider(
     if (count or 0) >= sso.MAX_PROVIDERS:
         raise Conflict(code="sso_provider_limit", params={"max": sso.MAX_PROVIDERS})
     await _check_overlap(session, domains, None)
-    organization = await _organization(session, keycloak)
+    organization = await organization_of(session, keycloak)
     _check_ownership(organization, domains, required=require_domain_proof)
     if values.protocol == "oidc":
         config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
@@ -512,7 +513,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     if problems:
         raise _invalid(problems)
     await _check_overlap(session, domains, row.id)
-    organization = await _organization(session, keycloak)
+    organization = await organization_of(session, keycloak)
     _check_ownership(organization, domains, required=require_domain_proof)
     if values.protocol == "oidc":
         config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
@@ -617,7 +618,7 @@ async def switch_provider(
     # People of the set-up's domains go straight to it only while it is on (and if chosen).
     await _set_domains(
         keycloak,
-        await _organization(session, keycloak),
+        await organization_of(session, keycloak),
         alias=row.alias,
         mine=list(row.domains),
         drop=set(),
@@ -642,7 +643,7 @@ async def remove_provider(
     keycloak = _require(admin)
     row = await _row(session, provider_id)
     _check_version(row, expected_version)
-    organization = await _organization(session, keycloak)
+    organization = await organization_of(session, keycloak)
     ours = set(row.settings.get("added_domains") or [])
     await keycloak.delete_provider(row.alias)
     await _set_domains(keycloak, organization, alias=row.alias, mine=[], drop=ours, redirect=False)
