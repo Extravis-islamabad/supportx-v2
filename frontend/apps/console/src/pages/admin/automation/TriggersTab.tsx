@@ -99,7 +99,11 @@ export function TriggersTab() {
         dataSource={list}
         pagination={false}
         data-testid="triggers-table"
-        locale={{ emptyText: t('automation.triggers.none') }}
+        locale={{
+          emptyText: (
+            <Typography.Text type="secondary">{t('automation.triggers.none')}</Typography.Text>
+          ),
+        }}
         onRow={(trigger) => ({
           onClick: () => {
             if (editable) setEditing(trigger);
@@ -341,8 +345,9 @@ function TriggerEditor({
           />
         )}
         <Form layout="vertical">
-          <Form.Item label={t('automation.field_name')} required>
+          <Form.Item label={t('automation.field_name')} htmlFor="trigger-name" required>
             <Input
+              id="trigger-name"
               value={draft.name}
               onChange={(event) => {
                 edit({ name: event.target.value });
@@ -351,8 +356,9 @@ function TriggerEditor({
               data-testid="trigger-name"
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_description')}>
+          <Form.Item label={t('automation.field_description')} htmlFor="trigger-description">
             <Input.TextArea
+              id="trigger-description"
               rows={2}
               value={draft.description}
               onChange={(event) => {

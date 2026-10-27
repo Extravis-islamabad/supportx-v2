@@ -33,6 +33,18 @@ async function call(page: Page, method: string, path: string, body?: unknown, ve
   return page.request.fetch(`/api/v1${path}`, { method, data: body, headers });
 }
 
+/** Like `pick`, typing first: long lists render only what is in view (virtual lists). */
+async function search(page: Page, testId: string, option: string) {
+  await page.getByTestId(testId).click();
+  await page.getByTestId(testId).locator('input').fill(option);
+  const list = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').last();
+  await list
+    .locator('.ant-select-item-option-content', { hasText: new RegExp(`^${option}$`) })
+    .first()
+    .click();
+  await expect(list).toBeHidden();
+}
+
 async function pick(page: Page, testId: string, option: string | RegExp) {
   await page.getByTestId(testId).click();
   const text = typeof option === 'string' ? new RegExp(`^${option}$`) : option;
@@ -88,10 +100,10 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     await admin.page.getByTestId('rule-add').click();
     await admin.page.getByTestId('rule-name').fill(`E2E rule ${tag}`);
     await admin.page.getByTestId('condition-add').click();
-    await pick(admin.page, 'condition-0-field', 'Subject');
+    await search(admin.page, 'condition-0-field', 'Subject');
     await pick(admin.page, 'condition-0-op', 'contains');
     await admin.page.getByTestId('condition-0-value').fill(tag);
-    await pick(admin.page, 'action-0-field', 'Priority');
+    await search(admin.page, 'action-0-field', 'Priority');
     await pick(admin.page, 'action-0-value', /^P1/);
     await pick(admin.page, 'action-0-mode', 'Replace what was entered');
     await pick(admin.page, 'rule-state', 'On');
@@ -137,8 +149,34 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
       made.triggers.push(((await created.json()) as { id: string }).id);
     }
 
-    // 3. The technician's new incident: P1 by the rule, and the history says which rule.
+    // 3. The technician's new incident, in a group of theirs (group scope, D-052): P1 by the
+    // rule, and the history says which rule.
+    const techId = (
+      (await (await tech.page.request.get('/api/v1/auth/me')).json()) as {
+        user: { id: string };
+      }
+    ).user.id;
+    const groupName = `E2E Automation ${tag}`;
+    const group = await call(admin.page, 'POST', '/organization/groups', { name: groupName });
+    expect(group.status()).toBe(201);
+    const groupId = ((await group.json()) as { id: string }).id;
+    expect([200, 204]).toContain(
+      (await call(admin.page, 'PUT', `/organization/groups/${groupId}/members/${techId}`)).status(),
+    );
+    await tech.page.reload();
     await tech.page.getByTestId('inc-subject').fill(subject);
+    const requester = tech.page.getByTestId('inc-requester');
+    await requester.click();
+    await requester.locator('input').fill('E2E Admin');
+    await tech.page
+      .locator('.ant-select-dropdown:visible')
+      .getByText(/^Adel E2E Admin$/)
+      .first()
+      .click();
+    const groupPicker = tech.page.getByTestId('inc-group');
+    await groupPicker.click();
+    await groupPicker.locator('input').fill(groupName);
+    await tech.page.locator('.ant-select-dropdown:visible').getByText(groupName).first().click();
     await tech.page.getByTestId('inc-save').click();
     await expect(tech.page).toHaveURL(/\/incidents\/[0-9a-f-]{36}$/, LIVE);
     const id = tech.page.url().split('/').pop() ?? '';

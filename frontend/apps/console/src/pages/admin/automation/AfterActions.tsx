@@ -5,7 +5,7 @@ import type { RuleFieldOut, TriggerActionIO } from '@supportx/api-client';
 import { lengthLimit, useLabel } from '@supportx/ui';
 
 import { ValueInput } from './fields';
-import { emptyAction, useFieldName } from './rules';
+import { emptyAction, fieldOptions, useFieldName } from './rules';
 
 const NOTE_MAX = 5000;
 
@@ -66,7 +66,7 @@ export function AfterActions({
                   onChange={(next: string) => {
                     update(index, { ...action, field: next, value: null });
                   }}
-                  options={settable.map((f) => ({ value: f.name, label: name(f.name) }))}
+                  options={fieldOptions(settable, name)}
                   style={{ minWidth: 200 }}
                   data-testid={`${id}-field`}
                 />
