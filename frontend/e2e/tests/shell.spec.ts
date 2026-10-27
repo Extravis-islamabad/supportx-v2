@@ -11,7 +11,6 @@ const SECTIONS = [
   'Assets',
   'CMDB',
   'Knowledge',
-  'Reports',
 ];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
@@ -24,6 +23,13 @@ test('navigation: every section opens a translated coming-soon page; palette and
     await expect(page.getByText(/being built/)).toBeVisible();
   }
   expect(await navItems(page)).not.toContain('admin'); // not a tenant admin
+
+  // Reports is a real page (WP-035), not a coming-soon one.
+  await goToSection(page, 'Reports');
+  await expect(page.getByRole('heading', { name: 'Reports', level: 1 })).toBeVisible();
+  await expect(page.getByTestId('reports-search')).toBeVisible();
+  await expect(page.getByText(/being built/)).toHaveCount(0);
+  await expectAccessible(page, 'reports home');
 
   await page.keyboard.press('Control+k');
   const palette = page.getByRole('combobox', { name: 'Type a page name…' });

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Form helpers: React Hook Form + Zod, problem-details field errors mapped onto fields (architecture.md §9.2); metadata-driven forms later (§6.6).",
+  "description": "Form helpers: React Hook Form + Zod, problem-details field errors mapped onto fields (architecture.md \u00a79.2); metadata-driven forms later (\u00a76.6).",
   "exports": {
     ".": "./src/index.ts"
   },
@@ -28,7 +28,9 @@
     "react-hook-form": "^7.90.0",
     "zod": "^4.6.7",
     "@supportx/api-client": "workspace:*",
-    "@supportx/labels": "workspace:*"
+    "@supportx/labels": "workspace:*",
+    "@ant-design/icons": "^5.6.1",
+    "@supportx/ui": "workspace:*"
   },
   "peerDependencies": {
     "antd": "catalog:",

@@ -11,8 +11,8 @@
 - **Next work package:** WP-029 QA (~/Desktop/qa-wp029/, parts 1 and 2), then WP-020f,
   WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Lane C (reports and dashboards):** WP-035 session 1 done (engine, D-100); session 2 (viewer)
-  next. Lanes and claimed numbers: docs/LANES.md.
+- **Lane C (reports and dashboards):** WP-035 sessions 1 (engine, PR #73) and 2 (viewer) done;
+  session 3 (export) next. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -547,6 +547,10 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] A group, site, department or custom field a rule uses cannot be removed (REQ-RUL-029 AC3).
 - [x] Screens: Admin › Automation (own section: Business rules, Routing and assignment); header
   Available/Away switch for technicians; all live through `automation.changed`.
+- [x] Available / Away: in the header from 1200 px, in the user menu below it, and on My profile.
+- [ ] Follow-up for the WP-029 QA-fix round (product owner, 2026-10-28): group leads and admins
+  set a member's availability from the person's page or the group's member list, recorded in
+  history ("set Away by <name>"), so a sick technician stops receiving auto-assigned work.
 - [x] Reporting provider for lane C (WP-035 port): every work item type registers its list query.
 - [x] Part 2 (D-102; migration 0028; plan ~/Desktop/wp-029b-plan.md): triggers after commit
   (REQ-RUL-009/010) in the `automation__triggers` consumer, actions set a field (through the
@@ -637,7 +641,7 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
-### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; session 1 of 4 done 2026-10-27)
+### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-2 of 4 done 2026-10-27)
 Plan: ~/Desktop/wp-035-plan.md (approved with D-100). Branches `feat/reporting-port` (PR #72, the
 port alone, so lane A can write the incident provider) and `feat/wp-035-reporting`.
 - [x] **Session 1 — engine.**
@@ -661,10 +665,28 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   - Tests: 10 domain; 11 with Postgres (scope parity for five users incl. drill-down counts,
     tenant isolation, read-only role and timeout, ageing, custom-field grouping, time zones,
     built-ins run without set-up, copy/share/folders/permissions/outbox); labels checks.
-- [ ] **Session 2 — viewer.** Reports home, viewer, copy-and-adjust form, shared filter builder
-  in `packages/forms` (D-100 D6), chart kit (doughnut, gauge, stacked, area, KPI, table), drill-down
-  to the list, names of groups/sites/people in results, live re-run on list signals, Sunday week
-  start for Arabic tenants, tenant-editable query limits (D-041), e2e and axe in en and ar.
+- [x] **Session 2 — viewer** (2026-10-27, branch `feat/wp-035-viewer`).
+  - Console `/reports`: favourites, built-in reports by module, "My reports", shared folders,
+    search in the UI language, folder create/delete with "where do its reports go"
+    (REQ-RPT-045), live.
+  - Report viewer (REQ-RPT-050): title, description, filters in words, totals, "data as of" and
+    time zone; filter builder, grouping (date buckets incl. ageing), second grouping, measures
+    with their definitions, chart type, chart/table toggle; table with totals row; chart with a
+    data-table alternative and keyboard drill-down on rows (REQ-DSH-047); drill-down drawer on
+    the incident list with the row's filter (REQ-RPT-037); "save as my report", save changes,
+    delete, star (REQ-RPT-019); live refresh on the counted list, at most once a second.
+  - `packages/forms` FilterBuilder (D-100 D6): generic over the API's field allowlist; a
+    condition without a value blocks running and saving, with the reason (REQ-RPT-029 AC2).
+  - `packages/charts` kit (REQ-RPT-044): bar, stacked bar, line, area, doughnut, gauge, KPI and
+    table; P1 has one colour everywhere (priority colours now in `incidents/priorityColours.ts`);
+    LTTB sampling for large series.
+  - Reports library live: a private report change reaches only its owner's channel, a shared
+    one an ID-free tenant broadcast.
+  - Tests: 5 filter builder, 3 chart kit, 3 console (home, viewer with drill-down, blocked run),
+    2 realtime routes.
+  - Carried to session 3: Sunday week start for Arabic tenants and tenant-editable query limits
+    (both need the per-tenant report settings that export adds); e2e and axe in English and
+    Arabic (needs the shared dev stack and the QA lock).
 - [ ] **Session 3 — export.** CSV, XLSX (openpyxl write-only), PDF (WeasyPrint in the worker image
   only, URL fetcher refusing everything but bundled fonts and our data URIs, D-100 D8), formula
   injection protection in every path, background jobs with progress, audit, `reports.export`,
@@ -876,6 +898,11 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   provider for lane C. Plan defaults recorded as D-097 (no fallback group by default); ADR-035.
 - Split: triggers, loop guard and transition hooks moved to WP-029 part 2 (business rules run
   once per save and cannot trigger each other, so part 1 cannot loop).
+### 2026-10-27 — WP-035 session 2: reports home and viewer (lane C)
+- Built in `../supportx-v2-lanec2` (branch `feat/wp-035-viewer`, on top of #73): reports home,
+  report viewer, shared filter builder, chart kit, live library; see WP-035 above.
+- Not yet: e2e and axe (QA lock), Sunday week start and tenant query limits (session 3).
+
 ### 2026-10-27 — WP-035 session 1: reporting engine (lane C)
 - Lane C started (coordination rules, three lanes). Plan approved as D-100; ADR-033 (reporting
   engine) and ADR-034 (server-side labels) accepted.

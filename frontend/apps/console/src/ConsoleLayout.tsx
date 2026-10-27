@@ -30,6 +30,7 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { AvailabilitySwitch } from './AvailabilitySwitch';
+import { useAvailabilityItem } from './useAvailabilityItem';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { LoopBanner } from './pages/admin/automation/LoopBanner';
@@ -90,6 +91,11 @@ export function ConsoleLayout() {
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
   const setFormDensity = useSetFormDensity(session?.user.id ?? '');
+  // Technicians' Available / Away in the user menu below 1200 px (WP-029).
+  const availabilityItems = useAvailabilityItem(
+    session?.user.id ?? '',
+    session?.user.user_type === 'technician' && licence.has('incident'),
+  );
   // Preferences chosen just before a reload, whose save had not finished: applied and sent
   // again, so a quick reload never loses them (the flaky QA BUG-04 test was this race).
   const userId = session?.user.id;
@@ -155,6 +161,7 @@ export function ConsoleLayout() {
           onLogout={() => void logout()}
           onProfile={() => void navigate('/profile')}
           onOpenPalette={openPalette}
+          menuItems={availabilityItems}
           extra={
             session.user.user_type === 'technician' && licence.has('incident') ? (
               <AvailabilitySwitch userId={session.user.id} />
