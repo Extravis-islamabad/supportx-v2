@@ -309,9 +309,11 @@ def test_compiling_a_full_size_filter_is_fast() -> None:
         ]
     }
     runs = 200
-    started = time.perf_counter()
+    # CPU time of this process: compiling is pure computation, and the test workers running
+    # beside it (pytest-xdist in CI) must not count against it, as wall-clock time would.
+    started = time.process_time()
     for _ in range(runs):
         compile_filter(tree, THINGS, now=NOW)
-    per_filter_ms = (time.perf_counter() - started) / runs * 1000
+    per_filter_ms = (time.process_time() - started) / runs * 1000
     print(f"\n[perf] filter_compile: conditions=30 depth=3 ms_per_filter={per_filter_ms:.3f}")  # noqa: T201
     assert per_filter_ms < 5

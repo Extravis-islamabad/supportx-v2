@@ -123,6 +123,10 @@ async def drop_test_database(admin: asyncpg.Connection, name: str) -> None:
     await admin.execute(f"DROP DATABASE IF EXISTS {name} WITH (FORCE)")
 
 
+# Any fixed key: every bootstrap takes it on the server's `postgres` database (the admin URL).
+BOOTSTRAP_LOCK = 0x5355_5050_4F52  # "SUPPOR"
+
+
 @dataclass(frozen=True)
 class RolePasswords:
     """Passwords for roles that do not exist yet (existing roles keep theirs)."""
@@ -137,6 +141,10 @@ async def bootstrap(admin_url: str, database: str, passwords: RolePasswords) -> 
     _check_database_name(database)
     admin = await asyncpg.connect(admin_url)
     try:
+        # Roles and grants are cluster-wide catalog rows: two bootstraps at once (parallel test
+        # workers, or two lanes on one dev server) fail with "tuple concurrently updated". One at
+        # a time, held until the schema is done; released when the connection closes anyway.
+        await admin.execute("SELECT pg_advisory_lock($1)", BOOTSTRAP_LOCK)
         await run_script(
             admin,
             "roles.sql",
@@ -148,13 +156,13 @@ async def bootstrap(admin_url: str, database: str, passwords: RolePasswords) -> 
         )
         existed = await admin.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", database)
         await run_script(admin, "database.sql", {"database": database})
+        in_database = await asyncpg.connect(with_database(admin_url, database))
+        try:
+            await run_script(in_database, "schema.sql", {})
+        finally:
+            await in_database.close()
     finally:
         await admin.close()
-    in_database = await asyncpg.connect(with_database(admin_url, database))
-    try:
-        await run_script(in_database, "schema.sql", {})
-    finally:
-        await in_database.close()
     return not existed
 
 
