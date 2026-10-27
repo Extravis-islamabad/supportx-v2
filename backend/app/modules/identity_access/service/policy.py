@@ -348,7 +348,7 @@ class PolicyService:
 
     def __init__(  # noqa: PLR0913 - collaborators injected for testability
         self,
-        database: Database,
+        database: Database | None,
         catalogue: Catalogue,
         *,
         cache: SubjectCache | None = None,
@@ -374,6 +374,9 @@ class PolicyService:
             return cached
         if session is not None:
             subject = await self.compile(session, tenant_id, user_id)
+        elif self.database is None:
+            msg = "a PolicyService without a database compiles only through a given session"
+            raise RuntimeError(msg)
         else:
             async with self.database.tenant_session(TenantContext(tenant_id, user_id)) as own:
                 subject = await self.compile(own, tenant_id, user_id)

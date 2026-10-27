@@ -77,6 +77,14 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
   The DNS TXT proof that verifies them comes with the SaaS cell (WP-014d). Single-tenant
   installations are unaffected.
 
+## Scope for workers (D-052)
+
+`identity_access.subject_for(session, tenant_id, user_id)` gives code without the app (the
+consumers worker: exports, scheduled reports) the user's compiled subject, read from the
+database now: the API's own compile (same catalogue, roles, memberships, entitlements), so a
+worker decides exactly as the API would. A deactivated or deleted user gets the subject that may
+do nothing. Tested against the API's compile in `tests/db/test_subject_for.py`.
+
 ## Operators
 
 - New installation or upgrade: nothing to do; the chart's Job sets up the service account.

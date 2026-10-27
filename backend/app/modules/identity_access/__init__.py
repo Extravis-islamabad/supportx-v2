@@ -12,6 +12,7 @@ owner pickers). Sessions reach the rest of the app only as the `TenantContext` r
 app.core.tenancy; routes declare permissions with app.core.authorization.require_permission.
 """
 
+import functools
 import uuid
 from typing import TYPE_CHECKING
 
@@ -26,7 +27,7 @@ from app.core.authorization import (
     unregister_access_invalidator,
 )
 from app.core.logging import get_logger
-from app.core.modules import ModuleRegistry, ModuleSpec
+from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
@@ -107,6 +108,30 @@ async def _members(
 ) -> tuple[frozenset[uuid.UUID], frozenset[uuid.UUID]]:
     found = await memberships(session, user_id)
     return found.site_ids, found.group_ids
+
+
+@functools.cache
+def _worker_policy() -> PolicyService:
+    """The API's policy compiler for code without the app (workers, jobs): no cache, no pool."""
+    registry = ModuleRegistry.from_specs(discover_modules())
+    return PolicyService(
+        None,
+        build_catalogue(registry),
+        memberships=_members,
+        entitled_features=entitled_features,
+        resources={"users": directory.USERS},
+    )
+
+
+async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:
+    """The user's compiled subject, read from the database now (no cache), for workers and jobs.
+
+    The very compile the API uses (same catalogue, roles, memberships and entitlements), so a
+    worker applying a user's scope (exports, scheduled reports; D-052) decides exactly as the API
+    would. A deactivated or deleted user gets the subject that may do nothing. `session` is a
+    tenant session of `tenant_id`.
+    """
+    return await _worker_policy().compile(session, tenant_id, user_id)
 
 
 def _start_policy(app: FastAPI, settings: "Settings") -> None:
@@ -252,6 +277,7 @@ __all__ = [
     "person_placement",
     "require",
     "scope_filter",
+    "subject_for",
     "user_contacts",
     "user_names",
     "visible",
