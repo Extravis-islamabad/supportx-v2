@@ -84,7 +84,12 @@ export function AnnouncementFields({
         labelKey="announcement.field.body"
         helpKey="announcement.body_help"
         render={(field) => (
-          <Input.TextArea {...field} rows={6} maxLength={BODY_MAX} data-testid="ann-body" />
+          <Input.TextArea
+            {...field}
+            rows={6}
+            count={lengthLimit(BODY_MAX)}
+            data-testid="ann-body"
+          />
         )}
       />
       <Space size="large" wrap align="start">
