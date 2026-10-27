@@ -183,6 +183,8 @@ class OidcClient:
         pkce: PkcePair,
         locale: str | None = None,
         organization: str | None = None,
+        prompt: str | None = None,
+        idp_hint: str | None = None,
     ) -> str:
         """Where to send the browser to log in.
 
@@ -203,6 +205,10 @@ class OidcClient:
         }
         if locale:
             params["ui_locales"] = locale
+        if prompt:
+            params["prompt"] = prompt
+        if idp_hint:  # straight to one identity provider (the SSO test, WP-039)
+            params["kc_idp_hint"] = idp_hint
         return f"{(await self.metadata())['authorization_endpoint']}?{urlencode(params)}"
 
     async def _token_request(self, client: ClientCredentials, form: dict[str, str]) -> TokenSet:

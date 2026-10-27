@@ -6,7 +6,7 @@ the tables the incident reporting source reads: the incident list query and its 
 (work_items, work_item_followers) and field history (backlog, time in status).
 
 Revision ID: 0027
-Revises: 0023
+Revises: 0024
 Created: 2026-10-27
 """
 
@@ -26,7 +26,7 @@ from migrations.helpers import (
 )
 
 revision: str = "0027"
-down_revision: str | None = "0023"
+down_revision: str | None = "0024"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

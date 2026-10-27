@@ -15,7 +15,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, Unmapped, mapped_column, unmapped_column
 
 from app.shared.db.models import Actors, Base, TenantEntity, TenantKeyed, Timestamps, Versioned
@@ -265,3 +265,92 @@ class PeopleImport(TenantEntity):
     problems: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     failure: Mapped[str | None] = mapped_column(String(50))
     finished_at: Mapped[datetime | None]
+
+
+# Appendix A (REQ-SEC-029): defaults and caps of the per-tenant session timeouts.
+SESSION_LIMITS = {
+    "console": {"idle": 3600, "absolute": 43200, "max_absolute": 7 * 86400},
+    "portal": {"idle": 1800, "absolute": 43200, "max_absolute": 30 * 86400},
+}
+MIN_IDLE_SECONDS = 300
+MAX_IDLE_SECONDS = 86400
+
+
+class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
+    """A tenant's sign-in settings (WP-039, REQ-SEC-017): sessions and people creation.
+
+    No row: the defaults of Appendix A. Password and MFA policy join with WP-039's later sessions.
+    """
+
+    __tablename__ = "identity_settings"
+    __table_args__ = (
+        CheckConstraint(
+            f"console_idle_seconds BETWEEN {MIN_IDLE_SECONDS} AND {MAX_IDLE_SECONDS}"
+            " AND portal_idle_seconds BETWEEN "
+            f"{MIN_IDLE_SECONDS} AND {MAX_IDLE_SECONDS}",
+            name="idle_range",
+        ),
+        CheckConstraint(
+            "console_absolute_seconds BETWEEN console_idle_seconds AND "
+            f"{SESSION_LIMITS['console']['max_absolute']}"
+            " AND portal_absolute_seconds BETWEEN portal_idle_seconds AND "
+            f"{SESSION_LIMITS['portal']['max_absolute']}",
+            name="absolute_range",
+        ),
+    )
+
+    console_idle_seconds: Mapped[int] = mapped_column(
+        server_default=str(SESSION_LIMITS["console"]["idle"])
+    )
+    console_absolute_seconds: Mapped[int] = mapped_column(
+        server_default=str(SESSION_LIMITS["console"]["absolute"])
+    )
+    portal_idle_seconds: Mapped[int] = mapped_column(
+        server_default=str(SESSION_LIMITS["portal"]["idle"])
+    )
+    portal_absolute_seconds: Mapped[int] = mapped_column(
+        server_default=str(SESSION_LIMITS["portal"]["absolute"])
+    )
+    # REQ-SEC-013: a first sign-in creates the person (as requester); off = invited or imported
+    # people only.
+    create_people_on_sign_in: Mapped[bool] = mapped_column(server_default="true")
+
+
+SSO_PROTOCOLS = ("oidc", "saml")
+SSO_PRESETS = ("entra", "okta", "google", "oidc", "saml")
+SSO_STATES = ("draft", "tested", "on", "off")
+
+
+class SsoProvider(TenantEntity):
+    """One single sign-on set-up of a tenant (WP-039, REQ-SEC-007/008, D-094).
+
+    Mirrors a Keycloak identity provider linked to the tenant's organization (`alias`). The
+    client secret lives only in Keycloak (write-only, REQ-SEC-042): never in this row.
+    """
+
+    __tablename__ = "sso_providers"
+    __table_args__ = (
+        CheckConstraint("protocol IN ('oidc', 'saml')", name="protocol_code"),
+        CheckConstraint(
+            "preset IN ('entra', 'okta', 'google', 'oidc', 'saml')", name="preset_code"
+        ),
+        CheckConstraint("state IN ('draft', 'tested', 'on', 'off')", name="state_code"),
+        UniqueConstraint("tenant_id", "alias", name="uq_sso_providers_tenant_alias"),
+        Index("ix_sso_providers_tenant_state", "tenant_id", "state"),
+    )
+
+    alias: Mapped[str] = mapped_column(String(60))
+    protocol: Mapped[str] = mapped_column(String(10))
+    preset: Mapped[str] = mapped_column(String(10))
+    display_name: Mapped[str] = mapped_column(String(80))
+    state: Mapped[str] = mapped_column(String(10), server_default="draft")
+    # Non-secret connection settings and attribute mapping (shape per protocol: service/sso.py).
+    settings: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    domains: Mapped[list[str]] = mapped_column(ARRAY(String(253)), server_default="{}")
+    # Send people whose email domain matches straight to this provider (off by default, D-094).
+    email_redirect: Mapped[bool] = mapped_column(server_default="false")
+    # The last connection check: {"ok": bool, "problems": [codes], "checked_at": iso}.
+    last_check: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    tested_at: Mapped[datetime | None]
+    tested_by: Mapped[uuid.UUID | None]
+    switched_on_at: Mapped[datetime | None]

@@ -1819,6 +1819,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2269,6 +2273,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2415,6 +2423,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2562,6 +2574,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2703,6 +2719,10 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-console-secret}}
             - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -3151,6 +3171,78 @@ spec:
         resources:
           requests:
             storage: 20Gi
+
+---
+# Source: supportx/templates/keycloak-identity-job.yaml
+# Upgrade step (WP-039, ADR-036, docs/architecture/identity.md): one Job per Helm revision makes
+# sure the `supportx-identity` service account exists with exactly its least-privileged admin
+# roles and the secret `keycloak-identity-secret`, login events are recorded, and the realm's SSO
+# session is at least SupportX's longest (tooling/keycloak_identity.py). Idempotent; it retries
+# while Keycloak starts and exits 0 if the bootstrap admin has been replaced.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: supportx-keycloak-identity-1
+  labels:
+    app.kubernetes.io/name: supportx
+    app.kubernetes.io/instance: supportx
+    app.kubernetes.io/component: keycloak-identity
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: supportx
+    helm.sh/chart: supportx-0.1.0
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 900
+  ttlSecondsAfterFinished: 86400
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: supportx
+        app.kubernetes.io/instance: supportx
+        app.kubernetes.io/component: keycloak-identity
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: supportx
+        helm.sh/chart: supportx-0.1.0
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: keycloak-identity
+          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "tooling.keycloak_identity"]
+          env:
+            - name: SUPPORTX_KEYCLOAK_URL
+              value: "http://supportx-keycloak:8080/auth"
+            - {name: SUPPORTX_KEYCLOAK_ADMIN_USER, value: admin}
+            - name: SUPPORTX_KEYCLOAK_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-admin-password}}
+            - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - {name: SUPPORTX_KEYCLOAK_WAIT_SECONDS, value: "600"}
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests: {cpu: 10m, memory: 64Mi}
+            limits: {cpu: 200m, memory: 256Mi}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {}
 
 ---
 # Source: supportx/templates/keycloak-theme-job.yaml
