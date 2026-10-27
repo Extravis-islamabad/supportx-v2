@@ -97,6 +97,41 @@ describe('command palette search', () => {
     expect(call?.url.searchParams.getAll('ids')).toEqual([PRINTER.id, TONER.id]);
     expect(call?.url.searchParams.get('q')).toBeNull();
   });
+
+  it('clearing the box shows records opened meanwhile as recent, never the last results', async () => {
+    api({
+      me: TECH,
+      routes: {
+        // Recent IDs answer with those records; a typed search finds the printer.
+        'GET /api/v1/incidents/search': ({ url }) => ({
+          body: {
+            items: url.searchParams.has('ids') ? [TONER] : [PRINTER],
+            people: PEOPLE,
+          },
+        }),
+        'GET /api/v1/incidents/settings': { body: fakeIncidentCatalogue() },
+      },
+    });
+    render(<App />);
+    await screen.findByTestId('user-name');
+    fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    const input = await screen.findByRole('combobox', { name: 'Type a page name…' });
+    fireEvent.change(input, { target: { value: 'printr' } });
+    await screen.findByTestId('palette-incident-INC-7');
+    // Nothing viewed yet: the search results must not stay on screen as "recently viewed".
+    fireEvent.change(input, { target: { value: '' } });
+    await waitFor(() => {
+      expect(screen.queryByTestId('palette-incident-INC-7')).toBeNull();
+    });
+    expect(screen.queryByText('Recently viewed')).toBeNull();
+    // A record opened while the palette was open (another tab) is offered on the next clear.
+    rememberIncident(TECH.user.id, TONER.id);
+    fireEvent.change(input, { target: { value: 'printr' } });
+    await screen.findByTestId('palette-incident-INC-7');
+    fireEvent.change(input, { target: { value: '' } });
+    expect(await screen.findByTestId('palette-incident-INC-8')).toBeTruthy();
+    expect(screen.getByText('Recently viewed')).toBeTruthy();
+  });
 });
 
 function Picker({ from }: { from?: { id: string; requesterId: string; requesterName: string } }) {

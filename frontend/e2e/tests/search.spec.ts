@@ -53,6 +53,7 @@ test('search: Arabic word forms, typos and recent incidents in Ctrl+K, accessibl
     await expectAccessible(page, 'command palette with results (light)');
     await found.click();
     await expect(page).toHaveURL(new RegExp(`/incidents/${arabic.id}`));
+    await expect(page.getByRole('heading', { level: 1 })).toContainText('الطابعات');
 
     // A typo finds the printer; the incident just opened is offered as recently viewed.
     dialog = await palette(page, `${tag} printr`);

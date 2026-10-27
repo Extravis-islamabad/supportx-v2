@@ -24,8 +24,13 @@ export function usePaletteIncidents(
   const { locale } = useAppearance();
   const text = useDebounced(query.trim());
   const active = open && allowed;
-  // Read when the palette opens: the record just left is the first recent one.
-  const recentIds = useMemo(() => (open ? recentIncidents(userId) : []), [open, userId]);
+  // Read when the palette opens and whenever the box is cleared, so a record opened meanwhile
+  // is offered too.
+  const showRecent = text === '';
+  const recentIds = useMemo(
+    () => (open && showRecent ? recentIncidents(userId) : []),
+    [open, showRecent, userId],
+  );
   const found = useIncidentSearch(text === '' ? { ids: recentIds } : { q: text, limit: 8 }, active);
   const catalogue = useIncidentCatalogue(active);
   // Live while open: a record changed or created elsewhere updates the results (§8).
@@ -36,7 +41,9 @@ export function usePaletteIncidents(
   return useMemo(() => {
     if (!allowed) return undefined;
     const people = found.data?.people ?? {};
-    const items = [...(found.data?.items ?? [])];
+    // Results kept from the last search are not recent records: show none until they load.
+    const stale = text === '' && (recentIds.length === 0 || found.isPlaceholderData);
+    const items = stale ? [] : [...(found.data?.items ?? [])];
     if (text === '') items.sort((a, b) => recentIds.indexOf(a.id) - recentIds.indexOf(b.id));
     return {
       title: t(text === '' ? 'search.recent' : 'search.incidents'),
@@ -53,5 +60,15 @@ export function usePaletteIncidents(
         path: `/incidents/${item.id}`,
       })),
     };
-  }, [allowed, found.data, found.isFetching, text, recentIds, t, catalogue.data, locale]);
+  }, [
+    allowed,
+    found.data,
+    found.isFetching,
+    found.isPlaceholderData,
+    text,
+    recentIds,
+    t,
+    catalogue.data,
+    locale,
+  ]);
 }
