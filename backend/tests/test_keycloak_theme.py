@@ -102,3 +102,16 @@ async def test_unreachable_keycloak_is_an_error() -> None:
             transport=httpx.MockTransport(refuse),
             retry_seconds=0,
         )
+
+
+def test_the_login_template_loads_the_tenant_stylesheet() -> None:
+    """WP-017 (REQ-SEC-003): the overridden template keeps its SupportX block after upgrades."""
+    from pathlib import Path  # noqa: PLC0415 - only this test reads theme files
+
+    theme = Path(__file__).resolve().parents[2] / "deploy/helm/supportx/files/keycloak/themes"
+    template = (theme / "supportx/login/template.ftl").read_text(encoding="utf-8")
+    assert "<#if org?? && properties.supportxBrandingUrl?has_content>" in template
+    assert "${properties.supportxBrandingUrl}/${org.alias?url('UTF-8')}/login.css" in template
+    assert template.count("<#-- /SupportX -->") == 1
+    properties = (theme / "supportx/login/theme.properties").read_text(encoding="utf-8")
+    assert "supportxBrandingUrl=${env.SUPPORTX_BRANDING_URL:/api/v1/public/branding}" in properties

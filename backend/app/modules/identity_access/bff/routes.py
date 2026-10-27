@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.authorization import Scope, public_route
 from app.core.entitlements import entitlement_exempt
@@ -19,7 +20,8 @@ from app.modules.identity_access.bff.cookies import clear_session_cookie, set_se
 from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
-from app.modules.identity_access.service.auth import AuthService, LoginFailure
+from app.modules.identity_access.service.auth import AuthService, LoginAddress, LoginFailure
+from app.modules.organization import tenant_for_host
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
     SESSION_ENDED,
@@ -127,15 +129,17 @@ class SwitchTenantRequest(BaseModel):
 @entitlement_exempt
 @public_route
 async def login(
+    request: Request,
     auth: Auth,
     app: Annotated[Literal["console", "portal"], Query()] = "console",
     return_to: Annotated[str | None, Query(alias="returnTo", max_length=2048)] = None,
 ) -> RedirectResponse:
     """Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).
 
-    `returnTo` must be a same-origin relative path; anything else lands on `/`.
+    `returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's
+    own address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).
     """
-    url = await auth.start_login(app, return_to)
+    url = await auth.start_login(app, return_to, await _address(request))
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 
@@ -166,6 +170,7 @@ async def callback(
             state=state,
             error=error,
             previous_session_id=request.cookies.get(auth.cookie_name),
+            host=request.headers.get("host"),
         )
     except LoginFailure as failure:
         if "text/html" not in request.headers.get("accept", ""):
@@ -177,6 +182,20 @@ async def callback(
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, auth.settings, result.session_id)
     return response
+
+
+async def _address(request: Request) -> LoginAddress | None:
+    """The tenant whose own address this is (REQ-SEC-004), as a sign-in hint; else None."""
+    database: Database | None = getattr(request.app.state, "db", None)
+    host = request.headers.get("host")
+    if database is None or host is None:
+        return None
+    try:
+        found = await tenant_for_host(database, host, request.app.state.settings.tenant_base_domain)
+    except SQLAlchemyError:
+        log.warning("tenant_for_host_failed")  # the sign-in still works, unbranded
+        return None
+    return LoginAddress(host, found.slug) if found is not None else None
 
 
 async def _audit_session(request: Request, session: Session, action_code: str) -> None:
