@@ -22,8 +22,11 @@ from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service import report_names
 from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.automated import register_triggers
+from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
+from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.usage import register_record_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 
@@ -31,14 +34,21 @@ from app.shared.files.ports import register_owner_access, unregister_owner_acces
 async def _startup(app: FastAPI) -> None:
     del app
     register_owner_access(FILE_ACCESS)
+    register_sources()  # again after a shutdown (tests start and stop the app)
 
 
 async def _shutdown(app: FastAPI) -> None:
     del app
     unregister_owner_access(FILE_ACCESS.owner_types)
+    unregister_sources()
 
 
 register_record_usage()
+register_types()
+register_triggers()
+# At import, not only at app startup: the consumers worker imports modules without running
+# their startup hooks, and report exports run there (lane C, WP-035 session 3).
+register_sources()
 
 # Names for report files (WP-035): at import, so the consumers worker has them too.
 report_names.register()

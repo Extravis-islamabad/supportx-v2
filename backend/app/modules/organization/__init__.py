@@ -48,6 +48,7 @@ from app.modules.organization.service.structure import (
     find_department,
     find_site,
     leave_groups,
+    unit_heads,
 )
 from app.modules.organization.service.tenants import get_current_tenant
 from app.modules.organization.service.units import (
@@ -133,6 +134,7 @@ __all__ = [
     "module",
     "register_usage",
     "tenant_for_host",
+    "unit_heads",
     "users_in_groups",
     "users_in_sites",
 ]

@@ -31,8 +31,11 @@ import {
 } from '@supportx/ui';
 import { useTenantChannel } from '@supportx/realtime';
 
+import { AvailabilitySwitch } from './AvailabilitySwitch';
+import { useAvailabilityItem } from './useAvailabilityItem';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
+import { LoopBanner } from './pages/admin/automation/LoopBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
 
@@ -66,6 +69,13 @@ export function ConsoleLayout() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
       return;
     }
+    // Rules, routing, auto-assignment or someone's availability changed (WP-029).
+    if (event.type === 'automation.changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.automation.all });
+      // A stopped loop also shows on the record's automation panel.
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.incidents.all, 'history'] });
+      return;
+    }
     if (event.type === 'metadata.custom_fields_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.customFields.all });
       return;
@@ -83,6 +93,11 @@ export function ConsoleLayout() {
   const setNavLayout = useSetNavLayout(session?.user.id ?? '');
   const setUiLocale = useSetUiLocale(session?.user.id ?? '');
   const setFormDensity = useSetFormDensity(session?.user.id ?? '');
+  // Technicians' Available / Away in the user menu below 1200 px (WP-029).
+  const availabilityItems = useAvailabilityItem(
+    session?.user.id ?? '',
+    session?.user.user_type === 'technician' && licence.has('incident'),
+  );
   // Preferences chosen just before a reload, whose save had not finished: applied and sent
   // again, so a quick reload never loses them (the flaky QA BUG-04 test was this race).
   const userId = session?.user.id;
@@ -151,6 +166,12 @@ export function ConsoleLayout() {
           }}
           onProfile={() => void navigate('/profile')}
           onOpenPalette={openPalette}
+          menuItems={availabilityItems}
+          extra={
+            session.user.user_type === 'technician' && licence.has('incident') ? (
+              <AvailabilitySwitch userId={session.user.id} />
+            ) : undefined
+          }
           switchingTenant={switchTenant.isPending}
           onSwitchTenant={(tenantId) => {
             switchTenant.mutate(tenantId, {
@@ -168,6 +189,7 @@ export function ConsoleLayout() {
           {pathname !== '/profile' && <MfaReminder />}
           <LicenceBanners />
           <AuditAlertBanner />
+          <LoopBanner />
           <FilesBanner />
           <TechnicianVisibilityQuestion />
           <AnnouncementBanners

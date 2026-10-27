@@ -210,6 +210,9 @@ class WorkItemActionStateOut(BaseModel):
     reason: str | None = None
     reason_mode: ReasonMode = ReasonMode.NONE
     reason_list: ReasonList | None = None
+    confirmation: dict[str, str] | None = Field(
+        default=None, description="Asked before the move runs, per language (en, ar, ur)."
+    )
 
 
 class WorkItemOut(BaseModel):
@@ -350,6 +353,7 @@ def _state(a: service.ActionState) -> WorkItemActionStateOut:
         reason=a.reason,
         reason_mode=ReasonMode(a.reason_mode),
         reason_list=ReasonList(a.reason_list) if a.reason_list else None,
+        confirmation=dict(a.confirmation) if a.confirmation else None,
     )
 
 
@@ -735,6 +739,17 @@ def _cursor_text(at: datetime, change_id: uuid.UUID) -> str:
 
 
 # --- the factory ----------------------------------------------------------------------------------
+
+
+class AutomationRunOut(BaseModel):
+    """One automation step on the record: names, codes and outcomes, never values."""
+
+    id: uuid.UUID
+    kind: str = Field(description="business_rule, routing, assignment, trigger or loop_guard")
+    automation_name: str | None
+    outcome: str
+    detail: dict[str, Any]
+    occurred_at: datetime
 
 
 def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one route per operation
@@ -1188,6 +1203,14 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    @router.get("/{record_id}/automation", summary="Automation log of the record")
+    async def automation_log(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> list[AutomationRunOut]:
+        """Triggers' outcomes per action and loop stops, newest first (kept 30 days)."""
+        rows = await service.automation_log(session, subject, wtype, record_id)
+        return [AutomationRunOut.model_validate(r, from_attributes=True) for r in rows]
 
     @router.get("/{record_id}/history", summary="History")
     async def history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options

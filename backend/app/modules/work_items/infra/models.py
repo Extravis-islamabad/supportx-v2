@@ -347,7 +347,8 @@ class WorkItem(TenantEntity):
         CheckConstraint("urgency IS NULL OR " + _codes("urgency", Urgency), name="urgency_code"),
         CheckConstraint(_codes("priority", Priority), name="priority_code"),
         CheckConstraint(
-            "priority_source IN ('matrix', 'manual', 'default')", name="priority_source_code"
+            "priority_source IN ('matrix', 'manual', 'default', 'rule')",
+            name="priority_source_code",
         ),
         CheckConstraint("length(btrim(subject)) BETWEEN 1 AND 250", name="subject_length"),
         CheckConstraint(
@@ -421,6 +422,15 @@ class WorkItem(TenantEntity):
         ),
         Index("ix_wi_tenant_type_updated", "tenant_id", "type", "updated_at", "id"),
         Index("ix_wi_tenant_type_created", "tenant_id", "type", "created_at", "id"),
+        # Reports (lane C, WP-035): resolution trends and MTTR; by category.
+        Index(
+            "ix_wi_tenant_type_resolved",
+            "tenant_id",
+            "type",
+            "resolved_at",
+            postgresql_where=text("resolved_at IS NOT NULL"),
+        ),
+        Index("ix_wi_tenant_type_category", "tenant_id", "type", "category_id", "status_category"),
         Index(
             "ix_wi_tenant_type_group",
             "tenant_id",

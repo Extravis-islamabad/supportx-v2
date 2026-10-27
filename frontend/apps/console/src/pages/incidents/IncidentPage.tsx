@@ -64,6 +64,7 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
 import { CategoryCascade } from './CategoryCascade';
 import {
@@ -345,6 +346,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           setAssigning(false);
         }}
       />
+      <LoopWarning id={item.id} />
       <Tabs
         data-testid="inc-tabs"
         // The tab this user used last, Conversation the first time (D-081).
@@ -383,6 +385,11 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             key: 'history',
             label: t('incidents.tab.history', { count: item.history_count }),
             children: <IncidentHistory id={item.id} />,
+          },
+          {
+            key: 'automation',
+            label: t('incidents.tab.automation'),
+            children: <IncidentAutomation id={item.id} />,
           },
         ]}
       />

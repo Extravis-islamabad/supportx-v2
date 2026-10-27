@@ -88,6 +88,40 @@ export function IncidentHistory({ id }: { id: string }) {
     [history.data],
   );
 
+  /** Which automation made the change, and why (REQ-WI-004, WP-029): never a bare "automatic". */
+  const whyText = (automation: Record<string, unknown>): string => {
+    const text = (value: unknown) => (typeof value === 'string' ? value : '');
+    switch (automation.kind) {
+      case 'business_rule':
+        return t('automation.why.rule', { name: text(automation.rule) });
+      case 'routing':
+        if (automation.reason === 'rule') {
+          return t('automation.why.routing_rule', { name: text(automation.rule) });
+        }
+        return t(
+          automation.reason === 'category'
+            ? 'automation.why.routing_category'
+            : 'automation.why.routing_fallback',
+        );
+      case 'auto_assign': {
+        const method = t(`assign_method.${text(automation.method)}`);
+        const loads = automation.loads as Record<string, number> | undefined;
+        if (loads === undefined) return t('automation.why.assigned', { method });
+        const compared = Object.entries(loads)
+          .map(
+            ([user, load]) =>
+              `${people[user]?.display_name ?? t('automation.someone')} ${String(load)}`,
+          )
+          .join(t('list.separator'));
+        return t('automation.why.assigned_loads', { method, loads: compared });
+      }
+      case 'matrix':
+        return t('automation.why.matrix');
+      default:
+        return '';
+    }
+  };
+
   const valueText = (change: Change, value: unknown): string => {
     if (FLAGS.has(change.field) && (value === null || value === undefined)) return t('history.no');
     if (value === null || value === undefined || value === '') return t('history.empty');
@@ -178,6 +212,15 @@ export function IncidentHistory({ id }: { id: string }) {
                     </Tag>
                     {/* A real space after each tag: the tag's margin is not a word gap (QA C5). */}{' '}
                   </>
+                )}
+                {entry.automation !== null && whyText(entry.automation) !== '' && (
+                  <Typography.Paragraph
+                    type="secondary"
+                    style={{ marginBottom: 4 }}
+                    data-testid="inc-history-why"
+                  >
+                    {whyText(entry.automation)}
+                  </Typography.Paragraph>
                 )}
                 {entry.audit_entry_id != null && (
                   <Link

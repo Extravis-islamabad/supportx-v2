@@ -10,7 +10,7 @@
 Tenant-scoped with RLS. Reversible.
 
 Revision ID: 0032
-Revises: 0031
+Revises: 0028
 Created: 2026-10-28
 """
 
@@ -22,7 +22,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0032"
-down_revision: str | None = "0031"
+down_revision: str | None = "0028"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

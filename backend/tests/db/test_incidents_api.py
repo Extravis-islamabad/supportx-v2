@@ -19,6 +19,7 @@ import statistics
 import time
 import uuid
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -252,8 +253,9 @@ async def make_org(world: World, name: str) -> Org:
     return org
 
 
-@pytest_asyncio.fixture
-async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
+@asynccontextmanager
+async def incidents_world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
+    """Two organisations with groups, sites and technicians (shared by the WP-029 tests)."""
     url = valkey_url()
     if url is None:
         pytest.skip("Valkey is not configured")
@@ -277,6 +279,12 @@ async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
             keys = [k async for k in cache.client.scan_iter(match=f"{prefix}*")]
             if keys:
                 await cache.client.delete(*keys)
+
+
+@pytest_asyncio.fixture
+async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
+    async with incidents_world(migrated_db) as built:
+        yield built
 
 
 def problem(response: httpx.Response) -> tuple[int, str]:
