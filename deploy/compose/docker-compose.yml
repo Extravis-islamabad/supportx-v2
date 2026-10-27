@@ -157,10 +157,14 @@ services:
       # The tenant's sign-in stylesheet (WP-017): the API's public branding route, through the
       # console dev server's /api proxy (Keycloak runs on its own port in Compose).
       SUPPORTX_BRANDING_URL: http://localhost:5173/api/v1/public/branding
+      # "Forgot password?" on the sign-in page leads here (WP-039, D-099).
+      SUPPORTX_PASSWORD_RESET_URL: http://localhost:5174/password-reset
     volumes:
       - ../helm/supportx/files/keycloak/dev:/opt/keycloak/data/import:ro
       # SupportX login theme (branding.md); start-dev does not cache themes, edits show at once.
       - ../helm/supportx/files/keycloak/themes/supportx:/opt/keycloak/themes/supportx:ro
+      # The breached-password list the password policy names (REQ-SEC-005, D-089 D2).
+      - ../helm/supportx/files/keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-28080}:8080"
       - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-28090}:9000"

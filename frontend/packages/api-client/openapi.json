@@ -5450,41 +5450,177 @@
       },
       "IdentitySettingsBody": {
         "additionalProperties": false,
-        "description": "Sessions per app and people creation on first sign-in.\n\nAbsolute: at least the idle timeout; at most 7 days for the console, 30 for the portal.",
+        "description": "Sessions per app, people creation, invitations and the password policy.\n\nEvery field is optional: a field left out keeps its saved value, so each part of the screen\nsaves only its own fields. Absolute: at least the idle timeout; at most 7 days for the\nconsole, 30 for the portal.",
         "properties": {
           "console_absolute_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Absolute session length in seconds.",
-            "title": "Console Absolute Seconds",
-            "type": "integer"
+            "title": "Console Absolute Seconds"
           },
           "console_idle_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Idle timeout in seconds (300 to 86400).",
-            "title": "Console Idle Seconds",
-            "type": "integer"
+            "title": "Console Idle Seconds"
           },
           "create_people_on_sign_in": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "A first sign-in creates the person as requester (REQ-SEC-013).",
-            "title": "Create People On Sign In",
-            "type": "boolean"
+            "title": "Create People On Sign In"
+          },
+          "invitation_valid_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How long an invitation link works (1 to 30 days).",
+            "title": "Invitation Valid Days"
+          },
+          "password_breached_check": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Refuse passwords on the installation's breached list.",
+            "title": "Password Breached Check"
+          },
+          "password_digits": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Needs a digit.",
+            "title": "Password Digits"
+          },
+          "password_expiry_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Days a password lasts (0 to 365; 0 = never expires).",
+            "title": "Password Expiry Days"
+          },
+          "password_history": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last N passwords are refused (0 to 24; 0 = none).",
+            "title": "Password History"
+          },
+          "password_lower": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Needs a lower-case letter.",
+            "title": "Password Lower"
+          },
+          "password_min_length": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "8 to 64 characters.",
+            "title": "Password Min Length"
+          },
+          "password_special": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Needs a special character.",
+            "title": "Password Special"
+          },
+          "password_upper": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Needs an upper-case letter.",
+            "title": "Password Upper"
           },
           "portal_absolute_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Absolute session length in seconds.",
-            "title": "Portal Absolute Seconds",
-            "type": "integer"
+            "title": "Portal Absolute Seconds"
           },
           "portal_idle_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "description": "Idle timeout in seconds (300 to 86400).",
-            "title": "Portal Idle Seconds",
-            "type": "integer"
+            "title": "Portal Idle Seconds"
           }
         },
-        "required": [
-          "console_idle_seconds",
-          "console_absolute_seconds",
-          "portal_idle_seconds",
-          "portal_absolute_seconds",
-          "create_people_on_sign_in"
-        ],
         "title": "IdentitySettingsBody",
         "type": "object"
       },
@@ -5492,27 +5628,86 @@
         "description": "The settings and their version (0: never saved, the Appendix A defaults).",
         "properties": {
           "console_absolute_seconds": {
-            "description": "Absolute session length in seconds.",
             "title": "Console Absolute Seconds",
             "type": "integer"
           },
           "console_idle_seconds": {
-            "description": "Idle timeout in seconds (300 to 86400).",
             "title": "Console Idle Seconds",
             "type": "integer"
           },
           "create_people_on_sign_in": {
-            "description": "A first sign-in creates the person as requester (REQ-SEC-013).",
             "title": "Create People On Sign In",
             "type": "boolean"
           },
+          "invitation_valid_days": {
+            "title": "Invitation Valid Days",
+            "type": "integer"
+          },
+          "password_breached_check": {
+            "title": "Password Breached Check",
+            "type": "boolean"
+          },
+          "password_digits": {
+            "title": "Password Digits",
+            "type": "boolean"
+          },
+          "password_expiry_days": {
+            "title": "Password Expiry Days",
+            "type": "integer"
+          },
+          "password_history": {
+            "title": "Password History",
+            "type": "integer"
+          },
+          "password_lower": {
+            "title": "Password Lower",
+            "type": "boolean"
+          },
+          "password_min_length": {
+            "title": "Password Min Length",
+            "type": "integer"
+          },
+          "password_policy_editable": {
+            "description": "False on multi-tenant installations: the platform's policy applies.",
+            "title": "Password Policy Editable",
+            "type": "boolean"
+          },
+          "password_policy_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the policy was not applied (a code the screen explains).",
+            "title": "Password Policy Error"
+          },
+          "password_policy_state": {
+            "description": "default: never edited here; applying until written into Keycloak.",
+            "enum": [
+              "default",
+              "applying",
+              "applied",
+              "failed"
+            ],
+            "title": "Password Policy State",
+            "type": "string"
+          },
+          "password_special": {
+            "title": "Password Special",
+            "type": "boolean"
+          },
+          "password_upper": {
+            "title": "Password Upper",
+            "type": "boolean"
+          },
           "portal_absolute_seconds": {
-            "description": "Absolute session length in seconds.",
             "title": "Portal Absolute Seconds",
             "type": "integer"
           },
           "portal_idle_seconds": {
-            "description": "Idle timeout in seconds (300 to 86400).",
             "title": "Portal Idle Seconds",
             "type": "integer"
           },
@@ -5528,6 +5723,18 @@
           "portal_idle_seconds",
           "portal_absolute_seconds",
           "create_people_on_sign_in",
+          "invitation_valid_days",
+          "password_min_length",
+          "password_upper",
+          "password_lower",
+          "password_digits",
+          "password_special",
+          "password_history",
+          "password_expiry_days",
+          "password_breached_check",
+          "password_policy_editable",
+          "password_policy_state",
+          "password_policy_error",
           "version"
         ],
         "title": "IdentitySettingsOut",
@@ -5730,6 +5937,121 @@
         ],
         "title": "IndexState",
         "type": "string"
+      },
+      "InvitationIn": {
+        "additionalProperties": false,
+        "description": "Who to invite: a person the tenant knows who has not signed in yet (WP-021).",
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "InvitationIn",
+        "type": "object"
+      },
+      "InvitationListOut": {
+        "description": "The tenant's invitations, newest first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/InvitationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "InvitationListOut",
+        "type": "object"
+      },
+      "InvitationOut": {
+        "description": "An invitation (`expired`: pending past its expiry; ask for a new one).",
+        "properties": {
+          "accepted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accepted At"
+          },
+          "delivery": {
+            "description": "existing_account: they already have a password and can sign in now.",
+            "enum": [
+              "email",
+              "existing_account"
+            ],
+            "title": "Delivery",
+            "type": "string"
+          },
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sends": {
+            "title": "Sends",
+            "type": "integer"
+          },
+          "sent_at": {
+            "format": "date-time",
+            "title": "Sent At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "accepted",
+              "expired",
+              "revoked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "email",
+          "status",
+          "delivery",
+          "sent_at",
+          "expires_at",
+          "accepted_at",
+          "sends",
+          "version"
+        ],
+        "title": "InvitationOut",
+        "type": "object"
       },
       "Kind": {
         "description": "How a file may be shown: an image or a PDF previews in the browser; others download.",
@@ -6247,6 +6569,21 @@
         ],
         "title": "OwnerType",
         "type": "string"
+      },
+      "PasswordResetIn": {
+        "description": "The address of the account whose password was forgotten.",
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "title": "Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email"
+        ],
+        "title": "PasswordResetIn",
+        "type": "object"
       },
       "PermissionOut": {
         "description": "A catalogue permission. Labels: `permission.<key>` and `permission.<key>.description`.",
@@ -16644,6 +16981,56 @@
         ]
       }
     },
+    "/api/v1/auth/password-reset": {
+      "post": {
+        "description": "Always 202, whatever the address: nothing can be learned about accounts.\n\nWithin the limits (5 per address and 20 per network address per hour) Keycloak sends its\nset-password e-mail in the tenant's brand, valid 60 minutes, once (REQ-SEC-006, 035; D-099).",
+        "operationId": "password_reset_api_v1_auth_password_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Forgot password: send a reset e-mail",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/switch-tenant": {
       "post": {
         "description": "Make another of the user's tenants active. Issues a new session ID and CSRF token.",
@@ -18541,6 +18928,528 @@
         ]
       }
     },
+    "/api/v1/identity/invitations": {
+      "get": {
+        "description": "Who was invited, when, until when, and what became of it: the newest 200, or one's.",
+        "operationId": "list_invitations_api_v1_identity_invitations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Invitations",
+        "tags": [
+          "identity"
+        ]
+      },
+      "post": {
+        "description": "Keycloak sends the set-password e-mail from the tenant's sender, in the person's language.",
+        "operationId": "create_invitation_api_v1_identity_invitations_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvitationIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationOut"
+                }
+              }
+            },
+            "description": "Sent (or replayed)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Invite a person",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/invitations/{invitation_id}/resend": {
+      "post": {
+        "description": "A new e-mail and a new expiry.",
+        "operationId": "resend_invitation_api_v1_identity_invitations__invitation_id__resend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Send an invitation again",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/invitations/{invitation_id}/revoke": {
+      "post": {
+        "description": "Its link stops working at once (REQ-SEC-020 AC2).",
+        "operationId": "revoke_invitation_api_v1_identity_invitations__invitation_id__revoke_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "invitation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Invitation Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Revoke an invitation",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/people/{user_id}/require-new-password": {
+      "post": {
+        "description": "The person sets a new password at their next sign-in; their sessions end now (SEC-006).",
+        "operationId": "require_new_password_api_v1_identity_people__user_id__require_new_password_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Require a new password at the next sign-in",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
     "/api/v1/identity/settings": {
       "get": {
         "description": "The tenant's sign-in settings, or the defaults (version 0).",
@@ -18623,7 +19532,7 @@
         ]
       },
       "put": {
-        "description": "Session limits apply to sessions begun from now on; people creation at once.",
+        "description": "Save the fields sent; the others keep their values.\n\nSession limits apply to sessions begun from now on; people creation at once; the password\npolicy once the worker has written it into Keycloak (`password_policy_state`).",
         "operationId": "put_settings_api_v1_identity_settings_put",
         "parameters": [
           {
@@ -18728,6 +19637,88 @@
           }
         },
         "summary": "Save sign-in settings",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/settings/password-policy/apply": {
+      "post": {
+        "description": "After `failed`: the worker writes the saved policy into Keycloak again.",
+        "operationId": "apply_password_policy_api_v1_identity_settings_password_policy_apply_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitySettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Apply the password policy again",
         "tags": [
           "identity"
         ]

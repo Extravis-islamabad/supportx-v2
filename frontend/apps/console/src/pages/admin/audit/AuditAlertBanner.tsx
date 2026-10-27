@@ -32,7 +32,12 @@ export function AuditAlertBanner({ showLink = true }: { showLink?: boolean }) {
       description={
         <>
           {t(`audit.problem.${alert}`)}{' '}
-          {showLink && <Link to="/admin/audit?tab=integrity">{t('audit.ui.banner.open')}</Link>}
+          {showLink && (
+            // Underlined: inside a sentence a link needs more than its colour (WCAG 1.4.1).
+            <Link to="/admin/audit?tab=integrity" style={{ textDecoration: 'underline' }}>
+              {t('audit.ui.banner.open')}
+            </Link>
+          )}
         </>
       }
     />

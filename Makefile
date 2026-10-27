@@ -248,6 +248,10 @@ keycloak-identity: $(DEV_ENV) ## Set up the service account SupportX manages SSO
 	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
 	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
 	SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET="$$(env_value KEYCLOAK_IDENTITY_CLIENT_SECRET)" \
+	SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET="$$(env_value KEYCLOAK_REALM_CLIENT_SECRET)" \
+	SUPPORTX_MAIL_SMTP_HOST=127.0.0.1 SUPPORTX_MAIL_SMTP_SECURITY=none \
+	SUPPORTX_MAIL_FROM_ADDRESS=support@supportx.localhost \
+	SUPPORTX_KEYCLOAK_SMTP_HOST=mailpit SUPPORTX_KEYCLOAK_SMTP_PORT=1025 \
 	SUPPORTX_KEYCLOAK_WAIT_SECONDS=60 uv run python -m tooling.keycloak_identity
 
 brand-assets: ## Regenerate logos, favicons and the Keycloak theme from docs/brand (branding.md)

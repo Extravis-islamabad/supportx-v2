@@ -569,9 +569,22 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     tenant's organization (Keycloak 26.8 domain routing); department and site from SSO on first
     sign-in (D-089 D6);
   - Admin › Sign-in and security, live, en/ar/ur, axe clean in three themes.
-- [ ] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
+- [x] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
   reset (SEC-006), installation password policy and breached list (D1 c, D2; SEC-005), rate
-  limits (SEC-035).
+  limits (SEC-035). PR #80 (D-099, D-103); e2e `invitations.spec.ts` and the full suite green
+  on the shared stack.
+  - [x] mail foundation: `app/shared/mail` (outbox `system.mail.queued`, worker send, retry with
+    backoff, content purge), interface for lanes A and C in docs/architecture/mail.md;
+  - [x] Keycloak's realm SMTP and e-mail theme from the same settings (D-099), en/ar/ur;
+  - [x] invitations: invite from the person's record, resend, withdraw, accepted at first sign-in,
+    7 days (1 to 30), live list (`invitations` channel);
+  - [x] reset page `/password-reset` (console, portal; no session), 5 per address and 20 per
+    network address an hour, always 202; admin "require a new password" (sessions end);
+  - [x] password policy (installation-wide; read-only on multi-tenant installations) applied by
+    the worker as `supportx-realm` (manage-realm only), breached list shipped (46,941 entries),
+    Urdu policy messages and Urdu right to left on Keycloak's pages;
+  - [x] audit-integrity banner axe fix (failing test first);
+  - [ ] REQ-SEC-005 AC2's "try again at" lock-out message: session 3.
 - [ ] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
   warning and kept drafts (SEC-029 UI), the "everything through SupportX" e2e (SEC-017),
   Security administrator role (D7).
@@ -840,6 +853,37 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — Backend CI in parallel shards, PR #76 (lane B; product owner priority)
+
+- The backend gate is three jobs: `backend checks` (lint, schema checks, mypy, migrate + RLS
+  guard), `backend tests 1/3..3/3` (each with its own services, `pytest -n 4 --dist loadgroup`;
+  files balanced by `tests/shard_weights.json` through `tooling/pytest_shards.py`), and the
+  required `backend` (every job passed, coverage of all shards combined, 90 % enforced).
+- Timings: before, 27.7 min (#72) and 38.3 min (#70) in one job; after, checks 1.1 min, shards
+  4.1 / 3.5 / 5.8 min, gate done 6.8 min after the run starts.
+- Found on the way: parallel database bootstraps failed with "tuple concurrently updated"
+  (cluster-wide roles); `db_bootstrap` holds an advisory lock. A CPU-bound timing test measured
+  wall-clock time under parallel load; it measures its own CPU time now.
+- The 100k-row audit volume test runs nightly only (audit-scale.yml, 10M). New test-only
+  dependencies: pytest-xdist, execnet (MIT, D-012). Lanes A and C told to merge main.
+
+### 2026-10-27 — WP-039 session 2: mail, invitations, reset, password policy (lane B)
+
+- Built on `feat/wp-039-session2` (stacked on PR #70): see the WP-039 checklist. Decisions
+  D-099 (Keycloak's e-mails, done properly) and D-103 (session 2 defaults; reviewed 2026-10-28).
+- Proved on a throwaway Keycloak 26.8.1 (`wp039-kc`): the breached list loads (46,941) and
+  refuses a listed password that meets every other rule; a short one gets the length message;
+  `supportx-realm` sets the policy and `supportx-identity` gets 403; Urdu users see the rules'
+  messages in Urdu, right to left; invitation and reset e-mails branded, single use, expiring.
+- Tests: backend unit and DB (identity API 29, mail 17, Keycloak set-up 8, theme 12, labels);
+  console Vitest (admin 87), portal (reset page). E2E on the shared stack under the QA lock
+  (Keycloak recreated, a throwaway database agreed with lane A): `invitations.spec.ts` passes,
+  the full suite 51/51. PR #80.
+- CI: PR #70's backend job was cancelled at the 30-minute limit (the suite reached 31% of
+  tests in 28 minutes; lane A's #71 too); the limit is now 45 (agreed with lane A).
+- Found outside scope: the realm's brute-force settings do not match Appendix A (15 minutes,
+  doubling) and Keycloak says "invalid username or password" while locked: session 3.
 
 ### 2026-10-27 — WP-035 session 2: reports home and viewer (lane C)
 - Built in `../supportx-v2-lanec2` (branch `feat/wp-035-viewer`, on top of #73): reports home,

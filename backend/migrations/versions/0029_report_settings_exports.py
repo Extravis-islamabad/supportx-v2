@@ -5,7 +5,7 @@ exports are written by the API (request) and the worker (result), never deleted 
 expired export keeps its row with the file removed.
 
 Revision ID: 0029
-Revises: 0027
+Revises: 0026
 Created: 2026-10-28
 """
 
@@ -18,7 +18,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_tenant_rls, grant_app
 
 revision: str = "0029"
-down_revision: str | None = "0027"
+down_revision: str | None = "0026"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

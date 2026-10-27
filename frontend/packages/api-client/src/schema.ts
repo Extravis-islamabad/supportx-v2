@@ -637,6 +637,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password-reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forgot password: send a reset e-mail
+         * @description Always 202, whatever the address: nothing can be learned about accounts.
+         *
+         *     Within the limits (5 per address and 20 per network address per hour) Keycloak sends its
+         *     set-password e-mail in the tenant's brand, valid 60 minutes, once (REQ-SEC-006, 035; D-099).
+         */
+        post: operations["password_reset_api_v1_auth_password_reset_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/switch-tenant": {
         parameters: {
             query?: never;
@@ -1038,6 +1061,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/identity/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Invitations
+         * @description Who was invited, when, until when, and what became of it: the newest 200, or one's.
+         */
+        get: operations["list_invitations_api_v1_identity_invitations_get"];
+        put?: never;
+        /**
+         * Invite a person
+         * @description Keycloak sends the set-password e-mail from the tenant's sender, in the person's language.
+         */
+        post: operations["create_invitation_api_v1_identity_invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/invitations/{invitation_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send an invitation again
+         * @description A new e-mail and a new expiry.
+         */
+        post: operations["resend_invitation_api_v1_identity_invitations__invitation_id__resend_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/invitations/{invitation_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke an invitation
+         * @description Its link stops working at once (REQ-SEC-020 AC2).
+         */
+        post: operations["revoke_invitation_api_v1_identity_invitations__invitation_id__revoke_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/people/{user_id}/require-new-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Require a new password at the next sign-in
+         * @description The person sets a new password at their next sign-in; their sessions end now (SEC-006).
+         */
+        post: operations["require_new_password_api_v1_identity_people__user_id__require_new_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/identity/settings": {
         parameters: {
             query?: never;
@@ -1052,10 +1159,33 @@ export interface paths {
         get: operations["get_settings_api_v1_identity_settings_get"];
         /**
          * Save sign-in settings
-         * @description Session limits apply to sessions begun from now on; people creation at once.
+         * @description Save the fields sent; the others keep their values.
+         *
+         *     Session limits apply to sessions begun from now on; people creation at once; the password
+         *     policy once the worker has written it into Keycloak (`password_policy_state`).
          */
         put: operations["put_settings_api_v1_identity_settings_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/settings/password-policy/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply the password policy again
+         * @description After `failed`: the worker writes the saved policy into Keycloak again.
+         */
+        post: operations["apply_password_policy_api_v1_identity_settings_password_policy_apply_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5141,66 +5271,132 @@ export interface components {
         };
         /**
          * IdentitySettingsBody
-         * @description Sessions per app and people creation on first sign-in.
+         * @description Sessions per app, people creation, invitations and the password policy.
          *
-         *     Absolute: at least the idle timeout; at most 7 days for the console, 30 for the portal.
+         *     Every field is optional: a field left out keeps its saved value, so each part of the screen
+         *     saves only its own fields. Absolute: at least the idle timeout; at most 7 days for the
+         *     console, 30 for the portal.
          */
         IdentitySettingsBody: {
             /**
              * Console Absolute Seconds
              * @description Absolute session length in seconds.
              */
-            console_absolute_seconds: number;
+            console_absolute_seconds?: number | null;
             /**
              * Console Idle Seconds
              * @description Idle timeout in seconds (300 to 86400).
              */
-            console_idle_seconds: number;
+            console_idle_seconds?: number | null;
             /**
              * Create People On Sign In
              * @description A first sign-in creates the person as requester (REQ-SEC-013).
              */
-            create_people_on_sign_in: boolean;
+            create_people_on_sign_in?: boolean | null;
+            /**
+             * Invitation Valid Days
+             * @description How long an invitation link works (1 to 30 days).
+             */
+            invitation_valid_days?: number | null;
+            /**
+             * Password Breached Check
+             * @description Refuse passwords on the installation's breached list.
+             */
+            password_breached_check?: boolean | null;
+            /**
+             * Password Digits
+             * @description Needs a digit.
+             */
+            password_digits?: boolean | null;
+            /**
+             * Password Expiry Days
+             * @description Days a password lasts (0 to 365; 0 = never expires).
+             */
+            password_expiry_days?: number | null;
+            /**
+             * Password History
+             * @description The last N passwords are refused (0 to 24; 0 = none).
+             */
+            password_history?: number | null;
+            /**
+             * Password Lower
+             * @description Needs a lower-case letter.
+             */
+            password_lower?: boolean | null;
+            /**
+             * Password Min Length
+             * @description 8 to 64 characters.
+             */
+            password_min_length?: number | null;
+            /**
+             * Password Special
+             * @description Needs a special character.
+             */
+            password_special?: boolean | null;
+            /**
+             * Password Upper
+             * @description Needs an upper-case letter.
+             */
+            password_upper?: boolean | null;
             /**
              * Portal Absolute Seconds
              * @description Absolute session length in seconds.
              */
-            portal_absolute_seconds: number;
+            portal_absolute_seconds?: number | null;
             /**
              * Portal Idle Seconds
              * @description Idle timeout in seconds (300 to 86400).
              */
-            portal_idle_seconds: number;
+            portal_idle_seconds?: number | null;
         };
         /**
          * IdentitySettingsOut
          * @description The settings and their version (0: never saved, the Appendix A defaults).
          */
         IdentitySettingsOut: {
-            /**
-             * Console Absolute Seconds
-             * @description Absolute session length in seconds.
-             */
+            /** Console Absolute Seconds */
             console_absolute_seconds: number;
-            /**
-             * Console Idle Seconds
-             * @description Idle timeout in seconds (300 to 86400).
-             */
+            /** Console Idle Seconds */
             console_idle_seconds: number;
-            /**
-             * Create People On Sign In
-             * @description A first sign-in creates the person as requester (REQ-SEC-013).
-             */
+            /** Create People On Sign In */
             create_people_on_sign_in: boolean;
+            /** Invitation Valid Days */
+            invitation_valid_days: number;
+            /** Password Breached Check */
+            password_breached_check: boolean;
+            /** Password Digits */
+            password_digits: boolean;
+            /** Password Expiry Days */
+            password_expiry_days: number;
+            /** Password History */
+            password_history: number;
+            /** Password Lower */
+            password_lower: boolean;
+            /** Password Min Length */
+            password_min_length: number;
             /**
-             * Portal Absolute Seconds
-             * @description Absolute session length in seconds.
+             * Password Policy Editable
+             * @description False on multi-tenant installations: the platform's policy applies.
              */
+            password_policy_editable: boolean;
+            /**
+             * Password Policy Error
+             * @description Why the policy was not applied (a code the screen explains).
+             */
+            password_policy_error: string | null;
+            /**
+             * Password Policy State
+             * @description default: never edited here; applying until written into Keycloak.
+             * @enum {string}
+             */
+            password_policy_state: "default" | "applying" | "applied" | "failed";
+            /** Password Special */
+            password_special: boolean;
+            /** Password Upper */
+            password_upper: boolean;
+            /** Portal Absolute Seconds */
             portal_absolute_seconds: number;
-            /**
-             * Portal Idle Seconds
-             * @description Idle timeout in seconds (300 to 86400).
-             */
+            /** Portal Idle Seconds */
             portal_idle_seconds: number;
             /**
              * Version
@@ -5289,6 +5485,70 @@ export interface components {
          * @enum {string}
          */
         IndexState: "none" | "pending" | "building" | "active" | "failed";
+        /**
+         * InvitationIn
+         * @description Who to invite: a person the tenant knows who has not signed in yet (WP-021).
+         */
+        InvitationIn: {
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+        };
+        /**
+         * InvitationListOut
+         * @description The tenant's invitations, newest first.
+         */
+        InvitationListOut: {
+            /** Items */
+            items: components["schemas"]["InvitationOut"][];
+        };
+        /**
+         * InvitationOut
+         * @description An invitation (`expired`: pending past its expiry; ask for a new one).
+         */
+        InvitationOut: {
+            /** Accepted At */
+            accepted_at: string | null;
+            /**
+             * Delivery
+             * @description existing_account: they already have a password and can sign in now.
+             * @enum {string}
+             */
+            delivery: "email" | "existing_account";
+            /** Email */
+            email: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sends */
+            sends: number;
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "accepted" | "expired" | "revoked";
+            /**
+             * User Id
+             * Format: uuid
+             */
+            user_id: string;
+            /** Version */
+            version: number;
+        };
         /**
          * Kind
          * @description How a file may be shown: an image or a PDF previews in the browser; others download.
@@ -5500,6 +5760,14 @@ export interface components {
          * @enum {string}
          */
         OwnerType: "work_item" | "conversation_entry" | "draft" | "branding";
+        /**
+         * PasswordResetIn
+         * @description The address of the account whose password was forgotten.
+         */
+        PasswordResetIn: {
+            /** Email */
+            email: string;
+        };
         /**
          * PermissionOut
          * @description A catalogue permission. Labels: `permission.<key>` and `permission.<key>.description`.
@@ -10585,6 +10853,48 @@ export interface operations {
             };
         };
     };
+    password_reset_api_v1_auth_password_reset_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     switch_tenant_api_v1_auth_switch_tenant_post: {
         parameters: {
             query?: never;
@@ -12049,6 +12359,395 @@ export interface operations {
             };
         };
     };
+    list_invitations_api_v1_identity_invitations_get: {
+        parameters: {
+            query?: {
+                user_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationListOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_invitation_api_v1_identity_invitations_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationIn"];
+            };
+        };
+        responses: {
+            /** @description Sent (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    resend_invitation_api_v1_identity_invitations__invitation_id__resend_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    revoke_invitation_api_v1_identity_invitations__invitation_id__revoke_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                invitation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    require_new_password_api_v1_identity_people__user_id__require_new_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     get_settings_api_v1_identity_settings_get: {
         parameters: {
             query?: never;
@@ -12138,6 +12837,80 @@ export interface operations {
                 "application/json": components["schemas"]["IdentitySettingsBody"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentitySettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    apply_password_policy_api_v1_identity_settings_password_policy_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {

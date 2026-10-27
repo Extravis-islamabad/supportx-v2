@@ -70,6 +70,9 @@ spec:
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: audit-signing-key}}
             # Decrypts new files to scan them and writes thumbnails (WP-022).
             {{- include "supportx.filesEnv" $ | nindent 12 }}
+            # Applies the password policy admins save (manage-realm); no other pod holds it.
+            - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-realm-secret, optional: true}}
             {{- end }}
           ports:
             - {name: metrics, containerPort: 9464}
