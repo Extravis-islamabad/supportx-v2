@@ -60,3 +60,21 @@
   color: transparent !important;
   overflow: hidden;
 }
+/* The organization's name under the logo (REQ-SEC-003), when Keycloak knows it: AA and more on
+   the light (#f5f5f5), dark (#141414) and high-contrast page. */
+.supportx-org-name {
+  margin: 8px 0 12px;
+  text-align: center;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #262626;
+  overflow-wrap: anywhere;
+}
+:root.pf-v5-theme-dark .supportx-org-name {
+  color: #e6e6e6;
+}
+@media (prefers-contrast: more) {
+  :root:not(.pf-v5-theme-dark) .supportx-org-name {
+    color: #000000;
+  }
+}

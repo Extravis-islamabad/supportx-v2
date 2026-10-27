@@ -116,6 +116,30 @@ def test_the_login_template_loads_the_tenant_stylesheet() -> None:
         in template
     )
     assert "org.alias" not in template  # slugs are guessable: never the key of public URLs
-    assert template.count("<#-- /SupportX -->") == 1
+    assert template.count("<#-- /SupportX -->") == 2  # the stylesheet, and the tenant's name
     properties = (theme / "supportx/login/theme.properties").read_text(encoding="utf-8")
     assert "supportxBrandingUrl=${env.SUPPORTX_BRANDING_URL:/api/v1/public/branding}" in properties
+
+
+def test_bug_08_the_login_page_names_the_tenant() -> None:
+    """WP-017-FIX BUG-08 (REQ-SEC-003: logo, colours and name): the organization's name is shown
+    under the logo when Keycloak knows the organization, escaped (FreeMarker's HTML output), and
+    styled readable in every theme by the same stylesheet as the colours."""
+    import re  # noqa: PLC0415 - only these tests read theme files
+    from pathlib import Path  # noqa: PLC0415
+
+    from app.modules.organization.domain.branding import DEFAULT_COLOURS  # noqa: PLC0415
+    from app.modules.organization.domain.login_css import login_css  # noqa: PLC0415
+
+    theme = Path(__file__).resolve().parents[2] / "deploy/helm/supportx/files/keycloak/themes"
+    template = (theme / "supportx/login/template.ftl").read_text(encoding="utf-8")
+    header = template[template.index('<header id="kc-header"') : template.index("</header>")]
+    block = re.search(r"<#if org\?\? && org\.name\?has_content>(.*?)</#if>", header, re.DOTALL)
+    assert block is not None, "the tenant's name is not in the sign-in page header"
+    assert '<p id="supportx-org-name" class="supportx-org-name">${org.name}</p>' in block[1]
+    assert "?no_esc" not in block[1]  # a tenant's name is text, never markup
+    assert template.startswith("<#--")  # keycloak.v2 templates use HTML auto-escaping
+    css = login_css(DEFAULT_COLOURS, None)
+    assert ".supportx-org-name" in css
+    generated = (theme / "supportx/login/resources/css/supportx.css").read_text(encoding="utf-8")
+    assert ".supportx-org-name" in generated  # `make brand-assets` ran

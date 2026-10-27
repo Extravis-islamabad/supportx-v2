@@ -147,7 +147,18 @@ the apps pass the tenant's `Branding` to the theme, as above.
 gradient is refused (`brand_colour_contrast`) with the failing checks and the nearest darker
 shade that passes; the screen checks as you choose and offers that shade in one click. The
 preview draws the console header, the portal welcome band and the sign-in card with the real
-theme builder in light, dark and high contrast before anything is saved.
+theme builder in light, dark and high contrast before anything is saved, with exactly the
+colours a save makes: the own gradient, else the primary at both ends, else the default
+(`checks.ts` `coloursToSave`, the server's rule). A typed colour that is not `#rrggbb` or `#rgb`
+is flagged at the field at once and never sent to the check.
+
+**Checked as chosen (WP-017-FIX).** Every refusal shows at its field immediately, and the
+server's refusals of a save, a domain or a certificate show at the same fields. A chosen image
+is checked before it is uploaded: its type from its own bytes (PNG, JPEG, WebP, ICO; SVG
+refused, D-090), at most 5 MB and 25 megapixels, at least 16 px a side, and it must decode in the
+browser. A domain must be a host name (no IP, URL or port), and a certificate and key must be
+PEM blocks. The server still checks everything on save (Pillow, `normalise_domain`,
+`check_certificate`).
 
 **Logos.** A cut-out logo (transparent background) also gives the dark version (near-black
 neutral pixels turned white, as for SupportX's own) and the high-contrast one (all black). An
@@ -163,6 +174,8 @@ opaque logo is shown as it is in every mode. Without an icon, favicons are made 
   it at the console dev server). Keycloak knows the organization on a tenant's own address
   (SupportX asks for `organization:<alias>`) and, on the shared address, once the e-mail's domain
   names it. The organization alias is the tenant slug.
+  Under the logo, a second marked block in `template.ftl` shows the organization's name
+  (`org.name`, HTML-escaped; REQ-SEC-003), styled by the same stylesheet in every theme.
 
 **What is public.** Before sign-in anyone may learn an address's logo and colours, nothing more:
 no names or texts, no slug, no settings, no list. Public URLs are keyed by the tenant's ID (an
