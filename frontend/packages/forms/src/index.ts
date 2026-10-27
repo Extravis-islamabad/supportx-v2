@@ -2,6 +2,7 @@
 // `errors[]`) land under the matching field; every message is a translated label.
 // The metadata-driven form renderer (architecture.md §6.6) is added in Stage 1.
 export { FormField, type FormFieldProps } from './FormField';
+export { clearKeptDraft, useKeptDraft } from './keptDraft';
 export {
   applyServerErrors,
   formFieldOf,

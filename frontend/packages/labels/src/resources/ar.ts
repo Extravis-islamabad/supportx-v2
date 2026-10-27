@@ -2804,4 +2804,5 @@ export const ar: LabelResource = {
   'audit.action.invitation.revoked': 'سحب دعوة',
   'audit.action.user.password_reset_forced': 'طلب كلمة مرور جديدة',
   'audit.action.identity.password_policy_reapplied': 'طبّق سياسة كلمات المرور مجددًا',
+  'forms.draft_restored': 'استُعيد ما أدخلته ولم يُحفظ.',
 };
