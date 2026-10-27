@@ -20,6 +20,13 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   another name than the API does (`SUPPORTX_KEYCLOAK_SMTP_HOST`/`_PORT`);
 - the realm's e-mails use the SupportX e-mail theme (tenant brand, en/ar/ur) when it has no
   theme of its own; a chosen theme is never replaced;
+- a second client, `supportx-realm`, holds only manage-realm: the password policy (REQ-SEC-005)
+  is a realm setting. Its secret goes to the consumers worker alone, which applies the policy
+  tenant admins save; no API process can change the realm. Without its secret
+  (SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET) the client is not made and the policy stays as the
+  deploy left it;
+- a realm still on the password policy SupportX shipped before WP-039 gets the new default
+  (Appendix A, with the breached list); a policy anyone chose is never touched;
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
@@ -32,7 +39,8 @@ operator then creates the client by hand once: docs/architecture/identity.md).
 
 Environment: SUPPORTX_KEYCLOAK_URL, SUPPORTX_KEYCLOAK_ADMIN_USER (default admin),
 SUPPORTX_KEYCLOAK_ADMIN_PASSWORD, SUPPORTX_KEYCLOAK_REALM (default supportx),
-SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET, SUPPORTX_KEYCLOAK_WAIT_SECONDS (default 300).
+SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET, SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET (optional),
+SUPPORTX_KEYCLOAK_WAIT_SECONDS (default 300).
 """
 
 import asyncio
@@ -45,6 +53,7 @@ from typing import Any
 
 import httpx
 
+from app.modules.identity_access.domain.password_policy import PasswordPolicy, to_keycloak
 from tooling.keycloak_theme import KeycloakUnavailableError, admin_token
 
 CLIENT_ID = "supportx-identity"
@@ -53,6 +62,13 @@ CLIENT_ID = "supportx-identity"
 # domains, provider links) and reading login events (why a test sign-in failed). No realm,
 # client or master-realm rights: it cannot change the realm's settings or reach the console.
 ROLES = ("manage-users", "manage-identity-providers", "manage-organizations", "view-events")
+REALM_CLIENT_ID = "supportx-realm"
+REALM_ROLES = ("manage-realm",)  # the password policy; held by the consumers worker only
+# What the realm import shipped before WP-039 session 2 (Keycloak stores it this way).
+OLD_DEFAULT_POLICY = (
+    "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1)"
+    " and notUsername(undefined) and notEmail(undefined) and passwordHistory(3)"
+)
 EVENT_TYPES = (
     "LOGIN",
     "LOGIN_ERROR",
@@ -108,14 +124,28 @@ class Target:
     password: str = field(repr=False)
     secret: str = field(repr=False, default="")
     realm: str = "supportx"
+    realm_secret: str = field(repr=False, default="")  # supportx-realm; empty = not made
     smtp: dict[str, str] | None = field(repr=False, default=None)  # Keycloak's smtpServer
 
 
-def _client_body(secret: str) -> dict[str, Any]:
+CLIENT_TEXTS = {
+    CLIENT_ID: (
+        "SupportX identity administration",
+        "Service account SupportX uses for SSO, sessions and MFA (WP-039).",
+    ),
+    REALM_CLIENT_ID: (
+        "SupportX realm settings",
+        "Service account the SupportX worker applies the password policy with (WP-039).",
+    ),
+}
+
+
+def _client_body(client_id: str, secret: str) -> dict[str, Any]:
+    name, description = CLIENT_TEXTS[client_id]
     return {
-        "clientId": CLIENT_ID,
-        "name": "SupportX identity administration",
-        "description": "Service account SupportX uses for SSO, sessions and MFA (WP-039).",
+        "clientId": client_id,
+        "name": name,
+        "description": description,
         "enabled": True,
         "publicClient": False,
         "clientAuthenticatorType": "client-secret",
@@ -129,18 +159,22 @@ def _client_body(secret: str) -> dict[str, Any]:
 
 
 async def _ensure_client(
-    client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    realm: str,
+    secret: str,
+    client_id: str = CLIENT_ID,
 ) -> tuple[str, list[str]]:
     """The client's internal ID; created, or its secret and flows put back."""
     base = f"/admin/realms/{realm}/clients"
-    found = await client.get(base, headers=headers, params={"clientId": CLIENT_ID})
+    found = await client.get(base, headers=headers, params={"clientId": client_id})
     found.raise_for_status()
-    body = _client_body(secret)
+    body = _client_body(client_id, secret)
     if not found.json():
         (await client.post(base, headers=headers, json=body)).raise_for_status()
-        found = await client.get(base, headers=headers, params={"clientId": CLIENT_ID})
+        found = await client.get(base, headers=headers, params={"clientId": client_id})
         found.raise_for_status()
-        return str(found.json()[0]["id"]), ["client created"]
+        return str(found.json()[0]["id"]), [f"client {client_id} created"]
     current = found.json()[0]
     internal = str(current["id"])
     changes: list[str] = []
@@ -150,14 +184,18 @@ async def _ensure_client(
     if drifted or stored.json().get("value") != secret:
         update = await client.put(f"{base}/{internal}", headers=headers, json={**current, **body})
         update.raise_for_status()
-        changes.append("client settings or secret set")
+        changes.append(f"client {client_id} settings or secret set")
     return internal, changes
 
 
 async def _ensure_roles(
-    client: httpx.AsyncClient, headers: dict[str, str], realm: str, internal: str
+    client: httpx.AsyncClient,
+    headers: dict[str, str],
+    realm: str,
+    internal: str,
+    roles: tuple[str, ...] = ROLES,
 ) -> list[str]:
-    """Exactly ROLES of realm-management on the service account (extras removed)."""
+    """Exactly `roles` of realm-management on the service account (extras removed)."""
     admin = f"/admin/realms/{realm}"
     account = await client.get(f"{admin}/clients/{internal}/service-account-user", headers=headers)
     account.raise_for_status()
@@ -174,8 +212,8 @@ async def _ensure_roles(
     available = await client.get(f"{admin}/clients/{management_id}/roles", headers=headers)
     available.raise_for_status()
     by_name = {role["name"]: role for role in available.json()}
-    missing = [by_name[name] for name in ROLES if name not in held_names]
-    extra = [role for name, role in held_names.items() if name not in ROLES]
+    missing = [by_name[name] for name in roles if name not in held_names]
+    extra = [role for name, role in held_names.items() if name not in roles]
     changes: list[str] = []
     if missing:
         (await client.post(mappings, headers=headers, json=missing)).raise_for_status()
@@ -312,6 +350,30 @@ async def _ensure_email_theme(
     return ["e-mail theme set"]
 
 
+async def _ensure_realm_client(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str, secret: str
+) -> list[str]:
+    """`supportx-realm` with exactly REALM_ROLES, when its secret is given."""
+    if not secret:
+        return []
+    internal, changes = await _ensure_client(client, headers, realm, secret, REALM_CLIENT_ID)
+    return changes + await _ensure_roles(client, headers, realm, internal, REALM_ROLES)
+
+
+async def _upgrade_password_policy(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The old shipped default becomes the new one; any other policy is kept."""
+    path = f"/admin/realms/{realm}"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    if current.json().get("passwordPolicy") != OLD_DEFAULT_POLICY:
+        return []
+    policy = {"passwordPolicy": to_keycloak(PasswordPolicy())}
+    (await client.put(path, headers=headers, json=policy)).raise_for_status()
+    return ["password policy: the new default (breached list on)"]
+
+
 async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Result:
     """Everything in the module docstring, idempotent."""
     token = await admin_token(client, target.user, target.password)
@@ -324,6 +386,8 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     realm.raise_for_status()
     internal, changes = await _ensure_client(client, headers, target.realm, target.secret)
     changes += await _ensure_roles(client, headers, target.realm, internal)
+    changes += await _ensure_realm_client(client, headers, target.realm, target.realm_secret)
+    changes += await _upgrade_password_policy(client, headers, target.realm)
     changes += await _ensure_events(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
@@ -370,6 +434,7 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
         password=env["SUPPORTX_KEYCLOAK_ADMIN_PASSWORD"],
         secret=secret,
         realm=realm,
+        realm_secret=env.get("SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET", ""),
         smtp=smtp_from_env(dict(env)),
     )
     try:

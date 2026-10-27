@@ -33,6 +33,9 @@ values=(
   "SUPPORTX_OIDC_PORTAL_CLIENT_SECRET=${KEYCLOAK_PORTAL_CLIENT_SECRET}"
   # Identity administration (WP-039): the service account `make keycloak-identity` sets up.
   "SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET=${KEYCLOAK_IDENTITY_CLIENT_SECRET:-}"
+  # The password policy's account (manage-realm). In dev the API and the workers share this file;
+  # the chart gives it to the consumers worker only.
+  "SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET=${KEYCLOAK_REALM_CLIENT_SECRET:-}"
   # The SSO test identity provider is a realm of the dev Keycloak, on this machine.
   "SUPPORTX_SSO_FETCH_ALLOW_LOOPBACK=true"
   # Outgoing mail (WP-039, D-089 D3): the local mail catcher (web UI on MAILPIT_WEB_PORT).

@@ -123,6 +123,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("desk.changed", AuditCategory.CONFIGURATION, "organization"),
     # branding and addresses (WP-017)
     ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    ("identity.password_policy_reapplied", AuditCategory.SECURITY, "identity_access"),
     ("sso.added", AuditCategory.SECURITY, "identity_access"),
     ("sso.updated", AuditCategory.SECURITY, "identity_access"),
     ("sso.tested", AuditCategory.SECURITY, "identity_access"),

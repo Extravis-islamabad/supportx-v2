@@ -3,14 +3,17 @@
 Admin > Sign-in and security reads and saves these with `identity.manage`; every change is
 audited (D-089 D7) and reaches other open settings pages live.
 
-- `GET /identity/settings`, `PUT` (If-Match; "0" for the first save): session timeouts for the
-  console and the portal, and whether a first sign-in creates the person.
+- `GET /identity/settings`, `PUT` (If-Match; "0" for the first save; fields left out are kept):
+  session timeouts for the console and the portal, whether a first sign-in creates the person,
+  how long invitations last, the password policy; `POST /identity/settings/password-policy/
+  apply` after the worker could not apply it.
 - `/identity/sso`: the tenant's SAML and OpenID Connect set-ups (REQ-SEC-007, 008): list, add
   (Idempotency-Key), change, remove (If-Match), a test sign-in, switch on and off. The client
   secret is accepted, never returned.
 """
 
 import uuid
+from dataclasses import replace
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
@@ -61,48 +64,95 @@ IDLE = Field(description=f"Idle timeout in seconds ({MIN_IDLE_SECONDS} to {MAX_I
 
 
 class IdentitySettingsBody(BaseModel):
-    """Sessions per app and people creation on first sign-in.
+    """Sessions per app, people creation, invitations and the password policy.
 
-    Absolute: at least the idle timeout; at most 7 days for the console, 30 for the portal.
+    Every field is optional: a field left out keeps its saved value, so each part of the screen
+    saves only its own fields. Absolute: at least the idle timeout; at most 7 days for the
+    console, 30 for the portal.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    console_idle_seconds: Annotated[int, IDLE]
-    console_absolute_seconds: int = Field(description="Absolute session length in seconds.")
-    portal_idle_seconds: Annotated[int, IDLE]
-    portal_absolute_seconds: int = Field(description="Absolute session length in seconds.")
-    create_people_on_sign_in: bool = Field(
-        description="A first sign-in creates the person as requester (REQ-SEC-013)."
+    console_idle_seconds: Annotated[int | None, IDLE] = None
+    console_absolute_seconds: int | None = Field(
+        default=None, description="Absolute session length in seconds."
     )
-    invitation_valid_days: int = Field(
-        default=7, description="How long an invitation link works (1 to 30 days)."
+    portal_idle_seconds: Annotated[int | None, IDLE] = None
+    portal_absolute_seconds: int | None = Field(
+        default=None, description="Absolute session length in seconds."
+    )
+    create_people_on_sign_in: bool | None = Field(
+        default=None, description="A first sign-in creates the person as requester (REQ-SEC-013)."
+    )
+    invitation_valid_days: int | None = Field(
+        default=None, description="How long an invitation link works (1 to 30 days)."
+    )
+    # REQ-SEC-005: installation-wide; refused on multi-tenant installations.
+    password_min_length: int | None = Field(default=None, description="8 to 64 characters.")
+    password_upper: bool | None = Field(default=None, description="Needs an upper-case letter.")
+    password_lower: bool | None = Field(default=None, description="Needs a lower-case letter.")
+    password_digits: bool | None = Field(default=None, description="Needs a digit.")
+    password_special: bool | None = Field(default=None, description="Needs a special character.")
+    password_history: int | None = Field(
+        default=None, description="The last N passwords are refused (0 to 24; 0 = none)."
+    )
+    password_expiry_days: int | None = Field(
+        default=None, description="Days a password lasts (0 to 365; 0 = never expires)."
+    )
+    password_breached_check: bool | None = Field(
+        default=None, description="Refuse passwords on the installation's breached list."
     )
 
 
-class IdentitySettingsOut(IdentitySettingsBody):
+class IdentitySettingsOut(BaseModel):
     """The settings and their version (0: never saved, the Appendix A defaults)."""
 
-    model_config = ConfigDict(extra="ignore")
-
+    console_idle_seconds: int
+    console_absolute_seconds: int
+    portal_idle_seconds: int
+    portal_absolute_seconds: int
+    create_people_on_sign_in: bool
+    invitation_valid_days: int
+    password_min_length: int
+    password_upper: bool
+    password_lower: bool
+    password_digits: bool
+    password_special: bool
+    password_history: int
+    password_expiry_days: int
+    password_breached_check: bool
+    password_policy_editable: bool = Field(
+        description="False on multi-tenant installations: the platform's policy applies."
+    )
+    password_policy_state: Literal["default", "applying", "applied", "failed"] = Field(
+        description="default: never edited here; applying until written into Keycloak."
+    )
+    password_policy_error: str | None = Field(
+        description="Why the policy was not applied (a code the screen explains)."
+    )
     version: int = Field(description="Send back as If-Match.")
 
 
-def _out(view: identity_settings.IdentitySettingsView) -> IdentitySettingsOut:
-    return IdentitySettingsOut(**view.__dict__)
+def _out(view: identity_settings.IdentitySettingsView, request: Request) -> IdentitySettingsOut:
+    return IdentitySettingsOut(
+        **view.__dict__, password_policy_editable=not _require_domain_proof(request)
+    )
 
 
 @router.get("/settings", summary="Sign-in settings")
-async def get_settings(session: TenantSession, subject: Manage) -> IdentitySettingsOut:
+async def get_settings(
+    request: Request, session: TenantSession, subject: Manage
+) -> IdentitySettingsOut:
     """The tenant's sign-in settings, or the defaults (version 0)."""
     del subject
-    return _out(await identity_settings.get_identity_settings(session))
+    return _out(await identity_settings.get_identity_settings(session), request)
 
 
 @router.put("/settings", summary="Save sign-in settings")
-async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, response, session, subject, audit note
+async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, version, request, response, session, subject, audit note
     body: IdentitySettingsBody,
     version: ExpectedVersion,
+    request: Request,
     response: Response,
     session: TenantSession,
     subject: Manage,
@@ -110,17 +160,41 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI parameters: body, ve
         AuditNote, audited("identity.settings_changed", object_type="identity_settings")
     ],
 ) -> IdentitySettingsOut:
-    """Session limits apply to sessions begun from now on; people creation at once."""
+    """Save the fields sent; the others keep their values.
+
+    Session limits apply to sessions begun from now on; people creation at once; the password
+    policy once the worker has written it into Keycloak (`password_policy_state`).
+    """
+    current = await identity_settings.get_identity_settings(session)
     saved, details = await identity_settings.save_identity_settings(
         session,
-        identity_settings.IdentitySettingsView(**body.model_dump(), version=version),
+        replace(current, **body.model_dump(exclude_none=True)),
         expected_version=version,
+        multi_tenant=_require_domain_proof(request),
     )
     note.object_id = str(subject.tenant_id)
     note.details = details
     note.skip = not details
     set_etag(response, saved.version)
-    return _out(saved)
+    return _out(saved, request)
+
+
+@router.post("/settings/password-policy/apply", summary="Apply the password policy again")
+async def apply_password_policy(
+    request: Request,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[
+        AuditNote,
+        audited("identity.password_policy_reapplied", object_type="identity_settings"),
+    ],
+) -> IdentitySettingsOut:
+    """After `failed`: the worker writes the saved policy into Keycloak again."""
+    saved = await identity_settings.apply_password_policy_again(
+        session, multi_tenant=_require_domain_proof(request)
+    )
+    note.object_id = str(subject.tenant_id)
+    return _out(saved, request)
 
 
 # --- single sign-on (REQ-SEC-007, REQ-SEC-008) ----------------------------------------------------

@@ -9,6 +9,9 @@ import pytest
 from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
+    OLD_DEFAULT_POLICY,
+    PROFILE_ATTRIBUTES,
+    REALM_CLIENT_ID,
     ROLES,
     SSO_MAX_SECONDS,
     Outcome,
@@ -21,6 +24,7 @@ from tooling.keycloak_theme import KeycloakUnavailableError
 
 BASE = "http://keycloak:8080/auth"
 SECRET = "a-long-identity-client-secret"  # test data
+REALM_SECRET = "a-long-realm-client-secret"  # test data
 MANAGEMENT_ROLES = [*ROLES, "realm-admin", "manage-realm", "view-users"]
 
 
@@ -35,11 +39,23 @@ class FakeKeycloak:
         )
         self.clients: list[dict[str, Any]] = []
         self.secrets: dict[str, str] = {}
-        self.held: list[dict[str, str]] = []
+        self.held_by: dict[str, list[dict[str, str]]] = {}
         self.events: dict[str, Any] = {"eventsEnabled": False, "eventsListeners": ["jboss-logging"]}
         self.profile: dict[str, Any] = {"attributes": [{"name": "email"}], "groups": []}
         self.writes: list[str] = []
         self.password = "right"
+
+    @property
+    def held(self) -> list[dict[str, str]]:
+        """The identity client's roles (the first client made)."""
+        return self.held_by.setdefault("sa-c1", [])
+
+    @held.setter
+    def held(self, roles: list[dict[str, str]]) -> None:
+        self.held_by["sa-c1"] = roles
+
+    def client(self, client_id: str) -> dict[str, Any]:
+        return next(c for c in self.clients if c["clientId"] == client_id)
 
     def handler(self, request: httpx.Request) -> httpx.Response:  # noqa: C901, PLR0911, PLR0912 - one fake for the whole admin API
         path = request.url.path.removeprefix("/auth")
@@ -61,28 +77,34 @@ class FakeKeycloak:
         if path == "/admin/realms/supportx/clients":
             wanted = request.url.params.get("clientId")
             if method == "POST":
-                self.clients.append({**body, "id": "c1"})
-                self.secrets["c1"] = body["secret"]
+                internal = f"c{len(self.clients) + 1}"
+                self.clients.append({**body, "id": internal})
+                self.secrets[internal] = body["secret"]
                 return httpx.Response(201)
             if wanted == "realm-management":
                 return httpx.Response(200, json=[{"id": "rm"}])
             return httpx.Response(200, json=[c for c in self.clients if c["clientId"] == wanted])
-        if path == "/admin/realms/supportx/clients/c1":
-            self.clients[0] = body
-            self.secrets["c1"] = body["secret"]
-            return httpx.Response(204)
-        if path == "/admin/realms/supportx/clients/c1/client-secret":
-            return httpx.Response(200, json={"value": self.secrets["c1"]})
-        if path == "/admin/realms/supportx/clients/c1/service-account-user":
-            return httpx.Response(200, json={"id": "sa"})
-        if path == "/admin/realms/supportx/clients/rm/roles":
+        parts = path.removeprefix("/admin/realms/supportx/").split("/")
+        if parts[0] == "clients" and parts[1] == "rm" and parts[2:] == ["roles"]:
             return httpx.Response(200, json=[{"id": n, "name": n} for n in MANAGEMENT_ROLES])
-        if path == "/admin/realms/supportx/users/sa/role-mappings/clients/rm":
+        if parts[0] == "clients" and len(parts) >= 2:
+            internal, rest = parts[1], parts[2:]
+            if not rest:
+                index = next(i for i, c in enumerate(self.clients) if c["id"] == internal)
+                self.clients[index] = body
+                self.secrets[internal] = body["secret"]
+                return httpx.Response(204)
+            if rest == ["client-secret"]:
+                return httpx.Response(200, json={"value": self.secrets[internal]})
+            if rest == ["service-account-user"]:
+                return httpx.Response(200, json={"id": f"sa-{internal}"})
+        if parts[0] == "users" and parts[2:] == ["role-mappings", "clients", "rm"]:
+            held = self.held_by.setdefault(parts[1], [])
             if method == "POST":
-                self.held += body
+                held += body
             elif method == "DELETE":
-                self.held = [r for r in self.held if r not in body]
-            return httpx.Response(200 if method == "GET" else 204, json=self.held)
+                self.held_by[parts[1]] = [r for r in held if r not in body]
+            return httpx.Response(200 if method == "GET" else 204, json=self.held_by[parts[1]])
         if path == "/admin/realms/supportx/users/profile":
             if method == "PUT":
                 self.profile = body
@@ -96,9 +118,9 @@ class FakeKeycloak:
         return httpx.Response(404)
 
 
-async def _run(keycloak: FakeKeycloak, password: str = "right") -> Result:  # noqa: S107 - test data  # noqa: ANN401 - Result
+async def _run(keycloak: FakeKeycloak, password: str = "right", realm_secret: str = "") -> Result:  # noqa: S107 - test data
     return await run(
-        Target(BASE, user="admin", password=password, secret=SECRET),
+        Target(BASE, user="admin", password=password, secret=SECRET, realm_secret=realm_secret),
         wait_seconds=0,
         transport=httpx.MockTransport(keycloak.handler),
         retry_seconds=0,
@@ -123,7 +145,7 @@ async def test_sets_up_the_service_account_once_then_changes_nothing() -> None:
     assert keycloak.realm is not None
     assert keycloak.realm["ssoSessionMaxLifespan"] == SSO_MAX_SECONDS
     declared = {a["name"]: a for a in keycloak.profile["attributes"]}
-    assert set(declared) == {"email", "sx_department", "sx_site"}  # the realm's own kept
+    assert set(declared) == {"email", *PROFILE_ATTRIBUTES}  # the realm's own kept
     assert declared["sx_department"]["permissions"] == {"view": ["admin"], "edit": ["admin"]}
     keycloak.writes.clear()
     second = await _run(keycloak)
@@ -205,3 +227,34 @@ async def test_the_realm_sends_mail_through_the_installations_mail_settings() ->
     assert keycloak.realm is not None
     assert keycloak.realm["smtpServer"] == smtp
     assert smtp_from_env({"SUPPORTX_MAIL_SMTP_HOST": "x"}) is None  # no sender: not configured
+
+
+async def test_a_second_client_holds_only_manage_realm_for_the_password_policy() -> None:
+    """WP-039 session 2: the realm setting has its own account, given to the worker alone."""
+    keycloak = FakeKeycloak()
+    await _run(keycloak)
+    assert [c["clientId"] for c in keycloak.clients] == [CLIENT_ID]  # no secret: not made
+    result = await _run(keycloak, realm_secret=REALM_SECRET)
+    realm_client = keycloak.client(REALM_CLIENT_ID)
+    assert f"client {REALM_CLIENT_ID} created" in result.changes
+    assert realm_client["serviceAccountsEnabled"] is True
+    assert realm_client["standardFlowEnabled"] is False
+    assert keycloak.secrets[realm_client["id"]] == REALM_SECRET
+    assert [r["name"] for r in keycloak.held_by[f"sa-{realm_client['id']}"]] == ["manage-realm"]
+    assert "manage-realm" not in {r["name"] for r in keycloak.held}  # never on the API's
+    keycloak.writes.clear()
+    again = await _run(keycloak, realm_secret=REALM_SECRET)
+    assert (again.outcome, keycloak.writes) == (Outcome.READY, [])
+
+
+async def test_only_the_old_shipped_password_policy_is_upgraded() -> None:
+    keycloak = FakeKeycloak()
+    assert keycloak.realm is not None
+    keycloak.realm["passwordPolicy"] = OLD_DEFAULT_POLICY
+    result = await _run(keycloak)
+    assert "password policy: the new default (breached list on)" in result.changes
+    assert "passwordBlacklist(supportx-breached.txt)" in keycloak.realm["passwordPolicy"]
+    chosen = "length(16) and passwordHistory(3)"  # an operator's or an admin's own
+    keycloak.realm["passwordPolicy"] = chosen
+    await _run(keycloak)
+    assert keycloak.realm["passwordPolicy"] == chosen

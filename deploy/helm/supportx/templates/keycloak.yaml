@@ -42,6 +42,18 @@ binaryData:
   {{- end }}
   {{- end }}
 ---
+# The breached-password list the realm's password policy names (REQ-SEC-005, D-089 D2): shipped
+# with the chart, read offline. An operator with a larger list replaces this ConfigMap's file.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "supportx.name" $c }}-password-blacklists
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+data:
+  supportx-breached.txt: |
+    {{- .Files.Get "files/keycloak/password-blacklists/supportx-breached.txt" | nindent 4 }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -143,6 +155,7 @@ spec:
           volumeMounts:
             - {name: realm, mountPath: /opt/keycloak/data/import, readOnly: true}
             - {name: theme, mountPath: /opt/keycloak/themes/supportx, readOnly: true}
+            - {name: password-blacklists, mountPath: /opt/keycloak/data/password-blacklists, readOnly: true}
             - {name: build, mountPath: /opt/keycloak/lib/quarkus}
             - {name: data-tmp, mountPath: /opt/keycloak/data/tmp}
             - {name: tmp, mountPath: /tmp}
@@ -157,6 +170,8 @@ spec:
               {{- $file := trimPrefix "files/keycloak/themes/supportx/" $path }}
               - {key: {{ replace "/" "__" $file }}, path: {{ $file }}}
               {{- end }}
+        - name: password-blacklists
+          configMap: {name: {{ include "supportx.name" $c }}-password-blacklists}
         - name: build
           emptyDir: {}
         - name: data-tmp

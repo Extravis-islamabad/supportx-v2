@@ -4,7 +4,8 @@
   mail.md); bodies and attachments cleared `mail_content_retention_days` after sending.
 - invitations: who was invited to sign in, when, until when, and what became of it
   (REQ-SEC-018..020); Keycloak sends the e-mail.
-- identity_settings.invitation_valid_days: how long an invitation link works (7, 1 to 30).
+- identity_settings.invitation_valid_days: how long an invitation link works (7, 1 to 30);
+- identity_settings.password_*: the installation's password policy and whether it is applied.
 
 All tenant-scoped with RLS. Reversible.
 
@@ -25,6 +26,24 @@ revision: str = "0026"
 down_revision: str | None = "0024"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
+
+# identity_settings: the installation's password policy (REQ-SEC-005, Appendix A defaults).
+PASSWORD_COLUMNS = [
+    (name, sa.Column(name, kind, server_default=default, nullable=nullable))
+    for name, kind, default, nullable in (
+        ("password_min_length", sa.BigInteger(), "12", False),
+        ("password_upper", sa.Boolean(), "true", False),
+        ("password_lower", sa.Boolean(), "true", False),
+        ("password_digits", sa.Boolean(), "true", False),
+        ("password_special", sa.Boolean(), "true", False),
+        ("password_history", sa.BigInteger(), "5", False),
+        ("password_expiry_days", sa.BigInteger(), "0", False),
+        ("password_breached_check", sa.Boolean(), "true", False),
+        ("password_policy_state", sa.String(length=20), "default", False),
+        ("password_policy_error", sa.String(length=60), None, True),
+    )
+]
 
 
 def upgrade() -> None:
@@ -210,9 +229,26 @@ def upgrade() -> None:
         "identity_settings",
         "invitation_valid_days BETWEEN 1 AND 30",
     )
+    for _, column in PASSWORD_COLUMNS:
+        op.add_column("identity_settings", column)
+    op.create_check_constraint(
+        op.f("ck_identity_settings_password_policy_range"),
+        "identity_settings",
+        "password_min_length BETWEEN 8 AND 64 AND password_history BETWEEN 0 AND 24"
+        " AND password_expiry_days BETWEEN 0 AND 365",
+    )
+    op.create_check_constraint(
+        op.f("ck_identity_settings_password_policy_state"),
+        "identity_settings",
+        "password_policy_state IN ('default', 'applying', 'applied', 'failed')",
+    )
 
 
 def downgrade() -> None:
+    op.drop_constraint(op.f("ck_identity_settings_password_policy_state"), "identity_settings")
+    op.drop_constraint(op.f("ck_identity_settings_password_policy_range"), "identity_settings")
+    for name, _ in reversed(PASSWORD_COLUMNS):
+        op.drop_column("identity_settings", name)
     op.drop_constraint(op.f("ck_identity_settings_invitation_days_range"), "identity_settings")
     op.drop_column("identity_settings", "invitation_valid_days")
     op.drop_index("ix_invitations_tenant_user", table_name="invitations")

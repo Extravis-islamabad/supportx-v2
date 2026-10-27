@@ -265,7 +265,9 @@ keycloak:
   setLoginTheme: true
   # Upgrade step (WP-039, ADR-036): a Job per revision makes sure the `supportx-identity`
   # service account (least-privileged admin roles) exists with the secret
-  # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's.
+  # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's. With
+  # `keycloak-realm-secret` it also makes `supportx-realm` (manage-realm only), the account the
+  # consumers worker applies the password policy with.
   setUpIdentityAdmin: true
   resources:
     requests: {cpu: 250m, memory: 768Mi}

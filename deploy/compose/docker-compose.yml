@@ -163,6 +163,8 @@ services:
       - ../helm/supportx/files/keycloak/dev:/opt/keycloak/data/import:ro
       # SupportX login theme (branding.md); start-dev does not cache themes, edits show at once.
       - ../helm/supportx/files/keycloak/themes/supportx:/opt/keycloak/themes/supportx:ro
+      # The breached-password list the password policy names (REQ-SEC-005, D-089 D2).
+      - ../helm/supportx/files/keycloak/password-blacklists:/opt/keycloak/data/password-blacklists:ro
     ports:
       - "127.0.0.1:${KEYCLOAK_PORT:-28080}:8080"
       - "127.0.0.1:${KEYCLOAK_MANAGEMENT_PORT:-28090}:9000"

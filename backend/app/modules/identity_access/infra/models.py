@@ -276,10 +276,14 @@ MIN_IDLE_SECONDS = 300
 MAX_IDLE_SECONDS = 86400
 
 
+PASSWORD_POLICY_STATES = ("default", "applying", "applied", "failed")
+
+
 class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     """A tenant's sign-in settings (WP-039, REQ-SEC-017): sessions and people creation.
 
-    No row: the defaults of Appendix A. Password and MFA policy join with WP-039's later sessions.
+    No row: the defaults of Appendix A. The password policy joined in session 2; the MFA policy
+    joins in session 3.
     """
 
     __tablename__ = "identity_settings"
@@ -298,6 +302,14 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
             name="absolute_range",
         ),
         CheckConstraint("invitation_valid_days BETWEEN 1 AND 30", name="invitation_days_range"),
+        CheckConstraint(
+            "password_min_length BETWEEN 8 AND 64 AND password_history BETWEEN 0 AND 24"
+            " AND password_expiry_days BETWEEN 0 AND 365",
+            name="password_policy_range",
+        ),
+        CheckConstraint(
+            f"password_policy_state IN {PASSWORD_POLICY_STATES!r}", name="password_policy_state"
+        ),
     )
 
     console_idle_seconds: Mapped[int] = mapped_column(
@@ -317,6 +329,19 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     create_people_on_sign_in: Mapped[bool] = mapped_column(server_default="true")
     # REQ-SEC-020, Appendix A: how long an invitation link works (7 days; at most 30).
     invitation_valid_days: Mapped[int] = mapped_column(server_default="7")
+    # REQ-SEC-005, Appendix A (domain/password_policy.py): the installation's password policy,
+    # which a worker writes into the realm. `default`: never edited here (the realm keeps what
+    # the deploy gave it); `applying` until the worker wrote it; `failed` with the reason code.
+    password_min_length: Mapped[int] = mapped_column(server_default="12")
+    password_upper: Mapped[bool] = mapped_column(server_default="true")
+    password_lower: Mapped[bool] = mapped_column(server_default="true")
+    password_digits: Mapped[bool] = mapped_column(server_default="true")
+    password_special: Mapped[bool] = mapped_column(server_default="true")
+    password_history: Mapped[int] = mapped_column(server_default="5")
+    password_expiry_days: Mapped[int] = mapped_column(server_default="0")
+    password_breached_check: Mapped[bool] = mapped_column(server_default="true")
+    password_policy_state: Mapped[str] = mapped_column(String(20), server_default="default")
+    password_policy_error: Mapped[str | None] = mapped_column(String(60))
 
 
 SSO_PROTOCOLS = ("oidc", "saml")

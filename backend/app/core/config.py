@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     # settings that need Keycloak answer `identity_admin_not_configured`.
     keycloak_identity_client_id: str = "supportx-identity"
     keycloak_identity_client_secret: SecretStr | None = None
+    # Realm settings (WP-039 session 2): the password policy is a realm setting (manage-realm),
+    # so it has its own service account, whose secret only the consumers worker holds. None: the
+    # policy is saved but not applied (`password_policy_not_configured`).
+    keycloak_realm_client_id: str = "supportx-realm"
+    keycloak_realm_client_secret: SecretStr | None = None
     # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
     # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
     # the test identity provider runs on the same machine.

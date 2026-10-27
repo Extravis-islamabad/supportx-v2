@@ -133,6 +133,14 @@ class IdentityAdmin(Protocol):
     ) -> list[LoginEvent]: ...
 
 
+class RealmAdmin(Protocol):
+    """The realm settings SupportX changes as `supportx-realm` (manage-realm; worker only)."""
+
+    async def set_password_policy(self, policy: str) -> None: ...  # noqa: D102 - see KeycloakAdmin
+
+    async def close(self) -> None: ...  # noqa: D102
+
+
 def admin_base(settings: Settings) -> tuple[str, str] | None:
     """(Keycloak base URL, realm) from the back-channel realm URL; None when not configured."""
     realm_url = settings.oidc_internal_url or settings.oidc_issuer
@@ -176,6 +184,26 @@ class KeycloakAdmin:
             base,
             realm,
             client_id=settings.keycloak_identity_client_id,
+            client_secret=secret.get_secret_value(),
+            timeout=settings.oidc_timeout_seconds,
+        )
+
+    @classmethod
+    def realm_from_settings(cls, settings: Settings) -> "KeycloakAdmin | None":
+        """The realm-settings client (`supportx-realm`), or None when not set up.
+
+        Its service account holds manage-realm, so only the consumers worker gets the secret
+        (the chart gives it to no other pod): an API process can never change the realm.
+        """
+        found = admin_base(settings)
+        secret = settings.keycloak_realm_client_secret
+        if found is None or secret is None or not secret.get_secret_value():
+            return None
+        base, realm = found
+        return cls(
+            base,
+            realm,
+            client_id=settings.keycloak_realm_client_id,
             client_secret=secret.get_secret_value(),
             timeout=settings.oidc_timeout_seconds,
         )
@@ -453,6 +481,10 @@ class KeycloakAdmin:
                 )
             )
         return events
+
+    async def set_password_policy(self, policy: str) -> None:
+        """The realm's password policy (a partial representation: nothing else changes)."""
+        await self._call("PUT", "", json={"passwordPolicy": policy})
 
 
 def _day(epoch_ms: int) -> str:

@@ -37,6 +37,9 @@ spec:
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-admin-password}}
             - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-identity-secret}}
+            # supportx-realm (manage-realm, the password policy); without it the client is not made.
+            - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-realm-secret, optional: true}}
             {{- if .Values.mail.smtpHost }}
             - {name: SUPPORTX_MAIL_SMTP_HOST, value: {{ .Values.mail.smtpHost | quote }}}
             - {name: SUPPORTX_MAIL_SMTP_PORT, value: {{ .Values.mail.smtpPort | quote }}}
