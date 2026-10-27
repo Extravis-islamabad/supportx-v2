@@ -110,8 +110,12 @@ def test_the_login_template_loads_the_tenant_stylesheet() -> None:
 
     theme = Path(__file__).resolve().parents[2] / "deploy/helm/supportx/files/keycloak/themes"
     template = (theme / "supportx/login/template.ftl").read_text(encoding="utf-8")
-    assert "<#if org?? && properties.supportxBrandingUrl?has_content>" in template
-    assert "${properties.supportxBrandingUrl}/${org.alias?url('UTF-8')}/login.css" in template
+    assert "org.attributes.tenant_id??" in template
+    assert (
+        "${properties.supportxBrandingUrl}/${org.attributes.tenant_id[0]?url('UTF-8')}/login.css"
+        in template
+    )
+    assert "org.alias" not in template  # slugs are guessable: never the key of public URLs
     assert template.count("<#-- /SupportX -->") == 1
     properties = (theme / "supportx/login/theme.properties").read_text(encoding="utf-8")
     assert "supportxBrandingUrl=${env.SUPPORTX_BRANDING_URL:/api/v1/public/branding}" in properties

@@ -2325,18 +2325,6 @@
             "title": "Product Name",
             "type": "object"
           },
-          "tenant_slug": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "None for the default brand (unknown address).",
-            "title": "Tenant Slug"
-          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -2350,7 +2338,6 @@
           }
         },
         "required": [
-          "tenant_slug",
           "customised",
           "primary_colour",
           "gradient",
@@ -2462,18 +2449,6 @@
             "title": "Product Name",
             "type": "object"
           },
-          "tenant_slug": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "None for the default brand (unknown address).",
-            "title": "Tenant Slug"
-          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -2487,7 +2462,6 @@
           }
         },
         "required": [
-          "tenant_slug",
           "customised",
           "primary_colour",
           "gradient",
@@ -5308,6 +5282,41 @@
           "message_key"
         ],
         "title": "ProblemDetail",
+        "type": "object"
+      },
+      "PublicBrandingOut": {
+        "description": "What anyone may learn about an address before sign-in: its logo and colours only.",
+        "properties": {
+          "customised": {
+            "description": "False: the SupportX default (also for unknown addresses).",
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "gradient": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Gradient",
+            "type": "array"
+          },
+          "logos": {
+            "$ref": "#/components/schemas/Logos"
+          },
+          "primary_colour": {
+            "description": "The seed of every primary shade.",
+            "title": "Primary Colour",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customised",
+          "primary_colour",
+          "gradient",
+          "logos"
+        ],
+        "title": "PublicBrandingOut",
         "type": "object"
       },
       "ReadCategory": {
@@ -21356,14 +21365,14 @@
     },
     "/api/v1/public/branding": {
       "get": {
-        "description": "The brand of the address used (subdomain or verified custom domain); default otherwise.\n\nOnly a hint for what to show before sign-in: it never decides access.",
+        "description": "Logo and colours of the address used (subdomain or verified custom domain).\n\nUnknown addresses get the default. Only a hint for what to show before sign-in: it never\ndecides access, and it says nothing else about the tenant.",
         "operationId": "public_branding_api_v1_public_branding_get",
         "responses": {
           "200": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BrandingOut"
+                  "$ref": "#/components/schemas/PublicBrandingOut"
                 }
               }
             },
@@ -21386,17 +21395,17 @@
         ]
       }
     },
-    "/api/v1/public/branding/{slug}/login.css": {
+    "/api/v1/public/branding/{tenant_ref}/login.css": {
       "get": {
-        "description": "The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003).",
-        "operationId": "login_stylesheet_api_v1_public_branding__slug__login_css_get",
+        "description": "The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003).\n\nAn unknown ID gets the default stylesheet, byte for byte what an unbranded tenant gets.",
+        "operationId": "login_stylesheet_api_v1_public_branding__tenant_ref__login_css_get",
         "parameters": [
           {
             "in": "path",
-            "name": "slug",
+            "name": "tenant_ref",
             "required": true,
             "schema": {
-              "title": "Slug",
+              "title": "Tenant Ref",
               "type": "string"
             }
           }
@@ -21407,16 +21416,6 @@
               "text/css": {}
             },
             "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
-                }
-              }
-            },
-            "description": "Not Found"
           },
           "422": {
             "content": {
@@ -21445,17 +21444,17 @@
         ]
       }
     },
-    "/api/v1/public/branding/{slug}/{name}": {
+    "/api/v1/public/branding/{tenant_ref}/{name}": {
       "get": {
-        "description": "One generated image. Cached for a year when `v` is the current version.",
-        "operationId": "brand_image_api_v1_public_branding__slug___name__get",
+        "description": "One generated image. Cached for a year when `v` is the current version.\n\nThe same 404 for an unknown tenant, a tenant without that image and an unknown name.",
+        "operationId": "brand_image_api_v1_public_branding__tenant_ref___name__get",
         "parameters": [
           {
             "in": "path",
-            "name": "slug",
+            "name": "tenant_ref",
             "required": true,
             "schema": {
-              "title": "Slug",
+              "title": "Tenant Ref",
               "type": "string"
             }
           },

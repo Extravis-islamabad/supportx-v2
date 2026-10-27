@@ -66,9 +66,10 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
   page,
 }) => {
   test.setTimeout(180_000);
-  const probe = await page.request.get(`${DEMO}/api/v1/public/branding`);
+  // Tenant addresses are configured when the address's sign-in asks for its organization.
+  const probe = await page.request.get(`${DEMO}/api/v1/auth/login`, { maxRedirects: 0 });
   test.skip(
-    ((await probe.json()) as { tenant_slug: string | null }).tenant_slug !== 'demo',
+    !(probe.headers().location ?? '').includes('organization%3Ademo'),
     'tenant addresses are not configured on this stack (SUPPORTX_TENANT_BASE_DOMAIN)',
   );
 
@@ -104,18 +105,18 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
       logo_file_id: fileId,
       product_name: { en: 'Demo Desk' },
     });
-    expect(saved.logos.full).toContain('/api/v1/public/branding/demo/logo.png');
+    expect(saved.logos.full).toMatch(/\/api\/v1\/public\/branding\/[0-9a-f-]{36}\/logo\.png/);
 
     // The signed-in console shows the tenant's logo and favicon.
     await page.reload();
     await expect(page.getByTestId('brand-logo-full').first()).toHaveAttribute(
       'src',
-      /\/public\/branding\/demo\/logo\.png/,
+      /\/public\/branding\/[0-9a-f-]{36}\/logo\.png/,
     );
     await expect(page.getByTestId('brand-logo-full').first()).toHaveAttribute('alt', 'Demo Desk');
     await expect(page.locator('link[rel="icon"]').first()).toHaveAttribute(
       'href',
-      /\/public\/branding\/demo\/favicon\.ico/,
+      /\/public\/branding\/[0-9a-f-]{36}\/favicon\.ico/,
     );
 
     // Live (REQ-ADM-055 AC1): a second save reaches this open console without a reload.
@@ -137,7 +138,9 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
       try {
         await login.goto(`${DEMO}/`);
         await expect(login).toHaveURL(/scope=[^&]*organization%3Ademo/);
-        await expect(login.locator('link[href*="/public/branding/demo/login.css"]')).toHaveCount(1);
+        await expect(
+          login.locator('link[href$="/login.css"][href*="/public/branding/"]'),
+        ).toHaveCount(1);
         await expect.poll(() => primaryButtonColour(login)).toBe('rgb(11, 83, 148)');
         await expect
           .poll(() =>
@@ -145,7 +148,7 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
               .locator('#kc-header-wrapper')
               .evaluate((n) => getComputedStyle(n).backgroundImage),
           )
-          .toContain('/public/branding/demo/logo.png');
+          .toMatch(/\/public\/branding\/[0-9a-f-]{36}\/logo\.png/);
         if (locale === 'ar') await expect(login.locator('html')).toHaveAttribute('dir', 'rtl');
         await expectAccessible(login, `Demo Company sign-in page (${locale})`);
       } finally {

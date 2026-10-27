@@ -1,4 +1,4 @@
-import type { BrandingResult } from '@supportx/api-client';
+import type { BrandingResult, PublicBrandingResult } from '@supportx/api-client';
 
 import type { Branding } from '../theme';
 
@@ -12,12 +12,13 @@ const orUndefined = (value: string | null | undefined) => value ?? undefined;
  * gives undefined, so the SupportX files and colours stay. Logos are replaced as a set: a tenant
  * that uploaded one keeps no SupportX variant beside it.
  */
-// The public and signed-in reads type the gradient differently (tuple vs array) in the generated
-// schema; only what both carry is read here.
-type BrandSource = Omit<BrandingResult, 'gradient'> & { gradient: readonly string[] };
+// Before sign-in the address's brand carries logo and colours only (no texts); signed in, the
+// tenant's carries its names too.
+type BrandSource = PublicBrandingResult &
+  Partial<Pick<BrandingResult, 'product_name' | 'portal_name' | 'welcome_text'>>;
 
 export function brandingFrom(result: BrandSource | undefined): Partial<Branding> | undefined {
-  if (result?.tenant_slug == null || !result.customised) return undefined;
+  if (result?.customised !== true) return undefined;
   const { logos } = result;
   const brand: Partial<Branding> = {
     colorPrimary: result.primary_colour,
@@ -26,9 +27,9 @@ export function brandingFrom(result: BrandSource | undefined): Partial<Branding>
       result.gradient[1] ?? result.primary_colour,
     ],
     texts: {
-      productName: result.product_name,
-      portalName: result.portal_name,
-      welcomeText: result.welcome_text,
+      productName: result.product_name ?? {},
+      portalName: result.portal_name ?? {},
+      welcomeText: result.welcome_text ?? {},
     },
     favicon: orUndefined(logos.favicon),
     appleTouchIcon: orUndefined(logos.apple_touch_icon),

@@ -21,10 +21,14 @@ Organizations (D-010), and Keycloak and the API share one host in Kubernetes (D-
 2. **Uploads are files** (WP-022, owner `branding`): scanned and encrypted like any file. The
    variants every surface shows (logo per theme, icon, favicons) are generated with Pillow on
    save into `branding_assets` and **served publicly** on versioned URLs cached for a year: the
-   sign-in page and e-mails need them before anyone signs in, and they are not secret.
+   sign-in page and e-mails need them before anyone signs in, and they are not secret. Public
+   routes tell an address's logo and colours and nothing else, are keyed by the tenant's ID
+   (unguessable), and answer an unknown ID exactly like an unbranded tenant, so they cannot be
+   used to list or probe tenants. Only they may be used cross-origin.
 3. **The sign-in page is branded without a Keycloak extension.** Keycloak 26.8 gives login
    templates the organization in context (`org`). The SupportX theme's `template.ftl` (upstream
-   keycloak.v2 plus one marked block) links `<branding URL>/<org alias>/login.css`, a stylesheet
+   keycloak.v2 plus one marked block) links `<branding URL>/<tenant_id>/login.css` (the
+   organization's `tenant_id` attribute), a stylesheet
    the API renders from the same template as the default theme. Keycloak knows the organization
    when SupportX asks for it (scope `organization:<alias>`), or once the e-mail's domain names it.
 4. **The address picks the organization, never the access.** The BFF resolves the request's host

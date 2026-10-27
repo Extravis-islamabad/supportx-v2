@@ -151,8 +151,7 @@ async def test_a_logo_makes_every_variant_served_publicly_and_cached(
     stale = await world.client.get(logos["full"].split("?")[0] + "?v=old")
     assert "immutable" not in stale.headers["cache-control"]
     # The sign-in page's stylesheet carries the colours and the logo (REQ-SEC-003).
-    slug = await slug_of(world, a)
-    css = await world.client.get(f"/api/v1/public/branding/{slug}/login.css")
+    css = await world.client.get(f"/api/v1/public/branding/{a.tenant}/login.css")
     assert css.status_code == 200, css.text
     assert css.headers["content-type"].startswith("text/css")
     assert css.headers["cross-origin-resource-policy"] == "cross-origin"
@@ -215,13 +214,15 @@ async def test_the_address_picks_the_brand_and_an_unknown_one_shows_the_default(
     settings_ = world.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
     monkeypatch.setattr(world.app.state, "settings", settings_)
     slug = await slug_of(world, a)
-    mine = await world.client.get("/api/v1/public/branding", headers={"Host": f"{slug}.brand.test"})
-    assert mine.status_code == 200, mine.text
-    assert (mine.json()["tenant_slug"], mine.json()["primary_colour"]) == (slug, "#0b5394")
+
+    async def colour(host: str) -> str:
+        found = await world.client.get("/api/v1/public/branding", headers={"Host": host})
+        assert found.status_code == 200, (host, found.text)
+        return str(found.json()["primary_colour"])
+
+    assert await colour(f"{slug}.brand.test") == "#0b5394"
     for host in ("nobody.brand.test", "elsewhere.example", "[::1]", "x"):
-        other = await world.client.get("/api/v1/public/branding", headers={"Host": host})
-        assert other.status_code == 200, (host, other.text)
-        assert (other.json()["tenant_slug"], other.json()["primary_colour"]) == (None, "#7e40d1")
+        assert await colour(host) == "#7e40d1", host
     # A verified custom domain resolves; a pending one does not (REQ-SEC-004).
     await world.sql(
         "INSERT INTO tenant_domains (id, tenant_id, host, status, verify_token)"
@@ -229,21 +230,140 @@ async def test_the_address_picks_the_brand_and_an_unknown_one_shows_the_default(
         uuid.uuid4(),
         a.tenant,
     )
-    pending = await world.client.get("/api/v1/public/branding", headers={"Host": "help.acme.test"})
-    assert pending.json()["tenant_slug"] is None
+    assert await colour("help.acme.test") == "#7e40d1"
     await world.sql("UPDATE tenant_domains SET status = 'verified' WHERE host = 'help.acme.test'")
-    verified = await world.client.get(
-        "/api/v1/public/branding", headers={"Host": "Help.Acme.test:443"}
+    assert await colour("Help.Acme.test:443") == "#0b5394"
+
+
+PUBLIC_KEYS = {"customised", "primary_colour", "gradient", "logos"}
+LOGO_KEYS = {
+    "full",
+    "full_on_dark",
+    "full_high_contrast",
+    "icon",
+    "icon_high_contrast",
+    "favicon",
+    "apple_touch_icon",
+    "icon_192",
+    "icon_512",
+}
+
+
+async def test_the_public_brand_tells_only_logo_and_colours_and_cannot_find_tenants(
+    world: World, files: FileServices, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """WP-017 review: nothing beyond the address's own logo and colours; no list, no probing."""
+    del files
+    a, b = world.a, world.b
+    logo = await brand_upload(world, a, a.admin, logo_png())
+    saved = await save(
+        world,
+        a,
+        a.admin,
+        0,
+        primary_colour="#0b5394",
+        logo_file_id=logo,
+        product_name={"en": "Secret Product Name"},
+        portal_name={"en": "Secret Portal"},
+        welcome_text={"en": "Secret welcome"},
     )
-    assert verified.json()["tenant_slug"] == slug
+    assert saved.status_code == 200, saved.text
+    settings_ = world.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
+    monkeypatch.setattr(world.app.state, "settings", settings_)
+    slug_a, slug_b = await slug_of(world, a), await slug_of(world, b)
+
+    # 1. The address's own logo and colours, nothing else: no names, texts, slug, IDs or files.
+    mine = await world.client.get(
+        "/api/v1/public/branding", headers={"Host": f"{slug_a}.brand.test"}
+    )
+    body = mine.json()
+    assert set(body) == PUBLIC_KEYS
+    assert set(body["logos"]) == LOGO_KEYS
+    text = mine.text
+    for secret in ("Secret", slug_a, str(logo), "version", "tenant", "file_id"):
+        assert secret not in text, secret
+    for url in filter(None, body["logos"].values()):
+        assert url.startswith(f"/api/v1/public/branding/{a.tenant}/")  # its own images only
+    # Another tenant's address gives that tenant's (default) brand, never A's.
+    theirs = await world.client.get(
+        "/api/v1/public/branding", headers={"Host": f"{slug_b}.brand.test"}
+    )
+    assert theirs.json() == {**theirs.json(), "customised": False, "primary_colour": "#7e40d1"}
+    assert str(a.tenant) not in theirs.text
+    unknown_host = await world.client.get(
+        "/api/v1/public/branding", headers={"Host": "x.brand.test"}
+    )
+    assert unknown_host.json() == theirs.json()  # an unbranded tenant looks like no tenant at all
+
+    # 2. The stylesheet: an unknown, malformed or slug key gets exactly an unbranded tenant's.
+    unbranded = (await world.client.get(f"/api/v1/public/branding/{b.tenant}/login.css")).text
+    for key in (uuid.uuid4(), "not-a-uuid", slug_a, slug_b, "%00", "1" * 36):
+        probe = await world.client.get(f"/api/v1/public/branding/{key}/login.css")
+        assert probe.status_code == 200, key
+        assert probe.text == unbranded, key
+    branded = (await world.client.get(f"/api/v1/public/branding/{a.tenant}/login.css")).text
+    assert "#0b5394" in branded
+    assert "Secret" not in branded
+
+    # 3. Images: one and the same 404 for an unknown tenant, a slug, a missing image or a name.
+    expected = await world.client.get(f"/api/v1/public/branding/{b.tenant}/logo.png")
+    for path in (
+        f"{uuid.uuid4()}/logo.png",
+        f"{slug_a}/logo.png",
+        f"{a.tenant}/secrets.txt",
+        f"{b.tenant}/favicon.ico",
+    ):
+        probe = await world.client.get(f"/api/v1/public/branding/{path}")
+        assert probe.status_code == 404, path
+        assert probe.json()["code"] == expected.json()["code"] == "branding_not_found", path
+
+    # 4. No listing or settings route exists without signing in.
+    slash = await world.client.get("/api/v1/public/branding/", follow_redirects=True)
+    assert set(slash.json()) == PUBLIC_KEYS  # the address's own brand again, nothing more
+    assert (await world.client.get(f"/api/v1/public/branding/{a.tenant}")).status_code == 404
+    assert (await world.client.get("/api/v1/organization/branding/settings")).status_code == 401
+    assert (await world.client.get("/api/v1/organization/domains")).status_code == 401
 
 
-async def test_public_routes_never_list_or_guess(world: World) -> None:
-    assert (await world.client.get("/api/v1/public/branding/no-such/login.css")).status_code == 404
-    assert (await world.client.get("/api/v1/public/branding/x/../../etc")).status_code == 404
-    slug = await slug_of(world, world.a)
-    unknown = await world.client.get(f"/api/v1/public/branding/{slug}/secrets.txt")
-    assert unknown.status_code == 404
+async def test_only_the_public_stylesheet_and_images_may_be_used_cross_origin(
+    world: World, files: FileServices
+) -> None:
+    """WP-017 review: `Cross-Origin-Resource-Policy: cross-origin` on these two only."""
+    del files
+    a = world.a
+    logo = await brand_upload(world, a, a.admin, logo_png())
+    saved = await save(world, a, a.admin, 0, logo_file_id=logo)
+    assert saved.status_code == 200, saved.text
+    image = saved.json()["logos"]["full"]
+    cross = [f"/api/v1/public/branding/{a.tenant}/login.css", image]
+    for path in cross:
+        found = await world.client.get(path)
+        assert found.status_code == 200, path
+        assert found.headers["cross-origin-resource-policy"] == "cross-origin", path
+    same_origin = [
+        ("GET", "/api/v1/public/branding", None),
+        ("GET", f"/api/v1/public/branding/{a.tenant}/nothing.png", None),  # a 404
+        ("GET", "/api/v1/public/domain-check/tok", None),
+        ("GET", "/api/v1/health", None),
+        ("GET", "/api/v1/auth/me", None),  # a 401
+        ("GET", "/api/v1/organization/branding", a.admin),
+        ("GET", SETTINGS, a.admin),
+        ("POST", "/organization/branding/check", a.admin),
+        ("GET", "/api/v1/organization/domains", a.admin),
+        ("GET", f"/files/{logo}", a.admin),
+        ("GET", "/api/v1/incidents", a.admin),
+    ]
+    for method, path, user in same_origin:
+        if user is None:
+            found = await world.client.request(method, path)
+        else:
+            found = await world.call(
+                method, path.removeprefix("/api/v1"), a, user, json={} if method == "POST" else None
+            )
+        assert found.headers["cross-origin-resource-policy"] == "same-origin", (
+            path,
+            found.status_code,
+        )
 
 
 async def test_emails_get_absolute_public_logo_urls_and_the_tenant_name(
@@ -270,7 +390,9 @@ async def test_emails_get_absolute_public_logo_urls_and_the_tenant_name(
         arabic = await email_branding(session, settings_, a.tenant, "ar")
         urdu = await email_branding(session, settings_, a.tenant, "ur")
     assert english.logo_url is not None
-    assert english.logo_url.startswith(f"https://{slug}.brand.test/api/v1/public/branding/{slug}/")
+    assert english.logo_url.startswith(
+        f"https://{slug}.brand.test/api/v1/public/branding/{a.tenant}/"
+    )
     assert english.portal_url == f"https://{slug}.brand.test/"
     assert (arabic.product_name, urdu.product_name) == ("مكتب أكمي", "Acme <Desk>")
     html = header_html(english)

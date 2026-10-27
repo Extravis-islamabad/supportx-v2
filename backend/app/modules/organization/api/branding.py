@@ -6,10 +6,18 @@ Signed in:
   the branding screen (`branding.manage`), audited as `branding.updated`.
 
 Public (the sign-in page, e-mails and the apps before sign-in need them):
-- `GET /public/branding`: the brand of the address used (unknown address: the default);
-- `GET /public/branding/{slug}/login.css`: the sign-in page's stylesheet;
-- `GET /public/branding/{slug}/{asset}`: a generated logo, icon or favicon. Versioned URLs
+- `GET /public/branding`: colours and logo URLs of the address used (unknown address: the
+  default);
+- `GET /public/branding/{tenant_id}/login.css`: the sign-in page's stylesheet;
+- `GET /public/branding/{tenant_id}/{asset}`: a generated logo, icon or favicon. Versioned URLs
   (`?v=`) are cached for a year; anything else for five minutes.
+
+What the public routes may tell (WP-017 review): a tenant's own logo and colours, for its own
+address, and nothing else: no names or texts, no slug, no settings, no list. They are keyed by the
+tenant's ID, an unguessable UUID (Keycloak has it as the organization's `tenant_id` attribute),
+never by the guessable slug; an unknown or malformed ID gets exactly what a tenant without a
+brand gets (the default stylesheet, 404 for images), so the routes cannot be used to find
+tenants. Only the stylesheet and images may be used cross-origin.
 """
 
 import uuid
@@ -26,6 +34,7 @@ from app.core.tenancy import TenantContext
 from app.modules.audit import AuditNote, audited
 from app.modules.organization.domain.branding import CheckCode
 from app.modules.organization.domain.login_css import LoginLogos, login_css
+from app.modules.organization.domain.tenant import TenantStatus
 from app.modules.organization.service import branding, hosts
 from app.modules.organization.service.file_access import MANAGE
 from app.modules.organization.service.tenants import get_current_tenant
@@ -79,10 +88,20 @@ class Logos(BaseModel):
     icon_512: str | None = None
 
 
+class PublicBrandingOut(BaseModel):
+    """What anyone may learn about an address before sign-in: its logo and colours only."""
+
+    customised: bool = Field(
+        description="False: the SupportX default (also for unknown addresses)."
+    )
+    primary_colour: str = Field(description="The seed of every primary shade.")
+    gradient: list[str] = Field(min_length=2, max_length=2)
+    logos: Logos
+
+
 class BrandingOut(BaseModel):
     """The brand a surface shows. Empty texts and null logos mean the default."""
 
-    tenant_slug: str | None = Field(description="None for the default brand (unknown address).")
     customised: bool
     primary_colour: str = Field(description="The seed of every primary shade.")
     gradient: list[str] = Field(min_length=2, max_length=2)
@@ -154,45 +173,54 @@ ASSET_FIELDS = {
 }
 
 
-def asset_url(slug: str, name: str, version: str | None) -> str:
+def asset_url(tenant_id: uuid.UUID, name: str, version: str | None) -> str:
     """The public, versioned URL of one generated image (same host as the page)."""
-    return f"{PUBLIC_PREFIX}/{slug}/{name}?v={version or '0'}"
+    return f"{PUBLIC_PREFIX}/{tenant_id}/{name}?v={version or '0'}"
 
 
-def _logos(slug: str | None, view: branding.BrandingView | None) -> Logos:
-    if slug is None or view is None:
+DEFAULT_VIEW = branding.BrandingView(
+    uuid.UUID(int=0), None, None, {}, {}, {}, None, None, None, None, frozenset(), 0
+)
+
+
+def _logos(view: branding.BrandingView) -> Logos:
+    if view.version == 0:
         return Logos()
     urls = {
-        field: asset_url(slug, name, view.assets_version)
+        field: asset_url(view.tenant_id, name, view.assets_version)
         for name, field in ASSET_FIELDS.items()
         if name in view.assets
     }
     return Logos(**urls)
 
 
-def _out(slug: str | None, view: branding.BrandingView | None) -> BrandingOut:
-    if view is None:
-        default = branding.BrandingView(
-            uuid.UUID(int=0), None, None, {}, {}, {}, None, None, None, None, frozenset(), 0
-        )
-        view = default
+def _public_out(view: branding.BrandingView) -> PublicBrandingOut:
+    colours = view.colours
+    return PublicBrandingOut(
+        customised=view.customised,
+        primary_colour=colours.primary,
+        gradient=list(colours.gradient),
+        logos=_logos(view),
+    )
+
+
+def _out(view: branding.BrandingView) -> BrandingOut:
     colours = view.colours
     return BrandingOut(
-        tenant_slug=slug,
         customised=view.customised,
         primary_colour=colours.primary,
         gradient=list(colours.gradient),
         product_name=view.product_name,
         portal_name=view.portal_name,
         welcome_text=view.welcome_text,
-        logos=_logos(slug, view),
+        logos=_logos(view),
         version=view.version,
     )
 
 
-def _settings_out(slug: str, view: branding.BrandingView) -> BrandingSettingsOut:
+def _settings_out(view: branding.BrandingView) -> BrandingSettingsOut:
     return BrandingSettingsOut(
-        **_out(slug, view).model_dump(),
+        **_out(view).model_dump(),
         chosen_primary_colour=view.primary_colour,
         chosen_gradient=list(view.gradient) if view.gradient else None,
         logo_file_id=view.logo_file_id,
@@ -214,10 +242,9 @@ async def get_branding(
     response: Response, session: TenantSession, subject: SignedIn
 ) -> BrandingOut:
     """What the console and portal show: colours, texts and logo URLs (default where unset)."""
-    tenant = await get_current_tenant(session)
     view = await branding.get_branding(session, subject.tenant_id)
     set_etag(response, view.version)
-    return _out(tenant.slug, view)
+    return _out(view)
 
 
 @router.get("/settings", summary="Branding settings")
@@ -225,10 +252,9 @@ async def get_settings(
     response: Response, session: TenantSession, subject: Manage
 ) -> BrandingSettingsOut:
     """The branding screen's values (send the ETag back as If-Match to save; "0" creates)."""
-    tenant = await get_current_tenant(session)
     view = await branding.get_branding(session, subject.tenant_id)
     set_etag(response, view.version)
-    return _settings_out(tenant.slug, view)
+    return _settings_out(view)
 
 
 @router.put(
@@ -253,7 +279,6 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     note: Annotated[AuditNote, audited("branding.updated", object_type="branding")],
 ) -> BrandingSettingsOut:
     """Save the whole branding; every open console and portal shows it without a reload."""
-    tenant = await get_current_tenant(session)
     view, changed = await branding.save_branding(
         session,
         services=files,
@@ -274,7 +299,7 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     note.object_id = str(subject.tenant_id)
     note.details = {"changed_fields": changed, "version": view.version}
     set_etag(response, view.version)
-    return _settings_out(tenant.slug, view)
+    return _settings_out(view)
 
 
 @router.post("/check", summary="Check brand colours")
@@ -303,47 +328,53 @@ public_router = APIRouter(prefix="/public/branding", tags=["organization"])
 DatabaseDep = Annotated[Database, Depends(get_database)]
 
 
-async def _tenant_view(database: Database, tenant: hosts.HostTenant) -> branding.BrandingView:
-    async with database.tenant_session(TenantContext(tenant.tenant_id)) as session:
-        return await branding.get_branding(session, tenant.tenant_id)
+async def _active_view(database: Database, tenant_ref: str) -> branding.BrandingView:
+    """The brand of an active tenant by ID; the default for anything else (never an oracle)."""
+    try:
+        tenant_id = uuid.UUID(tenant_ref)
+    except ValueError:
+        return DEFAULT_VIEW
+    async with database.tenant_session(TenantContext(tenant_id)) as session:
+        try:
+            tenant = await get_current_tenant(session)
+        except NotFound:
+            return DEFAULT_VIEW
+        if tenant.status != TenantStatus.ACTIVE:
+            return DEFAULT_VIEW
+        return await branding.get_branding(session, tenant_id)
 
 
 @public_router.get("", summary="Brand of this address")
 @entitlement_exempt
 @public_route
-async def public_branding(request: Request, database: DatabaseDep) -> BrandingOut:
-    """The brand of the address used (subdomain or verified custom domain); default otherwise.
+async def public_branding(request: Request, database: DatabaseDep) -> PublicBrandingOut:
+    """Logo and colours of the address used (subdomain or verified custom domain).
 
-    Only a hint for what to show before sign-in: it never decides access.
+    Unknown addresses get the default. Only a hint for what to show before sign-in: it never
+    decides access, and it says nothing else about the tenant.
     """
     tenant = await hosts.tenant_for_host(
         database, request.headers.get("host"), request.app.state.settings.tenant_base_domain
     )
     if tenant is None:
-        return _out(None, None)
-    return _out(tenant.slug, await _tenant_view(database, tenant))
-
-
-async def _slug_view(
-    database: Database, slug: str
-) -> tuple[hosts.HostTenant, branding.BrandingView]:
-    tenant = await hosts.tenant_for_slug(database, slug)
-    if tenant is None:
-        raise NotFound(code="branding_not_found")
-    return tenant, await _tenant_view(database, tenant)
+        return _public_out(DEFAULT_VIEW)
+    return _public_out(await _active_view(database, str(tenant.tenant_id)))
 
 
 @public_router.get(
-    "/{slug}/login.css",
+    "/{tenant_ref}/login.css",
     summary="Sign-in page stylesheet",
     response_class=Response,
-    responses={200: {"content": {"text/css": {}}}, 404: {"model": ProblemDetail}},
+    responses={200: {"content": {"text/css": {}}}},
 )
 @entitlement_exempt
 @public_route
-async def login_stylesheet(slug: str, database: DatabaseDep) -> Response:
-    """The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003)."""
-    tenant, view = await _slug_view(database, slug)
+async def login_stylesheet(tenant_ref: str, database: DatabaseDep) -> Response:
+    """The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003).
+
+    An unknown ID gets the default stylesheet, byte for byte what an unbranded tenant gets.
+    """
+    view = await _active_view(database, tenant_ref)
     logos = None
     if "logo.png" in view.assets:
         dark = "logo-dark.png" if "logo-dark.png" in view.assets else "logo.png"
@@ -351,9 +382,9 @@ async def login_stylesheet(slug: str, database: DatabaseDep) -> Response:
             "logo-high-contrast.png" if "logo-high-contrast.png" in view.assets else "logo.png"
         )
         logos = LoginLogos(
-            asset_url(tenant.slug, "logo.png", view.assets_version),
-            asset_url(tenant.slug, dark, view.assets_version),
-            asset_url(tenant.slug, contrast, view.assets_version),
+            asset_url(view.tenant_id, "logo.png", view.assets_version),
+            asset_url(view.tenant_id, dark, view.assets_version),
+            asset_url(view.tenant_id, contrast, view.assets_version),
         )
     return Response(
         login_css(view.colours, logos),
@@ -363,7 +394,7 @@ async def login_stylesheet(slug: str, database: DatabaseDep) -> Response:
 
 
 @public_router.get(
-    "/{slug}/{name}",
+    "/{tenant_ref}/{name}",
     summary="A brand image",
     response_class=Response,
     responses={
@@ -374,16 +405,16 @@ async def login_stylesheet(slug: str, database: DatabaseDep) -> Response:
 @entitlement_exempt
 @public_route
 async def brand_image(
-    slug: str, name: str, database: DatabaseDep, v: str | None = None
+    tenant_ref: str, name: str, database: DatabaseDep, v: str | None = None
 ) -> Response:
-    """One generated image. Cached for a year when `v` is the current version."""
-    if name not in branding.ASSET_NAMES:
+    """One generated image. Cached for a year when `v` is the current version.
+
+    The same 404 for an unknown tenant, a tenant without that image and an unknown name.
+    """
+    view = await _active_view(database, tenant_ref)
+    if name not in branding.ASSET_NAMES or name not in view.assets:
         raise NotFound(code="branding_not_found")
-    tenant = await hosts.tenant_for_slug(database, slug)
-    if tenant is None:
-        raise NotFound(code="branding_not_found")
-    async with database.tenant_session(TenantContext(tenant.tenant_id)) as session:
-        view = await branding.get_branding(session, tenant.tenant_id)
+    async with database.tenant_session(TenantContext(view.tenant_id)) as session:
         found = await branding.asset(session, name)
         if found is None:
             raise NotFound(code="branding_not_found")

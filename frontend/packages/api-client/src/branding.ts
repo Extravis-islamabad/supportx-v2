@@ -5,6 +5,7 @@ import { queryKeys } from './keys';
 import type { components } from './schema';
 
 export type BrandingResult = components['schemas']['BrandingOut'];
+export type PublicBrandingResult = components['schemas']['PublicBrandingOut'];
 export type BrandingSettings = components['schemas']['BrandingSettingsOut'];
 export type BrandingInput = components['schemas']['BrandingIn'];
 export type BrandingColourReport = components['schemas']['ColourReportOut'];
@@ -13,8 +14,8 @@ export type BrandingCheckCode = components['schemas']['CheckCode'];
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
 /**
- * The brand of the address in use (WP-017, REQ-SEC-004): before sign-in the apps show it. Unknown
- * addresses get the default (tenant_slug null). Never decides access.
+ * The logo and colours of the address in use (WP-017, REQ-SEC-004): before sign-in the apps show
+ * them. Unknown addresses get the default (`customised` false). Never decides access.
  */
 export function usePublicBranding(enabled = true) {
   return useQuery({

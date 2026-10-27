@@ -649,7 +649,6 @@ type Branding = components['schemas']['BrandingOut'];
 /** A tenant's brand (GET /organization/branding, /public/branding): the default unless overridden. */
 export function fakeBranding(overrides: Partial<Branding> = {}): Branding {
   return {
-    tenant_slug: 'demo',
     customised: false,
     primary_colour: '#7e40d1',
     gradient: ['#6060de', '#951ab6'],

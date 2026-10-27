@@ -38,7 +38,14 @@ export function consoleApi({
     // Quick search in the command palette (WP-027): nothing found unless a test says otherwise.
     'GET /api/v1/incidents/search': { body: { items: [], people: {} } },
     // Branding (WP-017): the default brand unless a test says otherwise.
-    'GET /api/v1/public/branding': { body: fakeBranding({ tenant_slug: null }) },
+    'GET /api/v1/public/branding': {
+      body: {
+        customised: false,
+        primary_colour: '#7e40d1',
+        gradient: ['#6060de', '#951ab6'],
+        logos: {},
+      },
+    },
     'GET /api/v1/organization/branding': { body: fakeBranding() },
     ...routes,
   });

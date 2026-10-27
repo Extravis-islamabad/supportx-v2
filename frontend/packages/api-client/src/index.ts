@@ -264,6 +264,7 @@ export {
   type BrandingInput,
   type BrandingResult,
   type BrandingSettings,
+  type PublicBrandingResult,
 } from './branding';
 export { queryKeys } from './keys';
 export {

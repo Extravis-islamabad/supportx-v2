@@ -1005,9 +1005,10 @@ data:
         <#-- SupportX (WP-017, REQ-SEC-003): the tenant's colours and logo. Keycloak knows the
              organization when SupportX asked for it (scope organization:<alias>, from the tenant's
              address) or once the email's domain names it. The stylesheet comes from the SupportX API
-             (public, cached); without it the SupportX default above stays. -->
-        <#if org?? && properties.supportxBrandingUrl?has_content>
-            <link href="${properties.supportxBrandingUrl}/${org.alias?url('UTF-8')}/login.css" rel="stylesheet" />
+             (public, cached), keyed by the organization's tenant_id attribute (an unguessable ID, so
+             tenants cannot be listed or probed); without it the SupportX default above stays. -->
+        <#if org?? && org.attributes?? && org.attributes.tenant_id?? && properties.supportxBrandingUrl?has_content>
+            <link href="${properties.supportxBrandingUrl}/${org.attributes.tenant_id[0]?url('UTF-8')}/login.css" rel="stylesheet" />
         </#if>
         <#-- /SupportX -->
         <script type="importmap">

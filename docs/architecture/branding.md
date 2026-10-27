@@ -140,7 +140,7 @@ the apps pass the tenant's `Branding` to the theme, as above.
 | Colours, names, welcome text | `tenant_branding` (organization module) | Empty = the default. Names per language, English the fallback |
 | Uploads (logo, dark logo, icon) | files service, owner `branding` | Scanned like any file; PNG, JPEG, WebP or ICO, never SVG |
 | Variants every surface shows | `branding_assets`, made with Pillow on save | `logo.png`, `logo-dark.png`, `logo-high-contrast.png`, `icon.png`, `icon-high-contrast.png`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
-| Public routes | `/api/v1/public/branding` (the address's brand), `/{slug}/login.css`, `/{slug}/{asset}?v=` | Versioned URLs cached a year; others five minutes |
+| Public routes | `/api/v1/public/branding` (the address's logo and colours), `/{tenant_id}/login.css`, `/{tenant_id}/{asset}?v=` | Versioned URLs cached a year; others five minutes. Only the stylesheet and images send `Cross-Origin-Resource-Policy: cross-origin` (every other API response keeps `same-origin`) |
 | Rules | `organization/domain/branding.py` | The colour maths of this page, shared with `make brand-assets` |
 
 **Colours.** The server checks every pair the brand makes (table above). A failing primary or
@@ -157,12 +157,18 @@ opaque logo is shown as it is in every mode. Without an icon, favicons are made 
 - Console and portal: `AddressBranding` (before sign-in, from the address) and `TenantBranding`
   (signed in; refetched on `organization.branding_changed`, so open screens follow live). The tab
   icon follows too. The portal shows the portal name and the welcome text in its band.
-- Sign-in page: the theme links `<supportxBrandingUrl>/<org alias>/login.css` when Keycloak
-  knows the organization. `supportxBrandingUrl` is the theme property
+- Sign-in page: the theme links `<supportxBrandingUrl>/<tenant_id>/login.css` (the organization's
+  `tenant_id` attribute) when Keycloak knows the organization. `supportxBrandingUrl` is the theme property
   `${env.SUPPORTX_BRANDING_URL:/api/v1/public/branding}` (one host in Kubernetes; Compose points
   it at the console dev server). Keycloak knows the organization on a tenant's own address
   (SupportX asks for `organization:<alias>`) and, on the shared address, once the e-mail's domain
   names it. The organization alias is the tenant slug.
+
+**What is public.** Before sign-in anyone may learn an address's logo and colours, nothing more:
+no names or texts, no slug, no settings, no list. Public URLs are keyed by the tenant's ID (an
+unguessable UUID), never by the guessable slug, and an unknown or malformed ID gets exactly what
+a tenant without a brand gets (the default stylesheet; the same 404 for images), so they cannot
+be used to find tenants (`test_the_public_brand_tells_only_logo_and_colours_and_cannot_find_tenants`).
 - E-mails: `organization.email_branding()` gives the absolute logo URL, colours and the product
   name in a language; `header_html()` is the escaped header. The WP-039 mail foundation renders
   with them (D-089).

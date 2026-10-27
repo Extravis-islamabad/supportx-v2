@@ -59,7 +59,7 @@ async def email_branding(
     origin = tenant_origin(settings, tenant.slug)
     logo = None
     if "logo.png" in view.assets:
-        logo = f"{origin}{PUBLIC_PREFIX}/{tenant.slug}/logo.png?v={view.assets_version or '0'}"
+        logo = f"{origin}{PUBLIC_PREFIX}/{tenant_id}/logo.png?v={view.assets_version or '0'}"
     portal_path = urlsplit(settings.portal_url).path.rstrip("/")
     return EmailBranding(
         product_name=text_for(view.product_name, locale) or DEFAULT_PRODUCT_NAME,

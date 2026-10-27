@@ -75,16 +75,3 @@ async def tenant_for_host(
                 )
             ).first()
     return HostTenant(row.tenant_id, row.slug) if row is not None else None
-
-
-async def tenant_for_slug(database: Database, slug: str) -> HostTenant | None:
-    """The active tenant with this slug (the public branding route's key), else None."""
-    if not _LABEL.fullmatch(slug):
-        return None
-    async with database.platform_session() as session:
-        row = (
-            await session.execute(
-                text("SELECT tenant_id, slug FROM sx_tenant_for_slug(:slug)"), {"slug": slug}
-            )
-        ).first()
-    return HostTenant(row.tenant_id, row.slug) if row is not None else None

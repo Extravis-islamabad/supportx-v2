@@ -2072,9 +2072,10 @@ export interface paths {
         };
         /**
          * Brand of this address
-         * @description The brand of the address used (subdomain or verified custom domain); default otherwise.
+         * @description Logo and colours of the address used (subdomain or verified custom domain).
          *
-         *     Only a hint for what to show before sign-in: it never decides access.
+         *     Unknown addresses get the default. Only a hint for what to show before sign-in: it never
+         *     decides access, and it says nothing else about the tenant.
          */
         get: operations["public_branding_api_v1_public_branding_get"];
         put?: never;
@@ -2085,7 +2086,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/branding/{slug}/login.css": {
+    "/api/v1/public/branding/{tenant_ref}/login.css": {
         parameters: {
             query?: never;
             header?: never;
@@ -2095,8 +2096,10 @@ export interface paths {
         /**
          * Sign-in page stylesheet
          * @description The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003).
+         *
+         *     An unknown ID gets the default stylesheet, byte for byte what an unbranded tenant gets.
          */
-        get: operations["login_stylesheet_api_v1_public_branding__slug__login_css_get"];
+        get: operations["login_stylesheet_api_v1_public_branding__tenant_ref__login_css_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2105,7 +2108,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/public/branding/{slug}/{name}": {
+    "/api/v1/public/branding/{tenant_ref}/{name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -2115,8 +2118,10 @@ export interface paths {
         /**
          * A brand image
          * @description One generated image. Cached for a year when `v` is the current version.
+         *
+         *     The same 404 for an unknown tenant, a tenant without that image and an unknown name.
          */
-        get: operations["brand_image_api_v1_public_branding__slug___name__get"];
+        get: operations["brand_image_api_v1_public_branding__tenant_ref___name__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3239,11 +3244,6 @@ export interface components {
             product_name: {
                 [key: string]: string;
             };
-            /**
-             * Tenant Slug
-             * @description None for the default brand (unknown address).
-             */
-            tenant_slug: string | null;
             /** Version */
             version: number;
             /** Welcome Text */
@@ -3284,11 +3284,6 @@ export interface components {
             product_name: {
                 [key: string]: string;
             };
-            /**
-             * Tenant Slug
-             * @description None for the default brand (unknown address).
-             */
-            tenant_slug: string | null;
             /** Version */
             version: number;
             /** Welcome Text */
@@ -4471,6 +4466,25 @@ export interface components {
              * @description URI reference identifying the problem type.
              */
             type: string;
+        };
+        /**
+         * PublicBrandingOut
+         * @description What anyone may learn about an address before sign-in: its logo and colours only.
+         */
+        PublicBrandingOut: {
+            /**
+             * Customised
+             * @description False: the SupportX default (also for unknown addresses).
+             */
+            customised: boolean;
+            /** Gradient */
+            gradient: string[];
+            logos: components["schemas"]["Logos"];
+            /**
+             * Primary Colour
+             * @description The seed of every primary shade.
+             */
+            primary_colour: string;
         };
         /**
          * ReadCategory
@@ -14687,7 +14701,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BrandingOut"];
+                    "application/json": components["schemas"]["PublicBrandingOut"];
                 };
             };
             /** @description Unexpected server error. */
@@ -14701,12 +14715,12 @@ export interface operations {
             };
         };
     };
-    login_stylesheet_api_v1_public_branding__slug__login_css_get: {
+    login_stylesheet_api_v1_public_branding__tenant_ref__login_css_get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                slug: string;
+                tenant_ref: string;
             };
             cookie?: never;
         };
@@ -14719,15 +14733,6 @@ export interface operations {
                 };
                 content: {
                     "text/css": unknown;
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Validation Error */
@@ -14750,14 +14755,14 @@ export interface operations {
             };
         };
     };
-    brand_image_api_v1_public_branding__slug___name__get: {
+    brand_image_api_v1_public_branding__tenant_ref___name__get: {
         parameters: {
             query?: {
                 v?: string | null;
             };
             header?: never;
             path: {
-                slug: string;
+                tenant_ref: string;
                 name: string;
             };
             cookie?: never;

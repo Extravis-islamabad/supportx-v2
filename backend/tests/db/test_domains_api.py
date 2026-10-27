@@ -16,6 +16,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 from pydantic import SecretStr
 
+from app.modules.organization import tenant_for_host
 from app.modules.organization.api import domains as domain_routes
 from app.modules.organization.domain.domains import proof
 from app.modules.organization.infra.domain_check import DomainCheckError
@@ -69,9 +70,9 @@ async def add(world: World, org: Any, host: str) -> httpx.Response:  # noqa: ANN
 
 
 async def public_slug(world: World, host: str) -> str | None:
-    found = await world.client.get("/api/v1/public/branding", headers={"Host": host})
-    slug: str | None = found.json()["tenant_slug"]
-    return slug
+    """The tenant `host` resolves to, asked of the resolver (the public brand never says)."""
+    found = await tenant_for_host(world.app.state.db, host, None)
+    return found.slug if found is not None else None
 
 
 def certificate(host: str, *, days: int = 30) -> tuple[str, str]:
