@@ -31,6 +31,8 @@ values=(
   "SUPPORTX_OIDC_ISSUER=http://localhost:${KEYCLOAK_PORT}/realms/supportx"
   "SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET=${KEYCLOAK_CONSOLE_CLIENT_SECRET}"
   "SUPPORTX_OIDC_PORTAL_CLIENT_SECRET=${KEYCLOAK_PORTAL_CLIENT_SECRET}"
+  # Identity administration (WP-039): the service account `make keycloak-identity` sets up.
+  "SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET=${KEYCLOAK_IDENTITY_CLIENT_SECRET:-}"
   "SUPPORTX_SESSION_SECRET=${SESSION_SECRET}"
   # Tenant addresses (WP-017): demo.localhost and other.localhost are the seeded tenants' own
   # addresses (browsers resolve *.localhost to this machine; the e2e setup registers their

@@ -78,6 +78,12 @@ class Settings(BaseSettings):
     oidc_portal_client_id: str = "supportx-portal"
     oidc_portal_client_secret: SecretStr | None = None
     oidc_timeout_seconds: float = Field(default=5.0, gt=0, le=60)
+    # Identity administration (WP-039, ADR-033): the service account SupportX manages SSO,
+    # sessions and MFA with through Keycloak's admin API (tooling/keycloak_identity.py sets it up).
+    # The admin API is reached on the same base as the back channel. None = not set up: identity
+    # settings that need Keycloak answer `identity_admin_not_configured`.
+    keycloak_identity_client_id: str = "supportx-identity"
+    keycloak_identity_client_secret: SecretStr | None = None
     # Public base URLs of the two UIs. They may carry a path: in Kubernetes both share one host,
     # the portal under /portal (WP-014, D3). The OIDC callback is <origin>/api/v1/auth/callback
     # (same origin as the UI, D-009); after login the browser lands on the returnTo path, else on
