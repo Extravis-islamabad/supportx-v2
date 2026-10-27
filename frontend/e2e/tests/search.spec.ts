@@ -24,7 +24,8 @@ async function palette(page: Page, typed: string) {
   // The shortcut is registered by the header: pressing it before the shell is up does nothing.
   await expect(page.getByTestId('appearance-menu')).toBeVisible();
   await page.keyboard.press('Control+k');
-  const input = page.getByRole('combobox', { name: 'Type a page name…' });
+  // By role, not name: the label is translated in the Arabic part of the test.
+  const input = page.getByRole('dialog').getByRole('combobox');
   await expect(input).toBeVisible();
   await input.fill(typed);
   return page.getByRole('dialog');
