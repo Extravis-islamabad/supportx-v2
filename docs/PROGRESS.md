@@ -8,8 +8,8 @@
   WP-021-FIX (D-096), 2026-10-27. Before them WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
   2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
   Lane B: WP-017-FIX (D-093, ADR-031 accepted, merged); WP-039 session 1 of 3 (D-094, ADR-036).
-- **Next work package:** WP-029 part 2 (triggers, loop guard, transition hooks), then
-  WP-020f, WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** WP-029 QA (~/Desktop/qa-wp029/, parts 1 and 2), then WP-020f,
+  WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -525,7 +525,7 @@ Every finding of Desktop/qa-wp021/QA-REPORT.md has a test named after its ID tha
   department's site suggested, never overwriting; C5 making someone a technician asks first (seat).
 - [x] docs/LANES.md: three lanes, worktrees, claimed numbers, dev-stack QA lock.
 
-### [x] WP-029 part 1 — Business rules, routing, auto-assignment (D-097; ADR-035; built 2026-10-27)
+### [x] WP-029 — Business rules, triggers, routing, auto-assignment (D-097, D-102; ADR-035; built 2026-10-27)
 New `automation` module (migration 0025); incidents register their rule fields (work_items
 `service/automation.py`). Tests: `automation/tests/test_domain.py`, `tests/db/test_automation_api.py`
 (31, incl. RLS for 7 tables), Vitest `admin/automation/automation.test.tsx`.
@@ -546,9 +546,17 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Screens: Admin › Incidents › Business rules and Routing and assignment; header
   Available/Away switch for technicians; all live through `automation.changed`.
 - [x] Reporting provider for lane C (WP-035 port): every work item type registers its list query.
-- [ ] Part 2: triggers after commit (REQ-RUL-009/010) with the loop guard (REQ-RUL-028: depth 5,
-  20 per record per minute, never on its own change), transition hooks and "who may run"
-  (REQ-WF-003/004), "test against an existing record", drag-and-drop ordering, e2e journey.
+- [x] Part 2 (D-102; migration 0028; plan ~/Desktop/wp-029b-plan.md): triggers after commit
+  (REQ-RUL-009/010) in the `automation__triggers` consumer, actions set a field (through the
+  save path) and add a private note, each in its own savepoint with its outcome on the record's
+  Automation tab; loop guard (REQ-RUL-028: depth 5, 20 per record per minute, never on its own
+  change; record warning, admins' banner, told once per hour); transition settings
+  (REQ-WF-003/004: who may run, offered when, confirmation, "after" actions; 403
+  `transition_not_allowed`). Tests: `tests/db/test_automation_triggers_api.py` (12),
+  `automation/tests/test_triggers_domain.py` (9), Vitest `automation-part2.test.tsx` (9), e2e
+  `automation.spec.ts`.
+- [ ] Later: "test against an existing record", drag-and-drop ordering (buttons for now),
+  notification / approval / task / webhook actions with their WPs.
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
@@ -807,6 +815,17 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-27 — WP-029 part 2: triggers, loop guard, transition settings (lane A)
+
+- Product owner approved part 1 (D-097, ADR-035). Built part 2 on `feat/wp-029b-triggers`:
+  trigger consumer, loop guard, transition settings, record Automation tab, admins' loop
+  banner, confirmation before a move; defaults D-102; migration 0028.
+- Found while testing: within one event a later trigger re-read the record after an earlier
+  trigger changed it and fired on a change it never saw; conditions now use the record as the
+  event left it.
+- Keycloak sign-in tests moved to a private Keycloak per test process (PR #75, with lane B):
+  two lanes' runs no longer race on the shared dev Keycloak.
 
 ### 2026-10-27 — WP-021-FIX merged path, WP-029 part 1 (lane A)
 

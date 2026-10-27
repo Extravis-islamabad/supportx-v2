@@ -647,7 +647,8 @@
               "routing_rule",
               "routing_settings",
               "assignment_settings",
-              "trigger"
+              "trigger",
+              "transition_settings"
             ],
             "title": "Kind",
             "type": "string"

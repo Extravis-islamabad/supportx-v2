@@ -43,13 +43,23 @@ automation must not loop forever. Modules may not read each other's tables (CLAU
 8. **What a rule uses cannot be removed:** a group, site or department used by a routing or
    business rule is refused as in use (`automation_rules: n`). A custom field a rule names is
    refused as `custom_field_used_by_rule`, naming the rules.
-9. **Loops:** business rules run once per save and cannot trigger each other. Triggers (after the
-   commit, from events) arrive in WP-029 part 2 with chain depth 5, 20 automated changes per
-   record per minute and "never on its own change", recorded as `loop_guard` runs.
+9. **Triggers run after the commit** in the `automation__triggers` consumer, reading the owning
+   module's events through a reader it registers (part 2, D-102). Field updates go through the
+   record's own save path (`apply`), so business rules run again; each action has its own
+   savepoint. A change a trigger makes carries the trigger's run log entry as its event's
+   cause, so the next event knows its chain (depth and triggers).
+10. **Loops:** business rules run once per save and cannot trigger each other. The guard stops a
+   trigger chain at depth 5 or 20 automated changes per record per minute, and never runs a
+   trigger on its own change unless allowed; a stop is a `loop_guard` run naming the triggers,
+   shown on the record, with `automation.loop.stopped` told once per record per hour.
+11. **Transition settings** (who may run, offered when, confirmation, "after" actions) are owned
+   by automation and checked by the owning module when it builds a record's actions and when a
+   move is asked for (403 `transition_not_allowed`); "after" actions run in the trigger consumer.
 
 ## Consequences
 
 - Admins see why every automated change happened, on the record and in the run log.
 - Other record types join by registering a `RecordType`; no automation code changes.
 - Saves pay for the rule run; rules are loaded once per save and evaluated in memory.
-- Trigger actions, transition hooks (REQ-WF-003/004) and the loop guard are a follow-up (part 2).
+- Notification, approval, task, timer, webhook, function and workflow actions register later as
+  action types; the engine does not change.
