@@ -48,6 +48,7 @@ FIELD_PROBLEMS = frozenset(
         "sso_name_length",
         "sso_protocol_fixed",
         "sso_sign_in_url_missing",
+        "sso_url_invalid",
     }
 )
 

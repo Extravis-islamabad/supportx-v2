@@ -2303,7 +2303,8 @@ export const en = {
   'access_settings.choose': 'Choose',
   // WP-039 identity: sign-in settings and single sign-on
   'permission.identity.manage': 'Manage sign-in and security',
-  'permission.identity.manage.description': 'Set up single sign-on, session timeouts and who may sign in for the first time.',
+  'permission.identity.manage.description':
+    'Set up single sign-on, session timeouts and who may sign in for the first time.',
   'permission_module.identity': 'Sign-in and security',
   'event_type.identity_access.identity_settings.changed': 'Sign-in settings changed',
   'event_type.identity_access.sso_provider.changed': 'Single sign-on set-up changed',
@@ -2364,6 +2365,116 @@ export const en = {
   'errors.field.sso_name_length': 'Use 1 to {{max}} characters.',
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
+  // WP-039 identity: Admin > Sign-in and security
+  'actions.close': 'Close',
+  'nav.admin_security': 'Sign-in and security',
+  'security.intro':
+    'How people sign in to your organisation: single sign-on, session timeouts and who may sign in for the first time. Every change is recorded in the audit log.',
+  'security.sessions.title': 'Sessions',
+  'security.sessions.intro':
+    'People are signed out after the idle time without activity, and always after the session length. Changes apply to sessions that begin after saving.',
+  'security.sessions.console': 'Console (technicians and administrators)',
+  'security.sessions.portal': 'Portal (requesters)',
+  'security.sessions.idle': 'Sign out after inactivity',
+  'security.sessions.absolute': 'Longest session',
+  'security.sessions.minutes': 'minutes',
+  'security.sessions.hours': 'hours',
+  'security.sessions.saved': 'Sign-in settings saved.',
+  'security.people.create': 'Create people when they first sign in',
+  'security.people.create_on':
+    'Someone your identity provider lets in, and who is not in SupportX yet, is added as a requester on their first sign-in.',
+  'security.people.create_off':
+    'Only people you added, imported or invited can sign in. Others are told to contact your service desk.',
+  'security.sso.title': 'Single sign-on',
+  'security.sso.intro':
+    "Let people sign in with your organisation's identity provider. A new set-up starts as a draft: test it with a real sign-in, then switch it on.",
+  'security.sso.add': 'Add single sign-on',
+  'security.sso.none': 'No single sign-on yet. People sign in with a SupportX password.',
+  'security.sso.add_title': 'Add single sign-on',
+  'security.sso.edit_title': 'Change single sign-on',
+  'security.sso.display_name': 'Name on the sign-in button',
+  'security.sso.domains': 'Email domains',
+  'security.sso.domains_hint':
+    'People whose email is in one of these domains can sign in through this provider, for example example.com.',
+  'security.sso.domains_list': 'Domains: {{domains}}',
+  'security.sso.issuer': 'Issuer address',
+  'security.sso.client_id': 'Client ID',
+  'security.sso.client_secret': 'Client secret',
+  'security.sso.secret_hint': 'Stored in the sign-in service only. It is never shown again.',
+  'security.sso.secret_kept': 'Saved. Type a new one to replace it.',
+  'security.sso.scopes': 'Scopes',
+  'security.sso.metadata': 'Identity provider metadata (XML file)',
+  'security.sso.metadata_hint':
+    'Download it from your identity provider, or give its address below.',
+  'security.sso.metadata_kept': 'The saved metadata stays unless you upload a new file.',
+  'security.sso.metadata_url': 'Metadata address',
+  'security.sso.by_hand': 'Enter the details by hand',
+  'security.sso.sso_url': 'Sign-in address',
+  'security.sso.certificate': 'Signing certificate',
+  'security.sso.mapping': 'Attributes',
+  'security.sso.mapping_hint_oidc':
+    'Which claims carry each detail. The defaults suit most providers.',
+  'security.sso.mapping_hint_saml':
+    'Which attributes carry each detail. The defaults suit Microsoft Entra ID and AD FS.',
+  'security.sso.map.email': 'Email',
+  'security.sso.map.first_name': 'First name',
+  'security.sso.map.last_name': 'Last name',
+  'security.sso.map.department': 'Department',
+  'security.sso.map.site': 'Site',
+  'security.sso.email_redirect': 'Send people of these domains straight to this provider',
+  'security.sso.email_redirect_hint':
+    'Once it is on, people who type an email in these domains skip the password page.',
+  'security.sso.preset_hint.entra':
+    'Register an app in Microsoft Entra ID with the redirect address shown after saving, and give its client ID and secret.',
+  'security.sso.preset_hint.okta':
+    'Create an OpenID Connect web app in Okta with the redirect address shown after saving.',
+  'security.sso.preset_hint.google':
+    'Create an OAuth client in Google Cloud with the redirect address shown after saving.',
+  'security.sso.preset_hint.oidc': 'Any provider that supports OpenID Connect discovery.',
+  'security.sso.preset_hint.saml':
+    "Upload your identity provider's metadata. Give it SupportX's metadata, shown after saving.",
+  'security.sso.issuer_hint.entra': 'https://login.microsoftonline.com/<your tenant ID>/v2.0',
+  'security.sso.issuer_hint.okta': 'https://<your organisation>.okta.com',
+  'security.sso.issuer_hint.google': 'https://accounts.google.com',
+  'security.sso.issuer_hint.oidc':
+    'The address whose /.well-known/openid-configuration describes the provider.',
+  'security.sso.redirect_uri': 'Redirect address for your provider:',
+  'security.sso.sp_metadata': 'SupportX metadata for your provider:',
+  'security.sso.tested_at': 'Tested {{when}}',
+  'security.sso.test': 'Test sign-in',
+  'security.sso.switch_on': 'Switch on',
+  'security.sso.switch_off': 'Switch off',
+  'security.sso.remove_title': 'Remove {{name}}?',
+  'security.sso.remove_body':
+    'People can no longer sign in through it. Their SupportX records stay.',
+  'security.sso.test_title': 'Test sign-in: {{name}}',
+  'security.sso.test_pending':
+    'Sign in through your identity provider in the window that opened. No session is created.',
+  'security.sso.test_blocked': 'The window was blocked.',
+  'security.sso.test_open': 'Open the test sign-in',
+  'security.sso.test_passed': 'The test sign-in worked',
+  'security.sso.test_failed': 'The test sign-in did not work',
+  'security.sso.test_name': 'Name',
+  'security.sso.test_not_sent': 'Not sent',
+  'security.sso.test_next': 'You can switch this set-up on now.',
+  'security.sso.test_done': 'Test finished. You can close this window.',
+  'sso_preset.entra': 'Microsoft Entra ID',
+  'sso_preset.okta': 'Okta',
+  'sso_preset.google': 'Google',
+  'sso_preset.oidc': 'Other OpenID Connect',
+  'sso_preset.saml': 'SAML 2.0',
+  'sso_state.draft': 'Draft',
+  'sso_state.tested': 'Tested',
+  'sso_state.on': 'On',
+  'sso_state.off': 'Off',
+  'sso_check.not_https': 'The provider is not reached over HTTPS.',
+  'sso_check.certificate_not_yet_valid': 'The certificate is not valid yet.',
+  'sso_test.provider_error': 'The identity provider ended the sign-in with an error.',
+  'sso_test.answer_not_verified':
+    "The identity provider's answer could not be verified. Check the certificate or the client secret, and that the provider's clock is right.",
+  'sso_test.not_in_tenant_domains':
+    "The person signed in, but their email is not in this set-up's domains.",
+  'errors.field.sso_url_invalid': 'Enter a full address that starts with https://.',
 } as const;
 
 export type LabelKey = keyof typeof en;

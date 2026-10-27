@@ -122,7 +122,20 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/admin/branding/BrandingPage')).BrandingPage,
             }),
           },
+          {
+            path: 'security',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/security/SecurityPage')).SecurityPage,
+            }),
+          },
         ],
+      },
+      {
+        // The single sign-on test's pop-up lands here (WP-039).
+        path: 'sso-test-done',
+        lazy: async () => ({
+          Component: (await import('./pages/admin/security/SsoTestDonePage')).SsoTestDonePage,
+        }),
       },
       {
         path: 'profile',
