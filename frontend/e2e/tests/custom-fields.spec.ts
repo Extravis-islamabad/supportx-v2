@@ -110,11 +110,15 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
     await form.getByRole('tab', { name: 'Details' }).click();
     await expect(form.getByTestId(`inc-prop-custom.${key}`)).toHaveText('First');
 
-    // Edit in place.
-    await form.getByTestId(`inc-edit-custom.${key}`).click();
-    await pick(form, `inc-input-custom.${key}`, 'Ground');
-    await form.getByTestId(`inc-save-custom.${key}`).click();
-    await expect(form.getByTestId(`inc-prop-custom.${key}`)).toHaveText('Ground');
+    // The technician handed it over (they only follow it now), so the admin edits in place;
+    // the technician's open record follows live.
+    await admin.page.goto(`/incidents/${id}`);
+    await admin.page.getByRole('tab', { name: 'Details' }).click();
+    await admin.page.getByTestId(`inc-edit-custom.${key}`).click();
+    await pick(admin.page, `inc-input-custom.${key}`, 'Ground');
+    await admin.page.getByTestId(`inc-save-custom.${key}`).click();
+    await expect(admin.page.getByTestId(`inc-prop-custom.${key}`)).toHaveText('Ground');
+    await expect(form.getByTestId(`inc-prop-custom.${key}`)).toHaveText('Ground', LIVE);
 
     // AC1: the list filters on it.
     await admin.page.goto('/incidents');
