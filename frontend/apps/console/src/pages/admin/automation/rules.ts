@@ -99,3 +99,13 @@ export function stateOp(_field: string, op: string): boolean {
 export function emptyAction(): TriggerActionIO {
   return { kind: 'set', field: null, value: null, mode: 'fill_empty' };
 }
+
+/** Field choices as people read them: by their name in the reader's language. */
+export function fieldOptions(
+  fields: readonly RuleFieldOut[],
+  name: (field: string) => string,
+): { value: string; label: string }[] {
+  return fields
+    .map((f) => ({ value: f.name, label: name(f.name) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}

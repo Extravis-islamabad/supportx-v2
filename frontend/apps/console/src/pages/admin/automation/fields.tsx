@@ -15,7 +15,15 @@ import { levelLabel, scaleLabel, statusLabel } from '../../incidents/labels';
 import { CategoryPicker, UserPicker } from '../../incidents/pickers';
 import { TagsInput } from '../../incidents/TagsInput';
 
-import { LIST, NO_VALUE, OPERATORS, useFieldName, type Condition, type Conditions } from './rules';
+import {
+  LIST,
+  NO_VALUE,
+  OPERATORS,
+  fieldOptions,
+  useFieldName,
+  type Condition,
+  type Conditions,
+} from './rules';
 
 /** The input for one value of one field: codes by their labels, references by their names. */
 export function ValueInput({
@@ -220,7 +228,7 @@ export function ConditionBuilder({
               onChange={(next: string) => {
                 update(index, { field: next, op: '', value: undefined });
               }}
-              options={fields.map((f) => ({ value: f.name, label: name(f.name) }))}
+              options={fieldOptions(fields, name)}
               style={{ minWidth: 200 }}
               data-testid={`condition-${String(index)}-field`}
             />

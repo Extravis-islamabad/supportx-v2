@@ -37,7 +37,7 @@ import {
 } from '@supportx/ui';
 
 import { ConditionBuilder, ValueInput } from './fields';
-import { fromTree, problemsOf, toTree, useFieldName, type Conditions } from './rules';
+import { fieldOptions, fromTree, problemsOf, toTree, useFieldName, type Conditions } from './rules';
 
 const RECORD_TYPE = 'incident';
 const STATE_TONE: Record<RuleOut['state'], Tone> = {
@@ -343,8 +343,9 @@ function RuleEditor({
           />
         )}
         <Form layout="vertical">
-          <Form.Item label={t('automation.field_name')} required>
+          <Form.Item label={t('automation.field_name')} htmlFor="rule-name" required>
             <Input
+              id="rule-name"
               value={draft.name}
               onChange={(event) => {
                 edit({ name: event.target.value });
@@ -353,8 +354,9 @@ function RuleEditor({
               data-testid="rule-name"
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_description')}>
+          <Form.Item label={t('automation.field_description')} htmlFor="rule-description">
             <Input.TextArea
+              id="rule-description"
               rows={2}
               value={draft.description}
               onChange={(event) => {
@@ -507,7 +509,7 @@ function ActionsEditor({
                   onChange={(next: string) => {
                     update(index, { ...action, field: next, value: null });
                   }}
-                  options={fields.map((f) => ({ value: f.name, label: name(f.name) }))}
+                  options={fieldOptions(fields, name)}
                   style={{ minWidth: 200 }}
                   data-testid={`action-${String(index)}-field`}
                 />
