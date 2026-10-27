@@ -335,6 +335,7 @@ export {
   useUpdateUser,
   useUser,
   useUsers,
+  fetchUser,
   type FilterCondition,
   type FilterExpression,
   type UserDetail,
