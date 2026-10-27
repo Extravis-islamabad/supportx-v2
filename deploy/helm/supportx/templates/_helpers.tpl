@@ -131,6 +131,10 @@ securityContext:
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-console-secret}}
 - name: SUPPORTX_OIDC_PORTAL_CLIENT_SECRET
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: oidc-portal-secret}}
+- name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
+  valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-identity-secret}}
+- name: SUPPORTX_MULTI_TENANT
+  value: {{ .Values.multiTenant | quote }}
 - name: SUPPORTX_CENTRIFUGO_API_KEY
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: centrifugo-api-key}}
 - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
