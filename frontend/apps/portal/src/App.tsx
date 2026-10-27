@@ -11,6 +11,8 @@ import {
   ErrorBoundary,
   ErrorReporterProvider,
   LicenceProvider,
+  PASSWORD_RESET_PATH,
+  PasswordResetPage,
   SessionGate,
   TenantBranding,
   type SessionGateProps,
@@ -32,16 +34,21 @@ export function App({ navigate }: AppProps) {
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>
-            <SessionGate app="portal" navigate={navigate}>
-              {(session) => (
-                <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
-                  <TenantBranding />
-                  <LicenceProvider key={session.tenant.id} session={session}>
-                    <RouterProvider router={router} />
-                  </LicenceProvider>
-                </RealtimeProvider>
-              )}
-            </SessionGate>
+            {window.location.pathname === PASSWORD_RESET_PATH ? (
+              // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
+              <PasswordResetPage app="portal" />
+            ) : (
+              <SessionGate app="portal" navigate={navigate}>
+                {(session) => (
+                  <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
+                    <TenantBranding />
+                    <LicenceProvider key={session.tenant.id} session={session}>
+                      <RouterProvider router={router} />
+                    </LicenceProvider>
+                  </RealtimeProvider>
+                )}
+              </SessionGate>
+            )}
           </ErrorReporterProvider>
         </ErrorBoundary>
       </AppearanceProvider>

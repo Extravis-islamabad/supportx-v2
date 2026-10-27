@@ -18,7 +18,7 @@
     "ur"
   ],
   "defaultLocale": "en",
-  "passwordPolicy": "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername(undefined) and notEmail(undefined) and passwordHistory(3)",
+  "passwordPolicy": "length(12) and maxLength(128) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notUsername and notEmail and passwordHistory(5) and passwordBlacklist(supportx-breached.txt)",
   "bruteForceProtected": true,
   "permanentLockout": false,
   "failureFactor": 5,

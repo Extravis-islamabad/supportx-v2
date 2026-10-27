@@ -267,8 +267,14 @@ export {
   type PublicBrandingResult,
 } from './branding';
 export {
+  useApplyPasswordPolicy,
   useCreateSso,
   useIdentitySettings,
+  useInvitationAction,
+  useInvitations,
+  useInvite,
+  useRequestPasswordReset,
+  useRequireNewPassword,
   useRemoveSso,
   useSaveIdentitySettings,
   useSsoProviders,
@@ -278,6 +284,7 @@ export {
   useUpdateSso,
   type IdentitySettings,
   type IdentitySettingsInput,
+  type Invitation,
   type SsoInput,
   type SsoProvider,
   type SsoTestResult,
