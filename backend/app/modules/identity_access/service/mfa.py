@@ -54,8 +54,7 @@ from app.modules.organization import email_branding, get_current_tenant
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.ids import new_id
 from app.shared.labels import LANGUAGES, label
-from app.shared.mail import OutgoingMail, mail_configured, queue_mail, wrap_html
-from app.shared.mail.domain.message import Language
+from app.shared.mail import Language, OutgoingMail, mail_configured, queue_mail, wrap_html
 
 log = get_logger(__name__)
 
