@@ -12,6 +12,7 @@ import pytest
 
 from app.modules.announcements.domain.announcement import PUBLISH_PROBLEMS
 from app.modules.announcements.service.announcements import NO_PERMISSION, NOT_FROM_STATUS
+from app.modules.automation.service.transitions import NOT_FOR_YOU, NOT_OFFERED
 from tests.test_error_labels import label_keys
 
 APP_DIR = Path(__file__).resolve().parents[1] / "app"
@@ -20,7 +21,7 @@ _SOD_CODE = re.compile(r"SodRule\(\"([a-z_]+)\"")
 
 
 def reason_codes() -> set[str]:
-    codes = {*PUBLISH_PROBLEMS, NO_PERMISSION, NOT_FROM_STATUS}
+    codes = {*PUBLISH_PROBLEMS, NO_PERMISSION, NOT_FROM_STATUS, NOT_OFFERED, NOT_FOR_YOU}
     for source in APP_DIR.rglob("*.py"):
         if "tests" in source.parts:
             continue

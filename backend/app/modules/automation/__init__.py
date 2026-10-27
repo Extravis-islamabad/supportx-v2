@@ -26,6 +26,7 @@ from app.modules.automation.domain.rules import (
     RulesOutcome,
     TraceLine,
 )
+from app.modules.automation.domain.triggers import People, Relative, TriggerEvent
 from app.modules.automation.events import EVENTS
 from app.modules.automation.infra import models as _models  # noqa: F401 - registers the tables
 from app.modules.automation.service.assignment import (
@@ -36,14 +37,29 @@ from app.modules.automation.service.assignment import (
 from app.modules.automation.service.business_rules import (
     RulesRun,
     log_trace,
+    record_runs,
     refusal_error,
     run_business_rules,
 )
 from app.modules.automation.service.jobs import purge_runs
 from app.modules.automation.service.realtime import ROUTES
-from app.modules.automation.service.registry import RecordType, register_record_type
+from app.modules.automation.service.registry import (
+    Applier,
+    AutomatedChange,
+    FactsReader,
+    Noter,
+    RecordEvent,
+    RecordType,
+    record_type,
+    register_event_reader,
+    register_record_type,
+)
 from app.modules.automation.service.routing import route_record
+from app.modules.automation.service.transitions import list_settings as transition_settings
+from app.modules.automation.service.transitions import refusal as transition_refusal
+from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
 from app.modules.automation.service.usage import register_usage_checks
+from app.shared.events import ConsumerSpec
 from app.shared.schedules import ScheduleSpec
 
 FEATURE = "incident"  # rules work on incidents first; other types join with their modules
@@ -61,26 +77,47 @@ module = ModuleSpec(
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,
+    # Triggers and a move's "after" actions run after the commit, from its events (REQ-RUL-009).
+    consumers=[
+        ConsumerSpec(
+            name="automation__triggers",
+            event_types=TRIGGER_EVENT_TYPES,
+            handler=on_record_event,
+        )
+    ],
     schedules=[ScheduleSpec("automation__purge_runs", 3600, purge_runs)],
 )
 
 __all__ = [
+    "Applier",
     "AssignmentChoice",
     "AssignmentResult",
+    "AutomatedChange",
+    "FactsReader",
     "FieldKind",
     "Member",
+    "Noter",
+    "People",
+    "RecordEvent",
     "RecordType",
+    "Relative",
     "RoutingChoice",
     "RuleEvent",
     "RuleField",
     "RulesOutcome",
     "RulesRun",
     "TraceLine",
+    "TriggerEvent",
     "auto_assign",
     "log_trace",
     "module",
+    "record_runs",
+    "record_type",
     "refusal_error",
+    "register_event_reader",
     "register_record_type",
     "route_record",
     "run_business_rules",
+    "transition_refusal",
+    "transition_settings",
 ]

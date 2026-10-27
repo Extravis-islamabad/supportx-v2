@@ -16,6 +16,14 @@ export type RoutingSettingsOut = components['schemas']['RoutingSettingsOut'];
 export type AssignmentSettingsOut = components['schemas']['AssignmentSettingsOut'];
 export type AssignmentSettingsIn = components['schemas']['AssignmentSettingsIn'];
 export type AvailabilityState = components['schemas']['AvailabilityOut']['state'];
+export type TriggerOut = components['schemas']['TriggerOut'];
+export type TriggerIn = components['schemas']['TriggerIn'];
+export type TriggerPatch = components['schemas']['TriggerPatch'];
+export type TriggerActionIO = components['schemas']['TriggerActionIO'];
+export type TransitionOut = components['schemas']['TransitionSettingsOut'];
+export type TransitionIn = components['schemas']['TransitionSettingsIn'];
+export type LoopStopOut = components['schemas']['LoopStopOut'];
+export type AutomationRunOut = components['schemas']['AutomationRunOut'];
 
 function ifMatch(version: number) {
   return { 'If-Match': `"${String(version)}"` };
@@ -137,6 +145,79 @@ export function useAutomationChange() {
       mutationFn: (body: { record_type: string; ids: string[] }) =>
         call(api.PUT('/api/v1/automation/routing-order', { body })),
     }),
+    createTrigger: useMutation({
+      ...options,
+      mutationFn: (body: TriggerIn) => call(api.POST('/api/v1/automation/triggers', { body })),
+    }),
+    updateTrigger: useMutation({
+      ...options,
+      mutationFn: ({ id, version, body }: { id: string; version: number; body: TriggerPatch }) =>
+        call(
+          api.PATCH('/api/v1/automation/triggers/{trigger_id}', {
+            params: { path: { trigger_id: id }, header: ifMatch(version) },
+            body,
+          }),
+        ),
+    }),
+    deleteTrigger: useMutation({
+      ...options,
+      mutationFn: ({ id, version }: { id: string; version: number }) =>
+        call(
+          api.DELETE('/api/v1/automation/triggers/{trigger_id}', {
+            params: { path: { trigger_id: id }, header: ifMatch(version) },
+          }),
+        ),
+    }),
+    orderTriggers: useMutation({
+      ...options,
+      mutationFn: (body: { record_type: string; ids: string[] }) =>
+        call(api.PUT('/api/v1/automation/triggers-order', { body })),
+    }),
+    saveTransition: useMutation({
+      ...options,
+      mutationFn: ({
+        recordType,
+        action,
+        version,
+        body,
+      }: {
+        recordType: string;
+        action: string;
+        version: number;
+        body: TransitionIn;
+      }) =>
+        call(
+          api.PUT('/api/v1/automation/transitions/{action}', {
+            params: {
+              path: { action },
+              query: { record_type: recordType },
+              header: ifMatch(version),
+            },
+            body,
+          }),
+        ),
+    }),
+    resetTransition: useMutation({
+      ...options,
+      mutationFn: ({
+        recordType,
+        action,
+        version,
+      }: {
+        recordType: string;
+        action: string;
+        version: number;
+      }) =>
+        call(
+          api.DELETE('/api/v1/automation/transitions/{action}', {
+            params: {
+              path: { action },
+              query: { record_type: recordType },
+              header: ifMatch(version),
+            },
+          }),
+        ),
+    }),
     saveRoutingSettings: useMutation({
       ...options,
       mutationFn: ({
@@ -226,5 +307,55 @@ export function useSetAvailability() {
         queryKey: [...queryKeys.automation.all, 'availability'],
       });
     },
+  });
+}
+
+/** A record type's triggers, in order (drafts and disabled ones included). */
+export function useTriggers(recordType: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.automation.triggers(recordType),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/automation/triggers', { params: { query: { record_type: recordType } } }),
+      ),
+    enabled,
+  });
+}
+
+/** Transition settings of a record type (only actions that have some). */
+export function useTransitionSettings(recordType: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.automation.transitions(recordType),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/automation/transitions', {
+          params: { query: { record_type: recordType } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** Loops the guard stopped in the last 24 hours (the admins' banner). */
+export function useLoopStops(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.automation.loopStops,
+    queryFn: () => call(api.GET('/api/v1/automation/loop-stops')),
+    enabled,
+    meta: { silent: true },
+  });
+}
+
+/** What automation did on an incident: triggers' outcomes and loop stops (live with the record). */
+export function useIncidentAutomation(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.automation(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/{record_id}/automation', {
+          params: { path: { record_id: id } },
+        }),
+      ),
+    enabled,
   });
 }

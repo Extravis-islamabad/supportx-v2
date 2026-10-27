@@ -301,6 +301,34 @@ async def _transition_after(
     ]
 
 
+async def _candidates(
+    session: AsyncSession, happened: RecordEvent
+) -> list[tuple[ChainLink, AutomationTrigger | None, Mapping[str, Any] | None, list[Any]]]:
+    """A move's "after" actions first, then the enabled triggers for the event, in order."""
+    triggers = await session.scalars(
+        select(AutomationTrigger)
+        .where(
+            AutomationTrigger.record_type == happened.record_type,
+            AutomationTrigger.state == RuleState.ENABLED.value,
+            AutomationTrigger.deleted_at.is_(None),
+        )
+        .order_by(AutomationTrigger.position, AutomationTrigger.created_at, AutomationTrigger.id)
+    )
+    return [*await _transition_after(session, happened), *_definitions(list(triggers), happened)]
+
+
+def _applies(
+    trigger: AutomationTrigger | None,
+    conditions: Mapping[str, Any] | None,
+    before: Mapping[str, JsonValue],
+    after: Mapping[str, JsonValue],
+) -> bool:
+    site = trigger.site_id if trigger is not None else None
+    if site is not None and str(after.get("site_id")) != str(site):
+        return False
+    return matches(conditions, before, after)
+
+
 def _tenant(session: AsyncSession) -> uuid.UUID:
     return uuid.UUID(str(session.info[SESSION_TENANT_KEY].tenant_id))
 
@@ -315,34 +343,18 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
     kind = registered(happened.record_type)
     if kind is None or kind.facts is None:
         return
-    triggers = await session.scalars(
-        select(AutomationTrigger)
-        .where(
-            AutomationTrigger.record_type == happened.record_type,
-            AutomationTrigger.state == RuleState.ENABLED.value,
-            AutomationTrigger.deleted_at.is_(None),
-        )
-        .order_by(AutomationTrigger.position, AutomationTrigger.created_at, AutomationTrigger.id)
-    )
-    candidates = [
-        *await _transition_after(session, happened),
-        *_definitions(list(triggers), happened),
-    ]
+    candidates = await _candidates(session, happened)
     if not candidates:
         return
     cause = await _cause(session, envelope)
+    # Conditions see the record as the event left it: a later trigger never reacts to what an
+    # earlier one changed here (that change has its own event and chain).
+    seen = await kind.facts(session, happened.record_id)
+    if seen is None:
+        return  # deleted meanwhile: nothing to act on
+    before = before_from(seen, happened.changed, happened.known_before)
     for link, trigger, conditions, actions in candidates:
-        after = await kind.facts(session, happened.record_id)
-        if after is None:
-            return  # deleted meanwhile: nothing to act on
-        if (
-            trigger is not None
-            and trigger.site_id is not None
-            and str(after.get("site_id")) != str(trigger.site_id)
-        ):
-            continue
-        before = before_from(after, happened.changed, happened.known_before)
-        if not matches(conditions, before, after):
+        if not _applies(trigger, conditions, before, seen):
             continue
         stop = loop_stop(
             cause,
@@ -356,13 +368,16 @@ async def on_record_event(envelope: EventEnvelope, session: AsyncSession | None)
         if stop is not None:
             await _stopped(session, happened, cause.then(link), stop)
             return
+        latest = await kind.facts(session, happened.record_id)
+        if latest is None:
+            return
         await _run(
             session,
             kind=kind,
             happened=happened,
             link=link,
             actions=actions,
-            current=after,
+            current=latest,
             cause=cause.then(link),
             envelope=envelope,
         )
@@ -402,6 +417,7 @@ async def _run(  # noqa: PLR0913 - one trigger's run and its context, explicit
     outcome = _overall([o["outcome"] for o in outcomes])
     session.add(
         AutomationRun(
+            tenant_id=_tenant(session),
             id=run_id,
             record_type=happened.record_type,
             record_id=happened.record_id,
@@ -502,6 +518,7 @@ async def _log(
 ) -> None:
     session.add(
         AutomationRun(
+            tenant_id=_tenant(session),
             record_type=happened.record_type,
             record_id=happened.record_id,
             kind="trigger",
@@ -534,6 +551,7 @@ async def _stopped(
     )
     session.add(
         AutomationRun(
+            tenant_id=_tenant(session),
             record_type=happened.record_type,
             record_id=happened.record_id,
             kind="loop_guard",
@@ -558,3 +576,17 @@ async def _stopped(
         ),
         aggregate_id=happened.record_id,
     )
+
+
+async def recent_loop_stops(session: AsyncSession) -> list[AutomationRun]:
+    """Loops stopped in the last 24 hours, newest first (at most 50)."""
+    rows = await session.scalars(
+        select(AutomationRun)
+        .where(
+            AutomationRun.kind == "loop_guard",
+            AutomationRun.occurred_at >= datetime.now(UTC) - timedelta(hours=24),
+        )
+        .order_by(AutomationRun.occurred_at.desc())
+        .limit(50)
+    )
+    return list(rows)

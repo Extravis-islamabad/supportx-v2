@@ -245,3 +245,13 @@ def may_run(rule: TransitionRule, person: People) -> bool:
         or rule.group_ids & person.group_ids
         or rule.relatives & person.relatives
     )
+
+
+def change_fields(node: Any) -> list[str]:  # noqa: ANN401 - a checked condition tree
+    """Fields tested with a change operator ("offered when" looks at the record as it is)."""
+    if not isinstance(node, Mapping):
+        return []
+    for join in ("and", "or"):
+        if join in node and isinstance(node[join], list):
+            return [name for item in node[join] for name in change_fields(item)]
+    return [str(node.get("field"))] if str(node.get("op", "")).startswith("changed") else []

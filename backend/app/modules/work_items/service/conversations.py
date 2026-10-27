@@ -14,9 +14,10 @@ Each write, in one transaction with the work item's rules (service/work_items.py
 6. history on the work item and the outbox event; notifications (WP-023) start from the event.
 """
 
+import html
 import re
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import tzinfo
 from typing import Any, Protocol
@@ -735,3 +736,57 @@ def require_view(subject: Subject, wtype: WorkItemType) -> None:
         raise PermissionDenied(
             params={"permission": wtype.permission("view"), "reason": "no_permission"}
         )
+
+
+async def automated_note(  # noqa: PLR0913 - the record, the text and who adds it, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    text: str,
+    *,
+    ref: Mapping[str, Any],
+    cause_id: uuid.UUID,
+) -> None:
+    """A trigger's private note (REQ-RUL-010): plain text, history names the trigger."""
+    record = await items.automation_record(session, wtype, record_id)
+    body = sanitize_html(
+        "".join(f"<p>{html.escape(line)}</p>" for line in text.splitlines() if line.strip())
+    )
+    entry = await ConversationRepository(session).add(
+        WorkItemConversation(
+            work_item_id=record.id,
+            kind=EntryKind.NOTE,
+            visibility=Visibility.PRIVATE,
+            reply_mode=None,
+            body=body,
+            recipients=None,
+            delivery_state=None,
+            delivery_reason=None,
+            first_response=False,
+            mentioned_ids=[],
+        )
+    )
+    await record_changes(
+        session,
+        record_type=followers.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="child_added",
+        changes=[
+            Change("conversation_entry", None, _entry_code(EntryKind.NOTE, Visibility.PRIVATE))
+        ],
+        source="rule",
+        automation_ref=dict(ref),
+    )
+    await record_event(
+        session,
+        WorkItemConversationAdded(
+            work_item_id=record.id,
+            entry_id=entry.id,
+            kind=EntryKind.NOTE,
+            visibility=Visibility.PRIVATE,
+        ),
+        aggregate_id=entry.id,
+        aggregate_version=entry.version,
+        causation_id=cause_id,
+    )

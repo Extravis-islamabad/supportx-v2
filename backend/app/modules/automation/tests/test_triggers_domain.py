@@ -11,6 +11,7 @@ from app.modules.automation.domain.triggers import (
     Relative,
     TransitionRule,
     before_from,
+    change_fields,
     check_after_actions,
     check_confirmation,
     check_trigger,
@@ -114,3 +115,13 @@ def test_req_wf_004_who_may_run_any_of_roles_groups_or_relatives() -> None:
         ),
         person,
     )
+
+
+def test_req_wf_003_offered_when_names_change_operators_to_refuse() -> None:
+    tree = {
+        "and": [
+            {"field": "priority", "op": "eq", "value": "p1"},
+            {"field": "status", "op": "changed_to", "value": "new"},
+        ]
+    }
+    assert change_fields(tree) == ["status"]

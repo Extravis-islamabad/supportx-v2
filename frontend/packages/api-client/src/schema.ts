@@ -741,6 +741,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/automation/loop-stops": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Loops the guard stopped in the last 24 hours
+         * @description Newest first, at most 50: the admins' banner until notifications arrive (WP-023).
+         */
+        get: operations["list_loop_stops_api_v1_automation_loop_stops_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/automation/routing": {
         parameters: {
             query?: never;
@@ -919,6 +939,118 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/transitions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Transition settings of a record type
+         * @description Only actions that have settings; the others run on their permission alone.
+         */
+        get: operations["list_transitions_api_v1_automation_transitions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/transitions/{action}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save one action's transition settings
+         * @description If-Match "0" the first time. 404 `transition_not_found` for an unknown action.
+         */
+        put: operations["save_transition_api_v1_automation_transitions__action__put"];
+        post?: never;
+        /**
+         * Back to permission only for one action
+         * @description Removes the settings; the action is again offered to everyone permitted.
+         */
+        delete: operations["reset_transition_api_v1_automation_transitions__action__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/triggers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Triggers of a record type, in order
+         * @description Drafts and disabled triggers included (marked).
+         */
+        get: operations["list_triggers_api_v1_automation_triggers_get"];
+        put?: never;
+        /**
+         * Add a trigger
+         * @description Checked against the record type when saved; last in the order.
+         */
+        post: operations["create_trigger_api_v1_automation_triggers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/triggers-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Order the triggers of a record type
+         * @description 409 `order_out_of_date` if the list does not name every trigger exactly once.
+         */
+        put: operations["order_triggers_api_v1_automation_triggers_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/triggers/{trigger_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a trigger
+         * @description Records' history and the log keep naming it.
+         */
+        delete: operations["delete_trigger_api_v1_automation_triggers__trigger_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a trigger
+         * @description Checked again as a whole.
+         */
+        patch: operations["update_trigger_api_v1_automation_triggers__trigger_id__patch"];
         trace?: never;
     };
     "/api/v1/custom-fields": {
@@ -1984,6 +2116,26 @@ export interface paths {
          * @description Set group and technician. A move out of your reach needs `confirm_lose_access`.
          */
         post: operations["assign_api_v1_incidents__record_id__assign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Automation log of the record
+         * @description Triggers' outcomes per action and loop stops, newest first (kept 30 days).
+         */
+        get: operations["automation_log_api_v1_incidents__record_id__automation_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4011,6 +4163,35 @@ export interface components {
             sealed_entries: number;
         };
         /**
+         * AutomationRunOut
+         * @description One automation step on the record: names, codes and outcomes, never values.
+         */
+        AutomationRunOut: {
+            /** Automation Name */
+            automation_name: string | null;
+            /** Detail */
+            detail: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description business_rule, routing, assignment, trigger or loop_guard
+             */
+            kind: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Outcome */
+            outcome: string;
+        };
+        /**
          * Availability
          * @description A technician's own state (REQ-ASG-006): away people are never auto-assigned.
          * @enum {string}
@@ -5474,6 +5655,36 @@ export interface components {
             icon_high_contrast?: string | null;
         };
         /**
+         * LoopStopOut
+         * @description A loop the guard stopped (REQ-RUL-028), for the admins' banner and log.
+         */
+        LoopStopOut: {
+            /**
+             * Cap
+             * @description chain_depth or per_minute
+             */
+            cap: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
+            /** Triggers */
+            triggers: string[];
+        };
+        /**
          * MatrixCellIn
          * @description One cell.
          */
@@ -5879,6 +6090,12 @@ export interface components {
             /** To */
             to: string[];
         };
+        /**
+         * Relative
+         * @description People relative to the record who may run a transition (REQ-WF-004).
+         * @enum {string}
+         */
+        Relative: "requester" | "assignee" | "group_head" | "requester_manager" | "department_head";
         /**
          * ReplyMode
          * @description Which composer a reply came from (REQ-INC-058).
@@ -6921,6 +7138,183 @@ export interface components {
             reason_mode: components["schemas"]["ReasonMode"];
         };
         /**
+         * TransitionSettingsIn
+         * @description The whole settings of one action (empty lists: anyone with the permission).
+         */
+        TransitionSettingsIn: {
+            /** After Actions */
+            after_actions?: components["schemas"]["TriggerActionIO"][];
+            /** Conditions */
+            conditions?: {
+                [key: string]: unknown;
+            } | null;
+            /** Confirmation */
+            confirmation?: {
+                [key: string]: string;
+            } | null;
+            /** Group Ids */
+            group_ids?: string[];
+            /** Relatives */
+            relatives?: components["schemas"]["Relative"][];
+            /** Roles */
+            roles?: string[];
+        };
+        /**
+         * TransitionSettingsOut
+         * @description Who may run a life-cycle action, when it is offered, its confirmation and "after".
+         */
+        TransitionSettingsOut: {
+            /** Action */
+            action: string;
+            /** After Actions */
+            after_actions: components["schemas"]["TriggerActionIO"][];
+            /** Conditions */
+            conditions: {
+                [key: string]: unknown;
+            } | null;
+            /** Confirmation */
+            confirmation: {
+                [key: string]: string;
+            } | null;
+            /** Group Ids */
+            group_ids: string[];
+            /** Record Type */
+            record_type: string;
+            /** Relatives */
+            relatives: components["schemas"]["Relative"][];
+            /** Roles */
+            roles: string[];
+            /**
+             * Version
+             * @description 0: no settings yet (permission only).
+             */
+            version: number;
+        };
+        /**
+         * TriggerActionIO
+         * @description `set` a field (fill empty or overwrite) or add a private `note` (REQ-RUL-010).
+         */
+        TriggerActionIO: {
+            /** Field */
+            field?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "set" | "note";
+            /** @default fill_empty */
+            mode: components["schemas"]["ActionMode"];
+            /**
+             * Text
+             * @description The note (note only).
+             */
+            text?: string | null;
+            /** Value */
+            value?: unknown;
+        };
+        /**
+         * TriggerEvent
+         * @description What a trigger reacts to (REQ-RUL-009; SLA and approval events join later).
+         * @enum {string}
+         */
+        TriggerEvent: "created" | "updated" | "status_changed" | "assigned" | "note_added" | "requester_replied";
+        /**
+         * TriggerIn
+         * @description A new trigger (a draft unless `state` says otherwise).
+         */
+        TriggerIn: {
+            /** Actions */
+            actions: components["schemas"]["TriggerActionIO"][];
+            /** Conditions */
+            conditions?: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description?: string | null;
+            /** Events */
+            events: components["schemas"]["TriggerEvent"][];
+            /**
+             * Fire On Own Change
+             * @default false
+             */
+            fire_on_own_change: boolean;
+            /** Name */
+            name: string;
+            /** Record Type */
+            record_type: string;
+            /** Site Id */
+            site_id?: string | null;
+            /** @default draft */
+            state: components["schemas"]["RuleState"];
+        };
+        /**
+         * TriggerOut
+         * @description A trigger: runs after a change is committed, from its event (REQ-RUL-009).
+         */
+        TriggerOut: {
+            /** Actions */
+            actions: components["schemas"]["TriggerActionIO"][];
+            /** Conditions */
+            conditions: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description: string | null;
+            /** Events */
+            events: components["schemas"]["TriggerEvent"][];
+            /**
+             * Fire On Own Change
+             * @description Also runs on the change its own action made (loop guard still applies).
+             */
+            fire_on_own_change: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Position */
+            position: number;
+            /** Record Type */
+            record_type: string;
+            /** Site Id */
+            site_id: string | null;
+            state: components["schemas"]["RuleState"];
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * TriggerPatch
+         * @description What to change (only what is sent).
+         */
+        TriggerPatch: {
+            /** Actions */
+            actions?: components["schemas"]["TriggerActionIO"][] | null;
+            /** Conditions */
+            conditions?: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description?: string | null;
+            /** Events */
+            events?: components["schemas"]["TriggerEvent"][] | null;
+            /** Fire On Own Change */
+            fire_on_own_change?: boolean | null;
+            /** Name */
+            name?: string | null;
+            /** Site Id */
+            site_id?: string | null;
+            state?: components["schemas"]["RuleState"] | null;
+        };
+        /**
          * TypeIn
          * @description Technician (takes a licence seat) or requester.
          */
@@ -7211,6 +7605,13 @@ export interface components {
             action: string;
             /** Allowed */
             allowed: boolean;
+            /**
+             * Confirmation
+             * @description Asked before the move runs, per language (en, ar, ur).
+             */
+            confirmation?: {
+                [key: string]: string;
+            } | null;
             /** Reason */
             reason?: string | null;
             reason_list?: components["schemas"]["ReasonList"] | null;
@@ -11011,6 +11412,80 @@ export interface operations {
             };
         };
     };
+    list_loop_stops_api_v1_automation_loop_stops_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoopStopOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_routing_api_v1_automation_routing_get: {
         parameters: {
             query: {
@@ -11982,6 +12457,645 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RunOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_transitions_api_v1_automation_transitions_get: {
+        parameters: {
+            query: {
+                /** @description e.g. incident */
+                record_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransitionSettingsOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    save_transition_api_v1_automation_transitions__action__put: {
+        parameters: {
+            query: {
+                /** @description e.g. incident */
+                record_type: string;
+            };
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransitionSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reset_transition_api_v1_automation_transitions__action__delete: {
+        parameters: {
+            query: {
+                /** @description e.g. incident */
+                record_type: string;
+            };
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                action: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_triggers_api_v1_automation_triggers_get: {
+        parameters: {
+            query: {
+                /** @description e.g. incident */
+                record_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_trigger_api_v1_automation_triggers_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriggerIn"];
+            };
+        };
+        responses: {
+            /** @description Created (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    order_triggers_api_v1_automation_triggers_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_trigger_api_v1_automation_triggers__trigger_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                trigger_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_trigger_api_v1_automation_triggers__trigger_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                trigger_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TriggerPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TriggerOut"];
                 };
             };
             /** @description Not signed in. */
@@ -16811,6 +17925,73 @@ export interface operations {
             };
             /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    automation_log_api_v1_incidents__record_id__automation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutomationRunOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

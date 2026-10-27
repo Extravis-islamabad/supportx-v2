@@ -171,10 +171,13 @@ export function ConditionBuilder({
   fields,
   value,
   onChange,
+  allowOp = () => true,
 }: {
   fields: RuleFieldOut[];
   value: Conditions;
   onChange: (next: Conditions) => void;
+  /** Narrows the operators offered (triggers: "changed from" for the status only). */
+  allowOp?: (field: string, op: string) => boolean;
 }) {
   const t = useLabel();
   const name = useFieldName();
@@ -203,7 +206,8 @@ export function ConditionBuilder({
       )}
       {value.rows.map((row, index) => {
         const field = byName.get(row.field);
-        const ops = field === undefined ? [] : OPERATORS[field.kind];
+        const ops =
+          field === undefined ? [] : OPERATORS[field.kind].filter((op) => allowOp(field.name, op));
         return (
           // Rows have no ID: they are edited in place, never reordered.
           <Flex key={index} gap={8} wrap align="center" data-testid={`condition-${String(index)}`}>

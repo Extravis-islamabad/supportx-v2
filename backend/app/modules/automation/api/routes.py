@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
@@ -18,13 +18,22 @@ from app.core.errors import PermissionDenied, ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.automation.domain.assignment import AssignMethod, Availability
 from app.modules.automation.domain.rules import ActionMode, FieldKind, RuleEvent, RuleState
+from app.modules.automation.domain.triggers import Relative, TriggerEvent
 from app.modules.automation.infra.models import (
     AssignmentSettings,
+    AutomationTrigger,
     BusinessRule,
     RoutingRule,
     RoutingSettings,
+    TransitionSetting,
 )
-from app.modules.automation.service import assignment, business_rules, routing
+from app.modules.automation.service import (
+    assignment,
+    business_rules,
+    routing,
+    transitions,
+    triggers,
+)
 from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -621,3 +630,290 @@ async def list_runs(
     del subject
     rows = await business_rules.record_runs(session, record_id)
     return [RunOut.model_validate(r, from_attributes=True) for r in rows]
+
+
+# --- triggers (WP-029 part 2) ------------------------------------------------------------------
+
+
+class TriggerActionIO(BaseModel):
+    """`set` a field (fill empty or overwrite) or add a private `note` (REQ-RUL-010)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["set", "note"]
+    field: str | None = Field(default=None, max_length=80)
+    value: Any = None
+    mode: ActionMode = ActionMode.FILL_EMPTY
+    text: str | None = Field(default=None, max_length=10000, description="The note (note only).")
+
+
+class TriggerOut(BaseModel):
+    """A trigger: runs after a change is committed, from its event (REQ-RUL-009)."""
+
+    id: uuid.UUID
+    record_type: str
+    name: str
+    description: str | None
+    events: list[TriggerEvent]
+    site_id: uuid.UUID | None
+    conditions: dict[str, Any] | None
+    actions: list[TriggerActionIO]
+    fire_on_own_change: bool = Field(
+        description="Also runs on the change its own action made (loop guard still applies)."
+    )
+    position: int
+    state: RuleState
+    owner_id: uuid.UUID | None
+    updated_at: datetime
+    version: int
+
+
+class TriggerIn(BaseModel):
+    """A new trigger (a draft unless `state` says otherwise)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    record_type: str = Field(max_length=30)
+    name: str = Field(max_length=400)
+    description: str | None = Field(default=None, max_length=4000)
+    events: list[TriggerEvent] = Field(min_length=1)
+    site_id: uuid.UUID | None = None
+    conditions: dict[str, Any] | None = None
+    actions: list[TriggerActionIO] = Field(max_length=40)
+    fire_on_own_change: bool = False
+    state: RuleState = RuleState.DRAFT
+
+
+class TriggerPatch(BaseModel):
+    """What to change (only what is sent)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, max_length=400)
+    description: str | None = Field(default=None, max_length=4000)
+    events: list[TriggerEvent] | None = None
+    site_id: uuid.UUID | None = None
+    conditions: dict[str, Any] | None = None
+    actions: list[TriggerActionIO] | None = Field(default=None, max_length=40)
+    fire_on_own_change: bool | None = None
+    state: RuleState | None = None
+
+
+def _trigger_out(trigger: AutomationTrigger) -> TriggerOut:
+    return TriggerOut.model_validate(trigger, from_attributes=True)
+
+
+@router.get("/triggers", summary="Triggers of a record type, in order")
+async def list_triggers(
+    session: TenantSession, subject: View, record_type: RecordType
+) -> list[TriggerOut]:
+    """Drafts and disabled triggers included (marked)."""
+    del subject
+    return [_trigger_out(t) for t in await triggers.list_triggers(session, record_type)]
+
+
+@router.post(
+    "/triggers",
+    summary="Add a trigger",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TriggerOut,
+    responses={201: {"model": TriggerOut, "description": "Created (or replayed)."}},
+)
+async def create_trigger(
+    body: TriggerIn,
+    session: TenantSession,
+    subject: Manage,
+    idempotency: Idempotency,
+    note: Annotated[AuditNote, audited("automation.trigger_created", object_type="trigger")],
+) -> Response:
+    """Checked against the record type when saved; last in the order."""
+    del subject
+    note.skip = True
+
+    async def operation() -> Created:
+        trigger = await triggers.create_trigger(
+            session, _dump(body) | {"record_type": body.record_type}
+        )
+        note.skip = False
+        note.object_id = str(trigger.id)
+        return Created(_trigger_out(trigger), {"ETag": f'"{trigger.version}"'})
+
+    return await idempotency.run(body, operation)
+
+
+@router.patch(
+    "/triggers/{trigger_id}",
+    summary="Change a trigger",
+    dependencies=[
+        audited("automation.trigger_changed", object_type="trigger", object_param="trigger_id")
+    ],
+)
+async def update_trigger(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    trigger_id: uuid.UUID,
+    body: TriggerPatch,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+) -> TriggerOut:
+    """Checked again as a whole."""
+    del subject
+    trigger = await triggers.update_trigger(
+        session, trigger_id, _dump(body), expected_version=version
+    )
+    set_etag(response, trigger.version)
+    return _trigger_out(trigger)
+
+
+@router.delete(
+    "/triggers/{trigger_id}",
+    summary="Remove a trigger",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("automation.trigger_deleted", object_type="trigger", object_param="trigger_id")
+    ],
+)
+async def delete_trigger(
+    trigger_id: uuid.UUID, version: ExpectedVersion, session: TenantSession, subject: Manage
+) -> Response:
+    """Records' history and the log keep naming it."""
+    del subject
+    await triggers.delete_trigger(session, trigger_id, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put(
+    "/triggers-order",
+    summary="Order the triggers of a record type",
+    dependencies=[audited("automation.triggers_reordered", object_type="trigger")],
+)
+async def order_triggers(
+    body: OrderIn, session: TenantSession, subject: Manage
+) -> list[TriggerOut]:
+    """409 `order_out_of_date` if the list does not name every trigger exactly once."""
+    del subject
+    return [
+        _trigger_out(t)
+        for t in await triggers.reorder_triggers(session, body.record_type, body.ids)
+    ]
+
+
+class LoopStopOut(BaseModel):
+    """A loop the guard stopped (REQ-RUL-028), for the admins' banner and log."""
+
+    id: uuid.UUID
+    record_type: str
+    record_id: uuid.UUID
+    cap: str = Field(description="chain_depth or per_minute")
+    triggers: list[str]
+    occurred_at: datetime
+
+
+@router.get("/loop-stops", summary="Loops the guard stopped in the last 24 hours")
+async def list_loop_stops(session: TenantSession, subject: View) -> list[LoopStopOut]:
+    """Newest first, at most 50: the admins' banner until notifications arrive (WP-023)."""
+    del subject
+    return [
+        LoopStopOut(
+            id=row.id,
+            record_type=row.record_type,
+            record_id=row.record_id,
+            cap=row.outcome,
+            triggers=list((row.detail or {}).get("triggers", [])),
+            occurred_at=row.occurred_at,
+        )
+        for row in await triggers.recent_loop_stops(session)
+    ]
+
+
+# --- transition settings (WP-029 part 2) --------------------------------------------------------
+
+
+class TransitionSettingsOut(BaseModel):
+    """Who may run a life-cycle action, when it is offered, its confirmation and "after"."""
+
+    record_type: str
+    action: str
+    roles: list[str]
+    group_ids: list[uuid.UUID]
+    relatives: list[Relative]
+    conditions: dict[str, Any] | None
+    confirmation: dict[str, str] | None
+    after_actions: list[TriggerActionIO]
+    version: int = Field(description="0: no settings yet (permission only).")
+
+
+class TransitionSettingsIn(BaseModel):
+    """The whole settings of one action (empty lists: anyone with the permission)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    roles: list[str] = Field(default_factory=list, max_length=100)
+    group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=100)
+    relatives: list[Relative] = Field(default_factory=list, max_length=10)
+    conditions: dict[str, Any] | None = None
+    confirmation: dict[str, str] | None = None
+    after_actions: list[TriggerActionIO] = Field(default_factory=list, max_length=40)
+
+
+def _transition_out(row: TransitionSetting) -> TransitionSettingsOut:
+    return TransitionSettingsOut.model_validate(row, from_attributes=True)
+
+
+@router.get("/transitions", summary="Transition settings of a record type")
+async def list_transitions(
+    session: TenantSession, subject: View, record_type: RecordType
+) -> list[TransitionSettingsOut]:
+    """Only actions that have settings; the others run on their permission alone."""
+    del subject
+    return [_transition_out(r) for r in await transitions.list_settings(session, record_type)]
+
+
+@router.put(
+    "/transitions/{action}",
+    summary="Save one action's transition settings",
+    dependencies=[
+        audited("automation.transition_saved", object_type="transition", object_param="action")
+    ],
+)
+async def save_transition(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    action: Annotated[str, Path(max_length=40)],
+    body: TransitionSettingsIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    record_type: RecordType,
+) -> TransitionSettingsOut:
+    """If-Match "0" the first time. 404 `transition_not_found` for an unknown action."""
+    del subject
+    data = body.model_dump(mode="json")
+    data["after_actions"] = [
+        {k: v for k, v in a.items() if v is not None or k == "value"} for a in data["after_actions"]
+    ]
+    row = await transitions.save_setting(
+        session, record_type, action, data, expected_version=version
+    )
+    set_etag(response, row.version)
+    return _transition_out(row)
+
+
+@router.delete(
+    "/transitions/{action}",
+    summary="Back to permission only for one action",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[
+        audited("automation.transition_reset", object_type="transition", object_param="action")
+    ],
+)
+async def reset_transition(
+    action: str,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Manage,
+    record_type: RecordType,
+) -> Response:
+    """Removes the settings; the action is again offered to everyone permitted."""
+    del subject
+    await transitions.reset_setting(session, record_type, action, expected_version=version)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -28,7 +28,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata
-from app.modules.automation import RuleEvent, log_trace
+from app.modules.automation import (
+    People,
+    Relative,
+    RuleEvent,
+    log_trace,
+    record_runs,
+    transition_refusal,
+    transition_settings,
+)
 from app.modules.identity_access import (
     Subject,
     authorize_stored,
@@ -43,6 +51,7 @@ from app.modules.organization import (
     existing_departments,
     existing_unit_ids,
     memberships,
+    unit_heads,
     users_in_groups,
 )
 from app.modules.work_items.domain.classification import (
@@ -185,6 +194,8 @@ class ActionState:
     reason: str | None = None
     reason_mode: str = ReasonMode.NONE
     reason_list: str | None = None
+    # Asked before the move runs, per language (REQ-WF-003 "during").
+    confirmation: Mapping[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -255,6 +266,64 @@ async def _reason_for(
     return None
 
 
+async def _relatives(
+    session: AsyncSession, subject: Subject, record: WorkItem
+) -> frozenset[Relative]:
+    """Who the subject is to the record, for "who may run" (REQ-WF-004)."""
+    me = subject.user_id
+    found: set[Relative] = set()
+    if me in {record.requester_id, record.on_behalf_of_id}:
+        found.add(Relative.REQUESTER)
+    if me == record.technician_id:
+        found.add(Relative.ASSIGNEE)
+    lead, head = await unit_heads(session, record.group_id, record.department_id)
+    if me == lead:
+        found.add(Relative.GROUP_HEAD)
+    if me == head:
+        found.add(Relative.DEPARTMENT_HEAD)
+    if me == (await person_placement(session, record.requester_id)).manager_id:
+        found.add(Relative.REQUESTER_MANAGER)
+    return frozenset(found)
+
+
+class _Transitions:
+    """A record's transition settings, checked for one subject (loaded once per view)."""
+
+    def __init__(self, session: AsyncSession, subject: Subject, record: WorkItem) -> None:
+        self.session, self.subject, self.record = session, subject, record
+        self._rows: dict[str, Any] | None = None
+        self._person: People | None = None
+
+    async def _row(self, action: str) -> Any:  # noqa: ANN401 - automation's settings row
+        if self._rows is None:
+            rows = await transition_settings(self.session, self.record.type)
+            self._rows = {row.action: row for row in rows}
+        return self._rows.get(action)
+
+    async def confirmation(self, action: str) -> Mapping[str, str] | None:
+        row = await self._row(action)
+        return None if row is None else row.confirmation
+
+    async def refusal(self, action: str) -> str | None:
+        row = await self._row(action)
+        if row is None:
+            return None
+        if self._person is None:
+            self._person = People(
+                user_id=str(self.subject.user_id),
+                role_keys=self.subject.role_keys,
+                group_ids=frozenset(str(g) for g in self.subject.group_ids),
+                relatives=await _relatives(self.session, self.subject, self.record),
+            )
+        facts = {
+            **_snapshot(self.record),
+            "status": self.record.status,
+            "status_category": self.record.status_category,
+            **await automation.requester_facts(self.session, self.record.requester_id),
+        }
+        return transition_refusal(row, self._person, facts)
+
+
 async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
 ) -> WorkItemView:
@@ -271,6 +340,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             )
         return reasons[permission_action]
 
+    transitions = _Transitions(session, subject, record)
     actions: list[ActionState] = []
     for action in USER_ACTIONS:
         transition = lifecycle.transitions.get((record.status, action))
@@ -287,6 +357,9 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
             and await reason("take") is not None
         ):
             refused = CANNOT_TAKE
+        if refused is None:
+            # Who may run it and when it is offered (REQ-WF-003, 004).
+            refused = await transitions.refusal(action.value)
         actions.append(
             ActionState(
                 action,
@@ -294,6 +367,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                 reason=refused,
                 reason_mode=mode,
                 reason_list=reason_list,
+                confirmation=await transitions.confirmation(action.value),
             )
         )
     operations: list[ActionState] = []
@@ -1606,6 +1680,9 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     if action not in ACTION_PERMISSION:
         raise Conflict(code="invalid_transition", params={"action": action})
     record = await _for_action(session, subject, wtype, ACTION_PERMISSION[action], record_id)
+    refused = await _Transitions(session, subject, record).refusal(action.value)
+    if refused is not None:
+        raise PermissionDenied(code="transition_not_allowed", params={"reason": refused})
     cat = await config.load(session, wtype)
     try:
         step = cat.lifecycle.transition(record.status, action)
@@ -2011,3 +2088,134 @@ def stale(current_version: int, expected_version: int) -> Conflict:
         code="version_conflict",
         params={"expected_version": expected_version, "current_version": current_version},
     )
+
+
+# --- automated changes (triggers, a move's "after" actions; WP-029 part 2) ------------------------
+
+
+async def automated_update(  # noqa: PLR0913 - the record, the values and who makes them, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    values: Mapping[str, Any],
+    *,
+    ref: Mapping[str, Any],
+    cause_id: uuid.UUID,
+) -> list[str]:
+    """Set fields as a trigger, through the same save path (REQ-RUL-009, 010).
+
+    Business rules run again and the matrix follows impact and urgency; history names the
+    trigger (source `rule`), and the event carries the trigger's run as its cause so the loop
+    guard sees the chain. Returns the fields that changed (empty: nothing to change).
+    """
+    record = await session.scalar(_rows(wtype).where(WorkItem.id == record_id).with_for_update())
+    if record is None:
+        raise _not_found(wtype)
+    if _closed(record):
+        raise Conflict(code="record_closed", params={"status": record.status})
+    columns = await _automated_columns(session, wtype, record, values)
+    if not columns:
+        return []
+    automated = await _rules_on_edit(session, wtype, record, columns)
+    if "priority" in columns:
+        columns["priority_source"] = PrioritySource.RULE
+    elif {"impact", "urgency"} & set(columns) and record.priority_source != PrioritySource.MANUAL:
+        cat = await config.load(session, wtype)
+        computed = compute_priority(
+            columns.get("impact", record.impact),
+            columns.get("urgency", record.urgency),
+            cat.matrix,
+            cat.default_priority,
+        )
+        columns |= {"priority": computed.priority, "priority_source": computed.source}
+    before = _snapshot(record)
+    audience_before = _audience(record)
+    updated = await _update(session, record, record.version, columns)
+    after = _snapshot(updated)
+    after |= {name: None for name in before if name not in after}
+    before |= {name: None for name in after if name not in before}
+    changed = [n for n in after if before[n] != after[n]]
+    # What the business rules then set has its own entries naming each rule.
+    mine = [Change(n, before[n], after[n]) for n in changed if n not in automated.values]
+    if mine:
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=updated.id,
+            version=updated.version,
+            kind="updated",
+            changes=mine,
+            source="rule",
+            automation_ref=dict(ref),
+        )
+    await _record_automation(session, updated, automated)
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=changed,
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+        causation_id=cause_id,
+    )
+    return changed
+
+
+async def _automated_columns(
+    session: AsyncSession, wtype: WorkItemType, record: WorkItem, values: Mapping[str, Any]
+) -> dict[str, Any]:
+    """A trigger's values as typed columns, only those that differ from the record."""
+    columns: dict[str, Any] = {}
+    custom = dict(record.custom or {})
+    for name, value in values.items():
+        if name.startswith("custom."):
+            custom[name.removeprefix("custom.")] = value
+        elif name in _REFERENCE_INPUTS or name in {"group_id", "technician_id"}:
+            columns[name] = uuid.UUID(str(value)) if value else None
+        else:
+            columns[name] = value
+    columns = {n: v for n, v in columns.items() if getattr(record, n) != v}
+    cleaned_custom = {k: v for k, v in custom.items() if v is not None}
+    if cleaned_custom != (record.custom or {}):
+        columns["custom"] = cleaned_custom
+        columns["custom_text"] = await _custom_text(session, wtype, cleaned_custom)
+    return columns
+
+
+async def automation_record(
+    session: AsyncSession, wtype: WorkItemType, record_id: uuid.UUID
+) -> WorkItem:
+    """The record an automation acts on (not in the trash), or 404."""
+    record: WorkItem | None = await session.scalar(_rows(wtype).where(WorkItem.id == record_id))
+    if record is None:
+        raise _not_found(wtype)
+    return record
+
+
+async def automation_facts(
+    session: AsyncSession, wtype: WorkItemType, record_id: uuid.UUID
+) -> dict[str, Any] | None:
+    """A record's current values as triggers see them (None: gone or in the trash)."""
+    record = await session.scalar(_rows(wtype).where(WorkItem.id == record_id))
+    if record is None:
+        return None
+    return {
+        **_snapshot(record),
+        "status": record.status,
+        "status_category": record.status_category,
+        **await automation.requester_facts(session, record.requester_id),
+    }
+
+
+async def automation_log(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> list[Any]:
+    """What automation did on a record (triggers' outcomes, loop stops), for whoever may see it."""
+    await _visible(session, subject, wtype, record_id)
+    return list(await record_runs(session, record_id))

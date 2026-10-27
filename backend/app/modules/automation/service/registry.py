@@ -34,6 +34,8 @@ class RecordType:
     facts: "FactsReader | None" = None
     apply: "Applier | None" = None
     add_note: "Noter | None" = None
+    # Life-cycle actions a person runs (transition settings, REQ-WF-003, 004).
+    transition_actions: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

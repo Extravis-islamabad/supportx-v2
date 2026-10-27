@@ -17,7 +17,12 @@ class AutomationChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "automation"
 
     kind: Literal[
-        "business_rule", "routing_rule", "routing_settings", "assignment_settings", "trigger"
+        "business_rule",
+        "routing_rule",
+        "routing_settings",
+        "assignment_settings",
+        "trigger",
+        "transition_settings",
     ]
     definition_id: uuid.UUID | None
     record_type: str | None

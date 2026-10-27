@@ -1,4 +1,9 @@
-import { ApiError, useCustomFields, type RuleFieldOut } from '@supportx/api-client';
+import {
+  ApiError,
+  useCustomFields,
+  type RuleFieldOut,
+  type TriggerActionIO,
+} from '@supportx/api-client';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { fieldName } from '../../customFields/values';
@@ -78,4 +83,19 @@ export function problemsOf(t: ReturnType<typeof useLabel>, error: unknown): stri
   if (!(error instanceof ApiError) || error.status !== 422) return [];
   if (error.fieldErrors.length === 0) return [t(`errors.${error.code}`, error.params)];
   return error.fieldErrors.map((f) => t(f.message_key, f.params ?? {}));
+}
+
+/** Triggers learn only which fields changed, not from what: "changed from" is the status's. */
+export function triggerOp(field: string, op: string): boolean {
+  return op !== 'changed_from' || field === 'status';
+}
+
+/** "Offered when" looks at the record as it is: no change operators. */
+export function stateOp(_field: string, op: string): boolean {
+  return !op.startsWith('changed');
+}
+
+/** A new "set a field" action, nothing chosen yet. */
+export function emptyAction(): TriggerActionIO {
+  return { kind: 'set', field: null, value: null, mode: 'fill_empty' };
 }

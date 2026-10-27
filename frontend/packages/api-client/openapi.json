@@ -2437,6 +2437,56 @@
         "title": "AuditStatusOut",
         "type": "object"
       },
+      "AutomationRunOut": {
+        "description": "One automation step on the record: names, codes and outcomes, never values.",
+        "properties": {
+          "automation_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Automation Name"
+          },
+          "detail": {
+            "additionalProperties": true,
+            "title": "Detail",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "business_rule, routing, assignment, trigger or loop_guard",
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "automation_name",
+          "outcome",
+          "detail",
+          "occurred_at"
+        ],
+        "title": "AutomationRunOut",
+        "type": "object"
+      },
       "Availability": {
         "description": "A technician's own state (REQ-ASG-006): away people are never auto-assigned.",
         "enum": [
@@ -6131,6 +6181,52 @@
         "title": "Logos",
         "type": "object"
       },
+      "LoopStopOut": {
+        "description": "A loop the guard stopped (REQ-RUL-028), for the admins' banner and log.",
+        "properties": {
+          "cap": {
+            "description": "chain_depth or per_minute",
+            "title": "Cap",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "triggers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Triggers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "record_type",
+          "record_id",
+          "cap",
+          "triggers",
+          "occurred_at"
+        ],
+        "title": "LoopStopOut",
+        "type": "object"
+      },
       "MatrixCellIn": {
         "description": "One cell.",
         "properties": {
@@ -7163,6 +7259,18 @@
         ],
         "title": "RecipientsOut",
         "type": "object"
+      },
+      "Relative": {
+        "description": "People relative to the record who may run a transition (REQ-WF-004).",
+        "enum": [
+          "requester",
+          "assignee",
+          "group_head",
+          "requester_manager",
+          "department_head"
+        ],
+        "title": "Relative",
+        "type": "string"
       },
       "ReplyMode": {
         "description": "Which composer a reply came from (REQ-INC-058).",
@@ -9882,6 +9990,532 @@
         "title": "TransitionPatch",
         "type": "object"
       },
+      "TransitionSettingsIn": {
+        "additionalProperties": false,
+        "description": "The whole settings of one action (empty lists: anyone with the permission).",
+        "properties": {
+          "after_actions": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerActionIO"
+            },
+            "maxItems": 40,
+            "title": "After Actions",
+            "type": "array"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation"
+          },
+          "group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "relatives": {
+            "items": {
+              "$ref": "#/components/schemas/Relative"
+            },
+            "maxItems": 10,
+            "title": "Relatives",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "title": "TransitionSettingsIn",
+        "type": "object"
+      },
+      "TransitionSettingsOut": {
+        "description": "Who may run a life-cycle action, when it is offered, its confirmation and \"after\".",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "after_actions": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerActionIO"
+            },
+            "title": "After Actions",
+            "type": "array"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation"
+          },
+          "group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "relatives": {
+            "items": {
+              "$ref": "#/components/schemas/Relative"
+            },
+            "title": "Relatives",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          },
+          "version": {
+            "description": "0: no settings yet (permission only).",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_type",
+          "action",
+          "roles",
+          "group_ids",
+          "relatives",
+          "conditions",
+          "confirmation",
+          "after_actions",
+          "version"
+        ],
+        "title": "TransitionSettingsOut",
+        "type": "object"
+      },
+      "TriggerActionIO": {
+        "additionalProperties": false,
+        "description": "`set` a field (fill empty or overwrite) or add a private `note` (REQ-RUL-010).",
+        "properties": {
+          "field": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "kind": {
+            "enum": [
+              "set",
+              "note"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/ActionMode",
+            "default": "fill_empty"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 10000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The note (note only).",
+            "title": "Text"
+          },
+          "value": {
+            "title": "Value"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "TriggerActionIO",
+        "type": "object"
+      },
+      "TriggerEvent": {
+        "description": "What a trigger reacts to (REQ-RUL-009; SLA and approval events join later).",
+        "enum": [
+          "created",
+          "updated",
+          "status_changed",
+          "assigned",
+          "note_added",
+          "requester_replied"
+        ],
+        "title": "TriggerEvent",
+        "type": "string"
+      },
+      "TriggerIn": {
+        "additionalProperties": false,
+        "description": "A new trigger (a draft unless `state` says otherwise).",
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerActionIO"
+            },
+            "maxItems": 40,
+            "title": "Actions",
+            "type": "array"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerEvent"
+            },
+            "minItems": 1,
+            "title": "Events",
+            "type": "array"
+          },
+          "fire_on_own_change": {
+            "default": false,
+            "title": "Fire On Own Change",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 400,
+            "title": "Name",
+            "type": "string"
+          },
+          "record_type": {
+            "maxLength": 30,
+            "title": "Record Type",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RuleState",
+            "default": "draft"
+          }
+        },
+        "required": [
+          "record_type",
+          "name",
+          "events",
+          "actions"
+        ],
+        "title": "TriggerIn",
+        "type": "object"
+      },
+      "TriggerOut": {
+        "description": "A trigger: runs after a change is committed, from its event (REQ-RUL-009).",
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerActionIO"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TriggerEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "fire_on_own_change": {
+            "description": "Also runs on the change its own action made (loop guard still applies).",
+            "title": "Fire On Own Change",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "state": {
+            "$ref": "#/components/schemas/RuleState"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "record_type",
+          "name",
+          "description",
+          "events",
+          "site_id",
+          "conditions",
+          "actions",
+          "fire_on_own_change",
+          "position",
+          "state",
+          "owner_id",
+          "updated_at",
+          "version"
+        ],
+        "title": "TriggerOut",
+        "type": "object"
+      },
+      "TriggerPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent).",
+        "properties": {
+          "actions": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TriggerActionIO"
+                },
+                "maxItems": 40,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actions"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TriggerEvent"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "fire_on_own_change": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fire On Own Change"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 400,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RuleState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "TriggerPatch",
+        "type": "object"
+      },
       "TypeIn": {
         "additionalProperties": false,
         "description": "Technician (takes a licence seat) or requester.",
@@ -10590,6 +11224,21 @@
           "allowed": {
             "title": "Allowed",
             "type": "boolean"
+          },
+          "confirmation": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Asked before the move runs, per language (en, ar, ur).",
+            "title": "Confirmation"
           },
           "reason": {
             "anyOf": [
@@ -17081,6 +17730,92 @@
         ]
       }
     },
+    "/api/v1/automation/loop-stops": {
+      "get": {
+        "description": "Newest first, at most 50: the admins' banner until notifications arrive (WP-023).",
+        "operationId": "list_loop_stops_api_v1_automation_loop_stops_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LoopStopOut"
+                  },
+                  "title": "Response List Loop Stops Api V1 Automation Loop Stops Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Loops the guard stopped in the last 24 hours",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
     "/api/v1/automation/routing": {
       "get": {
         "description": "Drafts and disabled ones included.",
@@ -18458,6 +19193,889 @@
           }
         },
         "summary": "Automation log of one record",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/transitions": {
+      "get": {
+        "description": "Only actions that have settings; the others run on their permission alone.",
+        "operationId": "list_transitions_api_v1_automation_transitions_get",
+        "parameters": [
+          {
+            "description": "e.g. incident",
+            "in": "query",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "description": "e.g. incident",
+              "maxLength": 30,
+              "minLength": 1,
+              "title": "Record Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TransitionSettingsOut"
+                  },
+                  "title": "Response List Transitions Api V1 Automation Transitions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Transition settings of a record type",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/transitions/{action}": {
+      "delete": {
+        "description": "Removes the settings; the action is again offered to everyone permitted.",
+        "operationId": "reset_transition_api_v1_automation_transitions__action__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "description": "e.g. incident",
+            "in": "query",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "description": "e.g. incident",
+              "maxLength": 30,
+              "minLength": 1,
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Back to permission only for one action",
+        "tags": [
+          "automation"
+        ]
+      },
+      "put": {
+        "description": "If-Match \"0\" the first time. 404 `transition_not_found` for an unknown action.",
+        "operationId": "save_transition_api_v1_automation_transitions__action__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "description": "e.g. incident",
+            "in": "query",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "description": "e.g. incident",
+              "maxLength": 30,
+              "minLength": 1,
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TransitionSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransitionSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save one action's transition settings",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/triggers": {
+      "get": {
+        "description": "Drafts and disabled triggers included (marked).",
+        "operationId": "list_triggers_api_v1_automation_triggers_get",
+        "parameters": [
+          {
+            "description": "e.g. incident",
+            "in": "query",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "description": "e.g. incident",
+              "maxLength": 30,
+              "minLength": 1,
+              "title": "Record Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TriggerOut"
+                  },
+                  "title": "Response List Triggers Api V1 Automation Triggers Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Triggers of a record type, in order",
+        "tags": [
+          "automation"
+        ]
+      },
+      "post": {
+        "description": "Checked against the record type when saved; last in the order.",
+        "operationId": "create_trigger_api_v1_automation_triggers_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerOut"
+                }
+              }
+            },
+            "description": "Created (or replayed)."
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a trigger",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/triggers-order": {
+      "put": {
+        "description": "409 `order_out_of_date` if the list does not name every trigger exactly once.",
+        "operationId": "order_triggers_api_v1_automation_triggers_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TriggerOut"
+                  },
+                  "title": "Response Order Triggers Api V1 Automation Triggers Order Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Order the triggers of a record type",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/triggers/{trigger_id}": {
+      "delete": {
+        "description": "Records' history and the log keep naming it.",
+        "operationId": "delete_trigger_api_v1_automation_triggers__trigger_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trigger_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Trigger Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a trigger",
+        "tags": [
+          "automation"
+        ]
+      },
+      "patch": {
+        "description": "Checked again as a whole.",
+        "operationId": "update_trigger_api_v1_automation_triggers__trigger_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "trigger_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Trigger Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a trigger",
         "tags": [
           "automation"
         ]
@@ -25080,6 +26698,94 @@
           }
         },
         "summary": "Assign or reassign",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/automation": {
+      "get": {
+        "description": "Triggers' outcomes per action and loop stops, newest first (kept 30 days).",
+        "operationId": "automation_log_api_v1_incidents__record_id__automation_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AutomationRunOut"
+                  },
+                  "title": "Response Automation Log Api V1 Incidents  Record Id  Automation Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Automation log of the record",
         "tags": [
           "incidents"
         ]

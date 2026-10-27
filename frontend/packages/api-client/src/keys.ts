@@ -57,6 +57,8 @@ export const queryKeys = {
     views: ['incidents', 'views'] as const,
     detail: (id: string) => ['incidents', 'detail', id] as const,
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,
+    // Under the record's history: whatever refreshes the history refreshes this (WP-029).
+    automation: (id: string) => ['incidents', 'history', id, 'automation'] as const,
     catalogue: ['incidents', 'catalogue'] as const,
     categories: ['incidents', 'categories'] as const,
     assignees: (groupId: string | null, search: string) =>
@@ -101,6 +103,9 @@ export const queryKeys = {
       ['automation', 'routing-settings', recordType] as const,
     assignment: (groupId: string) => ['automation', 'assignment', groupId] as const,
     availability: (userIds: string[]) => ['automation', 'availability', ...userIds] as const,
+    triggers: (recordType: string) => ['automation', 'triggers', recordType] as const,
+    transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
+    loopStops: ['automation', 'loop-stops'] as const,
   },
   organization: {
     all: ['organization'] as const,

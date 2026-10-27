@@ -21,6 +21,7 @@ from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
@@ -43,6 +44,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 register_record_usage()
 register_types()
+register_triggers()
 
 module = ModuleSpec(
     name="work_items",

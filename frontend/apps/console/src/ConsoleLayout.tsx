@@ -32,6 +32,7 @@ import { useTenantChannel } from '@supportx/realtime';
 import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
+import { LoopBanner } from './pages/admin/automation/LoopBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
 import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
 
@@ -68,6 +69,8 @@ export function ConsoleLayout() {
     // Rules, routing, auto-assignment or someone's availability changed (WP-029).
     if (event.type === 'automation.changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.automation.all });
+      // A stopped loop also shows on the record's automation panel.
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.incidents.all, 'history'] });
       return;
     }
     if (event.type === 'metadata.custom_fields_changed') {
@@ -173,6 +176,7 @@ export function ConsoleLayout() {
           <ConnectivityBanner />
           <LicenceBanners />
           <AuditAlertBanner />
+          <LoopBanner />
           <FilesBanner />
           <TechnicianVisibilityQuestion />
           <AnnouncementBanners
