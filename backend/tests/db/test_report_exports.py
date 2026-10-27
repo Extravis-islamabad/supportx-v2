@@ -1,8 +1,8 @@
 """Report exports and report settings (WP-035 session 3). Test names cite parity file 09.
 
 The incident world and the test-only incident provider of test_reports_api.py; object storage is
-an in-memory fake (nothing touches the dev stack's MinIO); the worker's subject loader is the
-API's own PolicyService.compile, which is what identity_access.subject_for runs (D-100, lane B).
+an in-memory fake (nothing touches the dev stack's MinIO); the worker's subject loader is
+identity_access.subject_for, as in the consumers worker (lane B, #82).
 """
 
 import csv
@@ -19,6 +19,7 @@ from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from app.modules.analytics.api.routes import STORAGE_STATE
 from app.modules.analytics.service.exports import Worker, build_export
+from app.modules.identity_access import subject_for
 from tests.db import test_reports_api
 from tests.db.test_incidents_api import CONSOLE, Org, World
 from tooling.db_testing import ThrowawayDatabase
@@ -81,10 +82,9 @@ async def _request(world: World, org: Any, user: uuid.UUID, **body: Any) -> Any:
 
 
 async def _build(
-    world: World, migrated_db: ThrowawayDatabase, storage: MemoryStorage, org: Org, export_id: str
+    migrated_db: ThrowawayDatabase, storage: MemoryStorage, org: Org, export_id: str
 ) -> None:
     """What the consumers worker does for one requested export."""
-    policy = world.app.state.policy
     database = Database(
         create_engine(migrated_db.app_url, application_name="t", use_null_pool=True)
     )
@@ -96,7 +96,7 @@ async def _build(
                 Worker(
                     reporting=database,
                     storage=storage,
-                    load_subject=policy.compile,
+                    load_subject=subject_for,
                     render_pdf=None,
                     timeout_seconds=30,
                     max_rows=1000,
@@ -125,7 +125,7 @@ async def test_req_rpt_058_records_csv_holds_exactly_what_the_user_may_list(
     assert requested.status_code == 202, requested.text
     export = requested.json()
     assert export["status"] == "running"
-    await _build(world, migrated_db, storage, a, export["id"])
+    await _build(migrated_db, storage, a, export["id"])
 
     listed = await world.call("GET", "/reports/exports", a, a.tech_a)
     mine = next(e for e in listed.json() if e["id"] == export["id"])
@@ -180,7 +180,7 @@ async def test_req_rpt_058_ac1_xlsx_summary_and_records_with_totals(
         definition={"entity": "incident", "group_by": [{"field": "status_category"}]},
     )
     assert requested.status_code == 202, requested.text
-    await _build(world, migrated_db, storage, a, requested.json()["id"])
+    await _build(migrated_db, storage, a, requested.json()["id"])
     data = (
         await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.lead)
     ).content
@@ -211,7 +211,7 @@ async def test_pdf_without_the_worker_image_fails_visibly(
     world, storage = exporting
     a = world.a
     requested = await _request(world, a, a.tech_a, format="pdf")
-    await _build(world, migrated_db, storage, a, requested.json()["id"])
+    await _build(migrated_db, storage, a, requested.json()["id"])
     mine = (await world.call("GET", "/reports/exports", a, a.tech_a)).json()[0]
     assert (mine["status"], mine["problem"]) == ("failed", "pdf_not_available")
     events = await world.sql(
@@ -314,7 +314,7 @@ async def test_categories_are_named_by_their_full_path_like_the_screens(
         format="csv",
         definition={"entity": "incident", "group_by": [{"field": "category_id"}]},
     )
-    await _build(world, migrated_db, storage, a, requested.json()["id"])
+    await _build(migrated_db, storage, a, requested.json()["id"])
     data = (
         await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.admin)
     ).content.decode("utf-8-sig")

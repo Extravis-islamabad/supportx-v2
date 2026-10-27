@@ -16,7 +16,6 @@ from fastapi import FastAPI
 from app.core.authorization import PermissionSpec, Scope
 from app.core.database import Database
 from app.core.modules import ModuleSpec
-from app.modules import identity_access
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
 from app.modules.analytics.service.exports import EXPORT
@@ -24,6 +23,7 @@ from app.modules.analytics.service.jobs import on_export_requested, set_subject_
 from app.modules.analytics.service.library import CREATE, MANAGE_FOLDERS, VIEW
 from app.modules.analytics.service.realtime import ROUTES
 from app.modules.analytics.service.runner import TenantSlots
+from app.modules.identity_access import subject_for
 from app.shared.events import ConsumerSpec
 
 _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -40,9 +40,8 @@ PERMISSIONS = (
 )
 
 
-# The worker rebuilds the requester's permissions with identity_access.subject_for (lane B, PR #82);
-# picked up by name until that PR is on main, so this module loads either way.
-set_subject_loader(getattr(identity_access, "subject_for", None))
+# The worker rebuilds the requester's permissions exactly as the API does (lane B, #82).
+set_subject_loader(subject_for)
 
 
 async def _startup(app: FastAPI) -> None:
