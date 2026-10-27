@@ -561,7 +561,8 @@ export interface paths {
          * Start login
          * @description Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).
          *
-         *     `returnTo` must be a same-origin relative path; anything else lands on `/`.
+         *     `returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's
+         *     own address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).
          */
         get: operations["login_api_v1_auth_login_get"];
         put?: never;
@@ -1802,6 +1803,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organization/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your addresses
+         * @description The subdomain and every custom domain, with their state.
+         */
+        get: operations["list_domains_api_v1_organization_domains_get"];
+        put?: never;
+        /**
+         * Add a custom domain
+         * @description Add a host; it resolves to your tenant once checked (Idempotency-Key supported).
+         */
+        post: operations["add_domain_api_v1_organization_domains_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/domains/{domain_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a custom domain
+         * @description It stops resolving to your tenant at once.
+         */
+        delete: operations["remove_domain_api_v1_organization_domains__domain_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/domains/{domain_id}/certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Use your own certificate
+         * @description Checked (key matches, names the host, valid now), then stored with the key encrypted.
+         */
+        put: operations["upload_certificate_api_v1_organization_domains__domain_id__certificate_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/domains/{domain_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check a custom domain now
+         * @description Fetch the proof from the domain: verified when it answers like this installation.
+         */
+        post: operations["verify_domain_api_v1_organization_domains__domain_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/groups": {
         parameters: {
             query?: never;
@@ -2032,6 +2117,26 @@ export interface paths {
          * @description One generated image. Cached for a year when `v` is the current version.
          */
         get: operations["brand_image_api_v1_public_branding__slug___name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/domain-check/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Domain proof
+         * @description The installation's answer for a token (no lookup: only this installation can compute it).
+         */
+        get: operations["domain_proof_api_v1_public_domain_check__token__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3192,6 +3297,16 @@ export interface components {
             };
         };
         /**
+         * CertificateIn
+         * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
+         */
+        CertificateIn: {
+            /** Certificate Pem */
+            certificate_pem: string;
+            /** Private Key Pem */
+            private_key_pem: string;
+        };
+        /**
          * Channel
          * @description Where a work item came from (REQ-INC-005). Set by the entry point, not by hand.
          * @enum {string}
@@ -3561,6 +3676,69 @@ export interface components {
          * @enum {string}
          */
         Disposition: "inline" | "attachment";
+        /**
+         * DomainIn
+         * @description A host name, e.g. help.example.com.
+         */
+        DomainIn: {
+            /** Host */
+            host: string;
+        };
+        /**
+         * DomainOut
+         * @description A custom domain, its proof of ownership and its certificate.
+         */
+        DomainOut: {
+            /** Certificate Not After */
+            certificate_not_after: string | null;
+            /**
+             * Check Url
+             * @description What SupportX fetches to verify the domain.
+             */
+            check_url: string;
+            /** Checked At */
+            checked_at: string | null;
+            /**
+             * Failure Code
+             * @description Why the last check failed (labels: errors.*).
+             */
+            failure_code: string | null;
+            /** Host */
+            host: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["DomainStatus"];
+            tls_mode: components["schemas"]["TlsMode"];
+            tls_status: components["schemas"]["TlsStatus"];
+            /** Verified At */
+            verified_at: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * DomainStatus
+         * @description Whether the address is proven to reach this installation.
+         * @enum {string}
+         */
+        DomainStatus: "pending" | "verified" | "failed";
+        /**
+         * DomainsOut
+         * @description The tenant's addresses: its subdomain (when the installation has them) and its domains.
+         */
+        DomainsOut: {
+            /** Items */
+            items: components["schemas"]["DomainOut"][];
+            /**
+             * Point To
+             * @description Where a custom domain must point (CNAME target).
+             */
+            point_to: string;
+            /** Subdomain */
+            subdomain: string | null;
+        };
         /**
          * Edition
          * @description Commercial tier (product-plan.md §9).
@@ -4781,6 +4959,18 @@ export interface components {
              */
             starts_at: string;
         };
+        /**
+         * TlsMode
+         * @description Who provides the certificate.
+         * @enum {string}
+         */
+        TlsMode: "automatic" | "uploaded";
+        /**
+         * TlsStatus
+         * @description Where the certificate stands (labels: `domain.tls.<code>`).
+         * @enum {string}
+         */
+        TlsStatus: "waiting" | "pending" | "issued" | "failed" | "not_managed";
         /**
          * TransitionIn
          * @description Optional reason (unpublish and archive), kept in the history.
@@ -13266,6 +13456,361 @@ export interface operations {
             };
         };
     };
+    list_domains_api_v1_organization_domains_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such domain. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    add_domain_api_v1_organization_domains_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DomainIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such domain. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Already used, or too many. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    remove_domain_api_v1_organization_domains__domain_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such domain. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    upload_certificate_api_v1_organization_domains__domain_id__certificate_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CertificateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such domain. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    verify_domain_api_v1_organization_domains__domain_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such domain. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_units_api_v1_organization_groups_get: {
         parameters: {
             query?: never;
@@ -14236,6 +14781,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    domain_proof_api_v1_public_domain_check__token__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": unknown;
                 };
             };
             /** @description Validation Error */

@@ -2505,6 +2505,29 @@
         "title": "BrandingSettingsOut",
         "type": "object"
       },
+      "CertificateIn": {
+        "description": "PEM certificate chain (the host's certificate first) and its unencrypted private key.",
+        "properties": {
+          "certificate_pem": {
+            "maxLength": 65536,
+            "minLength": 100,
+            "title": "Certificate Pem",
+            "type": "string"
+          },
+          "private_key_pem": {
+            "maxLength": 16384,
+            "minLength": 100,
+            "title": "Private Key Pem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "certificate_pem",
+          "private_key_pem"
+        ],
+        "title": "CertificateIn",
+        "type": "object"
+      },
       "Channel": {
         "description": "Where a work item came from (REQ-INC-005). Set by the entry point, not by hand.",
         "enum": [
@@ -3437,6 +3460,162 @@
         ],
         "title": "Disposition",
         "type": "string"
+      },
+      "DomainIn": {
+        "description": "A host name, e.g. help.example.com.",
+        "properties": {
+          "host": {
+            "maxLength": 253,
+            "minLength": 4,
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ],
+        "title": "DomainIn",
+        "type": "object"
+      },
+      "DomainOut": {
+        "description": "A custom domain, its proof of ownership and its certificate.",
+        "properties": {
+          "certificate_not_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Not After"
+          },
+          "check_url": {
+            "description": "What SupportX fetches to verify the domain.",
+            "title": "Check Url",
+            "type": "string"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the last check failed (labels: errors.*).",
+            "title": "Failure Code"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DomainStatus"
+          },
+          "tls_mode": {
+            "$ref": "#/components/schemas/TlsMode"
+          },
+          "tls_status": {
+            "$ref": "#/components/schemas/TlsStatus"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "host",
+          "status",
+          "check_url",
+          "verified_at",
+          "checked_at",
+          "failure_code",
+          "tls_mode",
+          "tls_status",
+          "certificate_not_after",
+          "version"
+        ],
+        "title": "DomainOut",
+        "type": "object"
+      },
+      "DomainStatus": {
+        "description": "Whether the address is proven to reach this installation.",
+        "enum": [
+          "pending",
+          "verified",
+          "failed"
+        ],
+        "title": "DomainStatus",
+        "type": "string"
+      },
+      "DomainsOut": {
+        "description": "The tenant's addresses: its subdomain (when the installation has them) and its domains.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DomainOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "point_to": {
+            "description": "Where a custom domain must point (CNAME target).",
+            "title": "Point To",
+            "type": "string"
+          },
+          "subdomain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subdomain"
+          }
+        },
+        "required": [
+          "subdomain",
+          "point_to",
+          "items"
+        ],
+        "title": "DomainsOut",
+        "type": "object"
       },
       "Edition": {
         "description": "Commercial tier (product-plan.md §9).",
@@ -6263,6 +6442,27 @@
         ],
         "title": "TermOut",
         "type": "object"
+      },
+      "TlsMode": {
+        "description": "Who provides the certificate.",
+        "enum": [
+          "automatic",
+          "uploaded"
+        ],
+        "title": "TlsMode",
+        "type": "string"
+      },
+      "TlsStatus": {
+        "description": "Where the certificate stands (labels: `domain.tls.<code>`).",
+        "enum": [
+          "waiting",
+          "pending",
+          "issued",
+          "failed",
+          "not_managed"
+        ],
+        "title": "TlsStatus",
+        "type": "string"
       },
       "TransitionIn": {
         "additionalProperties": false,
@@ -12429,7 +12629,7 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).\n\n`returnTo` must be a same-origin relative path; anything else lands on `/`.",
+        "description": "Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).\n\n`returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's\nown address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).",
         "operationId": "login_api_v1_auth_login_get",
         "parameters": [
           {
@@ -19563,6 +19763,479 @@
         ]
       }
     },
+    "/api/v1/organization/domains": {
+      "get": {
+        "description": "The subdomain and every custom domain, with their state.",
+        "operationId": "list_domains_api_v1_organization_domains_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your addresses",
+        "tags": [
+          "organization"
+        ]
+      },
+      "post": {
+        "description": "Add a host; it resolves to your tenant once checked (Idempotency-Key supported).",
+        "operationId": "add_domain_api_v1_organization_domains_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Already used, or too many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a custom domain",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains/{domain_id}": {
+      "delete": {
+        "description": "It stops resolving to your tenant at once.",
+        "operationId": "remove_domain_api_v1_organization_domains__domain_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a custom domain",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains/{domain_id}/certificate": {
+      "put": {
+        "description": "Checked (key matches, names the host, valid now), then stored with the key encrypted.",
+        "operationId": "upload_certificate_api_v1_organization_domains__domain_id__certificate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Use your own certificate",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains/{domain_id}/verify": {
+      "post": {
+        "description": "Fetch the proof from the domain: verified when it answers like this installation.",
+        "operationId": "verify_domain_api_v1_organization_domains__domain_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Check a custom domain now",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
     "/api/v1/organization/groups": {
       "get": {
         "description": "All of them, by name, with member IDs.",
@@ -20852,6 +21525,55 @@
           }
         },
         "summary": "A brand image",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/public/domain-check/{token}": {
+      "get": {
+        "description": "The installation's answer for a token (no lookup: only this installation can compute it).",
+        "operationId": "domain_proof_api_v1_public_domain_check__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Domain proof",
         "tags": [
           "organization"
         ]

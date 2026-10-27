@@ -8,7 +8,8 @@ uploads (`service/file_access.py`), registered at startup.
 
 Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantStatus`,
 `memberships`, `Memberships`, `users_in_sites`, `users_in_groups`, `tenant_for_host`,
-`HostTenant` (sign-in hint, WP-017), `get_branding`, `BrandingView` (e-mails).
+`HostTenant` (sign-in hint, WP-017), `get_branding`, `BrandingView`, `email_branding`,
+`EmailBranding`, `header_html` (e-mails).
 """
 
 from fastapi import FastAPI
@@ -17,11 +18,18 @@ from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules.organization.api.branding import public_router as public_branding_router
 from app.modules.organization.api.branding import router as branding_router
+from app.modules.organization.api.domains import public_router as domain_check_router
+from app.modules.organization.api.domains import router as domains_router
 from app.modules.organization.api.routes import router
 from app.modules.organization.api.units import groups_router, sites_router
 from app.modules.organization.domain.tenant import TenantStatus, TenantView
 from app.modules.organization.events import EVENTS
 from app.modules.organization.service.branding import BrandingView, get_branding
+from app.modules.organization.service.email_branding import (
+    EmailBranding,
+    email_branding,
+    header_html,
+)
 from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import HostTenant, tenant_for_host
 from app.modules.organization.service.realtime import ROUTES
@@ -57,7 +65,15 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="organization",
-    routers=[router, sites_router, groups_router, branding_router, public_branding_router],
+    routers=[
+        router,
+        sites_router,
+        groups_router,
+        branding_router,
+        public_branding_router,
+        domains_router,
+        domain_check_router,
+    ],
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,
@@ -67,13 +83,16 @@ module = ModuleSpec(
 
 __all__ = [
     "BrandingView",
+    "EmailBranding",
     "HostTenant",
     "Memberships",
     "TenantStatus",
     "TenantView",
+    "email_branding",
     "existing_unit_ids",
     "get_branding",
     "get_current_tenant",
+    "header_html",
     "memberships",
     "module",
     "tenant_for_host",

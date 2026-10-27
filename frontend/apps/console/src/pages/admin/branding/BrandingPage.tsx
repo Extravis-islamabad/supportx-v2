@@ -32,6 +32,7 @@ import { reportError, useLabel, WriteButton, type Branding } from '@supportx/ui'
 
 import { useDebounced } from '../../../useDebounced';
 import { BrandPreview } from './BrandPreview';
+import { DomainsCard } from './DomainsCard';
 
 const LOCALES: Locale[] = ['en', 'ar', 'ur'];
 const TEXT_FIELDS = ['product_name', 'portal_name', 'welcome_text'] as const;
@@ -584,6 +585,7 @@ export function BrandingPage() {
           <BrandPreview branding={candidate} />
         </Col>
       </Row>
+      <DomainsCard />
     </Flex>
   );
 }

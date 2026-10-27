@@ -88,3 +88,92 @@ export function useBrandingColourCheck(
     meta: { silent: true },
   });
 }
+
+export type DomainsResult = components['schemas']['DomainsOut'];
+export type CustomDomain = components['schemas']['DomainOut'];
+
+/** The tenant's subdomain and custom domains (`branding.manage`). */
+export function useDomains(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.branding.domains,
+    queryFn: () => call(api.GET('/api/v1/organization/domains')),
+    enabled,
+  });
+}
+
+function useDomainsChanged() {
+  const queryClient = useQueryClient();
+  return () => void queryClient.invalidateQueries({ queryKey: queryKeys.branding.domains });
+}
+
+/** Add a custom domain; `key` is the form's Idempotency-Key. */
+export function useAddDomain() {
+  const changed = useDomainsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ host, key }: { host: string; key: string }) =>
+      call(
+        api.POST('/api/v1/organization/domains', {
+          params: { header: { 'Idempotency-Key': key } },
+          body: { host },
+        }),
+      ),
+    onSuccess: changed,
+  });
+}
+
+/** Check now whether the domain points to this installation. */
+export function useVerifyDomain() {
+  const changed = useDomainsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (id: string) =>
+      call(
+        api.POST('/api/v1/organization/domains/{domain_id}/verify', {
+          params: { path: { domain_id: id } },
+        }),
+      ),
+    onSuccess: changed,
+  });
+}
+
+/** Use the tenant's own certificate for a domain. */
+export function useUploadCertificate() {
+  const changed = useDomainsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      id,
+      version,
+      certificate,
+      privateKey,
+    }: {
+      id: string;
+      version: number;
+      certificate: string;
+      privateKey: string;
+    }) =>
+      call(
+        api.PUT('/api/v1/organization/domains/{domain_id}/certificate', {
+          params: { path: { domain_id: id }, header: ifMatch(version) },
+          body: { certificate_pem: certificate, private_key_pem: privateKey },
+        }),
+      ),
+    onSuccess: changed,
+  });
+}
+
+/** Remove a custom domain: it stops resolving at once. */
+export function useRemoveDomain() {
+  const changed = useDomainsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.DELETE('/api/v1/organization/domains/{domain_id}', {
+          params: { path: { domain_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: changed,
+  });
+}

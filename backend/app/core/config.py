@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # (e.g. acme.support.example.com). None = no subdomains (on-prem single installation domain);
     # verified custom domains still resolve. The address only pre-selects where to sign in.
     tenant_base_domain: str | None = None
+    # Whether the platform issues certificates for verified custom domains (cert-manager, ACME).
+    # False: a verified domain shows "certificate not managed here" until the tenant uploads one
+    # or the operator configures it (on-prem single node).
+    domain_certificates_managed: bool = False
 
     # BFF sessions: opaque cookie, records encrypted in Valkey (D-021).
     session_secret: SecretStr | None = None

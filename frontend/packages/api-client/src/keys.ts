@@ -29,6 +29,7 @@ export const queryKeys = {
     public: ['branding', 'public'] as const,
     current: ['branding', 'current'] as const,
     settings: ['branding', 'settings'] as const,
+    domains: ['branding', 'domains'] as const,
     check: (primary: string | null, gradient: readonly [string, string] | null) =>
       ['branding', 'check', primary, gradient] as const,
   },

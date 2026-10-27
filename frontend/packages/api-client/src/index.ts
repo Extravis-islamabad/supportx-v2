@@ -247,11 +247,18 @@ export {
   type UploadTarget,
 } from './files';
 export {
+  useAddDomain,
   useBranding,
   useBrandingColourCheck,
   useBrandingSettings,
+  useDomains,
   usePublicBranding,
+  useRemoveDomain,
   useSaveBranding,
+  useUploadCertificate,
+  useVerifyDomain,
+  type CustomDomain,
+  type DomainsResult,
   type BrandingCheckCode,
   type BrandingColourReport,
   type BrandingInput,

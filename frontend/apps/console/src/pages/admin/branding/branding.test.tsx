@@ -193,3 +193,66 @@ describe('the brand on every screen', () => {
     icon.remove();
   });
 });
+
+describe('addresses', () => {
+  const DOMAIN = {
+    id: 'd1',
+    host: 'help.acme.test',
+    status: 'pending',
+    check_url: 'http://help.acme.test/api/v1/public/domain-check/tok',
+    verified_at: null,
+    checked_at: null,
+    failure_code: null,
+    tls_mode: 'automatic',
+    tls_status: 'waiting',
+    certificate_not_after: null,
+    version: 1,
+  } as const;
+
+  it('REQ-PRT-016 AC3: a custom domain is added, checked, and says why a check failed', async () => {
+    let items: unknown[] = [];
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        'GET /api/v1/organization/branding/settings': { body: settings() },
+        'POST /api/v1/organization/branding/check': { body: PASSING },
+        'GET /api/v1/organization/domains': () => ({
+          body: { subdomain: 'demo.support.example', point_to: 'demo.support.example', items },
+        }),
+        'POST /api/v1/organization/domains': () => {
+          items = [DOMAIN];
+          return { status: 201, body: DOMAIN };
+        },
+        'POST /api/v1/organization/domains/d1/verify': () => {
+          const failed = {
+            ...DOMAIN,
+            status: 'failed',
+            failure_code: 'domain_wrong_answer',
+            version: 2,
+          };
+          items = [failed];
+          return { body: failed };
+        },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('domains-subdomain')).textContent).toContain(
+      'demo.support.example',
+    );
+    fireEvent.change(screen.getByTestId('domains-host'), { target: { value: 'help.acme.test' } });
+    fireEvent.click(screen.getByTestId('domains-add'));
+    await screen.findByTestId('domain-help.acme.test');
+    const add = fake.find('POST', '/api/v1/organization/domains')[0];
+    expect(add?.headers.get('Idempotency-Key')).toBeTruthy();
+    expect(screen.getByText('Not checked yet')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('domain-verify-help.acme.test'));
+    expect(
+      (
+        await screen.findAllByText(
+          'The domain does not point to this SupportX yet: check its DNS record.',
+        )
+      ).length,
+    ).toBeGreaterThan(0);
+    expect(screen.getByText('Check failed')).toBeTruthy();
+  });
+});
