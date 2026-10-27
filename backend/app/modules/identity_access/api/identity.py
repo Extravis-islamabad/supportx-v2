@@ -34,6 +34,7 @@ from app.modules.identity_access.infra.models import MAX_IDLE_SECONDS, MIN_IDLE_
 from app.modules.identity_access.service import (
     identity_settings,
     invitations,
+    mfa,
     password_reset,
     sso,
     sso_test,
@@ -691,4 +692,86 @@ async def require_new_password(
     auth = getattr(request.app.state, "auth", None)
     if auth is not None:
         await auth.end_sessions(subject.tenant_id, user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- MFA policy and reset (WP-039 session 3; REQ-SEC-022, 024, 025) -------------------------------
+
+
+class MfaRoleOut(BaseModel):
+    """A role's MFA mode and how many of its holders have set MFA up."""
+
+    role_id: uuid.UUID
+    key: str | None = Field(description="System roles: their key (labelled); custom: null.")
+    name: str
+    mode: Literal["off", "optional", "required"]
+    is_default: bool = Field(description="Still the Appendix A default (never saved).")
+    holders: int
+    enrolled: int
+    version: int = Field(description="Send back as If-Match (0: never saved).")
+
+
+class MfaPolicyOut(BaseModel):
+    """Every role's mode; the grace period is `mfa_grace_days` of the sign-in settings."""
+
+    grace_days: int
+    roles: list[MfaRoleOut]
+
+
+class MfaRoleIn(BaseModel):
+    """A role's MFA mode."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    mode: str = Field(description="off, optional or required.")
+
+
+def _mfa_role_out(policy: mfa.RolePolicy) -> MfaRoleOut:
+    return MfaRoleOut(**policy.__dict__)
+
+
+@router.get("/mfa", summary="MFA policy")
+async def get_mfa_policy(session: TenantSession, subject: Manage) -> MfaPolicyOut:
+    """Every role's MFA mode with its enrolment counts (REQ-SEC-024 AC3)."""
+    del subject
+    roles = [_mfa_role_out(p) for p in await mfa.list_policies(session)]
+    return MfaPolicyOut(grace_days=await mfa.grace_days(session), roles=roles)
+
+
+@router.put("/mfa/roles/{role_id}", summary="Set a role's MFA mode")
+async def put_mfa_role(  # noqa: PLR0913, PLR0917 - FastAPI parameters
+    role_id: uuid.UUID,
+    body: MfaRoleIn,
+    version: ExpectedVersion,
+    response: Response,
+    session: TenantSession,
+    subject: Manage,
+    note: Annotated[AuditNote, audited("identity.mfa_policy_changed", object_type="role")],
+) -> MfaRoleOut:
+    """Off, optional or required for everyone holding the role; holders' grace starts now."""
+    saved, before = await mfa.set_policy(session, role_id, body.mode, expected_version=version)
+    note.object_id = str(role_id)
+    note.details = {"mode.before": before, "mode.after": saved.mode}
+    note.skip = before == saved.mode
+    del subject
+    set_etag(response, saved.version)
+    return _mfa_role_out(saved)
+
+
+@router.post(
+    "/people/{user_id}/reset-mfa",
+    summary="Reset a person's MFA",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=[audited("user.mfa_reset", object_type="user", object_param="user_id")],
+)
+async def reset_mfa(
+    user_id: uuid.UUID,
+    request: Request,
+    session: TenantSession,
+    subject: Manage,
+    admin: Admin,
+) -> Response:
+    """Remove their authenticator and recovery codes; they enrol again (never your own)."""
+    person = await mfa.reset(session, admin, user_id, actor_id=subject.user_id)
+    await mfa.notify_reset(session, request.app.state.settings, person)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

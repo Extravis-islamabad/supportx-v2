@@ -23,9 +23,11 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from markupsafe import Markup
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.core.logging import get_logger
@@ -37,6 +39,7 @@ from app.modules.identity_access.infra.keycloak_admin import (
     IdentityAdmin,
     IdentityAdminNotConfigured,
     IdentityAdminUnavailable,
+    KeycloakAdmin,
 )
 from app.modules.identity_access.infra.models import (
     IdentitySettings,
@@ -47,8 +50,12 @@ from app.modules.identity_access.infra.models import (
 )
 from app.modules.identity_access.service.policy import UNMAPPED_DEFAULT
 from app.modules.identity_access.service.roles import ensure_system_roles
-from app.shared.events import record_event
+from app.modules.organization import email_branding, get_current_tenant
+from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.ids import new_id
+from app.shared.labels import LANGUAGES, label
+from app.shared.mail import OutgoingMail, mail_configured, queue_mail, wrap_html
+from app.shared.mail.domain.message import Language
 
 log = get_logger(__name__)
 
@@ -355,3 +362,73 @@ async def reset(
         aggregate_version=person.version,
     )
     return person
+
+
+async def notify_reset(session: AsyncSession, settings: Settings, person: User) -> bool:
+    """Tell the person their MFA was reset (REQ-SEC-025 AC2), in their language; False if no mail.
+
+    The notice names no admin and carries no link: the person signs in as usual and sets MFA up
+    again. Without outgoing mail the reset still stands (the audit entry records it).
+    """
+    if not person.email or not mail_configured(settings):
+        log.warning("mfa_reset_notice_not_sent", reason="no_mail" if person.email else "no_email")
+        return False
+    language = _language(person.ui_locale or person.locale)
+    context = session.info[SESSION_TENANT_KEY]
+    brand = await email_branding(session, settings, context.tenant_id, language)
+    tenant = await get_current_tenant(session)
+    subject = label("mail.mfa_reset.subject", language)
+    body = label("mail.mfa_reset.body", language, organisation=tenant.name)
+    await queue_mail(
+        session,
+        settings,
+        OutgoingMail(
+            kind="mfa_reset",
+            to=(person.email,),
+            language=language,
+            subject=subject,
+            text=body,
+            html=wrap_html(
+                Markup("<p>{}</p>").format(body), brand=brand, language=language, title=subject
+            ),
+            sender_name=tenant.name,
+        ),
+    )
+    return True
+
+
+def _language(locale: str | None) -> Language:
+    found = (locale or "en").split("-")[0]
+    return found if found in LANGUAGES else "en"  # type: ignore[return-value]  # one of LANGUAGES
+
+
+async def enforce_schedule(database: Database, settings: Settings) -> None:
+    """Hourly: in every tenant, people past their grace period get Keycloak's enrol actions."""
+    admin = KeycloakAdmin.from_settings(settings)
+    if admin is None:
+        return
+    try:
+        async with database.platform_session() as platform:
+            tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
+        for tenant in tenants:
+            async with database.tenant_session(TenantContext(tenant)) as session:
+                count = await enforce_overdue(session, admin)
+            if count:
+                log.info("mfa_enrolment_enforced", tenant_id=str(tenant), people=count)
+    except (IdentityAdminUnavailable, IdentityAdminNotConfigured):
+        log.warning("mfa_enforcement_unavailable")
+    finally:
+        await admin.close()
+
+
+async def on_roles_changed(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: a role assigned or removed starts or clears the person's grace period."""
+    assert session is not None  # noqa: S101 - transactional consumer
+    await recompute(session, [uuid.UUID(str(envelope.payload["user_id"]))])
+
+
+MFA_ROLES = ConsumerSpec(
+    name="identity_access__mfa_roles",
+    event_types=("identity_access.user_role.changed", "identity_access.user.created"),
+    handler=on_roles_changed,
+)

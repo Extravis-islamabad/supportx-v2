@@ -285,7 +285,11 @@ ROUTES = [
     RealtimeRoute(("identity_access.access_settings.changed",), _plan_changed),
     RealtimeRoute(("identity_access.people_import.progressed",), _import_progressed),
     RealtimeRoute(
-        ("identity_access.identity_settings.changed", "identity_access.sso_provider.changed"),
+        (
+            "identity_access.identity_settings.changed",
+            "identity_access.sso_provider.changed",
+            "identity_access.mfa.changed",
+        ),
         _identity_changed,
     ),
     RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),

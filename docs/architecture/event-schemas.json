@@ -758,6 +758,53 @@
         "type": "object"
       }
     },
+    "identity_access.mfa.changed": {
+      "1": {
+        "description": "An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3).",
+        "properties": {
+          "change": {
+            "enum": [
+              "policy",
+              "enrolled",
+              "reset"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "role_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Role Id"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "change"
+        ],
+        "title": "MfaChanged",
+        "type": "object"
+      }
+    },
     "identity_access.password_policy.changed": {
       "1": {
         "description": "An admin saved the password policy, or asked to apply it again.\n\nThe worker writes it into the realm, reading it from the settings when applied, so only the\nnewest policy is ever written.",

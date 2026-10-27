@@ -2807,4 +2807,26 @@ export const ar: LabelResource = {
   'audit.action.invitation.revoked': 'سحب دعوة',
   'audit.action.user.password_reset_forced': 'طلب كلمة مرور جديدة',
   'audit.action.identity.password_policy_reapplied': 'طبّق سياسة كلمات المرور مجددًا',
+  // WP-039 session 3: MFA, my account
+  'mfa_mode.off': 'معطّلة',
+  'mfa_mode.optional': 'اختيارية',
+  'mfa_mode.required': 'مطلوبة',
+  'sign_in_method.password': 'كلمة المرور',
+  'sign_in_method.single_sign_on': 'تسجيل الدخول الموحّد',
+  'sign_in_outcome.success': 'سجّل الدخول',
+  'sign_in_outcome.failed': 'فشل',
+  'errors.field.mfa_grace_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
+  'errors.field.mfa_mode_invalid': 'اختر معطّلة أو اختيارية أو مطلوبة.',
+  'errors.mfa_enrolment_unavailable':
+    'يجب إعداد تسجيل الدخول بخطوتين أولًا، لكن تعذّر الوصول إلى خدمة تسجيل الدخول. حاول مجددًا بعد قليل.',
+  'errors.mfa_reset_not_signed_in': 'لم يسجّل هذا الشخص الدخول بعد، فلا يوجد ما يُعاد تعيينه.',
+  'errors.mfa_reset_own':
+    'لا يمكنك إعادة تعيين تسجيل الدخول بخطوتين الخاص بك. اطلب ذلك من مسؤول آخر.',
+  'errors.role_not_found': 'لم يُعثر على هذا الدور.',
+  'event_type.identity_access.mfa.changed': 'تغيّر تسجيل الدخول بخطوتين',
+  'audit.action.identity.mfa_policy_changed': 'غيّر سياسة تسجيل الدخول بخطوتين',
+  'audit.action.user.mfa_reset': 'أعاد تعيين تسجيل الدخول بخطوتين لشخص',
+  'mail.mfa_reset.subject': 'أُعيد تعيين تسجيل الدخول بخطوتين',
+  'mail.mfa_reset.body':
+    'أعاد مسؤول في {{organisation}} تعيين تسجيل الدخول بخطوتين الخاص بك. عند تسجيل دخولك التالي ستُعِد تطبيق المصادقة مجددًا. إن لم تكن تتوقع ذلك فتواصل مع مكتب الخدمة.',
 };

@@ -57,6 +57,71 @@
         "title": "AccessSettingsOut",
         "type": "object"
       },
+      "AccountSecurityOut": {
+        "description": "How the person signs in, and their recent sign-ins.",
+        "properties": {
+          "details_available": {
+            "description": "False when the sign-in service could not be asked (shown, not an error).",
+            "title": "Details Available",
+            "type": "boolean"
+          },
+          "has_password": {
+            "description": "False: they sign in through single sign-on only.",
+            "title": "Has Password",
+            "type": "boolean"
+          },
+          "mfa_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required and not set up: set it up by then.",
+            "title": "Mfa Due At"
+          },
+          "mfa_enrolled": {
+            "title": "Mfa Enrolled",
+            "type": "boolean"
+          },
+          "mfa_mode": {
+            "description": "What this organisation asks of the person (strictest of their roles).",
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ],
+            "title": "Mfa Mode",
+            "type": "string"
+          },
+          "recent_sign_ins": {
+            "items": {
+              "$ref": "#/components/schemas/SignInOut"
+            },
+            "title": "Recent Sign Ins",
+            "type": "array"
+          },
+          "recovery_codes": {
+            "description": "They have recovery codes.",
+            "title": "Recovery Codes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "has_password",
+          "mfa_mode",
+          "mfa_enrolled",
+          "mfa_due_at",
+          "recovery_codes",
+          "recent_sign_ins",
+          "details_available"
+        ],
+        "title": "AccountSecurityOut",
+        "type": "object"
+      },
       "ActionStateOut": {
         "description": "A status action as you may use it now. Disabled ones carry a reason code (labelled).",
         "properties": {
@@ -5500,6 +5565,18 @@
             "description": "How long an invitation link works (1 to 30 days).",
             "title": "Invitation Valid Days"
           },
+          "mfa_grace_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Days to set up MFA once it is required (0 to 30).",
+            "title": "Mfa Grace Days"
+          },
           "password_breached_check": {
             "anyOf": [
               {
@@ -5643,6 +5720,10 @@
             "title": "Invitation Valid Days",
             "type": "integer"
           },
+          "mfa_grace_days": {
+            "title": "Mfa Grace Days",
+            "type": "integer"
+          },
           "password_breached_check": {
             "title": "Password Breached Check",
             "type": "boolean"
@@ -5732,6 +5813,7 @@
           "password_history",
           "password_expiry_days",
           "password_breached_check",
+          "mfa_grace_days",
           "password_policy_editable",
           "password_policy_state",
           "password_policy_error",
@@ -6421,6 +6503,19 @@
             "title": "Csrf Token",
             "type": "string"
           },
+          "mfa_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "MFA is required here and not set up yet: set it up by then (a reminder).",
+            "title": "Mfa Due At"
+          },
           "permissions": {
             "items": {
               "$ref": "#/components/schemas/EffectivePermission"
@@ -6480,6 +6575,109 @@
           "can_see"
         ],
         "title": "MentionableOut",
+        "type": "object"
+      },
+      "MfaPolicyOut": {
+        "description": "Every role's mode; the grace period is `mfa_grace_days` of the sign-in settings.",
+        "properties": {
+          "grace_days": {
+            "title": "Grace Days",
+            "type": "integer"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/MfaRoleOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grace_days",
+          "roles"
+        ],
+        "title": "MfaPolicyOut",
+        "type": "object"
+      },
+      "MfaRoleIn": {
+        "additionalProperties": false,
+        "description": "A role's MFA mode.",
+        "properties": {
+          "mode": {
+            "description": "off, optional or required.",
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "MfaRoleIn",
+        "type": "object"
+      },
+      "MfaRoleOut": {
+        "description": "A role's MFA mode and how many of its holders have set MFA up.",
+        "properties": {
+          "enrolled": {
+            "title": "Enrolled",
+            "type": "integer"
+          },
+          "holders": {
+            "title": "Holders",
+            "type": "integer"
+          },
+          "is_default": {
+            "description": "Still the Appendix A default (never saved).",
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "System roles: their key (labelled); custom: null.",
+            "title": "Key"
+          },
+          "mode": {
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role_id": {
+            "format": "uuid",
+            "title": "Role Id",
+            "type": "string"
+          },
+          "version": {
+            "description": "Send back as If-Match (0: never saved).",
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "role_id",
+          "key",
+          "name",
+          "mode",
+          "is_default",
+          "holders",
+          "enrolled",
+          "version"
+        ],
+        "title": "MfaRoleOut",
         "type": "object"
       },
       "NavLayout": {
@@ -8577,6 +8775,39 @@
           "allowed"
         ],
         "title": "SignInIn",
+        "type": "object"
+      },
+      "SignInOut": {
+        "description": "One recent sign-in to the installation (all of the person's organisations).",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "password",
+              "single_sign_on"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "success",
+              "failed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "at",
+          "outcome",
+          "method"
+        ],
+        "title": "SignInOut",
         "type": "object"
       },
       "SiteIn": {
@@ -13356,6 +13587,38 @@
         ]
       }
     },
+    "/api/v1/account/security": {
+      "get": {
+        "description": "The signed-in person's own sign-in methods and recent sign-ins.",
+        "operationId": "my_security_api_v1_account_security_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountSecurityOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "My sign-in and security",
+        "tags": [
+          "account"
+        ]
+      }
+    },
     "/api/v1/announcements": {
       "get": {
         "description": "Announcements you may see as staff (scope-filtered), drafts and archive included.\n\nFilter with the DSL (`filter=`) or simple parameters (`status=published`), sort with\n`sort=-updated_at`, page with `limit`/`cursor`.",
@@ -16525,6 +16788,74 @@
         ]
       }
     },
+    "/api/v1/auth/account-action": {
+      "get": {
+        "description": "From My account (REQ-SEC-028): Keycloak asks for the password, then shows its page.\n\n`password` changes the password, `mfa` sets up an authenticator app, `recovery_codes` makes\nnew recovery codes. The browser comes back to `returnTo` with `account_action` and `status`\n(success, cancelled, error) and a fresh session; the password never passes through SupportX.",
+        "operationId": "account_action_api_v1_auth_account_action_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "required": true,
+            "schema": {
+              "enum": [
+                "password",
+                "mfa",
+                "recovery_codes"
+              ],
+              "title": "Action",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "returnTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 2048,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Returnto"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change password or MFA on the sign-in service's pages",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/callback": {
       "get": {
         "description": "Keycloak sends the browser here. Creates a new session and sets the session cookie.\n\nFailures are RFC 9457 problems for API clients. A browser navigation (Accept: text/html) is\nsent back to its app with `?auth_error=<code>` instead, which the app shows as a translated\nmessage (CLAUDE.md rule d: no raw codes or JSON on screen).",
@@ -16576,6 +16907,22 @@
                 }
               ],
               "title": "Error"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kc_action_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kc Action Status"
             }
           }
         ],
@@ -19117,6 +19464,210 @@
         ]
       }
     },
+    "/api/v1/identity/mfa": {
+      "get": {
+        "description": "Every role's MFA mode with its enrolment counts (REQ-SEC-024 AC3).",
+        "operationId": "get_mfa_policy_api_v1_identity_mfa_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "MFA policy",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/mfa/roles/{role_id}": {
+      "put": {
+        "description": "Off, optional or required for everyone holding the role; holders' grace starts now.",
+        "operationId": "put_mfa_role_api_v1_identity_mfa_roles__role_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Role Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MfaRoleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MfaRoleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Set a role's MFA mode",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
     "/api/v1/identity/people/{user_id}/require-new-password": {
       "post": {
         "description": "The person sets a new password at their next sign-in; their sessions end now (SEC-006).",
@@ -19199,6 +19750,93 @@
           }
         },
         "summary": "Require a new password at the next sign-in",
+        "tags": [
+          "identity"
+        ]
+      }
+    },
+    "/api/v1/identity/people/{user_id}/reset-mfa": {
+      "post": {
+        "description": "Remove their authenticator and recovery codes; they enrol again (never your own).",
+        "operationId": "reset_mfa_api_v1_identity_people__user_id__reset_mfa_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing `identity.manage`."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such set-up or test."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field, with the limits."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reset a person's MFA",
         "tags": [
           "identity"
         ]

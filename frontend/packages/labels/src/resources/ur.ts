@@ -2447,4 +2447,27 @@ export const ur: LabelResource = {
   'audit.action.invitation.revoked': 'دعوت نامہ واپس لیا',
   'audit.action.user.password_reset_forced': 'نیا پاس ورڈ لازمی کیا',
   'audit.action.identity.password_policy_reapplied': 'پاس ورڈ پالیسی دوبارہ لاگو کی',
+  // WP-039 session 3: MFA, my account
+  'mfa_mode.off': 'بند',
+  'mfa_mode.optional': 'اختیاری',
+  'mfa_mode.required': 'لازمی',
+  'sign_in_method.password': 'پاس ورڈ',
+  'sign_in_method.single_sign_on': 'سنگل سائن آن',
+  'sign_in_outcome.success': 'سائن اِن ہوا',
+  'sign_in_outcome.failed': 'ناکام',
+  'errors.field.mfa_grace_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
+  'errors.field.mfa_mode_invalid': 'بند، اختیاری یا لازمی منتخب کریں۔',
+  'errors.mfa_enrolment_unavailable':
+    'پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہے، لیکن سائن اِن سروس تک رسائی نہیں ہو سکی۔ کچھ دیر بعد دوبارہ کوشش کریں۔',
+  'errors.mfa_reset_not_signed_in':
+    'اس شخص نے ابھی سائن اِن نہیں کیا، اس لیے ری سیٹ کرنے کو کچھ نہیں۔',
+  'errors.mfa_reset_own':
+    'آپ اپنا دو مرحلہ سائن اِن خود ری سیٹ نہیں کر سکتے۔ کسی دوسرے ایڈمنسٹریٹر سے کہیں۔',
+  'errors.role_not_found': 'یہ رول نہیں ملا۔',
+  'event_type.identity_access.mfa.changed': 'دو مرحلہ سائن اِن بدلا',
+  'audit.action.identity.mfa_policy_changed': 'دو مرحلہ سائن اِن کی پالیسی بدلی',
+  'audit.action.user.mfa_reset': 'کسی شخص کا دو مرحلہ سائن اِن ری سیٹ کیا',
+  'mail.mfa_reset.subject': 'آپ کا دو مرحلہ سائن اِن ری سیٹ ہو گیا',
+  'mail.mfa_reset.body':
+    '{{organisation}} کے ایک ایڈمنسٹریٹر نے آپ کا دو مرحلہ سائن اِن ری سیٹ کیا۔ اگلے سائن اِن پر آپ اپنی تصدیقی ایپ دوبارہ سیٹ اپ کریں گے۔ اگر آپ کو اس کی توقع نہیں تھی تو اپنے سروس ڈیسک سے رابطہ کریں۔',
 };

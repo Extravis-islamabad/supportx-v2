@@ -44,6 +44,14 @@ class FakeKeycloak:
         self.events: dict[str, Any] = {"eventsEnabled": False, "eventsListeners": ["jboss-logging"]}
         self.profile: dict[str, Any] = {"attributes": [{"name": "email"}], "groups": []}
         self.writes: list[str] = []
+        self.executions: list[dict[str, str]] = [
+            {"id": "e-otp", "providerId": "auth-otp-form", "requirement": "ALTERNATIVE"},
+            {
+                "id": "e-rec",
+                "providerId": "auth-recovery-authn-code-form",
+                "requirement": "DISABLED",
+            },
+        ]
         self.password = "right"
 
     @property
@@ -106,6 +114,13 @@ class FakeKeycloak:
             elif method == "DELETE":
                 self.held_by[parts[1]] = [r for r in held if r not in body]
             return httpx.Response(200 if method == "GET" else 204, json=self.held_by[parts[1]])
+        if path == "/admin/realms/supportx/authentication/flows/browser/executions":
+            if method == "PUT":
+                for execution in self.executions:
+                    if execution["id"] == body["id"]:
+                        execution["requirement"] = body["requirement"]
+                return httpx.Response(202)
+            return httpx.Response(200, json=self.executions)
         if path == "/admin/realms/supportx/users/profile":
             if method == "PUT":
                 self.profile = body
@@ -275,4 +290,17 @@ async def test_only_the_old_shipped_lock_out_is_upgraded() -> None:
     keycloak.writes.clear()
     await _run(keycloak)
     assert keycloak.realm["waitIncrementSeconds"] == 300
+    assert keycloak.writes == []
+
+
+async def test_recovery_codes_are_offered_at_sign_in_once() -> None:
+    """REQ-SEC-025: Keycloak ships the step disabled; an operator's own choice is kept."""
+    keycloak = FakeKeycloak()
+    result = await _run(keycloak)
+    assert "recovery codes offered at sign-in" in result.changes
+    assert keycloak.executions[1]["requirement"] == "ALTERNATIVE"
+    keycloak.executions[1]["requirement"] = "REQUIRED"  # an operator's own choice
+    keycloak.writes.clear()
+    await _run(keycloak)
+    assert keycloak.executions[1]["requirement"] == "REQUIRED"
     assert keycloak.writes == []

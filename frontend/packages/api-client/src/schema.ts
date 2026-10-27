@@ -28,6 +28,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/account/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My sign-in and security
+         * @description The signed-in person's own sign-in methods and recent sign-ins.
+         */
+        get: operations["my_security_api_v1_account_security_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/announcements": {
         parameters: {
             query?: never;
@@ -544,6 +564,30 @@ export interface paths {
          * @description Starts a background verification; follow it in the run list or the status.
          */
         post: operations["start_run_api_v1_audit_verification_runs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/account-action": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Change password or MFA on the sign-in service's pages
+         * @description From My account (REQ-SEC-028): Keycloak asks for the password, then shows its page.
+         *
+         *     `password` changes the password, `mfa` sets up an authenticator app, `recovery_codes` makes
+         *     new recovery codes. The browser comes back to `returnTo` with `account_action` and `status`
+         *     (success, cancelled, error) and a fresh session; the password never passes through SupportX.
+         */
+        get: operations["account_action_api_v1_auth_account_action_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1125,6 +1169,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/identity/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * MFA policy
+         * @description Every role's MFA mode with its enrolment counts (REQ-SEC-024 AC3).
+         */
+        get: operations["get_mfa_policy_api_v1_identity_mfa_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/mfa/roles/{role_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a role's MFA mode
+         * @description Off, optional or required for everyone holding the role; holders' grace starts now.
+         */
+        put: operations["put_mfa_role_api_v1_identity_mfa_roles__role_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/identity/people/{user_id}/require-new-password": {
         parameters: {
             query?: never;
@@ -1139,6 +1223,26 @@ export interface paths {
          * @description The person sets a new password at their next sign-in; their sessions end now (SEC-006).
          */
         post: operations["require_new_password_api_v1_identity_people__user_id__require_new_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/identity/people/{user_id}/reset-mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset a person's MFA
+         * @description Remove their authenticator and recovery codes; they enrol again (never your own).
+         */
+        post: operations["reset_mfa_api_v1_identity_people__user_id__reset_mfa_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3174,6 +3278,42 @@ export interface components {
              * @description Send back as If-Match; 0 until first saved.
              */
             version: number;
+        };
+        /**
+         * AccountSecurityOut
+         * @description How the person signs in, and their recent sign-ins.
+         */
+        AccountSecurityOut: {
+            /**
+             * Details Available
+             * @description False when the sign-in service could not be asked (shown, not an error).
+             */
+            details_available: boolean;
+            /**
+             * Has Password
+             * @description False: they sign in through single sign-on only.
+             */
+            has_password: boolean;
+            /**
+             * Mfa Due At
+             * @description Required and not set up: set it up by then.
+             */
+            mfa_due_at: string | null;
+            /** Mfa Enrolled */
+            mfa_enrolled: boolean;
+            /**
+             * Mfa Mode
+             * @description What this organisation asks of the person (strictest of their roles).
+             * @enum {string}
+             */
+            mfa_mode: "off" | "optional" | "required";
+            /** Recent Sign Ins */
+            recent_sign_ins: components["schemas"]["SignInOut"][];
+            /**
+             * Recovery Codes
+             * @description They have recovery codes.
+             */
+            recovery_codes: boolean;
         };
         /**
          * ActionStateOut
@@ -5231,6 +5371,11 @@ export interface components {
              */
             invitation_valid_days?: number | null;
             /**
+             * Mfa Grace Days
+             * @description Days to set up MFA once it is required (0 to 30).
+             */
+            mfa_grace_days?: number | null;
+            /**
              * Password Breached Check
              * @description Refuse passwords on the installation's breached list.
              */
@@ -5294,6 +5439,8 @@ export interface components {
             create_people_on_sign_in: boolean;
             /** Invitation Valid Days */
             invitation_valid_days: number;
+            /** Mfa Grace Days */
+            mfa_grace_days: number;
             /** Password Breached Check */
             password_breached_check: boolean;
             /** Password Digits */
@@ -5624,6 +5771,11 @@ export interface components {
         MeResponse: {
             /** Csrf Token */
             csrf_token: string;
+            /**
+             * Mfa Due At
+             * @description MFA is required here and not set up yet: set it up by then (a reminder).
+             */
+            mfa_due_at?: string | null;
             /** Permissions */
             permissions?: components["schemas"]["EffectivePermission"][];
             tenant: components["schemas"]["TenantOut"];
@@ -5650,6 +5802,64 @@ export interface components {
              * Format: uuid
              */
             id: string;
+        };
+        /**
+         * MfaPolicyOut
+         * @description Every role's mode; the grace period is `mfa_grace_days` of the sign-in settings.
+         */
+        MfaPolicyOut: {
+            /** Grace Days */
+            grace_days: number;
+            /** Roles */
+            roles: components["schemas"]["MfaRoleOut"][];
+        };
+        /**
+         * MfaRoleIn
+         * @description A role's MFA mode.
+         */
+        MfaRoleIn: {
+            /**
+             * Mode
+             * @description off, optional or required.
+             */
+            mode: string;
+        };
+        /**
+         * MfaRoleOut
+         * @description A role's MFA mode and how many of its holders have set MFA up.
+         */
+        MfaRoleOut: {
+            /** Enrolled */
+            enrolled: number;
+            /** Holders */
+            holders: number;
+            /**
+             * Is Default
+             * @description Still the Appendix A default (never saved).
+             */
+            is_default: boolean;
+            /**
+             * Key
+             * @description System roles: their key (labelled); custom: null.
+             */
+            key: string | null;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "off" | "optional" | "required";
+            /** Name */
+            name: string;
+            /**
+             * Role Id
+             * Format: uuid
+             */
+            role_id: string;
+            /**
+             * Version
+             * @description Send back as If-Match (0: never saved).
+             */
+            version: number;
         };
         /**
          * NavLayout
@@ -6464,6 +6674,27 @@ export interface components {
         SignInIn: {
             /** Allowed */
             allowed: boolean;
+        };
+        /**
+         * SignInOut
+         * @description One recent sign-in to the installation (all of the person's organisations).
+         */
+        SignInOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Method
+             * @enum {string}
+             */
+            method: "password" | "single_sign_on";
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "success" | "failed";
         };
         /**
          * SiteIn
@@ -8295,6 +8526,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    my_security_api_v1_account_security_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountSecurityOut"];
                 };
             };
             /** @description Unexpected server error. */
@@ -10556,12 +10816,52 @@ export interface operations {
             };
         };
     };
+    account_action_api_v1_auth_account_action_get: {
+        parameters: {
+            query: {
+                action: "password" | "mfa" | "recovery_codes";
+                returnTo?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     callback_api_v1_auth_callback_get: {
         parameters: {
             query?: {
                 code?: string | null;
                 state?: string | null;
                 error?: string | null;
+                kc_action_status?: string | null;
             };
             header?: never;
             path?: never;
@@ -12512,7 +12812,238 @@ export interface operations {
             };
         };
     };
+    get_mfa_policy_api_v1_identity_mfa_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaPolicyOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_mfa_role_api_v1_identity_mfa_roles__role_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                role_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaRoleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaRoleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     require_new_password_api_v1_identity_people__user_id__require_new_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing `identity.manage`. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such set-up or test. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field, with the limits. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reset_mfa_api_v1_identity_people__user_id__reset_mfa_post: {
         parameters: {
             query?: never;
             header?: never;

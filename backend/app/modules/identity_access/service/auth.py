@@ -104,6 +104,16 @@ class LoginFailure(Exception):
         self.origin = origin  # a tenant's own address the login started on (WP-017), if any
 
 
+# My account's changes, as Keycloak's application-initiated actions (proved on 26.8.1).
+ACCOUNT_ACTIONS = {
+    "password": "UPDATE_PASSWORD",
+    "mfa": "CONFIGURE_TOTP",
+    "recovery_codes": "CONFIGURE_RECOVERY_AUTHN_CODES",
+}
+AccountAction = Literal["password", "mfa", "recovery_codes"]
+ACTION_STATUSES = frozenset({"success", "cancelled", "error"})
+
+
 class MfaEnrolmentDue(Exception):
     """The person is past their MFA grace period here: they enrol before they get a session."""
 
@@ -209,6 +219,7 @@ class AuthService:
         address: LoginAddress | None = None,
         *,
         reauthenticate: bool = False,
+        account_action: str | None = None,
     ) -> str:
         """Remember a one-time login state and return Keycloak's authorization URL.
 
@@ -235,6 +246,7 @@ class AuthService:
                 "return_to": safe_return_to(return_to),
                 "origin": origin,
                 "organization": address.organization if address is not None else None,
+                "account_action": account_action,
             },
             LOGIN_STATE_TTL,
         )
@@ -244,10 +256,13 @@ class AuthService:
             nonce=nonce,
             pkce=pkce,
             organization=address.organization if address is not None else None,
-            prompt="login" if reauthenticate else None,
+            # A password change asks for the current password first (REQ-SEC-028 AC2); setting
+            # MFA up too (D-104): only the person may add an authenticator to their account.
+            prompt="login" if reauthenticate or account_action is not None else None,
+            action=None if account_action is None else ACCOUNT_ACTIONS[account_action],
         )
 
-    async def complete_login(
+    async def complete_login(  # noqa: PLR0913 - keyword-only parts of the callback
         self,
         *,
         code: str | None,
@@ -255,6 +270,7 @@ class AuthService:
         error: str | None,
         previous_session_id: str | None,
         host: str | None = None,
+        action_status: str | None = None,
     ) -> "LoginResult | EnrolFirst | sso_test.TestFinished":
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
@@ -286,7 +302,12 @@ class AuthService:
             await self.store.delete_session(previous_session_id)
         session_id = await self._save_new(session)
         log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
-        return LoginResult(session_id, session, self.landing(app, pending["return_to"], origin))
+        landing = self.landing(app, pending["return_to"], origin)
+        if pending.get("account_action"):  # back to My account with Keycloak's result
+            outcome = action_status if action_status in ACTION_STATUSES else "error"
+            query = urlencode({"account_action": pending["account_action"], "status": outcome})
+            landing += ("&" if "?" in landing else "?") + query
+        return LoginResult(session_id, session, landing)
 
     async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
         client = self.client(app, pending.get("origin"))
@@ -584,4 +605,5 @@ class AuthService:
             "tenant": {"id": session.tenant_id, "name": session.tenant_name},
             "tenants": [{"id": c.tenant_id, "name": c.name} for c in session.tenants],
             "csrf_token": session.csrf_token,
+            "mfa_due_at": session.mfa_due_at,
         }

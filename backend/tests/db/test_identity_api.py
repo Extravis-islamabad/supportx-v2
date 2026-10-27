@@ -1152,3 +1152,217 @@ async def test_two_cards_saved_at_once_conflict_and_never_overwrite_each_other(
     )
     assert again.status_code == 200, again.text
     assert (again.json()["portal_idle_seconds"], again.json()["password_min_length"]) == (900, 16)
+
+
+# --- MFA (WP-039 session 3; REQ-SEC-022, 024, 025, 028) ---------------------------------------
+#
+# Keycloak's own enrolment and sign-in pages were proved against 26.8.1 (enrolment from a link,
+# a wrong and an old code refused, recovery codes once each; PROGRESS). Here: who must enrol and
+# when, what SupportX asks of Keycloak, and the admin reset.
+
+
+async def _sql(world: World, sql: str, *args: Any) -> None:  # noqa: ANN401
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(sql, *args)
+    finally:
+        await conn.close()
+
+
+async def _mfa_roles(world: World, org: Org) -> dict[str, dict[str, Any]]:
+    found = await world.call("GET", "/identity/mfa", org)
+    assert found.status_code == 200, found.text
+    return {r["key"] or r["name"]: r for r in found.json()["roles"]}
+
+
+async def test_mfa_defaults_follow_appendix_a_and_count_enrolment(world: World) -> None:
+    roles = await _mfa_roles(world, world.a)
+    modes = {key: role["mode"] for key, role in roles.items()}
+    assert modes["tenant_admin"] == modes["security_admin"] == "required"
+    assert modes["technician"] == modes["auditor"] == "required"
+    assert modes["requester"] == "optional"
+    assert all(role["is_default"] for role in roles.values())
+    assert roles["requester"]["holders"] == 2  # requester and the manager
+    await _sql(world, "UPDATE users SET mfa_enrolled_at = now() WHERE id = $1", world.a.requester)
+    assert (await _mfa_roles(world, world.a))["requester"]["enrolled"] == 1  # AC3
+
+
+async def test_requiring_mfa_for_a_role_starts_its_holders_grace_and_is_audited(
+    world: World,
+) -> None:
+    role = (await _mfa_roles(world, world.a))["requester"]
+    changed = await world.call(
+        "PUT",
+        f"/identity/mfa/roles/{role['role_id']}",
+        world.a,
+        json={"mode": "required"},
+        headers={"If-Match": '"0"'},
+    )
+    assert changed.status_code == 200, changed.text
+    assert (changed.json()["mode"], changed.json()["version"]) == ("required", 1)
+    started = await _admin_rows(
+        world.db,
+        "SELECT id FROM users WHERE tenant_id = $1 AND mfa_required_since IS NOT NULL",
+        world.a.tenant,
+    )
+    assert {r["id"] for r in started} >= {world.a.requester, world.a.manager}
+    stale = await world.call(
+        "PUT",
+        f"/identity/mfa/roles/{role['role_id']}",
+        world.a,
+        json={"mode": "off"},
+        headers={"If-Match": '"0"'},
+    )
+    assert stale.status_code == 409
+    entries = await _admin_rows(
+        world.db,
+        "SELECT details FROM audit_entries WHERE tenant_id = $1 AND action = $2",
+        world.a.tenant,
+        "identity.mfa_policy_changed",
+    )
+    assert json.loads(entries[0]["details"]) == {
+        "mode.before": "optional",
+        "mode.after": "required",
+    }
+    refused = await world.call(
+        "PUT",
+        f"/identity/mfa/roles/{role['role_id']}",
+        world.a,
+        json={"mode": "sometimes"},
+        headers={"If-Match": '"1"'},
+    )
+    assert refused.json()["errors"][0]["code"] == "mfa_mode_invalid"
+
+
+async def test_past_the_grace_period_keycloak_makes_the_person_enrol(world: World) -> None:
+    """AC2: after the grace period, enrolling is all a person without an authenticator may do."""
+    from app.modules.identity_access.service import mfa as mfa_service  # noqa: PLC0415
+
+    await _sql(
+        world,
+        "UPDATE users SET external_subject = 'kc-tech', mfa_required_since = now() - interval"
+        " '8 days' WHERE id = $1",
+        world.a.tech,
+    )
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        overdue = await mfa_service.on_sign_in(database, world.admin, world.a.tenant, world.a.tech)
+        assert overdue.status.must_enrol(datetime.now(UTC))
+        assert overdue.enforced
+        assert set(world.admin.required["kc-tech"]) == {
+            "CONFIGURE_TOTP",
+            "CONFIGURE_RECOVERY_AUTHN_CODES",
+        }
+        # Once Keycloak holds the authenticator, the person is enrolled and nothing more is asked.
+        world.admin.required.clear()
+        world.admin.credentials_of["kc-tech"] = [Credential("c1", "otp")]
+        done = await mfa_service.on_sign_in(database, world.admin, world.a.tenant, world.a.tech)
+        assert done.status.enrolled
+        assert done.status.due_at is None
+        assert world.admin.required == {}
+        # Within the grace period: a reminder, no enforcement.
+        await _sql(
+            world,
+            "UPDATE users SET external_subject = 'kc-new', mfa_required_since = now()"
+            " WHERE id = $1",
+            world.a.admin,
+        )
+        fresh = await mfa_service.on_sign_in(database, world.admin, world.a.tenant, world.a.admin)
+        assert fresh.status.due_at is not None
+        assert not fresh.enforced
+        assert "kc-new" not in world.admin.required
+    finally:
+        await database.dispose()
+
+
+async def test_an_admin_resets_someone_elses_mfa_never_their_own(world: World) -> None:
+    """REQ-SEC-025 AC2, AC3: credentials removed, enrol again, audited, the person told."""
+    world.app.state.settings = world.app.state.settings.model_copy(
+        update={"mail_smtp_host": "mail.test", "mail_from_address": "support@acme.test"}
+    )
+    own = await world.call("POST", f"/identity/people/{world.a.admin}/reset-mfa", world.a)
+    assert (own.status_code, own.json()["code"]) == (403, "mfa_reset_own")
+    await _sql(
+        world,
+        "UPDATE users SET external_subject = 'kc-tech', email = 'tech@acme.test',"
+        " mfa_enrolled_at = now() WHERE id = $1",
+        world.a.tech,
+    )
+    world.admin.credentials_of["kc-tech"] = [
+        Credential("p", "password"),
+        Credential("o", "otp"),
+        Credential("r", "recovery-authn-codes"),
+    ]
+    done = await world.call("POST", f"/identity/people/{world.a.tech}/reset-mfa", world.a)
+    assert done.status_code == 204, done.text
+    assert [c.type for c in world.admin.credentials_of["kc-tech"]] == ["password"]
+    assert "CONFIGURE_TOTP" in world.admin.required["kc-tech"]  # technicians must have MFA
+    person = await _admin_rows(
+        world.db, "SELECT mfa_enrolled_at FROM users WHERE id = $1", world.a.tech
+    )
+    assert person[0]["mfa_enrolled_at"] is None
+    audit = await _admin_rows(
+        world.db,
+        "SELECT object_id FROM audit_entries WHERE tenant_id = $1 AND action = 'user.mfa_reset'"
+        " AND outcome = 'done'",
+        world.a.tenant,
+    )
+    assert [a["object_id"] for a in audit] == [str(world.a.tech)]
+    mail = await _admin_rows(
+        world.db,
+        "SELECT kind, recipients, subject FROM mail_messages WHERE tenant_id = $1",
+        world.a.tenant,
+    )
+    assert [(m["kind"], m["recipients"]) for m in mail] == [("mfa_reset", ["tech@acme.test"])]
+
+
+async def test_my_account_shows_how_i_sign_in_and_recent_sign_ins(world: World) -> None:
+    """REQ-SEC-028 AC1: any signed-in person opens it, no emailed code."""
+    await _sql(
+        world, "UPDATE users SET external_subject = 'kc-req' WHERE id = $1", world.a.requester
+    )
+    world.admin.credentials_of["kc-req"] = [Credential("p", "password"), Credential("o", "otp")]
+    world.admin.events = [
+        LoginEvent("LOGIN", 1_793_000_000_000, None, None, "kc-req"),
+        LoginEvent("LOGIN_ERROR", 1_792_999_000_000, "invalid_user_credentials", None, "kc-req"),
+    ]
+    found = await world.call("GET", "/account/security", world.a, world.a.requester)
+    assert found.status_code == 200, found.text
+    body = found.json()
+    assert (body["has_password"], body["mfa_enrolled"], body["recovery_codes"]) == (
+        True,
+        True,
+        False,
+    )
+    assert body["mfa_mode"] == "optional"
+    assert [s["outcome"] for s in body["recent_sign_ins"]] == ["success", "failed"]
+
+
+async def test_mfa_policies_are_tenant_isolated(world: World) -> None:
+    for org in (world.a, world.b):
+        role = (await _mfa_roles(world, org))["requester"]
+        saved = await world.call(
+            "PUT",
+            f"/identity/mfa/roles/{role['role_id']}",
+            org,
+            json={"mode": "required"},
+            headers={"If-Match": '"0"'},
+        )
+        assert saved.status_code == 200, saved.text
+    conn = await asyncpg.connect(world.db.app_direct_url)
+    try:
+        async with conn.transaction():
+            await conn.execute(f"SET LOCAL app.tenant_id = '{world.a.tenant}'")
+            rows = await conn.fetch("SELECT tenant_id FROM mfa_policies")
+            assert {r["tenant_id"] for r in rows} == {world.a.tenant}
+        async with conn.transaction():
+            await conn.execute(f"SET LOCAL app.tenant_id = '{world.a.tenant}'")
+            with pytest.raises(asyncpg.InsufficientPrivilegeError):
+                await conn.execute(
+                    "INSERT INTO mfa_policies (id, tenant_id, role_id, mode)"
+                    " SELECT $1, $2, id, 'off' FROM roles LIMIT 1",
+                    uuid.uuid4(),
+                    world.b.tenant,
+                )
+    finally:
+        await conn.close()

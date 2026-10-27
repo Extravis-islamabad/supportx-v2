@@ -2852,6 +2852,28 @@ export const en = {
   'audit.action.invitation.revoked': 'Withdrew an invitation',
   'audit.action.user.password_reset_forced': 'Required a new password',
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
+  // WP-039 session 3: MFA, my account
+  'mfa_mode.off': 'Off',
+  'mfa_mode.optional': 'Optional',
+  'mfa_mode.required': 'Required',
+  'sign_in_method.password': 'Password',
+  'sign_in_method.single_sign_on': 'Single sign-on',
+  'sign_in_outcome.success': 'Signed in',
+  'sign_in_outcome.failed': 'Failed',
+  'errors.field.mfa_grace_out_of_range': 'Use between {{min}} and {{max}} days.',
+  'errors.field.mfa_mode_invalid': 'Choose off, optional or required.',
+  'errors.mfa_enrolment_unavailable':
+    'Two-step sign-in has to be set up first, but the sign-in service cannot be reached. Try again in a moment.',
+  'errors.mfa_reset_not_signed_in':
+    'This person has not signed in yet, so there is nothing to reset.',
+  'errors.mfa_reset_own': 'You cannot reset your own two-step sign-in. Ask another administrator.',
+  'errors.role_not_found': 'This role was not found.',
+  'event_type.identity_access.mfa.changed': 'Two-step sign-in changed',
+  'audit.action.identity.mfa_policy_changed': 'Changed the two-step sign-in policy',
+  'audit.action.user.mfa_reset': "Reset a person's two-step sign-in",
+  'mail.mfa_reset.subject': 'Your two-step sign-in was reset',
+  'mail.mfa_reset.body':
+    'An administrator of {{organisation}} reset your two-step sign-in. At your next sign-in you will set up your authenticator app again. If you did not expect this, contact your service desk.',
 } as const;
 
 export type LabelKey = keyof typeof en;
