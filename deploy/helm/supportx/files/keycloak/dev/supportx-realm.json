@@ -62,7 +62,9 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": false,
       "redirectUris": [
-        "${SUPPORTX_KC_CONSOLE_ORIGIN}/api/v1/auth/callback"
+        "${SUPPORTX_KC_CONSOLE_ORIGIN}/api/v1/auth/callback",
+        "http://demo.localhost:5173/api/v1/auth/callback",
+        "http://other.localhost:5173/api/v1/auth/callback"
       ],
       "webOrigins": [],
       "attributes": {
@@ -120,7 +122,9 @@
       "serviceAccountsEnabled": false,
       "frontchannelLogout": false,
       "redirectUris": [
-        "${SUPPORTX_KC_PORTAL_ORIGIN}/api/v1/auth/callback"
+        "${SUPPORTX_KC_PORTAL_ORIGIN}/api/v1/auth/callback",
+        "http://demo.localhost:5174/api/v1/auth/callback",
+        "http://other.localhost:5174/api/v1/auth/callback"
       ],
       "webOrigins": [],
       "attributes": {

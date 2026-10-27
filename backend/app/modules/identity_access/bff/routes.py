@@ -2,7 +2,7 @@
 
 import uuid
 from typing import TYPE_CHECKING, Annotated, Literal
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -176,7 +176,10 @@ async def callback(
         if "text/html" not in request.headers.get("accept", ""):
             raise failure.problem from failure
         query = urlencode({"auth_error": failure.problem.instance_code})
-        target = f"{auth.base_url(failure.app)}/?{query}"
+        base = auth.base_url(failure.app)
+        if failure.origin is not None:  # back to the tenant's own address (WP-017)
+            base = failure.origin + urlsplit(base).path.rstrip("/")
+        target = f"{base}/?{query}"
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
     await _audit_session(request, result.session, "session.signed_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)

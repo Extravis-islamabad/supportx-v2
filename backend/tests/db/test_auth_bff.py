@@ -857,3 +857,18 @@ async def test_an_unknown_address_signs_in_as_before(
     start = await bff.client.get("/api/v1/auth/login", headers={"Host": "nobody.brand.test"})
     assert "organization%3A%2A" in start.headers["location"]
     assert "redirect_uri=http%3A%2F%2Fconsole.test" in start.headers["location"]
+
+
+async def test_a_refused_browser_login_returns_to_the_address_it_started_on(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _slug, host = await _on_address(bff, monkeypatch)
+    start = await bff.client.get("/api/v1/auth/login", headers={"Host": host})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("b"))
+    done = await bff.client.get(
+        "/api/v1/auth/callback",
+        params={"code": code, "state": state},
+        headers={"Host": host, "Accept": "text/html"},
+    )
+    assert done.status_code == 303
+    assert done.headers["location"] == f"http://{host}/?auth_error=no_organization"

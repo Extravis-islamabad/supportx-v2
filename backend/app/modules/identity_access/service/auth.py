@@ -82,10 +82,11 @@ class LoginAddress:
 class LoginFailure(Exception):
     """A login that could not complete: which app it was for, and the problem to report."""
 
-    def __init__(self, app: AppName, problem: AppError) -> None:
+    def __init__(self, app: AppName, problem: AppError, origin: str | None = None) -> None:
         super().__init__(problem.instance_code)  # the code is a stable identifier, not prose
         self.app = app
         self.problem = problem
+        self.origin = origin  # a tenant's own address the login started on (WP-017), if any
 
 
 class LoginResult:
@@ -225,16 +226,16 @@ class AuthService:
         if pending is None:
             raise LoginFailure("console", BadRequest(code="invalid_login_state"))  # noqa: EM101 - a code, not a message
         app: AppName = "portal" if pending["app"] == "portal" else "console"
-        if error or not code:
-            raise LoginFailure(app, BadRequest(code="login_failed"))
         origin = pending.get("origin")
         if origin is not None and urlsplit(origin).netloc != host:
             # Started on another address than it finished on: never move a session across.
             raise LoginFailure(app, BadRequest(code="login_failed"))
+        if error or not code:
+            raise LoginFailure(app, BadRequest(code="login_failed"), origin)
         try:
             session = await self._login(app, code, pending)
         except AppError as exc:
-            raise LoginFailure(app, exc) from exc
+            raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
         session_id = await self._save_new(session)

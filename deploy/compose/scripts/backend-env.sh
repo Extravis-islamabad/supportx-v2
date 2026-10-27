@@ -32,6 +32,9 @@ values=(
   "SUPPORTX_OIDC_CONSOLE_CLIENT_SECRET=${KEYCLOAK_CONSOLE_CLIENT_SECRET}"
   "SUPPORTX_OIDC_PORTAL_CLIENT_SECRET=${KEYCLOAK_PORTAL_CLIENT_SECRET}"
   "SUPPORTX_SESSION_SECRET=${SESSION_SECRET}"
+  # Tenant addresses (WP-017): demo.localhost and other.localhost are the seeded tenants' own
+  # addresses (browsers resolve *.localhost to this machine; the dev realm knows their callbacks).
+  "SUPPORTX_TENANT_BASE_DOMAIN=localhost"
   # Realtime (WP-011): Centrifugo's server API and the key its client tokens are signed with.
   "SUPPORTX_CENTRIFUGO_API_URL=http://127.0.0.1:${CENTRIFUGO_PORT}"
   "SUPPORTX_CENTRIFUGO_API_KEY=${CENTRIFUGO_API_KEY}"
