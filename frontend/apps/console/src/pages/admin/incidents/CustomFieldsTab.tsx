@@ -1,5 +1,6 @@
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import {
+  Alert,
   App,
   Button,
   Card,
@@ -14,7 +15,6 @@ import {
   Select,
   Space,
   Table,
-  Tag,
   Tooltip,
   Typography,
 } from 'antd';
@@ -30,11 +30,22 @@ import {
   type CustomFieldType,
   type Labels,
 } from '@supportx/api-client';
-import { EmptyText, reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  EmptyText,
+  lengthLimit,
+  reportError,
+  ToneTag,
+  useAppearance,
+  useDateTime,
+  useLabel,
+  WriteButton,
+  type Tone,
+} from '@supportx/ui';
 
 import { CustomFieldControl } from '../../customFields/fields';
 import { fieldName, filled, localized } from '../../customFields/values';
-import { cleanLabels, fieldMessages } from './helpers';
+import { cleanLabels } from './helpers';
 import { LabelsFields, Problems } from './shared';
 
 const TYPES: CustomFieldType[] = [
@@ -73,10 +84,15 @@ export function CustomFieldsTab() {
   const change = useCustomFieldChange();
   const [editing, setEditing] = useState<CustomField | 'new' | null>(null);
   const [removing, setRemoving] = useState<CustomField | null>(null);
-  const [problems, setProblems] = useState<string[]>([]);
+  // Problems of the last save, each with the field it belongs to (shown there: QA BUG-08).
+  const [errors, setErrors] = useState<FieldProblem[]>([]);
   const all = fields.data ?? [];
-  const run = (next: CustomFieldChange, onDone?: () => void) => {
-    setProblems([]);
+  const run = (
+    next: CustomFieldChange,
+    onDone?: () => void,
+    onConflict?: (error: ApiError) => void,
+  ) => {
+    setErrors([]);
     change.mutate(next, {
       onSuccess: () => {
         void message.success(t('settings.saved'));
@@ -84,12 +100,17 @@ export function CustomFieldsTab() {
       },
       onError: (error) => {
         if (error instanceof ApiError && error.code === 'version_conflict') {
-          void message.warning(t('settings.changed_elsewhere'));
+          if (onConflict !== undefined) onConflict(error);
+          else void message.warning(t('settings.changed_elsewhere'));
           return;
         }
-        const found = fieldMessages(t, error);
-        if (found.length > 0) {
-          setProblems(found);
+        if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+          setErrors(
+            error.fieldErrors.map((f) => ({
+              field: f.field.replace(/^body\./, ''),
+              text: t(f.message_key, f.params ?? {}),
+            })),
+          );
           return;
         }
         reportError(error);
@@ -130,7 +151,7 @@ export function CustomFieldsTab() {
         <WriteButton
           type="primary"
           onClick={() => {
-            setProblems([]);
+            setErrors([]);
             setEditing('new');
           }}
           data-testid="cf-new"
@@ -141,7 +162,7 @@ export function CustomFieldsTab() {
       data-testid="settings-custom-fields"
     >
       <Typography.Paragraph type="secondary">{t('custom_fields.help')}</Typography.Paragraph>
-      {editing === null && <Problems problems={problems} testId="cf-problems" />}
+      {editing === null && <Problems problems={errors.map((e) => e.text)} testId="cf-problems" />}
       <Table
         size="small"
         rowKey="id"
@@ -159,9 +180,13 @@ export function CustomFieldsTab() {
                   {fieldName(f, locale)}
                 </bdi>
                 {f.retired && (
-                  <Tag data-testid={`cf-retired-${f.key}`}>{t('custom_fields.retired')}</Tag>
+                  <ToneTag tone="default" testId={`cf-retired-${f.key}`}>
+                    {t('custom_fields.retired')}
+                  </ToneTag>
                 )}
-                {f.validation.required && <Tag color="blue">{t('custom_fields.required')}</Tag>}
+                {f.validation.required && (
+                  <ToneTag tone="info">{t('custom_fields.required')}</ToneTag>
+                )}
               </Flex>
             ),
           },
@@ -191,7 +216,7 @@ export function CustomFieldsTab() {
                 <Button
                   size="small"
                   onClick={() => {
-                    setProblems([]);
+                    setErrors([]);
                     setEditing(f);
                   }}
                   data-testid={`cf-edit-${f.key}`}
@@ -254,15 +279,22 @@ export function CustomFieldsTab() {
           // The saved field as it is now (index progress arrives live); the draft keeps edits.
           field={editing === 'new' ? null : (all.find((f) => f.id === editing.id) ?? editing)}
           pending={change.isPending}
-          problems={problems}
+          errors={errors}
+          onEdit={() => {
+            if (errors.length > 0) setErrors([]);
+          }}
           onClose={() => {
             setEditing(null);
-            setProblems([]);
+            setErrors([]);
           }}
-          onSave={(next) => {
-            run(next, () => {
-              setEditing(null);
-            });
+          onSave={(next, onConflict) => {
+            run(
+              next,
+              () => {
+                setEditing(null);
+              },
+              onConflict,
+            );
           }}
           onIndex={(field) => {
             run({ kind: 'index', id: field.id, version: field.version }, () => {
@@ -402,27 +434,65 @@ function bodyOf(draft: Draft) {
   };
 }
 
+interface FieldProblem {
+  field: string;
+  text: string;
+}
+
+/** Problems at `path` or inside it ("choices" covers "choices[0].labels"). */
+function problemsAt(errors: FieldProblem[], ...paths: string[]): string | undefined {
+  const found = errors.filter((e) =>
+    paths.some((p) => e.field === p || e.field.startsWith(`${p}.`) || e.field.startsWith(`${p}[`)),
+  );
+  return found.length === 0 ? undefined : found.map((e) => e.text).join(' ');
+}
+
+const EDITOR_PATHS = [
+  'labels',
+  'help',
+  'field_type',
+  'choices',
+  'display',
+  'validation',
+  'currency',
+  'default',
+  'key',
+];
+
 function CustomFieldEditor({
   field,
   pending,
-  problems,
+  errors,
+  onEdit,
   onClose,
   onSave,
   onIndex,
 }: {
   field: CustomField | null;
   pending: boolean;
-  problems: string[];
+  errors: FieldProblem[];
+  onEdit: () => void;
   onClose: () => void;
-  onSave: (change: CustomFieldChange) => void;
+  onSave: (change: CustomFieldChange, onConflict: (error: ApiError) => void) => void;
   onIndex: (field: CustomField) => void;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
+  const dates = useDateTime();
   const [draft, setDraft] = useState<Draft>(() => draftOf(field));
+  // The field as it was when the editor opened: its version goes with the save. A save made
+  // elsewhere meanwhile is said at once and the save asks what to keep (QA BUG-01).
+  const [base, setBase] = useState<CustomField | null>(field);
+  const [conflict, setConflict] = useState<ApiError | null>(null);
+  const changedElsewhere = field !== null && base !== null && field.version !== base.version;
   const set = (patch: Partial<Draft>) => {
+    onEdit(); // the problems shown were about the values before this edit (QA BUG-04)
     setDraft((current) => ({ ...current, ...patch }));
   };
+  const at = (...paths: string[]) => problemsAt(errors, ...paths);
+  const elsewhere = errors
+    .filter((e) => !EDITOR_PATHS.some((p) => problemsAt([e], p) !== undefined))
+    .map((e) => e.text);
   const kind = draft.field_type;
   // A preview of the field as forms will show it: the default value is chosen in it.
   const preview: CustomField = {
@@ -445,12 +515,15 @@ function CustomFieldEditor({
     choices: draft.choices,
     display: draft.display,
   };
-  const save = () => {
+  const save = (version = base?.version ?? 0) => {
     const body = bodyOf(draft);
     if (field === null) {
-      onSave({ kind: 'create', body: { entity: 'incident', field_type: kind, ...body } });
+      onSave(
+        { kind: 'create', body: { entity: 'incident', field_type: kind, ...body } },
+        setConflict,
+      );
     } else {
-      onSave({ kind: 'update', id: field.id, version: field.version, body });
+      onSave({ kind: 'update', id: field.id, version, body }, setConflict);
     }
   };
   return (
@@ -463,31 +536,60 @@ function CustomFieldEditor({
       extra={
         <Space>
           <Button onClick={onClose}>{t('actions.cancel')}</Button>
-          <WriteButton type="primary" loading={pending} onClick={save} data-testid="cf-save">
+          <WriteButton
+            type="primary"
+            loading={pending}
+            onClick={() => {
+              save();
+            }}
+            data-testid="cf-save"
+          >
             {t('actions.save')}
           </WriteButton>
         </Space>
       }
       data-testid="cf-editor"
     >
-      <Problems problems={problems} testId="cf-editor-problems" />
+      {changedElsewhere && (
+        <Alert
+          type="warning"
+          showIcon
+          role="status"
+          style={{ marginBottom: 12 }}
+          message={t('custom_fields.changed_by', {
+            name: field.changed_by ?? t('custom_fields.someone'),
+            at: dates.format(field.changed_at),
+          })}
+          data-testid="cf-changed-by"
+        />
+      )}
+      <Problems problems={elsewhere} testId="cf-editor-problems" />
       <Form layout="vertical" component="div">
-        <Form.Item
-          label={t('custom_fields.type')}
-          htmlFor="cf-type"
-          help={field === null ? undefined : t('custom_fields.type_fixed')}
-        >
-          <Select
-            id="cf-type"
-            value={kind}
-            disabled={field !== null}
-            onChange={(next: CustomFieldType) => {
-              set({ field_type: next, default: null });
-            }}
-            options={TYPES.map((value) => ({ value, label: t(`custom_field_type.${value}`) }))}
-            data-testid="cf-type"
-          />
-        </Form.Item>
+        {field === null ? (
+          <Form.Item
+            label={t('custom_fields.type')}
+            htmlFor="cf-type"
+            validateStatus={at('field_type') === undefined ? undefined : 'error'}
+            help={at('field_type')}
+          >
+            <Select
+              id="cf-type"
+              value={kind}
+              onChange={(next: CustomFieldType) => {
+                set({ field_type: next, default: null });
+              }}
+              options={TYPES.map((value) => ({ value, label: t(`custom_field_type.${value}`) }))}
+              data-testid="cf-type"
+            />
+          </Form.Item>
+        ) : (
+          // Read-only text, not a disabled control (QA C6): the type never changes.
+          <Form.Item label={t('custom_fields.type')} help={t('custom_fields.type_fixed')}>
+            <Typography.Text data-testid="cf-type-fixed">
+              {t(`custom_field_type.${kind}`)}
+            </Typography.Text>
+          </Form.Item>
+        )}
         <LabelsFields
           value={draft.labels}
           onChange={(labels) => {
@@ -495,17 +597,24 @@ function CustomFieldEditor({
           }}
           testId="cf-label"
         />
+        {at('labels', 'key') !== undefined && (
+          <Typography.Paragraph type="danger" role="alert" data-testid="cf-error-labels">
+            {at('labels', 'key')}
+          </Typography.Paragraph>
+        )}
         {LANGUAGES.map((language) => (
           <Form.Item
             key={language}
             label={t(`custom_fields.help_in.${language}`)}
             htmlFor={`cf-help-${language}`}
+            validateStatus={language === 'en' && at('help') !== undefined ? 'error' : undefined}
+            help={language === 'en' ? at('help') : undefined}
           >
             <Input
               id={`cf-help-${language}`}
               dir={language === 'en' ? 'ltr' : 'rtl'}
               lang={language}
-              maxLength={300}
+              count={lengthLimit(300)}
               value={draft.help[language] ?? ''}
               onChange={(event) => {
                 set({ help: { ...draft.help, [language]: event.target.value } });
@@ -521,8 +630,13 @@ function CustomFieldEditor({
               onChange={(choices) => {
                 set({ choices });
               }}
+              problem={at('choices')}
             />
-            <Form.Item label={t('custom_fields.display')}>
+            <Form.Item
+              label={t('custom_fields.display')}
+              validateStatus={at('display') === undefined ? undefined : 'error'}
+              help={at('display')}
+            >
               <Radio.Group
                 value={draft.display}
                 onChange={(event) => {
@@ -550,10 +664,23 @@ function CustomFieldEditor({
           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
             {t('custom_fields.required_help')}
           </Typography.Paragraph>
+          {errors.some((e) => e.field === 'validation') && (
+            <Typography.Paragraph type="danger" role="alert" style={{ margin: 0 }}>
+              {errors
+                .filter((e) => e.field === 'validation')
+                .map((e) => e.text)
+                .join(' ')}
+            </Typography.Paragraph>
+          )}
         </Form.Item>
         {NUMBER_TYPES.has(kind) && (
           <Flex gap={12} wrap>
-            <Form.Item label={t('custom_fields.min')} htmlFor="cf-min">
+            <Form.Item
+              label={t('custom_fields.min')}
+              htmlFor="cf-min"
+              validateStatus={at('validation.min') === undefined ? undefined : 'error'}
+              help={at('validation.min')}
+            >
               <Input
                 id="cf-min"
                 dir="ltr"
@@ -565,7 +692,12 @@ function CustomFieldEditor({
                 data-testid="cf-min"
               />
             </Form.Item>
-            <Form.Item label={t('custom_fields.max')} htmlFor="cf-max">
+            <Form.Item
+              label={t('custom_fields.max')}
+              htmlFor="cf-max"
+              validateStatus={at('validation.max') === undefined ? undefined : 'error'}
+              help={at('validation.max')}
+            >
               <Input
                 id="cf-max"
                 dir="ltr"
@@ -584,12 +716,13 @@ function CustomFieldEditor({
             label={t('custom_fields.currency')}
             htmlFor="cf-currency"
             required
-            help={t('custom_fields.currency_help')}
+            validateStatus={at('currency') === undefined ? undefined : 'error'}
+            help={at('currency') ?? t('custom_fields.currency_help')}
           >
             <Input
               id="cf-currency"
               dir="ltr"
-              maxLength={3}
+              count={lengthLimit(3)}
               style={{ width: 120, textTransform: 'uppercase' }}
               value={draft.currency}
               onChange={(event) => {
@@ -601,7 +734,12 @@ function CustomFieldEditor({
         )}
         {TEXT_TYPES.has(kind) && (
           <Flex gap={12} wrap>
-            <Form.Item label={t('custom_fields.min_length')} htmlFor="cf-min-length">
+            <Form.Item
+              label={t('custom_fields.min_length')}
+              htmlFor="cf-min-length"
+              validateStatus={at('validation.min_length') === undefined ? undefined : 'error'}
+              help={at('validation.min_length')}
+            >
               <Input
                 id="cf-min-length"
                 dir="ltr"
@@ -613,7 +751,12 @@ function CustomFieldEditor({
                 data-testid="cf-min-length"
               />
             </Form.Item>
-            <Form.Item label={t('custom_fields.max_length')} htmlFor="cf-max-length">
+            <Form.Item
+              label={t('custom_fields.max_length')}
+              htmlFor="cf-max-length"
+              validateStatus={at('validation.max_length') === undefined ? undefined : 'error'}
+              help={at('validation.max_length')}
+            >
               <Input
                 id="cf-max-length"
                 dir="ltr"
@@ -631,12 +774,13 @@ function CustomFieldEditor({
           <Form.Item
             label={t('custom_fields.pattern')}
             htmlFor="cf-pattern"
-            help={t('custom_fields.pattern_help')}
+            validateStatus={at('validation.pattern') === undefined ? undefined : 'error'}
+            help={at('validation.pattern') ?? t('custom_fields.pattern_help')}
           >
             <Input
               id="cf-pattern"
               dir="ltr"
-              maxLength={200}
+              count={lengthLimit(200)}
               value={draft.pattern}
               onChange={(event) => {
                 set({ pattern: event.target.value });
@@ -649,7 +793,8 @@ function CustomFieldEditor({
           <Form.Item
             label={t('custom_fields.default')}
             htmlFor="cf-default"
-            help={t('custom_fields.default_help')}
+            validateStatus={at('default') === undefined ? undefined : 'error'}
+            help={at('default') ?? t('custom_fields.default_help')}
           >
             <CustomFieldControl
               id="cf-default"
@@ -722,6 +867,23 @@ function CustomFieldEditor({
           />
         )}
       </Form>
+      <ConflictDialog
+        open={conflict !== null}
+        error={conflict}
+        fieldLabel={(name) => t(`custom_fields.part.${name}`)}
+        onReload={() => {
+          // Theirs: start again from the field as it is saved now.
+          setConflict(null);
+          setDraft(draftOf(field));
+          setBase(field);
+        }}
+        onKeepMine={() => {
+          // Mine: my values saved over theirs, knowingly.
+          setConflict(null);
+          setBase(field);
+          if (field !== null) save(field.version);
+        }}
+      />
     </Drawer>
   );
 }
@@ -730,9 +892,11 @@ function CustomFieldEditor({
 function ChoicesEditor({
   value,
   onChange,
+  problem,
 }: {
   value: CustomFieldChoice[];
   onChange: (next: CustomFieldChoice[]) => void;
+  problem?: string;
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
@@ -740,16 +904,48 @@ function ChoicesEditor({
   const update = (index: number, patch: Partial<CustomFieldChoice>) => {
     onChange(value.map((c, i) => (i === index ? { ...c, ...patch } : c)));
   };
+  const move = (index: number, by: -1 | 1) => {
+    const next = [...value];
+    const [moved] = next.splice(index, 1);
+    if (moved === undefined) return;
+    next.splice(index + by, 0, moved);
+    onChange(next);
+  };
+  const add = () => {
+    if (adding === null || (adding.en ?? '').trim() === '') return;
+    onChange([...value, { code: null, labels: cleanLabels(adding) ?? {}, retired: false }]);
+    setAdding(null);
+  };
   return (
-    <Form.Item label={t('custom_fields.choices')} required>
+    <Form.Item
+      label={t('custom_fields.choices')}
+      required
+      validateStatus={problem === undefined ? undefined : 'error'}
+      help={problem}
+    >
       <Flex vertical gap={6} data-testid="cf-choices">
+        {value.length > 0 && (
+          // Column names, visible (QA C2): the inputs below have the same order.
+          <Flex gap={6} aria-hidden data-testid="cf-choice-columns">
+            <Typography.Text type="secondary" style={{ flex: '1 1 160px' }}>
+              {t('settings.name_in.en')}
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ flex: '1 1 120px' }}>
+              {t('settings.name_in.ar')}
+            </Typography.Text>
+            <Typography.Text type="secondary" style={{ flex: '1 1 120px' }}>
+              {t('settings.name_in.ur')}
+            </Typography.Text>
+            <span style={{ width: 160 }} />
+          </Flex>
+        )}
         {value.map((choice, index) => (
           <Flex key={choice.code ?? `new-${String(index)}`} gap={6} align="center" wrap>
             <Input
               aria-label={t('settings.name_in.en')}
               dir="ltr"
               lang="en"
-              maxLength={120}
+              count={lengthLimit(120)}
               style={{ flex: '1 1 160px' }}
               value={choice.labels.en ?? ''}
               onChange={(event) => {
@@ -761,7 +957,7 @@ function ChoicesEditor({
               aria-label={t('settings.name_in.ar')}
               dir="rtl"
               lang="ar"
-              maxLength={120}
+              count={lengthLimit(120)}
               style={{ flex: '1 1 120px' }}
               value={choice.labels.ar ?? ''}
               onChange={(event) => {
@@ -773,13 +969,33 @@ function ChoicesEditor({
               aria-label={t('settings.name_in.ur')}
               dir="rtl"
               lang="ur"
-              maxLength={120}
+              count={lengthLimit(120)}
               style={{ flex: '1 1 120px' }}
               value={choice.labels.ur ?? ''}
               onChange={(event) => {
                 update(index, { labels: { ...choice.labels, ur: event.target.value } });
               }}
               data-testid={`cf-choice-ur-${String(index)}`}
+            />
+            <Button
+              size="small"
+              icon={<ArrowUpOutlined />}
+              disabled={index === 0}
+              aria-label={t('settings.move_up', { name: localized(choice.labels, locale) })}
+              onClick={() => {
+                move(index, -1);
+              }}
+              data-testid={`cf-choice-up-${String(index)}`}
+            />
+            <Button
+              size="small"
+              icon={<ArrowDownOutlined />}
+              disabled={index === value.length - 1}
+              aria-label={t('settings.move_down', { name: localized(choice.labels, locale) })}
+              onClick={() => {
+                move(index, 1);
+              }}
+              data-testid={`cf-choice-down-${String(index)}`}
             />
             {choice.code === null || choice.code === undefined ? (
               <Button
@@ -824,29 +1040,37 @@ function ChoicesEditor({
               setAdding(null);
             }}
             okButtonProps={{ disabled: (adding.en ?? '').trim() === '' }}
-            onOk={() => {
-              onChange([
-                ...value,
-                { code: null, labels: cleanLabels(adding) ?? {}, retired: false },
-              ]);
-              setAdding(null);
-            }}
+            onOk={add}
             destroyOnHidden
             data-testid="cf-choice-dialog"
           >
-            <Form layout="vertical" component="div">
-              <LabelsFields value={adding} onChange={setAdding} testId="cf-choice-name" />
-            </Form>
+            {/* Enter adds the choice, as in any one-line form (QA C1). */}
+            <div
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  add();
+                }
+              }}
+            >
+              <Form layout="vertical" component="div">
+                <LabelsFields value={adding} onChange={setAdding} testId="cf-choice-name" />
+              </Form>
+            </div>
           </Modal>
         )}
         {value.length > 0 && (
-          <Typography.Text type="secondary">
-            {t('custom_fields.choices_help', {
-              names: value
-                .filter((c) => !c.retired)
-                .map((c) => localized(c.labels, locale))
-                .join(', '),
-            })}
+          // Each name isolated, joined with the UI language's separator (QA C4).
+          <Typography.Text type="secondary" data-testid="cf-choices-offered">
+            {t('custom_fields.choices_offered')}{' '}
+            {value
+              .filter((c) => !c.retired)
+              .map((c, i) => (
+                <span key={c.code ?? `new-${String(i)}`}>
+                  {i > 0 && t('list.separator')}
+                  <bdi>{localized(c.labels, locale)}</bdi>
+                </span>
+              ))}
           </Typography.Text>
         )}
       </Flex>
@@ -854,26 +1078,27 @@ function ChoicesEditor({
   );
 }
 
-const INDEX_COLOURS: Record<CustomField['index_state'], string | undefined> = {
-  none: undefined,
-  pending: 'gold',
-  building: 'processing',
-  active: 'green',
-  failed: 'red',
+// Tone tags keep at least 4.5:1 contrast in every theme (QA BUG-07; checked in tones.test.tsx).
+const INDEX_TONES: Record<CustomField['index_state'], Tone> = {
+  none: 'default',
+  pending: 'warning',
+  building: 'info',
+  active: 'success',
+  failed: 'error',
 };
 
 /** Where a field's index is (D-088), live; a failure says why on hover. */
 function IndexTag({ field, testId }: { field: CustomField; testId: string }) {
   const t = useLabel();
   const tag = (
-    <Tag color={INDEX_COLOURS[field.index_state]} data-testid={testId}>
+    <ToneTag tone={INDEX_TONES[field.index_state]} testId={testId}>
       {t(`custom_field_index_state.${field.index_state}`)}
-    </Tag>
+    </ToneTag>
   );
   if (field.index_state !== 'failed') return tag;
   return (
     <Tooltip title={t(`custom_field_index_error.${field.index_error ?? 'unexpected'}`)}>
-      {tag}
+      <span>{tag}</span>
     </Tooltip>
   );
 }

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { Labels } from '@supportx/api-client';
 import { useLabelsIn } from '@supportx/labels';
-import { useLabel } from '@supportx/ui';
+import { useLabel, lengthLimit } from '@supportx/ui';
 
 import { cleanLabels } from './helpers';
 
@@ -64,7 +64,7 @@ export function LabelsFields({
             id={`${testId}-${language}`}
             dir={language === 'en' ? 'ltr' : 'rtl'}
             lang={language}
-            maxLength={120}
+            count={lengthLimit(120)}
             value={value[language] ?? ''}
             onChange={(event) => {
               onChange({ ...value, [language]: event.target.value });

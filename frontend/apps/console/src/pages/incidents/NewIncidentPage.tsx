@@ -45,6 +45,7 @@ import {
   useAppearance,
   useLabel,
   WriteButton,
+  lengthLimit,
 } from '@supportx/ui';
 
 import { CustomFormField } from '../customFields/fields';
@@ -541,8 +542,7 @@ export function NewIncidentPage() {
                   <Input
                     {...field}
                     dir="auto"
-                    maxLength={SUBJECT_MAX}
-                    showCount
+                    count={lengthLimit(SUBJECT_MAX, true)}
                     data-testid="inc-subject"
                   />
                 )}
@@ -812,7 +812,7 @@ export function NewIncidentPage() {
                     <Input
                       {...field}
                       dir="auto"
-                      maxLength={500}
+                      count={lengthLimit(500)}
                       data-testid="inc-priority-reason"
                     />
                   )}
@@ -833,8 +833,7 @@ export function NewIncidentPage() {
                     {...field}
                     dir="auto"
                     autoSize={{ minRows: 2, maxRows: 6 }}
-                    maxLength={IMPACT_DETAILS_MAX}
-                    showCount
+                    count={lengthLimit(IMPACT_DETAILS_MAX, true)}
                     data-testid="inc-impact-details"
                   />
                 )}

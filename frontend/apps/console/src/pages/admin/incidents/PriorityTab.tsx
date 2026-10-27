@@ -5,7 +5,7 @@ import type { IncidentCatalogue, IncidentScale, Priority } from '@supportx/api-c
 import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { scaleLabel } from '../../incidents/labels';
-import { useDraft, useSettingsSave } from './helpers';
+import { useDraft, useOpenedVersion, useSettingsSave } from './helpers';
 import { Problems, ValueDialog } from './shared';
 
 const SCALES: Record<IncidentScale, readonly string[]> = {
@@ -40,7 +40,7 @@ function MatrixCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const source: Matrix = Object.fromEntries(
     catalogue.matrix.map((c) => [cellKey(c.impact, c.urgency), c.priority]),
   );
-  const { draft, edit, reset, stale, dirty } = useDraft(source, catalogue.version);
+  const { draft, edit, reset, stale, dirty, base } = useDraft(source, catalogue.version);
   const changed = Object.keys(draft).filter((k) => draft[k] !== source[k]).length;
   const label = (scale: IncidentScale, code: string) =>
     scaleLabel(t, catalogue, scale, code, locale);
@@ -129,6 +129,7 @@ function MatrixCard({ catalogue }: { catalogue: IncidentCatalogue }) {
                 ),
               },
               reset,
+              base,
             );
           }}
           data-testid="matrix-save"
@@ -148,6 +149,7 @@ function ScaleCard({ scale, catalogue }: { scale: IncidentScale; catalogue: Inci
   const { locale } = useAppearance();
   const { save, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<ScaleValue | null>(null);
+  const opened = useOpenedVersion(editing !== null, catalogue.version);
   const values = SCALES[scale].map(
     (code) =>
       catalogue.scales.find((v) => v.scale === scale && v.code === code) ?? {
@@ -219,7 +221,11 @@ function ScaleCard({ scale, catalogue }: { scale: IncidentScale; catalogue: Inci
           problems={problems}
           onCancel={close}
           onSave={(labels, colour) => {
-            save({ kind: 'scale', scale, code: editing.code, body: { labels, colour } }, close);
+            save(
+              { kind: 'scale', scale, code: editing.code, body: { labels, colour } },
+              close,
+              opened,
+            );
           }}
           testId={`scale-${scale}-dialog`}
         />

@@ -15,6 +15,7 @@ import {
   RichTextView,
   useLabel,
   WriteButton,
+  lengthLimit,
 } from '@supportx/ui';
 
 type Editing = { kind: 'create' } | { kind: 'update'; template: ReplyTemplate } | null;
@@ -134,7 +135,7 @@ export function ReplyTemplatesTab() {
           <Input
             id="tpl-name"
             value={name}
-            maxLength={120}
+            count={lengthLimit(120)}
             onChange={(event) => {
               setName(event.target.value);
             }}

@@ -60,7 +60,8 @@ class CustomField(TenantEntity):
     # Choice fields: [{"code", "labels": {...}, "retired": bool}, ...] in display order.
     choices: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     display: Mapped[str] = mapped_column(String(10), server_default="list")
-    default_value: Mapped[Any] = mapped_column(JSONB, nullable=True)
+    # No starting value is SQL NULL, not JSON null (QA C7).
+    default_value: Mapped[Any] = mapped_column(JSONB(none_as_null=True), nullable=True)
     # {"required", "min", "max", "min_length", "max_length", "pattern"}; numbers as strings.
     validation: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
     currency: Mapped[str | None] = mapped_column(String(3))

@@ -39,6 +39,7 @@ import {
   useLabel,
   useRefetchAfter,
   WriteButton,
+  lengthLimit,
 } from '@supportx/ui';
 
 import { AnnouncementFields } from './AnnouncementForm';
@@ -336,8 +337,7 @@ function StatusActions({ item }: { item: Announcement }) {
         <Input.TextArea
           id="ann-reason"
           rows={3}
-          maxLength={REASON_MAX}
-          showCount
+          count={lengthLimit(REASON_MAX, true)}
           value={reason}
           onChange={(event) => {
             setReason(event.target.value);

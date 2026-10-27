@@ -5,7 +5,7 @@ import type { IncidentCatalogue, ReasonMode } from '@supportx/api-client';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { statusLabel } from '../../incidents/labels';
-import { useSettingsSave } from './helpers';
+import { useOpenedVersion, useSettingsSave } from './helpers';
 import { ValueDialog } from './shared';
 
 type Status = IncidentCatalogue['statuses'][number];
@@ -22,6 +22,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const { locale } = useAppearance();
   const { save, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<Status | null>(null);
+  const opened = useOpenedVersion(editing !== null, catalogue.version);
   const close = () => {
     clear();
     setEditing(null);
@@ -160,6 +161,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                 body: { labels, colour: colour ?? editing.colour },
               },
               close,
+              opened,
             );
           }}
           testId="status-dialog"

@@ -36,7 +36,7 @@ def test_keys_come_from_the_english_name_and_never_clash() -> None:
         (FieldType.TEXT, "x" * 251, "x" * 251, ["value_too_long"]),
         (FieldType.LONG_TEXT, "line 1\n\nline 2\n", "line 1\n\nline 2", []),
         (FieldType.INTEGER, "42", 42, []),
-        (FieldType.INTEGER, 4.5, None, ["invalid_value"]),
+        (FieldType.INTEGER, 4.5, None, ["whole_number_required"]),
         (FieldType.INTEGER, True, None, ["invalid_value"]),
         (FieldType.DECIMAL, "0.1", 0.1, []),
         (FieldType.DECIMAL, "1e20", None, ["invalid_value"]),
@@ -154,19 +154,19 @@ def test_required_on_create_and_never_emptied_later() -> None:
         (
             FieldType.TEXT,
             {"validation": Validation(pattern=r"(a+)+$")},
-            [("validation.pattern", "invalid_pattern")],
+            [("validation.pattern", "pattern_too_complex")],
         ),
         (
             FieldType.TEXT,
             {"validation": Validation(pattern=r"(\w*)*")},
-            [("validation.pattern", "invalid_pattern")],
+            [("validation.pattern", "pattern_too_complex")],
         ),
         (FieldType.TEXT, {"validation": Validation(pattern=r"(ab)+[0-9]{2}")}, []),
         (FieldType.CURRENCY, {}, [("currency", "invalid_currency")]),
         (FieldType.CURRENCY, {"currency": "SAR"}, []),
         (FieldType.TEXT, {"currency": "SAR"}, [("currency", "not_allowed")]),
         (FieldType.PERSON, {"default": "someone"}, [("default", "no_default_allowed")]),
-        (FieldType.INTEGER, {"default": "1.5"}, [("default", "invalid_value")]),
+        (FieldType.INTEGER, {"default": "1.5"}, [("default", "whole_number_required")]),
     ],
 )
 def test_definitions_that_could_never_work_are_refused(
@@ -190,7 +190,7 @@ def test_search_text_holds_only_free_text_of_known_fields() -> None:
         "floor": Definition(key="floor", type=FieldType.CHOICE),
     }
     values = {"tag": "LAP-1", "mail": "a@b.co", "seats": 4, "floor": "first", "gone": "old"}
-    assert search_text(known, values) == "LAP-1 a@b.co"
+    assert search_text(known, values) == "LAP-1 a@b.co a b co"
 
 
 def test_expressions_are_guarded_and_index_matches_filter() -> None:

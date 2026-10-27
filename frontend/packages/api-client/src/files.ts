@@ -210,6 +210,8 @@ export function useFileRules() {
 export function useUpdateFileRules() {
   const queryClient = useQueryClient();
   return useMutation({
+    // The page says what went wrong (a conflict as a warning, the rest reported).
+    meta: { silent: true },
     mutationFn: ({ body, version }: { body: FileRulesInput; version: number }) =>
       call(
         api.PUT('/api/v1/files/settings/rules', {

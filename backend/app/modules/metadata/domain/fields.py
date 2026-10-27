@@ -31,6 +31,8 @@ _KEY = re.compile(r"^[a-z][a-z0-9_]{1,39}$")
 # A repeated group that itself repeats, such as (a+)+ or (\w*)*: patterns run on every save, and
 # these can backtrack for minutes on a short text. Refused when the field is defined.
 _NESTED_QUANTIFIER = re.compile(r"\([^()]*[+*}][^()]*\)\s*[+*{]")
+# A letter or digit in any script (\w without the underscore).
+_NAMED = re.compile(r"[^\W_]")
 _EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _PHONE = re.compile(r"^\+?[0-9 ()./-]{3,30}$")
 _URL = re.compile(r"^https?://[^\s]+$", re.IGNORECASE)
@@ -174,7 +176,7 @@ def is_key(value: str) -> bool:
 # --- values ---------------------------------------------------------------------------------------
 
 
-def _number(value: Any, kind: FieldType) -> Decimal | None:  # noqa: ANN401 - JSON value
+def _number(value: Any) -> Decimal | None:  # noqa: ANN401 - JSON value
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         return None
     try:
@@ -182,8 +184,6 @@ def _number(value: Any, kind: FieldType) -> Decimal | None:  # noqa: ANN401 - JS
     except InvalidOperation:
         return None
     if not number.is_finite() or abs(number) >= NUMBER_LIMIT:
-        return None
-    if kind == FieldType.INTEGER and number != number.to_integral_value():
         return None
     return number
 
@@ -227,9 +227,12 @@ def clean_value(  # noqa: C901, PLR0911, PLR0912 - one rule per type, flat
             return text, ["pattern_mismatch"]
         return text, []
     if kind in NUMBERS:
-        number = _number(value, kind)
+        number = _number(value)
         if number is None:
             return None, ["invalid_value"]
+        if kind == FieldType.INTEGER and number != number.to_integral_value():
+            # Never rounded quietly: the person is told (QA BUG-03).
+            return None, ["whole_number_required"]
         rules = definition.validation
         if rules.min is not None and number < rules.min:
             return None, ["below_minimum"]
@@ -329,7 +332,7 @@ def missing_required(
 # --- definitions ----------------------------------------------------------------------------------
 
 
-def labels_problems(raw: Any, path: str, *, required: bool, limit: int) -> list[Problem]:  # noqa: ANN401 - JSON
+def labels_problems(raw: Any, path: str, *, required: bool, limit: int) -> list[Problem]:  # noqa: ANN401, PLR0911 - JSON; one rule per check
     """Translations {en, ar, ur}: English required where asked, known languages, lengths."""
     if raw is None:
         return [(path, "english_label_required")] if required else []
@@ -339,6 +342,9 @@ def labels_problems(raw: Any, path: str, *, required: bool, limit: int) -> list[
         return [(path, "unknown_language")]
     if required and not str(raw.get("en") or "").strip():
         return [(path, "english_label_required")]
+    if any(str(v).strip() and not _NAMED.search(str(v)) for v in raw.values()):
+        # A name of punctuation only says nothing on a form (QA BUG-05).
+        return [(path, "name_needs_letters")]
     if any(len(str(v)) > limit for v in raw.values()):
         return [(path, "value_too_long")]
     return []
@@ -397,7 +403,7 @@ def definition_problems(  # noqa: C901, PLR0912 - one rule per setting, flat
                 problems.append(("validation.pattern", "invalid_pattern"))
             else:
                 if _NESTED_QUANTIFIER.search(validation.pattern):
-                    problems.append(("validation.pattern", "invalid_pattern"))
+                    problems.append(("validation.pattern", "pattern_too_complex"))
     if kind == FieldType.CURRENCY:
         if currency is None or not _CURRENCY.fullmatch(currency):
             problems.append(("currency", "invalid_currency"))
@@ -413,13 +419,38 @@ def definition_problems(  # noqa: C901, PLR0912 - one rule per setting, flat
     return problems
 
 
+# Addresses and numbers are also searched by their parts ("ops", "example", "1234567"): the
+# search vector keeps an email or a web address as one token (QA BUG-02).
+_PARTS = re.compile(r"[@./:?#=&_+\-()]+")
+_SPLIT = frozenset({FieldType.EMAIL, FieldType.URL, FieldType.PHONE})
+
+
 def search_text(definitions: Mapping[str, Definition], values: Mapping[str, Any]) -> str:
     """The free text a record's custom values add to search (`work_items.custom_text`)."""
-    return " ".join(
-        str(values[key])
-        for key, definition in definitions.items()
-        if definition.type in SEARCHABLE and isinstance(values.get(key), str)
-    )
+    texts: list[str] = []
+    for key, definition in definitions.items():
+        value = values.get(key)
+        if definition.type not in SEARCHABLE or not isinstance(value, str):
+            continue
+        texts.append(value)
+        if definition.type in _SPLIT:
+            texts.append(" ".join(_PARTS.sub(" ", value).split()))
+    return " ".join(texts)
+
+
+def problem_params(definition: Definition, code: str) -> dict[str, str | int]:
+    """The limit a value problem names ("Maximum is 1000.5", QA BUG-03 and C3)."""
+    rules = definition.validation
+    if code == "above_maximum" and rules.max is not None:
+        return {"max": str(rules.max)}
+    if code == "below_minimum" and rules.min is not None:
+        return {"min": str(rules.min)}
+    if code == "value_too_short" and rules.min_length is not None:
+        return {"min": rules.min_length}
+    if code == "value_too_long":
+        limit = LONG_TEXT_MAX if definition.type == FieldType.LONG_TEXT else TEXT_MAX
+        return {"max": min(rules.max_length or limit, limit)}
+    return {}
 
 
 # Every field problem code this module returns (errors.field.<code> labels, checked in CI by
@@ -443,7 +474,9 @@ FIELD_PROBLEMS = frozenset(
         "no_default_allowed",
         "not_allowed",
         "order_must_list_every_value",
+        "name_needs_letters",
         "pattern_mismatch",
+        "pattern_too_complex",
         "phone_not_valid",
         "required",
         "timezone_required",
@@ -455,5 +488,6 @@ FIELD_PROBLEMS = frozenset(
         "user_not_found",
         "value_too_long",
         "value_too_short",
+        "whole_number_required",
     }
 )

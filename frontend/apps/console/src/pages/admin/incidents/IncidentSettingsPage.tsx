@@ -55,15 +55,25 @@ export function IncidentSettingsPage() {
         />
       );
     }
+    // Sections with their own data do not wait for the catalogue (no request waterfall: the
+    // custom fields list loads at once, also under load; lane B's flaky-test report).
+    switch (current) {
+      case 'templates':
+        return <TemplatesTab />;
+      case 'custom-fields':
+        return <CustomFieldsTab />;
+      case 'categories':
+        return <CategoriesTab />;
+      case 'reply-templates':
+        return <ReplyTemplatesTab />;
+      default:
+        break;
+    }
     if (catalogue.data === undefined) return <Skeleton active />;
     const cat = catalogue.data;
     switch (current) {
       case 'general':
         return <GeneralTab catalogue={cat} />;
-      case 'templates':
-        return <TemplatesTab />;
-      case 'custom-fields':
-        return <CustomFieldsTab />;
       case 'statuses':
         return <StatusesTab catalogue={cat} />;
       case 'reasons':
@@ -82,8 +92,6 @@ export function IncidentSettingsPage() {
         );
       case 'priority':
         return <PriorityTab catalogue={cat} />;
-      case 'categories':
-        return <CategoriesTab />;
       case 'levels':
         return (
           <PickListEditor
@@ -103,8 +111,8 @@ export function IncidentSettingsPage() {
             values={cat.closure_codes}
           />
         );
-      case 'reply-templates':
-        return <ReplyTemplatesTab />;
+      default:
+        return null;
     }
   })();
   return (

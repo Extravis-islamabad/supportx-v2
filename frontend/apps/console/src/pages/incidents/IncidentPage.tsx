@@ -50,6 +50,7 @@ import {
   useDateTime,
   useLabel,
   WriteButton,
+  lengthLimit,
 } from '@supportx/ui';
 
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
@@ -537,7 +538,7 @@ function Details({
         const current = typeof value === 'string' ? person(value) : null;
         return {
           key: `custom.${f.key}`,
-          label: f.retired ? t('categories.retired_value', { name: label }) : label,
+          label: f.retired ? t('custom_fields.retired_value', { name: label }) : label,
           view: <CustomFieldValue field={f} value={value} people={item.people} />,
           edit: f.retired
             ? undefined
@@ -742,8 +743,7 @@ function InlineEdit({
             dir="auto"
             autoFocus
             value={typeof value === 'string' ? value : ''}
-            maxLength={SUBJECT_MAX}
-            showCount
+            count={lengthLimit(SUBJECT_MAX, true)}
             onChange={(event) => {
               setValue(event.target.value);
             }}
@@ -762,8 +762,7 @@ function InlineEdit({
             autoFocus
             autoSize={{ minRows: 2, maxRows: 6 }}
             value={typeof value === 'string' ? value : ''}
-            maxLength={IMPACT_DETAILS_MAX}
-            showCount
+            count={lengthLimit(IMPACT_DETAILS_MAX, true)}
             onChange={(event) => {
               setValue(event.target.value);
             }}
@@ -838,7 +837,7 @@ function InlineEdit({
                 aria-label={t('work_item.field.priority_reason')}
                 placeholder={t('work_item.field.priority_reason')}
                 value={reason}
-                maxLength={500}
+                count={lengthLimit(500)}
                 onChange={(event) => {
                   setReason(event.target.value);
                 }}
