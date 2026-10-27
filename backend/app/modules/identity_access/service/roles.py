@@ -35,6 +35,7 @@ from app.modules.identity_access.domain.permissions import SYSTEM_ROLES, TENANT_
 from app.modules.identity_access.domain.policy import Subject, can_delegate
 from app.modules.identity_access.events import RoleChanged, UserRoleChanged
 from app.modules.identity_access.infra.models import Role, RolePermission, User, UserRole
+from app.modules.identity_access.service.access_settings import tenant_technician_scope
 from app.modules.identity_access.service.policy import PolicyService, ResourceType
 from app.shared.api.filters import compile_filter
 from app.shared.db.repository import Repository
@@ -122,7 +123,11 @@ async def get_role(session: AsyncSession, catalogue: Catalogue, role_id: uuid.UU
 
 async def _detail(session: AsyncSession, catalogue: Catalogue, role: Role) -> RoleDetail:
     if role.is_system:
-        grants = [PermissionGrant(p, s) for p, s in catalogue.system_grants(role.key)]
+        scope = await tenant_technician_scope(session)  # the role editor shows what applies
+        grants = [
+            PermissionGrant(p, s)
+            for p, s in catalogue.system_grants(role.key, technician_scope=scope)
+        ]
     else:
         rows = await session.scalars(
             select(RolePermission)
@@ -484,6 +489,51 @@ async def remove_role(
     removed = await _remove(session, user_id, role_id)
     _refresh(session, policy)
     return removed
+
+
+async def grant_system_role(session: AsyncSession, user_id: uuid.UUID, key: str) -> bool:
+    """Give a person a system role in a person change (WP-021; the caller checked rights)."""
+    ids = await ensure_system_roles(session)
+    added = await _assign(session, user_id, ids[key])
+    access_changed(session)
+    return added
+
+
+async def revoke_roles(
+    session: AsyncSession, user_id: uuid.UUID, role_ids: Sequence[uuid.UUID]
+) -> None:
+    """Take roles away as part of a person change (WP-021); the last tenant admin keeps theirs."""
+    ids = await ensure_system_roles(session)
+    if ids[TENANT_ADMIN] in role_ids:
+        await guard_last_admin(session, user_id)
+    for role_id in role_ids:
+        await _remove(session, user_id, role_id)
+    access_changed(session)
+
+
+async def guard_last_admin(session: AsyncSession, user_id: uuid.UUID) -> None:
+    """409 `last_tenant_admin` if `user_id` is the only active tenant admin."""
+    # Two admins removing each other at once must not leave the tenant without one.
+    lock = func.hashtextextended(f"authz:{_tenant(session)}:admins", 0)
+    await session.execute(select(func.pg_advisory_xact_lock(lock)))
+    role_id = (await ensure_system_roles(session))[TENANT_ADMIN]
+    admins = await session.scalars(
+        select(UserRole.user_id)
+        .join(User, User.id == UserRole.user_id)
+        .where(UserRole.role_id == role_id, User.status == "active", User.deleted_at.is_(None))
+    )
+    holders = set(admins)
+    if user_id in holders and len(holders) <= 1:
+        raise Conflict(code="last_tenant_admin")
+
+
+async def holds_tenant_admin(session: AsyncSession, user_id: uuid.UUID) -> bool:
+    """Whether the person holds the tenant admin role."""
+    role_id = (await ensure_system_roles(session))[TENANT_ADMIN]
+    found = await session.scalar(
+        select(UserRole.user_id).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+    )
+    return found is not None
 
 
 async def user_role_ids(session: AsyncSession, user_id: uuid.UUID) -> list[uuid.UUID]:

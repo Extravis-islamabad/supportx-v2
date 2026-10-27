@@ -5,6 +5,7 @@ import {
   useIncidentAssignees,
   useIncidentCategories,
   useUnits,
+  useStructure,
   useUsers,
 } from '@supportx/api-client';
 import { useAppearance, useLabel } from '@supportx/ui';
@@ -21,14 +22,14 @@ export function PersonOption({
   extra,
 }: {
   name: string;
-  email: string;
+  email: string | null;
   extra?: string;
 }) {
   return (
     <Space direction="vertical" size={0}>
       <Typography.Text>{name}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        {extra === undefined ? email : `${email} · ${extra}`}
+        {[email, extra].filter((part) => part != null && part !== '').join(' · ')}
       </Typography.Text>
     </Space>
   );
@@ -38,8 +39,8 @@ export function PersonOption({
  * What a screen reader says for an option (QA C7): the name and email, never the ID that
  * Ant Design's hidden accessibility list would otherwise fall back to.
  */
-function spoken(name: string, email: string): string {
-  return `${name}, ${email}`;
+function spoken(name: string, email: string | null, extra?: string): string {
+  return [name, email, extra].filter((part) => part != null && part !== '').join(', ');
 }
 
 interface PickerProps {
@@ -47,7 +48,7 @@ interface PickerProps {
   value: string | null;
   onChange: (value: string | null) => void;
   /** Shown when the current value is not in the loaded page (e.g. an existing record's person). */
-  current?: { id: string; name: string; email: string } | null;
+  current?: { id: string; name: string; email: string | null } | null;
   disabled?: boolean;
   testId: string;
   ariaLabel: string;
@@ -68,12 +69,16 @@ export function UserPicker({
   // Server search: half a name, a typo, Arabic or Urdu spellings, or the email (WP-027).
   const users = useUsers({ q: search, sort: 'display_name', limit: 20 });
   const rows = useMemo(() => users.data?.pages.flatMap((p) => p.items) ?? [], [users.data]);
-  const options = rows.map((u) => ({
-    value: u.id,
-    name: u.display_name,
-    'aria-label': spoken(u.display_name, u.email),
-    label: <PersonOption name={u.display_name} email={u.email} />,
-  }));
+  const options = rows.map((u) => {
+    // Deactivated people stay findable (old records), marked as such (WP-021).
+    const extra = u.status === 'disabled' ? t('people.deactivated_marker') : undefined;
+    return {
+      value: u.id,
+      name: u.display_name,
+      'aria-label': spoken(u.display_name, u.email, extra),
+      label: <PersonOption name={u.display_name} email={u.email} extra={extra} />,
+    };
+  });
   if (current != null && !options.some((o) => o.value === current.id)) {
     options.unshift({
       value: current.id,
@@ -168,6 +173,39 @@ export function SitePicker({
         label: s.name,
         'aria-label': s.name,
       }))}
+      data-testid={testId}
+      style={{ width: '100%' }}
+    />
+  );
+}
+
+/** Departments (WP-021): inactive ones are offered only when already chosen. */
+export function DepartmentPicker({
+  id,
+  value,
+  onChange,
+  disabled,
+  testId,
+  ariaLabel,
+}: Omit<PickerProps, 'current'>) {
+  const t = useLabel();
+  const departments = useStructure('departments');
+  return (
+    <Select
+      id={id}
+      allowClear
+      showSearch
+      optionFilterProp="label"
+      value={value}
+      disabled={disabled}
+      aria-label={ariaLabel}
+      placeholder={t('incidents.no_department')}
+      onChange={(next: string | undefined) => {
+        onChange(next ?? null);
+      }}
+      options={(departments.data ?? [])
+        .filter((d) => !d.disabled || d.id === value)
+        .map((d) => ({ value: d.id, label: d.name, 'aria-label': d.name }))}
       data-testid={testId}
       style={{ width: '100%' }}
     />

@@ -12,7 +12,11 @@ export type RoleSummary = components['schemas']['RoleSummary'];
 export type RoleDetail = components['schemas']['RoleDetailOut'];
 export type RoleInput = components['schemas']['RoleCreate'];
 export type UserAccess = components['schemas']['UserAccessOut'];
-export type Unit = components['schemas']['UnitOut'];
+/** What sites and groups share (the membership screens need no more). */
+export type Unit = Pick<
+  components['schemas']['SiteOut'],
+  'id' | 'name' | 'member_ids' | 'disabled' | 'version'
+>;
 export type UnitKind = 'sites' | 'groups';
 
 /** GET /permissions: the catalogue (roles.view). */
@@ -146,7 +150,7 @@ export function useRoleAssignment() {
 export function useUnits(kind: UnitKind, enabled = true) {
   return useQuery({
     queryKey: queryKeys.access.units(kind),
-    queryFn: () =>
+    queryFn: (): Promise<Unit[]> =>
       kind === 'sites'
         ? call(api.GET('/api/v1/organization/sites'))
         : call(api.GET('/api/v1/organization/groups')),
@@ -158,7 +162,7 @@ export function useUnits(kind: UnitKind, enabled = true) {
 export function useUnitMutations(kind: UnitKind) {
   const invalidate = useInvalidateAccess();
   const create = useMutation({
-    mutationFn: (name: string) =>
+    mutationFn: (name: string): Promise<Unit> =>
       kind === 'sites'
         ? call(api.POST('/api/v1/organization/sites', { body: { name } }))
         : call(api.POST('/api/v1/organization/groups', { body: { name } })),

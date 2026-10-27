@@ -330,7 +330,7 @@ function PersonFilter({
   });
   const options = (people.data?.pages[0]?.items ?? []).map((user) => ({
     value: user.id,
-    label: `${user.display_name} · ${user.email}`,
+    label: user.email === null ? user.display_name : `${user.display_name} · ${user.email}`,
   }));
   return (
     <Select

@@ -121,8 +121,9 @@ openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API ty
 	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)
 	$(FRONTEND) pnpm --filter @supportx/api-client generate
 
-openapi-check: ## Fail if the committed openapi.json is out of date (backend lint, CI)
+openapi-check: ## Fail if the committed openapi.json is out of date, or accepted breaks outlive the public API (D-095)
 	$(BACKEND) uv run python -m tooling.export_openapi --check $(OPENAPI_FILE)
+	$(BACKEND) uv run python -m tooling.openapi_diff --check-accepted
 
 openapi-diff: ## Fail on breaking API changes: make openapi-diff base=<openapi.json of the target branch>
 	@test -n "$(base)" || { echo 'usage: make openapi-diff base=path/to/old/openapi.json'; exit 2; }

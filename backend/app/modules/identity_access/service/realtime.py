@@ -46,6 +46,7 @@ if TYPE_CHECKING:
 USER_RECORD = "users"
 USERS_LIST = LiveList("users", "users.view")
 ROLES_LIST = LiveList("roles", "roles.view")
+IMPORTS_LIST = LiveList("people_imports", "users.manage")
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})
@@ -83,6 +84,7 @@ CHANNELS = [
     ChannelSpec(kind=USER_RECORD, authorize=_user_record),
     USERS_LIST.spec(),
     ROLES_LIST.spec(),
+    IMPORTS_LIST.spec(),
 ]
 
 
@@ -111,6 +113,8 @@ async def _user_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     tenant = envelope.tenant_id
     user_id = uuid.UUID(str(envelope.payload["user_id"]))
     fields = tuple(envelope.payload.get("changed_fields", ()))
+    if "status" in envelope.payload:  # identity_access.user.status_changed
+        fields = ("status",)
     units = await memberships(session, user_id)
     publications = [
         Publication(
@@ -208,6 +212,17 @@ async def _membership_changed(envelope: EventEnvelope, session: AsyncSession) ->
     )
 
 
+async def _import_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A people import moved on: its progress on the imports screen (counts are refetched)."""
+    del session
+    import_id = uuid.UUID(str(envelope.payload["import_id"]))
+    return RealtimeEffects(
+        publications=IMPORTS_LIST.publications(
+            envelope.tenant_id, "people_imports.changed", import_id, actor_id=_actor(envelope)
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -222,7 +237,9 @@ ROUTES = [
     RealtimeRoute(
         (
             "identity_access.user.provisioned",
+            "identity_access.user.created",
             "identity_access.user.updated",
+            "identity_access.user.status_changed",
             # A login changes "last login" in the users list.
             "identity_access.user.logged_in",
         ),
@@ -232,4 +249,7 @@ ROUTES = [
     RealtimeRoute(("identity_access.role.changed",), _role_changed),
     RealtimeRoute(("organization.membership.changed",), _membership_changed),
     RealtimeRoute(("licensing.entitlement.changed",), _plan_changed),
+    # The technician defaults changed (D-073): like a plan change, everyone's access is redone.
+    RealtimeRoute(("identity_access.access_settings.changed",), _plan_changed),
+    RealtimeRoute(("identity_access.people_import.progressed",), _import_progressed),
 ]

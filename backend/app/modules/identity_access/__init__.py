@@ -29,6 +29,8 @@ from app.core.modules import ModuleRegistry, ModuleSpec
 from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
+from app.modules.identity_access.api.people import access_router as access_settings_router
+from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
 from app.modules.identity_access.bff.cookies import cookie_name
 from app.modules.identity_access.bff.realtime import router as realtime_router
@@ -53,6 +55,12 @@ from app.modules.identity_access.service.directory import (
     user_contacts,
     user_names,
 )
+from app.modules.identity_access.service.people import (
+    Placement,
+    person_placement,
+    register_people_usage,
+)
+from app.modules.identity_access.service.people_import import run_people_imports
 from app.modules.identity_access.service.policy import (
     FieldRule,
     PolicyService,
@@ -70,6 +78,7 @@ from app.modules.identity_access.service.users import count_technicians
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
 from app.shared.clock import system_clock
+from app.shared.schedules import ScheduleSpec
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -163,7 +172,15 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="identity_access",
-    routers=[router, users_router, access_router, realtime_router],
+    routers=[
+        router,
+        people_router,
+        users_router,
+        imports_router,
+        access_router,
+        access_settings_router,
+        realtime_router,
+    ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
@@ -175,14 +192,18 @@ module = ModuleSpec(
     permissions=IDENTITY_PERMISSIONS + RESERVED_PERMISSIONS,
     # Licensed technician seats (WP-009); requesters are never counted.
     usage_counters={"technicians": count_technicians},
+    schedules=[ScheduleSpec("identity_access__people_imports", 5, run_people_imports)],
 )
 
 # Compiled permissions are refreshed through events at the latest after this (seconds); the
 # generation bump makes changes visible far sooner (see service/policy.py).
 AUTHZ_CACHE_TTL_SECONDS = 300
 
+register_people_usage()
+
 __all__ = [
     "FieldRule",
+    "Placement",
     "PolicyService",
     "RecordFacts",
     "ResourceType",
@@ -195,6 +216,7 @@ __all__ = [
     "get_policy",
     "module",
     "people_matching",
+    "person_placement",
     "require",
     "scope_filter",
     "user_contacts",

@@ -4,6 +4,30 @@
  */
 
 export interface paths {
+    "/api/v1/access-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Technician visibility
+         * @description The tenant's answer, or the default "group" with `answered_at` null.
+         */
+        get: operations["get_access_api_v1_access_settings_get"];
+        /**
+         * Answer or change technician visibility
+         * @description Applies to every technician at once (their screens refresh).
+         */
+        put: operations["put_access_api_v1_access_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/announcements": {
         parameters: {
             query?: never;
@@ -1803,6 +1827,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/organization/departments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List departments
+         * @description Every department by name, inactive ones included (marked).
+         */
+        get: operations["list_departments_api_v1_organization_departments_get"];
+        put?: never;
+        /**
+         * Add a department
+         * @description A new department (Idempotency-Key supported).
+         */
+        post: operations["create_department_api_v1_organization_departments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/departments/{department_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a department nothing uses
+         * @description 409 `department_in_use` while people, records or child departments use it.
+         */
+        delete: operations["delete_department_api_v1_organization_departments__department_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a department
+         * @description Details, parent (never its own ancestor), or `disabled`.
+         */
+        patch: operations["patch_department_api_v1_organization_departments__department_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/organization/desks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List desks
+         * @description Every desk, the IT desk first (always at least that one).
+         */
+        get: operations["list_desks_api_v1_organization_desks_get"];
+        put?: never;
+        /**
+         * Add a desk (ESM)
+         * @description Needs the ESM feature; counts against the licence limit `desks` (D-061, D-092).
+         */
+        post: operations["create_desk_api_v1_organization_desks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/organization/desks/{desk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a desk (ESM)
+         * @description Name, or `disabled` (never the IT desk).
+         */
+        patch: operations["patch_desk_api_v1_organization_desks__desk_id__patch"];
+        trace?: never;
+    };
     "/api/v1/organization/domains": {
         parameters: {
             query?: never;
@@ -1895,16 +2011,16 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List groups
-         * @description All of them, by name, with member IDs.
+         * List support groups
+         * @description Every group by name, inactive ones included (marked).
          */
-        get: operations["list_units_api_v1_organization_groups_get"];
+        get: operations["list_groups_api_v1_organization_groups_get"];
         put?: never;
         /**
-         * Create a group
-         * @description Create one (Idempotency-Key supported).
+         * Add a support group
+         * @description A new group (Idempotency-Key supported). A group without members can be saved.
          */
-        post: operations["create_unit_api_v1_organization_groups_post"];
+        post: operations["create_group_api_v1_organization_groups_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1921,14 +2037,18 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Remove a support group nothing uses
+         * @description 409 `group_in_use` (with the counts) while members or records use it.
+         */
+        delete: operations["delete_group_api_v1_organization_groups__unit_id__delete"];
         options?: never;
         head?: never;
         /**
-         * Rename a group
-         * @description Rename (If-Match with the version you read).
+         * Change a support group
+         * @description Details, lead, sites served, desk, or `disabled`.
          */
-        patch: operations["rename_unit_api_v1_organization_groups__unit_id__patch"];
+        patch: operations["patch_group_api_v1_organization_groups__unit_id__patch"];
         trace?: never;
     };
     "/api/v1/organization/groups/{unit_id}/members/{user_id}": {
@@ -1964,15 +2084,15 @@ export interface paths {
         };
         /**
          * List sites
-         * @description All of them, by name, with member IDs.
+         * @description Every site by name, inactive ones included (marked), with member IDs.
          */
-        get: operations["list_units_api_v1_organization_sites_get"];
+        get: operations["list_sites_api_v1_organization_sites_get"];
         put?: never;
         /**
-         * Create a site
-         * @description Create one (Idempotency-Key supported).
+         * Add a site
+         * @description A new site (Idempotency-Key supported).
          */
-        post: operations["create_unit_api_v1_organization_sites_post"];
+        post: operations["create_site_api_v1_organization_sites_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1989,14 +2109,21 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Remove a site nothing uses
+         * @description 409 `site_in_use` (counts) while used; `default_site_required` for the default site.
+         *
+         *     Members, people, records, departments and groups serving it keep it in use: make it
+         *     inactive instead.
+         */
+        delete: operations["delete_site_api_v1_organization_sites__unit_id__delete"];
         options?: never;
         head?: never;
         /**
-         * Rename a site
-         * @description Rename (If-Match with the version you read).
+         * Change a site
+         * @description Details, or `disabled` (never the default site).
          */
-        patch: operations["rename_unit_api_v1_organization_sites__unit_id__patch"];
+        patch: operations["patch_site_api_v1_organization_sites__unit_id__patch"];
         trace?: never;
     };
     "/api/v1/organization/sites/{unit_id}/members/{user_id}": {
@@ -2035,6 +2162,50 @@ export interface paths {
          * @description Return the tenant of the request (401 `unauthenticated` without a session).
          */
         get: operations["read_current_tenant_api_v1_organization_tenant_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/people-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent people imports
+         * @description The last 20, newest first.
+         */
+        get: operations["list_imports_api_v1_people_imports_get"];
+        put?: never;
+        /**
+         * Import people from a CSV or Excel file
+         * @description The raw file as the body (up to 5 MB, 5,000 rows); it is processed in the background.
+         */
+        post: operations["start_import_api_v1_people_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/people-imports/{import_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One people import
+         * @description Its progress and refused rows.
+         */
+        get: operations["get_import_api_v1_people_imports__import_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2308,7 +2479,11 @@ export interface paths {
          */
         get: operations["list_users_api_v1_users_get"];
         put?: never;
-        post?: never;
+        /**
+         * Add a person
+         * @description Before their first sign-in, which links them by email (D-092).
+         */
+        post: operations["create_person_api_v1_users_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2361,6 +2536,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/deactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deactivate a person
+         * @description They cannot sign in (sessions end now); records, roles and groups are kept.
+         */
+        post: operations["deactivate_api_v1_users__user_id__deactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/person": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a person's record
+         * @description Only the fields sent change; a stale If-Match gets an explained 409.
+         */
+        patch: operations["update_person_api_v1_users__user_id__person_patch"];
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/reactivate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reactivate a person
+         * @description A technician takes a seat again (403 when none is left).
+         */
+        post: operations["reactivate_api_v1_users__user_id__reactivate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/reactivation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What reactivating would keep
+         * @description The roles and groups the person still has.
+         */
+        get: operations["reactivation_api_v1_users__user_id__reactivation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users/{user_id}/roles/{role_id}": {
         parameters: {
             query?: never;
@@ -2385,10 +2640,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{user_id}/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Allow or stop a person's sign-in
+         * @description Allowing needs an email address; stopping ends their sessions at once.
+         */
+        put: operations["set_sign_in_api_v1_users__user_id__sign_in_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{user_id}/type": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Make a person a technician or a requester
+         * @description 403 `technician_limit_reached` when no seat is left; a tenant admin stays a technician.
+         */
+        put: operations["set_type_api_v1_users__user_id__type_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AccessSettingsIn
+         * @description The answer: group (their groups, their own, their sites' unassigned) or all.
+         */
+        AccessSettingsIn: {
+            /**
+             * Technician Scope
+             * @enum {string}
+             */
+            technician_scope: "group" | "all";
+        };
+        /**
+         * AccessSettingsOut
+         * @description What the built-in technician role sees. `answered_at` null: not asked yet (first run).
+         */
+        AccessSettingsOut: {
+            /** Answered At */
+            answered_at: string | null;
+            /**
+             * Technician Scope
+             * @enum {string}
+             */
+            technician_scope: "group" | "all";
+            /**
+             * Version
+             * @description Send back as If-Match; 0 until first saved.
+             */
+            version: number;
+        };
         /**
          * ActionStateOut
          * @description A status action as you may use it now. Disabled ones carry a reason code (labelled).
@@ -3673,6 +3997,132 @@ export interface components {
          */
         DeliveryState: "not_sent" | "queued" | "sent" | "failed";
         /**
+         * DepartmentIn
+         * @description A new department.
+         */
+        DepartmentIn: {
+            /** Code */
+            code?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Head Id */
+            head_id?: string | null;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Site Id */
+            site_id?: string | null;
+        };
+        /**
+         * DepartmentOut
+         * @description A department.
+         */
+        DepartmentOut: {
+            /**
+             * Code
+             * @description Unique per tenant; directory sync maps by it.
+             */
+            code: string | null;
+            /** Description */
+            description: string | null;
+            /** Disabled */
+            disabled: boolean;
+            /** Head Id */
+            head_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Site Id */
+            site_id: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * DepartmentPatch
+         * @description What to change (only what is sent).
+         */
+        DepartmentPatch: {
+            /** Code */
+            code?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Disabled */
+            disabled?: boolean | null;
+            /** Head Id */
+            head_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Site Id */
+            site_id?: string | null;
+        };
+        /**
+         * DeskIn
+         * @description A new desk.
+         */
+        DeskIn: {
+            /**
+             * Code
+             * @description Stable, lowercase: hr, facilities ...
+             */
+            code: string;
+            /**
+             * Labels
+             * @description Name per language; en required.
+             */
+            labels: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * DeskOut
+         * @description A desk (ESM). Screens show desks only to tenants with the ESM feature.
+         */
+        DeskOut: {
+            /** Code */
+            code: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Disabled */
+            disabled: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Version */
+            version: number;
+        };
+        /**
+         * DeskPatch
+         * @description What to change (only what is sent).
+         */
+        DeskPatch: {
+            /** Disabled */
+            disabled?: boolean | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+        };
+        /**
          * Disposition
          * @description Open in the browser (images, PDFs) or save as a file.
          * @enum {string}
@@ -4085,6 +4535,91 @@ export interface components {
              */
             scope: "all" | "site" | "group" | "own";
         };
+        /**
+         * GroupIn
+         * @description A new support group.
+         */
+        GroupIn: {
+            /** Description */
+            description?: string | null;
+            /**
+             * Desk Id
+             * @description Default: the IT desk.
+             */
+            desk_id?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Lead Id */
+            lead_id?: string | null;
+            /** Name */
+            name: string;
+            /** Sender Name */
+            sender_name?: string | null;
+            /** Site Ids */
+            site_ids?: string[];
+        };
+        /**
+         * GroupOut
+         * @description A support group with its details, the sites it serves and its members.
+         */
+        GroupOut: {
+            /** Description */
+            description: string | null;
+            /**
+             * Desk Id
+             * Format: uuid
+             */
+            desk_id: string;
+            /** Disabled */
+            disabled: boolean;
+            /**
+             * Email
+             * @description The group's own address (notifications, mail).
+             */
+            email: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lead Id */
+            lead_id: string | null;
+            /** Member Ids */
+            member_ids: string[];
+            /** Name */
+            name: string;
+            /** Sender Name */
+            sender_name: string | null;
+            /**
+             * Site Ids
+             * @description The sites it serves (one or many).
+             */
+            site_ids: string[];
+            /** Version */
+            version: number;
+        };
+        /**
+         * GroupPatch
+         * @description What to change (only what is sent); `site_ids` replaces the list.
+         */
+        GroupPatch: {
+            /** Description */
+            description?: string | null;
+            /** Desk Id */
+            desk_id?: string | null;
+            /** Disabled */
+            disabled?: boolean | null;
+            /** Email */
+            email?: string | null;
+            /** Lead Id */
+            lead_id?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Sender Name */
+            sender_name?: string | null;
+            /** Site Ids */
+            site_ids?: string[] | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -4156,6 +4691,69 @@ export interface components {
          */
         Impact: "one_person" | "team" | "department_or_site" | "organisation";
         /**
+         * ImportOut
+         * @description A people import and how far it got. Updates live (`people_imports.changed`).
+         */
+        ImportOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Created Count */
+            created_count: number;
+            /** Failed Count */
+            failed_count: number;
+            /** Failure */
+            failure: string | null;
+            /**
+             * File Format
+             * @enum {string}
+             */
+            file_format: "csv" | "xlsx";
+            /** File Name */
+            file_name: string;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Match On
+             * @enum {string}
+             */
+            match_on: "email" | "employee_id";
+            /** Problems */
+            problems: components["schemas"]["ImportProblem"][];
+            /** Processed */
+            processed: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed";
+            /** Total */
+            total: number;
+            /** Updated Count */
+            updated_count: number;
+        };
+        /**
+         * ImportProblem
+         * @description One refused row: its number in the file, the column and the reason code.
+         */
+        ImportProblem: {
+            /** Code */
+            code: string;
+            /** Detail */
+            detail?: string | null;
+            /** Field */
+            field: string | null;
+            /** Row */
+            row: number | null;
+        };
+        /**
          * IndexFailure
          * @description Why an index could not be built, as admins read it; the database's text is only logged.
          * @enum {string}
@@ -4178,7 +4776,7 @@ export interface components {
          * @description A counted limit (architecture.md §13.1). End users (requesters) are never counted.
          * @enum {string}
          */
-        LimitKey: "technicians" | "assets" | "departments" | "msp_customers" | "ai_agent_runs_per_month" | "storage_gb";
+        LimitKey: "technicians" | "assets" | "desks" | "msp_customers" | "ai_agent_runs_per_month" | "storage_gb";
         /**
          * LimitOut
          * @description A counted limit. `limit` null = unlimited; `used` null = not counted (yet) or not shown.
@@ -4406,6 +5004,108 @@ export interface components {
             scopes: ("all" | "site" | "group" | "own")[];
         };
         /**
+         * PersonFields
+         * @description The person record (REQ-ADM-002). Lengths are checked by the service, with the limit.
+         */
+        PersonFields: {
+            /** Department Id */
+            department_id?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Display Name
+             * @description Own display name; null: 'first last'.
+             */
+            display_name?: string | null;
+            /**
+             * Email
+             * @description Needed to sign in; optional otherwise.
+             */
+            email?: string | null;
+            /** Employee Id */
+            employee_id?: string | null;
+            /** First Name */
+            first_name?: string | null;
+            /** Job Title */
+            job_title?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Locale */
+            locale?: ("en" | "ar" | "ur") | null;
+            /** Manager Id */
+            manager_id?: string | null;
+            /** Mobile */
+            mobile?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /**
+             * Request Visibility
+             * @description Portal: null = the tenant's rule; site = all of their site.
+             */
+            request_visibility?: "site" | null;
+            /** Site Id */
+            site_id?: string | null;
+            /** Time Zone */
+            time_zone?: string | null;
+            /** Vip */
+            vip?: boolean | null;
+        };
+        /**
+         * PersonIn
+         * @description A new person: requester or technician (takes a seat), may sign in or is a contact.
+         */
+        PersonIn: {
+            /**
+             * Can Sign In
+             * @description False: a contact (no sign-in).
+             * @default true
+             */
+            can_sign_in: boolean;
+            /** Department Id */
+            department_id?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Display Name
+             * @description Own display name; null: 'first last'.
+             */
+            display_name?: string | null;
+            /**
+             * Email
+             * @description Needed to sign in; optional otherwise.
+             */
+            email?: string | null;
+            /** Employee Id */
+            employee_id?: string | null;
+            /** First Name */
+            first_name: string;
+            /** Job Title */
+            job_title?: string | null;
+            /** Last Name */
+            last_name?: string | null;
+            /** Locale */
+            locale?: ("en" | "ar" | "ur") | null;
+            /** Manager Id */
+            manager_id?: string | null;
+            /** Mobile */
+            mobile?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /**
+             * Request Visibility
+             * @description Portal: null = the tenant's rule; site = all of their site.
+             */
+            request_visibility?: "site" | null;
+            /** Site Id */
+            site_id?: string | null;
+            /** Time Zone */
+            time_zone?: string | null;
+            /** @default requester */
+            user_type: components["schemas"]["UserType"];
+            /** Vip */
+            vip?: boolean | null;
+        };
+        /**
          * PersonOut
          * @description A person on a record: the name, and the email that tells two people of one name apart.
          */
@@ -4492,6 +5192,26 @@ export interface components {
              * @description The seed of every primary shade.
              */
             primary_colour: string;
+        };
+        /**
+         * ReactivateIn
+         * @description The roles and groups to keep; the others are removed.
+         */
+        ReactivateIn: {
+            /** Keep Group Ids */
+            keep_group_ids?: string[];
+            /** Keep Role Ids */
+            keep_role_ids?: string[];
+        };
+        /**
+         * ReactivationOut
+         * @description What a deactivated person still holds; the admin confirms what they keep.
+         */
+        ReactivationOut: {
+            /** Group Ids */
+            group_ids: string[];
+            /** Role Ids */
+            role_ids: string[];
         };
         /**
          * ReadCategory
@@ -4727,6 +5447,104 @@ export interface components {
             version: number;
         };
         /**
+         * SignInIn
+         * @description Allow or stop sign-in.
+         */
+        SignInIn: {
+            /** Allowed */
+            allowed: boolean;
+        };
+        /**
+         * SiteIn
+         * @description A new site.
+         */
+        SiteIn: {
+            /** Address */
+            address?: string | null;
+            /** Default Language */
+            default_language?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Name */
+            name: string;
+            /** Phone */
+            phone?: string | null;
+            /** Region */
+            region?: string | null;
+            /**
+             * Time Zone
+             * @description IANA, e.g. Asia/Riyadh.
+             */
+            time_zone?: string | null;
+        };
+        /**
+         * SiteOut
+         * @description A site with its details and the IDs of its members (the `site` scope).
+         */
+        SiteOut: {
+            /** Address */
+            address: string | null;
+            /** Default Language */
+            default_language: string | null;
+            /** Description */
+            description: string | null;
+            /**
+             * Disabled
+             * @description Inactive: kept where used, not offered for new ones.
+             */
+            disabled: boolean;
+            /** Email */
+            email: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Default */
+            is_default: boolean;
+            /** Member Ids */
+            member_ids: string[];
+            /** Name */
+            name: string;
+            /** Phone */
+            phone: string | null;
+            /** Region */
+            region: string | null;
+            /** Time Zone */
+            time_zone: string | null;
+            /**
+             * Version
+             * @description Send back as If-Match to change it.
+             */
+            version: number;
+        };
+        /**
+         * SitePatch
+         * @description What to change (only what is sent); `disabled` makes it inactive or active again.
+         */
+        SitePatch: {
+            /** Address */
+            address?: string | null;
+            /** Default Language */
+            default_language?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Disabled */
+            disabled?: boolean | null;
+            /** Email */
+            email?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Phone */
+            phone?: string | null;
+            /** Region */
+            region?: string | null;
+            /** Time Zone */
+            time_zone?: string | null;
+        };
+        /**
          * StateReason
          * @description Why the state is not plain `active`. Shown to admins through labels.
          * @enum {string}
@@ -4814,7 +5632,7 @@ export interface components {
          * @description Fields a template configures, in the order the form shows them.
          * @enum {string}
          */
-        TemplateField: "subject" | "requester_id" | "on_behalf_of_id" | "channel" | "site_id" | "category_id" | "level" | "group_id" | "technician_id" | "impact" | "urgency" | "impact_details" | "description" | "tags";
+        TemplateField: "subject" | "requester_id" | "on_behalf_of_id" | "channel" | "site_id" | "department_id" | "category_id" | "level" | "group_id" | "technician_id" | "impact" | "urgency" | "impact_details" | "description" | "tags";
         /**
          * TemplateIn
          * @description A new template.
@@ -5008,6 +5826,13 @@ export interface components {
             reason_mode: components["schemas"]["ReasonMode"];
         };
         /**
+         * TypeIn
+         * @description Technician (takes a licence seat) or requester.
+         */
+        TypeIn: {
+            user_type: components["schemas"]["UserType"];
+        };
+        /**
          * TypingIn
          * @description Start or stop showing others that you are writing.
          */
@@ -5019,34 +5844,6 @@ export interface components {
              * @enum {string}
              */
             state: "start" | "stop";
-        };
-        /**
-         * UnitIn
-         * @description Name of a site or group.
-         */
-        UnitIn: {
-            /** Name */
-            name: string;
-        };
-        /**
-         * UnitOut
-         * @description A site or support group with the IDs of its members.
-         */
-        UnitOut: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Member Ids */
-            member_ids: string[];
-            /** Name */
-            name: string;
-            /**
-             * Version
-             * @description Send back as If-Match to rename.
-             */
-            version: number;
         };
         /**
          * Urgency
@@ -5089,30 +5886,79 @@ export interface components {
          */
         UserDetail: {
             /**
+             * Can Sign In
+             * @description False: a contact, who cannot sign in.
+             */
+            can_sign_in: boolean;
+            /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /** Department Id */
+            department_id: string | null;
+            /**
+             * Description
+             * @description Only for `users.manage`.
+             */
+            description?: string | null;
             /** Display Name */
             display_name: string;
-            /** Email */
-            email: string;
+            /**
+             * Email
+             * @description Null for a contact without an address (WP-021).
+             */
+            email: string | null;
+            /** Employee Id */
+            employee_id: string | null;
+            /** First Name */
+            first_name: string;
             form_density: components["schemas"]["FormDensity"];
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /**
+             * Invited At
+             * @description Only for `users.manage`.
+             */
+            invited_at?: string | null;
+            /** Job Title */
+            job_title: string | null;
             /** Last Login At */
             last_login_at: string | null;
+            /** Last Name */
+            last_name: string | null;
             /**
              * Locale
              * @enum {string}
              */
             locale: "en" | "ar" | "ur";
+            /** Manager Id */
+            manager_id: string | null;
+            /** Mobile */
+            mobile: string | null;
+            /**
+             * Name Custom
+             * @description The display name was set by hand, not 'first last'.
+             */
+            name_custom: boolean;
             nav_layout: components["schemas"]["NavLayout"];
+            /** Phone */
+            phone: string | null;
+            /** Request Visibility */
+            request_visibility: "site" | null;
             /** Signature */
             signature: string | null;
+            /**
+             * Signed In Before
+             * @description Linked to a sign-in account (has signed in at least once).
+             * @default false
+             */
+            signed_in_before: boolean;
+            /** Site Id */
+            site_id: string | null;
             /**
              * Status
              * @enum {string}
@@ -5136,6 +5982,8 @@ export interface components {
              * @description Send it back as If-Match (the ETag) to update.
              */
             version: number;
+            /** Vip */
+            vip: boolean;
         };
         /**
          * UserOut
@@ -5547,6 +6395,11 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Department Id
+             * @description Default: the requester's department (WP-021).
+             */
+            department_id?: string | null;
+            /**
              * Description
              * @description Rich text (HTML), sanitised.
              */
@@ -5725,8 +6578,15 @@ export interface components {
             custom: {
                 [key: string]: unknown;
             };
+            /** Department Id */
+            department_id: string | null;
             /** Description */
             description: string | null;
+            /**
+             * Desk Id
+             * Format: uuid
+             */
+            desk_id: string;
             /** Display Id */
             display_id: string;
             /** First Assigned At */
@@ -5888,6 +6748,8 @@ export interface components {
             custom?: {
                 [key: string]: unknown;
             } | null;
+            /** Department Id */
+            department_id?: string | null;
             /** Description */
             description?: string | null;
             impact?: components["schemas"]["Impact"] | null;
@@ -6082,6 +6944,161 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_access_api_v1_access_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_access_api_v1_access_settings_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessSettingsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_announcements_api_v1_announcements_get: {
         parameters: {
             query?: {
@@ -13477,6 +14494,562 @@ export interface operations {
             };
         };
     };
+    list_departments_api_v1_organization_departments_get: {
+        parameters: {
+            query?: {
+                /** @description Only this site's departments. */
+                site_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_department_api_v1_organization_departments_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentIn"];
+            };
+        };
+        responses: {
+            /** @description Created (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_department_api_v1_organization_departments__department_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                department_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_department_api_v1_organization_departments__department_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                department_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DepartmentPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DepartmentOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_desks_api_v1_organization_desks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeskOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_desk_api_v1_organization_desks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeskIn"];
+            };
+        };
+        responses: {
+            /** @description Created (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeskOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_desk_api_v1_organization_desks__desk_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                desk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeskPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeskOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_domains_api_v1_organization_domains_get: {
         parameters: {
             query?: never;
@@ -13832,9 +15405,12 @@ export interface operations {
             };
         };
     };
-    list_units_api_v1_organization_groups_get: {
+    list_groups_api_v1_organization_groups_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only groups serving this site. */
+                site_id?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -13847,7 +15423,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UnitOut"][];
+                    "application/json": components["schemas"]["GroupOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -13859,7 +15435,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission. */
+            /** @description Missing permission or licence feature. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -13868,7 +15444,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description No such site, group or user. */
+            /** @description No such site, group, department or desk. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -13877,8 +15453,17 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Name taken or stale If-Match. */
+            /** @description Stale If-Match, or still in use. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -13897,7 +15482,7 @@ export interface operations {
             };
         };
     };
-    create_unit_api_v1_organization_groups_post: {
+    create_group_api_v1_organization_groups_post: {
         parameters: {
             query?: never;
             header?: {
@@ -13909,7 +15494,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UnitIn"];
+                "application/json": components["schemas"]["GroupIn"];
             };
         };
         responses: {
@@ -13919,7 +15504,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UnitOut"];
+                    "application/json": components["schemas"]["GroupOut"];
                 };
             };
             /** @description Not signed in. */
@@ -13931,7 +15516,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission. */
+            /** @description Missing permission or licence feature. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -13940,7 +15525,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description No such site, group or user. */
+            /** @description No such site, group, department or desk. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -13949,7 +15534,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Name taken or stale If-Match. */
+            /** @description Stale If-Match, or still in use. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -13958,13 +15543,13 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Problems by field. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -13978,7 +15563,84 @@ export interface operations {
             };
         };
     };
-    rename_unit_api_v1_organization_groups__unit_id__patch: {
+    delete_group_api_v1_organization_groups__unit_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_group_api_v1_organization_groups__unit_id__patch: {
         parameters: {
             query?: never;
             header?: {
@@ -13992,7 +15654,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UnitIn"];
+                "application/json": components["schemas"]["GroupPatch"];
             };
         };
         responses: {
@@ -14002,7 +15664,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UnitOut"];
+                    "application/json": components["schemas"]["GroupOut"];
                 };
             };
             /** @description Not signed in. */
@@ -14014,7 +15676,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission. */
+            /** @description Missing permission or licence feature. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -14023,7 +15685,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description No such site, group or user. */
+            /** @description No such site, group, department or desk. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -14032,7 +15694,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Name taken or stale If-Match. */
+            /** @description Stale If-Match, or still in use. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14041,13 +15703,13 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Problems by field. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -14211,7 +15873,7 @@ export interface operations {
             };
         };
     };
-    list_units_api_v1_organization_sites_get: {
+    list_sites_api_v1_organization_sites_get: {
         parameters: {
             query?: never;
             header?: never;
@@ -14226,7 +15888,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UnitOut"][];
+                    "application/json": components["schemas"]["SiteOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -14238,7 +15900,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission. */
+            /** @description Missing permission or licence feature. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -14247,7 +15909,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description No such site, group or user. */
+            /** @description No such site, group, department or desk. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -14256,8 +15918,17 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Name taken or stale If-Match. */
+            /** @description Stale If-Match, or still in use. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -14276,7 +15947,7 @@ export interface operations {
             };
         };
     };
-    create_unit_api_v1_organization_sites_post: {
+    create_site_api_v1_organization_sites_post: {
         parameters: {
             query?: never;
             header?: {
@@ -14288,7 +15959,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UnitIn"];
+                "application/json": components["schemas"]["SiteIn"];
             };
         };
         responses: {
@@ -14298,7 +15969,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UnitOut"];
+                    "application/json": components["schemas"]["SiteOut"];
                 };
             };
             /** @description Not signed in. */
@@ -14310,7 +15981,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission. */
+            /** @description Missing permission or licence feature. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -14319,7 +15990,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description No such site, group or user. */
+            /** @description No such site, group, department or desk. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -14328,7 +15999,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Name taken or stale If-Match. */
+            /** @description Stale If-Match, or still in use. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14337,13 +16008,13 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Problems by field. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -14357,7 +16028,84 @@ export interface operations {
             };
         };
     };
-    rename_unit_api_v1_organization_sites__unit_id__patch: {
+    delete_site_api_v1_organization_sites__unit_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                unit_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such site, group, department or desk. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or still in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_site_api_v1_organization_sites__unit_id__patch: {
         parameters: {
             query?: never;
             header?: {
@@ -14371,7 +16119,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["UnitIn"];
+                "application/json": components["schemas"]["SitePatch"];
             };
         };
         responses: {
@@ -14381,7 +16129,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UnitOut"];
+                    "application/json": components["schemas"]["SiteOut"];
                 };
             };
             /** @description Not signed in. */
@@ -14393,7 +16141,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission. */
+            /** @description Missing permission or licence feature. */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -14402,7 +16150,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description No such site, group or user. */
+            /** @description No such site, group, department or desk. */
             404: {
                 headers: {
                     [name: string]: unknown;
@@ -14411,7 +16159,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Name taken or stale If-Match. */
+            /** @description Stale If-Match, or still in use. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -14420,13 +16168,13 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Problems by field. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -14606,6 +16354,236 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TenantResponse"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_imports_api_v1_people_imports_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    start_import_api_v1_people_imports_post: {
+        parameters: {
+            query: {
+                name: string;
+                match_on?: "email" | "employee_id";
+            };
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Queued (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_import_api_v1_people_imports__import_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                import_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -15483,6 +17461,87 @@ export interface operations {
             };
         };
     };
+    create_person_api_v1_users_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonIn"];
+            };
+        };
+        responses: {
+            /** @description Created (or replayed). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     get_user_api_v1_users__user_id__get: {
         parameters: {
             query?: never;
@@ -15725,6 +17784,327 @@ export interface operations {
             };
         };
     };
+    deactivate_api_v1_users__user_id__deactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_person_api_v1_users__user_id__person_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonFields"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reactivate_api_v1_users__user_id__reactivate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReactivateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reactivation_api_v1_users__user_id__reactivation_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReactivationOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     assign_role_api_v1_users__user_id__roles__role_id__put: {
         parameters: {
             query?: never;
@@ -15856,6 +18236,172 @@ export interface operations {
                 };
             };
             /** @description Invalid permissions, scopes or conditions. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    set_sign_in_api_v1_users__user_id__sign_in_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignInIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    set_type_api_v1_users__user_id__type_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TypeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission, or no technician seat. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such person or import. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match (says who changed what). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field. */
             422: {
                 headers: {
                     [name: string]: unknown;

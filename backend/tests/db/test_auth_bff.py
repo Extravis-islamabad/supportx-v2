@@ -177,7 +177,8 @@ async def test_me_describes_the_session_without_tokens(bff: Bff) -> None:
         assert secret not in response.text
 
 
-async def test_just_in_time_provisioning_creates_then_updates_the_user(bff: Bff) -> None:
+async def test_just_in_time_provisioning_creates_then_only_records_sign_ins(bff: Bff) -> None:
+    """D-092: Keycloak's profile makes the person once; after that SupportX owns the record."""
     await bff.login(bff.user("a", email="jit@demo.test", name="First Name"))
     (first,) = await user_rows(bff.db, "jit@demo.test")
     assert (first["display_name"], first["version"], first["user_type"]) == (
@@ -189,16 +190,59 @@ async def test_just_in_time_provisioning_creates_then_updates_the_user(bff: Bff)
     bff.clock.advance(timedelta(minutes=1))
     await bff.login(bff.user("a", email="jit@demo.test", name="Renamed", locale="ar"))
     (second,) = await user_rows(bff.db, "jit@demo.test")
-    assert (second["display_name"], second["locale"], second["version"]) == ("Renamed", "ar", 2)
+    # The name and language edited in SupportX are never overwritten by a sign-in, and the
+    # version stays: an edit form open elsewhere does not turn stale (WP-010).
+    assert (second["display_name"], second["locale"], second["version"]) == ("First Name", "en", 1)
     assert second["last_login_at"] > first["last_login_at"]
 
-    # Signing in again with nothing changed keeps the version: an edit form open elsewhere
-    # must not turn stale just because the user signed in on another device (WP-010).
-    bff.clock.advance(timedelta(minutes=1))
-    await bff.login(bff.user("a", email="jit@demo.test", name="Renamed", locale="ar"))
-    (third,) = await user_rows(bff.db, "jit@demo.test")
-    assert third["version"] == second["version"]
-    assert third["last_login_at"] > second["last_login_at"]
+
+async def _precreate(bff: Bff, email: str, *, can_sign_in: bool = True) -> uuid.UUID:
+    """A person added by an admin or an import: no Keycloak subject yet (WP-021)."""
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        found: uuid.UUID = await conn.fetchval(
+            "INSERT INTO users (id, tenant_id, external_subject, email, display_name, first_name,"
+            " user_type, can_sign_in, roles_mapped_at) VALUES (gen_random_uuid(), $1, NULL, $2,"
+            " 'Pre Made', 'Pre', 'requester', $3, now()) RETURNING id",
+            bff.tenants[0],
+            email,
+            can_sign_in,
+        )
+    finally:
+        await conn.close()
+    return found
+
+
+async def test_first_sign_in_links_a_person_added_by_an_admin(bff: Bff) -> None:
+    """D-092: matched by email (any case), linked once; their record and roles are kept."""
+    person = await _precreate(bff, "added@demo.test")
+    response = await bff.login(bff.user("a", email="Added@Demo.test", name="Keycloak Name"))
+    assert response.status_code == 302, response.text
+    (row,) = await user_rows(bff.db, "added@demo.test")
+    assert (row["display_name"], row["user_type"], row["version"]) == (
+        "Pre Made",
+        "requester",
+        1,
+    )
+    assert {r["id"] for r in await _user_ids(bff, "added@demo.test")} == {person}
+    events = await events_of(bff, "added@demo.test")
+    # No role mapping: an admin-added person's roles are set in SupportX (roles_mapped_at).
+    assert types(events) == ["user.updated", "user.logged_in"]
+    assert events[0]["payload"]["changed_fields"] == ["sign_in_linked"]
+
+
+async def test_a_contact_whose_sign_in_is_off_is_refused(bff: Bff) -> None:
+    await _precreate(bff, "contact@demo.test", can_sign_in=False)
+    response = await bff.login(bff.user("a", email="contact@demo.test"))
+    assert (response.status_code, response.json()["code"]) == (403, "sign_in_not_allowed")
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        subject = await conn.fetchval(
+            "SELECT external_subject FROM users WHERE email = 'contact@demo.test'"
+        )
+    finally:
+        await conn.close()
+    assert subject is None  # the refused sign-in linked nothing (rolled back)
 
 
 async def test_every_login_issues_a_new_session_id(bff: Bff) -> None:
@@ -523,10 +567,9 @@ async def test_first_login_provisions_then_logs_in(bff: Bff) -> None:
     assert "Noor New" not in json.dumps(events)
 
 
-async def test_changed_profile_is_a_user_updated_event_naming_the_fields(bff: Bff) -> None:
+async def test_a_changed_keycloak_profile_changes_nothing_after_the_first_sign_in(bff: Bff) -> None:
+    """D-092: only the sign-in is recorded; no user.updated from Keycloak's profile."""
     await bff.login(bff.user("a", email="upd@demo.test", name="Before"))
-    bff.clock.advance(timedelta(minutes=1))
-    await bff.login(bff.user("a", email="upd@demo.test", name="After", locale="ar"))
     bff.clock.advance(timedelta(minutes=1))
     await bff.login(bff.user("a", email="upd@demo.test", name="After", locale="ar"))
     events = await events_of(bff, "upd@demo.test")
@@ -534,12 +577,8 @@ async def test_changed_profile_is_a_user_updated_event_naming_the_fields(bff: Bf
         "user.provisioned",
         "user.logged_in",
         "user_role.changed",  # the one-time role mapping (D-029); never again
-        "user.updated",
         "user.logged_in",
-        "user.logged_in",  # nothing changed the third time: no user.updated
     ]
-    assert events[3]["payload"]["changed_fields"] == ["display_name", "locale"]
-    assert events[3]["aggregate_version"] == 2
     assert "After" not in json.dumps(events)
 
 

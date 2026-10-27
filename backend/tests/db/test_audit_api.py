@@ -254,7 +254,7 @@ async def test_req_aud_002_ac1_each_privileged_action_writes_exactly_one_entry(
             "user.role_assigned",
             "user.role_removed",
             "site.created",
-            "site.renamed",
+            "site.changed",
             "site.member_added",
             "site.member_removed",
             "incident.settings_changed",

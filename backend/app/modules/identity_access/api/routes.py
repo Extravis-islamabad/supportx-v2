@@ -45,8 +45,26 @@ class UserDetail(BaseModel):
     """A user of the tenant. Codes (`user_type`, `status`, `locale`) render through labels."""
 
     id: uuid.UUID
-    email: str
+    email: str | None = Field(description="Null for a contact without an address (WP-021).")
     display_name: str
+    first_name: str
+    last_name: str | None
+    name_custom: bool = Field(description="The display name was set by hand, not 'first last'.")
+    employee_id: str | None
+    job_title: str | None
+    description: str | None = Field(default=None, description="Only for `users.manage`.")
+    phone: str | None
+    mobile: str | None
+    vip: bool
+    site_id: uuid.UUID | None
+    department_id: uuid.UUID | None
+    manager_id: uuid.UUID | None
+    can_sign_in: bool = Field(description="False: a contact, who cannot sign in.")
+    invited_at: datetime | None = Field(default=None, description="Only for `users.manage`.")
+    signed_in_before: bool = Field(
+        default=False, description="Linked to a sign-in account (has signed in at least once)."
+    )
+    request_visibility: Literal["site"] | None
     user_type: UserType
     status: Literal["active", "disabled"]
     locale: Literal["en", "ar", "ur"]
@@ -66,6 +84,7 @@ class UserDetail(BaseModel):
     def of(cls, user: User, subject: Subject) -> "UserDetail":
         """From the ORM row, with the fields the subject may not see hidden (WP-016)."""
         data = cls.model_validate(user, from_attributes=True).model_dump()
+        data["signed_in_before"] = user.external_subject is not None
         return cls.model_validate(visible(subject, directory.USERS, data))
 
 

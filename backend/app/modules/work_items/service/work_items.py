@@ -32,11 +32,18 @@ from app.modules.identity_access import (
     Subject,
     authorize_stored,
     display_names,
+    person_placement,
     scope_filter,
     user_contacts,
     user_names,
 )
-from app.modules.organization import existing_unit_ids, memberships, users_in_groups
+from app.modules.organization import (
+    default_desk_id,
+    existing_departments,
+    existing_unit_ids,
+    memberships,
+    users_in_groups,
+)
 from app.modules.work_items.domain.classification import (
     PRIORITY_REASON_MAX,
     Impact,
@@ -679,6 +686,11 @@ async def _check_units(session: AsyncSession, values: Mapping[str, Any]) -> list
         value = values.get(name)
         if value is not None and value not in await existing_unit_ids(session, kind, [value]):
             problems.append((name, f"{name.removesuffix('_id')}_not_found"))
+    department = values.get("department_id")
+    if department is not None and department not in await existing_departments(
+        session, [department]
+    ):
+        problems.append(("department_id", "department_not_found"))
     return problems
 
 
@@ -703,7 +715,7 @@ def _check_fields(  # noqa: C901, PLR0912 - one rule per field, flat
             cleaned["description"] = None if is_blank(html) else html
     if creating and values.get("requester_id") is None:
         problems.append(("requester_id", "required"))
-    for name in ("requester_id", "on_behalf_of_id", "site_id", "category_id"):
+    for name in ("requester_id", "on_behalf_of_id", "site_id", "department_id", "category_id"):
         if name in values:
             if name == "requester_id" and values[name] is None:
                 problems.append(("requester_id", "required"))
@@ -798,6 +810,7 @@ SNAPSHOT_FIELDS = (
     "on_behalf_of_id",
     "channel",
     "site_id",
+    "department_id",
     "group_id",
     "technician_id",
     "category_id",
@@ -1075,7 +1088,23 @@ def _closed(record: WorkItem) -> bool:
 # --- create ---------------------------------------------------------------------------------------
 
 
-async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and checks, explicit
+async def _place(session: AsyncSession, cleaned: dict[str, Any]) -> None:
+    """Site and department from the requester unless sent (REQ-INC-016 AC1, WP-021).
+
+    Their profile first, then (site) the one site they belong to.
+    """
+    placement = await person_placement(session, cleaned["requester_id"])
+    if "site_id" not in cleaned and placement.site_id is not None:
+        cleaned["site_id"] = placement.site_id
+    if "department_id" not in cleaned and placement.department_id is not None:
+        cleaned["department_id"] = placement.department_id
+    if cleaned.get("site_id") is None:
+        sites = (await memberships(session, cleaned["requester_id"])).site_ids
+        if len(sites) == 1:
+            cleaned["site_id"] = next(iter(sites))
+
+
+async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks, explicit
     session: AsyncSession,
     subject: Subject,
     wtype: WorkItemType,
@@ -1109,17 +1138,17 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
     if problems:
         raise await _value_errors(session, wtype, problems)
     problems += await _check_people(session, cleaned)
-    problems += await _check_units(session, {"site_id": cleaned.get("site_id")})
+    problems += await _check_units(
+        session,
+        {"site_id": cleaned.get("site_id"), "department_id": cleaned.get("department_id")},
+    )
     problems += await _check_category(session, wtype, cleaned.get("category_id"), current=None)
     problems += await _check_assignment(
         session, subject, wtype, holders, group_id=group_id, technician_id=technician_id
     )
     if problems:
         raise await _value_errors(session, wtype, problems)
-    if cleaned.get("site_id") is None:
-        sites = (await memberships(session, cleaned["requester_id"])).site_ids
-        if len(sites) == 1:
-            cleaned["site_id"] = next(iter(sites))
+    await _place(session, cleaned)
     if manual is not None:
         priority, priority_source = manual, PrioritySource.MANUAL
     else:
@@ -1141,6 +1170,8 @@ async def create(  # noqa: PLR0913, C901, PLR0915 - the new record's inputs and 
         on_behalf_of_id=cleaned.get("on_behalf_of_id"),
         channel=channel,
         site_id=cleaned.get("site_id"),
+        department_id=cleaned.get("department_id"),
+        desk_id=await default_desk_id(session),
         group_id=group_id,
         technician_id=technician_id,
         category_id=cleaned.get("category_id"),
@@ -1256,6 +1287,8 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     problems += await _check_people(session, cleaned)
     if "site_id" in cleaned and cleaned["site_id"] != record.site_id:
         problems += await _check_units(session, {"site_id": cleaned["site_id"]})
+    if "department_id" in cleaned and cleaned["department_id"] != record.department_id:
+        problems += await _check_units(session, {"department_id": cleaned["department_id"]})
     if "category_id" in cleaned:
         problems += await _check_category(
             session, wtype, cleaned["category_id"], current=record.category_id

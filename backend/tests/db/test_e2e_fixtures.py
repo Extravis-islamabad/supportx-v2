@@ -34,8 +34,9 @@ async def _scenario(database: db_testing.ThrowawayDatabase) -> None:
     await seed_dev.seed(database.migrator_url)
     conn = await asyncpg.connect(database.admin_url)
     await conn.execute(
-        "INSERT INTO users (id, tenant_id, external_subject, email, display_name, user_type)"
-        " VALUES (gen_random_uuid(), $1, 'keep', 'keep@demo.test', 'Keep', 'technician')",
+        "INSERT INTO users (id, tenant_id, external_subject, email, display_name, first_name,"
+        " user_type) VALUES (gen_random_uuid(), $1, 'keep', 'keep@demo.test', 'Keep', 'Keep',"
+        " 'technician')",
         seed_dev.DEMO_TENANT_ID,
     )
     await conn.close()
@@ -47,6 +48,33 @@ async def _scenario(database: db_testing.ThrowawayDatabase) -> None:
     await _suite_records(database)
 
 
+async def _people(conn: asyncpg.Connection) -> None:
+    """People and departments the suite adds through the console (WP-021)."""
+    # People added in Admin > People (WP-021): only never-signed-in "E2E …" people with the
+    # reserved address or none go; a signed-in or differently named person stays.
+    for name, email, subject in (
+        ("E2E Person 1", "e2e-person-1@demo.test", None),
+        ("E2E Contact", None, None),
+        ("E2E Signed in", "e2e-person-2@demo.test", "sub-x"),
+        ("Real Person", None, None),
+    ):
+        await conn.execute(
+            "INSERT INTO users (id, tenant_id, external_subject, email, display_name,"
+            " first_name, user_type) VALUES (gen_random_uuid(), $1, $2, $3, $4, $4,"
+            " 'requester')",
+            seed_dev.DEMO_TENANT_ID,
+            subject,
+            email,
+            name,
+        )
+    for name in ("E2E Finance", "Finance"):
+        await conn.execute(
+            "INSERT INTO departments (id, tenant_id, name) VALUES (gen_random_uuid(), $1, $2)",
+            seed_dev.DEMO_TENANT_ID,
+            name,
+        )
+
+
 async def _work_item_config(conn: asyncpg.Connection) -> None:
     """Templates and pick-list values (WP-020c).
 
@@ -54,9 +82,9 @@ async def _work_item_config(conn: asyncpg.Connection) -> None:
     """
     for name, default in (("E2E outage", False), ("E2E default", True), ("Keep", False)):
         await conn.execute(
-            "INSERT INTO work_item_templates (id, tenant_id, type, labels, is_default)"
+            "INSERT INTO work_item_templates (id, tenant_id, type, labels, is_default, desk_id)"
             " VALUES (gen_random_uuid(), $1, 'incident', jsonb_build_object('en', $2::text),"
-            " $3)",
+            " $3, (SELECT id FROM desks WHERE tenant_id = $1 AND is_default))",
             seed_dev.DEMO_TENANT_ID,
             name,
             default,
@@ -86,9 +114,9 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
     try:
         owner = await conn.fetchval("SELECT id FROM users WHERE email = 'keep@demo.test'")
         suite_user = await conn.fetchval(
-            "INSERT INTO users (id, tenant_id, external_subject, email, display_name, user_type)"
-            " VALUES (gen_random_uuid(), $1, 'e2e', 'e2e.tech@demo.test', 'Erin', 'technician')"
-            " RETURNING id",
+            "INSERT INTO users (id, tenant_id, external_subject, email, display_name,"
+            " first_name, user_type) VALUES (gen_random_uuid(), $1, 'e2e',"
+            " 'e2e.tech@demo.test', 'Erin', 'Erin', 'technician') RETURNING id",
             seed_dev.DEMO_TENANT_ID,
         )
         for user in (owner, suite_user):
@@ -128,8 +156,9 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         for tenant in (seed_dev.DEMO_TENANT_ID, seed_dev.OTHER_TENANT_ID):
             for name in ("E2E Desk", "Help desk"):
                 group = await conn.fetchval(
-                    "INSERT INTO support_groups (id, tenant_id, name)"
-                    " VALUES (gen_random_uuid(), $1, $2) RETURNING id",
+                    "INSERT INTO support_groups (id, tenant_id, name, desk_id)"
+                    " VALUES (gen_random_uuid(), $1, $2,"
+                    " (SELECT id FROM desks WHERE tenant_id = $1 AND is_default)) RETURNING id",
                     tenant,
                     name,
                 )
@@ -141,6 +170,7 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
                         group,
                         owner,
                     )
+        await _people(conn)
         # Roles: only a soft-deleted custom "E2E …" role goes (with its permissions).
         for key, name, deleted, system in (
             ("e2e_old", "E2E reports 1", True, False),
@@ -178,11 +208,14 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         "work_item_templates": 1,
         "custom_fields": 1,
         "work_item_reasons": 1,
+        "user_roles": 0,
+        "users": 2,
+        "departments": 1,
+        "group_sites": 0,
         "group_members": 1,
         "support_groups": 2,
         "site_members": 0,
         "sites": 2,
-        "user_roles": 0,
         "roles": 1,
     }
 
@@ -194,6 +227,11 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         groups = await conn.fetch("SELECT name FROM support_groups ORDER BY tenant_id")
         roles = await conn.fetch("SELECT name FROM roles ORDER BY name")
         grants = await conn.fetchval("SELECT count(*) FROM role_permissions")
+        people = await conn.fetch(
+            "SELECT display_name FROM users WHERE display_name LIKE '%Person%'"
+            " OR display_name LIKE 'E2E%' ORDER BY 1"
+        )
+        departments = await conn.fetch("SELECT name FROM departments")
     finally:
         await conn.close()
     assert [r["title"] for r in titles] == ["Keep this note"]
@@ -206,3 +244,5 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
     assert [r["name"] for r in groups] == ["Help desk", "Help desk"]
     assert [r["name"] for r in roles] == ["E2E reports 2", "E2E system", "Helpdesk"]
     assert grants == 3
+    assert [r["display_name"] for r in people] == ["E2E Signed in", "Real Person"]
+    assert [r["name"] for r in departments] == ["Finance"]

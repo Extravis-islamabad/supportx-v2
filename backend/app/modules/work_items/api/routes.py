@@ -95,6 +95,9 @@ class WorkItemIn(BaseModel):
         default=None, description="Only phone or walk_up may be chosen; others are set for you."
     )
     site_id: uuid.UUID | None = Field(default=None, description="Default: the requester's site.")
+    department_id: uuid.UUID | None = Field(
+        default=None, description="Default: the requester's department (WP-021)."
+    )
     group_id: uuid.UUID | None = None
     technician_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
@@ -135,6 +138,7 @@ class WorkItemPatch(BaseModel):
     on_behalf_of_id: uuid.UUID | None = None
     channel: Channel | None = None
     site_id: uuid.UUID | None = None
+    department_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     impact: Impact | None = None
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
@@ -220,6 +224,8 @@ class WorkItemOut(BaseModel):
     on_behalf_of_id: uuid.UUID | None
     channel: Channel
     site_id: uuid.UUID | None
+    department_id: uuid.UUID | None
+    desk_id: uuid.UUID
     group_id: uuid.UUID | None
     technician_id: uuid.UUID | None
     category_id: uuid.UUID | None
@@ -298,6 +304,8 @@ _RECORD_FIELDS = (
     "on_behalf_of_id",
     "channel",
     "site_id",
+    "department_id",
+    "desk_id",
     "group_id",
     "technician_id",
     "category_id",

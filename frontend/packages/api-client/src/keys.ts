@@ -86,6 +86,15 @@ export const queryKeys = {
     usage: ['files', 'usage'] as const,
     status: ['files', 'status'] as const,
   },
+  organization: {
+    all: ['organization'] as const,
+    list: (kind: string) => ['organization', kind] as const,
+  },
+  people: {
+    imports: ['users', 'imports'] as const,
+    accessSettings: ['access', 'settings'] as const,
+    reactivation: (id: string) => ['users', 'reactivation', id] as const,
+  },
   users: {
     all: ['users'] as const,
     list: (query: UsersQuery) => ['users', 'list', query] as const,

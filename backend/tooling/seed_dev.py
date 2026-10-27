@@ -63,6 +63,16 @@ async def seed(url: str) -> list[str]:
             )
             if status.endswith(" 1"):
                 created.append(slug)
+            # Every tenant starts with its IT desk (WP-021, D-061); the app would also create
+            # it on first need, but records written straight to the database need it now.
+            async with conn.transaction():
+                await conn.execute("SELECT set_config('app.tenant_id', $1, true)", str(tenant_id))
+                await conn.execute(
+                    "INSERT INTO desks (id, tenant_id, code, labels, is_default)"
+                    " VALUES (gen_random_uuid(), $1, 'it', '{\"en\": \"IT\"}'::jsonb, true)"
+                    " ON CONFLICT DO NOTHING",
+                    tenant_id,
+                )
     finally:
         await conn.close()
     database = Database(create_engine(url, application_name="seed-dev", use_null_pool=True))

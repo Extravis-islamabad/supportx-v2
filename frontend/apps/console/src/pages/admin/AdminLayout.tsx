@@ -6,6 +6,7 @@ import { NoAccess, useAccess, useLabel } from '@supportx/ui';
 /** Admin tabs, each shown only to users holding its permission (WP-016). */
 const TABS = [
   { key: 'users', labelKey: 'nav.admin_users', permission: 'users.view' },
+  { key: 'organization', labelKey: 'nav.admin_organization', permission: 'sites.view' },
   { key: 'roles', labelKey: 'nav.admin_roles', permission: 'roles.view' },
   { key: 'incidents', labelKey: 'nav.admin_incidents', permission: 'settings.manage' },
   { key: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
