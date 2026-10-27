@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { expect, test, type Page } from '@playwright/test';
 
 import { OTHER_TENANT_ID } from '../realtime';
-import { centrifugoTokenSecret, CONSOLE_URL } from '../stack';
+import { centrifugoTokenSecret, CONSOLE_URL, timingLimit } from '../stack';
 import { deleteE2eRoles, signInAs } from './helpers';
 
 /**
@@ -210,7 +210,7 @@ test('a role change cuts the live connection within a second and stops rejoining
       .not.toBeNull();
     const cut = (raw.pushes.find((p) => p.push.disconnect)?.at ?? raw.closedAt ?? 0) - grantedAt;
     console.log(`revocation after grant: ${String(cut)} ms`);
-    expect(cut).toBeLessThan(1_000);
+    expect(cut).toBeLessThan(timingLimit(1_000));
 
     // Rejoin with the new rights: the users list is allowed now.
     const again = new RawClient();
@@ -231,7 +231,7 @@ test('a role change cuts the live connection within a second and stops rejoining
     const cutAgain =
       (again.pushes.find((p) => p.push.disconnect)?.at ?? again.closedAt ?? 0) - removedAt;
     console.log(`revocation after removal: ${String(cutAgain)} ms`);
-    expect(cutAgain).toBeLessThan(1_000);
+    expect(cutAgain).toBeLessThan(timingLimit(1_000));
     expect(await user.token(users)).toMatchObject({ status: 403, code: 'realtime_channel_denied' });
     again.close();
   } finally {

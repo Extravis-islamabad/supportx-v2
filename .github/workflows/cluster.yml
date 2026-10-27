@@ -139,6 +139,9 @@ jobs:
       - *cluster-up
       - *deploy
       - name: Playwright journeys against the cluster
+        # Nightly: timing expectations at their real targets (frontend/e2e/stack.ts timingLimit).
+        env:
+          SUPPORTX_PERF_STRICT: "1"
         run: |
           (cd frontend && pnpm --filter @supportx/e2e exec playwright install --with-deps chromium)
           make cluster-e2e
