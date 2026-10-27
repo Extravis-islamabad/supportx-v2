@@ -21,7 +21,7 @@ from app.core.tenancy import TenantContext
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from tests.events.conftest import RelayFactory, RunnerFactory, emit, outbox_rows, wait_for
 from tests.events.sample import ProbeHappened
-from tooling import db_testing
+from tooling import db_testing, timing
 
 pytestmark = [pytest.mark.db, pytest.mark.nats]
 
@@ -39,6 +39,7 @@ def report(name: str, values: dict[str, float | int]) -> None:
         path.write_text(json.dumps(existing, indent=2))
 
 
+@pytest.mark.timing
 async def test_commit_to_consumer_latency_for_1000_events(
     app_db: Database,
     make_relay: RelayFactory,
@@ -93,7 +94,7 @@ async def test_commit_to_consumer_latency_for_1000_events(
     }
     with capsys.disabled():
         report("latency_commit_to_consumer", values)
-    assert values["p95_ms"] < 1000, values
+    assert values["p95_ms"] < timing.limit(1000), values
 
 
 async def test_relay_throughput_for_10000_events(
