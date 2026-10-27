@@ -17,6 +17,7 @@ import {
 } from '@supportx/ui';
 
 import { createRouter } from './router';
+import { SSO_TEST_DONE_PATH, SsoTestDonePage } from './pages/admin/security/SsoTestDonePage';
 
 export interface AppProps {
   /** For tests: replaces the browser navigation to the login page. */
@@ -33,17 +34,23 @@ export function App({ navigate }: AppProps) {
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>
-            <SessionGate app="console" navigate={navigate}>
-              {(session) => (
-                // Keyed by tenant: a tenant switch remounts everything below with fresh state.
-                <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
-                  <TenantBranding />
-                  <LicenceProvider key={session.tenant.id} session={session}>
-                    <RouterProvider router={router} />
-                  </LicenceProvider>
-                </RealtimeProvider>
-              )}
-            </SessionGate>
+            {window.location.pathname === SSO_TEST_DONE_PATH ? (
+              // The SSO test's landing page needs no session: the test may run in a private
+              // window, signed in as nobody (WP-039).
+              <SsoTestDonePage />
+            ) : (
+              <SessionGate app="console" navigate={navigate}>
+                {(session) => (
+                  // Keyed by tenant: a tenant switch remounts everything below with fresh state.
+                  <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
+                    <TenantBranding />
+                    <LicenceProvider key={session.tenant.id} session={session}>
+                      <RouterProvider router={router} />
+                    </LicenceProvider>
+                  </RealtimeProvider>
+                )}
+              </SessionGate>
+            )}
           </ErrorReporterProvider>
         </ErrorBoundary>
       </AppearanceProvider>

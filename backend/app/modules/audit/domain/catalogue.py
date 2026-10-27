@@ -134,6 +134,13 @@ ACTIONS: dict[str, Action] = _actions(
     ("desk.created", AuditCategory.CONFIGURATION, "organization"),
     ("desk.changed", AuditCategory.CONFIGURATION, "organization"),
     # branding and addresses (WP-017)
+    ("identity.settings_changed", AuditCategory.SECURITY, "identity_access"),
+    ("sso.added", AuditCategory.SECURITY, "identity_access"),
+    ("sso.updated", AuditCategory.SECURITY, "identity_access"),
+    ("sso.tested", AuditCategory.SECURITY, "identity_access"),
+    ("sso.switched_on", AuditCategory.SECURITY, "identity_access"),
+    ("sso.switched_off", AuditCategory.SECURITY, "identity_access"),
+    ("sso.removed", AuditCategory.SECURITY, "identity_access"),
     ("branding.updated", AuditCategory.CONFIGURATION, "organization"),
     ("domain.added", AuditCategory.CONFIGURATION, "organization"),
     ("domain.verified", AuditCategory.CONFIGURATION, "organization"),

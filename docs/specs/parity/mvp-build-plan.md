@@ -95,7 +95,7 @@ Platform work packages (no parity requirements of their own):
 | WP-013 | Licence core prototype (Rust) | 2 | — | B | Needed for the licence page and on-prem activation. |
 | WP-014b | Deployment part 2: HA, backups, monitoring | 2 | — | B | Needed before any production go-live. |
 | WP-014c | Deployment part 3: release pipeline and offline (air-gapped) installer | 2 | WP-014b | B | On the MVP path: the internal go-live and the design partner run on-prem, single node (D-070). |
-| WP-014d | Deployment part 4: SaaS cell | 2 | WP-014b, WP-017 | after MVP | After MVP (D-070). |
+| WP-014d | Deployment part 4: SaaS cell | 2 | WP-014b, WP-017 | after MVP | After MVP (D-070). Must include: **proof of email-domain ownership for single sign-on** (DNS TXT record verification marking the organization's domain verified; D-098) and `multiTenant: true` in the SaaS profile; **an ADR on reset and invitation emails per tenant** (a SupportX password page through Keycloak's admin API, or a per-tenant sender via Keycloak; D-099). |
 
 ## Critical path
 

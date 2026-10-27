@@ -84,6 +84,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['audit.manage', 'all'],
   ['automation.view', 'all'],
   ['automation.manage', 'all'],
+  ['identity.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],

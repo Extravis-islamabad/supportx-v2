@@ -45,6 +45,7 @@ if kubectl -n "$NAMESPACE" get secret "$APP_SECRET" >/dev/null 2>&1; then
   fi
   add_missing audit-signing-key "$(signing_key)"
   add_missing files-keys "$(files_keys)"
+  add_missing keycloak-identity-secret "$(rand 24)"
   echo "secret $NAMESPACE/$APP_SECRET exists: existing values left unchanged"
 else
   kubectl -n "$NAMESPACE" create secret generic "$APP_SECRET" \
@@ -57,6 +58,7 @@ else
     --from-literal=oidc-console-secret="$(rand 24)" \
     --from-literal=oidc-portal-secret="$(rand 24)" \
     --from-literal=keycloak-admin-password="$(rand 16)" \
+    --from-literal=keycloak-identity-secret="$(rand 24)" \
     --from-literal=nats-password="$(rand 24)" \
     --from-literal=valkey-password="$(rand 24)" \
     --from-literal=s3-access-key="$S3_ACCESS" \
