@@ -19,12 +19,18 @@ from app.core.modules import ModuleSpec
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
 from app.modules.analytics.service.exports import EXPORT
-from app.modules.analytics.service.jobs import on_export_requested, set_subject_loader
+from app.modules.analytics.service.jobs import (
+    on_export_requested,
+    on_schedule_due,
+    set_subject_loader,
+)
 from app.modules.analytics.service.library import CREATE, MANAGE_FOLDERS, VIEW
 from app.modules.analytics.service.realtime import ROUTES
 from app.modules.analytics.service.runner import TenantSlots
+from app.modules.analytics.service.schedules import SCHEDULE, due_sweep
 from app.modules.identity_access import subject_for
 from app.shared.events import ConsumerSpec
+from app.shared.schedules import ScheduleSpec
 
 _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
 _OWN: tuple[Scope, ...] = ("own",)
@@ -37,6 +43,8 @@ PERMISSIONS = (
     PermissionSpec(CREATE, None, _OWN, defaults=(("technician", "own"),)),
     PermissionSpec(MANAGE_FOLDERS, None, ("all",)),
     PermissionSpec(EXPORT, None, ("all",), defaults=(("technician", "all"),)),
+    # Scheduling mails reports to people: administrators by default (custom roles may add it).
+    PermissionSpec(SCHEDULE, None, ("all",)),
 )
 
 
@@ -68,8 +76,15 @@ module = ModuleSpec(
             event_types=("analytics.report_export.requested",),
             handler=on_export_requested,
             ack_wait_seconds=900,
-        )
+        ),
+        ConsumerSpec(
+            name="analytics__report_schedule",
+            event_types=("analytics.report_schedule.due",),
+            handler=on_schedule_due,
+            ack_wait_seconds=900,
+        ),
     ],
+    schedules=[ScheduleSpec("analytics__report_schedules", 60, due_sweep)],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
 )

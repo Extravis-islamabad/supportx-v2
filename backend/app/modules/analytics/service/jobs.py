@@ -20,6 +20,7 @@ from app.modules.analytics.service.exports import (
     build_export,
     expire_exports,
 )
+from app.modules.analytics.service.schedules import run_schedule
 from app.modules.analytics.service.settings import limits_of, tenant_settings
 from app.shared.events import EventEnvelope
 from app.shared.storage import ObjectStorage, StorageNotConfigured, storage_from
@@ -62,33 +63,45 @@ def storage_or_none(settings: Settings) -> ObjectStorage | None:
         return None
 
 
+async def _worker(session: AsyncSession, settings: Settings) -> Worker:
+    reporting = _reporting(settings)
+    if reporting is None:  # pragma: no cover - a worker without a database never gets here
+        msg = "report files need the reporting database"
+        raise RuntimeError(msg)
+    limits = limits_of(await tenant_settings(session), settings)
+    return Worker(
+        reporting=reporting,
+        storage=storage_or_none(settings),
+        load_subject=_state.get("subject_loader"),
+        render_pdf=_pdf_renderer(),
+        timeout_seconds=settings.report_background_timeout_seconds,
+        max_rows=limits.max_export_rows,
+        link_days=limits.export_link_days,
+        week_start=limits.week_start,
+    )
+
+
 async def on_export_requested(envelope: EventEnvelope, session: AsyncSession | None) -> None:
     """Consumer: build one requested export."""
     assert session is not None  # noqa: S101 - transactional consumer
     from app.core.config import get_settings  # noqa: PLC0415 - the worker's own settings
 
-    settings = get_settings()
-    reporting = _reporting(settings)
-    loader: SubjectLoader | None = _state.get("subject_loader")
-    if reporting is None:  # pragma: no cover - a worker without a database never gets here
-        msg = "report exports need the reporting database"
-        raise RuntimeError(msg)
-    limits = limits_of(await tenant_settings(session), settings)
-    storage = storage_or_none(settings)
+    worker = await _worker(session, get_settings())
     # Housekeeping rides along: each export first removes the tenant's expired files. Downloads
     # refuse anything past its expiry anyway, so a file left over is never served.
-    await expire_exports(session, storage)
-    await build_export(
+    await expire_exports(session, worker.storage)
+    await build_export(session, uuid.UUID(str(envelope.payload["export_id"])), worker)
+
+
+async def on_schedule_due(envelope: EventEnvelope, session: AsyncSession | None) -> None:
+    """Consumer: send one run of a scheduled report."""
+    assert session is not None  # noqa: S101 - transactional consumer
+    from app.core.config import get_settings  # noqa: PLC0415 - the worker's own settings
+
+    settings = get_settings()
+    await run_schedule(
         session,
-        uuid.UUID(str(envelope.payload["export_id"])),
-        Worker(
-            reporting=reporting,
-            storage=storage,
-            load_subject=loader,
-            render_pdf=_pdf_renderer(),
-            timeout_seconds=settings.report_background_timeout_seconds,
-            max_rows=limits.max_export_rows,
-            link_days=limits.export_link_days,
-            week_start=limits.week_start,
-        ),
+        uuid.UUID(str(envelope.payload["schedule_id"])),
+        await _worker(session, settings),
+        settings,
     )

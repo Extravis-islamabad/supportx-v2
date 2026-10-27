@@ -5,6 +5,7 @@ Payloads carry IDs and changed field names only, never report names or definitio
 """
 
 import uuid
+from datetime import datetime
 from typing import ClassVar
 
 from app.shared.events import DomainEvent
@@ -92,6 +93,45 @@ class ReportExportFinished(DomainEvent):
     problem: str | None
 
 
+class ReportScheduleSaved(DomainEvent):
+    """A schedule was created, changed, paused, resumed or deleted."""
+
+    event_type: ClassVar[str] = "analytics.report_schedule.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "report_schedule"
+
+    schedule_id: uuid.UUID
+    owner_id: uuid.UUID
+    status: str
+    changed_fields: list[str]
+
+
+class ReportScheduleDue(DomainEvent):
+    """A schedule's time came; the worker sends it."""
+
+    event_type: ClassVar[str] = "analytics.report_schedule.due"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "report_schedule"
+
+    schedule_id: uuid.UUID
+    run_at: datetime
+
+
+class ReportScheduleRan(DomainEvent):
+    """A run finished: how many recipients got it, and why a failed run failed."""
+
+    event_type: ClassVar[str] = "analytics.report_schedule.ran"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "report_schedule"
+
+    schedule_id: uuid.UUID
+    owner_id: uuid.UUID
+    result: str
+    sent: int
+    failed: int
+    paused: bool
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     ReportSaved,
     ReportDeleted,
@@ -100,4 +140,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ReportSettingsChanged,
     ReportExportRequested,
     ReportExportFinished,
+    ReportScheduleSaved,
+    ReportScheduleDue,
+    ReportScheduleRan,
 )
