@@ -212,14 +212,14 @@ describe('Admin › Incidents › Routing (WP-029)', () => {
 });
 
 describe('Availability switch (WP-029, REQ-ASG-006)', () => {
-  it('a technician sets themselves Away', async () => {
+  it('a technician sets themselves Away on My profile', async () => {
     const fake = routes({
       'PUT /api/v1/automation/availability/01900000-0000-7000-8000-000000000101': {
         body: { user_id: '01900000-0000-7000-8000-000000000101', state: 'away' },
       },
     });
-    open('/');
-    const toggle = await screen.findByTestId('availability-switch');
+    open('/profile');
+    const toggle = await screen.findByTestId('availability-profile-switch');
     // A loading switch ignores clicks: wait for the current state first.
     await waitFor(() => {
       expect(toggle.className).not.toContain('ant-switch-loading');
