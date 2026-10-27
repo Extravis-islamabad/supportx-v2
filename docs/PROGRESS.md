@@ -561,6 +561,9 @@ New `automation` module (migration 0025); incidents register their rule fields (
   `transition_not_allowed`). Tests: `tests/db/test_automation_triggers_api.py` (12),
   `automation/tests/test_triggers_domain.py` (9), Vitest `automation-part2.test.tsx` (9), e2e
   `automation.spec.ts`.
+- [ ] Owed to lane C (WP-035 session 3): name resolvers for report exports (group, site,
+  department, desk; category, template, incident status and level; custom choices). Lane C
+  writes them in lane A's modules for lane A's review, registered at import.
 - [ ] Later: "test against an existing record", drag-and-drop ordering (buttons for now),
   notification / approval / task / webhook actions with their WPs.
 

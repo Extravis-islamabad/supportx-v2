@@ -30,3 +30,11 @@ def test_each_type_registers_with_its_list_permission_and_feature() -> None:
     finally:
         unregister_sources()
     assert not set(registered_entities()) & {w.code.value for w in TYPES.values()}
+    register_sources()  # as at import: other tests and the workers rely on it
+
+
+def test_sources_are_registered_at_import_for_the_workers() -> None:
+    """The consumers worker imports modules without their startup hooks (report exports)."""
+    import app.modules.work_items  # noqa: F401, PLC0415 - the import is what is tested
+
+    assert "incident" in registered_entities()

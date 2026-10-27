@@ -33,7 +33,7 @@ from app.shared.files.ports import register_owner_access, unregister_owner_acces
 async def _startup(app: FastAPI) -> None:
     del app
     register_owner_access(FILE_ACCESS)
-    register_sources()
+    register_sources()  # again after a shutdown (tests start and stop the app)
 
 
 async def _shutdown(app: FastAPI) -> None:
@@ -45,6 +45,9 @@ async def _shutdown(app: FastAPI) -> None:
 register_record_usage()
 register_types()
 register_triggers()
+# At import, not only at app startup: the consumers worker imports modules without running
+# their startup hooks, and report exports run there (lane C, WP-035 session 3).
+register_sources()
 
 module = ModuleSpec(
     name="work_items",
