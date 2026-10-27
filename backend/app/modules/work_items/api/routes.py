@@ -50,6 +50,7 @@ from app.modules.work_items.domain.types import (
     WorkItemType,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
+from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.access import FIELDS
@@ -365,6 +366,13 @@ class WorkItemListItem(BaseModel):
 class WorkItemPage(Page[WorkItemListItem]):
     """One page of a list, with the display names of the people on it."""
 
+    people: dict[str, PersonOut] = Field(default_factory=dict)
+
+
+class WorkItemSearchOut(BaseModel):
+    """Search results, best first, with the people on them (name and email)."""
+
+    items: list[WorkItemListItem]
     people: dict[str, PersonOut] = Field(default_factory=dict)
 
 
@@ -805,6 +813,46 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return [
             WorkItemAssigneeOut(id=u, display_name=n, email=e, open_count=c) for u, n, e, c in found
         ]
+
+    @router.get("/search", summary=f"Search {wtype.path}")
+    async def search(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
+        session: TenantSession,
+        subject: View,
+        q: Annotated[
+            str | None,
+            Query(
+                max_length=200,
+                description="Display ID, subject or description words, or the requester's name "
+                "or email. Word forms (English, Arabic), Urdu word starts and typos match.",
+            ),
+        ] = None,
+        status_category: Annotated[list[StatusCategory], Query()] = [],  # noqa: B006 - FastAPI copies query defaults
+        requester_id: uuid.UUID | None = None,
+        ids: Annotated[
+            list[uuid.UUID] | None,
+            Query(max_length=20, description="Only these records (e.g. recently viewed)."),
+        ] = None,
+        limit: Annotated[int, Query(ge=1, le=search_service.MAX_RESULTS)] = 20,
+    ) -> WorkItemSearchOut:
+        """Records you may see, exactly as in the lists (REQ-INC-085), best match first.
+
+        Without `q`: the most recently updated (narrowed by the other parameters).
+        """
+        rows = await search_service.search(
+            session,
+            subject,
+            wtype,
+            (q or "").strip() or None,
+            status_categories={c.value for c in status_category},
+            requester_id=requester_id,
+            ids=ids,
+            limit=limit,
+        )
+        people = sorted({str(u) for r in rows for u in (r.requester_id, r.technician_id) if u})
+        return WorkItemSearchOut(
+            items=[_item(r) for r in rows],
+            people=_people(await user_contacts(session, people)),
+        )
 
     @router.get("/lookup/{value}", summary="Find by display ID")
     async def lookup(

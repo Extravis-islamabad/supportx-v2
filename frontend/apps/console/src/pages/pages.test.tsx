@@ -237,14 +237,10 @@ describe('Admin › Users', () => {
     fireEvent.change(screen.getByRole('searchbox', { name: 'Search by name or email' }), {
       target: { value: 'ais' },
     });
+    // The server's people search (WP-027): word starts, Arabic and Urdu spellings, typos.
     await waitFor(() => {
       const last = fake.find('GET', '/api/v1/users').at(-1);
-      expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toEqual({
-        or: [
-          { field: 'display_name', op: 'contains', value: 'ais' },
-          { field: 'email', op: 'contains', value: 'ais' },
-        ],
-      });
+      expect(last?.url.searchParams.get('q')).toBe('ais');
     });
   });
 

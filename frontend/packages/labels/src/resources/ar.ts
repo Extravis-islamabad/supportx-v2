@@ -1775,6 +1775,18 @@ export const ar: LabelResource = {
   'audit.action.incident.template_created': 'أضاف قالب حوادث',
   'audit.action.incident.template_changed': 'غيّر قالب حوادث',
   'audit.object.incident_template': 'قالب حادث',
+  // Search and pickers (WP-027).
+  'palette.pages': 'الصفحات',
+  'palette.placeholder_search': 'اكتب اسم صفحة أو رقم حادثة أو كلمات أو اسمًا…',
+  'palette.searching': 'جارٍ البحث…',
+  'search.incidents': 'الحوادث',
+  'search.recent': 'تمت مشاهدتها مؤخرًا',
+  'search.same_requester': 'من {{name}} أيضًا',
+  'search.results': 'الحوادث المطابقة',
+  'search.find_incident': 'ابحث عن حادثة بالرقم أو الكلمات أو مقدّم الطلب أو الحالة',
+  'search.type_to_search': 'اكتب رقمًا أو كلمات أو اسمًا',
+  'search.nothing_found': 'لا توجد حادثة مطابقة ضمن ما يمكنك رؤيته',
+  'search.status_filter': 'الحالة',
   // WP-020c-FIX
   'settings.no_colour': 'بلا لون',
   'settings.other_stays': 'يبقى "أخرى" دائمًا: فهو المخرج حين لا يناسب أي سبب.',

@@ -1782,6 +1782,18 @@ export const en = {
   'audit.action.incident.template_created': 'Added an incident template',
   'audit.action.incident.template_changed': 'Changed an incident template',
   'audit.object.incident_template': 'Incident template',
+  // Search and pickers (WP-027).
+  'palette.pages': 'Pages',
+  'palette.placeholder_search': 'Type a page, an incident ID, words or a name…',
+  'palette.searching': 'Searching…',
+  'search.incidents': 'Incidents',
+  'search.recent': 'Recently viewed',
+  'search.same_requester': 'Also from {{name}}',
+  'search.results': 'Matching incidents',
+  'search.find_incident': 'Find an incident by ID, words, requester or status',
+  'search.type_to_search': 'Type an ID, words or a name',
+  'search.nothing_found': 'No incident you can see matches',
+  'search.status_filter': 'Status',
   // WP-020c-FIX
   'settings.no_colour': 'No colour',
   'settings.other_stays': '"Other" always stays: it is the way out when no reason fits.',

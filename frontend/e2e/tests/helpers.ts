@@ -61,6 +61,9 @@ export async function resetLanguage(page: Page): Promise<boolean> {
 export async function expectAccessible(page: Page, label: string): Promise<void> {
   // Ant Design animates colour changes (~0.3 s); measure contrast after they settle.
   await page.waitForTimeout(600);
+  // An element leaving (a message fading out, a closing popup) is half transparent on its way
+  // out of the page: its contrast says nothing about what users read, so wait until it is gone.
+  await expect(page.locator('[class*="-leave-active"]')).toHaveCount(0, { timeout: 5_000 });
   let builder = new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']);
   if ((await page.locator('[aria-modal="true"]:visible').count()) > 0) {
     builder = builder.include('[aria-modal="true"]');
