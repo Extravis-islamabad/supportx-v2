@@ -5,6 +5,7 @@ import { accountActionUrl, useAccountSecurity, type AccountAction } from '@suppo
 
 import { useLabel } from './appearance';
 import { useDateTime } from './dates';
+import { EmptyText } from './EmptyText';
 import { ToneTag } from './ToneTag';
 
 const ACTIONS: AccountAction[] = ['password', 'mfa', 'recovery_codes'];
@@ -112,7 +113,7 @@ export function AccountSecurityCard({
             <List
               size="small"
               dataSource={found.recent_sign_ins}
-              locale={{ emptyText: t('account.recent_none') }}
+              locale={{ emptyText: <EmptyText>{t('account.recent_none')}</EmptyText> }}
               data-testid="account-recent"
               renderItem={(item) => (
                 <List.Item>

@@ -5,6 +5,15 @@ import { createHmac } from 'node:crypto';
  * computes it. Keycloak's set-up page holds the raw secret in its hidden `#totpSecret` field; the
  * key it shows is that secret in base32 (proved on 26.8.1).
  */
+/**
+ * Wait for the next 30-second step: Keycloak refuses a code already used (rightly), so a test
+ * that signs in twice within one step must wait for a fresh code.
+ */
+export async function nextStep(): Promise<void> {
+  const left = 30_000 - (Date.now() % 30_000);
+  await new Promise((resolve) => setTimeout(resolve, left + 500));
+}
+
 export function totp(secret: string, at: number = Date.now()): string {
   const counter = Buffer.alloc(8);
   counter.writeBigUInt64BE(BigInt(Math.floor(at / 30_000)));

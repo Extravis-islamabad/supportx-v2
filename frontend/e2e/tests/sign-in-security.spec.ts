@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { actionLink, mailTo, privateWindow, setPassword } from '../mail';
 import { keycloakAdmin, keycloakUserId, passwordOf, PORTAL_URL, USERS } from '../stack';
-import { totp } from '../totp';
+import { nextStep, totp } from '../totp';
 import { expectAccessible, signInAs } from './helpers';
 
 /**
@@ -198,6 +198,7 @@ test('required MFA: set up at the next sign-in, codes and recovery, reset by an 
     await again.locator('#otp').fill(totp(secret, Date.now() - 120_000));
     await again.locator('#kc-login').click();
     await expect(again.getByText(/invalid authenticator code/i)).toBeVisible();
+    await nextStep(); // the enrolment just used this step's code: a used code is refused
     await again.locator('#otp').fill(totp(secret));
     await again.locator('#kc-login').click();
     await expect(again.getByTestId('user-menu')).toBeVisible({ timeout: 30_000 });
