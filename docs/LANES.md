@@ -8,7 +8,7 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 | Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
 |---|---|---|---|---|---|---|
 | A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-029 part 1 (#74) and part 2 (#78) in CI, then the WP-029 QA round on main | `feat/wp-029-rules` (#74), `feat/wp-029b-triggers` (#78) | main folder (`supportx-v2`) | 0025 (WP-029), 0028 (WP-029 part 2) | D-096, D-097, D-102; ADR-035 |
-| B | Identity, mail, notifications | WP-039 session 3 (MFA, recovery codes, my account, idle warning, lock-out); #82 subject_for in CI | `feat/wp-039-session3` | `../supportx-v2-wp039` | 0024, 0026, 0030 | D-098, D-099 |
+| B | Identity, mail, notifications | WP-039 session 3 (MFA, recovery codes, my account, idle warning, lock-out); #82 subject_for in CI | `feat/wp-039-session3` | `../supportx-v2-wp039` | 0024, 0026, 0030 | D-098, D-099, D-103, D-104 |
 | C | Reports and dashboards | WP-035: session 1 merged (#73); session 2 viewer (#77); next session 3 export, session 4 scheduling | `feat/wp-035-viewer` | `../supportx-v2-lanec2` (also `../supportx-v2-lanec`) | 0027 (merged) | D-100, D-101; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
