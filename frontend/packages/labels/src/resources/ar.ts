@@ -2686,6 +2686,7 @@ export const ar: LabelResource = {
   'errors.password_policy_platform': 'تحدد المنصة سياسة كلمات المرور في هذا التثبيت.',
   'errors.password_reset_not_signed_in':
     'لم يسجّل هذا الشخص الدخول بعد. أرسل إليه دعوة بدلًا من ذلك.',
+  'errors.mail_not_configured': 'البريد الصادر غير مُعدّ في هذا التثبيت. اطلب من المشغّل إعداده.',
   'errors.mail_address_invalid': 'أحد عناوين البريد غير صالح.',
   'errors.mail_attachment_name': 'اسم أحد المرفقات غير صالح.',
   'errors.mail_attachment_type': 'لا يمكن إرسال هذا النوع من الملفات بالبريد.',

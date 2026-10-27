@@ -2731,6 +2731,8 @@ export const en = {
   'errors.password_policy_platform': 'The platform sets the password policy on this installation.',
   'errors.password_reset_not_signed_in':
     'This person has not signed in yet. Send them an invitation instead.',
+  'errors.mail_not_configured':
+    'Outgoing mail is not set up on this installation. Ask your operator to configure it.',
   'errors.mail_address_invalid': 'An email address is not valid.',
   'errors.mail_attachment_name': 'An attachment name is not valid.',
   'errors.mail_attachment_type': 'This type of file cannot be sent by email.',

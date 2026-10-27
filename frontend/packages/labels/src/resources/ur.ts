@@ -2326,6 +2326,8 @@ export const ur: LabelResource = {
   'errors.password_policy_platform': 'اس انسٹالیشن پر پاس ورڈ پالیسی پلیٹ فارم طے کرتا ہے۔',
   'errors.password_reset_not_signed_in':
     'اس شخص نے ابھی سائن اِن نہیں کیا۔ اس کے بجائے دعوت نامہ بھیجیں۔',
+  'errors.mail_not_configured':
+    'اس انسٹالیشن پر باہر جانے والی ای میل سیٹ اپ نہیں۔ اپنے آپریٹر سے اسے ترتیب دینے کو کہیں۔',
   'errors.mail_address_invalid': 'ایک ای میل پتا درست نہیں۔',
   'errors.mail_attachment_name': 'ایک منسلکہ کا نام درست نہیں۔',
   'errors.mail_attachment_type': 'اس قسم کی فائل ای میل سے نہیں بھیجی جا سکتی۔',
