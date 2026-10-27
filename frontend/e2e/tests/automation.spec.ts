@@ -54,6 +54,9 @@ async function pick(page: Page, testId: string, option: string | RegExp) {
 }
 
 const made = { rules: [] as string[], triggers: [] as string[], incidents: [] as string[] };
+// The shared e2e technician joins a group of this journey: leave it afterwards, or later
+// journeys see them in two groups (Take then asks which, incidents.spec D-052).
+const memberships: { group: string; user: string }[] = [];
 let closeLimited = false;
 
 test.afterAll(async ({ browser }) => {
@@ -84,6 +87,9 @@ test.afterAll(async ({ browser }) => {
     );
   }
   for (const id of made.incidents) await remove(`/incidents/${id}`);
+  for (const { group, user } of memberships) {
+    await call(admin.page, 'DELETE', `/organization/groups/${group}/members/${user}`);
+  }
   await admin.context.close();
 });
 
@@ -163,6 +169,7 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
     expect([200, 204]).toContain(
       (await call(admin.page, 'PUT', `/organization/groups/${groupId}/members/${techId}`)).status(),
     );
+    memberships.push({ group: groupId, user: techId });
     await tech.page.reload();
     await tech.page.getByTestId('inc-subject').fill(subject);
     const requester = tech.page.getByTestId('inc-requester');

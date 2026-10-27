@@ -20,7 +20,7 @@ Take the lock by writing your lane here (and telling the other lanes); release i
 
 | Holder | Since | Purpose |
 |---|---|---|
-| (free) | | |
+| B | 2026-10-28 | WP-039 session 3 e2e (handed over by A): Keycloak deploy step (lock-out, recovery codes); lane B API/workers/web on the shared ports against a throwaway DB `supportx_laneb_qa` |
 
 The shared stack (API :8000, workers, console 5173, portal 5174) currently runs from lane A's
 main folder. k3d stays stopped unless the lock holder needs it.
