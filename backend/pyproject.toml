@@ -42,6 +42,7 @@ dev = [
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8",
     "ruff>=0.17.1",
     "types-aioboto3[s3]>=15.5.0",
     "types-openpyxl>=3.1.5.20261017",
@@ -96,6 +97,9 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 addopts = [
     "--strict-markers",
+    # CI shards and file timings (tooling/pytest_shards.py); inert without its variables.
+    "-p",
+    "tooling.pytest_shards",
     "--cov=app",
     "--cov=tooling",
     "--cov=workers",
