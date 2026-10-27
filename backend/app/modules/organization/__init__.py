@@ -28,6 +28,7 @@ from app.modules.organization.api.structure import departments, desks, groups, s
 from app.modules.organization.api.units import groups_router, sites_router
 from app.modules.organization.domain.tenant import TenantStatus, TenantView
 from app.modules.organization.events import EVENTS
+from app.modules.organization.service import report_names
 from app.modules.organization.service.branding import BrandingView, get_branding
 from app.modules.organization.service.email_branding import (
     EmailBranding,
@@ -81,6 +82,9 @@ async def _shutdown(app: FastAPI) -> None:
     del app
     unregister_owner_access(FILE_ACCESS.owner_types)
 
+
+# Names for report files (WP-035): at import, so the consumers worker has them too.
+report_names.register()
 
 module = ModuleSpec(
     name="organization",

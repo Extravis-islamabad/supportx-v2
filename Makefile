@@ -111,6 +111,9 @@ dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | 
 	$(EVENTS_CLI) dlq-replay $(if $(seq),--seq $(seq)) $(if $(all),--all) \
 		$(if $(consumer),--consumer $(consumer))
 
+backend-test-pdf: ## PDF export tests (D-100 D8): needs `uv sync --group pdf` and Pango (macOS: brew install pango)
+	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
+
 labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034)
 	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json
 
@@ -262,8 +265,10 @@ chart-deps: ## Download the chart's pinned dependencies (NATS, Valkey) from Char
 chart-lint: chart-deps ## Lint and render the chart for every profile (kubeconform too, if installed)
 	@bash deploy/scripts/chart-lint.sh
 
-images: ## Build the INTERNAL/DEV backend and web images for this machine's architecture
+images: ## Build the INTERNAL/DEV backend, worker (PDF) and web images for this machine's architecture
 	docker build -f deploy/images/backend.Dockerfile -t supportx-backend:$(IMAGE_TAG) \
+		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
+	docker build -f deploy/images/backend.Dockerfile --target worker -t supportx-worker:$(IMAGE_TAG) \
 		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
 	docker build -f deploy/images/web.Dockerfile -t supportx-web:$(IMAGE_TAG) \
 		--build-arg VERSION=0.1.0-dev --build-arg REVISION=$(GIT_SHA) .
@@ -279,7 +284,7 @@ cluster-secrets: ## Create the chart's Secrets with random values (never overwri
 HELM_TEST = helm test supportx -n $(NAMESPACE) --logs --filter '!name=supportx-valkey-test-auth-existing'
 
 deploy-dev: images chart-deps cluster-secrets ## Build, import and install/upgrade the dev profile on k3d
-	k3d image import supportx-backend:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
+	k3d image import supportx-backend:$(IMAGE_TAG) supportx-worker:$(IMAGE_TAG) supportx-web:$(IMAGE_TAG) -c $(K3D_CLUSTER)
 	helm upgrade --install supportx $(CHART) -n $(NAMESPACE) -f $(CHART)/values-dev.yaml \
 		--set-string podAnnotations.rollout="$(GIT_SHA)-$$(date +%s)" --wait --timeout 15m
 	$(HELM_TEST)

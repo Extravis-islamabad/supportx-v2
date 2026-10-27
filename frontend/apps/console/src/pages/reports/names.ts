@@ -15,7 +15,7 @@ import type { FilterChoice } from '@supportx/forms';
 import { useAppearance, useDateTime } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
-import { labelled, levelLabel, statusLabel } from '../incidents/labels';
+import { categoryPath, labelled, levelLabel, statusLabel } from '../incidents/labels';
 
 // Words for everything a report shows (rule d): grouping values (codes, admin values, records
 // by name, date buckets), field names and measure values. Report results carry codes and ids;
@@ -137,12 +137,10 @@ export function useReportWords(result?: ReportResult): ReportWords {
         const desk = desks.data?.find((d) => d.id === id);
         return desk ? labelled(desk.labels, locale, () => t(`desk.${desk.code}`)) : undefined;
       }
-      case 'category': {
-        const category = categories.data?.find((c) => c.id === id);
-        return category
-          ? labelled(category.labels, locale, () => t(`work_item_category.${category.code ?? ''}`))
+      case 'category':
+        return categories.data?.some((c) => c.id === id)
+          ? categoryPath(t, categories.data, id, locale)
           : undefined;
-      }
       case 'user':
         return people.get(id);
       default:
