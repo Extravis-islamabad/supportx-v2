@@ -11,6 +11,7 @@ export type IdentitySettingsInput = components['schemas']['IdentitySettingsBody'
 export type SsoProvider = components['schemas']['SsoOut'];
 export type SsoInput = components['schemas']['SsoBody'];
 export type SsoTestResult = components['schemas']['SsoTestResultOut'];
+export type Invitation = components['schemas']['InvitationOut'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
@@ -147,5 +148,102 @@ export function useSsoTestResult(id: string, testId: string | null) {
       return waiting ? 2000 : false;
     },
     meta: { silent: true },
+  });
+}
+
+// --- the password policy (REQ-SEC-005) ---------------------------------------------------------
+
+/** After the worker could not apply the saved policy: ask it to try again. */
+export function useApplyPasswordPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: () => call(api.POST('/api/v1/identity/settings/password-policy/apply')),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.identity.settings, saved);
+    },
+  });
+}
+
+// --- invitations (REQ-SEC-018..020; users.manage) ----------------------------------------------
+
+/** The tenant's newest invitations, or one person's (`userId`). */
+export function useInvitations(userId?: string) {
+  return useQuery({
+    queryKey:
+      userId === undefined
+        ? queryKeys.identity.invitations
+        : queryKeys.identity.personInvitations(userId),
+    queryFn: () =>
+      call(api.GET('/api/v1/identity/invitations', { params: { query: { user_id: userId } } })),
+  });
+}
+
+function useInvitationsChanged() {
+  const queryClient = useQueryClient();
+  return () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.invitations });
+}
+
+/** Invite a person who has not signed in yet; `key` is this attempt's Idempotency-Key. */
+export function useInvite() {
+  const changed = useInvitationsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ userId, key }: { userId: string; key: string }) =>
+      call(
+        api.POST('/api/v1/identity/invitations', {
+          params: { header: { 'Idempotency-Key': key } },
+          body: { user_id: userId },
+        }),
+      ),
+    onSuccess: changed,
+  });
+}
+
+/** A new e-mail and a new expiry, or stop the link at once. */
+export function useInvitationAction() {
+  const changed = useInvitationsChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      id,
+      version,
+      action,
+    }: {
+      id: string;
+      version: number;
+      action: 'resend' | 'revoke';
+    }) =>
+      call(
+        api.POST(
+          action === 'resend'
+            ? '/api/v1/identity/invitations/{invitation_id}/resend'
+            : '/api/v1/identity/invitations/{invitation_id}/revoke',
+          { params: { path: { invitation_id: id }, header: ifMatch(version) } },
+        ),
+      ),
+    onSuccess: changed,
+  });
+}
+
+/** Keycloak asks the person for a new password at their next sign-in; their sessions end. */
+export function useRequireNewPassword() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (userId: string) =>
+      call(
+        api.POST('/api/v1/identity/people/{user_id}/require-new-password', {
+          params: { path: { user_id: userId } },
+        }),
+      ),
+  });
+}
+
+/** "Forgot password?": always accepted, whatever the address (nothing to learn from it). */
+export function useRequestPasswordReset() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (email: string) =>
+      call(api.POST('/api/v1/auth/password-reset', { body: { email } })),
   });
 }

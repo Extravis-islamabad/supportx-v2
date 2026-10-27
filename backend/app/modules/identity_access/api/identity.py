@@ -580,12 +580,13 @@ def _invitation_out(view: invitations.InvitationView) -> InvitationOut:
 
 
 @router.get("/invitations", summary="Invitations")
-async def list_invitations(session: TenantSession, subject: ManagePeople) -> InvitationListOut:
-    """Who was invited, when, until when, and what became of it."""
+async def list_invitations(
+    session: TenantSession, subject: ManagePeople, user_id: uuid.UUID | None = None
+) -> InvitationListOut:
+    """Who was invited, when, until when, and what became of it: the newest 200, or one's."""
     del subject
-    return InvitationListOut(
-        items=[_invitation_out(v) for v in await invitations.list_invitations(session)]
-    )
+    found = await invitations.list_invitations(session, user_id=user_id)
+    return InvitationListOut(items=[_invitation_out(v) for v in found])
 
 
 @router.post(

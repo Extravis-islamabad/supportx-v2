@@ -262,9 +262,17 @@ async def revoke(
     return _view(row)
 
 
-async def list_invitations(session: AsyncSession) -> list[InvitationView]:
-    """The tenant's invitations, newest first."""
-    rows = await session.scalars(select(Invitation).order_by(Invitation.created_at.desc()))
+LIST_LIMIT = 200
+
+
+async def list_invitations(
+    session: AsyncSession, *, user_id: uuid.UUID | None = None
+) -> list[InvitationView]:
+    """The tenant's newest invitations, or one person's, newest first."""
+    query = select(Invitation).order_by(Invitation.created_at.desc()).limit(LIST_LIMIT)
+    if user_id is not None:
+        query = query.where(Invitation.user_id == user_id)
+    rows = await session.scalars(query)
     now = datetime.now(UTC)
     return [_view(row, now) for row in rows]
 
