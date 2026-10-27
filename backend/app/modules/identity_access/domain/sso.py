@@ -41,6 +41,7 @@ FIELD_PROBLEMS = frozenset(
         "sso_domain_public",
         "sso_domain_required",
         "sso_domain_taken",
+        "sso_domain_unverified",
         "sso_domains_too_many",
         "sso_issuer_mismatch",
         "sso_issuer_required",

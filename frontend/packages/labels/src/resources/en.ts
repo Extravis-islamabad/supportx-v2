@@ -2368,6 +2368,15 @@ export const en = {
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
   // WP-039 identity: Admin > Sign-in and security
+  'errors.field.sso_domain_in_use':
+    '{{domain}} is already used by another single sign-on set-up of yours.',
+  'sso_protocol.oidc': 'OpenID Connect',
+  'sso_protocol.saml': 'SAML 2.0',
+  'sso_test_status.pending': 'Waiting',
+  'sso_test_status.passed': 'Worked',
+  'sso_test_status.failed': 'Did not work',
+  'errors.field.sso_domain_unverified':
+    'Prove that your organisation owns {{domain}} before single sign-on can use it.',
   'security.sso.test_slow':
     "No answer yet. If the other window shows an error from the sign-in service, that is the reason: the identity provider's certificate or settings do not match what is saved here. The set-up stays off.",
   'security.sso.test_private':

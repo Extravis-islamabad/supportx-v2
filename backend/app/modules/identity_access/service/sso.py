@@ -149,6 +149,22 @@ def _require(admin: IdentityAdmin | None) -> IdentityAdmin:
     return admin
 
 
+def _check_ownership(organization: Organization, domains: list[str], *, required: bool) -> None:
+    """Multi-tenant installations route only domains whose ownership was proved (D-098).
+
+    In a realm tenants share, routing an unproved domain would let a tenant claim another
+    company's domain and send its people to its own provider. The proof (DNS TXT) comes with the
+    SaaS cell (WP-014d) and marks the organization's domain verified; until then nothing can be
+    routed there. Single-tenant installations (one organization per realm) are not affected.
+    """
+    if not required:
+        return
+    verified = {d["name"] for d in organization.raw.get("domains") or [] if d.get("verified")}
+    unproved = [d for d in domains if d not in verified]
+    if unproved:
+        raise _invalid([sso.Problem("domains", "sso_domain_unverified", {"domain": unproved[0]})])
+
+
 async def _organization(session: AsyncSession, admin: IdentityAdmin) -> Organization:
     tenant = await get_current_tenant(session)
     found = await admin.organization(tenant.slug, str(tenant.id))
@@ -400,6 +416,7 @@ async def create_provider(
     values: SsoInput,
     *,
     allow_loopback: bool = False,
+    require_domain_proof: bool = False,
 ) -> SsoView:
     """A new set-up in draft (Keycloak: hidden, linked, its mappers and domains)."""
     keycloak = _require(admin)
@@ -413,6 +430,7 @@ async def create_provider(
         raise Conflict(code="sso_provider_limit", params={"max": sso.MAX_PROVIDERS})
     await _check_overlap(session, domains, None)
     organization = await _organization(session, keycloak)
+    _check_ownership(organization, domains, required=require_domain_proof)
     if values.protocol == "oidc":
         config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
         not_after = None
@@ -482,6 +500,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     *,
     expected_version: int,
     allow_loopback: bool = False,
+    require_domain_proof: bool = False,
 ) -> SsoView:
     """Change a set-up; a connection change sends it back to draft (switch it off first)."""
     keycloak = _require(admin)
@@ -494,6 +513,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
         raise _invalid(problems)
     await _check_overlap(session, domains, row.id)
     organization = await _organization(session, keycloak)
+    _check_ownership(organization, domains, required=require_domain_proof)
     if values.protocol == "oidc":
         config, warnings = await _connect_oidc(values, allow_loopback=allow_loopback)
         not_after = None

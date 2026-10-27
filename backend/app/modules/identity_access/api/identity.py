@@ -125,8 +125,13 @@ def _allow_loopback(request: Request) -> bool:
     return bool(request.app.state.settings.sso_fetch_allow_loopback)
 
 
+def _require_domain_proof(request: Request) -> bool:
+    return bool(request.app.state.settings.multi_tenant)
+
+
 Admin = Annotated[IdentityAdmin | None, Depends(_admin)]
 AllowLoopback = Annotated[bool, Depends(_allow_loopback)]
+RequireDomainProof = Annotated[bool, Depends(_require_domain_proof)]
 
 
 class SsoMappingBody(BaseModel):
@@ -254,6 +259,7 @@ async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     subject: Manage,
     admin: Admin,
     allow_loopback: AllowLoopback,
+    require_domain_proof: RequireDomainProof,
     idempotency: Idempotency,
     note: Annotated[AuditNote, audited("sso.added", object_type="sso_provider")],
 ) -> Response:
@@ -263,7 +269,11 @@ async def create_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
 
     async def operation() -> Created:
         view = await sso.create_provider(
-            session, admin, body.values(), allow_loopback=allow_loopback
+            session,
+            admin,
+            body.values(),
+            allow_loopback=allow_loopback,
+            require_domain_proof=require_domain_proof,
         )
         note.skip = False
         note.object_id = str(view.id)
@@ -303,6 +313,7 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
     subject: Manage,
     admin: Admin,
     allow_loopback: AllowLoopback,
+    require_domain_proof: RequireDomainProof,
 ) -> SsoOut:
     """A connection change sends it back to draft (an "on" set-up: switch it off first)."""
     del subject
@@ -313,6 +324,7 @@ async def update_sso(  # noqa: PLR0913, PLR0917 - FastAPI parameters
         body.values(),
         expected_version=version,
         allow_loopback=allow_loopback,
+        require_domain_proof=require_domain_proof,
     )
     set_etag(response, view.version)
     return _sso_out(request, view)

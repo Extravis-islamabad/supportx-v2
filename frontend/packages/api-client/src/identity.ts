@@ -143,8 +143,7 @@ export function useSsoTestResult(id: string, testId: string | null) {
     enabled: testId !== null,
     refetchInterval: (query) => {
       const found = query.state.data;
-      const waiting =
-        found?.status === 'pending' || found?.reason === 'signed_in_as_someone_else';
+      const waiting = found?.status === 'pending' || found?.reason === 'signed_in_as_someone_else';
       return waiting ? 2000 : false;
     },
     meta: { silent: true },

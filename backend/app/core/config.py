@@ -88,6 +88,10 @@ class Settings(BaseSettings):
     # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
     # the test identity provider runs on the same machine.
     sso_fetch_allow_loopback: bool = False
+    # Several tenants share this installation's realm (the SaaS cell, WP-014d). A security guard,
+    # not a feature switch (D-098): single sign-on may then route only email domains whose
+    # ownership the tenant proved. Off for single-tenant installations (on-prem, D-070).
+    multi_tenant: bool = False
     # Public base URLs of the two UIs. They may carry a path: in Kubernetes both share one host,
     # the portal under /portal (WP-014, D3). The OIDC callback is <origin>/api/v1/auth/callback
     # (same origin as the UI, D-009); after login the browser lands on the returnTo path, else on

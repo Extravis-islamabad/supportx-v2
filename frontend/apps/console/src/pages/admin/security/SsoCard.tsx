@@ -263,9 +263,9 @@ export function SsoCard() {
                   </Typography.Text>
                 )}
                 {(provider.last_check?.problems ?? []).map((code) => (
-                  <ToneTag key={code} tone="warning">
-                    {t(`sso_check.${code}`)}
-                  </ToneTag>
+                  <div key={code}>
+                    <ToneTag tone="warning">{t(`sso_check.${code}`)}</ToneTag>
+                  </div>
                 ))}
                 <Typography.Text type="secondary">
                   {t(

@@ -1964,6 +1964,15 @@ export const ur: LabelResource = {
     'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
   'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
   // WP-039 identity: Admin > Sign-in and security
+  'errors.field.sso_domain_in_use':
+    '{{domain}} آپ کے کسی اور سنگل سائن آن سیٹ اپ میں استعمال ہو رہا ہے۔',
+  'sso_protocol.oidc': 'OpenID Connect',
+  'sso_protocol.saml': 'SAML 2.0',
+  'sso_test_status.pending': 'انتظار',
+  'sso_test_status.passed': 'کامیاب',
+  'sso_test_status.failed': 'ناکام',
+  'errors.field.sso_domain_unverified':
+    'سنگل سائن آن کے استعمال سے پہلے ثابت کریں کہ {{domain}} آپ کی تنظیم کا ہے۔',
   'security.sso.test_slow':
     'ابھی کوئی جواب نہیں۔ اگر دوسری ونڈو سائن اِن کی سروس کی خرابی دکھائے تو یہی وجہ ہے: شناخت فراہم کنندہ کا سرٹیفکیٹ یا ترتیبات یہاں محفوظ ترتیبات سے نہیں ملتیں۔ سیٹ اپ بند رہتا ہے۔',
   'security.sso.test_private':

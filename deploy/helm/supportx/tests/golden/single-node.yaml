@@ -1821,6 +1821,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
             - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2273,6 +2275,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
             - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2421,6 +2425,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
             - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2570,6 +2576,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
             - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
@@ -2713,6 +2721,8 @@ spec:
               valueFrom: {secretKeyRef: {name: supportx-app, key: oidc-portal-secret}}
             - name: SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: supportx-app, key: keycloak-identity-secret}}
+            - name: SUPPORTX_MULTI_TENANT
+              value: "false"
             - name: SUPPORTX_CENTRIFUGO_API_KEY
               valueFrom: {secretKeyRef: {name: supportx-app, key: centrifugo-api-key}}
             - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET

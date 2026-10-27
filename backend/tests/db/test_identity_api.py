@@ -637,7 +637,8 @@ async def test_people_are_sent_to_the_provider_only_while_it_is_on_and_when_chos
 
     def routed() -> dict[str, Any]:
         org = world.admin.orgs[str(world.a.tenant)]
-        return {d["name"]: d for d in org.raw["domains"]}["acme.test"]
+        found: dict[str, Any] = {d["name"]: d for d in org.raw["domains"]}["acme.test"]
+        return found
 
     assert routed()["autoRedirect"] is False  # draft: nobody sent there yet
     await _mark_tested(world, world.a, uuid.UUID(added["id"]))
@@ -658,3 +659,24 @@ async def test_people_are_sent_to_the_provider_only_while_it_is_on_and_when_chos
     )
     assert off.status_code == 200
     assert routed()["autoRedirect"] is False
+
+
+async def test_multi_tenant_installations_route_only_proved_domains(world: World) -> None:
+    """D-098: in a realm tenants share, an unproved domain is never routed (refused, clearly)."""
+    world.app.state.settings = world.app.state.settings.model_copy(update={"multi_tenant": True})
+    refused = await world.add_oidc(world.a)
+    assert refused.status_code == 422
+    assert refused.json()["errors"][0] == {
+        "field": "domains",
+        "code": "sso_domain_unverified",
+        "message_key": "errors.field.sso_domain_unverified",
+        "params": {"domain": "acme.test"},
+    }
+    assert world.admin.providers == {}
+    # Once the organization's domain is proved (WP-014d marks it verified), it can be routed.
+    org = world.admin.orgs[str(world.a.tenant)]
+    proved = [*org.raw["domains"], {"name": "acme.test", "verified": True}]
+    world.admin.orgs[str(world.a.tenant)] = replace(
+        org, domains=(*org.domains, "acme.test"), raw={**org.raw, "domains": proved}
+    )
+    assert (await world.add_oidc(world.a)).status_code == 201

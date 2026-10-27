@@ -2334,6 +2334,14 @@ export const ar: LabelResource = {
   'errors.field.sso_protocol_fixed': 'يحتفظ الإعداد ببروتوكوله. أضف إعدادًا جديدًا بدلًا من ذلك.',
   'errors.field.sso_sign_in_url_missing': 'لا تحتوي البيانات الوصفية على عنوان تسجيل دخول.',
   // WP-039 identity: Admin > Sign-in and security
+  'errors.field.sso_domain_in_use': '{{domain}} مستخدم في إعداد آخر لتسجيل الدخول الموحّد لديك.',
+  'sso_protocol.oidc': 'OpenID Connect',
+  'sso_protocol.saml': 'SAML 2.0',
+  'sso_test_status.pending': 'بالانتظار',
+  'sso_test_status.passed': 'نجح',
+  'sso_test_status.failed': 'لم ينجح',
+  'errors.field.sso_domain_unverified':
+    'أثبت أن مؤسستك تملك {{domain}} قبل أن يستخدمه تسجيل الدخول الموحّد.',
   'security.sso.test_slow':
     'لا إجابة بعد. إذا عرضت النافذة الأخرى خطأً من خدمة تسجيل الدخول فهذا هو السبب: شهادة مزوّد الهوية أو إعداداته لا تطابق ما حُفظ هنا. يبقى الإعداد متوقفًا.',
   'security.sso.test_private':
