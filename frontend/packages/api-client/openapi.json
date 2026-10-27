@@ -6512,7 +6512,7 @@
                 "type": "null"
               }
             ],
-            "description": "Signed out after this long without activity (the screens warn 2 minutes ahead).",
+            "description": "Signed out after this long without activity (warned 2 minutes ahead).",
             "title": "Idle Timeout Seconds"
           },
           "mfa_due_at": {

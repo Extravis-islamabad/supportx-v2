@@ -5909,7 +5909,7 @@ export interface components {
             csrf_token: string;
             /**
              * Idle Timeout Seconds
-             * @description Signed out after this long without activity (the screens warn 2 minutes ahead).
+             * @description Signed out after this long without activity (warned 2 minutes ahead).
              */
             idle_timeout_seconds?: number | null;
             /**
