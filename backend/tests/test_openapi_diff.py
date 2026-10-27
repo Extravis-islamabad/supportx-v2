@@ -104,3 +104,19 @@ def test_enum_values_may_be_added_not_removed(base: dict[str, Any]) -> None:
     limit_key(shrunk).pop(0)
     problems = openapi_diff.breaking_changes(base, shrunk)
     assert any("lost enum values" in p for p in problems), problems
+
+
+def test_a_parameter_may_accept_a_new_enum_value_not_lose_one(base: dict[str, Any]) -> None:
+    """D-084 for parameters too (WP-017 added `branding` to the upload's owner_type)."""
+
+    def owner_type(document: dict[str, Any]) -> list[str]:
+        values: list[str] = document["components"]["schemas"]["OwnerType"]["enum"]
+        return values
+
+    grown = copy.deepcopy(base)
+    owner_type(grown).append("new_owner")
+    assert openapi_diff.breaking_changes(base, grown) == []
+    shrunk = copy.deepcopy(base)
+    owner_type(shrunk).remove("draft")
+    problems = openapi_diff.breaking_changes(base, shrunk)
+    assert any("parameter 'owner_type' changed type" in p for p in problems), problems

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { passwordOf, SEEDED, USERS } from '../stack';
+import { passwordOf, REPO, SEEDED, USERS } from '../stack';
 import { expectAccessible } from './helpers';
 
 /**
@@ -19,7 +19,7 @@ import { expectAccessible } from './helpers';
 const DEMO = 'http://demo.localhost:5173';
 const OTHER = 'http://other.localhost:5173';
 const BRAND = '#0b5394'; // white text 7.6:1
-const LOGO = resolve(__dirname, '../../../docs/brand/supportx-icon.png');
+const LOGO = resolve(REPO, 'docs/brand/supportx-icon.png');
 
 async function api(page: Page, method: string, path: string, data?: unknown, headers = {}) {
   const me = (await (await page.request.get(`${DEMO}/api/v1/auth/me`)).json()) as {

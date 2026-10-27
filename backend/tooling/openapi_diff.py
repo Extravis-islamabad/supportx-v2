@@ -80,7 +80,10 @@ def _compare_params(
     for name, param in old_params.items():
         if name not in new_params:
             problems.append(f"{label}: parameter {name[1]!r} ({name[0]}) was removed")
-        elif _shape(param.get("schema"), ro) != _shape(new_params[name].get("schema"), rn):
+        elif _Walk(ro, rn, response=False).diff(
+            "", param.get("schema"), new_params[name].get("schema")
+        ):
+            # Same rules as a body field the client sends: a new enum value is additive (D-084).
             problems.append(f"{label}: parameter {name[1]!r} changed type")
     for name, param in new_params.items():
         if name not in old_params and param.get("required"):
