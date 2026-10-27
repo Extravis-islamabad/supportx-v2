@@ -18,6 +18,8 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   mail), so Keycloak's password and invitation e-mails leave from the same sender; a realm
   without mail settings keeps whatever it has. In Compose Keycloak reaches the mail server by
   another name than the API does (`SUPPORTX_KEYCLOAK_SMTP_HOST`/`_PORT`);
+- the realm's e-mails use the SupportX e-mail theme (tenant brand, en/ar/ur) when it has no
+  theme of its own; a chosen theme is never replaced;
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
@@ -66,10 +68,16 @@ EVENTS_EXPIRATION_SECONDS = 7 * 86400
 SSO_IDLE_SECONDS = 24 * 3600
 SSO_MAX_SECONDS = 30 * 86400
 RETRY_SECONDS = 5.0
+EMAIL_THEME = "supportx"
 # What identity provider mappers store on a person (domain/sso.py DEPARTMENT/SITE_ATTRIBUTE).
 PROFILE_ATTRIBUTES = {
     "sx_department": "Department (from single sign-on)",
     "sx_site": "Site (from single sign-on)",
+    # The brand of Keycloak's e-mails (D-099), set by SupportX right before it asks for one.
+    "sx_mail_kind": "E-mail kind (SupportX)",
+    "sx_brand_name": "Organisation name in e-mails (SupportX)",
+    "sx_brand_logo": "Organisation logo in e-mails (SupportX)",
+    "sx_brand_colour": "Organisation colour in e-mails (SupportX)",
 }
 MIN_SECRET_LENGTH = 16
 
@@ -291,6 +299,19 @@ def smtp_from_env(env: dict[str, str]) -> dict[str, str] | None:
     return smtp
 
 
+async def _ensure_email_theme(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The SupportX e-mail theme (D-099) on a realm without one; a chosen theme is kept."""
+    path = f"/admin/realms/{realm}"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    if current.json().get("emailTheme"):
+        return []
+    (await client.put(path, headers=headers, json={"emailTheme": EMAIL_THEME})).raise_for_status()
+    return ["e-mail theme set"]
+
+
 async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Result:
     """Everything in the module docstring, idempotent."""
     token = await admin_token(client, target.user, target.password)
@@ -307,6 +328,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)
     changes += await _ensure_smtp(client, headers, target.realm, target.smtp)
+    changes += await _ensure_email_theme(client, headers, target.realm)
     return Result(Outcome.UPDATED if changes else Outcome.READY, tuple(changes))
 
 
