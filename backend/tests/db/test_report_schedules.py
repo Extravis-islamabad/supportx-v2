@@ -1,6 +1,6 @@
 """Scheduled reports (WP-035 session 4, D-100 D3). Test names cite parity file 09.
 
-The incident world and the test-only provider of test_reports_api.py. Mail goes through the real
+The incident world of test_reports_api.py (the real incident source). Mail goes through the real
 mail foundation (app.shared.mail) into `mail_messages`; nothing connects to a mail server. The
 worker's run is called directly with identity_access.subject_for, as the consumers worker does.
 """

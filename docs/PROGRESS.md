@@ -764,8 +764,10 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
 - [ ] Report set B with lane A's WP-020e (worklogs), WP-020f (reopen, FCR, completion), WP-025
   (SLA), WP-030 (service requests, approvals); backlog over time and time in status (field
   history source).
-- Waiting on lane A: the incident provider `work_items/service/reporting.py` and the three report
-  indexes (WP-029 PR, migration 0025); until then tests use a test-only provider built the same way.
+- Lane A's incident provider `work_items/service/reporting.py` and the report indexes are on main
+  (#74, migration 0025); the report DB tests run through it (2026-10-28, no test stand-in left).
+- Still to do: English/Arabic e2e under the QA lock; the 1M-row performance harness (timing tests,
+  #86 rules).
 
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
@@ -957,6 +959,9 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - QA round on main with the lock: shared DB got lane C's skipped 0029/0031 (additive, db-guard
   PASS); backend/.env regenerated (old copy kept as backend/.env.before-wp029-qa); Keycloak
   recreated from the main folder. Report: ~/Desktop/qa-wp029/QA-REPORT.md.
+### 2026-10-28 — WP-035: report tests on the real incident source (lane C)
+- Lane A's #74 merged: the report, export and schedule DB tests now run through
+  `work_items/service/reporting.py`; the test-only provider is gone. 28 tests pass.
 
 ### 2026-10-27 — WP-029 part 2: triggers, loop guard, transition settings (lane A)
 
