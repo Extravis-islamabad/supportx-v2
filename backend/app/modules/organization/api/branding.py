@@ -36,6 +36,9 @@ from app.shared.files.service.core import FileServices
 FILES_STATE = "files"  # the system module keeps the API's FileServices on app.state
 PUBLIC_PREFIX = "/api/v1/public/branding"
 LONG_CACHE = "public, max-age=31536000, immutable"
+# The sign-in page (Keycloak, another origin in Compose) and mail clients load these: the API's
+# default `Cross-Origin-Resource-Policy: same-origin` would block them. They are public anyway.
+CROSS_ORIGIN = {"Cross-Origin-Resource-Policy": "cross-origin"}
 SHORT_CACHE = "public, max-age=300"
 
 SignedIn = Annotated[Any, Depends(require_signed_in())]
@@ -355,7 +358,7 @@ async def login_stylesheet(slug: str, database: DatabaseDep) -> Response:
     return Response(
         login_css(view.colours, logos),
         media_type="text/css",
-        headers={"Cache-Control": SHORT_CACHE, "X-Content-Type-Options": "nosniff"},
+        headers={"Cache-Control": SHORT_CACHE, "X-Content-Type-Options": "nosniff", **CROSS_ORIGIN},
     )
 
 
@@ -393,5 +396,6 @@ async def brand_image(
             "Cache-Control": LONG_CACHE if current else SHORT_CACHE,
             "X-Content-Type-Options": "nosniff",
             "Content-Security-Policy": "default-src 'none'",
+            **CROSS_ORIGIN,
         },
     )

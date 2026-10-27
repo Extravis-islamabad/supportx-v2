@@ -142,6 +142,8 @@ async def test_a_logo_makes_every_variant_served_publicly_and_cached(
     assert image.status_code == 200, image.text
     assert image.headers["content-type"] == "image/png"
     assert "immutable" in image.headers["cache-control"]
+    # Loaded by the sign-in page (another origin) and mail clients.
+    assert image.headers["cross-origin-resource-policy"] == "cross-origin"
     assert Image.open(io.BytesIO(image.content)).height <= 240
     favicon = await world.client.get(logos["favicon"])
     assert favicon.headers["content-type"] == "image/x-icon"
@@ -153,6 +155,7 @@ async def test_a_logo_makes_every_variant_served_publicly_and_cached(
     css = await world.client.get(f"/api/v1/public/branding/{slug}/login.css")
     assert css.status_code == 200, css.text
     assert css.headers["content-type"].startswith("text/css")
+    assert css.headers["cross-origin-resource-policy"] == "cross-origin"
     assert "--pf-v5-global--primary-color--100: #0b5394;" in css.text
     assert logos["full"] in css.text
 
