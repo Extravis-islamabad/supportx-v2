@@ -27,6 +27,10 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   deploy left it;
 - a realm still on the password policy SupportX shipped before WP-039 gets the new default
   (Appendix A, with the breached list); a policy anyone chose is never touched;
+- likewise a realm still on the lock-out SupportX shipped before WP-039 session 3 gets the new
+  one (REQ-SEC-005 AC2, D-104): 5 failures, then 15 minutes, 15 more for each failure after
+  that, at most an hour; failures remembered 12 hours. Keycloak cannot double the wait
+  (measured on 26.8.1), so it grows in equal steps;
 - the user profile declares the attributes single sign-on brings (department and site, read by
   SupportX at a person's first sign-in, REQ-SEC-007 AC3): Keycloak 26 drops undeclared ones.
   Only admins see or change them; the realm's other attributes are kept as they are.
@@ -64,6 +68,16 @@ CLIENT_ID = "supportx-identity"
 ROLES = ("manage-users", "manage-identity-providers", "manage-organizations", "view-events")
 REALM_CLIENT_ID = "supportx-realm"
 REALM_ROLES = ("manage-realm",)  # the password policy; held by the consumers worker only
+# Lock-out (REQ-SEC-005 AC2, D-104), and what the realm import shipped before WP-039 session 3.
+LOCKOUT = {
+    "bruteForceProtected": True,
+    "bruteForceStrategy": "LINEAR",
+    "failureFactor": 5,
+    "waitIncrementSeconds": 900,
+    "maxFailureWaitSeconds": 3600,
+    "maxDeltaTimeSeconds": 43200,
+}
+OLD_LOCKOUT = {"waitIncrementSeconds": 60, "maxFailureWaitSeconds": 900, "failureFactor": 5}
 # What the realm import shipped before WP-039 session 2 (Keycloak stores it this way).
 OLD_DEFAULT_POLICY = (
     "length(12) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1)"
@@ -374,6 +388,20 @@ async def _upgrade_password_policy(
     return ["password policy: the new default (breached list on)"]
 
 
+async def _upgrade_lockout(
+    client: httpx.AsyncClient, headers: dict[str, str], realm: str
+) -> list[str]:
+    """The old shipped lock-out becomes the new one; values anyone chose are kept."""
+    path = f"/admin/realms/{realm}"
+    current = await client.get(path, headers=headers)
+    current.raise_for_status()
+    found = current.json()
+    if any(found.get(key) != value for key, value in OLD_LOCKOUT.items()):
+        return []
+    (await client.put(path, headers=headers, json=LOCKOUT)).raise_for_status()
+    return ["lock-out: 15 minutes, growing, at most an hour"]
+
+
 async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Result:
     """Everything in the module docstring, idempotent."""
     token = await admin_token(client, target.user, target.password)
@@ -388,6 +416,7 @@ async def ensure_identity_admin(client: httpx.AsyncClient, target: Target) -> Re
     changes += await _ensure_roles(client, headers, target.realm, internal)
     changes += await _ensure_realm_client(client, headers, target.realm, target.realm_secret)
     changes += await _upgrade_password_policy(client, headers, target.realm)
+    changes += await _upgrade_lockout(client, headers, target.realm)
     changes += await _ensure_events(client, headers, target.realm)
     changes += await _ensure_sso_session(client, headers, target.realm)
     changes += await _ensure_user_profile(client, headers, target.realm)

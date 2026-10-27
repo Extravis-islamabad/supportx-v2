@@ -9,6 +9,7 @@ import pytest
 from tooling.keycloak_identity import (
     CLIENT_ID,
     EVENT_TYPES,
+    LOCKOUT,
     OLD_DEFAULT_POLICY,
     PROFILE_ATTRIBUTES,
     REALM_CLIENT_ID,
@@ -258,3 +259,20 @@ async def test_only_the_old_shipped_password_policy_is_upgraded() -> None:
     keycloak.realm["passwordPolicy"] = chosen
     await _run(keycloak)
     assert keycloak.realm["passwordPolicy"] == chosen
+
+
+async def test_only_the_old_shipped_lock_out_is_upgraded() -> None:
+    """REQ-SEC-005 AC2 (D-104): 15 minutes, growing in equal steps, at most an hour."""
+    keycloak = FakeKeycloak()
+    assert keycloak.realm is not None
+    keycloak.realm.update(
+        {"failureFactor": 5, "waitIncrementSeconds": 60, "maxFailureWaitSeconds": 900}
+    )
+    result = await _run(keycloak)
+    assert "lock-out: 15 minutes, growing, at most an hour" in result.changes
+    assert {key: keycloak.realm[key] for key in LOCKOUT} == LOCKOUT
+    keycloak.realm["waitIncrementSeconds"] = 300  # an operator's own choice
+    keycloak.writes.clear()
+    await _run(keycloak)
+    assert keycloak.realm["waitIncrementSeconds"] == 300
+    assert keycloak.writes == []
