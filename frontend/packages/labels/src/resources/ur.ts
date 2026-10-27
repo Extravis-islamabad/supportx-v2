@@ -1898,6 +1898,149 @@ export const ur: LabelResource = {
   'access_settings.banner':
     'جب تک آپ انتخاب نہ کریں، ٹیکنیشن اپنے گروپوں کے، اپنے، اور اپنی سائٹس کے نئے غیر تفویض ریکارڈ دیکھتے ہیں۔',
   'access_settings.choose': 'منتخب کریں',
+  // Reports (WP-035)
+  'report_chart.bar': 'بار',
+  'report_chart.stacked_bar': 'اسٹیکڈ بار',
+  'report_chart.line': 'لائن',
+  'report_chart.area': 'ایریا',
+  'report_chart.doughnut': 'ڈونٹ',
+  'report_chart.gauge': 'گیج',
+  'report_chart.kpi': 'کلیدی عدد',
+  'report_chart.table': 'جدول',
+  'report_bucket.day': 'دن کے مطابق',
+  'report_bucket.week': 'ہفتے کے مطابق',
+  'report_bucket.month': 'مہینے کے مطابق',
+  'report_bucket.quarter': 'سہ ماہی کے مطابق',
+  'report_bucket.year': 'سال کے مطابق',
+  'report_bucket.age': 'عمر کے مطابق',
+  'report_order.key': 'فطری ترتیب میں',
+  'report_order.value_desc': 'سب سے بڑا پہلے',
+  'report_order.value_asc': 'سب سے چھوٹا پہلے',
+  'errors.invalid_report': 'یہ رپورٹ اس حالت میں نہیں چل سکتی۔ نمایاں حصے چیک کریں۔',
+  'errors.report_timeout':
+    'رپورٹ {{seconds}} سیکنڈ سے زیادہ لے گئی اور روک دی گئی۔ تاریخ کی حد یا فلٹر محدود کریں اور دوبارہ کوشش کریں۔',
+  'errors.report_queue_full':
+    'آپ کی تنظیم اس وقت بہت سی رپورٹس چلا رہی ہے۔ چند سیکنڈ بعد دوبارہ کوشش کریں۔',
+  'errors.report_not_found': 'یہ رپورٹ موجود نہیں یا آپ کے ساتھ شیئر نہیں کی گئی۔',
+  'errors.report_entity_not_found': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
+  'errors.report_not_allowed': 'آپ کو ان ریکارڈز پر رپورٹس چلانے کی اجازت نہیں۔',
+  'errors.report_not_editable':
+    'اس رپورٹ کو صرف اس کا مالک یا مشترکہ فولڈرز کا منتظم بدل سکتا ہے۔ اپنی نقل بنانے کے لیے اسے کاپی کریں۔',
+  'errors.too_many_favourites': 'آپ زیادہ سے زیادہ {{max}} رپورٹس کو ستارہ لگا سکتے ہیں۔',
+  'errors.field.unknown_dimension': 'رپورٹس کو اس فیلڈ کے مطابق گروپ نہیں کیا جا سکتا۔',
+  'errors.field.duplicate_dimension': 'یہ گروپ بندی پہلے سے استعمال میں ہے۔',
+  'errors.field.dimension_not_groupable':
+    'متعدد انتخاب والی فیلڈز ابھی گروپ بندی کے لیے استعمال نہیں ہو سکتیں۔',
+  'errors.field.bucket_required':
+    'تاریخوں کو گروپ کرنے کا طریقہ منتخب کریں: دن، ہفتہ، مہینہ، سہ ماہی، سال یا عمر۔',
+  'errors.field.bucket_not_allowed':
+    'صرف تاریخ والی فیلڈز کو دن، ہفتے یا مہینے کے مطابق گروپ کیا جا سکتا ہے۔',
+  'errors.field.unknown_measure': 'یہ پیمانہ ان ریکارڈز کے لیے دستیاب نہیں۔',
+  'errors.field.duplicate_measure': 'ہر پیمانہ ایک ہی بار استعمال ہو سکتا ہے۔',
+  'errors.field.measure_not_available': 'یہ پیمانہ ابھی دستیاب نہیں۔',
+  'errors.field.unknown_entity': 'اس قسم کی کوئی چیز رپورٹ کے لیے موجود نہیں۔',
+  'errors.field.unknown_folder': 'یہ فولڈر اب موجود نہیں۔',
+  'errors.field.unknown_builtin_report': 'یہ بلٹ اِن رپورٹ موجود نہیں۔',
+  'errors.field.same_folder': 'اس کی رپورٹس کے لیے کوئی دوسرا فولڈر منتخب کریں۔',
+  'permission.reports.create': 'رپورٹس بنائیں',
+  'permission.reports.create.description':
+    'رپورٹس اور بلٹ اِن رپورٹس کی نقول محفوظ کریں اور اپنی رپورٹس بدلیں۔',
+  'permission.reports.manage_folders': 'مشترکہ رپورٹ فولڈرز کا انتظام',
+  'permission.reports.manage_folders.description':
+    'مشترکہ فولڈرز بنائیں، نام بدلیں اور حذف کریں، اور ان میں کوئی بھی رپورٹ بدلیں۔',
+  'event_type.analytics.report.saved': 'رپورٹ محفوظ ہو گئی',
+  'event_type.analytics.report.deleted': 'رپورٹ حذف ہو گئی',
+  'event_type.analytics.report_folder.saved': 'رپورٹ فولڈر محفوظ ہو گیا',
+  'event_type.analytics.report_folder.deleted': 'رپورٹ فولڈر حذف ہو گیا',
+  'report_folder.incidents': 'واقعات',
+  'age_bucket.under_1_day': '1 دن سے کم',
+  'age_bucket.1_to_3_days': '1 سے 3 دن',
+  'age_bucket.3_to_7_days': '3 سے 7 دن',
+  'age_bucket.7_to_30_days': '7 سے 30 دن',
+  'age_bucket.over_30_days': '30 دن سے زیادہ',
+  'measure.incident.count': 'واقعات',
+  'measure.incident.count.help': 'ہر وہ واقعہ جو فلٹرز سے ملتا ہو اور جسے آپ دیکھ سکتے ہوں۔',
+  'measure.incident.open_count': 'کھلے واقعات',
+  'measure.incident.open_count.help':
+    'کھلے یا انتظار والے واقعات: جو ابھی حل، بند یا منسوخ نہیں ہوئے۔',
+  'measure.incident.unassigned_open_count': 'غیر تفویض شدہ کھلے واقعات',
+  'measure.incident.unassigned_open_count.help':
+    'کھلے یا انتظار والے واقعات جن کا نہ کوئی گروپ ہے نہ ٹیکنیشن۔',
+  'measure.incident.resolved_count': 'حل شدہ واقعات',
+  'measure.incident.resolved_count.help':
+    'وہ واقعات جو حل ہو چکے ہیں، بشمول بعد میں بند ہونے والے۔',
+  'measure.incident.mean_time_to_assign': 'تفویض کا اوسط وقت',
+  'measure.incident.mean_time_to_assign.help':
+    'بنانے سے پہلی تفویض تک کا اوسط کیلنڈر وقت، صرف تفویض شدہ واقعات پر۔',
+  'measure.incident.mean_time_to_respond': 'جواب کا اوسط وقت',
+  'measure.incident.mean_time_to_respond.help':
+    'بنانے سے پہلے جواب تک کا اوسط کیلنڈر وقت، انتظار کا وقت نکال کر، صرف جواب والے واقعات پر۔',
+  'measure.incident.mean_time_to_resolve': 'حل کا اوسط وقت',
+  'measure.incident.mean_time_to_resolve.help':
+    'بنانے سے حل تک کا اوسط کیلنڈر وقت، انتظار کا وقت نکال کر، صرف حل شدہ واقعات پر۔',
+  'measure.incident.reopen_rate': 'دوبارہ کھلنے کی شرح',
+  'measure.incident.reopen_rate.help': 'ان واقعات کا تناسب جو کم از کم ایک بار دوبارہ کھولے گئے۔',
+  'measure.incident.reassigned_count': 'دوبارہ تفویض شدہ واقعات',
+  'measure.incident.reassigned_count.help':
+    'وہ واقعات جو کم از کم ایک بار کسی دوسرے گروپ یا ٹیکنیشن کو منتقل ہوئے۔',
+  'measure.incident.average_reassignments': 'دوبارہ تفویض کی اوسط تعداد',
+  'measure.incident.average_reassignments.help':
+    'کسی واقعے کے دوسرے گروپ یا ٹیکنیشن کو منتقل ہونے کی اوسط تعداد۔',
+  'report.incidents_all': 'تمام واقعات',
+  'report.incidents_all.description': 'مدت میں بننے والا ہر واقعہ، حیثیت کے مطابق۔',
+  'report.incidents_by_status': 'حیثیت کے مطابق واقعات',
+  'report.incidents_by_status.description': 'مدت میں بننے والے واقعات، موجودہ حیثیت کے مطابق۔',
+  'report.incidents_open_by_status': 'حیثیت کے مطابق کھلے واقعات',
+  'report.incidents_open_by_status.description':
+    'جو واقعات ابھی حل، بند یا منسوخ نہیں ہوئے، حیثیت کے مطابق۔',
+  'report.incidents_open_by_priority': 'ترجیح کے مطابق کھلے واقعات',
+  'report.incidents_open_by_priority.description': 'کھلے اور انتظار والے واقعات، ترجیح کے مطابق۔',
+  'report.incidents_open_by_category': 'زمرے کے مطابق کھلے واقعات',
+  'report.incidents_open_by_category.description': 'کھلے اور انتظار والے واقعات، زمرے کے مطابق۔',
+  'report.incidents_open_by_group': 'گروپ کے مطابق کھلے واقعات',
+  'report.incidents_open_by_group.description': 'کھلے اور انتظار والے واقعات، سپورٹ گروپ کے مطابق۔',
+  'report.incidents_open_by_technician': 'ٹیکنیشن کے مطابق کھلے واقعات',
+  'report.incidents_open_by_technician.description':
+    'کھلے اور انتظار والے واقعات، تفویض شدہ ٹیکنیشن کے مطابق۔',
+  'report.incidents_open_by_site': 'سائٹ کے مطابق کھلے واقعات',
+  'report.incidents_open_by_site.description': 'کھلے اور انتظار والے واقعات، سائٹ کے مطابق۔',
+  'report.incidents_open_by_department': 'شعبے کے مطابق کھلے واقعات',
+  'report.incidents_open_by_department.description': 'کھلے اور انتظار والے واقعات، شعبے کے مطابق۔',
+  'report.incidents_open_by_requester': 'درخواست گزار کے مطابق کھلے واقعات',
+  'report.incidents_open_by_requester.description':
+    'کھلے اور انتظار والے واقعات، درخواست گزار کے مطابق۔',
+  'report.incidents_open_by_channel': 'چینل کے مطابق کھلے واقعات',
+  'report.incidents_open_by_channel.description':
+    'کھلے اور انتظار والے واقعات، آنے کے ذریعے کے مطابق۔',
+  'report.incidents_open_by_level': 'سطح کے مطابق کھلے واقعات',
+  'report.incidents_open_by_level.description': 'کھلے اور انتظار والے واقعات، سپورٹ سطح کے مطابق۔',
+  'report.incidents_received_per_day': 'روزانہ موصول واقعات',
+  'report.incidents_received_per_day.description': 'ہر دن نئے واقعات۔',
+  'report.incidents_received_per_week': 'ہفتہ وار موصول واقعات',
+  'report.incidents_received_per_week.description': 'چھ ماہ میں ہر ہفتے نئے واقعات۔',
+  'report.incidents_received_per_month': 'ماہانہ موصول واقعات',
+  'report.incidents_received_per_month.description': 'ایک سال میں ہر مہینے نئے واقعات۔',
+  'report.incidents_resolved_per_day': 'روزانہ حل شدہ واقعات',
+  'report.incidents_resolved_per_day.description': 'ہر دن حل ہونے والے واقعات۔',
+  'report.incidents_open_ageing': 'کھلے واقعات کی عمر',
+  'report.incidents_open_ageing.description': 'کھلے اور انتظار والے واقعات کتنے عرصے سے کھلے ہیں۔',
+  'report.incidents_unassigned_by_site': 'سائٹ کے مطابق غیر تفویض شدہ واقعات',
+  'report.incidents_unassigned_by_site.description':
+    'بغیر گروپ اور ٹیکنیشن کے کھلے واقعات، سائٹ کے مطابق: ہر سائٹ کی نئی ٹکٹوں کی قطار۔',
+  'report.incidents_reassignments_by_group': 'گروپ کے مطابق دوبارہ تفویض',
+  'report.incidents_reassignments_by_group.description':
+    'واقعات کتنی بار منتقل ہوئے، موجودہ گروپ کے مطابق۔',
+  'report.incidents_reassignments_by_technician': 'ٹیکنیشن کے مطابق دوبارہ تفویض',
+  'report.incidents_reassignments_by_technician.description':
+    'واقعات کتنی بار منتقل ہوئے، موجودہ ٹیکنیشن کے مطابق۔',
+  'report.incidents_response_time_by_group': 'گروپ کے مطابق جواب کا وقت',
+  'report.incidents_response_time_by_group.description': 'پہلے جواب تک اوسط وقت، گروپ کے مطابق۔',
+  'report.incidents_response_time_by_priority': 'ترجیح کے مطابق جواب کا وقت',
+  'report.incidents_response_time_by_priority.description':
+    'پہلے جواب تک اوسط وقت، ترجیح کے مطابق۔',
+  'report.incidents_resolution_time_by_priority': 'ترجیح کے مطابق حل کا وقت',
+  'report.incidents_resolution_time_by_priority.description':
+    'مدت میں حل شدہ واقعات کا اوسط حل کا وقت، ترجیح کے مطابق۔',
   // WP-039 identity: sign-in settings and single sign-on
   'permission.identity.manage': 'سائن اِن اور سیکیورٹی کا انتظام',
   'permission.identity.manage.description':
