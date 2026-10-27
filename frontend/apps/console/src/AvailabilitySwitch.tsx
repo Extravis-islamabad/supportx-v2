@@ -11,8 +11,9 @@ export function AvailabilitySwitch({ userId }: { userId: string }) {
   const t = useLabel();
   const current = useAvailability([userId]);
   const set = useSetAvailability();
-  // Narrow screens: no words inside the switch, so the header never scrolls sideways.
-  const wide = Grid.useBreakpoint().md === true;
+  // Below 1200 px: no words inside the switch, so the header never scrolls sideways (the top
+  // layout's menu takes the room up to there; stack smoke at 768 px).
+  const wide = Grid.useBreakpoint().xl === true;
   const state = current.data?.find((a) => a.user_id === userId)?.state ?? 'available';
   return (
     <Tooltip title={t('automation.availability.help')}>
