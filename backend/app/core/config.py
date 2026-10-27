@@ -65,6 +65,18 @@ class Settings(BaseSettings):
     db_max_overflow: int = Field(default=10, ge=0, le=200)
     db_pool_timeout_seconds: float = Field(default=10.0, gt=0, le=120)
 
+    # Reporting (WP-035, ADR-033). Reports run as supportx_app switched to the read-only
+    # supportx_report role, on their own small pool so a burst of reports can never take the
+    # connections incident saves need. `reporting_database_url` points the pool at a read replica
+    # (HA profiles: CloudNativePG's `-ro` service); unset, it uses `database_url` (single node).
+    reporting_database_url: SecretStr | None = None
+    reporting_pool_size: int = Field(default=4, ge=1, le=50)
+    reporting_max_overflow: int = Field(default=2, ge=0, le=50)
+    # Platform maximums (parity file 09, Appendix A); tenants may set lower values.
+    report_interactive_timeout_seconds: float = Field(default=30.0, gt=0, le=60)
+    report_background_timeout_seconds: float = Field(default=900.0, gt=0, le=3600)
+    report_concurrent_per_tenant: int = Field(default=5, ge=1, le=50)
+
     # Authentication (WP-006): OIDC against Keycloak through the BFF (architecture.md §11.1).
     # The issuer is the realm URL, e.g. http://localhost:28080/realms/supportx.
     oidc_issuer: str | None = None

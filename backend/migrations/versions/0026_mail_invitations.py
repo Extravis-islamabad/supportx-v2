@@ -10,7 +10,7 @@
 All tenant-scoped with RLS. Reversible.
 
 Revision ID: 0026
-Revises: 0024
+Revises: 0027
 Created: 2026-10-27
 """
 
@@ -23,7 +23,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0026"
-down_revision: str | None = "0024"
+down_revision: str | None = "0027"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

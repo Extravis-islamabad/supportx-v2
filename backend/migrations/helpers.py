@@ -13,6 +13,8 @@ from app.shared.db.rls import (
     actor_audit_statements,
     app_grant_statements,
     drop_tenant_rls_statements,
+    report_grant_statements,
+    report_revoke_statements,
     tenant_rls_statements,
 )
 
@@ -41,4 +43,16 @@ def enable_actor_audit(table: str) -> None:
 def grant_app(table: str, privileges: tuple[str, ...] = APP_DML_PRIVILEGES) -> None:
     """Give supportx_app exactly `privileges` on `table` (never TRUNCATE)."""
     for statement in app_grant_statements(table, privileges):
+        op.execute(statement)
+
+
+def grant_report(table: str) -> None:
+    """Let supportx_report read `table` (WP-035, ADR-033): tables a reporting source reads."""
+    for statement in report_grant_statements(table):
+        op.execute(statement)
+
+
+def revoke_report(table: str) -> None:
+    """Reverse of `grant_report` (downgrades)."""
+    for statement in report_revoke_statements(table):
         op.execute(statement)
