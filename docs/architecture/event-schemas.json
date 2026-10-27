@@ -707,6 +707,25 @@
         "type": "object"
       }
     },
+    "identity_access.identity_settings.changed": {
+      "1": {
+        "description": "The tenant's sign-in settings changed (WP-039): sessions, people creation.",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "IdentitySettingsChanged",
+        "type": "object"
+      }
+    },
     "identity_access.people_import.progressed": {
       "1": {
         "description": "A people import moved on (WP-021): counts only, for the live progress bar.",
@@ -803,6 +822,41 @@
           "client"
         ],
         "title": "SessionTenantSwitched",
+        "type": "object"
+      }
+    },
+    "identity_access.sso_provider.changed": {
+      "1": {
+        "description": "A single sign-on set-up was added, changed, tested, switched on or off, or removed.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "updated",
+              "tested",
+              "switched_on",
+              "switched_off",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "draft",
+              "tested",
+              "on",
+              "off"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "change",
+          "state"
+        ],
+        "title": "SsoProviderChanged",
         "type": "object"
       }
     },

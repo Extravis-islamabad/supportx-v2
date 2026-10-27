@@ -6,7 +6,7 @@
   (WP-014 = part 1 of 4; 014b-d are planned below).
 - **Last completed:** WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
   2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
-  Lane B: WP-017-FIX (D-093, ADR-031 accepted), then WP-039 (identity; D-089) next.
+  Lane B: WP-017-FIX (D-093, ADR-031 accepted, merged); WP-039 session 1 of 3 (D-094, ADR-036).
 - **Next work package:** WP-021 QA (~/Desktop/qa-wp021/), then WP-029 (business rules,
   routing; needs WP-026) on the critical path; WP-020d..020f, WP-022..028.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
@@ -532,6 +532,32 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   AC2) needs WP-039 SSO.
 - **Depends on:** WP-010, WP-014, WP-016
 
+### [ ] WP-039 — Identity: SSO, MFA, invitations, sessions, my account (lane B; D-089, D-094; ADR-036; session 1 of 3 done 2026-10-27)
+Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
+- [x] Session 1 — foundations and SSO:
+  - service account `supportx-identity` (least privilege, verified on 26.8.1) and its upgrade
+    step (chart Job, `make keycloak-identity`, stack-smoke); admin API client;
+  - `identity_settings` (migration 0024): console and portal session limits per tenant
+    (REQ-SEC-029), people creation on first sign-in (REQ-SEC-013); `prompt=login` after a
+    timed-out session;
+  - REQ-SEC-031 (deactivation): sessions end and live connections close at once;
+  - single sign-on (REQ-SEC-007, 008): Entra ID, Okta, Google, any OIDC, SAML 2.0; connection
+    check on save; test in a private window; switch on and off; email domains routed on the
+    tenant's organization (Keycloak 26.8 domain routing); department and site from SSO on first
+    sign-in (D-089 D6);
+  - Admin › Sign-in and security, live, en/ar/ur, axe clean in three themes.
+- [ ] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
+  reset (SEC-006), installation password policy and breached list (D1 c, D2; SEC-005), rate
+  limits (SEC-035).
+- [ ] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
+  warning and kept drafts (SEC-029 UI), the "everything through SupportX" e2e (SEC-017),
+  Security administrator role (D7).
+- **Domain proof (D-098):** multi-tenant installations refuse SSO routing for unverified domains
+  (guard built); the DNS TXT proof itself is WP-014d's. Session 2 also fixes the audit-integrity
+  banner's axe failure (failing test first). OIDC is checked
+  end to end by hand against Keycloak as the customer's provider; CI runs the SAML journey (in
+  Compose, Keycloak cannot call itself on the browser's address, which OIDC would need).
+
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first
 (Vitest `admin/branding/branding.test.tsx` "WP-017-FIX", `tests/test_keycloak_theme.py`, the
@@ -784,6 +810,23 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   per-test key prefixes.
 - Lane B told: WP-039 mail templates and WP-023 notifications use `app.shared.labels.label()`;
   scheduled reports need attachments, per-message language and `mail_configured()`.
+### 2026-10-27 — WP-039 session 1: service account, sessions, single sign-on (lane B)
+
+- Built in `../supportx-v2-wp039` (branch `feat/wp-039-identity`), migration 0024 after lane
+  A's 0023, D-094 and ADR-036 (numbers agreed with lane A).
+- Proved on a throwaway Keycloak 26.8.1 before building: the least-privileged roles; that
+  organization domain routing moved onto the organization's domains in 26.8 (the old
+  `kc.org.*` provider settings are dropped); that Keycloak refuses a second person in a browser
+  signed in as someone else (`different_user_authenticated`, after creating their account), so the
+  test runs in a private window; that a SAML signature failure leaves no login event; that
+  Keycloak answers `unauthorized_client` for both a right and a wrong secret, telling them apart
+  only in its description; that undeclared user attributes are dropped (user profile).
+- Checked end to end against that Keycloak with a second realm as the customer's provider, both
+  OIDC and SAML, through the screens: wrong secret refused at the field, draft, test in a private
+  window, switch on, a person of the domain sent straight to the provider and created in Demo
+  Company with their department; a wrong SAML certificate fails and the set-up stays off.
+- Pre-existing, not changed: the audit-integrity banner's link fails axe `link-in-text-block`
+  when that banner shows (WP-018 banner); noted here for a fix.
 
 ### 2026-10-27 — WP-017-FIX and ADR-031 (lane B)
 
@@ -795,7 +838,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   throwaway Keycloak 26.8.1 (name shown, markup escaped, axe clean in four variants).
 - Housekeeping with lane A's OK: the 8 QA uploads purged (files service purge, audited
   `file.purged`), the shared Keycloak container recreated (`--no-deps keycloak`). Numbers agreed:
-  D-093/D-094, ADR-033 and migration 0024 for lane B; D-095 for lane A.
+  D-093/D-094, ADR-036 and migration 0024 for lane B; D-095 for lane A.
 
 ### 2026-10-27 — WP-026-FIX merged; WP-021 people and organisation (lane A)
 

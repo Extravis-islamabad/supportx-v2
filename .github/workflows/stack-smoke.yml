@@ -73,6 +73,9 @@ jobs:
           done
           docker exec clamav clamdcheck.sh
       - uses: ./.github/actions/setup-backend
+      # The service account SupportX manages SSO and sessions with (WP-039, ADR-036); needs uv.
+      - name: Keycloak identity service account
+        run: make keycloak-identity
       - uses: ./.github/actions/setup-frontend
       - name: Configure, migrate and seed the dev database; RLS guard
         run: make backend-env db-migrate db-seed db-guard

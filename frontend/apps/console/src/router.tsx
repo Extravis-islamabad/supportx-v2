@@ -146,6 +146,12 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/admin/branding/BrandingPage')).BrandingPage,
             }),
           },
+          {
+            path: 'security',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/security/SecurityPage')).SecurityPage,
+            }),
+          },
         ],
       },
       {

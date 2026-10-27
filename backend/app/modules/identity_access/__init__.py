@@ -25,10 +25,12 @@ from app.core.authorization import (
     register_access_invalidator,
     unregister_access_invalidator,
 )
+from app.core.logging import get_logger
 from app.core.modules import ModuleRegistry, ModuleSpec
 from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
+from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
 from app.modules.identity_access.api.routes import router as users_router
@@ -44,6 +46,7 @@ from app.modules.identity_access.domain.permissions import (
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import EVENTS
 from app.modules.identity_access.infra.crypto import SessionCipher
+from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
 from app.modules.identity_access.service import directory
@@ -78,7 +81,16 @@ from app.modules.identity_access.service.users import count_technicians
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
 from app.shared.clock import system_clock
+from app.shared.realtime import (
+    CENTRIFUGO_STATE,
+    SESSION_ENDED,
+    CentrifugoClient,
+    CentrifugoError,
+    realtime_user,
+)
 from app.shared.schedules import ScheduleSpec
+
+log = get_logger(__name__)
 
 if TYPE_CHECKING:
     from app.core.config import Settings
@@ -129,6 +141,8 @@ async def _startup(app: FastAPI) -> None:
     settings: Settings = app.state.settings
     _start_policy(app, settings)
     app.state.auth = None
+    # Keycloak's admin API as the identity service account (WP-039); None until it is set up.
+    app.state.identity_admin = KeycloakAdmin.from_settings(settings)
     if not settings.auth_configured:
         return
     if (
@@ -151,6 +165,21 @@ async def _startup(app: FastAPI) -> None:
     )
     if app.state.policy is not None:
         service.on_roles_mapped = app.state.policy.invalidate
+
+    async def end_realtime(tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+        # Looked up per call: the realtime client is set up by its own startup (best effort).
+        client: CentrifugoClient | None = getattr(app.state, CENTRIFUGO_STATE, None)
+        if client is None:
+            return
+        try:
+            await client.disconnect(
+                realtime_user(tenant_id, user_id), SESSION_ENDED, "access ended"
+            )
+        except CentrifugoError:
+            log.warning("realtime_disconnect_failed", exc_info=True)
+
+    service.end_realtime = end_realtime
+    service.identity_admin = app.state.identity_admin
     app.state.auth = service
     app.state.auth_clients = (http, kv)
     setattr(app.state, SESSION_RESOLVER_STATE, service.resolve)
@@ -163,6 +192,9 @@ async def _shutdown(app: FastAPI) -> None:
     policy_client = getattr(app.state, "policy_client", None)
     if policy_client is not None:
         await policy_client.aclose()
+    identity_admin = getattr(app.state, "identity_admin", None)
+    if identity_admin is not None:
+        await identity_admin.close()
     clients = getattr(app.state, "auth_clients", None)
     if clients is not None:
         http, kv = clients
@@ -179,6 +211,7 @@ module = ModuleSpec(
         imports_router,
         access_router,
         access_settings_router,
+        identity_router,
         realtime_router,
     ],
     on_startup=[_startup],

@@ -2129,4 +2129,192 @@ export const ur: LabelResource = {
   'report.incidents_resolution_time_by_priority': 'ترجیح کے مطابق حل کا وقت',
   'report.incidents_resolution_time_by_priority.description':
     'مدت میں حل شدہ واقعات کا اوسط حل کا وقت، ترجیح کے مطابق۔',
+  // WP-039 identity: sign-in settings and single sign-on
+  'permission.identity.manage': 'سائن اِن اور سیکیورٹی کا انتظام',
+  'permission.identity.manage.description':
+    'سنگل سائن آن، سیشن کی مہلتیں اور پہلی بار سائن اِن کرنے والوں کی ترتیب۔',
+  'permission_module.identity': 'سائن اِن اور سیکیورٹی',
+  'event_type.identity_access.identity_settings.changed': 'سائن اِن کی ترتیبات بدلیں',
+  'event_type.identity_access.sso_provider.changed': 'سنگل سائن آن کا سیٹ اپ بدلا',
+  'audit.action.identity.settings_changed': 'سائن اِن کی ترتیبات بدلیں',
+  'audit.action.sso.added': 'سنگل سائن آن کا سیٹ اپ شامل کیا',
+  'audit.action.sso.updated': 'سنگل سائن آن کا سیٹ اپ بدلا',
+  'audit.action.sso.tested': 'سنگل سائن آن کا سیٹ اپ آزمایا',
+  'audit.action.sso.switched_on': 'سنگل سائن آن چالو کیا',
+  'audit.action.sso.switched_off': 'سنگل سائن آن بند کیا',
+  'audit.action.sso.removed': 'سنگل سائن آن کا سیٹ اپ ہٹایا',
+  'errors.sign_in_unknown_person':
+    'آپ کی تنظیم نے ابھی آپ کو SupportX میں شامل نہیں کیا۔ رسائی کے لیے اپنے سروس ڈیسک سے رابطہ کریں۔',
+  'errors.identity_admin_not_configured':
+    'اس انسٹالیشن پر سائن اِن کی ترتیبات ابھی تیار نہیں۔ اپنے ایڈمنسٹریٹر سے شناخت کے سیٹ اپ کا مرحلہ چلانے کو کہیں۔',
+  'errors.identity_admin_unavailable':
+    'سائن اِن کی سروس سے ابھی رابطہ نہیں ہو پا رہا۔ تھوڑی دیر میں دوبارہ کوشش کریں۔',
+  'errors.identity_organization_missing':
+    'آپ کی تنظیم ابھی سائن اِن کے لیے تیار نہیں۔ اپنے ایڈمنسٹریٹر سے پوچھیں۔',
+  'errors.sso_not_tested': 'چالو کرنے سے پہلے سیٹ اپ کو ایک سائن اِن سے آزمائیں۔',
+  'errors.sso_provider_limit': 'آپ زیادہ سے زیادہ {{max}} سنگل سائن آن سیٹ اپ رکھ سکتے ہیں۔',
+  'errors.sso_provider_missing':
+    'یہ سیٹ اپ سائن اِن کی سروس میں موجود نہیں۔ اسے ہٹا کر دوبارہ شامل کریں۔',
+  'errors.sso_provider_not_found': 'یہ سنگل سائن آن سیٹ اپ نہیں ملا۔',
+  'errors.sso_provider_refused':
+    'سائن اِن کی سروس نے یہ ترتیبات قبول نہیں کیں۔ انہیں جانچ کر دوبارہ کوشش کریں۔',
+  'errors.sso_switch_off_first':
+    'رابطے کا طریقہ بدلنے سے پہلے سیٹ اپ بند کریں، تاکہ کوئی باہر نہ رہ جائے۔',
+  'errors.sso_switched_off': 'آزمانے سے پہلے سیٹ اپ چالو کریں یا اسے بدلیں۔',
+  'errors.sso_test_not_found': 'یہ آزمائش ختم ہو گئی۔ نئی شروع کریں۔',
+  'errors.field.session_idle_out_of_range': '{{min}} سے {{max}} منٹ کے درمیان رکھیں۔',
+  'errors.field.session_absolute_out_of_range':
+    'کم از کم غیرفعالی کی مہلت جتنا اور زیادہ سے زیادہ {{max}} گھنٹے رکھیں۔',
+  'errors.field.sso_certificate_expired':
+    'سرٹیفکیٹ کی میعاد ختم ہو چکی ہے۔ شناخت فراہم کنندہ سے نیا لیں۔',
+  'errors.field.sso_certificate_missing': 'میٹا ڈیٹا میں دستخطی سرٹیفکیٹ نہیں ہے۔',
+  'errors.field.sso_certificate_required': 'شناخت فراہم کنندہ کا دستخطی سرٹیفکیٹ چسپاں کریں۔',
+  'errors.field.sso_certificate_unreadable':
+    'سرٹیفکیٹ پڑھا نہیں جا سکا: اسے PEM صورت میں چسپاں کریں۔',
+  'errors.field.sso_client_id_required': 'کلائنٹ آئی ڈی درج کریں۔',
+  'errors.field.sso_client_rejected':
+    'شناخت فراہم کنندہ نے یہ کلائنٹ آئی ڈی اور سیکرٹ قبول نہیں کیے۔',
+  'errors.field.sso_client_secret_required': 'کلائنٹ سیکرٹ درج کریں۔',
+  'errors.field.sso_discovery_invalid': 'یہ پتا OpenID Connect جاری کنندہ کی طرح جواب نہیں دیتا۔',
+  'errors.field.sso_discovery_unreachable': 'SupportX اس جاری کنندہ تک نہیں پہنچ سکا۔ پتا جانچیں۔',
+  'errors.field.sso_domain_invalid': '{{domain}} ڈومین کا نام نہیں، جیسے example.com۔',
+  'errors.field.sso_domain_public':
+    '{{domain}} عوامی میل سروس ہے اور سنگل سائن آن کے لیے استعمال نہیں ہو سکتی۔',
+  'errors.field.sso_domain_required': 'کم از کم ایک ای میل ڈومین شامل کریں۔',
+  'errors.field.sso_domain_taken': 'ان میں سے ایک ڈومین کسی اور تنظیم کے پاس ہے۔',
+  'errors.field.sso_domains_too_many': 'زیادہ سے زیادہ {{max}} ڈومین رکھیں۔',
+  'errors.field.sso_issuer_mismatch':
+    'یہ پتا کسی اور جاری کنندہ کا نام دیتا ہے۔ جاری کنندہ کا عین پتا استعمال کریں۔',
+  'errors.field.sso_issuer_required': 'جاری کنندہ کا پتا درج کریں۔',
+  'errors.field.sso_metadata_required':
+    'میٹا ڈیٹا اپ لوڈ کریں، اس کا پتا دیں، یا سائن اِن کا پتا بھریں۔',
+  'errors.field.sso_metadata_unreachable': 'SupportX اس پتے سے میٹا ڈیٹا نہیں لا سکا۔',
+  'errors.field.sso_metadata_unreadable': 'یہ فائل قابلِ مطالعہ SAML میٹا ڈیٹا نہیں۔',
+  'errors.field.sso_name_length': '1 سے {{max}} حروف رکھیں۔',
+  'errors.field.sso_protocol_fixed':
+    'سیٹ اپ اپنا پروٹوکول برقرار رکھتا ہے۔ اس کے بجائے نیا شامل کریں۔',
+  'errors.field.sso_sign_in_url_missing': 'میٹا ڈیٹا میں سائن اِن کا پتا نہیں ہے۔',
+  // WP-039 identity: Admin > Sign-in and security
+  'errors.field.sso_domain_in_use':
+    '{{domain}} آپ کے کسی اور سنگل سائن آن سیٹ اپ میں استعمال ہو رہا ہے۔',
+  'sso_protocol.oidc': 'OpenID Connect',
+  'sso_protocol.saml': 'SAML 2.0',
+  'sso_test_status.pending': 'انتظار',
+  'sso_test_status.passed': 'کامیاب',
+  'sso_test_status.failed': 'ناکام',
+  'errors.field.sso_domain_unverified':
+    'سنگل سائن آن کے استعمال سے پہلے ثابت کریں کہ {{domain}} آپ کی تنظیم کا ہے۔',
+  'security.sso.test_slow':
+    'ابھی کوئی جواب نہیں۔ اگر دوسری ونڈو سائن اِن کی سروس کی خرابی دکھائے تو یہی وجہ ہے: شناخت فراہم کنندہ کا سرٹیفکیٹ یا ترتیبات یہاں محفوظ ترتیبات سے نہیں ملتیں۔ سیٹ اپ بند رہتا ہے۔',
+  'security.sso.test_private':
+    'لنک کاپی کریں اور اسے نجی ونڈو میں کھولیں، پھر وہاں اپنی تنظیم کے کسی فرد کے طور پر سائن اِن کریں۔ یہ ونڈو آپ کے نام سے سائن اِن ہے، اس لیے آزمائش یہاں نہیں ہو سکتی۔',
+  'security.sso.test_link': 'آزمائشی لنک کاپی کریں',
+  'sso_test.signed_in_as_someone_else':
+    'یہ براؤزر آپ کے نام سے سائن اِن ہے، اس لیے سائن اِن کی سروس یہاں کسی اور کو سائن اِن نہیں کرے گی۔ آزمائشی لنک نجی ونڈو میں کھولیں۔',
+  'actions.close': 'بند کریں',
+  'nav.admin_security': 'سائن اِن اور سیکیورٹی',
+  'security.intro':
+    'لوگ آپ کی تنظیم میں کیسے سائن اِن کرتے ہیں: سنگل سائن آن، سیشن کی مہلتیں اور پہلی بار کون سائن اِن کر سکتا ہے۔ ہر تبدیلی آڈٹ لاگ میں درج ہوتی ہے۔',
+  'security.sessions.title': 'سیشن',
+  'security.sessions.intro':
+    'غیرفعالی کے وقت کے بعد، اور سیشن کی مدت کے بعد ہمیشہ، لوگ سائن آؤٹ ہو جاتے ہیں۔ تبدیلیاں محفوظ کرنے کے بعد شروع ہونے والے سیشنز پر لاگو ہوتی ہیں۔',
+  'security.sessions.console': 'کنسول (ٹیکنیشن اور ایڈمنسٹریٹر)',
+  'security.sessions.portal': 'پورٹل (درخواست دہندگان)',
+  'security.sessions.idle': 'غیرفعالی کے بعد سائن آؤٹ',
+  'security.sessions.absolute': 'طویل ترین سیشن',
+  'security.sessions.minutes': 'منٹ',
+  'security.sessions.hours': 'گھنٹے',
+  'security.sessions.saved': 'سائن اِن کی ترتیبات محفوظ ہو گئیں۔',
+  'security.people.create': 'پہلی بار سائن اِن پر لوگ بنائیں',
+  'security.people.create_on':
+    'جسے آپ کا شناخت فراہم کنندہ اندر آنے دے اور جو ابھی SupportX میں نہ ہو، پہلی بار سائن اِن پر درخواست دہندہ کے طور پر شامل ہوتا ہے۔',
+  'security.people.create_off':
+    'صرف وہی سائن اِن کر سکتے ہیں جنہیں آپ نے شامل، امپورٹ یا مدعو کیا۔ باقیوں کو سروس ڈیسک سے رابطے کا کہا جاتا ہے۔',
+  'security.sso.title': 'سنگل سائن آن',
+  'security.sso.intro':
+    'لوگوں کو اپنی تنظیم کے شناخت فراہم کنندہ سے سائن اِن کرنے دیں۔ نیا سیٹ اپ مسودے کے طور پر شروع ہوتا ہے: اسے حقیقی سائن اِن سے آزمائیں، پھر چالو کریں۔',
+  'security.sso.add': 'سنگل سائن آن شامل کریں',
+  'security.sso.none': 'ابھی کوئی سنگل سائن آن نہیں۔ لوگ SupportX پاس ورڈ سے سائن اِن کرتے ہیں۔',
+  'security.sso.add_title': 'سنگل سائن آن شامل کریں',
+  'security.sso.edit_title': 'سنگل سائن آن بدلیں',
+  'security.sso.display_name': 'سائن اِن بٹن پر نام',
+  'security.sso.domains': 'ای میل ڈومین',
+  'security.sso.domains_hint':
+    'جن کا ای میل ان میں سے کسی ڈومین میں ہو، وہ اس فراہم کنندہ سے سائن اِن کر سکتے ہیں، جیسے example.com۔',
+  'security.sso.domains_list': 'ڈومین: {{domains}}',
+  'security.sso.issuer': 'جاری کنندہ کا پتا',
+  'security.sso.client_id': 'کلائنٹ آئی ڈی',
+  'security.sso.client_secret': 'کلائنٹ سیکرٹ',
+  'security.sso.secret_hint': 'صرف سائن اِن کی سروس میں محفوظ ہوتا ہے اور دوبارہ نہیں دکھایا جاتا۔',
+  'security.sso.secret_kept': 'محفوظ ہے۔ بدلنے کے لیے نیا درج کریں۔',
+  'security.sso.scopes': 'اسکوپس',
+  'security.sso.metadata': 'شناخت فراہم کنندہ کا میٹا ڈیٹا (XML فائل)',
+  'security.sso.metadata_hint':
+    'اسے اپنے شناخت فراہم کنندہ سے ڈاؤن لوڈ کریں، یا نیچے اس کا پتا دیں۔',
+  'security.sso.metadata_kept': 'محفوظ میٹا ڈیٹا برقرار رہے گا جب تک آپ نئی فائل اپ لوڈ نہ کریں۔',
+  'security.sso.metadata_url': 'میٹا ڈیٹا کا پتا',
+  'security.sso.by_hand': 'تفصیلات خود درج کریں',
+  'security.sso.sso_url': 'سائن اِن کا پتا',
+  'security.sso.certificate': 'دستخطی سرٹیفکیٹ',
+  'security.sso.mapping': 'خصوصیات',
+  'security.sso.mapping_hint_oidc':
+    'کون سا کلیم کون سی تفصیل لاتا ہے۔ عام طور پر طے شدہ قدریں کافی ہیں۔',
+  'security.sso.mapping_hint_saml':
+    'کون سی خصوصیت کون سی تفصیل لاتی ہے۔ طے شدہ قدریں Microsoft Entra ID اور AD FS کے لیے موزوں ہیں۔',
+  'security.sso.map.email': 'ای میل',
+  'security.sso.map.first_name': 'پہلا نام',
+  'security.sso.map.last_name': 'آخری نام',
+  'security.sso.map.department': 'شعبہ',
+  'security.sso.map.site': 'سائٹ',
+  'security.sso.email_redirect': 'ان ڈومینز کے لوگوں کو سیدھا اس فراہم کنندہ پر بھیجیں',
+  'security.sso.email_redirect_hint':
+    'چالو ہونے کے بعد، ان ڈومینز کا ای میل لکھنے والے پاس ورڈ کا صفحہ چھوڑ دیتے ہیں۔',
+  'security.sso.preset_hint.entra':
+    'Microsoft Entra ID میں محفوظ کرنے کے بعد دکھائے گئے ری ڈائریکٹ پتے کے ساتھ ایپ رجسٹر کریں، اور اس کی کلائنٹ آئی ڈی اور سیکرٹ دیں۔',
+  'security.sso.preset_hint.okta':
+    'Okta میں محفوظ کرنے کے بعد دکھائے گئے ری ڈائریکٹ پتے کے ساتھ OpenID Connect ویب ایپ بنائیں۔',
+  'security.sso.preset_hint.google':
+    'Google Cloud میں محفوظ کرنے کے بعد دکھائے گئے ری ڈائریکٹ پتے کے ساتھ OAuth کلائنٹ بنائیں۔',
+  'security.sso.preset_hint.oidc': 'کوئی بھی فراہم کنندہ جو OpenID Connect ڈسکوری کو سپورٹ کرے۔',
+  'security.sso.preset_hint.saml':
+    'اپنے شناخت فراہم کنندہ کا میٹا ڈیٹا اپ لوڈ کریں، اور اسے محفوظ کرنے کے بعد دکھایا گیا SupportX کا میٹا ڈیٹا دیں۔',
+  'security.sso.issuer_hint.entra': 'https://login.microsoftonline.com/<your tenant ID>/v2.0',
+  'security.sso.issuer_hint.okta': 'https://<your organisation>.okta.com',
+  'security.sso.issuer_hint.google': 'https://accounts.google.com',
+  'security.sso.issuer_hint.oidc':
+    'وہ پتا جس کا /.well-known/openid-configuration فراہم کنندہ کو بیان کرے۔',
+  'security.sso.redirect_uri': 'آپ کے فراہم کنندہ کے لیے ری ڈائریکٹ پتا:',
+  'security.sso.sp_metadata': 'آپ کے فراہم کنندہ کے لیے SupportX کا میٹا ڈیٹا:',
+  'security.sso.tested_at': 'آزمایا گیا {{when}}',
+  'security.sso.test': 'سائن اِن آزمائیں',
+  'security.sso.switch_on': 'چالو کریں',
+  'security.sso.switch_off': 'بند کریں',
+  'security.sso.remove_title': '{{name}} ہٹائیں؟',
+  'security.sso.remove_body':
+    'لوگ اس کے ذریعے مزید سائن اِن نہیں کر سکیں گے۔ ان کے SupportX ریکارڈ باقی رہیں گے۔',
+  'security.sso.test_title': 'سائن اِن کی آزمائش: {{name}}',
+  'security.sso.test_pending': 'آزمائشی سائن اِن کا انتظار ہے۔ اس سے کوئی سیشن یا فرد نہیں بنتا۔',
+  'security.sso.test_passed': 'آزمائشی سائن اِن کامیاب رہا',
+  'security.sso.test_failed': 'آزمائشی سائن اِن کامیاب نہیں ہوا',
+  'security.sso.test_name': 'نام',
+  'security.sso.test_not_sent': 'نہیں بھیجا گیا',
+  'security.sso.test_next': 'اب آپ یہ سیٹ اپ چالو کر سکتے ہیں۔',
+  'security.sso.test_done': 'آزمائش مکمل۔ یہ ونڈو بند کریں: نتیجہ ترتیبات کے صفحے پر ہے۔',
+  'sso_preset.entra': 'Microsoft Entra ID',
+  'sso_preset.okta': 'Okta',
+  'sso_preset.google': 'Google',
+  'sso_preset.oidc': 'دیگر OpenID Connect',
+  'sso_preset.saml': 'SAML 2.0',
+  'sso_state.draft': 'مسودہ',
+  'sso_state.tested': 'آزمایا گیا',
+  'sso_state.on': 'چالو',
+  'sso_state.off': 'بند',
+  'sso_check.not_https': 'فراہم کنندہ تک HTTPS کے ذریعے رسائی نہیں ہوتی۔',
+  'sso_check.certificate_not_yet_valid': 'سرٹیفکیٹ ابھی مؤثر نہیں۔',
+  'sso_test.provider_error': 'شناخت فراہم کنندہ نے سائن اِن خرابی پر ختم کیا۔',
+  'sso_test.answer_not_verified':
+    'شناخت فراہم کنندہ کے جواب کی تصدیق نہ ہو سکی۔ سرٹیفکیٹ یا کلائنٹ سیکرٹ، اور فراہم کنندہ کی گھڑی درست ہونا جانچیں۔',
+  'sso_test.not_in_tenant_domains':
+    'شخص نے سائن اِن کیا، لیکن اس کا ای میل اس سیٹ اپ کے ڈومینز میں نہیں۔',
+  'errors.field.sso_url_invalid': 'مکمل پتا درج کریں جو https:// سے شروع ہو۔',
 };

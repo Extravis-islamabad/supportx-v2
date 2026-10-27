@@ -15,12 +15,14 @@ from app.core.entitlements import entitlement_exempt
 from app.core.errors import ServiceUnavailable, Unauthenticated
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.audit import RequestFacts, record_alone
+from app.modules.audit import RequestFacts, record, record_alone
 from app.modules.identity_access.bff.cookies import clear_session_cookie, set_session_cookie
 from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
 from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service import sso
 from app.modules.identity_access.service.auth import AuthService, LoginAddress, LoginFailure
+from app.modules.identity_access.service.sso_test import TestFinished
 from app.modules.organization import tenant_for_host
 from app.shared.realtime import (
     CENTRIFUGO_STATE,
@@ -139,7 +141,11 @@ async def login(
     `returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's
     own address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).
     """
-    url = await auth.start_login(app, return_to, await _address(request))
+    # This browser still holds a session cookie whose session is gone (timed out or ended):
+    # Keycloak's own session must not sign it back in without the password (REQ-SEC-029).
+    previous = request.cookies.get(auth.cookie_name)
+    timed_out = previous is not None and await auth.store.get_session(previous) is None
+    url = await auth.start_login(app, return_to, await _address(request), reauthenticate=timed_out)
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 
@@ -181,10 +187,32 @@ async def callback(
             base = failure.origin + urlsplit(base).path.rstrip("/")
         target = f"{base}/?{query}"
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
+        await _record_sso_test(request, result)
+        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     await _audit_session(request, result.session, "session.signed_in")
     response = RedirectResponse(result.redirect_to, status_code=status.HTTP_302_FOUND)
     set_session_cookie(response, auth.settings, result.session_id)
     return response
+
+
+async def _record_sso_test(request: Request, finished: TestFinished) -> None:
+    """A passed test marks the set-up tested; every test is audited, in the tenant, as the admin."""
+    database: Database | None = getattr(request.app.state, "db", None)
+    if database is None:
+        return
+    context = TenantContext(finished.tenant_id, finished.admin_user_id)
+    async with database.tenant_session(context) as session:
+        if finished.passed:
+            await sso.mark_tested(session, finished.provider_id, finished.admin_user_id)
+        await record(
+            session,
+            action_code="sso.tested",
+            facts=RequestFacts.of(request, client="console"),
+            object_type="sso_provider",
+            object_id=finished.provider_id,
+            details={"passed": finished.passed},
+        )
 
 
 async def _address(request: Request) -> LoginAddress | None:
