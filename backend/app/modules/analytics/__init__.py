@@ -19,6 +19,7 @@ from app.core.modules import ModuleSpec
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
 from app.modules.analytics.service.library import CREATE, MANAGE_FOLDERS, VIEW
+from app.modules.analytics.service.realtime import ROUTES
 from app.modules.analytics.service.runner import TenantSlots
 
 _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
@@ -51,6 +52,7 @@ module = ModuleSpec(
     routers=[router],
     events=EVENTS,
     permissions=PERMISSIONS,
+    realtime=ROUTES,
     on_startup=[_startup],
     on_shutdown=[_shutdown],
 )
