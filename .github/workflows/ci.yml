@@ -192,7 +192,8 @@ jobs:
 
   backend:
     name: backend
-    needs: [backend-checks, backend-tests]
+    # pdf: the PDF tests in the worker image (D-100 D8) gate merges through this required check.
+    needs: [backend-checks, backend-tests, pdf]
     # Always runs, so a failed or cancelled shard fails this required check instead of skipping it
     # (a skipped required check would count as passed).
     if: ${{ always() }}
@@ -203,9 +204,10 @@ jobs:
         env:
           CHECKS: ${{ needs.backend-checks.result }}
           TESTS: ${{ needs.backend-tests.result }}
+          PDF: ${{ needs.pdf.result }}
         run: |
-          echo "backend checks: $CHECKS, backend tests: $TESTS"
-          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ]
+          echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF"
+          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ] && [ "$PDF" = "success" ]
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false

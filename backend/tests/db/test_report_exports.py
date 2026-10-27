@@ -294,3 +294,28 @@ async def test_d041_report_settings_are_editable_by_admins_and_shape_weeks(repor
     # The change, and the three refusals (permission, stale version, out of range), are audited.
     assert sorted(r["outcome"] for r in audit).count("done") == 1
     assert len(audit) == 4
+
+
+async def test_categories_are_named_by_their_full_path_like_the_screens(
+    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase
+) -> None:
+    world, storage = exporting
+    a = world.a
+    await world.call("GET", "/incidents/categories", a, a.admin)  # seeds the tenant's tree
+    printer = await world.sql(
+        "SELECT id FROM work_item_categories WHERE tenant_id = $1 AND code = 'printer'", a.tenant
+    )
+    assert printer, "the default category tree has a printer under hardware"
+    await world.create(a, a.admin, category_id=str(printer[0]["id"]))
+    requested = await _request(
+        world,
+        a,
+        a.admin,
+        format="csv",
+        definition={"entity": "incident", "group_by": [{"field": "category_id"}]},
+    )
+    await _build(world, migrated_db, storage, a, requested.json()["id"])
+    data = (
+        await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.admin)
+    ).content.decode("utf-8-sig")
+    assert "Hardware \u203a Printer" in data  # "Hardware > Printer" with the angle quote
