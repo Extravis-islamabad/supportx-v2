@@ -433,8 +433,9 @@ function RoutingEditor({
           />
         )}
         <Form layout="vertical">
-          <Form.Item label={t('automation.field_name')} required>
+          <Form.Item label={t('automation.field_name')} htmlFor="routing-name" required>
             <Input
+              id="routing-name"
               value={draft.name}
               onChange={(event) => {
                 edit({ name: event.target.value });

@@ -79,3 +79,13 @@ export function problemsOf(t: ReturnType<typeof useLabel>, error: unknown): stri
   if (error.fieldErrors.length === 0) return [t(`errors.${error.code}`, error.params)];
   return error.fieldErrors.map((f) => t(f.message_key, f.params ?? {}));
 }
+
+/** Field choices as people read them: by their name in the reader's language. */
+export function fieldOptions(
+  fields: readonly RuleFieldOut[],
+  name: (field: string) => string,
+): { value: string; label: string }[] {
+  return fields
+    .map((f) => ({ value: f.name, label: name(f.name) }))
+    .sort((a, b) => a.label.localeCompare(b.label));
+}
