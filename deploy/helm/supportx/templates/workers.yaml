@@ -39,8 +39,10 @@ spec:
         {{- include "supportx.waitForMigrate" $ | nindent 8 }}
       containers:
         - name: {{ $w.component }}
-          image: {{ include "supportx.image" (dict "root" $ "name" "backend") }}
-          imagePullPolicy: {{ $.Values.images.backend.pullPolicy }}
+          {{- /* Report PDFs are built by the consumers worker: its image has Pango and WeasyPrint. */}}
+          {{- $image := ternary "worker" "backend" (eq $w.component "consumers") }}
+          image: {{ include "supportx.image" (dict "root" $ "name" $image) }}
+          imagePullPolicy: {{ (index $.Values.images $image).pullPolicy }}
           command: ["python", "-m", {{ $w.module | quote }}]
           {{- include "supportx.backendEnvFrom" $ | nindent 10 }}
           env:

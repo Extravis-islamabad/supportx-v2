@@ -49,6 +49,7 @@ class CompiledReport:
     """What the runner executes and how to read its rows."""
 
     grouped: Select[Any]  # one row per group: keys..., measures...
+    where: ColumnElement[bool]  # the report's filter (records exports reuse it)
     totals: Select[Any]  # one row: measures over every visible record
     groups: tuple[CompiledGroup, ...]
     measures: tuple[MeasureSpec, ...]
@@ -91,12 +92,16 @@ def _aged(column: Any, now: datetime) -> ColumnElement[Any]:  # noqa: ANN401 - S
     return case(*whens, else_=len(AGE_BUCKETS) - 1)
 
 
-def _bucketed(column: Any, bucket: DateBucket, zone: str) -> ColumnElement[Any]:  # noqa: ANN401 - SQLAlchemy column
+def _bucketed(column: Any, bucket: DateBucket, zone: str, week_start: str) -> ColumnElement[Any]:  # noqa: ANN401 - SQLAlchemy column
     # The day, week... of the viewer's zone: `timezone(zone, t)` turns the UTC instant into the
-    # zone's wall-clock time, which date_trunc then cuts (REQ-DSH-044 AC1, AC3). Weeks start on
-    # Monday (PostgreSQL); the Sunday start for Arabic tenants (Appendix A) is a tenant setting
-    # that arrives with the report viewer.
-    return func.date_trunc(bucket.value, func.timezone(zone, column))
+    # zone's wall-clock time, which date_trunc then cuts (REQ-DSH-044 AC1, AC3). PostgreSQL weeks
+    # start on Monday; a Sunday week (the tenant setting, Appendix A) is the Monday week of the
+    # next day, moved back one day.
+    local = func.timezone(zone, column)
+    if bucket == DateBucket.WEEK and week_start == "sunday":
+        day = timedelta(days=1)
+        return func.date_trunc("week", local + day) - day
+    return func.date_trunc(bucket.value, local)
 
 
 def _column(source: ReportingSource, name: str | None, path: str) -> Any:  # noqa: ANN401 - SQLAlchemy column
@@ -159,7 +164,12 @@ def _groups(definition: ReportDefinition, source: ReportingSource) -> list[Compi
 
 
 def compile_report(
-    definition: ReportDefinition, source: ReportingSource, *, now: datetime, zone: str
+    definition: ReportDefinition,
+    source: ReportingSource,
+    *,
+    now: datetime,
+    zone: str,
+    week_start: str = "monday",
 ) -> CompiledReport:
     """Validate `definition` against `source` and build its queries (422 invalid_report)."""
     if definition.entity != source.entity:  # the caller picked the source by entity
@@ -186,7 +196,7 @@ def compile_report(
         if group.bucket == DateBucket.AGE:
             expression = _aged(column, now)
         elif group.bucket is not None:
-            expression = _bucketed(column, group.bucket, zone)
+            expression = _bucketed(column, group.bucket, zone, week_start)
         else:
             expression = column
         keys.append(expression.label(f"k{index}"))
@@ -205,7 +215,7 @@ def compile_report(
         limit = definition.limit
         if limit is not None:
             grouped = grouped.limit(limit + 1)  # one extra row tells the caller it was cut
-    return CompiledReport(grouped, totals, tuple(groups), tuple(specs))
+    return CompiledReport(grouped, where, totals, tuple(groups), tuple(specs))
 
 
 def _order(

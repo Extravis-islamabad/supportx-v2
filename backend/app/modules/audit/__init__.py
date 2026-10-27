@@ -22,7 +22,7 @@ from app.core.authorization import PermissionSpec
 from app.core.errors import register_error_observer, unregister_error_observer
 from app.core.modules import ModuleSpec
 from app.modules.audit.api.routes import EXPORT, MANAGE, VERIFY, VIEW, router
-from app.modules.audit.domain.catalogue import AuditCategory, ReadCategory
+from app.modules.audit.domain.catalogue import AuditActorType, AuditCategory, ReadCategory
 from app.modules.audit.events import EVENTS
 from app.modules.audit.service.erasure import erase_subject
 from app.modules.audit.service.jobs import (
@@ -123,6 +123,7 @@ module = ModuleSpec(
 __all__ = [
     "AUDITOR",
     "WORKER",
+    "AuditActorType",
     "AuditCategory",
     "AuditNote",
     "ReadCategory",

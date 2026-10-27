@@ -185,12 +185,13 @@ async def run_report(  # noqa: PLR0913 - the run's inputs, explicit
     source: ReportingSource,
     zone: ZoneInfo,
     timeout_seconds: float,
+    week_start: str = "monday",
     slots: TenantSlots,
 ) -> ReportResult:
     """Compile and run `definition` over `source` (the viewer's view of the entity)."""
     del session, subject  # the source already carries the viewer's scope
     now = datetime.now(zone)
-    compiled = compile_report(definition, source, now=now, zone=zone.key)
+    compiled = compile_report(definition, source, now=now, zone=zone.key, week_start=week_start)
     slot = slots.of(context.tenant_id)
     try:
         await asyncio.wait_for(slot.acquire(), timeout=SLOT_WAIT_SECONDS)

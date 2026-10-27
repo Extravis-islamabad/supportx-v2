@@ -18,9 +18,13 @@ from app.core.database import Database
 from app.core.modules import ModuleSpec
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
+from app.modules.analytics.service.exports import EXPORT
+from app.modules.analytics.service.jobs import on_export_requested, set_subject_loader
 from app.modules.analytics.service.library import CREATE, MANAGE_FOLDERS, VIEW
 from app.modules.analytics.service.realtime import ROUTES
 from app.modules.analytics.service.runner import TenantSlots
+from app.modules.identity_access import subject_for
+from app.shared.events import ConsumerSpec
 
 _NOT_OWN: tuple[Scope, ...] = ("all", "site", "group")
 _OWN: tuple[Scope, ...] = ("own",)
@@ -32,7 +36,12 @@ PERMISSIONS = (
     PermissionSpec(VIEW, None, _NOT_OWN, defaults=(("technician", "all"),)),
     PermissionSpec(CREATE, None, _OWN, defaults=(("technician", "own"),)),
     PermissionSpec(MANAGE_FOLDERS, None, ("all",)),
+    PermissionSpec(EXPORT, None, ("all",), defaults=(("technician", "all"),)),
 )
+
+
+# The worker rebuilds the requester's permissions exactly as the API does (lane B, #82).
+set_subject_loader(subject_for)
 
 
 async def _startup(app: FastAPI) -> None:
@@ -53,6 +62,14 @@ module = ModuleSpec(
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,
+    consumers=[
+        ConsumerSpec(
+            name="analytics__export",
+            event_types=("analytics.report_export.requested",),
+            handler=on_export_requested,
+            ack_wait_seconds=900,
+        )
+    ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
 )
