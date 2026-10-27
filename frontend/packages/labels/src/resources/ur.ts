@@ -1531,6 +1531,8 @@ export const ur: LabelResource = {
   'errors.field.brand_image_too_small': 'یہ تصویر بہت چھوٹی ہے: ہر طرف کم از کم 16 پکسل۔',
   'errors.field.brand_image_unreadable':
     'یہ تصویر پڑھی نہیں جا سکی۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
+  'errors.field.brand_image_svg':
+    'SVG تصاویر قبول نہیں کی جاتیں کیونکہ ان میں اسکرپٹ ہو سکتے ہیں۔ PNG، JPEG، WebP یا ICO فائل استعمال کریں۔',
   'audit.action.branding.updated': 'برانڈنگ تبدیل کی',
   'audit.action.domain.added': 'کسٹم ڈومین شامل کیا',
   'audit.action.domain.verified': 'کسٹم ڈومین کی تصدیق کی',

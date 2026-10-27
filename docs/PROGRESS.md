@@ -483,10 +483,35 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   - e-mail branding contract for the WP-039 mail foundation;
   - Admin › Branding with live preview (light, dark, high contrast) and an Addresses card;
     everything audited (`branding.updated`, `domain.*`).
-- **Open:** who provisions certificates and routes for custom domains in Kubernetes (ADR-031
-  "Open"); registering custom domains as Keycloak redirect URIs comes with it. Offering only the
-  sign-in methods a tenant enabled (REQ-SEC-003 AC2) needs WP-039 SSO.
+- **Decided (D-093, ADR-031 accepted):** a separate domain worker with its own minimal service
+  account provisions certificates and routes (built with the SaaS cell, WP-014d), ACME only where
+  there is internet, never from an air-gapped install; registering custom domains as Keycloak
+  redirect URIs comes with it. Offering only the sign-in methods a tenant enabled (REQ-SEC-003
+  AC2) needs WP-039 SSO.
 - **Depends on:** WP-010, WP-014, WP-016
+
+### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
+Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first
+(Vitest `admin/branding/branding.test.tsx` "WP-017-FIX", `tests/test_keycloak_theme.py`, the
+Playwright `branding-admin.spec.ts` for the contrast bugs).
+- [x] BUG-01 the preview draws the colours a save makes (server rule: own gradient, else the
+  primary at both ends, else the default), never the ones saved before.
+- [x] BUG-02 domains: a host that is not one is refused at the field as typed; the server's
+  refusals (reserved, already used, limit) at the field; the certificate dialog checks PEM as
+  pasted and shows the server's reason (wrong host, key mismatch …) and stays open.
+- [x] BUG-03 a colour that is not #rrggbb/#rgb is flagged at once, never sent to the check, and
+  Save stays disabled; a refused save says why at its fields.
+- [x] BUG-04 readable tone tags in the contrast list (and the domain status tags).
+- [x] BUG-05 the empty domain list text is readable in dark mode.
+- [x] BUG-06 an image card without an upload shows the SupportX default image it stands for.
+- [x] BUG-07 removing the logo drops the dark logo's and icon's waiting uploads; Save follows.
+- [x] BUG-08 the sign-in page names the organization under the logo (escaped; readable in every
+  theme).
+- [x] BUG-09 brand images are checked on selection (type from the file's bytes, at most 5 MB and
+  25 megapixels, at least 16 px, decoded by the browser; SVG refused, D-090) and never uploaded
+  when refused; the server still checks on save.
+- Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
+  the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
 - Search port `app/shared/search`, with PostgreSQL full-text and pg_trgm as the MVP engine
@@ -667,6 +692,18 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-27 — WP-017-FIX and ADR-031 (lane B)
+
+- The product owner approved WP-017 and accepted ADR-031 (D-093): a separate domain worker
+  provisions certificates; never from an air-gapped install.
+- Fixed BUG-01..09 in `../supportx-v2-wp017fix` (branch `fix/wp-017-qa`), each with a failing
+  test first. Checked in a real browser too: the fix branch's console on a second dev server
+  (port 5183) against the shared API, axe clean in light, dark and high contrast; BUG-08 on a
+  throwaway Keycloak 26.8.1 (name shown, markup escaped, axe clean in four variants).
+- Housekeeping with lane A's OK: the 8 QA uploads purged (files service purge, audited
+  `file.purged`), the shared Keycloak container recreated (`--no-deps keycloak`). Numbers agreed:
+  D-093/D-094, ADR-033 and migration 0024 for lane B; D-095 for lane A.
 
 ### 2026-10-27 — WP-017 tenant branding and domains (lane B)
 

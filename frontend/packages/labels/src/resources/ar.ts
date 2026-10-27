@@ -1924,6 +1924,8 @@ export const ar: LabelResource = {
   'errors.field.brand_image_too_small': 'هذه الصورة صغيرة جدًا: 16 بكسل على الأقل في كل جانب.',
   'errors.field.brand_image_unreadable':
     'تعذّرت قراءة هذه الصورة. استخدم ملف PNG أو JPEG أو WebP أو ICO.',
+  'errors.field.brand_image_svg':
+    'صور SVG غير مقبولة لأنها قد تحتوي على نصوص برمجية. استخدم ملف PNG أو JPEG أو WebP أو ICO.',
   'audit.action.branding.updated': 'غيّر العلامة التجارية',
   'audit.action.domain.added': 'أضاف نطاقًا مخصصًا',
   'audit.action.domain.verified': 'تحقق من نطاق مخصص',

@@ -12,7 +12,6 @@ import {
   Space,
   Switch,
   Tabs,
-  Tag,
   Typography,
 } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,11 +27,27 @@ import {
   type BrandingSettings,
 } from '@supportx/api-client';
 import type { Locale } from '@supportx/labels';
-import { lengthLimit, reportError, useLabel, WriteButton, type Branding } from '@supportx/ui';
+import {
+  lengthLimit,
+  reportError,
+  SUPPORTX_LOGOS,
+  ToneTag,
+  useLabel,
+  WriteButton,
+  type Branding,
+} from '@supportx/ui';
 
 import { useDebounced } from '../../../useDebounced';
 import { BrandPreview } from './BrandPreview';
+import {
+  brandImageProblem,
+  coloursToSave,
+  fieldProblems,
+  normaliseHex,
+  type Problems,
+} from './checks';
 import { DomainsCard } from './DomainsCard';
+import { FieldProblem } from './FieldProblem';
 
 const LOCALES: Locale[] = ['en', 'ar', 'ur'];
 const TEXT_FIELDS = ['product_name', 'portal_name', 'welcome_text'] as const;
@@ -42,6 +57,12 @@ const IMAGE_FIELDS = ['logo_file_id', 'logo_dark_file_id', 'icon_file_id'] as co
 type ImageField = (typeof IMAGE_FIELDS)[number];
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/x-icon,image/vnd.microsoft.icon';
 const LIMITS: Record<TextField, number> = { product_name: 60, portal_name: 60, welcome_text: 500 };
+/** What each image card stands for while nothing is uploaded (QA BUG-06: shown, not named). */
+const DEFAULT_IMAGES: Record<ImageField, string | undefined> = {
+  logo_file_id: SUPPORTX_LOGOS.full,
+  logo_dark_file_id: SUPPORTX_LOGOS.fullOnDark,
+  icon_file_id: SUPPORTX_LOGOS.icon,
+};
 
 interface Draft {
   primary: string | null;
@@ -77,9 +98,17 @@ function draftFrom(settings: BrandingSettings): Draft {
   };
 }
 
+/** Server problems each edit makes obsolete (field paths of the last save's refusal). */
+const PROBLEM_FIELDS: Record<keyof Draft, (path: string) => boolean> = {
+  primary: (path) => path === 'primary_colour',
+  gradient: (path) => path === 'gradient',
+  texts: (path) => TEXT_FIELDS.some((field) => path.startsWith(`${field}.`)),
+  images: (path) => (IMAGE_FIELDS as readonly string[]).includes(path),
+};
+
 function bodyFrom(draft: Draft): BrandingInput {
   return {
-    primary_colour: draft.primary,
+    primary_colour: draft.primary === null ? null : (normaliseHex(draft.primary) ?? draft.primary),
     gradient: draft.gradient,
     product_name: draft.texts.product_name,
     portal_name: draft.texts.portal_name,
@@ -122,11 +151,18 @@ export function BrandingPage() {
   const draft = edited ?? (settings.data === undefined ? null : draftFrom(settings.data));
   const [picked, setPicked] = useState<Partial<Record<ImageField, Picked>>>({});
   const [scans, setScans] = useState<Record<string, string | undefined>>({});
+  // Refusals: of the last save, by field path (server), and of chosen images (on selection).
+  const [problems, setProblems] = useState<Problems>({});
+  const [imageProblems, setImageProblems] = useState<Partial<Record<ImageField, string>>>({});
 
-  const primary = useDebounced(draft?.primary ?? null);
+  // A typed colour that is not one is said at once and never sent to the check (QA BUG-03).
+  const primaryInvalid = draft?.primary != null && normaliseHex(draft.primary) === null;
+  const primary = useDebounced(
+    draft?.primary == null || primaryInvalid ? null : normaliseHex(draft.primary),
+  );
   const gradient = useDebounced(draft?.gradient ?? null);
-  const check = useBrandingColourCheck(primary, gradient, draft !== null);
-  const report = check.data;
+  const check = useBrandingColourCheck(primary, gradient, draft !== null && !primaryInvalid);
+  const report = primaryInvalid ? undefined : check.data;
 
   const candidate = useMemo<Partial<Branding>>(() => {
     const saved = settings.data;
@@ -136,9 +172,11 @@ export function BrandingPage() {
       picked[field]?.previewUrl ??
       (draft.images[field] === null ? undefined : (savedUrl ?? undefined));
     const full = url('logo_file_id', logos.full);
+    // Exactly what a save makes (QA BUG-01), never the colours saved before.
+    const colours = coloursToSave(draft.primary, draft.gradient);
     return {
-      colorPrimary: draft.primary ?? saved.primary_colour,
-      gradient: draft.gradient ?? [saved.gradient[0] ?? '', saved.gradient[1] ?? ''],
+      colorPrimary: colours.primary,
+      gradient: colours.gradient,
       texts: {
         productName: draft.texts.product_name,
         portalName: draft.texts.portal_name,
@@ -164,6 +202,18 @@ export function BrandingPage() {
   const version = settings.data.version;
   const update = (change: Partial<Draft>) => {
     setDraft({ ...draft, ...change });
+    const changed = Object.keys(change) as (keyof Draft)[];
+    setProblems((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(
+          ([path]) => !changed.some((key) => PROBLEM_FIELDS[key](path)),
+        ),
+      ),
+    );
+  };
+  const problemAt = (path: string): string | null => {
+    const found = problems[path];
+    return found === undefined ? null : found.map((p) => t(p.key, p.params)).join(' ');
   };
   const scanning = Object.values(picked).some(
     (item) => item.fileId !== null && (scans[item.fileId] ?? 'scanning') === 'scanning',
@@ -175,7 +225,12 @@ export function BrandingPage() {
   );
   const colourFails = report !== undefined && !report.passes;
 
-  const choose = (field: ImageField, file: File) => {
+  const choose = async (field: ImageField, file: File) => {
+    // Type, size and real image content are checked on selection (QA BUG-09): a refused file
+    // is never uploaded, and what was there stays.
+    const problem = await brandImageProblem(file);
+    setImageProblems((current) => ({ ...current, [field]: problem ?? undefined }));
+    if (problem !== null) return;
     const previewUrl = URL.createObjectURL(file);
     setPicked((current) => ({ ...current, [field]: { fileId: null, previewUrl, failed: false } }));
     uploadFile(file, { ownerType: 'branding', ownerId: tenantId })
@@ -184,7 +239,10 @@ export function BrandingPage() {
           ...current,
           [field]: { fileId: stored.id, previewUrl, failed: false },
         }));
-        update({ images: { ...draft.images, [field]: stored.id } });
+        setDraft((current) => {
+          const base = current ?? draft;
+          return { ...base, images: { ...base.images, [field]: stored.id } };
+        });
       })
       .catch((error: unknown) => {
         setPicked((current) => ({
@@ -195,16 +253,15 @@ export function BrandingPage() {
       });
   };
   const removeImage = (field: ImageField) => {
-    setPicked((current) =>
-      Object.fromEntries(Object.entries(current).filter(([key]) => key !== field)),
-    );
-    const images = { ...draft.images, [field]: null };
-    // Without a logo there is nothing to pair a dark version or an icon with (the API agrees).
-    if (field === 'logo_file_id') {
-      images.logo_dark_file_id = null;
-      images.icon_file_id = null;
-    }
-    update({ images });
+    // Without a logo there is nothing to pair a dark version or an icon with (the API agrees),
+    // so their uploads go too, waiting ones included (QA BUG-07).
+    const gone: string[] =
+      field === 'logo_file_id' ? ['logo_file_id', 'logo_dark_file_id', 'icon_file_id'] : [field];
+    const keep = <T,>(record: Partial<Record<ImageField, T>>) =>
+      Object.fromEntries(Object.entries(record).filter(([key]) => !gone.includes(key)));
+    setPicked(keep);
+    setImageProblems(keep);
+    update({ images: { ...draft.images, ...Object.fromEntries(gone.map((key) => [key, null])) } });
   };
 
   const submit = (body: BrandingInput, after: string) => {
@@ -214,9 +271,15 @@ export function BrandingPage() {
         onSuccess: (saved) => {
           setDraft(draftFrom(saved));
           setPicked({});
+          setProblems({});
           void message.success(t(after));
         },
-        onError: reportError,
+        // A refusal says why at its fields (QA BUG-03); anything else is reported.
+        onError: (error) => {
+          const found = fieldProblems(error);
+          if (Object.keys(found).length === 0) reportError(error);
+          setProblems(found);
+        },
       },
     );
   };
@@ -232,6 +295,8 @@ export function BrandingPage() {
     const shown = current?.previewUrl ?? (draft.images[field] === null ? null : (savedUrl ?? null));
     const disabled = field !== 'logo_file_id' && draft.images.logo_file_id === null;
     const state = current?.fileId == null ? undefined : scans[current.fileId];
+    const refusal = imageProblems[field];
+    const refused = refusal === undefined ? problemAt(field) : t(`errors.field.${refusal}`);
     return (
       <Card size="small" title={t(`branding.image.${field}`)} data-testid={`branding-${field}`}>
         <Flex vertical gap={8}>
@@ -248,7 +313,11 @@ export function BrandingPage() {
             }}
           >
             {shown === null ? (
-              <Typography.Text type="secondary">{t('branding.image.default')}</Typography.Text>
+              <img
+                src={DEFAULT_IMAGES[field]}
+                alt={t('branding.image.default')}
+                style={{ maxHeight: field === 'icon_file_id' ? 48 : 32, maxWidth: '100%' }}
+              />
             ) : (
               <img
                 src={shown}
@@ -257,6 +326,14 @@ export function BrandingPage() {
               />
             )}
           </div>
+          {shown === null && (
+            <Typography.Text type="secondary">{t('branding.image.default')}</Typography.Text>
+          )}
+          {refused !== null && (
+            <Typography.Text type="danger" role="alert">
+              {refused}
+            </Typography.Text>
+          )}
           {current !== undefined && (
             <Typography.Text type={current.failed ? 'danger' : 'secondary'} role="status">
               {t(
@@ -284,7 +361,7 @@ export function BrandingPage() {
                   data-testid={`branding-${field}-input`}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
-                    if (file !== undefined) choose(field, file);
+                    if (file !== undefined) void choose(field, file);
                     event.target.value = '';
                   }}
                 />
@@ -336,7 +413,10 @@ export function BrandingPage() {
                     {t('branding.primary')}
                   </Typography.Text>
                   <ColorPicker
-                    value={draft.primary ?? settings.data.primary_colour}
+                    value={
+                      (draft.primary === null ? null : normaliseHex(draft.primary)) ??
+                      settings.data.primary_colour
+                    }
                     disabledAlpha
                     format="hex"
                     onChangeComplete={(colour) => {
@@ -345,17 +425,30 @@ export function BrandingPage() {
                     aria-labelledby="branding-primary-label"
                     data-testid="branding-primary"
                   />
-                  <Input
-                    value={draft.primary ?? ''}
-                    placeholder={settings.data.primary_colour}
-                    onChange={(event) => {
-                      update({ primary: event.target.value === '' ? null : event.target.value });
-                    }}
-                    count={lengthLimit(7)}
-                    style={{ width: 120 }}
-                    aria-label={t('branding.primary')}
-                    data-testid="branding-primary-input"
-                  />
+                  <FieldProblem
+                    testId="branding-primary-field"
+                    id="branding-primary-problem"
+                    message={
+                      primaryInvalid
+                        ? t('errors.field.invalid_colour')
+                        : problemAt('primary_colour')
+                    }
+                  >
+                    <Input
+                      value={draft.primary ?? ''}
+                      placeholder={settings.data.primary_colour}
+                      onChange={(event) => {
+                        update({ primary: event.target.value === '' ? null : event.target.value });
+                      }}
+                      count={lengthLimit(7)}
+                      status={primaryInvalid || 'primary_colour' in problems ? 'error' : undefined}
+                      aria-invalid={primaryInvalid || 'primary_colour' in problems}
+                      aria-describedby="branding-primary-problem"
+                      style={{ width: 120 }}
+                      aria-label={t('branding.primary')}
+                      data-testid="branding-primary-input"
+                    />
+                  </FieldProblem>
                   {draft.primary !== null && (
                     <Button
                       type="link"
@@ -402,6 +495,11 @@ export function BrandingPage() {
                       />
                     ))}
                 </Flex>
+                {'gradient' in problems && (
+                  <Typography.Text type="danger" role="alert">
+                    {problemAt('gradient')}
+                  </Typography.Text>
+                )}
                 <Typography.Text type="secondary">{t('branding.gradient_hint')}</Typography.Text>
                 {report !== undefined && (
                   <ul
@@ -411,9 +509,9 @@ export function BrandingPage() {
                   >
                     {report.checks.map((item) => (
                       <li key={item.code} style={{ marginBlock: 4 }}>
-                        <Tag color={item.passed ? 'success' : 'error'}>
+                        <ToneTag tone={item.passed ? 'success' : 'error'}>
                           {t(item.passed ? 'branding.check_passed' : 'branding.check_failed')}
-                        </Tag>
+                        </ToneTag>
                         {t(`branding.check.${item.code}`)}{' '}
                         <Typography.Text type="secondary">
                           {t('branding.ratio', {
@@ -493,32 +591,44 @@ export function BrandingPage() {
                           });
                         };
                         const id = `branding-${field}-${locale}`;
+                        const problem = problemAt(`${field}.${locale}`);
                         return (
-                          <Flex key={field} vertical gap={4}>
-                            <label htmlFor={id}>{t(`branding.text.${field}`)}</label>
-                            {field === 'welcome_text' ? (
-                              <Input.TextArea
-                                id={id}
-                                value={value}
-                                count={lengthLimit(LIMITS[field], true)}
-                                autoSize={{ minRows: 2, maxRows: 5 }}
-                                onChange={(event) => {
-                                  set(event.target.value);
-                                }}
-                                data-testid={id}
-                              />
-                            ) : (
-                              <Input
-                                id={id}
-                                value={value}
-                                count={lengthLimit(LIMITS[field])}
-                                onChange={(event) => {
-                                  set(event.target.value);
-                                }}
-                                data-testid={id}
-                              />
-                            )}
-                          </Flex>
+                          <FieldProblem
+                            key={field}
+                            testId={`${id}-field`}
+                            id={`${id}-problem`}
+                            message={problem}
+                          >
+                            <Flex vertical gap={4}>
+                              <label htmlFor={id}>{t(`branding.text.${field}`)}</label>
+                              {field === 'welcome_text' ? (
+                                <Input.TextArea
+                                  id={id}
+                                  value={value}
+                                  count={lengthLimit(LIMITS[field], true)}
+                                  status={problem === null ? undefined : 'error'}
+                                  aria-describedby={`${id}-problem`}
+                                  autoSize={{ minRows: 2, maxRows: 5 }}
+                                  onChange={(event) => {
+                                    set(event.target.value);
+                                  }}
+                                  data-testid={id}
+                                />
+                              ) : (
+                                <Input
+                                  id={id}
+                                  value={value}
+                                  count={lengthLimit(LIMITS[field])}
+                                  status={problem === null ? undefined : 'error'}
+                                  aria-describedby={`${id}-problem`}
+                                  onChange={(event) => {
+                                    set(event.target.value);
+                                  }}
+                                  data-testid={id}
+                                />
+                              )}
+                            </Flex>
+                          </FieldProblem>
                         );
                       })}
                       {locale === 'en' && (
@@ -535,7 +645,7 @@ export function BrandingPage() {
               <WriteButton
                 type="primary"
                 loading={save.isPending}
-                disabled={colourFails || scanning || blocked || check.isFetching}
+                disabled={colourFails || primaryInvalid || scanning || blocked || check.isFetching}
                 onClick={() => {
                   submit(bodyFrom(draft), 'branding.saved');
                 }}

@@ -80,6 +80,8 @@ function Sample({ brand, mode, surface }: { brand: Branding; mode: ThemeMode; su
           <Typography.Text strong>{portal}</Typography.Text>
         </Flex>
         <div
+          data-testid="branding-preview-band"
+          data-gradient={brand.gradient.join(',')}
           style={{
             background: mode === 'high_contrast' ? '#000' : band,
             color: '#fff',
