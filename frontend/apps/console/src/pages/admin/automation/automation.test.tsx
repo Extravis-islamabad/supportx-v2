@@ -236,4 +236,28 @@ describe('Availability switch (WP-029, REQ-ASG-006)', () => {
         ?.body,
     ).toEqual({ state: 'away' });
   });
+
+  it('below 1200 px it is one tap away in the user menu', async () => {
+    const fake = routes({
+      'PUT /api/v1/automation/availability/01900000-0000-7000-8000-000000000101': {
+        body: { user_id: '01900000-0000-7000-8000-000000000101', state: 'away' },
+      },
+    });
+    open('/');
+    fireEvent.click(await screen.findByTestId('user-menu'));
+    const item = await screen.findByTestId('availability-menu-item');
+    await waitFor(() => {
+      expect(item.querySelector('.ant-switch-loading')).toBeNull();
+    });
+    fireEvent.click(item);
+    await waitFor(() => {
+      expect(
+        fake.find('PUT', '/api/v1/automation/availability/01900000-0000-7000-8000-000000000101'),
+      ).toHaveLength(1);
+    });
+    expect(
+      fake.find('PUT', '/api/v1/automation/availability/01900000-0000-7000-8000-000000000101')[0]
+        ?.body,
+    ).toEqual({ state: 'away' });
+  });
 });
