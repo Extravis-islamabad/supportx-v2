@@ -1935,6 +1935,8 @@ export const en = {
   'errors.field.brand_image_too_small': 'This image is too small: at least 16 pixels on each side.',
   'errors.field.brand_image_unreadable':
     'This image cannot be read. Use a PNG, JPEG, WebP or ICO file.',
+  'errors.field.brand_image_svg':
+    'SVG images are not accepted: they can contain scripts. Use a PNG, JPEG, WebP or ICO file.',
   'audit.action.branding.updated': 'Changed the branding',
   'audit.action.domain.added': 'Added a custom domain',
   'audit.action.domain.verified': 'Verified a custom domain',

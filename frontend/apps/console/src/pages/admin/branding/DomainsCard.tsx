@@ -1,8 +1,9 @@
-import { App, Card, Flex, Input, List, Modal, Space, Tag, Typography } from 'antd';
+import { App, Card, Flex, Input, List, Modal, Space, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
+  ApiError,
   queryKeys,
   useAddDomain,
   useDomains,
@@ -12,10 +13,22 @@ import {
   type CustomDomain,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+import { reportError, ToneTag, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+
+import { domainProblem, fieldProblems, pemProblem } from './checks';
+import { FieldProblem } from './FieldProblem';
 
 const DOMAINS_CHANGED = 'organization.domains_changed';
-const STATUS_COLOUR = { pending: 'default', verified: 'success', failed: 'error' } as const;
+const STATUS_TONE = { pending: 'default', verified: 'success', failed: 'error' } as const;
+/** Refusals of a domain that are about the host typed, said at the field (QA BUG-02). */
+const HOST_CONFLICTS = new Set(['domain_taken', 'domain_limit']);
+type Translate = ReturnType<typeof useLabel>;
+
+/** The server's reason a field was refused, translated; null when the error is not about it. */
+function refusalAt(t: Translate, error: unknown, field: string): string | null {
+  const found = fieldProblems(error)[field];
+  return found === undefined ? null : found.map((p) => t(p.key, p.params)).join(' ');
+}
 
 function CertificateDialog({
   domain,
@@ -29,6 +42,16 @@ function CertificateDialog({
   const upload = useUploadCertificate();
   const [certificate, setCertificate] = useState('');
   const [privateKey, setPrivateKey] = useState('');
+  // The server's refusal stays until the field it is about changes.
+  const [refused, setRefused] = useState<unknown>(null);
+  const typed = {
+    certificate: pemProblem('certificate', certificate),
+    private_key: pemProblem('private_key', privateKey),
+  };
+  const problemOf = (field: 'certificate' | 'private_key') => {
+    const code = typed[field];
+    return code === null ? refusalAt(t, refused, field) : t(`errors.field.${code}`);
+  };
   return (
     <Modal
       open={domain !== null}
@@ -36,9 +59,18 @@ function CertificateDialog({
       okText={t('domains.certificate_save')}
       cancelText={t('actions.cancel')}
       confirmLoading={upload.isPending}
-      okButtonProps={{ disabled: certificate === '' || privateKey === '' }}
+      okButtonProps={{
+        disabled:
+          certificate === '' ||
+          privateKey === '' ||
+          typed.certificate !== null ||
+          typed.private_key !== null,
+      }}
       destroyOnHidden
-      onCancel={onClose}
+      onCancel={() => {
+        setRefused(null);
+        onClose();
+      }}
       onOk={() => {
         if (domain === null) return;
         upload.mutate(
@@ -48,9 +80,14 @@ function CertificateDialog({
               void message.success(t('domains.certificate_saved'));
               setCertificate('');
               setPrivateKey('');
+              setRefused(null);
               onClose();
             },
-            onError: reportError,
+            // What is wrong with the certificate is said in the dialog, which stays open.
+            onError: (error) => {
+              if (Object.keys(fieldProblems(error)).length === 0) reportError(error);
+              setRefused(error);
+            },
           },
         );
       }}
@@ -59,28 +96,46 @@ function CertificateDialog({
         <Typography.Paragraph type="secondary">
           {t('domains.certificate_hint')}
         </Typography.Paragraph>
-        <label htmlFor="domain-certificate">{t('domains.certificate')}</label>
-        <Input.TextArea
-          id="domain-certificate"
-          rows={5}
-          value={certificate}
-          onChange={(event) => {
-            setCertificate(event.target.value);
-          }}
-          style={{ fontFamily: 'monospace' }}
-          data-testid="domain-certificate"
-        />
-        <label htmlFor="domain-private-key">{t('domains.private_key')}</label>
-        <Input.TextArea
-          id="domain-private-key"
-          rows={5}
-          value={privateKey}
-          onChange={(event) => {
-            setPrivateKey(event.target.value);
-          }}
-          style={{ fontFamily: 'monospace' }}
-          data-testid="domain-private-key"
-        />
+        <FieldProblem
+          testId="domain-certificate-field"
+          id="domain-certificate-problem"
+          message={problemOf('certificate')}
+        >
+          <label htmlFor="domain-certificate">{t('domains.certificate')}</label>
+          <Input.TextArea
+            id="domain-certificate"
+            rows={5}
+            value={certificate}
+            status={problemOf('certificate') === null ? undefined : 'error'}
+            aria-describedby="domain-certificate-problem"
+            onChange={(event) => {
+              setCertificate(event.target.value);
+              setRefused(null);
+            }}
+            style={{ fontFamily: 'monospace' }}
+            data-testid="domain-certificate"
+          />
+        </FieldProblem>
+        <FieldProblem
+          testId="domain-private-key-field"
+          id="domain-private-key-problem"
+          message={problemOf('private_key')}
+        >
+          <label htmlFor="domain-private-key">{t('domains.private_key')}</label>
+          <Input.TextArea
+            id="domain-private-key"
+            rows={5}
+            value={privateKey}
+            status={problemOf('private_key') === null ? undefined : 'error'}
+            aria-describedby="domain-private-key-problem"
+            onChange={(event) => {
+              setPrivateKey(event.target.value);
+              setRefused(null);
+            }}
+            style={{ fontFamily: 'monospace' }}
+            data-testid="domain-private-key"
+          />
+        </FieldProblem>
       </Flex>
     </Modal>
   );
@@ -104,6 +159,10 @@ export function DomainsCard() {
   const [host, setHost] = useState('');
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [certificateFor, setCertificateFor] = useState<CustomDomain | null>(null);
+  // Why the typed host cannot be added: checked as it is typed, or the server's last refusal.
+  const [hostRefusal, setHostRefusal] = useState<string | null>(null);
+  const typedProblem = domainProblem(host);
+  const hostMessage = typedProblem === null ? hostRefusal : t(`errors.field.${typedProblem}`);
   useTenantChannel((event) => {
     if (event.type === DOMAINS_CHANGED) {
       void queryClient.invalidateQueries({ queryKey: queryKeys.branding.domains });
@@ -122,40 +181,60 @@ export function DomainsCard() {
         <Typography.Text type="secondary">
           {t('domains.how', { target: data?.point_to ?? '' })}
         </Typography.Text>
-        <Space.Compact style={{ maxWidth: 480 }}>
-          <Input
-            value={host}
-            placeholder={t('domains.host_example')}
-            aria-label={t('domains.host')}
-            onChange={(event) => {
-              setHost(event.target.value);
-            }}
-            data-testid="domains-host"
-          />
-          <WriteButton
-            type="primary"
-            disabled={host.trim() === ''}
-            loading={add.isPending}
-            onClick={() => {
-              add.mutate(
-                { host: host.trim(), key },
-                {
-                  onSuccess: () => {
-                    setHost('');
-                    setKey(crypto.randomUUID());
+        <FieldProblem testId="domains-host-field" id="domains-host-problem" message={hostMessage}>
+          <Space.Compact style={{ maxWidth: 480, width: '100%' }}>
+            <Input
+              value={host}
+              placeholder={t('domains.host_example')}
+              aria-label={t('domains.host')}
+              status={hostMessage === null ? undefined : 'error'}
+              aria-invalid={hostMessage !== null}
+              aria-describedby="domains-host-problem"
+              onChange={(event) => {
+                setHost(event.target.value);
+                setHostRefusal(null);
+              }}
+              data-testid="domains-host"
+            />
+            <WriteButton
+              type="primary"
+              disabled={host.trim() === '' || typedProblem !== null}
+              loading={add.isPending}
+              onClick={() => {
+                add.mutate(
+                  { host: host.trim(), key },
+                  {
+                    onSuccess: () => {
+                      setHost('');
+                      setHostRefusal(null);
+                      setKey(crypto.randomUUID());
+                    },
+                    onError: (error) => {
+                      const atField =
+                        refusalAt(t, error, 'host') ??
+                        (error instanceof ApiError && HOST_CONFLICTS.has(error.code)
+                          ? t(error.messageKey, error.params)
+                          : null);
+                      if (atField === null) reportError(error);
+                      setHostRefusal(atField);
+                      // A refused key may not be retried with another host.
+                      setKey(crypto.randomUUID());
+                    },
                   },
-                  onError: reportError,
-                },
-              );
-            }}
-            data-testid="domains-add"
-          >
-            {t('domains.add')}
-          </WriteButton>
-        </Space.Compact>
+                );
+              }}
+              data-testid="domains-add"
+            >
+              {t('domains.add')}
+            </WriteButton>
+          </Space.Compact>
+        </FieldProblem>
         <List
           dataSource={data?.items ?? []}
-          locale={{ emptyText: t('domains.none') }}
+          // Readable in every theme (QA BUG-05: the faint empty style failed contrast in dark).
+          locale={{
+            emptyText: <Typography.Text type="secondary">{t('domains.none')}</Typography.Text>,
+          }}
           renderItem={(domain) => (
             <List.Item
               data-testid={`domain-${domain.host}`}
@@ -219,10 +298,10 @@ export function DomainsCard() {
                   <Typography.Text strong>
                     <bdi>{domain.host}</bdi>
                   </Typography.Text>
-                  <Tag color={STATUS_COLOUR[domain.status]}>
+                  <ToneTag tone={STATUS_TONE[domain.status]}>
                     {t(`domain_status.${domain.status}`)}
-                  </Tag>
-                  <Tag>{t(`domain_tls_status.${domain.tls_status}`)}</Tag>
+                  </ToneTag>
+                  <ToneTag tone="default">{t(`domain_tls_status.${domain.tls_status}`)}</ToneTag>
                 </Space>
                 {domain.failure_code != null && domain.status !== 'verified' && (
                   <Typography.Text type="danger">

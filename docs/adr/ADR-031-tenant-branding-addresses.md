@@ -1,6 +1,6 @@
 # ADR-031: Tenant branding and addresses
 
-- **Status:** Proposed (WP-017; D-027, D-090)
+- **Status:** Accepted (WP-017; D-027, D-090, D-093)
 - **Date:** 2026-10-27
 - **Deciders:** Haider (Product Owner), lane B
 
@@ -58,9 +58,20 @@ Organizations (D-010), and Keycloak and the API share one host in Kubernetes (D-
   never carry UI origins). The e2e setup registers the dev addresses for its run; production
   registration comes with certificate provisioning (open).
 
-## Open
+## Certificates and routes for custom domains (decided, D-093)
 
-Who creates certificates and routes for custom domains in Kubernetes: (a) a domain worker with
-its own service account limited to Ingresses and TLS secrets, acting on outbox events
-(recommended); (b) the API itself; (c) the operator, by hand, until the SaaS cell (WP-014d). Until
-decided, verified domains show "certificate not managed here" unless a certificate is uploaded.
+Decided by the product owner on 2026-10-27 (option (a) of the WP-017 plan question):
+
+- A **separate domain worker** creates certificates and routes for verified custom domains. It
+  acts on the outbox's domain events and runs with **its own minimal service account**, allowed
+  only certificates and their secrets in its own namespace. The API never gets those rights.
+- **On-prem** uses a certificate the tenant uploads (built in WP-017) or the customer's own load
+  balancer in front of SupportX.
+- **Automatic ACME certificates** only where the server has internet (SaaS, later), and only
+  through that worker.
+- **An air-gapped installation never tries to reach the internet** for certificates: no ACME
+  attempt, no lookup. A verified domain there shows "certificate not managed here" until a
+  certificate is uploaded.
+
+Until the worker is built (with the SaaS cell, WP-014d), `domain_certificates_managed` stays off
+everywhere and the uploaded certificate is the only way.
