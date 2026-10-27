@@ -41,3 +41,6 @@ export const SUPPORTX_COLOURS = {
 export { BrandLogo, type BrandLogoProps } from './BrandLogo';
 export { logoFor, type LogoVariant } from './logos';
 export { BrandedPage } from './BrandedPage';
+export { AddressBranding, TenantBranding } from './BrandingSync';
+export { BRANDING_CHANGED, brandingFrom } from './brandingFrom';
+export { brandText } from './texts';

@@ -254,6 +254,33 @@ async def open_image(
     )
 
 
+async def read_image(
+    session: AsyncSession,
+    services: FileServices,
+    actor: Actor,
+    file_id: uuid.UUID,
+    *,
+    max_bytes: int,
+) -> bytes:
+    """The whole plaintext of an openable image the actor may see (brand images, WP-017).
+
+    The caller (the owner module) processes it further; files above `max_bytes` are refused
+    before anything is read.
+    """
+    storage, keyring = services.require_storage()
+    found = await authorize(session, actor, file_id, Action.VIEW)
+    stored = found.file
+    _require_openable(services, stored)
+    if stored.kind != Kind.IMAGE.value or stored.active_markup:
+        raise ValidationFailed(code="file_not_an_image")
+    if stored.size > max_bytes:
+        raise ValidationFailed(code="file_too_large", params={"limit_mb": max(1, max_bytes >> 20)})
+    key = await data_key(session, keyring, stored.data_key_id)
+    return await blobs.read_all(
+        storage, stored.object_key, data_key=key, file_id=stored.id, size=stored.size
+    )
+
+
 DELETE_GRACE = timedelta(hours=24)
 
 

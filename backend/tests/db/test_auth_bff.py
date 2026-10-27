@@ -8,7 +8,7 @@ the real Keycloak in tests/integration/test_auth_keycloak.py.
 import json
 import uuid
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -767,3 +767,108 @@ async def test_bug_04_ui_language_is_kept_per_user_across_logins_and_devices(bff
     )
     assert cleared.status_code == 200, cleared.text
     assert (await bff.me()).json()["user"]["locale"] == "en"
+
+
+# --- a tenant's own address (WP-017, REQ-SEC-004) ------------------------------------------------
+
+
+async def _on_address(bff: Bff, monkeypatch: pytest.MonkeyPatch) -> tuple[str, str]:
+    """Tenant A reached on its subdomain `<slug>.brand.test`; returns (slug, host)."""
+    settings = bff.app.state.settings.model_copy(update={"tenant_base_domain": "brand.test"})
+    monkeypatch.setattr(bff.app.state, "settings", settings)
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        slug = str(await conn.fetchval("SELECT slug FROM tenants WHERE id = $1", bff.tenants[0]))
+    finally:
+        await conn.close()
+    return slug, f"{slug}.brand.test"
+
+
+async def test_the_address_picks_the_organization_and_keeps_the_callback_on_it(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    slug, host = await _on_address(bff, monkeypatch)
+    start = await bff.client.get("/api/v1/auth/login", headers={"Host": host})
+    location = start.headers["location"]
+    assert f"organization%3A{slug}" in location  # AC1: straight to that tenant's sign-in
+    assert "organization%3A%2A" not in location
+    # Keycloak organization aliases are the tenant slugs (the dev realm: demo, other).
+    user = replace(
+        bff.user("b", email="multi@demo.test"),
+        organizations={
+            slug: bff.tenants[0],
+            "b": bff.tenants[1],
+        },
+    )
+    code, state = bff.idp.issue_code(location, user)
+    assert bff.idp.last_redirect_uri == f"http://{host}/api/v1/auth/callback"
+    done = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers={"Host": host}
+    )
+    assert done.status_code == 302, done.text
+    assert done.headers["location"].startswith(f"http://{host}/")
+    me = await bff.client.get("/api/v1/auth/me", headers={"Host": host})
+    body = me.json()
+    assert body["tenant"]["id"] == str(bff.tenants[0])
+    assert [t["id"] for t in body["tenants"]] == [str(bff.tenants[0])]  # only this address's
+    # A write from the address's own origin passes the Origin check; another origin does not.
+    token = body["csrf_token"]
+    own = await bff.client.post(
+        "/api/v1/probe",
+        json={"title": "x"},
+        headers={"Host": host, "X-CSRF-Token": token, "Origin": f"http://{host}"},
+    )
+    assert own.status_code == 200, own.text
+    other = await bff.client.post(
+        "/api/v1/probe",
+        json={"title": "x"},
+        headers={"Host": host, "X-CSRF-Token": token, "Origin": "http://other.brand.test"},
+    )
+    assert (other.status_code, other.json()["code"]) == (403, "csrf_failed")
+
+
+async def test_a_member_of_another_tenant_gets_no_access_through_this_address(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _slug, host = await _on_address(bff, monkeypatch)
+    start = await bff.client.get("/api/v1/auth/login", headers={"Host": host})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("b"))  # B only
+    done = await bff.client.get(
+        "/api/v1/auth/callback", params={"code": code, "state": state}, headers={"Host": host}
+    )
+    assert (done.status_code, done.json()["code"]) == (403, "no_organization")  # AC2
+    assert bff.cookie() is None
+
+
+async def test_a_login_cannot_finish_on_another_address(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _slug, host = await _on_address(bff, monkeypatch)
+    start = await bff.client.get("/api/v1/auth/login", headers={"Host": host})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("a"))
+    done = await bff.client.get("/api/v1/auth/callback", params={"code": code, "state": state})
+    assert (done.status_code, done.json()["code"]) == (400, "login_failed")
+
+
+async def test_an_unknown_address_signs_in_as_before(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    await _on_address(bff, monkeypatch)
+    start = await bff.client.get("/api/v1/auth/login", headers={"Host": "nobody.brand.test"})
+    assert "organization%3A%2A" in start.headers["location"]
+    assert "redirect_uri=http%3A%2F%2Fconsole.test" in start.headers["location"]
+
+
+async def test_a_refused_browser_login_returns_to_the_address_it_started_on(
+    bff: Bff, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _slug, host = await _on_address(bff, monkeypatch)
+    start = await bff.client.get("/api/v1/auth/login", headers={"Host": host})
+    code, state = bff.idp.issue_code(start.headers["location"], bff.user("b"))
+    done = await bff.client.get(
+        "/api/v1/auth/callback",
+        params={"code": code, "state": state},
+        headers={"Host": host, "Accept": "text/html"},
+    )
+    assert done.status_code == 303
+    assert done.headers["location"] == f"http://{host}/?auth_error=no_organization"

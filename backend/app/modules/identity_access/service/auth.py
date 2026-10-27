@@ -13,7 +13,7 @@ expires (if Keycloak refuses, the session ends) → TenantContext for the databa
 import hmac
 import secrets
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlsplit
@@ -71,13 +71,22 @@ def _client_app(session: Session) -> AppName:
     return "portal" if session.client == "portal" else "console"
 
 
+@dataclass(frozen=True)
+class LoginAddress:
+    """A tenant's own address the login started on (WP-017): its host and organization alias."""
+
+    host: str
+    organization: str
+
+
 class LoginFailure(Exception):
     """A login that could not complete: which app it was for, and the problem to report."""
 
-    def __init__(self, app: AppName, problem: AppError) -> None:
+    def __init__(self, app: AppName, problem: AppError, origin: str | None = None) -> None:
         super().__init__(problem.instance_code)  # the code is a stable identifier, not prose
         self.app = app
         self.problem = problem
+        self.origin = origin  # a tenant's own address the login started on (WP-017), if any
 
 
 class LoginResult:
@@ -121,22 +130,24 @@ class AuthService:
             "/"
         )
 
-    def origin(self, app: AppName) -> str:
+    def origin(self, app: AppName, host: str | None = None) -> str:
         """Scheme and host of the console or portal: where the BFF and its callback live.
 
         Both UIs may share one host (the portal under /portal, WP-014); the API is always at the
-        host's /api, so the callback and the Origin check use the origin, not the base path.
+        host's /api, so the callback and the Origin check use the origin, not the base path. A
+        tenant's own address (`host`, WP-017) keeps the configured scheme.
         """
         parts = urlsplit(self.base_url(app))
-        return f"{parts.scheme}://{parts.netloc}"
+        return f"{parts.scheme}://{host or parts.netloc}"
 
-    def landing(self, app: AppName, return_to: str) -> str:
+    def landing(self, app: AppName, return_to: str, origin: str | None = None) -> str:
         """Where the browser goes after login: its own path, else the UI's home."""
+        base_origin = origin or self.origin(app)
         if return_to == "/":
-            return self.base_url(app) + "/"
-        return self.origin(app) + return_to
+            return base_origin + urlsplit(self.base_url(app)).path.rstrip("/") + "/"
+        return base_origin + return_to
 
-    def client(self, app: AppName) -> ClientCredentials:
+    def client(self, app: AppName, origin: str | None = None) -> ClientCredentials:
         """The confidential OIDC client of the console or portal."""
         if app == "console":
             client_id, secret = (
@@ -151,7 +162,7 @@ class AuthService:
         if secret is None:
             raise ServiceUnavailable(code="auth_not_configured")
         return ClientCredentials(
-            client_id, secret.get_secret_value(), self.origin(app) + CALLBACK_PATH
+            client_id, secret.get_secret_value(), (origin or self.origin(app)) + CALLBACK_PATH
         )
 
     @property
@@ -161,8 +172,17 @@ class AuthService:
 
     # --- login ---------------------------------------------------------------------------------
 
-    async def start_login(self, app: AppName, return_to: str | None) -> str:
-        """Remember a one-time login state and return Keycloak's authorization URL."""
+    async def start_login(
+        self, app: AppName, return_to: str | None, address: LoginAddress | None = None
+    ) -> str:
+        """Remember a one-time login state and return Keycloak's authorization URL.
+
+        On a tenant's own address (WP-017, REQ-SEC-004) the callback stays on that address and
+        Keycloak is asked for that tenant's organization: its sign-in page shows the tenant's
+        brand, and the token names only that organization. A hint, never access: someone who is
+        not a member gets no organization and the usual `no_organization` refusal.
+        """
+        origin = self.origin(app, address.host) if address is not None else None
         state, nonce, pkce = (
             secrets.token_urlsafe(32),
             secrets.token_urlsafe(32),
@@ -175,11 +195,17 @@ class AuthService:
                 "nonce": nonce,
                 "verifier": pkce.verifier,
                 "return_to": safe_return_to(return_to),
+                "origin": origin,
+                "organization": address.organization if address is not None else None,
             },
             LOGIN_STATE_TTL,
         )
         return await self.oidc.authorization_url(
-            self.client(app), state=state, nonce=nonce, pkce=pkce
+            self.client(app, origin),
+            state=state,
+            nonce=nonce,
+            pkce=pkce,
+            organization=address.organization if address is not None else None,
         )
 
     async def complete_login(
@@ -189,6 +215,7 @@ class AuthService:
         state: str | None,
         error: str | None,
         previous_session_id: str | None,
+        host: str | None = None,
     ) -> LoginResult:
         """Finish the OIDC callback and create a fresh session.
 
@@ -199,20 +226,24 @@ class AuthService:
         if pending is None:
             raise LoginFailure("console", BadRequest(code="invalid_login_state"))  # noqa: EM101 - a code, not a message
         app: AppName = "portal" if pending["app"] == "portal" else "console"
-        if error or not code:
+        origin = pending.get("origin")
+        if origin is not None and urlsplit(origin).netloc != host:
+            # Started on another address than it finished on: never move a session across.
             raise LoginFailure(app, BadRequest(code="login_failed"))
+        if error or not code:
+            raise LoginFailure(app, BadRequest(code="login_failed"), origin)
         try:
             session = await self._login(app, code, pending)
         except AppError as exc:
-            raise LoginFailure(app, exc) from exc
+            raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
         session_id = await self._save_new(session)
         log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
-        return LoginResult(session_id, session, self.landing(app, pending["return_to"]))
+        return LoginResult(session_id, session, self.landing(app, pending["return_to"], origin))
 
     async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
-        client = self.client(app)
+        client = self.client(app, pending.get("origin"))
         try:
             tokens = await self.oidc.exchange_code(client, code=code, verifier=pending["verifier"])
         except TokenRejectedError as exc:
@@ -334,8 +365,20 @@ class AuthService:
         if not sent or not hmac.compare_digest(sent, session.csrf_token):
             raise PermissionDenied(code="csrf_failed")
         origin = request.headers.get("origin")
-        if origin is not None and origin.rstrip("/") not in self.allowed_origins:
+        if origin is not None and not self._origin_allowed(origin.rstrip("/"), request):
             raise PermissionDenied(code="csrf_failed")
+
+    def _origin_allowed(self, origin: str, request: Request) -> bool:
+        """The UIs' configured origins, or the request's own host (a tenant address, WP-017).
+
+        A same-origin request cannot be forged by another site (browsers set Origin), and the
+        session cookie is bound to the host it was set on, so the host's own origin is safe.
+        """
+        if origin in self.allowed_origins:
+            return True
+        schemes = {urlsplit(self.base_url(app)).scheme for app in ("console", "portal")}
+        parts = urlsplit(origin)
+        return parts.scheme in schemes and parts.netloc == request.headers.get("host")
 
     async def _refresh(self, session_id: str, session: Session) -> Session:
         """Silent refresh. Keycloak refusing ends the session; Keycloak being down does not."""

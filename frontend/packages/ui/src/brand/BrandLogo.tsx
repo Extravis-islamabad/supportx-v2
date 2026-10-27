@@ -1,6 +1,7 @@
 import { Typography } from 'antd';
 
 import { useAppearance, useLabel } from '../appearance';
+import { brandText } from './texts';
 import { logoFor, type LogoVariant } from './logos';
 
 export interface BrandLogoProps {
@@ -16,19 +17,20 @@ export interface BrandLogoProps {
  */
 export function BrandLogo({ variant = 'full', height = 32 }: BrandLogoProps) {
   const t = useLabel();
-  const { mode, branding } = useAppearance();
+  const { mode, branding, locale } = useAppearance();
   const src = logoFor(branding.logos, mode, variant);
+  const name = brandText(branding, 'productName', locale);
   if (src === undefined) {
     return (
       <Typography.Text strong style={{ fontSize: 18, whiteSpace: 'nowrap' }}>
-        {t('product.short_name')}
+        {name ?? t('product.short_name')}
       </Typography.Text>
     );
   }
   return (
     <img
       src={src}
-      alt={t('product.name')}
+      alt={name ?? t('product.name')}
       data-testid={`brand-logo-${variant}`}
       style={{ display: 'block', height, width: 'auto', maxWidth: '100%' }}
     />

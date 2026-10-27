@@ -154,6 +154,9 @@ services:
       # Where the console and portal dev servers run (OIDC redirect and logout URIs).
       SUPPORTX_KC_CONSOLE_ORIGIN: http://localhost:5173
       SUPPORTX_KC_PORTAL_ORIGIN: http://localhost:5174
+      # The tenant's sign-in stylesheet (WP-017): the API's public branding route, through the
+      # console dev server's /api proxy (Keycloak runs on its own port in Compose).
+      SUPPORTX_BRANDING_URL: http://localhost:5173/api/v1/public/branding
     volumes:
       - ../helm/supportx/files/keycloak/dev:/opt/keycloak/data/import:ro
       # SupportX login theme (branding.md); start-dev does not cache themes, edits show at once.

@@ -10,6 +10,7 @@ const TABS = [
   { key: 'incidents', labelKey: 'nav.admin_incidents', permission: 'settings.manage' },
   { key: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
   { key: 'files', labelKey: 'nav.admin_files', permission: 'files.manage' },
+  { key: 'branding', labelKey: 'nav.admin_branding', permission: 'branding.manage' },
 ] as const;
 
 export function AdminLayout() {

@@ -22,7 +22,8 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from app.core.errors import ServiceUnavailable
 
 DISCOVERY_PATH = "/.well-known/openid-configuration"
-SCOPES = "openid profile email organization:*"
+BASE_SCOPES = "openid profile email"
+SCOPES = f"{BASE_SCOPES} organization:*"
 _METADATA_TTL_SECONDS = 300
 
 
@@ -173,7 +174,7 @@ class OidcClient:
             )
         return self._jwks
 
-    async def authorization_url(
+    async def authorization_url(  # noqa: PLR0913 - keyword-only request parts, most optional
         self,
         client: ClientCredentials,
         *,
@@ -181,13 +182,20 @@ class OidcClient:
         nonce: str,
         pkce: PkcePair,
         locale: str | None = None,
+        organization: str | None = None,
     ) -> str:
-        """Where to send the browser to log in."""
+        """Where to send the browser to log in.
+
+        `organization` (a tenant's address, WP-017) asks for that organization only: Keycloak
+        brands its pages with it, and the scope cannot be combined with `organization:*`.
+        """
         params = {
             "client_id": client.client_id,
             "response_type": "code",
             "redirect_uri": client.redirect_uri,
-            "scope": SCOPES,
+            "scope": SCOPES
+            if organization is None
+            else f"{BASE_SCOPES} organization:{organization}",
             "state": state,
             "nonce": nonce,
             "code_challenge": pkce.challenge,

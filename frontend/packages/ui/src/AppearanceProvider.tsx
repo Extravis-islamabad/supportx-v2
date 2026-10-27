@@ -6,11 +6,16 @@ import urPK from 'antd/locale/ur_PK';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ar';
 import 'dayjs/locale/ur';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
-import { AppearanceContext, type Appearance, type Direction } from './appearance';
+import {
+  AppearanceContext,
+  type Appearance,
+  type BrandingSource,
+  type Direction,
+} from './appearance';
 import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
 
 const ANT_LOCALES: Record<Locale, AntLocale> = { en: enUS, ar: arEG, ur: urPK };
@@ -36,6 +41,31 @@ function preferredMode(): ThemeMode {
   }
   if (window.matchMedia('(prefers-contrast: more)').matches) return 'high_contrast';
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+/**
+ * The tab icon follows the brand (WP-017): the tenant's favicon, or back to the SupportX files the
+ * page was served with. The original links are remembered once so a cleared brand restores them.
+ */
+function useFavicon(brand: Branding): void {
+  useEffect(() => {
+    const links = [
+      ...document.querySelectorAll<HTMLLinkElement>(
+        'link[rel="icon"], link[rel="apple-touch-icon"]',
+      ),
+    ];
+    for (const link of links) {
+      link.dataset.defaultHref ??= link.getAttribute('href') ?? '';
+      const touch = link.rel === 'apple-touch-icon';
+      const wanted = touch ? brand.appleTouchIcon : brand.favicon;
+      const href = wanted ?? link.dataset.defaultHref;
+      if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+      if (!touch) {
+        // A type or sizes attribute from the default files would be wrong for the tenant's ICO.
+        if (wanted !== undefined) link.removeAttribute('type');
+      }
+    }
+  }, [brand.favicon, brand.appleTouchIcon]);
 }
 
 /**
@@ -73,7 +103,17 @@ export function AppearanceProvider({
     dayjs.locale(locale);
   }, [locale]);
 
-  const brand = useMemo(() => ({ ...DEFAULT_BRANDING, ...branding }), [branding]);
+  const [sources, setSources] = useState<Partial<Record<BrandingSource, Partial<Branding>>>>({});
+  // The tenant's brand wins over the address's, both over the prop (tests) and the default.
+  const brand = useMemo<Branding>(
+    () => ({ ...DEFAULT_BRANDING, ...branding, ...sources.address, ...sources.tenant }),
+    [branding, sources],
+  );
+  const setBranding = useCallback((source: BrandingSource, next: Partial<Branding> | undefined) => {
+    setSources((current) => ({ ...current, [source]: next }));
+  }, []);
+
+  useFavicon(brand);
   const appearance = useMemo<Appearance>(
     () => ({
       mode,
@@ -89,12 +129,13 @@ export function AppearanceProvider({
         }
       },
       setDirection,
+      setBranding,
       setLocale: (next) => {
         setLocaleState(next);
         setDirection(isRtlLocale(next) ? 'rtl' : 'ltr');
       },
     }),
-    [mode, direction, locale, brand],
+    [mode, direction, locale, brand, setBranding],
   );
   const themeConfig = useMemo(() => buildTheme(mode, brand, locale), [mode, brand, locale]);
 

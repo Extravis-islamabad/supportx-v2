@@ -7,7 +7,7 @@ import secrets
 import time
 import uuid
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -48,6 +48,7 @@ class FakeIdp:
     refresh_ok: bool = True
     access_lifetime: int = 300
     pending: dict[str, tuple[FakeUser, str, str]] = field(default_factory=dict)
+    last_redirect_uri: str | None = None
     refresh_tokens: dict[str, tuple[FakeUser, str]] = field(default_factory=dict)
     ended_sessions: list[str] = field(default_factory=list)
     token_overrides: dict[str, Any] = field(default_factory=dict)
@@ -90,7 +91,15 @@ class FakeIdp:
         """What Keycloak would do after the user logs in: returns (code, state)."""
         query = parse_qs(urlsplit(authorize_url).query)
         code = secrets.token_urlsafe(16)
+        # `organization:<alias>` (a tenant's address, WP-017): Keycloak names only that
+        # organization, and none at all when the user is not a member (it does not refuse).
+        asked = [s for s in query["scope"][0].split() if s.startswith("organization:")]
+        if asked and asked[0] != "organization:*":
+            alias = asked[0].removeprefix("organization:")
+            kept = {a: t for a, t in user.organizations.items() if a == alias}
+            user = replace(user, organizations=kept)
         self.pending[code] = (user, query["nonce"][0], query["client_id"][0])
+        self.last_redirect_uri = query["redirect_uri"][0]
         return code, query["state"][0]
 
     def _tokens(self, user: FakeUser, client_id: str, nonce: str | None) -> dict[str, Any]:
