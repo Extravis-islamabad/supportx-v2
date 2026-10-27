@@ -113,7 +113,9 @@ start. Realms that existed before the branding work get the theme from an upgrad
 Compose mounts the theme folder; `start-dev` does not cache themes, so CSS edits show at once.
 The chart ships the theme as a ConfigMap. Its keys are the file paths with `/` written as `__`,
 and the volume's `items` put each file back at its path under `/opt/keycloak/themes/supportx`.
-WP-017 adds per-tenant login branding (Keycloak organizations) on top of this theme.
+The theme's `template.ftl` is upstream keycloak.v2 (26.8.1) plus one block marked `SupportX`: it
+links the tenant's stylesheet when Keycloak knows the organization (next section). On a Keycloak
+upgrade, copy the new upstream file and put the block back; `test_keycloak_theme.py` checks it.
 
 ## Accessibility checks
 
@@ -127,3 +129,62 @@ WP-017 adds per-tenant login branding (Keycloak organizations) on top of this th
 It also checks that favicons and the manifest are served and that each theme loads the right
 logo file. `layouts.spec.ts` keeps covering the three console layouts in every theme and in
 Arabic.
+
+## Per tenant (WP-017, ADR-031, D-090)
+
+A tenant replaces the default from Admin › Branding (`branding.manage`). Nothing else changes:
+the apps pass the tenant's `Branding` to the theme, as above.
+
+| Part | Where | Notes |
+|---|---|---|
+| Colours, names, welcome text | `tenant_branding` (organization module) | Empty = the default. Names per language, English the fallback |
+| Uploads (logo, dark logo, icon) | files service, owner `branding` | Scanned like any file; PNG, JPEG, WebP or ICO, never SVG |
+| Variants every surface shows | `branding_assets`, made with Pillow on save | `logo.png`, `logo-dark.png`, `logo-high-contrast.png`, `icon.png`, `icon-high-contrast.png`, `favicon.ico`, `apple-touch-icon.png`, `icon-192.png`, `icon-512.png` |
+| Public routes | `/api/v1/public/branding` (the address's logo and colours), `/{tenant_id}/login.css`, `/{tenant_id}/{asset}?v=` | Versioned URLs cached a year; others five minutes. Only the stylesheet and images send `Cross-Origin-Resource-Policy: cross-origin` (every other API response keeps `same-origin`) |
+| Rules | `organization/domain/branding.py` | The colour maths of this page, shared with `make brand-assets` |
+
+**Colours.** The server checks every pair the brand makes (table above). A failing primary or
+gradient is refused (`brand_colour_contrast`) with the failing checks and the nearest darker
+shade that passes; the screen checks as you choose and offers that shade in one click. The
+preview draws the console header, the portal welcome band and the sign-in card with the real
+theme builder in light, dark and high contrast before anything is saved.
+
+**Logos.** A cut-out logo (transparent background) also gives the dark version (near-black
+neutral pixels turned white, as for SupportX's own) and the high-contrast one (all black). An
+opaque logo is shown as it is in every mode. Without an icon, favicons are made from the logo.
+
+**Where it shows.**
+- Console and portal: `AddressBranding` (before sign-in, from the address) and `TenantBranding`
+  (signed in; refetched on `organization.branding_changed`, so open screens follow live). The tab
+  icon follows too. The portal shows the portal name and the welcome text in its band.
+- Sign-in page: the theme links `<supportxBrandingUrl>/<tenant_id>/login.css` (the organization's
+  `tenant_id` attribute) when Keycloak knows the organization. `supportxBrandingUrl` is the theme property
+  `${env.SUPPORTX_BRANDING_URL:/api/v1/public/branding}` (one host in Kubernetes; Compose points
+  it at the console dev server). Keycloak knows the organization on a tenant's own address
+  (SupportX asks for `organization:<alias>`) and, on the shared address, once the e-mail's domain
+  names it. The organization alias is the tenant slug.
+
+**What is public.** Before sign-in anyone may learn an address's logo and colours, nothing more:
+no names or texts, no slug, no settings, no list. Public URLs are keyed by the tenant's ID (an
+unguessable UUID), never by the guessable slug, and an unknown or malformed ID gets exactly what
+a tenant without a brand gets (the default stylesheet; the same 404 for images), so they cannot
+be used to find tenants (`test_the_public_brand_tells_only_logo_and_colours_and_cannot_find_tenants`).
+- E-mails: `organization.email_branding()` gives the absolute logo URL, colours and the product
+  name in a language; `header_html()` is the escaped header. The WP-039 mail foundation renders
+  with them (D-089).
+
+## Addresses (WP-017, REQ-SEC-004)
+
+- **Subdomain:** `<slug>.<tenant_base_domain>` when `SUPPORTX_TENANT_BASE_DOMAIN` is set (dev:
+  `localhost`, so `demo.localhost:5173` and `other.localhost:5173` are the seeded tenants).
+- **Custom domain:** added on the branding screen, pointed here (CNAME), then checked: SupportX
+  fetches `http://<host>/api/v1/public/domain-check/<token>` and expects this installation's
+  HMAC of the token (keyed with the session secret). Only verified domains resolve; a host
+  belongs to one tenant. The fetch refuses loopback, link-local, multicast and reserved
+  addresses, follows no redirects and reads at most 256 bytes.
+- **Certificates:** a single-server installation may upload its own (key matches, names the host,
+  valid now; the key is encrypted with the tenant's data key). Automatic certificates need the
+  platform (`SUPPORTX_DOMAIN_CERTIFICATES_MANAGED`; who provisions in Kubernetes is open,
+  ADR-031). Each custom domain must also be a redirect URI of the console and portal clients.
+- **Sign-in:** on a tenant's address the BFF asks Keycloak for that organization only and keeps
+  the callback there. A person who is not a member gets `no_organization`, on that address.

@@ -5,12 +5,14 @@ import { RouterProvider } from 'react-router';
 import { RealtimeProvider } from '@supportx/realtime';
 
 import {
+  AddressBranding,
   AppearanceProvider,
   createQueryClient,
   ErrorBoundary,
   ErrorReporterProvider,
   LicenceProvider,
   SessionGate,
+  TenantBranding,
   type SessionGateProps,
 } from '@supportx/ui';
 
@@ -27,11 +29,13 @@ export function App({ navigate }: AppProps) {
   return (
     <QueryClientProvider client={queryClient}>
       <AppearanceProvider>
+        <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>
             <SessionGate app="portal" navigate={navigate}>
               {(session) => (
                 <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
+                  <TenantBranding />
                   <LicenceProvider key={session.tenant.id} session={session}>
                     <RouterProvider router={router} />
                   </LicenceProvider>

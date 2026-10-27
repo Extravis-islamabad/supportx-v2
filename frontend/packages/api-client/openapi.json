@@ -2247,6 +2247,317 @@
         "title": "AuditStatusOut",
         "type": "object"
       },
+      "BrandingIn": {
+        "description": "The whole branding; null or empty restores that part's default.",
+        "properties": {
+          "gradient": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 7,
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gradient"
+          },
+          "icon_file_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon File Id"
+          },
+          "logo_dark_file_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Dark File Id"
+          },
+          "logo_file_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo File Id"
+          },
+          "portal_name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 3,
+            "title": "Portal Name",
+            "type": "object"
+          },
+          "primary_colour": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Colour"
+          },
+          "product_name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 3,
+            "title": "Product Name",
+            "type": "object"
+          },
+          "welcome_text": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "maxProperties": 3,
+            "title": "Welcome Text",
+            "type": "object"
+          }
+        },
+        "title": "BrandingIn",
+        "type": "object"
+      },
+      "BrandingOut": {
+        "description": "The brand a surface shows. Empty texts and null logos mean the default.",
+        "properties": {
+          "customised": {
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "gradient": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Gradient",
+            "type": "array"
+          },
+          "logos": {
+            "$ref": "#/components/schemas/Logos"
+          },
+          "portal_name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Portal Name",
+            "type": "object"
+          },
+          "primary_colour": {
+            "description": "The seed of every primary shade.",
+            "title": "Primary Colour",
+            "type": "string"
+          },
+          "product_name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Product Name",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "welcome_text": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Welcome Text",
+            "type": "object"
+          }
+        },
+        "required": [
+          "customised",
+          "primary_colour",
+          "gradient",
+          "product_name",
+          "portal_name",
+          "welcome_text",
+          "logos",
+          "version"
+        ],
+        "title": "BrandingOut",
+        "type": "object"
+      },
+      "BrandingSettingsOut": {
+        "description": "The branding screen: what was chosen (null = default) and the uploads behind the logos.",
+        "properties": {
+          "chosen_gradient": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Gradient"
+          },
+          "chosen_primary_colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chosen Primary Colour"
+          },
+          "customised": {
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "gradient": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Gradient",
+            "type": "array"
+          },
+          "icon_file_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon File Id"
+          },
+          "logo_dark_file_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo Dark File Id"
+          },
+          "logo_file_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logo File Id"
+          },
+          "logos": {
+            "$ref": "#/components/schemas/Logos"
+          },
+          "portal_name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Portal Name",
+            "type": "object"
+          },
+          "primary_colour": {
+            "description": "The seed of every primary shade.",
+            "title": "Primary Colour",
+            "type": "string"
+          },
+          "product_name": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Product Name",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "welcome_text": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Welcome Text",
+            "type": "object"
+          }
+        },
+        "required": [
+          "customised",
+          "primary_colour",
+          "gradient",
+          "product_name",
+          "portal_name",
+          "welcome_text",
+          "logos",
+          "version",
+          "chosen_primary_colour",
+          "chosen_gradient",
+          "logo_file_id",
+          "logo_dark_file_id",
+          "icon_file_id"
+        ],
+        "title": "BrandingSettingsOut",
+        "type": "object"
+      },
+      "CertificateIn": {
+        "description": "PEM certificate chain (the host's certificate first) and its unencrypted private key.",
+        "properties": {
+          "certificate_pem": {
+            "maxLength": 65536,
+            "minLength": 100,
+            "title": "Certificate Pem",
+            "type": "string"
+          },
+          "private_key_pem": {
+            "maxLength": 16384,
+            "minLength": 100,
+            "title": "Private Key Pem",
+            "type": "string"
+          }
+        },
+        "required": [
+          "certificate_pem",
+          "private_key_pem"
+        ],
+        "title": "CertificateIn",
+        "type": "object"
+      },
       "Channel": {
         "description": "Where a work item came from (REQ-INC-005). Set by the entry point, not by hand.",
         "enum": [
@@ -2266,6 +2577,48 @@
         ],
         "title": "Channel",
         "type": "string"
+      },
+      "CheckCode": {
+        "description": "Each text/background pair the brand colours make (labels: `branding.check.<code>`).",
+        "enum": [
+          "text_on_primary",
+          "links_on_white",
+          "text_on_hover",
+          "dark_links",
+          "dark_links_raised",
+          "high_contrast",
+          "text_on_gradient"
+        ],
+        "title": "CheckCode",
+        "type": "string"
+      },
+      "CheckOut": {
+        "description": "One contrast check (labels: `branding.check.<code>`).",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CheckCode"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "ratio": {
+            "title": "Ratio",
+            "type": "number"
+          },
+          "required": {
+            "title": "Required",
+            "type": "number"
+          }
+        },
+        "required": [
+          "code",
+          "ratio",
+          "required",
+          "passed"
+        ],
+        "title": "CheckOut",
+        "type": "object"
       },
       "CheckResponse": {
         "description": "One dependency's readiness.",
@@ -2327,6 +2680,91 @@
         ],
         "title": "ChoiceDisplay",
         "type": "string"
+      },
+      "ColourReportOut": {
+        "description": "Every check, and the nearest passing colours when one fails.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckOut"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "passes": {
+            "title": "Passes",
+            "type": "boolean"
+          },
+          "suggested_gradient": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Gradient"
+          },
+          "suggested_primary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Primary"
+          }
+        },
+        "required": [
+          "passes",
+          "checks",
+          "suggested_primary",
+          "suggested_gradient"
+        ],
+        "title": "ColourReportOut",
+        "type": "object"
+      },
+      "ColoursIn": {
+        "description": "Colours to check before saving (the live preview).",
+        "properties": {
+          "gradient": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxLength": 7,
+                  "type": "string"
+                },
+                "maxItems": 2,
+                "minItems": 2,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gradient"
+          },
+          "primary_colour": {
+            "anyOf": [
+              {
+                "maxLength": 7,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Primary Colour"
+          }
+        },
+        "title": "ColoursIn",
+        "type": "object"
       },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
@@ -3445,6 +3883,162 @@
         ],
         "title": "Disposition",
         "type": "string"
+      },
+      "DomainIn": {
+        "description": "A host name, e.g. help.example.com.",
+        "properties": {
+          "host": {
+            "maxLength": 253,
+            "minLength": 4,
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ],
+        "title": "DomainIn",
+        "type": "object"
+      },
+      "DomainOut": {
+        "description": "A custom domain, its proof of ownership and its certificate.",
+        "properties": {
+          "certificate_not_after": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Not After"
+          },
+          "check_url": {
+            "description": "What SupportX fetches to verify the domain.",
+            "title": "Check Url",
+            "type": "string"
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the last check failed (labels: errors.*).",
+            "title": "Failure Code"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DomainStatus"
+          },
+          "tls_mode": {
+            "$ref": "#/components/schemas/TlsMode"
+          },
+          "tls_status": {
+            "$ref": "#/components/schemas/TlsStatus"
+          },
+          "verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verified At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "host",
+          "status",
+          "check_url",
+          "verified_at",
+          "checked_at",
+          "failure_code",
+          "tls_mode",
+          "tls_status",
+          "certificate_not_after",
+          "version"
+        ],
+        "title": "DomainOut",
+        "type": "object"
+      },
+      "DomainStatus": {
+        "description": "Whether the address is proven to reach this installation.",
+        "enum": [
+          "pending",
+          "verified",
+          "failed"
+        ],
+        "title": "DomainStatus",
+        "type": "string"
+      },
+      "DomainsOut": {
+        "description": "The tenant's addresses: its subdomain (when the installation has them) and its domains.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DomainOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "point_to": {
+            "description": "Where a custom domain must point (CNAME target).",
+            "title": "Point To",
+            "type": "string"
+          },
+          "subdomain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subdomain"
+          }
+        },
+        "required": [
+          "subdomain",
+          "point_to",
+          "items"
+        ],
+        "title": "DomainsOut",
+        "type": "object"
       },
       "Edition": {
         "description": "Commercial tier (product-plan.md §9).",
@@ -5094,6 +5688,112 @@
         "title": "LiveListChannels",
         "type": "object"
       },
+      "Logos": {
+        "description": "Public URLs of the generated images (None: the SupportX default is shown).",
+        "properties": {
+          "apple_touch_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Apple Touch Icon"
+          },
+          "favicon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Favicon"
+          },
+          "full": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full"
+          },
+          "full_high_contrast": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full High Contrast"
+          },
+          "full_on_dark": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full On Dark"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
+          "icon_192": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon 192"
+          },
+          "icon_512": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon 512"
+          },
+          "icon_high_contrast": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon High Contrast"
+          }
+        },
+        "title": "Logos",
+        "type": "object"
+      },
       "MatrixCellIn": {
         "description": "One cell.",
         "properties": {
@@ -5284,7 +5984,8 @@
         "enum": [
           "work_item",
           "conversation_entry",
-          "draft"
+          "draft",
+          "branding"
         ],
         "title": "OwnerType",
         "type": "string"
@@ -5888,6 +6589,41 @@
           "message_key"
         ],
         "title": "ProblemDetail",
+        "type": "object"
+      },
+      "PublicBrandingOut": {
+        "description": "What anyone may learn about an address before sign-in: its logo and colours only.",
+        "properties": {
+          "customised": {
+            "description": "False: the SupportX default (also for unknown addresses).",
+            "title": "Customised",
+            "type": "boolean"
+          },
+          "gradient": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Gradient",
+            "type": "array"
+          },
+          "logos": {
+            "$ref": "#/components/schemas/Logos"
+          },
+          "primary_colour": {
+            "description": "The seed of every primary shade.",
+            "title": "Primary Colour",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customised",
+          "primary_colour",
+          "gradient",
+          "logos"
+        ],
+        "title": "PublicBrandingOut",
         "type": "object"
       },
       "ReactivateIn": {
@@ -7437,6 +8173,27 @@
         ],
         "title": "TermOut",
         "type": "object"
+      },
+      "TlsMode": {
+        "description": "Who provides the certificate.",
+        "enum": [
+          "automatic",
+          "uploaded"
+        ],
+        "title": "TlsMode",
+        "type": "string"
+      },
+      "TlsStatus": {
+        "description": "Where the certificate stands (labels: `domain.tls.<code>`).",
+        "enum": [
+          "waiting",
+          "pending",
+          "issued",
+          "failed",
+          "not_managed"
+        ],
+        "title": "TlsStatus",
+        "type": "string"
       },
       "TransitionIn": {
         "additionalProperties": false,
@@ -13975,7 +14732,7 @@
     },
     "/api/v1/auth/login": {
       "get": {
-        "description": "Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).\n\n`returnTo` must be a same-origin relative path; anything else lands on `/`.",
+        "description": "Redirect the browser to Keycloak (authorization code + PKCE, state, nonce).\n\n`returnTo` must be a same-origin relative path; anything else lands on `/`. On a tenant's\nown address (subdomain or verified custom domain) the sign-in is for that tenant (WP-017).",
         "operationId": "login_api_v1_auth_login_get",
         "parameters": [
           {
@@ -20833,6 +21590,282 @@
         ]
       }
     },
+    "/api/v1/organization/branding": {
+      "get": {
+        "description": "What the console and portal show: colours, texts and logo URLs (default where unset).",
+        "operationId": "get_branding_api_v1_organization_branding_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your tenant's brand",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/branding/check": {
+      "post": {
+        "description": "WCAG AA checks for colours being chosen, with the nearest passing ones (no save).",
+        "operationId": "check_colours_api_v1_organization_branding_check_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColoursIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColourReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Check brand colours",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/branding/settings": {
+      "get": {
+        "description": "The branding screen's values (send the ETag back as If-Match to save; \"0\" creates).",
+        "operationId": "get_settings_api_v1_organization_branding_settings_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Branding settings",
+        "tags": [
+          "organization"
+        ]
+      },
+      "put": {
+        "description": "Save the whole branding; every open console and portal shows it without a reload.",
+        "operationId": "put_settings_api_v1_organization_branding_settings_put",
+        "parameters": [
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BrandingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrandingSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "A colour fails WCAG AA (`brand_colour_contrast`, with the failing checks and the nearest passing colour), a text is too long, or an image is unusable."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save the branding",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
     "/api/v1/organization/departments": {
       "get": {
         "description": "Every department by name, inactive ones included (marked).",
@@ -21588,6 +22621,479 @@
           }
         },
         "summary": "Change a desk (ESM)",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains": {
+      "get": {
+        "description": "The subdomain and every custom domain, with their state.",
+        "operationId": "list_domains_api_v1_organization_domains_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your addresses",
+        "tags": [
+          "organization"
+        ]
+      },
+      "post": {
+        "description": "Add a host; it resolves to your tenant once checked (Idempotency-Key supported).",
+        "operationId": "add_domain_api_v1_organization_domains_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DomainIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Already used, or too many."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a custom domain",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains/{domain_id}": {
+      "delete": {
+        "description": "It stops resolving to your tenant at once.",
+        "operationId": "remove_domain_api_v1_organization_domains__domain_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a custom domain",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains/{domain_id}/certificate": {
+      "put": {
+        "description": "Checked (key matches, names the host, valid now), then stored with the key encrypted.",
+        "operationId": "upload_certificate_api_v1_organization_domains__domain_id__certificate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertificateIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Use your own certificate",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/organization/domains/{domain_id}/verify": {
+      "post": {
+        "description": "Fetch the proof from the domain: verified when it answers like this installation.",
+        "operationId": "verify_domain_api_v1_organization_domains__domain_id__verify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Domain Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DomainOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such domain."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Check a custom domain now",
         "tags": [
           "organization"
         ]
@@ -23260,6 +24766,221 @@
         "summary": "Permission catalogue",
         "tags": [
           "access"
+        ]
+      }
+    },
+    "/api/v1/public/branding": {
+      "get": {
+        "description": "Logo and colours of the address used (subdomain or verified custom domain).\n\nUnknown addresses get the default. Only a hint for what to show before sign-in: it never\ndecides access, and it says nothing else about the tenant.",
+        "operationId": "public_branding_api_v1_public_branding_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicBrandingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Brand of this address",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/public/branding/{tenant_ref}/login.css": {
+      "get": {
+        "description": "The tenant's colours and logos for the Keycloak sign-in page (REQ-SEC-003).\n\nAn unknown ID gets the default stylesheet, byte for byte what an unbranded tenant gets.",
+        "operationId": "login_stylesheet_api_v1_public_branding__tenant_ref__login_css_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_ref",
+            "required": true,
+            "schema": {
+              "title": "Tenant Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/css": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Sign-in page stylesheet",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/public/branding/{tenant_ref}/{name}": {
+      "get": {
+        "description": "One generated image. Cached for a year when `v` is the current version.\n\nThe same 404 for an unknown tenant, a tenant without that image and an unknown name.",
+        "operationId": "brand_image_api_v1_public_branding__tenant_ref___name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "tenant_ref",
+            "required": true,
+            "schema": {
+              "title": "Tenant Ref",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "v",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "V"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/png": {},
+              "image/x-icon": {}
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "A brand image",
+        "tags": [
+          "organization"
+        ]
+      }
+    },
+    "/api/v1/public/domain-check/{token}": {
+      "get": {
+        "description": "The installation's answer for a token (no lookup: only this installation can compute it).",
+        "operationId": "domain_proof_api_v1_public_domain_check__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "text/plain": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Domain proof",
+        "tags": [
+          "organization"
         ]
       }
     },

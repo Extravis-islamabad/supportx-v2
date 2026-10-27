@@ -246,6 +246,26 @@ export {
   type UploadHandle,
   type UploadTarget,
 } from './files';
+export {
+  useAddDomain,
+  useBranding,
+  useBrandingColourCheck,
+  useBrandingSettings,
+  useDomains,
+  usePublicBranding,
+  useRemoveDomain,
+  useSaveBranding,
+  useUploadCertificate,
+  useVerifyDomain,
+  type CustomDomain,
+  type DomainsResult,
+  type BrandingCheckCode,
+  type BrandingColourReport,
+  type BrandingInput,
+  type BrandingResult,
+  type BrandingSettings,
+  type PublicBrandingResult,
+} from './branding';
 export { queryKeys } from './keys';
 export {
   fetchConnectionToken,

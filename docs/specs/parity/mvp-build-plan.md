@@ -81,7 +81,7 @@ By file: 01 92, 02 61, 03 60, 08 38, 09 40, 10 11, 11 75, 12 20.
 | 23 | WP-037 | Minimal AI gateway and local model | 11 | 2 | — | B | — |
 | 24 | WP-038 | AI on incidents: summary, reply drafts, similar incidents | 3 | 1 | WP-037, WP-020b | A | — |
 | 25 | WP-017 | Tenant branding and domains | 4 | 2 | — | B | — |
-| 26 | WP-039 | Identity: SSO, MFA, invitations, sessions, my account | 18 | 3 | WP-017, WP-023, WP-021 | B | — |
+| 26 | WP-039 | Identity: SSO, MFA, invitations, sessions, my account | 18 | 3 | WP-017 | B | — |
 | 27 | WP-040 | Connector framework and directory sync | 12 | 2 | WP-021, WP-039 | B | — |
 | 28 | WP-041 | Public API: keys, scopes, documentation | 7 | 1 | — | B | — |
 | 29 | WP-042 | Admin setup, roles screens, preferences and licence page | 21 | 3 | WP-021, WP-013 | B | — |
@@ -309,6 +309,9 @@ the design partner's own testing come on top.
 
 ### WP-023 — Notification engine and in-app notifications
 
+- **Mail (D-089):** builds on the mail foundation from WP-039 (`app/shared/mail`); never a second
+  outbound sender.
+
 - **Sessions:** 2 · **Depends on:** WP-020b, WP-021 · **Requirements:** 17 · **Lane:** A
 
 | ID | Title | File |
@@ -332,6 +335,9 @@ the design partner's own testing come on top.
 | REQ-INC-134 | Notification log on the incident | 01 |
 
 ### WP-024 — Email channel: mailboxes, inbound and outbound
+
+- **Mail (D-089):** extends the WP-039 mail foundation (`app/shared/mail`) with mailboxes and
+  inbound mail; outbound goes through the same sender.
 
 - **Sessions:** 2 · **Depends on:** WP-023, WP-022 · **Requirements:** 12 · **Lane:** A
 
@@ -680,8 +686,11 @@ the design partner's own testing come on top.
 
 ### WP-039 — Identity: SSO, MFA, invitations, sessions, my account
 
-- **Sessions:** 3 · **Depends on:** WP-017, WP-023, WP-021 · **Requirements:** 18 · **Lane:** B
-- **Note:** SAML/OIDC Essentials MVP (D-059); MFA defaults (D-060).
+- **Sessions:** 3 · **Depends on:** WP-017 · **Requirements:** 18 · **Lane:** B
+- **Note:** SAML/OIDC Essentials MVP (D-059); MFA defaults (D-060). D-089: WP-039 builds the minimal
+  outbound mail sender (`app/shared/mail`), so it no longer waits for WP-023; department and site
+  from SSO attributes are stored now and applied when WP-021 lands, so it no longer waits for
+  WP-021. One installation-wide password policy at MVP; per-tenant policy (Keycloak extension) V1.
 
 | ID | Title | File |
 |---|---|---|

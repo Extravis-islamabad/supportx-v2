@@ -89,6 +89,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "FileState": "file_state",
     "Kind": "file_kind",
     "OwnerType": "file_owner_type",
+    # Branding and domains (WP-017).
+    "CheckCode": "branding.check",
+    "DomainStatus": "domain_status",
+    "TlsMode": "domain_tls_mode",
+    "TlsStatus": "domain_tls_status",
     "StatusOut.warnings[]": "file_warning",
     # Custom fields (WP-026)
     "ChoiceDisplay": "custom_field_display",

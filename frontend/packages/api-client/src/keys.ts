@@ -24,6 +24,15 @@ export const queryKeys = {
     user: (id: string) => ['access', 'user', id] as const,
     units: (kind: 'sites' | 'groups') => ['access', kind] as const,
   },
+  branding: {
+    all: ['branding'] as const,
+    public: ['branding', 'public'] as const,
+    current: ['branding', 'current'] as const,
+    settings: ['branding', 'settings'] as const,
+    domains: ['branding', 'domains'] as const,
+    check: (primary: string | null, gradient: readonly [string, string] | null) =>
+      ['branding', 'check', primary, gradient] as const,
+  },
   announcements: {
     all: ['announcements'] as const,
     list: (query: AnnouncementsQuery) => ['announcements', 'list', query] as const,

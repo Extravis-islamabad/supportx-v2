@@ -77,6 +77,14 @@ CROSS_TENANT_POLICIES |= {
     )
     for table in ("audit_entries", "audit_cutoffs", "audit_archives")
 }
+CROSS_TENANT_POLICIES[("tenant_domains", "tenant_domains_resolve")] = (
+    MIGRATOR_ROLE,
+    (
+        "Tenant from the address before sign-in (WP-017, migration 0022, REQ-SEC-004): the "
+        "migrator-owned SECURITY DEFINER sx_tenant_for_host() reads verified domains of every "
+        "tenant and returns one exact match; read-only, verified rows only."
+    ),
+)
 # Everything supportx_relay may do, per table: (table privileges, columns it may UPDATE).
 RELAY_PRIVILEGES: dict[str, tuple[frozenset[str], frozenset[str]]] = {
     "outbox_events": (

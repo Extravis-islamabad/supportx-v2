@@ -18,7 +18,7 @@ first names come from today's display names, and records, templates and groups g
 desk. Reversible; a downgrade keeps people added without a subject by giving them a local one.
 
 Revision ID: 0023
-Revises: 0021
+Revises: 0022
 Created: 2026-10-27
 """
 
@@ -32,7 +32,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0023"
-down_revision: str | None = "0021"
+down_revision: str | None = "0022"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
