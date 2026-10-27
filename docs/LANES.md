@@ -38,6 +38,10 @@ main folder. k3d stays stopped unless the lock holder needs it.
 6. Keep k3d stopped unless you hold the lock and need it; stop it afterwards. No heavy test suites
    during another lane's QA. Never start containers you don't need. (MacBook Air M5, 24 GB,
    fanless: mind memory and CPU.)
+   A full `make check` is a heavy suite: its `tests/integration/*` log the seeded users into the
+   shared dev Keycloak and use the dev database, so two runs at once race (lane A's 6
+   `login_failed` failures, 2026-10-27). Tell the other lanes before starting one and never run
+   two at once. Testcontainers database tests stay lock-free.
 7. Shared files (DECISIONS.md, PROGRESS.md, labels, CLAUDE.md): small additive edits; on
    conflicts keep both sides.
 8. Stay in your lane's code; if you must change another lane's module, tell that lane first and
