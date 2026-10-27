@@ -8,6 +8,7 @@ import { refreshList, useListChannel } from '@supportx/realtime';
 import { NoAccess, useAccess, useLabel, WriteButton } from '@supportx/ui';
 
 import { RoleEditor } from './RoleEditor';
+import { TechnicianVisibilityCard } from './TechnicianVisibility';
 import { roleName } from './roleName';
 
 /** Admin › Roles: system roles (read-only) and custom roles with their user counts (WP-016). */
@@ -85,6 +86,9 @@ export function RolesPage() {
           { key: 'users', title: t('roles.col.users'), render: (_, role) => role.user_count },
         ]}
       />
+      <div style={{ marginTop: 24 }}>
+        <TechnicianVisibilityCard />
+      </div>
       <RoleEditor
         role={editing}
         onClose={() => {

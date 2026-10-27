@@ -546,7 +546,7 @@ Reports, dashboards, list filters and rule criteria all use one reporting engine
 
 SaaS uses a shared database with tenant_id plus PostgreSQL row-level security. Each request sets the tenant in the session (SET LOCAL app.tenant_id) and RLS policies filter every query automatically, so a missed WHERE clause cannot leak data. Large or regulated SaaS customers can be placed on a dedicated database in the same cell without code changes. On-prem installs run the same schema with a single tenant.
 
-Department desks (ESM) and MSP customers are partitions inside a tenant (department_id, customer_id) enforced by the permission layer, giving shared reporting across departments without the data silos of separate instances.
+Desks (ESM; the licence limit `desks`, D-092) and MSP customers are partitions inside a tenant (desk_id, customer_id) enforced by the permission layer, giving shared reporting across departments without the data silos of separate instances.
 
 ## 7.3 Scaling the data tier
 
@@ -854,7 +854,7 @@ All code checks entitlements through one interface (has_feature, check_limit, re
 <p>"disk_serial": "h:9c..", "nic_macs": "h:7d..", "cpu": "h:52.." }, "min_match": 3 },</p>
 <p>"edition": "enterprise",</p>
 <p>"features": ["problem", "change", "cmdb", "assets", "ai_agents", "discovery"],</p>
-<p>"limits": { "technicians": 250, "assets": 5000, "departments": 10 },</p>
+<p>"limits": { "technicians": 250, "assets": 5000, "desks": 10 },</p>
 <p>"issued_at": "2027-01-10", "expires_at": "2028-01-09", "maintenance_until": "2028-01-09",</p>
 <p>"grace_days": 14,</p>
 <p>"signature": "ed25519:MEUCIQ..."</p>

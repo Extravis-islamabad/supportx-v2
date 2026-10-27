@@ -14,7 +14,7 @@ UnitKind = Literal["site", "group"]
 
 
 class SiteChanged(DomainEvent):
-    """A site was created or renamed."""
+    """A site was created, changed, made inactive or removed."""
 
     event_type: ClassVar[str] = "organization.site.changed"
     schema_version: ClassVar[int] = 1
@@ -25,13 +25,35 @@ class SiteChanged(DomainEvent):
 
 
 class SupportGroupChanged(DomainEvent):
-    """A support group was created or renamed."""
+    """A support group was created, changed, made inactive or removed."""
 
     event_type: ClassVar[str] = "organization.support_group.changed"
     schema_version: ClassVar[int] = 1
     aggregate_type: ClassVar[str] = "support_group"
 
     group_id: uuid.UUID
+    changed_fields: list[str]
+
+
+class DepartmentChanged(DomainEvent):
+    """A department was created, changed, made inactive or removed (WP-021)."""
+
+    event_type: ClassVar[str] = "organization.department.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "department"
+
+    department_id: uuid.UUID
+    changed_fields: list[str]
+
+
+class DeskChanged(DomainEvent):
+    """A desk was created or changed (WP-021, ESM)."""
+
+    event_type: ClassVar[str] = "organization.desk.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "desk"
+
+    desk_id: uuid.UUID
     changed_fields: list[str]
 
 
@@ -48,4 +70,10 @@ class MembershipChanged(DomainEvent):
     change: Literal["added", "removed"]
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (SiteChanged, SupportGroupChanged, MembershipChanged)
+EVENTS: tuple[type[DomainEvent], ...] = (
+    SiteChanged,
+    SupportGroupChanged,
+    DepartmentChanged,
+    DeskChanged,
+    MembershipChanged,
+)

@@ -27,7 +27,8 @@ class UserProvisioned(DomainEvent):
 class UserUpdated(DomainEvent):
     """Profile fields changed (names only, never values).
 
-    Either synced from Keycloak at login, or SupportX-owned preferences edited by the user (WP-008).
+    Preferences edited by the user (WP-008), the person record edited by an admin (WP-021), or
+    `sign_in_linked` when a person added by an admin first signs in (D-092).
     """
 
     event_type: ClassVar[str] = "identity_access.user.updated"
@@ -99,6 +100,52 @@ class UserRoleChanged(DomainEvent):
     change: Literal["assigned", "removed"]
 
 
+class UserCreated(DomainEvent):
+    """An admin or an import added a person before their first sign-in (WP-021)."""
+
+    event_type: ClassVar[str] = "identity_access.user.created"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    user_type: Literal["technician", "requester"]
+    source: Literal["admin", "import"]
+
+
+class UserStatusChanged(DomainEvent):
+    """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in."""
+
+    event_type: ClassVar[str] = "identity_access.user.status_changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    status: Literal["active", "disabled"]
+
+
+class PeopleImportProgressed(DomainEvent):
+    """A people import moved on (WP-021): counts only, for the live progress bar."""
+
+    event_type: ClassVar[str] = "identity_access.people_import.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "people_import"
+
+    import_id: uuid.UUID
+    status: Literal["queued", "running", "done", "failed"]
+    processed: int
+    total: int
+
+
+class AccessSettingsChanged(DomainEvent):
+    """The tenant's access defaults changed (WP-021, D-073): compiled permissions refresh."""
+
+    event_type: ClassVar[str] = "identity_access.access_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant"
+
+    changed_fields: list[str]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -107,4 +154,8 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SessionTenantSwitched,
     RoleChanged,
     UserRoleChanged,
+    UserCreated,
+    UserStatusChanged,
+    PeopleImportProgressed,
+    AccessSettingsChanged,
 )

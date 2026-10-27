@@ -19,14 +19,16 @@ import pytest
 import pytest_asyncio
 from fastapi import APIRouter, FastAPI, Request
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.core.database import Database
 from app.core.errors import LimitReached
 from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE, TenantContext
 from app.main import create_app
-from app.modules.identity_access.domain.identity import Identity
+from app.modules.identity_access.domain.identity import Identity, UserType
+from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service.people import set_user_type
 from app.modules.identity_access.service.users import count_technicians, provision_user
 from app.modules.licensing import EntitlementService, LimitKey
 from app.modules.licensing.infra.providers import SubscriptionProvider
@@ -346,17 +348,33 @@ async def test_existing_technicians_are_never_locked_out(
     assert await login(app_db, tenant, carol) == "technician_limit_reached"
 
 
-async def test_requester_promoted_to_technician_needs_a_seat(
+async def test_requester_made_technician_needs_a_seat(
     seats: EntitlementService, app_db: Database, migrated_db: ThrowawayDatabase
 ) -> None:
+    """WP-021 (D-092): the type is set in SupportX; becoming a technician takes a seat."""
     del seats
     tenant = await create_tenant(migrated_db.migrator_url, "Promote", limits={"technicians": 1})
     assert await login(app_db, tenant, identity("t@promote.test")) == "ok"
     assert await login(app_db, tenant, identity("r@promote.test", ("requester",))) == "ok"
-    promoted = identity("r@promote.test")  # same subject, Keycloak role changed
-    assert await login(app_db, tenant, promoted) == "technician_limit_reached"
+    # A Keycloak role change no longer changes the type (D-092): still one technician.
+    assert await login(app_db, tenant, identity("r@promote.test")) == "ok"
+    assert await technicians(app_db, tenant) == 1
+
+    async def promote() -> str:
+        async with app_db.tenant_session(TenantContext(tenant)) as session:
+            person = await session.scalar(select(User).where(User.email == "r@promote.test"))
+            assert person is not None
+            try:
+                await set_user_type(
+                    session, person.id, UserType.TECHNICIAN, expected_version=person.version
+                )
+            except LimitReached as exc:
+                return exc.instance_code
+        return "ok"
+
+    assert await promote() == "technician_limit_reached"
     await set_seats(migrated_db, tenant, 2)
-    assert await login(app_db, tenant, promoted) == "ok"
+    assert await promote() == "ok"
     assert await technicians(app_db, tenant) == 2
 
 

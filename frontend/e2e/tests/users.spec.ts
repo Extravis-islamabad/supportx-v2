@@ -7,7 +7,7 @@ test('users list: search, filter, sort and infinite scroll against the real API'
 }) => {
   await signInAs(page, 'admin');
   await goToSection(page, 'Admin');
-  await expect(page.getByRole('heading', { name: 'Users', level: 2 })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'People', level: 2 })).toBeVisible();
   const table = page.getByTestId('users-table');
   const rows = table.locator('tbody tr.ant-table-row');
 
@@ -24,8 +24,8 @@ test('users list: search, filter, sort and infinite scroll against the real API'
   await expect(rows.first()).toContainText('Requester'); // a label, never the code
   await page.getByRole('searchbox', { name: 'Search by name or email' }).fill('');
 
-  await page.getByTestId('users-filter-type').click();
-  await page.locator('.ant-select-item-option[title="Technician"]').click();
+  await page.getByTestId('users-view').click();
+  await page.locator('.ant-select-item-option[title="Technicians"]').click();
   await expect(rows.filter({ hasText: 'E2E Scroll' })).toHaveCount(0);
   await expect(rows.filter({ hasText: 'Adel E2E Admin' })).toHaveCount(1);
 

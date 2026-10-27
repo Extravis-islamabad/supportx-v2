@@ -74,8 +74,8 @@ async def seed_users(
             user_id = row.get("id", uuid.uuid4())
             await conn.execute(
                 "INSERT INTO users (id, tenant_id, external_subject, email, display_name,"
-                " user_type, status, locale, created_at, updated_at, last_login_at)"
-                " VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, $10)",
+                " first_name, user_type, status, locale, created_at, updated_at, last_login_at)"
+                " VALUES ($1, $2, $3, $4, $5, $11, $6, $7, $8, $9, $9, $10)",
                 user_id,
                 tenant,
                 f"sub-{user_id}",
@@ -86,6 +86,7 @@ async def seed_users(
                 row.get("locale", "en"),
                 row.get("created_at", BASE + timedelta(minutes=i)),
                 row.get("last_login_at"),
+                row.get("display_name", f"User {i:03d}")[:100],
             )
             ids.append(user_id)
         return ids

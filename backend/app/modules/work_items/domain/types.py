@@ -91,6 +91,7 @@ COMMON_FIELDS = frozenset(
         "on_behalf_of_id",
         "channel",
         "site_id",
+        "department_id",
         "group_id",
         "technician_id",
         "category_id",

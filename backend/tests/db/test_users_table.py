@@ -12,8 +12,8 @@ from app.core.tenancy import TenantContext
 pytestmark = pytest.mark.db
 
 INSERT = text(
-    "INSERT INTO users (id, tenant_id, external_subject, email, display_name, user_type) "
-    "VALUES (:id, :tenant, :sub, :email, 'Someone', 'technician')"
+    "INSERT INTO users (id, tenant_id, external_subject, email, display_name, first_name,"
+    " user_type) VALUES (:id, :tenant, :sub, :email, 'Someone', 'Someone', 'technician')"
 )
 
 

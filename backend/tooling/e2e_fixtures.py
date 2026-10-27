@@ -8,7 +8,8 @@ pattern. They are requesters, so they never take a technician seat. Refuses prod
 `delete` also removes what the suite itself created through the UI and API (WP-012, WP-020),
 matched by the reserved "E2E " name prefix: announcements (with their field history and audience
 rows), incidents (with their history), incident templates and admin-added pick-list values
-(WP-020c), support groups and sites, in the two dev tenants; plus
+(WP-020c), support groups, sites and departments, and people added in Admin > People that never
+signed in (WP-021), in the two dev tenants; plus
 the field history of the suite's own users (`e2e.*@demo.test`, profile and layout saves). The API
 only soft-deletes, and history is append-only for the application; the suite must leave nothing.
 
@@ -29,6 +30,11 @@ COUNT = 40
 PATTERN = "e2e-scroll-%@demo.test"
 SUITE_PREFIX = "E2E %"
 SUITE_USERS = "e2e.%@demo.test"  # the suite's own Keycloak users (frontend/e2e/stack.ts)
+# People the suite adds through Admin > People (WP-021), never signed in: $1 is SUITE_PREFIX.
+SUITE_PEOPLE = (
+    "external_subject IS NULL AND display_name LIKE $1"
+    " AND (email IS NULL OR email LIKE 'e2e-person-%@demo.test')"
+)
 # Children first: history and memberships, then the records. ($1: the matching pattern.)
 SUITE_RECORDS = (
     (
@@ -101,6 +107,33 @@ SUITE_RECORDS = (
         "DELETE FROM work_item_reasons WHERE labels->>'en' LIKE $1 AND code LIKE 'v\\_%'",
         SUITE_PREFIX,
     ),
+    # People the suite added (WP-021): reserved address, or a contact with an "E2E" name.
+    (
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'user' AND record_id IN"  # noqa: S608 - fixed text
+            f" (SELECT id FROM users WHERE {SUITE_PEOPLE})"
+        ),
+        SUITE_PREFIX,
+    ),
+    *(
+        (
+            table,
+            f"DELETE FROM {table} WHERE user_id IN (SELECT id FROM users WHERE {SUITE_PEOPLE})",  # noqa: S608 - fixed table names
+            SUITE_PREFIX,
+        )
+        for table in ("user_roles", "group_members", "site_members")
+    ),
+    ("users", f"DELETE FROM users WHERE {SUITE_PEOPLE}", SUITE_PREFIX),  # noqa: S608 - fixed text
+    ("departments", "DELETE FROM departments WHERE name LIKE $1", SUITE_PREFIX),
+    (
+        "group_sites",
+        (
+            "DELETE FROM group_sites WHERE group_id IN"
+            " (SELECT id FROM support_groups WHERE name LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
     (
         "group_members",
         (
@@ -148,12 +181,13 @@ async def create(url: str) -> int:
             for n in range(COUNT):
                 status = await conn.execute(
                     "INSERT INTO users (id, tenant_id, external_subject, email, display_name,"
-                    " user_type, status, locale) VALUES ($1, $2, $3, $4, $5, 'requester',"
-                    " 'active', 'en') ON CONFLICT DO NOTHING",
+                    " first_name, user_type, status, locale) VALUES ($1, $2, $3, $4, $5, $6,"
+                    " 'requester', 'active', 'en') ON CONFLICT DO NOTHING",
                     uuid.uuid4(),
                     DEMO_TENANT_ID,
                     f"e2e-scroll-{n:02d}",
                     f"e2e-scroll-{n:02d}@demo.test",
+                    f"E2E Scroll {n:02d}",
                     f"E2E Scroll {n:02d}",
                 )
                 created += status.endswith(" 1")

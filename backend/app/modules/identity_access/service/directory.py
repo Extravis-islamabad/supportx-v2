@@ -1,8 +1,8 @@
 """User directory: list, read and the SupportX-owned preferences (WP-008).
 
-Identity fields (email, name, locale, type) belong to Keycloak and are refreshed on every login
-(service/users.py). SupportX owns only what Keycloak does not know: a technician's reply
-signature and the preferred time zone. Those are edited here, with optimistic concurrency, and
+Since WP-021 SupportX owns the whole person record (D-092): admins edit it in people.py, and a
+sign-in only records the time. The user edits their own preferences here (reply signature, time
+zone, layout, language), with optimistic concurrency, and
 each change emits `identity_access.user.updated` in the same transaction (CLAUDE.md rules b, g).
 
 Permissions (WP-016 policy layer; the route checks the permission, this layer the record):
@@ -66,6 +66,14 @@ USER_FIELDS = ResourceFields(
         "last_login_at": FilterField(
             User.last_login_at, FieldType.DATETIME, sortable=True, simple=False
         ),
+        # The person record (WP-021): the people views filter on these.
+        "employee_id": FilterField(User.employee_id, FieldType.STRING),
+        "job_title": FilterField(User.job_title, FieldType.STRING),
+        "site_id": FilterField(User.site_id, FieldType.UUID),
+        "department_id": FilterField(User.department_id, FieldType.UUID),
+        "manager_id": FilterField(User.manager_id, FieldType.UUID),
+        "vip": FilterField(User.vip, FieldType.BOOLEAN),
+        "can_sign_in": FilterField(User.can_sign_in, FieldType.BOOLEAN),
     },
     id_column=User.id,
     default_sort=("display_name",),
@@ -90,7 +98,11 @@ def users_resource() -> ResourceType:
         owner_columns=(User.id,),
         site_scope=lambda ids: User.id.in_(users_in_sites(ids)),
         group_scope=lambda ids: User.id.in_(users_in_groups(ids)),
-        field_rules={"last_login_at": FieldRule("users.manage")},
+        field_rules={
+            "last_login_at": FieldRule("users.manage"),
+            "description": FieldRule("users.manage"),
+            "invited_at": FieldRule("users.manage"),
+        },
     )
 
 
@@ -227,7 +239,7 @@ async def update_preferences(  # noqa: PLR0913 - the record, the version and the
     changed = sorted(name for name, value in clean.items() if getattr(current, name) != value)
     if not changed:
         if current.version != expected_version:
-            raise await _explained(
+            raise await explain_user_conflict(
                 session,
                 Conflict(
                     code="version_conflict",
@@ -245,7 +257,7 @@ async def update_preferences(  # noqa: PLR0913 - the record, the version and the
             user_id, expected_version=expected_version, changes={n: clean[n] for n in changed}
         )
     except Conflict as error:
-        raise await _explained(session, error, user_id) from error
+        raise await explain_user_conflict(session, error, user_id) from error
     await record_changes(
         session,
         record_type=USER_RECORD_TYPE,
@@ -264,7 +276,10 @@ async def update_preferences(  # noqa: PLR0913 - the record, the version and the
     return updated
 
 
-async def _explained(session: AsyncSession, error: Conflict, user_id: uuid.UUID) -> Conflict:
+async def explain_user_conflict(
+    session: AsyncSession, error: Conflict, user_id: uuid.UUID
+) -> Conflict:
+    """The 409 for a stale person record: who changed which fields since (WP-012)."""
     return await explain_conflict(
         session,
         error,

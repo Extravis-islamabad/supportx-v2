@@ -23,6 +23,7 @@ from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
+from app.modules.work_items.service.usage import register_record_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 
 
@@ -35,6 +36,8 @@ async def _shutdown(app: FastAPI) -> None:
     del app
     unregister_owner_access(FILE_ACCESS.owner_types)
 
+
+register_record_usage()
 
 module = ModuleSpec(
     name="work_items",

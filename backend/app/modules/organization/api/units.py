@@ -1,21 +1,18 @@
-"""Sites and support groups: list with members, create, rename, add/remove members (WP-016).
+"""Members of sites and support groups: add and remove (WP-016; the `site` / `group` scopes).
 
-Basic level: enough to give users the `site` and `group` scopes. Full admin screens later.
+The sites and groups themselves (list, add, change, remove) are in structure.py (WP-021).
 """
 
 import uuid
-from typing import Annotated, Literal
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Response, status
-from pydantic import BaseModel, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.audit import AuditNote, audited
+from app.modules.audit import audited
 from app.modules.organization.service import units
-from app.shared.api.concurrency import ExpectedVersion, set_etag
-from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 
 RESPONSES: dict[int | str, dict[str, object]] = {
@@ -26,29 +23,9 @@ RESPONSES: dict[int | str, dict[str, object]] = {
 }
 
 
-class UnitOut(BaseModel):
-    """A site or support group with the IDs of its members."""
-
-    id: uuid.UUID
-    name: str
-    version: int = Field(description="Send back as If-Match to rename.")
-    member_ids: list[uuid.UUID]
-
-
-class UnitIn(BaseModel):
-    """Name of a site or group."""
-
-    name: str = Field(min_length=1, max_length=200)
-
-
-def _out(view: units.UnitView) -> UnitOut:
-    return UnitOut(id=view.id, name=view.name, version=view.version, member_ids=view.member_ids)
-
-
 def build_router(kind: Literal["site", "group"]) -> APIRouter:
-    """The same five endpoints for sites (/organization/sites) and groups (/organization/groups)."""
+    """The member endpoints for sites (/organization/sites) and groups (/organization/groups)."""
     plural = "sites" if kind == "site" else "groups"
-    view = Depends(require_permission(f"{plural}.view"))
     manage = Depends(require_permission(f"{plural}.manage"))
     router = APIRouter(
         prefix=f"/organization/{plural}",
@@ -56,53 +33,6 @@ def build_router(kind: Literal["site", "group"]) -> APIRouter:
         dependencies=[Depends(rate_limit("organization"))],
         responses=RESPONSES,
     )
-
-    @router.get("", summary=f"List {plural}", dependencies=[view])
-    async def list_units(session: TenantSession) -> list[UnitOut]:
-        """All of them, by name, with member IDs."""
-        return [_out(v) for v in await units.list_units(session, kind)]
-
-    @router.post(
-        "",
-        summary=f"Create a {kind}",
-        status_code=status.HTTP_201_CREATED,
-        dependencies=[manage],
-        response_model=UnitOut,
-        responses={201: {"model": UnitOut, "description": "Created (or replayed)."}},
-    )
-    async def create_unit(
-        body: UnitIn,
-        session: TenantSession,
-        idempotency: Idempotency,
-        note: Annotated[AuditNote, audited(f"{kind}.created", object_type=kind)],
-    ) -> Response:
-        """Create one (Idempotency-Key supported)."""
-        note.skip = True  # a replay creates nothing
-
-        async def operation() -> Created:
-            created = _out(await units.create_unit(session, kind, body.name))
-            note.skip = False
-            note.object_id = str(created.id)
-            return Created(created, {"ETag": f'"{created.version}"'})
-
-        return await idempotency.run(body, operation)
-
-    @router.patch(
-        "/{unit_id}",
-        summary=f"Rename a {kind}",
-        dependencies=[manage, audited(f"{kind}.renamed", object_type=kind, object_param="unit_id")],
-    )
-    async def rename_unit(
-        unit_id: uuid.UUID,
-        body: UnitIn,
-        version: ExpectedVersion,
-        response: Response,
-        session: TenantSession,
-    ) -> UnitOut:
-        """Rename (If-Match with the version you read)."""
-        renamed = await units.rename_unit(session, kind, unit_id, body.name, version)
-        set_etag(response, renamed.version)
-        return _out(renamed)
 
     @router.put(
         "/{unit_id}/members/{user_id}",

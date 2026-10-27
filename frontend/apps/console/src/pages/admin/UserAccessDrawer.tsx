@@ -41,14 +41,6 @@ export interface UserAccessDrawerProps {
  */
 export function UserAccessDrawer({ user, onClose }: UserAccessDrawerProps) {
   const t = useLabel();
-  const access = useUserAccess(user?.id);
-  // Live (WP-011): roles or memberships changed by another admin show at once; and who else
-  // has this user open.
-  const queryClient = useQueryClient();
-  const viewers = useRecordChannel('users', user?.id, () => {
-    if (user !== undefined) refreshList(queryClient, queryKeys.access.user(user.id));
-  });
-  const self = useRealtimeUser();
   return (
     <Drawer
       open={user !== undefined}
@@ -57,22 +49,29 @@ export function UserAccessDrawer({ user, onClose }: UserAccessDrawerProps) {
       title={user === undefined ? undefined : t('access.title', { name: user.display_name })}
       destroyOnHidden
     >
-      {user === undefined || access.data === undefined ? (
-        <Spin />
-      ) : (
-        <Space
-          direction="vertical"
-          size="large"
-          style={{ width: '100%' }}
-          data-testid="user-access"
-        >
-          <PresenceAvatars viewers={viewers} selfUserId={self} />
-          <RolesSection userId={user.id} roleIds={access.data.role_ids} />
-          <UnitsSection kind="sites" userId={user.id} memberOf={access.data.site_ids} />
-          <UnitsSection kind="groups" userId={user.id} memberOf={access.data.group_ids} />
-        </Space>
-      )}
+      {user === undefined ? <Spin /> : <UserAccessPanel user={user} />}
     </Drawer>
+  );
+}
+
+/** The roles, sites and groups of one user (also the person drawer's Access tab, WP-021). */
+export function UserAccessPanel({ user }: { user: UserDetail }) {
+  const access = useUserAccess(user.id);
+  // Live (WP-011): roles or memberships changed by another admin show at once; and who else
+  // has this user open.
+  const queryClient = useQueryClient();
+  const viewers = useRecordChannel('users', user.id, () => {
+    refreshList(queryClient, queryKeys.access.user(user.id));
+  });
+  const self = useRealtimeUser();
+  if (access.data === undefined) return <Spin />;
+  return (
+    <Space direction="vertical" size="large" style={{ width: '100%' }} data-testid="user-access">
+      <PresenceAvatars viewers={viewers} selfUserId={self} />
+      <RolesSection userId={user.id} roleIds={access.data.role_ids} />
+      <UnitsSection kind="sites" userId={user.id} memberOf={access.data.site_ids} />
+      <UnitsSection kind="groups" userId={user.id} memberOf={access.data.group_ids} />
+    </Space>
   );
 }
 

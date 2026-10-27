@@ -22,6 +22,8 @@ TRIGGERS = (
     "identity_access.role.changed",
     "identity_access.user_role.changed",
     "identity_access.user.updated",
+    "identity_access.user.status_changed",
+    "identity_access.access_settings.changed",
     "organization.membership.changed",
     "licensing.entitlement.changed",
 )

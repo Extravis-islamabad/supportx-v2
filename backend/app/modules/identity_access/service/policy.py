@@ -47,6 +47,7 @@ from app.modules.identity_access.domain.policy import (
     decide,
 )
 from app.modules.identity_access.infra.models import Role, RolePermission, User, UserRole
+from app.modules.identity_access.service.access_settings import tenant_technician_scope
 from app.shared.api.filters import ResourceFields, compile_filter
 from app.shared.search import ENGINE, SearchDocument
 
@@ -401,10 +402,13 @@ class PolicyService:
         if not roles and user.roles_mapped_at is None:
             role_keys = {UNMAPPED_DEFAULT[user.user_type]}
         grants: list[tuple[str, Grant]] = []
+        technician_scope = await tenant_technician_scope(session)
         for key in role_keys & set(SYSTEM_ROLES):
             grants += [
                 (permission, Grant(scope))
-                for permission, scope in self.catalogue.system_grants(key)
+                for permission, scope in self.catalogue.system_grants(
+                    key, technician_scope=technician_scope
+                )
             ]
         custom = [r.id for r in roles if not r.is_system]
         if custom:

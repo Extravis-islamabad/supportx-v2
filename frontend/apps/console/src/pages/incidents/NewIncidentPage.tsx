@@ -64,7 +64,7 @@ import {
   type Values,
 } from './form';
 import { listValueLabel, scaleLabel, templateLabel } from './labels';
-import { GroupPicker, SitePicker, TechnicianPicker, UserPicker } from './pickers';
+import { DepartmentPicker, GroupPicker, SitePicker, TechnicianPicker, UserPicker } from './pickers';
 import { PriorityTag } from './tags';
 import { TagsInput } from './TagsInput';
 
@@ -76,6 +76,7 @@ const TEMPLATE_FIELDS: readonly (TemplateField & keyof Values)[] = [
   'on_behalf_of_id',
   'channel',
   'site_id',
+  'department_id',
   'level',
   'category_id',
   'group_id',
@@ -625,6 +626,26 @@ export function NewIncidentPage() {
                     onChange={field.onChange}
                     testId="inc-site"
                     ariaLabel={t('work_item.field.site_id')}
+                  />
+                )}
+              />,
+            )}
+            {cell(
+              'department_id',
+              8,
+              <FormField
+                control={control}
+                name="department_id"
+                labelKey="work_item.field.department_id"
+                helpKey="incidents.department_help"
+                required={required('department_id')}
+                render={(field) => (
+                  <DepartmentPicker
+                    id={field.id}
+                    value={field.value}
+                    onChange={field.onChange}
+                    testId="inc-department"
+                    ariaLabel={t('work_item.field.department_id')}
                   />
                 )}
               />,

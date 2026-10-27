@@ -83,6 +83,7 @@ class TemplateField(StrEnum):
     ON_BEHALF_OF_ID = "on_behalf_of_id"
     CHANNEL = "channel"
     SITE_ID = "site_id"
+    DEPARTMENT_ID = "department_id"
     CATEGORY_ID = "category_id"
     LEVEL = "level"
     GROUP_ID = "group_id"
@@ -103,6 +104,7 @@ DEFAULTABLE = frozenset(
         TemplateField.SUBJECT,
         TemplateField.CHANNEL,
         TemplateField.SITE_ID,
+        TemplateField.DEPARTMENT_ID,
         TemplateField.CATEGORY_ID,
         TemplateField.LEVEL,
         TemplateField.GROUP_ID,

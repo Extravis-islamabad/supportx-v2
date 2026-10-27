@@ -59,10 +59,11 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await expect(admin.getByText('The role was saved.')).toBeVisible();
   await expect(admin.getByTestId('roles-table').getByText(roleName)).toBeVisible();
 
-  // ...and assigns it in Admin › Users.
-  await admin.getByRole('tab', { name: 'Users' }).click();
+  // ...and assigns it in Admin › People (the person drawer's Access tab, WP-021).
+  await admin.getByRole('tab', { name: 'People' }).click();
   await admin.getByRole('searchbox', { name: 'Search by name or email' }).fill('e2e.limited');
   await admin.getByText('Lina E2E Limited').click();
+  await admin.getByTestId('person-drawer').getByRole('tab', { name: 'Access' }).click();
   const drawer = admin.getByTestId('user-access');
   // Checked once the server confirmed the assignment (the box shows the stored state).
   await drawer.getByLabel(roleName).click();
@@ -85,7 +86,7 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   // Close the drawer with its button: Escape only reaches it while focus is inside, and the
   // checkbox just clicked is briefly disabled (focus falls back to the page) in slow runs.
   await admin
-    .getByRole('dialog', { name: /^Access of / })
+    .getByRole('dialog', { name: 'Lina E2E Limited' })
     .getByRole('button', { name: 'Close' })
     .click();
   await expect(drawer).toBeHidden();
