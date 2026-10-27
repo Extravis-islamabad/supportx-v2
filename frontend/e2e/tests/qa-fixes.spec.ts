@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { resetLanguage, signInAs } from './helpers';
+import { resetLanguage, settledBox, settledLayout, signInAs } from './helpers';
 
 /**
  * WP-020-FIX: the findings of the WP-020 QA report that only a real browser can show (layout,
@@ -78,6 +78,7 @@ test.afterAll(async ({ browser }) => {
  * settled (the side bar collapses to icons on narrow screens with a short animation).
  */
 async function expectNoSidewaysScroll(page: Page, label: string): Promise<void> {
+  await settledLayout(page);
   await expect
     .poll(
       () =>
@@ -190,24 +191,24 @@ test('C1, C2, C5: counter clear of the buttons; Arabic in a Naskh face; nothing 
   await expect(page.getByTestId('inc-heading')).toBeVisible();
 
   // C5: opening a dialog does not move the header.
-  const before = await page.getByTestId('appearance-menu').boundingBox();
+  const before = await settledBox(page.getByTestId('appearance-menu'));
   await page.getByTestId('inc-action-cancel').click();
   const dialog = page.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  const during = await page.getByTestId('appearance-menu').boundingBox();
+  const during = await settledBox(page.getByTestId('appearance-menu'));
   expect(during?.x).toBe(before?.x);
 
   // C1: the "0 / 500" counter sits above the buttons, not under them.
-  const count = await dialog.locator('.ant-input-data-count').boundingBox();
-  const buttons = await dialog.locator('.ant-modal-footer').boundingBox();
+  const count = await settledBox(dialog.locator('.ant-input-data-count'));
+  const buttons = await settledBox(dialog.locator('.ant-modal-footer'));
   expect((count?.y ?? 0) + (count?.height ?? 0)).toBeLessThanOrEqual(buttons?.y ?? 0);
   await dialog.getByRole('button', { name: 'Keep incident' }).click();
   await expect(dialog).toBeHidden();
 
   // C5: the Appearance panel leaves the page title visible.
   await page.getByTestId('appearance-menu').click();
-  const panel = await page.getByTestId('appearance-controls').boundingBox();
-  const title = await page.getByTestId('inc-heading').locator('bdi').boundingBox();
+  const panel = await settledBox(page.getByTestId('appearance-controls'));
+  const title = await settledBox(page.getByTestId('inc-heading').locator('bdi'));
   const overlaps =
     panel !== null &&
     title !== null &&
@@ -235,11 +236,10 @@ test('C1, C2, C5: counter clear of the buttons; Arabic in a Naskh face; nothing 
     const { fonts } = await cdp.send('CSS.getPlatformFontsForNode', { nodeId });
     expect(fonts.map((f) => f.familyName).join(', ')).not.toMatch(/Nastaliq|Nastaleeq/);
     // C2: the site's help line never runs into the label under it.
-    const help = await page
-      .locator('#field-site_id_help, .ant-form-item-explain')
-      .first()
-      .boundingBox();
-    const technician = await page.getByText('الفني', { exact: true }).first().boundingBox();
+    const help = await settledBox(
+      page.locator('#field-site_id_help, .ant-form-item-explain').first(),
+    );
+    const technician = await settledBox(page.getByText('الفني', { exact: true }).first());
     if (help !== null && technician !== null && technician.y > help.y) {
       expect(help.y + help.height).toBeLessThanOrEqual(technician.y + 1);
     }
@@ -261,7 +261,7 @@ test('C3: in the side bar layout the sidebar border runs the full height of a lo
     await page.evaluate(() => {
       window.scrollTo(0, document.documentElement.scrollHeight);
     });
-    const sider = await page.locator('.ant-layout-sider').boundingBox();
+    const sider = await settledBox(page.locator('.ant-layout-sider'));
     const doc = await page.evaluate(() => document.documentElement.scrollHeight);
     const scrolled = await page.evaluate(() => window.scrollY);
     // The sider reaches the bottom of the page (its border with it).

@@ -593,6 +593,23 @@ async def department_site(session: AsyncSession, department_id: uuid.UUID) -> uu
     return await session.scalar(select(Department.site_id).where(Department.id == department_id))
 
 
+async def unit_heads(
+    session: AsyncSession, group_id: uuid.UUID | None, department_id: uuid.UUID | None
+) -> tuple[uuid.UUID | None, uuid.UUID | None]:
+    """The group's lead and the department's head, for "who may run" (WP-029 part 2)."""
+    lead = (
+        await session.scalar(select(SupportGroup.lead_id).where(SupportGroup.id == group_id))
+        if group_id is not None
+        else None
+    )
+    head = (
+        await session.scalar(select(Department.head_id).where(Department.id == department_id))
+        if department_id is not None
+        else None
+    )
+    return lead, head
+
+
 async def existing_departments(
     session: AsyncSession, ids: Sequence[uuid.UUID]
 ) -> frozenset[uuid.UUID]:

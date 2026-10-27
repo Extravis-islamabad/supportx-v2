@@ -36,7 +36,8 @@ export function StatusActions({
   catalogue: IncidentCatalogue | undefined;
 }) {
   const t = useLabel();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
+  const { locale } = useAppearance();
   const act = useIncidentAction(item.id);
   const [asking, setAsking] = useState<IncidentActionState | null>(null);
   // The action waiting for "which of your groups" (start work on an unassigned incident).
@@ -84,8 +85,23 @@ export function StatusActions({
             loading={act.isPending && act.variables.action === action}
             data-testid={`inc-action-${action}`}
             onClick={() => {
-              if (state.reason_mode === 'none') run({ action });
-              else setAsking(state);
+              const go = () => {
+                if (state.reason_mode === 'none') run({ action });
+                else setAsking(state);
+              };
+              // The admin's confirmation for this move, in the reader's language (REQ-WF-003).
+              const text = state.confirmation?.[locale] ?? state.confirmation?.en;
+              if (text === undefined) {
+                go();
+                return;
+              }
+              modal.confirm({
+                title: t(`work_item_action.${action}`),
+                content: <bdi data-testid="inc-action-confirmation">{text}</bdi>,
+                okText: t(`work_item_action.${action}`),
+                cancelText: t('actions.cancel'),
+                onOk: go,
+              });
             }}
           >
             {t(`work_item_action.${action}`)}

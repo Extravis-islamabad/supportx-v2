@@ -38,6 +38,8 @@ export interface AppHeaderProps {
   onProfile?: () => void;
   onOpenPalette?: () => void;
   extra?: ReactNode;
+  /** App-specific entries in the user menu, after "My profile" (e.g. Available / Away). */
+  menuItems?: NonNullable<MenuProps['items']>;
   /** Shown instead of the app name at the start of the row (top-bar navigation). */
   start?: ReactNode;
   /** Offer the navigation layout choice (console). */
@@ -99,6 +101,7 @@ export function AppHeader({
   onProfile,
   onOpenPalette,
   extra,
+  menuItems,
   start,
   onNavLayoutChange,
   onLocaleChange,
@@ -242,6 +245,7 @@ export function AppHeader({
                     onClick: onProfile,
                   },
                 ]),
+            ...(menuItems ?? []),
             {
               key: 'about',
               icon: <InfoCircleOutlined />,

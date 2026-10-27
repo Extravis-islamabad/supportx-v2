@@ -71,6 +71,14 @@ class FieldChange(UuidPrimaryKey, TenantScoped, Base):
             "occurred_at",
             "change_id",
         ),
+        # Reports (lane C, WP-035): backlog over time and time in status.
+        Index(
+            "ix_field_changes_tenant_type_field_time",
+            "tenant_id",
+            "record_type",
+            "field",
+            "occurred_at",
+        ),
         CheckConstraint("kind IN (" + ", ".join(f"'{k}'" for k in KINDS) + ")", name="kind_code"),
         CheckConstraint(
             "source IN (" + ", ".join(f"'{s}'" for s in SOURCES) + ")", name="source_code"

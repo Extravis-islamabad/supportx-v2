@@ -55,6 +55,7 @@ class PrioritySource(StrEnum):
     MATRIX = "matrix"
     MANUAL = "manual"  # set by hand, with a reason
     DEFAULT = "default"  # neither impact nor urgency known: the tenant default
+    RULE = "rule"  # set by a business rule (WP-029; history names the rule)
 
 
 SCALE_CODES: Mapping[Scale, tuple[str, ...]] = {

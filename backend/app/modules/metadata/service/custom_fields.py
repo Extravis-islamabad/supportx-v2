@@ -9,7 +9,7 @@ call `definitions`, `clean`, `mark_used` and `filter_fields` from the module's p
 """
 
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -480,6 +480,15 @@ async def update_field(  # noqa: C901, PLR0912, PLR0915 - one rule per setting, 
     return updated
 
 
+FieldUsage = Callable[[AsyncSession, str, str], Awaitable[list[str]]]
+_FIELD_USAGE: dict[str, FieldUsage] = {}
+
+
+def register_field_usage(what: str, check: FieldUsage) -> None:
+    """A module that refers to custom fields by key (automation rules) names who uses one."""
+    _FIELD_USAGE[what] = check
+
+
 async def delete_field(
     session: AsyncSession,
     field_id: uuid.UUID,
@@ -495,6 +504,12 @@ async def delete_field(
     """
     row = await _get(session, field_id)
     await _same_version(session, row, expected_version)
+    for check in _FIELD_USAGE.values():
+        # A rule that names the field would stop matching without a word (REQ-RUL-029 AC3).
+        if users := await check(session, row.entity, row.key):
+            raise Conflict(
+                code="custom_field_used_by_rule", params={"key": row.key, "rules": ", ".join(users)}
+            )
     if row.first_used_at is not None and not confirmed:
         raise Conflict(code="custom_field_in_use", params={"key": row.key})
     removed = await CustomFieldRepository(session).soft_delete(

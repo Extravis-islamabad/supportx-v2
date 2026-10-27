@@ -84,6 +84,8 @@ const ADMIN_EXTRA: Grant[] = [
   ['audit.export', 'all'],
   ['audit.verify', 'all'],
   ['audit.manage', 'all'],
+  ['automation.view', 'all'],
+  ['automation.manage', 'all'],
   ['reports.manage_folders', 'all'],
   ['reports.schedule', 'all'],
   ['identity.manage', 'all'],
