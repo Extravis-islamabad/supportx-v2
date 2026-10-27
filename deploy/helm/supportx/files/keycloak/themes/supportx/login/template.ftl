@@ -1,6 +1,6 @@
-<#-- keycloak.v2's login template.ftl from Keycloak 26.8.1, unchanged except the block marked
+<#-- keycloak.v2's login template.ftl from Keycloak 26.8.1, unchanged except the blocks marked
      "SupportX" (docs/architecture/branding.md: on a Keycloak upgrade, copy the new upstream file
-     and put the block back; backend/tests/test_keycloak_theme.py checks the block is there). -->
+     and put the blocks back; backend/tests/test_keycloak_theme.py checks they are there). -->
 <#import "field.ftl" as field>
 <#import "footer.ftl" as loginFooter>
 <#import "theme-resources.ftl" as themeResourceTags>
@@ -166,6 +166,13 @@
     <header id="kc-header" class="pf-v5-c-login__header">
       <div id="kc-header-wrapper"
               class="pf-v5-c-brand">${kcSanitize(msg("loginTitleHtml",(realm.displayNameHtml!'')))?no_esc}</div>
+      <#-- SupportX (WP-017-FIX BUG-08, REQ-SEC-003): the organization's name under the logo, when
+           Keycloak knows the organization (as for the stylesheet above). Plain text: HTML
+           auto-escaping applies, never ?no_esc. -->
+      <#if org?? && org.name?has_content>
+      <p id="supportx-org-name" class="supportx-org-name">${org.name}</p>
+      </#if>
+      <#-- /SupportX -->
     </header>
     <main class="${properties.kcLoginMain!}">
       <div class="${properties.kcLoginMainHeader!}">
