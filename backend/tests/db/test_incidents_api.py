@@ -40,6 +40,7 @@ from conftest import assign_system_role, create_tenant, make_settings
 from tests.db.test_access_api import fake_session
 from tests.db.test_rate_limit import valkey_url
 from tests.db.test_users_api import seed_users
+from tooling import timing
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
@@ -1090,6 +1091,7 @@ FROM generate_series(1, $7) AS n
 """
 
 
+@pytest.mark.timing
 async def test_incidents_list_p95_on_100k_rows(world: World) -> None:
     """List p95 < 300 ms on 100,000 incidents (architecture §1.3 targets 10M in V1, k6)."""
     org = await make_org(world, "Perf")
@@ -1143,7 +1145,8 @@ async def test_incidents_list_p95_on_100k_rows(world: World) -> None:
         }
         print(f"\n[perf] incidents_100k {name}: rows={ROWS}, {report[name]}")  # noqa: T201
     assert all(r["items"] > 0 for r in report.values()), report
-    assert all(r["p95_ms"] < 300 for r in report.values()), report
+    timing.record("incidents_list_100k", report)
+    assert all(r["p95_ms"] < timing.limit(300) for r in report.values()), report
 
 
 # --- QA findings (WP-020-FIX, the QA report's bug IDs) ------------------------------------------
