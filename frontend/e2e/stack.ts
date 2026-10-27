@@ -11,6 +11,15 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const REPO = resolve(HERE, '../..');
 
+/**
+ * The bound for a timing whose target is `targetMs` (product owner, 2026-10-28): ten times the
+ * target in pull requests, where a shared CI runner under load must not fail a test; the target
+ * itself in the nightly runs (`SUPPORTX_PERF_STRICT=1`). Same rule as backend/tooling/timing.py.
+ */
+export function timingLimit(targetMs: number): number {
+  return process.env.SUPPORTX_PERF_STRICT === '1' ? targetMs : targetMs * 10;
+}
+
 /** The console: Playwright's baseURL (Vite dev server, or the cluster's public URL). */
 export const CONSOLE_URL = process.env.SUPPORTX_CONSOLE_URL ?? 'http://localhost:5173';
 
