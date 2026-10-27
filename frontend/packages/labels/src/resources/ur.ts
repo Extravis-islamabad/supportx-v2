@@ -1950,6 +1950,8 @@ export const ur: LabelResource = {
     'گروپ کے اندر {{method}} سے خودکار تفویض؛ موازنہ شدہ بوجھ: {{loads}}۔',
   'automation.why.matrix': 'ترجیحی میٹرکس سے (اثر اور فوریت)۔',
   'automation.someone': 'کوئی',
+  'nav.admin_automation': 'آٹومیشن',
+  'automation.page_title': 'واقعات کی آٹومیشن',
   'automation.availability.label': 'میری دستیابی',
   'automation.availability.help': 'غیر حاضر: نئے ریکارڈ خودکار طور پر آپ کو تفویض نہیں ہوں گے۔',
   'errors.custom_field_used_by_rule':

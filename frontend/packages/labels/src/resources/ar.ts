@@ -2329,6 +2329,8 @@ export const ar: LabelResource = {
     'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة؛ الأحمال المقارنة: {{loads}}.',
   'automation.why.matrix': 'من مصفوفة الأولوية (الأثر والإلحاح).',
   'automation.someone': 'شخص',
+  'nav.admin_automation': 'الأتمتة',
+  'automation.page_title': 'أتمتة الحوادث',
   'automation.availability.label': 'توفّري',
   'automation.availability.help': 'غير متاح: لا تُسند إليك السجلات الجديدة تلقائيًا.',
   'errors.custom_field_used_by_rule':

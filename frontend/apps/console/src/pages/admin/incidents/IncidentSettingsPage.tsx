@@ -4,9 +4,6 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
 import { NoAccess, useAccess, useLabel } from '@supportx/ui';
 
-import { BusinessRulesTab } from '../automation/BusinessRulesTab';
-import { RoutingTab } from '../automation/RoutingTab';
-
 import { CategoriesTab } from './CategoriesTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
@@ -27,8 +24,6 @@ const SECTIONS = [
   'levels',
   'closure-codes',
   'reply-templates',
-  'business-rules',
-  'routing',
 ] as const;
 type Section = (typeof SECTIONS)[number];
 const REASON_LISTS: PickList[] = ['pause', 'third_party', 'cancel', 'reopen', 'reassign'];
@@ -71,10 +66,6 @@ export function IncidentSettingsPage() {
         return <CategoriesTab />;
       case 'reply-templates':
         return <ReplyTemplatesTab />;
-      case 'business-rules':
-        return <BusinessRulesTab />;
-      case 'routing':
-        return <RoutingTab />;
       default:
         break;
     }

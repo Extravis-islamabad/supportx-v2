@@ -2355,6 +2355,8 @@ export const en = {
     'Auto-assigned by {{method}} within the group; loads compared: {{loads}}.',
   'automation.why.matrix': 'From the priority matrix (impact and urgency).',
   'automation.someone': 'Someone',
+  'nav.admin_automation': 'Automation',
+  'automation.page_title': 'Incident automation',
   'automation.availability.label': 'My availability',
   'automation.availability.help': 'Away: new records are not auto-assigned to you.',
   'errors.custom_field_used_by_rule':

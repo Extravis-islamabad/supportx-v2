@@ -1,4 +1,4 @@
-import { Switch, Tooltip } from 'antd';
+import { Grid, Switch, Tooltip } from 'antd';
 
 import { useAvailability, useSetAvailability } from '@supportx/api-client';
 import { reportError, useLabel } from '@supportx/ui';
@@ -11,14 +11,17 @@ export function AvailabilitySwitch({ userId }: { userId: string }) {
   const t = useLabel();
   const current = useAvailability([userId]);
   const set = useSetAvailability();
+  // Narrow screens: no words inside the switch, so the header never scrolls sideways.
+  const wide = Grid.useBreakpoint().md === true;
   const state = current.data?.find((a) => a.user_id === userId)?.state ?? 'available';
   return (
     <Tooltip title={t('automation.availability.help')}>
       <Switch
         checked={state === 'available'}
         loading={current.isPending || set.isPending}
-        checkedChildren={t('availability.available')}
-        unCheckedChildren={t('availability.away')}
+        size={wide ? 'default' : 'small'}
+        checkedChildren={wide ? t('availability.available') : undefined}
+        unCheckedChildren={wide ? t('availability.away') : undefined}
         aria-label={t('automation.availability.label')}
         onChange={(on) => {
           set.mutate({ userId, state: on ? 'available' : 'away' }, { onError: reportError });
