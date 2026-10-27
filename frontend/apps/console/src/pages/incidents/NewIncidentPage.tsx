@@ -21,6 +21,7 @@ import { useNavigate } from 'react-router';
 
 import {
   ApiError,
+  fetchUser,
   useCreateIncident,
   useCustomFields,
   useIncidentCatalogue,
@@ -28,6 +29,7 @@ import {
   useIncidentTemplates,
   useSession,
   useSetFormDensity,
+  useStructure,
   useUnits,
   type CustomField,
   type FormDensity,
@@ -172,6 +174,29 @@ export function NewIncidentPage() {
   const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
+  const departments = useStructure('departments', true, true);
+  /**
+   * The requester's department and site fill the empty fields as soon as they are picked, so the
+   * agent sees them and can change them (REQ-INC-016 AC1; QA WP-021 BUG-04). Never overwrites.
+   */
+  const placeFromRequester = async (requesterId: string) => {
+    let person;
+    try {
+      person = await fetchUser(requesterId);
+    } catch {
+      return; // the server still fills them on save
+    }
+    if (form.getValues('requester_id') !== requesterId) return; // picked someone else meanwhile
+    const departmentId = form.getValues('department_id') ?? person.department_id;
+    if (form.getValues('department_id') === null && person.department_id !== null) {
+      form.setValue('department_id', person.department_id);
+    }
+    if (form.getValues('site_id') === null) {
+      const siteId =
+        person.site_id ?? departments.data?.find((d) => d.id === departmentId)?.site_id ?? null;
+      if (siteId !== null) form.setValue('site_id', siteId);
+    }
+  };
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [another, setAnother] = useState(false);
   const [keepRequester, setKeepRequester] = useState(false);
@@ -559,7 +584,10 @@ export function NewIncidentPage() {
                   <UserPicker
                     id={field.id}
                     value={field.value}
-                    onChange={field.onChange}
+                    onChange={(next) => {
+                      field.onChange(next);
+                      if (next !== null) void placeFromRequester(next);
+                    }}
                     testId="inc-requester"
                     ariaLabel={t('work_item.field.requester_id')}
                   />

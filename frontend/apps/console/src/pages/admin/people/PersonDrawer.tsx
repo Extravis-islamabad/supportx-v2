@@ -18,10 +18,11 @@ import {
   Typography,
 } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
   ApiError,
+  fetchUser,
   queryKeys,
   usePersonChange,
   useReactivation,
@@ -62,7 +63,12 @@ const LENGTHS: Record<string, number> = {
 };
 const LOCALES = ['en', 'ar', 'ur'] as const;
 
-type Values = PersonFields & { user_type?: UserDetail['user_type']; can_sign_in?: boolean };
+type Values = Omit<PersonFields, 'request_visibility'> & {
+  // '' is the "organisation's rule" option (sent as null).
+  request_visibility?: PersonFields['request_visibility'] | '';
+  user_type?: UserDetail['user_type'];
+  can_sign_in?: boolean;
+};
 
 function snapshot(user: UserDetail | undefined): Values {
   if (user === undefined) return { user_type: 'requester', can_sign_in: true, vip: false };
@@ -82,18 +88,23 @@ function snapshot(user: UserDetail | undefined): Values {
     manager_id: user.manager_id,
     locale: user.locale,
     time_zone: user.time_zone,
-    request_visibility: user.request_visibility,
+    // '' stands for "the organisation's rule" (a select option cannot be null; QA BUG-07).
+    request_visibility: user.request_visibility ?? '',
   };
 }
 
-/** Only what differs from the record the editor started from; '' becomes null. */
+/** '' (an emptied text, the "organisation's rule" option) is sent as null. */
+function normal(value: unknown): unknown {
+  return typeof value === 'string' && value.trim() === '' ? null : (value ?? null);
+}
+
+/** Only what differs from the record the editor started from. */
 function changes(values: Values, base: Values): PersonFields {
-  const out: Record<string, unknown> = {};
+  const out: PersonFields & Record<string, unknown> = {};
   for (const [key, raw] of Object.entries(values)) {
     if (key === 'user_type' || key === 'can_sign_in') continue;
-    const value = typeof raw === 'string' && raw.trim() === '' ? null : raw;
-    const before = (base as Record<string, unknown>)[key] ?? null;
-    if ((value ?? null) !== before) out[key] = value ?? null;
+    const value = normal(raw);
+    if (value !== normal((base as Record<string, unknown>)[key])) out[key] = value;
   }
   return out;
 }
@@ -117,6 +128,9 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
   const record = useUser(userId === undefined || creating ? undefined : userId);
   const user = creating ? undefined : record.data;
   const queryClient = useQueryClient();
+  // Versions this drawer saved itself (type, sign-in, status, the form): not someone else's
+  // change, so they never make the open form stale (QA WP-021 BUG-03).
+  const [own] = useState(() => new Set<number>());
   useRecordChannel('users', creating ? undefined : userId, (message) => {
     if (userId !== undefined) refreshRecord(queryClient, queryKeys.users.detail(userId), message);
   });
@@ -153,8 +167,8 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
               label: t('people.tab.details'),
               children: (
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                  <PersonStatus user={user} />
-                  <PersonForm key={user.id} user={user} />
+                  <PersonStatus user={user} own={own} />
+                  <PersonForm key={user.id} user={user} own={own} />
                 </Space>
               ),
             },
@@ -173,20 +187,37 @@ export function PersonDrawer({ userId, onClose, onCreated }: PersonDrawerProps) 
 function PersonForm({
   user,
   onSaved,
+  own,
 }: {
   user: UserDetail | undefined;
   onSaved?: (user: UserDetail) => void;
+  own?: Set<number>;
 }) {
   const t = useLabel();
   const { message } = App.useApp();
   const { create, update } = usePersonChange();
+  const queryClient = useQueryClient();
   // The record this form started from: its values and version (QA WP-026 BUG-01).
   const [base, setBase] = useState(() => ({ values: snapshot(user), version: user?.version }));
-  const [formKey, setFormKey] = useState(0);
   const [conflict, setConflict] = useState<unknown>();
   const [problems, setProblems] = useState<Record<string, string>>({});
   const [form] = Form.useForm<Values>();
+  const [dirty, setDirty] = useState(false);
+  // The record moved on (adjusted while rendering, as for useDraft): with no unsaved edits the
+  // form simply shows the latest; this drawer's own saves never count as someone else's.
+  if (user !== undefined && base.version !== undefined && user.version !== base.version) {
+    if (!dirty) {
+      setBase({ values: snapshot(user), version: user.version });
+    } else if (own?.has(user.version) === true) {
+      setBase({ values: base.values, version: user.version });
+    }
+  }
   const stale = user !== undefined && base.version !== undefined && user.version !== base.version;
+  // A new base record (saved, reloaded, or followed while clean) is what the fields show; the
+  // form instance keeps its values across renders, so they are set, not just initialised.
+  useEffect(() => {
+    form.setFieldsValue(base.values);
+  }, [form, base.values]);
   const { locale } = useAppearance();
   const when =
     user === undefined
@@ -234,11 +265,16 @@ function PersonForm({
       { id: user.id, version: version ?? user.version, body },
       {
         onSuccess: (saved) => {
-          void message.success(t('settings.saved'));
+          own?.add(saved.version);
+          void message.success(t('common.saved'));
+          // The form shows what was stored, the notice goes (QA WP-021 BUG-03).
           setBase({ values: snapshot(saved), version: saved.version });
+          setDirty(false);
         },
         onError: (error) => {
           if (error instanceof ApiError && error.isConflict) {
+            // Fetch the latest now: "keep mine" must save on top of it, live update or not.
+            void queryClient.invalidateQueries({ queryKey: queryKeys.users.detail(user.id) });
             setConflict(error);
             return;
           }
@@ -263,7 +299,6 @@ function PersonForm({
         />
       )}
       <Form<Values>
-        key={formKey}
         form={form}
         layout="vertical"
         initialValues={base.values}
@@ -271,6 +306,7 @@ function PersonForm({
           save(values);
         }}
         onValuesChange={(changed) => {
+          setDirty(true);
           const cleared = Object.keys(changed as Record<string, unknown>);
           if (cleared.some((name) => problems[name] !== undefined)) {
             setProblems((all) =>
@@ -359,7 +395,13 @@ function PersonForm({
             style={{ flex: 1, minWidth: 160 }}
             {...help('phone')}
           >
-            <Input dir="ltr" count={lengthLimit(LENGTHS.phone ?? 50)} />
+            <Input
+              dir="ltr"
+              // Inline: Ant Design's RTL stylesheet sets `direction: rtl` on inputs, which
+              // beats the attribute and showed numbers reversed in Arabic (QA BUG-05).
+              styles={{ input: { direction: 'ltr' } }}
+              count={lengthLimit(LENGTHS.phone ?? 50)}
+            />
           </Form.Item>
           <Form.Item
             name="mobile"
@@ -367,7 +409,11 @@ function PersonForm({
             style={{ flex: 1, minWidth: 160 }}
             {...help('mobile')}
           >
-            <Input dir="ltr" count={lengthLimit(LENGTHS.mobile ?? 50)} />
+            <Input
+              dir="ltr"
+              styles={{ input: { direction: 'ltr' } }}
+              count={lengthLimit(LENGTHS.mobile ?? 50)}
+            />
           </Form.Item>
         </Flex>
         <PlacementFields user={user} help={help} />
@@ -387,8 +433,9 @@ function PersonForm({
             style={{ minWidth: 220 }}
           >
             <Select
+              data-testid="person-request-visibility"
               options={[
-                { value: null, label: t('people.visibility.tenant_rule') },
+                { value: '', label: t('people.visibility.tenant_rule') },
                 { value: 'site', label: t('people.visibility.site') },
               ]}
             />
@@ -418,16 +465,26 @@ function PersonForm({
           setConflict(undefined);
           if (user !== undefined) {
             setBase({ values: snapshot(user), version: user.version });
-            setFormKey((key) => key + 1);
+            setDirty(false);
           }
         }}
         onKeepMine={() => {
           setConflict(undefined);
           if (user === undefined) return;
-          // Keep my edits on top of the latest version, then save again.
+          // Keep my edits on top of the latest version: only the fields I changed are sent, the
+          // others keep what was saved meanwhile; then the form shows the stored record. The
+          // latest is read first, so a quick click never saves on the old version again.
           const mine = form.getFieldsValue();
-          setBase({ values: snapshot(user), version: user.version });
-          save(mine, user.version);
+          void queryClient
+            .query({
+              queryKey: queryKeys.users.detail(user.id),
+              queryFn: () => fetchUser(user.id),
+              staleTime: 0,
+            })
+            .then((latest) => {
+              save(mine, latest.version);
+            })
+            .catch(reportError);
         }}
       />
     </>
@@ -444,8 +501,15 @@ function PlacementFields({
 }) {
   const t = useLabel();
   const { can } = useAccess();
+  const form = Form.useFormInstance<Values>();
   const sites = useStructure('sites', can('sites.view'));
   const departments = useStructure('departments', can('departments.view'));
+  // D-096: a chosen department suggests its site, only while the person has no site.
+  const suggestSite = (departmentId: string | undefined) => {
+    if (departmentId === undefined || normal(form.getFieldValue('site_id')) !== null) return;
+    const siteId = departments.data?.find((d) => d.id === departmentId)?.site_id;
+    if (siteId != null) form.setFieldValue('site_id', siteId);
+  };
   const [managerSearch, setManagerSearch] = useState('');
   const managers = useUsers({ q: managerSearch, limit: 20 }, can('users.view'));
   const managerOptions = useMemo(() => {
@@ -493,6 +557,9 @@ function PlacementFields({
             showSearch
             optionFilterProp="label"
             data-testid="person-department"
+            onChange={(value: string | undefined) => {
+              suggestSite(value);
+            }}
             options={usable(departments.data, user?.department_id).map((department) => ({
               value: department.id,
               label: department.disabled
@@ -521,9 +588,9 @@ function PlacementFields({
 }
 
 /** Type, sign-in and active/deactivated, each its own audited action. */
-function PersonStatus({ user }: { user: UserDetail }) {
+function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
   const t = useLabel();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
   const { setType, setSignIn, deactivate } = usePersonChange();
   const [reactivating, setReactivating] = useState(false);
   const onError = (error: unknown) => {
@@ -559,7 +626,24 @@ function PersonStatus({ user }: { user: UserDetail }) {
             label: t(`user_type.${value}`),
           }))}
           onChange={(value) => {
-            setType.mutate({ id: user.id, version: user.version, userType: value }, { onError });
+            const change = () => {
+              setType.mutate(
+                { id: user.id, version: user.version, userType: value },
+                { onError, onSuccess: (saved) => own.add(saved.version) },
+              );
+            };
+            if (value !== 'technician') {
+              change();
+              return;
+            }
+            // A technician takes a licence seat: ask first (QA WP-021 C5).
+            void modal.confirm({
+              title: t('people.make_technician.title', { name: user.display_name }),
+              content: t('people.make_technician.explain'),
+              okText: t('people.make_technician'),
+              cancelText: t('actions.cancel'),
+              onOk: change,
+            });
           }}
         />
       </Flex>
@@ -571,7 +655,10 @@ function PersonStatus({ user }: { user: UserDetail }) {
           checked={user.can_sign_in}
           disabled={busy}
           onChange={(allowed) => {
-            setSignIn.mutate({ id: user.id, version: user.version, allowed }, { onError });
+            setSignIn.mutate(
+              { id: user.id, version: user.version, allowed },
+              { onError, onSuccess: (saved) => own.add(saved.version) },
+            );
           }}
         />
       </Flex>
@@ -582,7 +669,10 @@ function PersonStatus({ user }: { user: UserDetail }) {
           okText={t('people.deactivate')}
           cancelText={t('actions.cancel')}
           onConfirm={() => {
-            deactivate.mutate({ id: user.id, version: user.version }, { onError });
+            deactivate.mutate(
+              { id: user.id, version: user.version },
+              { onError, onSuccess: (saved) => own.add(saved.version) },
+            );
           }}
         >
           <Button danger loading={deactivate.isPending} data-testid="person-deactivate">
@@ -602,6 +692,7 @@ function PersonStatus({ user }: { user: UserDetail }) {
       )}
       <ReactivateDialog
         user={user}
+        own={own}
         open={reactivating}
         onClose={() => {
           setReactivating(false);
@@ -614,10 +705,12 @@ function PersonStatus({ user }: { user: UserDetail }) {
 /** Reactivation lists what the person still holds; only the ticked roles and groups stay. */
 function ReactivateDialog({
   user,
+  own,
   open,
   onClose,
 }: {
   user: UserDetail;
+  own: Set<number>;
   open: boolean;
   onClose: () => void;
 }) {
@@ -644,7 +737,10 @@ function ReactivateDialog({
         reactivate.mutate(
           { id: user.id, version: user.version, keepRoleIds: roleIds, keepGroupIds: groupIds },
           {
-            onSuccess: onClose,
+            onSuccess: (saved) => {
+              own.add(saved.version);
+              onClose();
+            },
             onError: (error) => {
               reportError(error);
             },

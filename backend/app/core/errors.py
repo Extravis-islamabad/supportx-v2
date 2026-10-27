@@ -213,25 +213,39 @@ def internal_error_response(path: str | None) -> JSONResponse:
     )
 
 
+# Request-validation codes from Pydantic, in the app's own words (QA WP-021 BUG-01, BUG-02): a
+# missing or null value where one is needed is "required"; a too long or too short text names its
+# limit. Every other code passes through (each has an `errors.field.<code>` label).
+_REQUIRED_TYPES = frozenset(
+    {"missing", "string_type", "int_type", "float_type", "bool_type", "uuid_type", "dict_type"}
+)
+
+
+def _field_error(error: Mapping[str, Any]) -> FieldError:
+    code = str(error.get("type", "invalid"))
+    context: Mapping[str, Any] = error.get("ctx") or {}
+    params: dict[str, ParamValue] = {
+        key: value
+        for key, value in context.items()
+        if isinstance(value, str | int | float | bool) and key != "error"
+    }
+    message_key = f"errors.field.{code}"
+    if code == "missing" or (code in _REQUIRED_TYPES and error.get("input", "") is None):
+        code, message_key, params = "required", "errors.field.required", {}
+    elif code == "string_too_long":
+        code, message_key = "value_too_long", "errors.field.value_too_long_max"
+    elif code == "string_too_short" and params.get("min_length") == 1:
+        code, message_key, params = "required", "errors.field.required", {}
+    return FieldError(
+        field=".".join(str(part) for part in error.get("loc", ())),
+        code=code,
+        message_key=message_key,
+        params=params,
+    )
+
+
 def _field_errors(exc: RequestValidationError) -> list[FieldError]:
-    result: list[FieldError] = []
-    for error in exc.errors():
-        code = str(error.get("type", "invalid"))
-        context: Mapping[str, Any] = error.get("ctx") or {}
-        params: dict[str, ParamValue] = {
-            key: value
-            for key, value in context.items()
-            if isinstance(value, str | int | float | bool) and key != "error"
-        }
-        result.append(
-            FieldError(
-                field=".".join(str(part) for part in error.get("loc", ())),
-                code=code,
-                message_key=f"errors.field.{code}",
-                params=params,
-            )
-        )
-    return result
+    return [_field_error(error) for error in exc.errors()]
 
 
 # Status codes Starlette raises itself (unknown route, wrong method ...) mapped to stable codes.

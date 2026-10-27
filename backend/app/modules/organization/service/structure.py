@@ -106,12 +106,23 @@ class DepartmentRepository(Repository[Department]):
 
 
 def _problems(problems: Sequence[tuple[str, str]]) -> ValidationFailed:
-    return ValidationFailed(
-        errors=[
-            FieldError(field=f"body.{name}", code=code, message_key=f"errors.field.{code}")
-            for name, code in problems
-        ]
-    )
+    errors: list[FieldError] = []
+    for name, code in problems:
+        if code == "value_too_long":
+            # The limit in the message (D-091; QA WP-021 BUG-02).
+            errors.append(
+                FieldError(
+                    field=f"body.{name}",
+                    code=code,
+                    message_key="errors.field.value_too_long_max",
+                    params={"max_length": LIMITS.get(name, 200)},
+                )
+            )
+        else:
+            errors.append(
+                FieldError(field=f"body.{name}", code=code, message_key=f"errors.field.{code}")
+            )
+    return ValidationFailed(errors=errors)
 
 
 def _clean(

@@ -2303,6 +2303,14 @@ export const en = {
   'access_settings.banner':
     "Until you choose, technicians see their own groups' records, their own, and new unassigned ones at their sites.",
   'access_settings.choose': 'Choose',
+  'errors.field.value_too_long_max': 'Use at most {{max_length}} characters.',
+  'common.saved': 'Saved.',
+  'people.total_one': '{{count}} person',
+  'people.total_other': '{{count}} people',
+  'people.make_technician': 'Make technician',
+  'people.make_technician.title': 'Make {{name}} a technician?',
+  'people.make_technician.explain':
+    'This uses one technician licence seat. Making them a requester again frees it.',
   // Reports (WP-035)
   'report_chart.bar': 'Bar',
   'report_chart.stacked_bar': 'Stacked bar',
