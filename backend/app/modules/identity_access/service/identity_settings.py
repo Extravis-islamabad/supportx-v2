@@ -34,6 +34,7 @@ from app.modules.identity_access.infra.models import (
 from app.shared.events import record_event
 
 AppName = Literal["console", "portal"]
+MIN_INVITATION_DAYS, MAX_INVITATION_DAYS = 1, 30  # Appendix A: 7 days, at most 30
 
 
 @dataclass(frozen=True)
@@ -46,6 +47,7 @@ class IdentitySettingsView:
     portal_absolute_seconds: int
     create_people_on_sign_in: bool
     version: int
+    invitation_valid_days: int = 7
 
     def session_limits(self, app: AppName) -> tuple[int, int]:
         """(idle, absolute) seconds for sessions of `app`."""
@@ -77,6 +79,7 @@ async def get_identity_settings(session: AsyncSession) -> IdentitySettingsView:
         portal_absolute_seconds=row.portal_absolute_seconds,
         create_people_on_sign_in=row.create_people_on_sign_in,
         version=row.version,
+        invitation_valid_days=row.invitation_valid_days,
     )
 
 
@@ -104,6 +107,15 @@ def check_session_limits(values: IdentitySettingsView) -> None:
                     params={"max": cap // 3600},
                 )
             )
+    if not MIN_INVITATION_DAYS <= values.invitation_valid_days <= MAX_INVITATION_DAYS:
+        errors.append(
+            FieldError(
+                field="invitation_valid_days",
+                code="invitation_days_out_of_range",
+                message_key="errors.field.invitation_days_out_of_range",
+                params={"min": MIN_INVITATION_DAYS, "max": MAX_INVITATION_DAYS},
+            )
+        )
     if errors:
         raise ValidationFailed(errors=errors)
 

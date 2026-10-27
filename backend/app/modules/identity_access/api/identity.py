@@ -69,6 +69,9 @@ class IdentitySettingsBody(BaseModel):
     create_people_on_sign_in: bool = Field(
         description="A first sign-in creates the person as requester (REQ-SEC-013)."
     )
+    invitation_valid_days: int = Field(
+        default=7, description="How long an invitation link works (1 to 30 days)."
+    )
 
 
 class IdentitySettingsOut(IdentitySettingsBody):

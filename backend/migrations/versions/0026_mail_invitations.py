@@ -1,10 +1,12 @@
-"""The mail service (WP-039 session 2; D-089 D3, D-099): queued messages and attachments.
+"""The mail service and invitations (WP-039 session 2; D-089 D3, D-099).
 
-- mail_messages: one outgoing message as queued (recipients, subject, bodies, state, attempts,
-  backoff); bodies cleared `mail_content_retention_days` after it is done (`purge_after`).
-- mail_attachments: files sent with a message (content cleared with the body).
+- mail_messages, mail_attachments: the one outgoing mail sender's queue (docs/architecture/
+  mail.md); bodies and attachments cleared `mail_content_retention_days` after sending.
+- invitations: who was invited to sign in, when, until when, and what became of it
+  (REQ-SEC-018..020); Keycloak sends the e-mail.
+- identity_settings.invitation_valid_days: how long an invitation link works (7, 1 to 30).
 
-Both tenant-scoped with RLS. Reversible: the downgrade drops both tables.
+All tenant-scoped with RLS. Reversible.
 
 Revision ID: 0026
 Revises: 0024
@@ -136,9 +138,86 @@ def upgrade() -> None:
     enable_tenant_rls("mail_attachments")
     grant_app("mail_attachments", ("SELECT", "INSERT", "UPDATE"))
     enable_actor_audit("mail_attachments")
+    op.create_table(
+        "invitations",
+        sa.Column("id", sa.UUID(), nullable=False),
+        sa.Column("tenant_id", sa.UUID(), nullable=False),
+        sa.Column("user_id", sa.UUID(), nullable=False),
+        sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("status", sa.String(length=10), server_default="pending", nullable=False),
+        sa.Column("delivery", sa.String(length=20), server_default="email", nullable=False),
+        sa.Column("keycloak_user_id", sa.String(length=64), nullable=True),
+        sa.Column("created_account", sa.Boolean(), server_default="false", nullable=False),
+        sa.Column("sent_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("expires_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("accepted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("revoked_at", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("sends", sa.BigInteger(), server_default="1", nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.text("now()"),
+            nullable=False,
+        ),
+        sa.Column("created_by", sa.UUID(), nullable=True),
+        sa.Column("updated_by", sa.UUID(), nullable=True),
+        sa.Column("version", sa.BigInteger(), server_default="1", nullable=False),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
+        sa.CheckConstraint(
+            "delivery IN ('email', 'existing_account')", name=op.f("ck_invitations_delivery_code")
+        ),
+        sa.CheckConstraint(
+            "status IN ('pending', 'accepted', 'revoked')", name=op.f("ck_invitations_status_code")
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_invitations_user"
+        ),
+        sa.ForeignKeyConstraint(
+            ["tenant_id"],
+            ["tenants.id"],
+            name=op.f("fk_invitations_tenant_id_tenants"),
+            ondelete="RESTRICT",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_invitations")),
+    )
+    op.create_index(
+        "ix_invitations_tenant_created",
+        "invitations",
+        ["tenant_id", "created_at", "id"],
+        unique=False,
+    )
+    op.create_index(
+        "ix_invitations_tenant_user",
+        "invitations",
+        ["tenant_id", "user_id", "status"],
+        unique=False,
+    )
+    enable_tenant_rls("invitations")
+    grant_app("invitations", ("SELECT", "INSERT", "UPDATE"))
+    enable_actor_audit("invitations")
+    op.add_column(
+        "identity_settings",
+        sa.Column("invitation_valid_days", sa.BigInteger(), server_default="7", nullable=False),
+    )
+    op.create_check_constraint(
+        op.f("ck_identity_settings_invitation_days_range"),
+        "identity_settings",
+        "invitation_valid_days BETWEEN 1 AND 30",
+    )
 
 
 def downgrade() -> None:
+    op.drop_constraint(op.f("ck_identity_settings_invitation_days_range"), "identity_settings")
+    op.drop_column("identity_settings", "invitation_valid_days")
+    op.drop_index("ix_invitations_tenant_user", table_name="invitations")
+    op.drop_index("ix_invitations_tenant_created", table_name="invitations")
+    op.drop_table("invitations")
     op.drop_index("ix_mail_attachments_tenant_message", table_name="mail_attachments")
     op.drop_table("mail_attachments")
     op.drop_index("ix_mail_messages_tenant_state", table_name="mail_messages")

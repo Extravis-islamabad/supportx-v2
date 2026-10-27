@@ -167,6 +167,17 @@ class SsoProviderChanged(DomainEvent):
     state: Literal["draft", "tested", "on", "off"]
 
 
+class InvitationChanged(DomainEvent):
+    """An invitation was sent, resent, accepted or revoked (WP-039 session 2)."""
+
+    event_type: ClassVar[str] = "identity_access.invitation.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "invitation"
+
+    change: Literal["sent", "resent", "accepted", "revoked"]
+    status: Literal["pending", "accepted", "revoked"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     UserProvisioned,
     UserUpdated,
@@ -181,4 +192,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AccessSettingsChanged,
     IdentitySettingsChanged,
     SsoProviderChanged,
+    InvitationChanged,
 )
