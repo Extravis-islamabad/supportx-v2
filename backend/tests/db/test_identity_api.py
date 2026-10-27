@@ -620,3 +620,41 @@ async def test_another_tenant_never_sees_or_changes_a_set_up(world: World) -> No
     gone = await world.call("DELETE", path, world.b, headers={"If-Match": '"1"'})
     assert gone.status_code == 404
     assert len(world.admin.providers) == 1
+
+
+async def test_two_set_ups_never_share_a_domain(world: World) -> None:
+    assert (await world.add_oidc(world.a)).status_code == 201
+    again = await world.add_oidc(world.a, display_name="Second")
+    assert again.status_code == 422
+    assert again.json()["errors"][0]["code"] == "sso_domain_in_use"
+    assert again.json()["errors"][0]["params"] == {"domain": "acme.test"}
+
+
+async def test_people_are_sent_to_the_provider_only_while_it_is_on_and_when_chosen(
+    world: World,
+) -> None:
+    added = (await world.add_oidc(world.a, email_redirect=True)).json()
+
+    def routed() -> dict[str, Any]:
+        org = world.admin.orgs[str(world.a.tenant)]
+        return {d["name"]: d for d in org.raw["domains"]}["acme.test"]
+
+    assert routed()["autoRedirect"] is False  # draft: nobody sent there yet
+    await _mark_tested(world, world.a, uuid.UUID(added["id"]))
+    current = (await world.call("GET", f"/identity/sso/{added['id']}", world.a)).json()
+    on = await world.call(
+        "POST",
+        f"/identity/sso/{added['id']}/switch-on",
+        world.a,
+        headers={"If-Match": f'"{current["version"]}"'},
+    )
+    assert on.status_code == 200
+    assert routed()["autoRedirect"] is True
+    off = await world.call(
+        "POST",
+        f"/identity/sso/{added['id']}/switch-off",
+        world.a,
+        headers={"If-Match": f'"{on.json()["version"]}"'},
+    )
+    assert off.status_code == 200
+    assert routed()["autoRedirect"] is False

@@ -2366,6 +2366,8 @@ export const en = {
   'errors.field.sso_protocol_fixed': 'A set-up keeps its protocol. Add a new one instead.',
   'errors.field.sso_sign_in_url_missing': 'The metadata has no sign-in address.',
   // WP-039 identity: Admin > Sign-in and security
+  'security.sso.test_slow':
+    "No answer yet. If the other window shows an error from the sign-in service, that is the reason: the identity provider's certificate or settings do not match what is saved here. The set-up stays off.",
   'security.sso.test_private':
     'Copy the link and open it in a private window, then sign in there as a person of your organisation. This window is signed in as you, so the test cannot run here.',
   'security.sso.test_link': 'Copy the test link',

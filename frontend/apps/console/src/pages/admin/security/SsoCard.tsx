@@ -13,6 +13,7 @@ import { reportError, ToneTag, useDateTime, useLabel, WriteButton, type Tone } f
 
 import { SsoEditor } from './SsoEditor';
 
+const SLOW_TEST_MS = 60_000;
 const STATE_TONE: Record<SsoProvider['state'], Tone> = {
   draft: 'default',
   tested: 'info',
@@ -33,6 +34,18 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
   const [testId, setTestId] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const result = useSsoTestResult(provider.id, testId);
+  // Some refusals (a SAML answer whose signature does not match the certificate) leave no trace
+  // the screen can read: the other window shows the sign-in service's reason. Said after a while.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (testId === null) return;
+    const timer = window.setTimeout(() => {
+      setSlow(true);
+    }, SLOW_TEST_MS);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [testId]);
   // One test per opening of the dialog (React's development double effect would start two,
   // and the link shown would not be the one polled).
   const started = useRef(false);
@@ -71,6 +84,11 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
               <Spin size="small" />
               <Typography.Text type="secondary">{t('security.sso.test_pending')}</Typography.Text>
             </Space>
+            {slow && found?.status === 'pending' && (
+              <Typography.Text data-testid="sso-test-slow">
+                {t('security.sso.test_slow')}
+              </Typography.Text>
+            )}
           </Flex>
         )}
         {found?.status === 'passed' && (

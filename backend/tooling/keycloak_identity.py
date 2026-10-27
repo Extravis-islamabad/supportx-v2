@@ -9,8 +9,9 @@ makes the realm ready for that, on fresh and upgraded installations alike:
   so rotating the secret is a deploy);
 - its service account holds exactly the least-privileged admin roles in ROLES (nothing else is
   removed from it by hand without this step putting the list back);
-- login events are recorded (only the types SupportX reads: sign-ins through identity providers
-  and their errors), kept 7 days; event types or listeners an operator added are kept;
+- login events are recorded, kept 7 days: at least the types SupportX reads (sign-ins through
+  identity providers and their errors); types or listeners an operator chose are kept (a realm
+  that never chose any records every type, as Keycloak does);
 - the realm's SSO session lasts at least the platform's longest SupportX session, so SupportX's
   own per-tenant timeouts decide (REQ-SEC-029); shorter realm values are raised, longer kept;
 - the user profile declares the attributes single sign-on brings (department and site, read by
