@@ -51,6 +51,30 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        path: 'reports',
+        handle: { section: 'reports' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/reports/ReportsHomePage')).ReportsHomePage,
+            }),
+          },
+          {
+            path: 'builtin/:code',
+            lazy: async () => ({
+              Component: (await import('./pages/reports/ReportPage')).ReportPage,
+            }),
+          },
+          {
+            path: ':id',
+            lazy: async () => ({
+              Component: (await import('./pages/reports/ReportPage')).ReportPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'announcements',
         handle: { section: 'announcements' },
         children: [

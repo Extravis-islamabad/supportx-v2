@@ -42,6 +42,7 @@ const TECHNICIAN: Grant[] = [
   ['knowledge.view', 'all'],
   ['knowledge.manage', 'group'],
   ['reports.view', 'all'],
+  ['reports.create', 'own'],
   ['announcements.view', 'all'],
   ['announcements.manage', 'own'],
   // D-052: technicians work on incidents at group scope (their groups, assigned, site queue).
@@ -80,6 +81,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['audit.export', 'all'],
   ['audit.verify', 'all'],
   ['audit.manage', 'all'],
+  ['reports.manage_folders', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
