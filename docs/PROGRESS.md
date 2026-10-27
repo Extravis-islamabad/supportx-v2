@@ -545,8 +545,12 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Every automated change is a history line naming the rule, method and loads ("why" line in
   the record history); run log `GET /automation/runs` (30 days).
 - [x] A group, site, department or custom field a rule uses cannot be removed (REQ-RUL-029 AC3).
-- [x] Screens: Admin › Incidents › Business rules and Routing and assignment; header
+- [x] Screens: Admin › Automation (own section: Business rules, Routing and assignment); header
   Available/Away switch for technicians; all live through `automation.changed`.
+- [x] Available / Away: in the header from 1200 px, in the user menu below it, and on My profile.
+- [ ] Follow-up for the WP-029 QA-fix round (product owner, 2026-10-28): group leads and admins
+  set a member's availability from the person's page or the group's member list, recorded in
+  history ("set Away by <name>"), so a sick technician stops receiving auto-assigned work.
 - [x] Reporting provider for lane C (WP-035 port): every work item type registers its list query.
 - [ ] Part 2: triggers after commit (REQ-RUL-009/010) with the loop guard (REQ-RUL-028: depth 5,
   20 per record per minute, never on its own change), transition hooks and "who may run"
