@@ -3,7 +3,8 @@
 WP-039 (REQ-SEC-005..008, 013, 017..020, 029, 031, 035), ADR-036, D-089, D-094, D-098, D-099,
 D-103. Session 1: the Keycloak service account, sessions per tenant, people creation, single
 sign-on. Session 2: the password policy and breached list, invitations, password reset, mail
-(docs/architecture/mail.md). Session 3: MFA and "my account".
+(docs/architecture/mail.md). Session 3: lock-out, two-step sign-in (MFA) and recovery codes,
+My account, the idle warning, the Security administrator role.
 
 Admins use **Admin › Sign-in and security** (`identity.manage`). Nothing is set in Keycloak's
 console by hand.
@@ -124,6 +125,33 @@ Life cycle: **draft → tested → on ⇄ off**, removable at any time.
   sign-on get nothing.
 - An admin can **require a new password** at the next sign-in (person drawer): Keycloak's
   required action, and the person's sessions end at once, in Keycloak too.
+
+## Lock-out (REQ-SEC-005 AC2; D-103, D-104)
+
+- 5 failed sign-ins, then 15 minutes; each further failure adds 15 minutes, at most an hour;
+  failures are remembered 12 hours; a successful sign-in resets them. Keycloak cannot double the
+  wait (measured on 26.8.1). The deploy step moves a realm from the shipped old values only.
+- Every failed sign-in shows the same text (en/ar/ur), which says when to try again and never
+  whether the account exists or is locked.
+
+## Two-step sign-in (REQ-SEC-022, 024, 025; D-104)
+
+- Keycloak keeps the authenticator (TOTP, any app) and the recovery codes, and asks for them
+  after the password. SupportX decides who must have it: **Admin › Sign-in and security ›
+  Two-step sign-in**, off, optional or required per role (Appendix A defaults), with how many
+  holders have set it up, and the grace period (7 days, 0 to 30).
+- Required: a reminder with a set-up button during the grace period; after it the person's next
+  sign-in makes them set it up first (Keycloak's required actions, added at sign-in and by the
+  hourly `identity_access__mfa_enforce` schedule). A person in several tenants gets the strictest.
+- Reset: a person's drawer, `identity.manage`, never your own; audited; the person is e-mailed.
+
+## My account (REQ-SEC-028)
+
+- Console: My profile; portal: My account. Password change, MFA set-up and new recovery codes
+  go to Keycloak's pages (`GET /api/v1/auth/account-action?action=…`), which ask for the current
+  password; the browser comes back with the result. Recent sign-ins from Keycloak's login events.
+- Idle timeout: a warning 2 minutes ahead (the person's own activity counts), then signed out on
+  screen; the new-incident form keeps what was typed through it (`useKeptDraft`).
 
 ## Scope for workers (D-052)
 

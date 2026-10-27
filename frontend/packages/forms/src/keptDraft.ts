@@ -63,14 +63,19 @@ export function useKeptDraft<T extends FieldValues>(
     const subscription = watch((values) => {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => {
-        write(key, values);
+        // An untouched form (just opened, or reset after a save) keeps nothing.
+        if (JSON.stringify(values) === JSON.stringify(form.formState.defaultValues)) {
+          clearKeptDraft(key);
+        } else {
+          write(key, values);
+        }
       }, SAVE_AFTER_MS);
     });
     return () => {
       window.clearTimeout(timer);
       subscription.unsubscribe();
     };
-  }, [key, watch]);
+  }, [key, watch, form.formState]);
 
   return {
     restored,

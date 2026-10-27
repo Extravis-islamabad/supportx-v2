@@ -38,6 +38,15 @@ describe('useKeptDraft', () => {
     expect(screen.getByTestId<HTMLInputElement>('title').value).toBe('Printer on fire');
   });
 
+  it('an untouched form keeps nothing (no false "restored" later)', async () => {
+    render(<Form draftKey="incident-new" />);
+    fireEvent.change(screen.getByTestId('title'), { target: { value: 'x' } });
+    fireEvent.change(screen.getByTestId('title'), { target: { value: '' } });
+    await waitFor(() => {
+      expect(window.sessionStorage.getItem('supportx.draft.incident-new')).toBeNull();
+    });
+  });
+
   it('a successful save forgets the draft', async () => {
     window.sessionStorage.setItem(
       'supportx.draft.incident-new',

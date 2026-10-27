@@ -2925,7 +2925,6 @@ export const en = {
     'You will be signed out in {{time}} because nothing happened for a while. Anything you typed is kept and comes back when you sign in again.',
   'session.idle.stay': 'Stay signed in',
   'session.idle.sign_out': 'Sign out now',
-  'forms.draft_restored': 'Your unsaved input was restored.',
 } as const;
 
 export type LabelKey = keyof typeof en;
