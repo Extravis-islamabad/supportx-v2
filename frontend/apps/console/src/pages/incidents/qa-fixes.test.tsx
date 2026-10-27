@@ -415,9 +415,12 @@ describe('QA findings on one incident', () => {
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM } } });
     render(<App />);
     fireEvent.click(await screen.findByTestId('inc-edit-subject'));
-    const input = screen.getByTestId('inc-input-subject');
-    expect(input.getAttribute('maxlength')).toBe('500');
+    const input = screen.getByTestId<HTMLInputElement>('inc-input-subject');
     expect(document.body.textContent).toContain('12 / 500');
+    // Over the limit, the text is kept and the counter says so (WP-026 QA BUG-03: never cut).
+    fireEvent.change(input, { target: { value: 'x'.repeat(501) } });
+    expect(input.value).toHaveLength(501);
+    expect(document.body.textContent).toContain('501 / 500');
   });
 
   it('BUG-11: an inline edit takes the focus; Enter saves and Escape cancels', async () => {
@@ -573,7 +576,6 @@ describe('QA findings on the list and the form', () => {
     });
     render(<App />);
     const subject = await screen.findByTestId('inc-subject');
-    expect(subject.getAttribute('maxlength')).toBe('500');
     expect(document.body.textContent).toContain('0 / 500');
     // Required fields are marked, and the form says once what the mark means.
     expect(screen.getByText('Fields marked * are required.')).toBeDefined();

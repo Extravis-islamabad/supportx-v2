@@ -14,10 +14,11 @@ import {
 } from 'antd';
 
 import type { IncidentCatalogue } from '@supportx/api-client';
-import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { useAppearance, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
 
 import { scaleLabel } from '../../incidents/labels';
 import { useDraft, useSettingsSave } from './helpers';
+import { numberProblem } from '../../../numbers';
 import { Problems } from './shared';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -70,7 +71,10 @@ function FieldHelp({ problem, help, testId }: { problem?: string; help: string; 
 function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { save, pending, byField, clear } = useSettingsSave();
-  const source = { prefix: catalogue.prefix, next: catalogue.next_number };
+  const source: { prefix: string; next: number | null } = {
+    prefix: catalogue.prefix,
+    next: catalogue.next_number,
+  };
   const draftState = useDraft(source, catalogue.version);
   const { draft, edit, stale, dirty } = draftState;
   // Reset takes the saved values and the problems shown with the old ones away (QA BUG-07).
@@ -78,14 +82,21 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
     clear();
     draftState.reset();
   };
+  // A number that is not whole, or below 1, is refused here, never rounded (QA WP-026 BUG-03).
+  const nextProblem =
+    draft.next === null
+      ? t('errors.field.required')
+      : numberProblem(t, draft.next, { min: 1, whole: true });
   const submit = () => {
+    if (nextProblem !== null || draft.next === null) return;
     const prefix = draft.prefix.trim().toUpperCase();
     const body: { prefix?: string; next_number?: number } = {};
     if (prefix !== catalogue.prefix) body.prefix = prefix;
     if (draft.next !== catalogue.next_number) body.next_number = draft.next;
-    save({ kind: 'settings', body }, reset);
+    save({ kind: 'settings', body }, reset, draftState.base);
   };
-  const problemAt = (field: string) => byField[field];
+  const problemAt = (field: string) =>
+    field === 'next_number' && nextProblem !== null ? nextProblem : byField[field];
   return (
     <Card title={t('settings.numbering')} data-testid="settings-numbering">
       {stale && <StaleNotice onReload={reset} />}
@@ -108,7 +119,7 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
               id="settings-prefix"
               dir="ltr"
               value={draft.prefix}
-              maxLength={6}
+              count={lengthLimit(6)}
               style={{ width: 140 }}
               onChange={(event) => {
                 edit({ ...draft, prefix: event.target.value.toUpperCase() });
@@ -130,12 +141,10 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           >
             <InputNumber
               id="settings-next-number"
-              min={1}
-              precision={0}
               value={draft.next}
               style={{ width: 160 }}
               onChange={(value) => {
-                edit({ ...draft, next: typeof value === 'number' ? value : catalogue.next_number });
+                edit({ ...draft, next: typeof value === 'number' ? value : null });
               }}
               data-testid="settings-next-number"
             />
@@ -143,7 +152,7 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
         </Flex>
         <Typography.Paragraph data-testid="settings-next-id">
           {t('settings.next_id', {
-            id: `${draft.prefix.trim().toUpperCase()}-${String(draft.next)}`,
+            id: `${draft.prefix.trim().toUpperCase()}-${String(draft.next ?? '')}`,
           })}
         </Typography.Paragraph>
         <Space>
@@ -175,7 +184,7 @@ function DefaultsCard({ catalogue }: { catalogue: IncidentCatalogue }) {
     urgency: catalogue.default_urgency ?? NONE,
     priority: catalogue.default_priority,
   };
-  const { draft, edit, reset, stale, dirty } = useDraft(source, catalogue.version);
+  const { draft, edit, reset, stale, dirty, base } = useDraft(source, catalogue.version);
   const option = (scale: 'impact' | 'urgency' | 'priority', code: string) => ({
     value: code,
     label: scaleLabel(t, catalogue, scale, code, locale),
@@ -249,6 +258,7 @@ function DefaultsCard({ catalogue }: { catalogue: IncidentCatalogue }) {
                   },
                 },
                 reset,
+                base,
               );
             }}
             data-testid="settings-defaults-save"
@@ -273,7 +283,7 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
     follow: catalogue.keep_following_on_handover,
     first: [...catalogue.first_response_on] as string[],
   };
-  const { draft, edit, reset, stale, dirty } = useDraft(source, catalogue.version);
+  const { draft, edit, reset, stale, dirty, base } = useDraft(source, catalogue.version);
   return (
     <Card title={t('settings.automation')} data-testid="settings-automation">
       {stale && <StaleNotice onReload={reset} />}
@@ -346,6 +356,7 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
                   },
                 },
                 reset,
+                base,
               );
             }}
             data-testid="settings-automation-save"

@@ -16,7 +16,7 @@ import {
 } from '@supportx/api-client';
 import { en } from '@supportx/labels';
 import { useListChannel } from '@supportx/realtime';
-import { useDateTime, useLabel } from '@supportx/ui';
+import { useDateTime, useLabel, lengthLimit } from '@supportx/ui';
 
 import { AuditEntryDrawer } from './AuditEntryDrawer';
 import { actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
@@ -425,7 +425,7 @@ function SavedSearches({
           aria-label={t('audit.ui.saved.name')}
           placeholder={t('audit.ui.saved.name')}
           value={name}
-          maxLength={100}
+          count={lengthLimit(100)}
           onChange={(event) => {
             setName(event.target.value);
           }}

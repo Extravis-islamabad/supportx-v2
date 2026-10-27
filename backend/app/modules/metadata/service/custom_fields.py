@@ -18,7 +18,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
-from app.modules.identity_access import user_names
+from app.modules.identity_access import display_names, user_names
 from app.modules.metadata.domain.fields import (
     FIELDS_PER_ENTITY,
     HELP_MAX,
@@ -41,6 +41,9 @@ from app.modules.metadata.domain.fields import (
     missing_required,
     search_text,
 )
+from app.modules.metadata.domain.fields import (
+    problem_params as field_problem_params,
+)
 from app.modules.metadata.events import CustomFieldChanged
 from app.modules.metadata.infra.expressions import value_expression
 from app.modules.metadata.infra.models import CustomField
@@ -48,7 +51,7 @@ from app.shared.api.filters import FieldType as FilterType
 from app.shared.api.filters import FilterField
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Change, Source, record_changes
+from app.shared.history import Change, Source, explain_conflict, record_changes
 
 RECORD_TYPE = "custom_field"
 
@@ -169,6 +172,29 @@ async def _get(session: AsyncSession, field_id: uuid.UUID) -> CustomField:
     if found is None:
         raise NotFound(code="custom_field_not_found")
     return found
+
+
+async def _same_version(session: AsyncSession, row: CustomField, expected: int) -> None:
+    """409 when the field was saved since `expected`, naming who changed what (QA BUG-01)."""
+    if row.version == expected:
+        return
+    raise await explain_conflict(
+        session,
+        Conflict(
+            code="version_conflict",
+            params={"expected_version": expected, "current_version": row.version},
+        ),
+        record_type=RECORD_TYPE,
+        record_id=row.id,
+        names=lambda ids: display_names(session, ids),
+    )
+
+
+async def editors(session: AsyncSession, rows: Sequence[CustomField]) -> dict[uuid.UUID, str]:
+    """Who saved each field last, by display name (an open editor says "changed by")."""
+    ids = sorted({str(r.updated_by) for r in rows if r.updated_by is not None})
+    names = await user_names(session, ids) if ids else {}
+    return {r.id: names[str(r.updated_by)] for r in rows if str(r.updated_by) in names}
 
 
 # --- admin writes ---------------------------------------------------------------------------------
@@ -365,11 +391,7 @@ async def update_field(  # noqa: C901, PLR0912, PLR0915 - one rule per setting, 
     The type and the key never change: a field of another type is a new field (D-087).
     """
     row = await _get(session, field_id)
-    if row.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": row.version},
-        )
+    await _same_version(session, row, expected_version)
     if "field_type" in values and values["field_type"] != row.field_type:
         raise _problems([("field_type", "type_cannot_change")])
     if "key" in values and values["key"] != row.key:
@@ -472,6 +494,7 @@ async def delete_field(
     its key is never reused.
     """
     row = await _get(session, field_id)
+    await _same_version(session, row, expected_version)
     if row.first_used_at is not None and not confirmed:
         raise Conflict(code="custom_field_in_use", params={"key": row.key})
     removed = await CustomFieldRepository(session).soft_delete(
@@ -525,6 +548,7 @@ async def request_index(
     The index worker picks it up within a minute or so (D-088); a failed one can be asked again.
     """
     row = await _get(session, field_id)
+    await _same_version(session, row, expected_version)
     if row.index_state in {IndexState.PENDING, IndexState.BUILDING, IndexState.ACTIVE}:
         return row
     updated = await CustomFieldRepository(session).update(
@@ -621,6 +645,19 @@ async def clean(  # noqa: PLR0913 - the values and how they are being saved
         found = await user_names(session, list(people.values()))
         problems += [(f"custom.{k}", "user_not_found") for k, v in people.items() if v not in found]
     return cleaned, problems
+
+
+async def problem_params(
+    session: AsyncSession, entity: str, problems: Sequence[Problem]
+) -> dict[str, dict[str, str | int]]:
+    """The limits value problems name, by `custom.<key>` (for the caller's field errors)."""
+    known = await definitions(session, entity)
+    found: dict[str, dict[str, str | int]] = {}
+    for path, code in problems:
+        found_def = known.get(path.removeprefix("custom."))
+        if found_def is not None and (params := field_problem_params(found_def, code)):
+            found[path] = params
+    return found
 
 
 async def mark_used(session: AsyncSession, entity: str, keys: Sequence[str]) -> None:

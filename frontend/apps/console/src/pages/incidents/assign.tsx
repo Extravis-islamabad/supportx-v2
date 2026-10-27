@@ -11,7 +11,7 @@ import {
   type Incident,
   type IncidentActionState,
 } from '@supportx/api-client';
-import { reportError, useAppearance, useLabel } from '@supportx/ui';
+import { reportError, useAppearance, useLabel, lengthLimit } from '@supportx/ui';
 
 import { OperationButton } from './operations';
 import { labelled } from './labels';
@@ -212,7 +212,7 @@ function AssignBody({
                 placeholder={t('incidents.reason_text')}
                 dir="auto"
                 rows={2}
-                maxLength={500}
+                count={lengthLimit(500)}
                 value={reasonText}
                 onChange={(event) => {
                   setReasonText(event.target.value);

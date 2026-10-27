@@ -155,7 +155,8 @@ describe('Admin › Incidents › Custom fields', () => {
     fireEvent.click(await screen.findByTestId('cf-new'));
     fireEvent.change(await screen.findByTestId('cf-label-en'), { target: { value: 'Room' } });
     fireEvent.click(screen.getByTestId('cf-save'));
-    expect((await screen.findByTestId('cf-editor-problems')).textContent).toContain(
+    // At the name, where it belongs (WP-026 QA BUG-08).
+    expect((await screen.findByTestId('cf-error-labels')).textContent).toContain(
       'This name is already used.',
     );
   });

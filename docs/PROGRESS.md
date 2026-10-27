@@ -441,6 +441,26 @@ Playwright `qa-wp020c.spec.ts`).
 - [ ] Later (D-087): asset and CI lookups (with their modules); list columns and export
   (WP-020d); portal (WP-028 uses the template's requester flags).
 
+### [x] WP-026-FIX — WP-026 QA findings (D-091; done 2026-10-27)
+Every finding of Desktop/qa-wp026/QA-REPORT.md has a test named after its ID that failed first
+(backend `tests/db/test_custom_fields_qa.py`, Vitest `customFields/qa-wp026.test.tsx`).
+- [x] BUG-01 lost update: an open editor keeps its version; "changed by <name>" at once; the save
+  asks (conflict dialog). Same fix in every admin editor that had the pattern: incident settings
+  drafts (General, Priority) and rename dialogs (levels, reasons, closure codes, statuses,
+  priority values), file rules (also no longer reset while typing), roles. The 409 of a custom
+  field names who changed which parts; the field list carries `changed_by` / `changed_at`.
+- [x] BUG-02 email, web address and phone values searchable, also by their parts.
+- [x] BUG-03 nothing typed is changed silently, app-wide: number inputs no longer clamp or round
+  (custom fields, file rules, audit settings, incident numbering), text inputs no longer cut
+  (`lengthLimit` counter instead of `maxLength`, 27 inputs); limits refused at the field with the
+  limit in the message; a non-whole number gets "Enter a whole number".
+- [x] BUG-04 problems clear when the field is edited; BUG-05 names need a letter or digit;
+  BUG-06 risky patterns say why; BUG-07 tone tags; BUG-08 problems at their fields.
+- [x] C1 Enter adds a choice; C2 choice columns named, choices reorder; C3 "Use at least N
+  characters"; C4 separator and isolated names; C5 Arabic "(موقوف)" for fields and choices;
+  C6 the type is read-only text when editing; C7 no starting value is SQL NULL.
+- [x] D-091 (O5): retired fields under a "Retired fields" heading in the list filter.
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people

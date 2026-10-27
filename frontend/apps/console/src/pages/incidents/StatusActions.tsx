@@ -9,7 +9,7 @@ import {
   type IncidentActionState,
   type IncidentCatalogue,
 } from '@supportx/api-client';
-import { reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { reportError, useAppearance, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
 
 import { labelled } from './labels';
 import { GroupPicker } from './pickers';
@@ -247,8 +247,7 @@ function ReasonDialog({
           id="inc-reason-text"
           dir="auto"
           rows={3}
-          maxLength={REASON_MAX}
-          showCount
+          count={lengthLimit(REASON_MAX, true)}
           value={text}
           status={touched && missingText ? 'error' : undefined}
           onChange={(event) => {

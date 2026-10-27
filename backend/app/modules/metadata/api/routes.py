@@ -5,6 +5,7 @@ Reading needs the entity's view permission (forms show the fields); every write 
 """
 
 import uuid
+from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
@@ -95,11 +96,15 @@ class CustomFieldOut(BaseModel):
     in_use: bool = Field(description="A record holds a value: it can be retired, not deleted.")
     index_state: IndexState
     index_error: IndexFailure | None = Field(description="Why the index failed (state failed).")
+    changed_by: str | None = Field(
+        default=None, description='Who saved it last (an open editor says "changed by").'
+    )
+    changed_at: datetime | None = None
     version: int
 
     @classmethod
-    def of(cls, row: CustomField) -> "CustomFieldOut":
-        """From a row."""
+    def of(cls, row: CustomField, changed_by: str | None = None) -> "CustomFieldOut":
+        """From a row, with the name of who saved it last."""
         rules = row.validation or {}
         return cls(
             id=row.id,
@@ -126,6 +131,8 @@ class CustomFieldOut(BaseModel):
             in_use=row.first_used_at is not None,
             index_state=IndexState(row.index_state),
             index_error=None if row.index_error is None else IndexFailure(row.index_error),
+            changed_by=changed_by,
+            changed_at=row.updated_at,
             version=row.version,
         )
 
@@ -186,7 +193,8 @@ async def list_fields(
     """Every field in display order; retired ones are marked, not hidden (old values)."""
     _may_read(subject, entity)
     rows = await service.list_fields(session, entity, removed=include_removed)
-    return [CustomFieldOut.of(r) for r in rows]
+    names = await service.editors(session, rows)
+    return [CustomFieldOut.of(r, names.get(r.id)) for r in rows]
 
 
 @router.post("", summary="Add a custom field", status_code=status.HTTP_201_CREATED)

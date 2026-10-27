@@ -232,7 +232,23 @@ export function IncidentsPage() {
                 setCustomKey(key);
                 setCustomValue(undefined);
               }}
-              options={filterable.map((f) => ({ value: f.key, label: fieldName(f, locale) }))}
+              // Retired fields still find old records, under their own heading (D-091, O5).
+              options={[
+                ...filterable
+                  .filter((f) => !f.retired)
+                  .map((f) => ({ value: f.key, label: fieldName(f, locale) })),
+                ...(filterable.some((f) => f.retired)
+                  ? [
+                      {
+                        label: t('custom_fields.retired_fields'),
+                        title: t('custom_fields.retired_fields'),
+                        options: filterable
+                          .filter((f) => f.retired)
+                          .map((f) => ({ value: f.key, label: fieldName(f, locale) })),
+                      },
+                    ]
+                  : []),
+              ]}
               style={{ minWidth: 'min(180px, 100%)' }}
               data-testid="inc-filter-custom-field"
             />

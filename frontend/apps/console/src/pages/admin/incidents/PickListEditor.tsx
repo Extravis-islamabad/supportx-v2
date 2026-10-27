@@ -13,11 +13,11 @@ import {
 } from 'antd';
 import { useState } from 'react';
 
-import type { Labels, PickList } from '@supportx/api-client';
+import { useIncidentCatalogue, type Labels, type PickList } from '@supportx/api-client';
 import { EmptyText, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { labelled } from '../../incidents/labels';
-import { shippedKey, useSettingsSave } from './helpers';
+import { shippedKey, useOpenedVersion, useSettingsSave } from './helpers';
 import { ValueDialog } from './shared';
 
 export interface PickValue {
@@ -51,6 +51,8 @@ export function PickListEditor({
   const { locale } = useAppearance();
   const { save, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<PickValue | 'new' | null>(null);
+  const catalogue = useIncidentCatalogue();
+  const opened = useOpenedVersion(editing !== null, catalogue.data?.version ?? 0);
   const name = (v: PickValue) => labelled(v.labels, locale, () => t(shippedKey(list, v.code)));
   const move = (index: number, delta: number) => {
     const codes = values.map((v) => v.code);
@@ -238,6 +240,7 @@ export function PickListEditor({
                   body: withColour === true ? { labels, colour } : { labels },
                 },
                 close,
+                opened,
               );
             }
           }}

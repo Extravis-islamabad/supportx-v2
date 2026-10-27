@@ -24,3 +24,4 @@ export {
   type Branding,
   type ThemeMode,
 } from './theme';
+export { lengthLimit } from './lengthLimit';
