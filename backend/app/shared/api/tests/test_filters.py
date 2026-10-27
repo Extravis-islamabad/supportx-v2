@@ -22,6 +22,7 @@ from app.shared.api.filters import (
     parse_filter_json,
     relative_range,
 )
+from tooling import timing
 
 table = Table(
     "things",
@@ -301,6 +302,7 @@ def test_simple_parameters_are_validated_like_the_dsl(
     assert caught.value.errors[0].code == code
 
 
+@pytest.mark.timing
 def test_compiling_a_full_size_filter_is_fast() -> None:
     tree = {
         "and": [
@@ -321,4 +323,7 @@ def test_compiling_a_full_size_filter_is_fast() -> None:
         timings.append(time.process_time() - started)
     per_filter_ms = min(timings) / runs * 1000
     print(f"\n[perf] filter_compile: conditions=30 depth=3 ms_per_filter={per_filter_ms:.3f}")  # noqa: T201
-    assert per_filter_ms < 5
+    # 5 ms, strictly in the nightly run (no coverage, its own machine); ten times that in pull
+    # requests, where coverage tracing and shared 2-vCPU runners cost several times over.
+    timing.record("filter_compile_ms", per_filter_ms)
+    assert per_filter_ms < timing.limit(5)

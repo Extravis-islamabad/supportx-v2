@@ -23,6 +23,7 @@ from app.modules.identity_access import authorize
 from conftest import assign_system_role, create_tenant, make_settings
 from tests.db.test_rate_limit import valkey_url
 from tests.db.test_users_api import seed_users
+from tooling import timing
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
@@ -443,6 +444,7 @@ async def test_site_membership_widens_a_site_scope(world: World) -> None:
     )
 
 
+@pytest.mark.timing
 async def test_cached_permission_check_timing(world: World) -> None:
     """How long a check costs: compile once, then Valkey hits, then the in-memory decision."""
     a = world.a
@@ -464,4 +466,5 @@ async def test_cached_permission_check_timing(world: World) -> None:
     hit_ms = statistics.median(samples)
     report = f"compile {compile_ms:.1f} ms; cached subject p50 {hit_ms:.2f} ms"
     print(f"{report}; decision {decide_us:.2f} us")  # noqa: T201
-    assert hit_ms < 20
+    timing.record("permission_check", {"compile_ms": compile_ms, "cached_p50_ms": hit_ms})
+    assert hit_ms < timing.limit(20)
