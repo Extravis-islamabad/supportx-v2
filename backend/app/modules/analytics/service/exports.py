@@ -375,7 +375,7 @@ class Worker:
 
     reporting: Database
     storage: ObjectStorage | None
-    load_subject: SubjectLoader
+    load_subject: SubjectLoader | None  # None: this worker cannot rebuild permissions
     render_pdf: PdfRenderer | None
     timeout_seconds: float
     max_rows: int
@@ -389,6 +389,8 @@ async def _job(session: AsyncSession, row: ReportExport, worker: Worker) -> "_Jo
         return "storage_not_configured"
     if row.format == "pdf" and worker.render_pdf is None:
         return "pdf_not_available"
+    if worker.load_subject is None:
+        return "report_failed"
     subject = await worker.load_subject(session, row.tenant_id, row.requested_by)
     definition = ReportDefinition.model_validate(row.definition)
     try:

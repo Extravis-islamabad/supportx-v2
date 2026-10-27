@@ -70,8 +70,8 @@ async def on_export_requested(envelope: EventEnvelope, session: AsyncSession | N
     settings = get_settings()
     reporting = _reporting(settings)
     loader: SubjectLoader | None = _state.get("subject_loader")
-    if reporting is None or loader is None:  # pragma: no cover - a misconfigured worker
-        msg = "report exports need the reporting database and the subject loader"
+    if reporting is None:  # pragma: no cover - a worker without a database never gets here
+        msg = "report exports need the reporting database"
         raise RuntimeError(msg)
     limits = limits_of(await tenant_settings(session), settings)
     storage = storage_or_none(settings)
