@@ -509,6 +509,19 @@ export function NewIncidentPage() {
               style={{ marginBottom: 16 }}
               message={t('forms.draft_restored')}
               data-testid="inc-draft-restored"
+              action={
+                <Button
+                  size="small"
+                  onClick={() => {
+                    draft.startEmpty(EMPTY);
+                    started.current = {};
+                    apply(template);
+                  }}
+                  data-testid="inc-draft-start-empty"
+                >
+                  {t('forms.start_empty')}
+                </Button>
+              }
             />
           )}
           <Form.Item label={t('templates.field')} htmlFor="inc-template-picker">

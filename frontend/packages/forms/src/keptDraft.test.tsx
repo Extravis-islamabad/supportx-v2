@@ -1,14 +1,29 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useForm } from 'react-hook-form';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { clearKeptDraft, useKeptDraft } from './keptDraft';
+import { useSession, type MeResponse } from '@supportx/api-client';
+import { fakeApi, fakeSession } from '@supportx/api-client/testing';
 
-// WP-039 session 3 (REQ-SEC-029 AC2): input survives a session timeout in the same tab.
+import { clearAllKeptDrafts, useKeptDraft } from './keptDraft';
 
-function Form({ draftKey }: { draftKey: string }) {
-  const form = useForm<{ title: string; note: string }>({ defaultValues: { title: '', note: '' } });
-  const { restored, discard } = useKeptDraft(form, draftKey);
+// WP-039 session 3 (REQ-SEC-029 AC2): input survives a session timeout in the same tab, for the
+// same person in the same organisation only (lane A's review of #87).
+
+const EMPTY = { title: '', note: '' };
+const ANNA = fakeSession({ id: 'u-anna', display_name: 'Anna' });
+const BILAL = fakeSession({ id: 'u-bilal', display_name: 'Bilal' });
+
+let restore: () => void = () => undefined;
+afterEach(() => {
+  restore();
+  window.sessionStorage.clear();
+});
+
+function Form() {
+  const form = useForm<typeof EMPTY>({ defaultValues: EMPTY });
+  const { restored, discard, startEmpty } = useKeptDraft(form, 'incident-new');
   return (
     <form>
       {restored && <p data-testid="restored">restored</p>}
@@ -16,47 +31,89 @@ function Form({ draftKey }: { draftKey: string }) {
       <button type="button" data-testid="saved" onClick={discard}>
         saved
       </button>
+      <button
+        type="button"
+        data-testid="empty"
+        onClick={() => {
+          startEmpty(EMPTY);
+        }}
+      >
+        empty
+      </button>
     </form>
   );
 }
 
-afterEach(() => {
-  clearKeptDraft('incident-new');
-  window.sessionStorage.clear();
-});
+/** As in the apps: forms render only inside the session gate, once the session is known. */
+function Gate() {
+  return useSession().data ? <Form /> : null;
+}
+
+function signedIn(me: MeResponse) {
+  restore();
+  const fake = fakeApi({ 'GET /api/v1/auth/me': { body: me } });
+  restore = fake.restore;
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <Gate />
+    </QueryClientProvider>,
+  );
+}
+
+function kept(): string[] {
+  return Object.keys(window.sessionStorage).filter((k) => k.startsWith('supportx.draft.'));
+}
+
+async function typeTitle(value: string) {
+  fireEvent.change(await screen.findByTestId('title'), { target: { value } });
+  await waitFor(() => {
+    const [found] = kept();
+    expect(found === undefined ? null : window.sessionStorage.getItem(found)).toContain(value);
+  });
+}
 
 describe('useKeptDraft', () => {
-  it('keeps typed input and puts it back when the form opens again', async () => {
-    const first = render(<Form draftKey="incident-new" />);
-    fireEvent.change(screen.getByTestId('title'), { target: { value: 'Printer on fire' } });
-    await waitFor(() => {
-      expect(window.sessionStorage.getItem('supportx.draft.incident-new')).toContain('Printer');
-    });
-    first.unmount(); // the session timed out; the person signs in again
-    render(<Form draftKey="incident-new" />);
+  it('keeps typed input and puts it back for the same person after a timeout', async () => {
+    const first = signedIn(ANNA);
+    await typeTitle('Printer on fire');
+    first.unmount(); // the session timed out; Anna signs in again
+    signedIn(ANNA);
     expect(await screen.findByTestId('restored')).toBeDefined();
-    expect(screen.getByTestId<HTMLInputElement>('title').value).toBe('Printer on fire');
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLInputElement>('title').value).toBe('Printer on fire');
+    });
   });
 
-  it('an untouched form keeps nothing (no false "restored" later)', async () => {
-    render(<Form draftKey="incident-new" />);
-    fireEvent.change(screen.getByTestId('title'), { target: { value: 'x' } });
+  it("never gives one person's draft to someone else on the same tab", async () => {
+    const first = signedIn(ANNA);
+    await typeTitle('Salary question');
+    first.unmount();
+    signedIn(BILAL);
+    await screen.findByTestId('title');
+    expect(screen.queryByTestId('restored')).toBeNull();
+    expect(screen.getByTestId<HTMLInputElement>('title').value).toBe('');
+  });
+
+  it('an explicit sign-out forgets every draft', async () => {
+    const first = signedIn(ANNA);
+    await typeTitle('Draft');
+    first.unmount();
+    clearAllKeptDrafts();
+    expect(kept()).toEqual([]);
+  });
+
+  it('an untouched form keeps nothing; "start empty" forgets the draft', async () => {
+    signedIn(ANNA);
+    await typeTitle('x');
     fireEvent.change(screen.getByTestId('title'), { target: { value: '' } });
     await waitFor(() => {
-      expect(window.sessionStorage.getItem('supportx.draft.incident-new')).toBeNull();
+      expect(kept()).toEqual([]);
     });
-  });
-
-  it('a successful save forgets the draft', async () => {
-    window.sessionStorage.setItem(
-      'supportx.draft.incident-new',
-      JSON.stringify({ title: 'Old', note: '' }),
-    );
-    render(<Form draftKey="incident-new" />);
-    await screen.findByTestId('restored');
-    act(() => {
-      fireEvent.click(screen.getByTestId('saved'));
+    await typeTitle('again');
+    fireEvent.click(screen.getByTestId('empty'));
+    expect(screen.getByTestId<HTMLInputElement>('title').value).toBe('');
+    await waitFor(() => {
+      expect(kept()).toEqual([]);
     });
-    expect(window.sessionStorage.getItem('supportx.draft.incident-new')).toBeNull();
   });
 });
