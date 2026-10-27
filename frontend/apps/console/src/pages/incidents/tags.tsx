@@ -5,15 +5,10 @@ import { useIncidentCatalogue, type IncidentCatalogue, type Priority } from '@su
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { scaleLabel, statusLabel } from './labels';
+import { PRIORITY_COLOURS } from './priorityColours';
 
 // A coloured dot plus normal text: coloured tag fills (gold, white on blue) fail WCAG contrast.
 // The tenant's colours and names win (WP-020c); these are the fallback while they load.
-const PRIORITY_COLOURS: Record<Priority, string> = {
-  p1: '#cf1322',
-  p2: '#fa541c',
-  p3: '#faad14',
-  p4: '#8c8c8c',
-};
 
 export function StatusTag({
   status,
