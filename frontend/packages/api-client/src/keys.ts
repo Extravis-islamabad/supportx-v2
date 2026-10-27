@@ -1,6 +1,7 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, IncidentsQuery } from './incidents';
+import type { ReportDefinition } from './reports';
 import type { UsersQuery } from './users';
 
 /**
@@ -50,6 +51,15 @@ export const queryKeys = {
     settings: ['announcements', 'settings'] as const,
     ownerCandidates: (search: string, include: string | null) =>
       ['announcements', 'owner-candidates', search, include] as const,
+  },
+  reports: {
+    all: ['reports'] as const,
+    library: ['reports', 'library'] as const,
+    entity: (entity: string) => ['reports', 'entity', entity] as const,
+    detail: (id: string) => ['reports', 'detail', id] as const,
+    // Every run, so a list signal can refresh all reports on screen at once.
+    runs: ['reports', 'run'] as const,
+    run: (definition: ReportDefinition | undefined) => ['reports', 'run', definition] as const,
   },
   incidents: {
     all: ['incidents'] as const,

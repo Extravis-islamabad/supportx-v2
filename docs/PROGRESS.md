@@ -10,8 +10,8 @@
 - **Next work package:** WP-021 QA (~/Desktop/qa-wp021/), then WP-029 (business rules,
   routing; needs WP-026) on the critical path; WP-020d..020f, WP-022..028.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Lane C (reports and dashboards):** WP-035 session 1 done (engine, D-100); session 2 (viewer)
-  next. Lanes and claimed numbers: docs/LANES.md.
+- **Lane C (reports and dashboards):** WP-035 sessions 1 (engine, PR #73) and 2 (viewer) done;
+  session 3 (export) next. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -569,11 +569,10 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     tenant's organization (Keycloak 26.8 domain routing); department and site from SSO on first
     sign-in (D-089 D6);
   - Admin › Sign-in and security, live, en/ar/ur, axe clean in three themes.
-- [ ] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
+- [x] Session 2 — mail foundation (`app/shared/mail`, D-089 D3), invitations (SEC-018..020),
   reset (SEC-006), installation password policy and breached list (D1 c, D2; SEC-005), rate
-  limits (SEC-035). Built on `feat/wp-039-session2` (D-099, D-103); waiting for: the e2e
-  `invitations.spec.ts` on the shared stack (QA lock; Keycloak recreated for the breached-list
-  mount and the reset address), `make check`, PR.
+  limits (SEC-035). PR #80 (D-099, D-103); e2e `invitations.spec.ts` and the full suite green
+  on the shared stack.
   - [x] mail foundation: `app/shared/mail` (outbox `system.mail.queued`, worker send, retry with
     backoff, content purge), interface for lanes A and C in docs/architecture/mail.md;
   - [x] Keycloak's realm SMTP and e-mail theme from the same settings (D-099), en/ar/ur;
@@ -617,7 +616,7 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
-### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; session 1 of 4 done 2026-10-27)
+### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-2 of 4 done 2026-10-27)
 Plan: ~/Desktop/wp-035-plan.md (approved with D-100). Branches `feat/reporting-port` (PR #72, the
 port alone, so lane A can write the incident provider) and `feat/wp-035-reporting`.
 - [x] **Session 1 — engine.**
@@ -641,10 +640,28 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   - Tests: 10 domain; 11 with Postgres (scope parity for five users incl. drill-down counts,
     tenant isolation, read-only role and timeout, ageing, custom-field grouping, time zones,
     built-ins run without set-up, copy/share/folders/permissions/outbox); labels checks.
-- [ ] **Session 2 — viewer.** Reports home, viewer, copy-and-adjust form, shared filter builder
-  in `packages/forms` (D-100 D6), chart kit (doughnut, gauge, stacked, area, KPI, table), drill-down
-  to the list, names of groups/sites/people in results, live re-run on list signals, Sunday week
-  start for Arabic tenants, tenant-editable query limits (D-041), e2e and axe in en and ar.
+- [x] **Session 2 — viewer** (2026-10-27, branch `feat/wp-035-viewer`).
+  - Console `/reports`: favourites, built-in reports by module, "My reports", shared folders,
+    search in the UI language, folder create/delete with "where do its reports go"
+    (REQ-RPT-045), live.
+  - Report viewer (REQ-RPT-050): title, description, filters in words, totals, "data as of" and
+    time zone; filter builder, grouping (date buckets incl. ageing), second grouping, measures
+    with their definitions, chart type, chart/table toggle; table with totals row; chart with a
+    data-table alternative and keyboard drill-down on rows (REQ-DSH-047); drill-down drawer on
+    the incident list with the row's filter (REQ-RPT-037); "save as my report", save changes,
+    delete, star (REQ-RPT-019); live refresh on the counted list, at most once a second.
+  - `packages/forms` FilterBuilder (D-100 D6): generic over the API's field allowlist; a
+    condition without a value blocks running and saving, with the reason (REQ-RPT-029 AC2).
+  - `packages/charts` kit (REQ-RPT-044): bar, stacked bar, line, area, doughnut, gauge, KPI and
+    table; P1 has one colour everywhere (priority colours now in `incidents/priorityColours.ts`);
+    LTTB sampling for large series.
+  - Reports library live: a private report change reaches only its owner's channel, a shared
+    one an ID-free tenant broadcast.
+  - Tests: 5 filter builder, 3 chart kit, 3 console (home, viewer with drill-down, blocked run),
+    2 realtime routes.
+  - Carried to session 3: Sunday week start for Arabic tenants and tenant-editable query limits
+    (both need the per-tenant report settings that export adds); e2e and axe in English and
+    Arabic (needs the shared dev stack and the QA lock).
 - [ ] **Session 3 — export.** CSV, XLSX (openpyxl write-only), PDF (WeasyPrint in the worker image
   only, URL fetcher refusing everything but bundled fonts and our data URIs, D-100 D8), formula
   injection protection in every path, background jobs with progress, audit, `reports.export`,
@@ -854,18 +871,24 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 ### 2026-10-27 — WP-039 session 2: mail, invitations, reset, password policy (lane B)
 
 - Built on `feat/wp-039-session2` (stacked on PR #70): see the WP-039 checklist. Decisions
-  D-099 (Keycloak's e-mails, done properly) and D-103 (session 2 defaults, pending review).
+  D-099 (Keycloak's e-mails, done properly) and D-103 (session 2 defaults; reviewed 2026-10-28).
 - Proved on a throwaway Keycloak 26.8.1 (`wp039-kc`): the breached list loads (46,941) and
   refuses a listed password that meets every other rule; a short one gets the length message;
   `supportx-realm` sets the policy and `supportx-identity` gets 403; Urdu users see the rules'
   messages in Urdu, right to left; invitation and reset e-mails branded, single use, expiring.
 - Tests: backend unit and DB (identity API 29, mail 17, Keycloak set-up 8, theme 12, labels);
-  console Vitest (admin 86), portal (reset page). The e2e `invitations.spec.ts` is written and
-  not yet run: it needs the shared stack with Keycloak recreated (QA lock).
+  console Vitest (admin 87), portal (reset page). E2E on the shared stack under the QA lock
+  (Keycloak recreated, a throwaway database agreed with lane A): `invitations.spec.ts` passes,
+  the full suite 51/51. PR #80.
 - CI: PR #70's backend job was cancelled at the 30-minute limit (the suite reached 31% of
   tests in 28 minutes; lane A's #71 too); the limit is now 45 (agreed with lane A).
 - Found outside scope: the realm's brute-force settings do not match Appendix A (15 minutes,
   doubling) and Keycloak says "invalid username or password" while locked: session 3.
+
+### 2026-10-27 — WP-035 session 2: reports home and viewer (lane C)
+- Built in `../supportx-v2-lanec2` (branch `feat/wp-035-viewer`, on top of #73): reports home,
+  report viewer, shared filter builder, chart kit, live library; see WP-035 above.
+- Not yet: e2e and axe (QA lock), Sunday week start and tenant query limits (session 3).
 
 ### 2026-10-27 — WP-035 session 1: reporting engine (lane C)
 - Lane C started (coordination rules, three lanes). Plan approved as D-100; ADR-033 (reporting

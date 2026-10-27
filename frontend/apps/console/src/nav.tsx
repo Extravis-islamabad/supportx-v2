@@ -118,7 +118,6 @@ export const SECTION_KEYS = [
   'assets',
   'cmdb',
   'knowledge',
-  'reports',
 ] as const;
 
 export function navItem(key: string): NavItem | undefined {
