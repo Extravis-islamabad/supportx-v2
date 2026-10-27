@@ -135,6 +135,16 @@ securityContext:
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: keycloak-identity-secret}}
 - name: SUPPORTX_MULTI_TENANT
   value: {{ .Values.multiTenant | quote }}
+{{- if .Values.mail.smtpHost }}
+- {name: SUPPORTX_MAIL_SMTP_HOST, value: {{ .Values.mail.smtpHost | quote }}}
+- {name: SUPPORTX_MAIL_SMTP_PORT, value: {{ .Values.mail.smtpPort | quote }}}
+- {name: SUPPORTX_MAIL_SMTP_SECURITY, value: {{ .Values.mail.smtpSecurity | quote }}}
+- {name: SUPPORTX_MAIL_SMTP_USERNAME, value: {{ .Values.mail.smtpUsername | quote }}}
+- {name: SUPPORTX_MAIL_FROM_ADDRESS, value: {{ .Values.mail.fromAddress | quote }}}
+- {name: SUPPORTX_MAIL_FROM_NAME, value: {{ .Values.mail.fromName | quote }}}
+- name: SUPPORTX_MAIL_SMTP_PASSWORD
+  valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: mail-smtp-password, optional: true}}
+{{- end }}
 - name: SUPPORTX_CENTRIFUGO_API_KEY
   valueFrom: {secretKeyRef: {name: {{ .Values.secrets.app }}, key: centrifugo-api-key}}
 - name: SUPPORTX_CENTRIFUGO_TOKEN_SECRET
