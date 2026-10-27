@@ -45,6 +45,7 @@ from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.db.models import NAMING_CONVENTION, Base
 from app.shared.db.rls import app_grant_statements, tenant_rls_statements
 from conftest import create_tenant
+from tooling import timing
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = pytest.mark.db
@@ -293,6 +294,7 @@ def test_field_masking_and_segregation_of_duties() -> None:
     assert authorize(viewer, "changes.approve", TICKETS, theirs).reason == "no_permission"
 
 
+@pytest.mark.timing
 async def test_scoped_list_over_100000_rows_is_fast(
     tickets_table: None, app_db: Database, migrated_db: ThrowawayDatabase
 ) -> None:
@@ -351,4 +353,5 @@ async def test_scoped_list_over_100000_rows_is_fast(
             )
         timings[name] = statistics.median(samples)
         print(f"scoped page ({name}, {total} visible of 100,000): p50 {timings[name]:.1f} ms")  # noqa: T201
-    assert max(timings.values()) < 250
+    timing.record("scoped_list_100k_p50_ms", timings)
+    assert max(timings.values()) < timing.limit(250)
