@@ -1811,7 +1811,6 @@ export const en = {
   'custom_field_display.radio': 'Buttons',
   'custom_field_entity.incident': 'Incidents',
   'custom_field_index_state.none': 'Not indexed',
-  'custom_field_index_state.requested': 'Index requested',
   'custom_field_index_state.active': 'Indexed',
   'custom_field_index_state.failed': 'Index failed',
   'errors.custom_field_not_found': 'This custom field does not exist (any more).',
@@ -1860,10 +1859,6 @@ export const en = {
   'custom_fields.remove_title': 'Remove “{{name}}”?',
   'custom_fields.remove_unused':
     'No record holds a value in this field yet. It disappears from forms and templates.',
-  'custom_fields.remove_in_use':
-    "Records hold values in this field. Removing it hides it from forms, records, lists and filters; old values stay in each record's history. Retiring keeps it visible on old records instead.",
-  'custom_fields.remove_anyway': 'Remove anyway',
-  'custom_fields.retire_instead': 'Retire instead',
   'custom_fields.help_in.en': 'Help text in English',
   'custom_fields.help_in.ar': 'Help text in Arabic',
   'custom_fields.help_in.ur': 'Help text in Urdu',
@@ -1886,11 +1881,7 @@ export const en = {
   'custom_fields.default_help': 'Filled in on new incidents; people can change it.',
   'custom_fields.advanced': 'For integrations and performance',
   'custom_fields.api_name': 'Name in the API and filters',
-  'custom_fields.index_help':
-    'If lists are often filtered on this field, an index makes those lists faster. It is built in the background without stopping work.',
   'custom_fields.request_index': 'Build an index',
-  'custom_fields.index_failed':
-    'The index could not be built. Ask your administrator to check the database job log, then try again.',
   'custom_fields.yes': 'Yes',
   'custom_fields.no': 'No',
   'custom_fields.clear': 'Clear',
@@ -1899,6 +1890,23 @@ export const en = {
   'custom_fields.unknown_field': 'Removed field',
   'custom_fields.filter_field': 'Field',
   'custom_fields.filter_value': 'Value of {{field}}',
+  'custom_field_index_state.pending': 'Index pending',
+  'custom_field_index_state.building': 'Building index',
+  'custom_field_index_error.timed_out': 'Building took too long and was stopped.',
+  'custom_field_index_error.busy': 'The incidents table was busy with other maintenance.',
+  'custom_field_index_error.disk_full': 'The database ran out of disk space.',
+  'custom_field_index_error.out_of_memory': 'The database ran out of memory.',
+  'custom_field_index_error.value_too_large': 'Some values in this field are too long to index.',
+  'custom_field_index_error.unexpected':
+    "An unexpected database error; your operator can see it in the index worker's log.",
+  'custom_fields.index_help':
+    'If lists are often filtered on this field, an index makes those lists faster. It is built in the background within a minute or two, without stopping work.',
+  'custom_fields.index_failed': 'The index could not be built: {{reason}} You can ask again.',
+  'custom_fields.request_again': 'Try again',
+  'custom_fields.remove_in_use':
+    "Records hold values in this field. Retiring it is recommended: it stops being offered on new incidents but stays visible on the records that have it. Removing it hides it everywhere; old values stay only in each record's history.",
+  'custom_fields.retire_recommended': 'Retire (recommended)',
+  'custom_fields.remove_anyway': 'Remove anyway',
 } as const;
 
 export type LabelKey = keyof typeof en;

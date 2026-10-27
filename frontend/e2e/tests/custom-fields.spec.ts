@@ -126,11 +126,20 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
     await admin.page.getByText('For integrations and performance').click();
     await expect(admin.page.getByTestId('cf-api-name')).toContainText(`custom.${key}`);
     await admin.page.getByTestId('cf-request-index').click();
-    await expect(admin.page.getByTestId(`cf-index-${key}`)).toHaveText('Index requested');
+    // The index worker picks it up within a minute or so (D-088): pending, building, indexed.
+    await expect(admin.page.getByTestId(`cf-index-${key}`)).toHaveText(
+      /Index pending|Building index|Indexed/,
+    );
+    await expect(admin.page.getByTestId(`cf-index-${key}`)).toHaveText('Indexed', {
+      timeout: 120_000,
+    });
 
-    // AC4: removing it asks first; the record keeps its history.
+    // AC4: removing it asks first, with Retire recommended; removing anyway keeps the history.
+    await admin.page.keyboard.press('Escape');
     await admin.page.getByTestId(`cf-remove-${key}`).click();
-    await expect(admin.page.getByText(/old values stay in each record's history/)).toBeVisible();
+    await expect(admin.page.getByTestId('cf-remove-dialog')).toContainText(
+      'Retiring it is recommended',
+    );
     await admin.page.getByTestId('cf-remove-ok').click();
     await expect(admin.page.getByTestId(`cf-name-${key}`)).toHaveCount(0);
     await expect(form.getByTestId(`inc-prop-custom.${key}`)).toHaveCount(0, LIVE);

@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     # need them (the database enforces the same floor, migration 0010).
     processed_events_retention_days: int = Field(default=30, ge=7)
     consumer_max_attempts: int = Field(default=5, ge=1, le=100)
+    # Custom field index worker (D-088): how often it looks for requests, how long one build may
+    # wait for a lock (then "busy") and run (then "timed out").
+    index_worker_interval_seconds: float = Field(default=30.0, ge=1, le=600)
+    index_lock_timeout_seconds: int = Field(default=60, ge=1, le=3600)
+    index_build_timeout_seconds: int = Field(default=7200, ge=60, le=86400)
     consumer_backoff_initial_seconds: float = Field(default=1.0, gt=0)
     consumer_backoff_max_seconds: float = Field(default=60.0, gt=0)
     consumer_ack_wait_seconds: float = Field(default=30.0, ge=1)

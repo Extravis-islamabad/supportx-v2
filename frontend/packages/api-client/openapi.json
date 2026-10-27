@@ -2731,13 +2731,13 @@
           "index_error": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/IndexFailure"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Index Error"
+            "description": "Why the index failed (state failed)."
           },
           "index_state": {
             "$ref": "#/components/schemas/IndexState"
@@ -3945,11 +3945,25 @@
         "title": "Impact",
         "type": "string"
       },
+      "IndexFailure": {
+        "description": "Why an index could not be built, as admins read it; the database's text is only logged.",
+        "enum": [
+          "timed_out",
+          "busy",
+          "disk_full",
+          "out_of_memory",
+          "value_too_large",
+          "unexpected"
+        ],
+        "title": "IndexFailure",
+        "type": "string"
+      },
       "IndexState": {
-        "description": "Promotion to an index (REQ-INC-014 AC2), done by the migration job (D-087).",
+        "description": "Promotion to an index (REQ-INC-014 AC2), built by the index worker (D-087, D-088).",
         "enum": [
           "none",
-          "requested",
+          "pending",
+          "building",
           "active",
           "failed"
         ],
@@ -12471,7 +12485,7 @@
     },
     "/api/v1/custom-fields/{field_id}/index": {
       "post": {
-        "description": "The index is built by the migration job (D-087); `index_state` says how far it got.",
+        "description": "The index worker builds it (D-088); `index_state` says how far it got, live.",
         "operationId": "request_index_api_v1_custom_fields__field_id__index_post",
         "parameters": [
           {

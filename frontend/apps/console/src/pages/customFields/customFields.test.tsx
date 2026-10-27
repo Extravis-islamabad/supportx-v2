@@ -160,17 +160,35 @@ describe('Admin › Incidents › Custom fields', () => {
     );
   });
 
-  it('REQ-INC-014 AC4: removing a field in use asks first and sends the confirmation', async () => {
+  it('REQ-INC-014 AC4 (D-087): a field in use asks first; Retire is the recommended answer', async () => {
     const fake = api({
       me: ADMIN,
       routes: {
         ...COMMON,
+        'PATCH /api/v1/custom-fields/cf-floor': { body: { ...FLOOR, retired: true, version: 2 } },
         'DELETE /api/v1/custom-fields/cf-floor': { status: 204 },
       },
     });
     open('/admin/incidents/custom-fields');
     fireEvent.click(await screen.findByTestId('cf-remove-affected_floor'));
-    expect(await screen.findByText(/old values stay in each record's history/)).toBeDefined();
+    const dialog = await screen.findByTestId('cf-remove-dialog');
+    expect(dialog.textContent).toContain('Retiring it is recommended');
+    const retire = screen.getByTestId('cf-retire-recommended');
+    const remove = screen.getByTestId('cf-remove-ok');
+    // Retire is the primary button; Remove is the secondary one.
+    expect(retire.className).toContain('ant-btn-primary');
+    expect(remove.className).not.toContain('ant-btn-primary');
+    fireEvent.click(retire);
+    await waitFor(() => {
+      expect(fake.find('PATCH', '/api/v1/custom-fields/cf-floor')).toHaveLength(1);
+    });
+    expect(fake.find('PATCH', '/api/v1/custom-fields/cf-floor')[0]?.body).toEqual({
+      retired: true,
+    });
+    expect(fake.find('DELETE', '/api/v1/custom-fields/cf-floor')).toHaveLength(0);
+
+    // Removing anyway sends the confirmation.
+    fireEvent.click(await screen.findByTestId('cf-remove-affected_floor'));
     fireEvent.click(await screen.findByTestId('cf-remove-ok'));
     await waitFor(() => {
       expect(fake.find('DELETE', '/api/v1/custom-fields/cf-floor')).toHaveLength(1);
@@ -178,6 +196,49 @@ describe('Admin › Incidents › Custom fields', () => {
     const call = fake.find('DELETE', '/api/v1/custom-fields/cf-floor')[0];
     expect(call?.url.searchParams.get('confirm')).toBe('true');
     expect(call?.headers.get('If-Match')).toBe('"1"');
+  });
+
+  it('D-088: index progress shows live, and a failure says why with a retry', async () => {
+    const realtime = scriptedRealtime();
+    setDefaultClientFactory(realtime.factory);
+    let field: CustomField = { ...FLOOR, index_state: 'pending' };
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...COMMON,
+        'GET /api/v1/custom-fields': () => ({ body: [field] }),
+        'POST /api/v1/custom-fields/cf-floor/index': () => ({
+          body: { ...field, index_state: 'pending', index_error: null },
+        }),
+      },
+    });
+    open('/admin/incidents/custom-fields');
+    expect((await screen.findByTestId('cf-index-affected_floor')).textContent).toBe(
+      'Index pending',
+    );
+    field = { ...FLOOR, index_state: 'building', version: 2 };
+    act(() => {
+      realtime.publish(':broadcast', { type: 'metadata.custom_fields_changed', ids: [] });
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('cf-index-affected_floor').textContent).toBe('Building index');
+    });
+    fireEvent.click(screen.getByTestId('cf-edit-affected_floor'));
+    fireEvent.click(await screen.findByText('For integrations and performance'));
+    field = { ...FLOOR, index_state: 'failed', index_error: 'busy', version: 3 };
+    act(() => {
+      realtime.publish(':broadcast', { type: 'metadata.custom_fields_changed', ids: [] });
+    });
+    expect((await screen.findByTestId('cf-index-failure')).textContent).toBe(
+      'The index could not be built: The incidents table was busy with other maintenance. You can ask again.',
+    );
+    fireEvent.click(screen.getByTestId('cf-request-index'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/custom-fields/cf-floor/index')).toHaveLength(1);
+    });
+    expect(
+      fake.find('POST', '/api/v1/custom-fields/cf-floor/index')[0]?.headers.get('If-Match'),
+    ).toBe('"3"');
   });
 
   it('reloads the list live when another admin changes a field', async () => {

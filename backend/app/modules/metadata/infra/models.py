@@ -17,6 +17,7 @@ from app.modules.metadata.domain.fields import (
     ChoiceDisplay,
     CustomFieldEntity,
     FieldType,
+    IndexFailure,
     IndexState,
 )
 from app.shared.db.models import TenantEntity
@@ -35,6 +36,9 @@ class CustomField(TenantEntity):
         CheckConstraint(_codes("field_type", FieldType), name="field_type_code"),
         CheckConstraint(_codes("display", ChoiceDisplay), name="display_code"),
         CheckConstraint(_codes("index_state", IndexState), name="index_state_code"),
+        CheckConstraint(
+            "index_error IS NULL OR " + _codes("index_error", IndexFailure), name="index_error_code"
+        ),
         CheckConstraint("key ~ '^[a-z][a-z0-9_]{1,39}$'", name="key_format"),
         CheckConstraint("currency IS NULL OR currency ~ '^[A-Z]{3}$'", name="currency_format"),
         Index(
@@ -65,5 +69,5 @@ class CustomField(TenantEntity):
     # Set the first time a record saves a value: from then on the field can only be retired.
     first_used_at: Mapped[datetime | None]
     index_state: Mapped[str] = mapped_column(String(10), server_default="none")
-    index_error: Mapped[str | None] = mapped_column(String(500))
+    index_error: Mapped[str | None] = mapped_column(String(20))
     index_requested_by: Mapped[uuid.UUID | None]

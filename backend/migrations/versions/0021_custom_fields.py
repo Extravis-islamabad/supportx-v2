@@ -5,8 +5,9 @@
 - work_items.custom: the values (typed JSONB by key), GIN index (jsonb_path_ops) for filters.
 - work_items.custom_text: their free text, written by the app on every save, for search.
 
-Promoted fields get their own expression indexes from the migration job
-(`python -m tooling.custom_field_indexes`), not from a migration: they are tenant data.
+Promoted fields get their own expression indexes from the index worker
+(`workers.custom_field_indexes`, D-088; the deploy's migrate Job runs the same code as a
+fallback), not from a migration: they are tenant data.
 
 Additive (expand only; reversible).
 
@@ -45,6 +46,15 @@ FIELD_TYPES = (
     "person",
 )
 
+INDEX_FAILURES = (
+    "timed_out",
+    "busy",
+    "disk_full",
+    "out_of_memory",
+    "value_too_large",
+    "unexpected",
+)
+
 
 def _in(column: str, codes: Sequence[str]) -> str:
     return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
@@ -76,7 +86,7 @@ def upgrade() -> None:
         sa.Column("retired_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("first_used_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("index_state", sa.String(length=10), server_default="none", nullable=False),
-        sa.Column("index_error", sa.String(length=500), nullable=True),
+        sa.Column("index_error", sa.String(length=20), nullable=True),
         sa.Column("index_requested_by", sa.UUID(), nullable=True),
         sa.Column(
             "created_at",
@@ -106,8 +116,12 @@ def upgrade() -> None:
             _in("field_type", FIELD_TYPES), name=op.f("ck_custom_fields_field_type_code")
         ),
         sa.CheckConstraint(
-            "index_state IN ('none', 'requested', 'active', 'failed')",
+            "index_state IN ('none', 'pending', 'building', 'active', 'failed')",
             name=op.f("ck_custom_fields_index_state_code"),
+        ),
+        sa.CheckConstraint(
+            "index_error IS NULL OR " + _in("index_error", INDEX_FAILURES),
+            name=op.f("ck_custom_fields_index_error_code"),
         ),
         sa.CheckConstraint(
             "key ~ '^[a-z][a-z0-9_]{1,39}$'", name=op.f("ck_custom_fields_key_format")

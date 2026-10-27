@@ -6,11 +6,15 @@ checked, filtered with the shared DSL as `custom.<key>`, recorded in history and
 
 import json
 import uuid
+from collections.abc import AsyncIterator
 from typing import Any
 
+import asyncpg
 import httpx
+import pytest_asyncio
 from sqlalchemy import text
 
+from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
 from tests.db.test_incident_settings_api import new_template, patch_template
 from tests.db.test_incidents_api import (
@@ -24,6 +28,7 @@ from tests.db.test_incidents_api import (
     world,
 )
 from tooling import custom_field_indexes
+from workers.custom_field_indexes.indexer import LOCK_CLASS, LOCK_KEY, run_pass
 
 FIELDS = "/custom-fields"
 __all__ = ["world"]  # the fixture, re-used
@@ -506,40 +511,136 @@ async def test_changes_go_through_the_outbox(world: World) -> None:
     assert set(payload) >= {"custom_field_id", "entity", "key", "changed_fields"}
 
 
-async def test_req_inc_014_ac2_index_requested_then_built_by_the_job(world: World) -> None:
+@pytest_asyncio.fixture
+async def indexer(world: World) -> AsyncIterator[Database]:
+    """The index worker's database: the migrator role (only the table owner creates indexes)."""
+    database = Database(
+        create_engine(world.db.migrator_url, application_name="test-indexer", use_null_pool=True)
+    )
+    yield database
+    await database.dispose()
+
+
+async def request_index(world: World, org: Org, field: dict[str, Any]) -> httpx.Response:
+    return await world.call(
+        "POST",
+        f"{FIELDS}/{field['id']}/index",
+        org,
+        org.admin,
+        headers={"If-Match": f'"{field["version"]}"', **CONSOLE},
+    )
+
+
+async def test_req_inc_014_ac2_index_requested_then_built_by_the_worker(
+    world: World, indexer: Database
+) -> None:
     a, b = world.a, world.b
     field = await add_field(world, a, field_type="decimal", labels={"en": "Cost"})
     twin = await add_field(world, b, field_type="decimal", labels={"en": "Cost"})
-    requested = await world.call(
-        "POST",
-        f"{FIELDS}/{field['id']}/index",
-        a,
-        a.admin,
-        headers={"If-Match": f'"{field["version"]}"', **CONSOLE},
-    )
+    requested = await request_index(world, a, field)
     assert requested.status_code == 200, requested.text
-    assert requested.json()["index_state"] == "requested"
-    await world.call(
-        "POST",
-        f"{FIELDS}/{twin['id']}/index",
-        b,
-        b.admin,
-        headers={"If-Match": f'"{twin["version"]}"', **CONSOLE},
-    )
-    outcome = await custom_field_indexes.run(world.db.migrator_url)
+    assert requested.json()["index_state"] == "pending"
+    await request_index(world, b, twin)
+    # One worker pass (the deploy fallback runs the very same pass).
+    outcome = await run_pass(indexer)
     assert outcome == {"active": 2, "failed": 0}
-    assert [f["index_state"] for f in await listed(world, a)] == ["active"]
+    assert [(f["index_state"], f["index_error"]) for f in await listed(world, a)] == [
+        ("active", None)
+    ]
     assert [f["index_state"] for f in await listed(world, b)] == ["active"]
     rows = await world.sql(
         "SELECT indexdef FROM pg_indexes WHERE indexname = 'ix_cf_incident_decimal_cost'"
     )
     assert len(rows) == 1
+    # Every step reached the screens through the outbox: pending, building, active.
+    steps = [e.payload["change"] for e in await envelopes(world, field["id"])]
+    assert steps[-3:] == ["index_requested", "index_building", "index_active"]
     # The planner can use it for the very filter lists send (same expression text).
     item = await world.create(a, a.admin, custom={"cost": 5})
     found = await ids(world, a, a.admin, dsl({"field": "custom.cost", "op": "gte", "value": 5}))
     assert item["id"] in found
-    # Nothing left to do on the next run.
+    # Nothing left to do on the next pass; the deploy fallback finds nothing either.
+    assert await run_pass(indexer) == {"active": 0, "failed": 0}
     assert await custom_field_indexes.run(world.db.migrator_url) == {"active": 0, "failed": 0}
+
+
+async def test_d088_every_filterable_type_can_be_indexed(world: World, indexer: Database) -> None:
+    """Each type's expression is immutable (dates and times are built from their parts)."""
+    a = world.a
+    kinds = ["integer", "decimal", "date", "datetime", "choice", "multi_choice", "yes_no", "text"]
+    fields = []
+    for kind in kinds:
+        extra: dict[str, Any] = {"choices": choices("One", "Two")} if "choice" in kind else {}
+        made = await add_field(world, a, field_type=kind, labels={"en": f"Ix {kind}"}, **extra)
+        await request_index(world, a, made)
+        fields.append(made)
+    assert await run_pass(indexer) == {"active": len(kinds), "failed": 0}
+    # The indexed expressions still filter correctly, dates and times included.
+    item = await world.create(
+        a, a.admin, custom={"ix_date": "2026-11-02", "ix_datetime": "2026-11-02T10:30:00+03:00"}
+    )
+    for node in (
+        {"field": "custom.ix_date", "op": "between", "value": ["2026-11-01", "2026-11-03"]},
+        {"field": "custom.ix_datetime", "op": "eq", "value": "2026-11-02T07:30:00Z"},
+        {"field": "custom.ix_datetime", "op": "gt", "value": "2026-11-02T07:29:59Z"},
+    ):
+        assert item["id"] in await ids(world, a, a.admin, dsl(node)), node
+    assert item["id"] not in await ids(
+        world,
+        a,
+        a.admin,
+        dsl({"field": "custom.ix_datetime", "op": "lt", "value": "2026-11-02T07:30:00Z"}),
+    )
+
+
+async def test_d088_a_busy_table_fails_with_a_reason_and_can_be_asked_again(
+    world: World, indexer: Database
+) -> None:
+    a = world.a
+    field = await add_field(world, a, field_type="integer", labels={"en": "Seats busy"})
+    await request_index(world, a, field)
+    # Another session holds a lock a concurrent build must wait for: the build gives up.
+    blocker = await asyncpg.connect(world.db.admin_url)
+    try:
+        transaction = blocker.transaction()
+        await transaction.start()
+        await blocker.execute("LOCK TABLE work_items IN SHARE UPDATE EXCLUSIVE MODE")
+        outcome = await run_pass(indexer, lock_timeout=1)
+        await transaction.rollback()
+    finally:
+        await blocker.close()
+    assert outcome == {"active": 0, "failed": 1}
+    failed = next(f for f in await listed(world, a) if f["id"] == field["id"])
+    assert (failed["index_state"], failed["index_error"]) == ("failed", "busy")
+    left = await world.sql(
+        "SELECT 1 FROM pg_indexes WHERE indexname = 'ix_cf_incident_integer_seats_busy'"
+    )
+    assert left == []  # no INVALID index left behind
+    # Asked again: built.
+    again = await request_index(world, a, failed)
+    assert (again.json()["index_state"], again.json()["index_error"]) == ("pending", None)
+    assert await run_pass(indexer) == {"active": 1, "failed": 0}
+
+
+async def test_d088_one_builder_at_a_time_and_a_stopped_build_is_resumed(
+    world: World, indexer: Database
+) -> None:
+    a = world.a
+    field = await add_field(world, a, field_type="date", labels={"en": "Due resumed"})
+    await request_index(world, a, field)
+    # Another builder holds the lock (a second replica, or the deploy's pass): this one skips.
+    holder = await asyncpg.connect(world.db.migrator_url)
+    try:
+        await holder.fetchval("SELECT pg_advisory_lock($1, $2)", LOCK_CLASS, LOCK_KEY)
+        assert await run_pass(indexer) is None
+        assert await custom_field_indexes.run(world.db.migrator_url) is None
+    finally:
+        await holder.close()  # ends its session: the lock goes with it
+    # A pass that stopped mid-build left the field "building": the next pass builds it.
+    await world.sql("UPDATE custom_fields SET index_state = 'building' WHERE id = $1", field["id"])
+    assert await run_pass(indexer) == {"active": 1, "failed": 0}
+    built = next(f for f in await listed(world, a) if f["id"] == field["id"])
+    assert built["index_state"] == "active"
 
 
 async def test_defaults_fill_new_records_only(world: World) -> None:

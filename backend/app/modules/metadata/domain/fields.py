@@ -80,17 +80,29 @@ class CustomFieldEntity(StrEnum):
 
 # entity → the permission that lets someone see the entity's fields (forms need them).
 VIEW_PERMISSION: Mapping[CustomFieldEntity, str] = {CustomFieldEntity.INCIDENT: "incidents.view"}
-# Where each entity's records (and their `custom` values) live: for the index job (D-087).
+# Where each entity's records (and their `custom` values) live: for the index worker (D-088).
 ENTITY_TABLE: Mapping[CustomFieldEntity, str] = {CustomFieldEntity.INCIDENT: "work_items"}
 
 
 class IndexState(StrEnum):
-    """Promotion to an index (REQ-INC-014 AC2), done by the migration job (D-087)."""
+    """Promotion to an index (REQ-INC-014 AC2), built by the index worker (D-087, D-088)."""
 
     NONE = "none"
-    REQUESTED = "requested"
+    PENDING = "pending"
+    BUILDING = "building"
     ACTIVE = "active"
     FAILED = "failed"
+
+
+class IndexFailure(StrEnum):
+    """Why an index could not be built, as admins read it; the database's text is only logged."""
+
+    TIMED_OUT = "timed_out"
+    BUSY = "busy"
+    DISK_FULL = "disk_full"
+    OUT_OF_MEMORY = "out_of_memory"
+    VALUE_TOO_LARGE = "value_too_large"
+    UNEXPECTED = "unexpected"
 
 
 @dataclass(frozen=True)

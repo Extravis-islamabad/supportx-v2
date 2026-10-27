@@ -3,7 +3,7 @@
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
-	worker-relay worker-consumers worker-fanout events-tail events-stats dlq-list dlq-replay events-schemas events-check \
+	worker-relay worker-consumers worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
 	frontend-install-check keycloak-realm keycloak-theme brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
@@ -74,7 +74,7 @@ db-current: ## Show the database's current migration
 db-seed: ## Create the dev tenants and their plans if missing (idempotent, never deletes or updates)
 	$(BACKEND) uv run python -m tooling.seed_dev
 
-custom-field-indexes: ## Build the custom field indexes admins asked for (CONCURRENTLY; D-087)
+custom-field-indexes: ## One index pass now, as the index worker does (CONCURRENTLY; D-088)
 	$(BACKEND) uv run python -m tooling.custom_field_indexes
 
 db-guard: ## Check every table's tenant isolation (RLS) in the dev database
@@ -90,6 +90,9 @@ worker-relay: ## Run the outbox relay (outbox table -> NATS JetStream) until Ctr
 
 worker-consumers: ## Run every module consumer (dev profile: logs every event) until Ctrl+C
 	$(BACKEND) uv run python -m workers.consumers
+
+worker-indexes: ## Run the custom field index worker (builds requested indexes, D-088) until Ctrl+C
+	$(BACKEND) uv run python -m workers.custom_field_indexes
 
 worker-fanout: ## Run the realtime fan-out (events -> Centrifugo -> live screens) until Ctrl+C
 	$(BACKEND) uv run python -m workers.realtime_fanout

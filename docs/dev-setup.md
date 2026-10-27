@@ -51,6 +51,7 @@ the full services running. Use `make dev-down` to stop everything.
 make backend-dev                                     # API on 127.0.0.1:8000
 make worker-relay & make worker-consumers            # events (plan changes, cache refresh)
 make worker-fanout                                   # live screens (WP-011): events → Centrifugo
+make worker-indexes                                  # custom field indexes on request (D-088)
 cd frontend && pnpm --filter @supportx/console dev   # http://localhost:5173
 cd frontend && pnpm --filter @supportx/portal dev    # http://localhost:5174
 ```

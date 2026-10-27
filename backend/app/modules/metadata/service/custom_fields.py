@@ -28,6 +28,7 @@ from app.modules.metadata.domain.fields import (
     CustomFieldEntity,
     Definition,
     FieldType,
+    IndexFailure,
     IndexState,
     Problem,
     Validation,
@@ -519,19 +520,22 @@ async def reorder(
 async def request_index(
     session: AsyncSession, field_id: uuid.UUID, *, expected_version: int, source: Source
 ) -> CustomField:
-    """Ask for an index on a field filtered often (REQ-INC-014 AC2); built by the job (D-087)."""
+    """Ask for an index on a field filtered often (REQ-INC-014 AC2).
+
+    The index worker picks it up within a minute or so (D-088); a failed one can be asked again.
+    """
     row = await _get(session, field_id)
-    if row.index_state in {IndexState.REQUESTED, IndexState.ACTIVE}:
+    if row.index_state in {IndexState.PENDING, IndexState.BUILDING, IndexState.ACTIVE}:
         return row
     updated = await CustomFieldRepository(session).update(
         row.id,
         expected_version=expected_version,
-        changes={"index_state": IndexState.REQUESTED, "index_error": None},
+        changes={"index_state": IndexState.PENDING, "index_error": None},
     )
     await _changed(
         session,
         updated,
-        [Change("index_state", row.index_state, IndexState.REQUESTED.value)],
+        [Change("index_state", row.index_state, IndexState.PENDING.value)],
         kind="updated",
         change="index_requested",
         source=source,
@@ -539,12 +543,16 @@ async def request_index(
     return updated
 
 
-async def indexes_requested(session: AsyncSession) -> list[CustomField]:
-    """The tenant's fields waiting for their index (the migration job, D-087)."""
+async def indexes_waiting(session: AsyncSession) -> list[CustomField]:
+    """The tenant's fields whose index is pending, or was building when a worker stopped.
+
+    Called only by the worker holding the index lock, so a "building" field here belongs to a run
+    that ended (crash, restart) and is built again.
+    """
     rows = await session.scalars(
         select(CustomField)
         .where(
-            CustomField.index_state == IndexState.REQUESTED,
+            CustomField.index_state.in_([IndexState.PENDING, IndexState.BUILDING]),
             CustomField.deleted_at.is_(None),
         )
         .order_by(CustomField.entity, CustomField.sort_order)
@@ -552,14 +560,20 @@ async def indexes_requested(session: AsyncSession) -> list[CustomField]:
     return list(rows)
 
 
-async def index_finished(session: AsyncSession, field_id: uuid.UUID, error: str | None) -> None:
-    """Record the job's outcome: active, or failed with the reason (shown to the admin)."""
+async def index_progress(
+    session: AsyncSession,
+    field_id: uuid.UUID,
+    state: IndexState,
+    failure: IndexFailure | None = None,
+) -> None:
+    """The worker's progress on one field: building, then active or failed with the reason."""
     row = await _get(session, field_id)
-    state = IndexState.FAILED if error else IndexState.ACTIVE
+    if row.index_state == state and row.index_error == failure:
+        return
     updated = await CustomFieldRepository(session).update(
         row.id,
         expected_version=row.version,
-        changes={"index_state": state, "index_error": error[:500] if error else None},
+        changes={"index_state": state, "index_error": failure},
     )
     await _changed(
         session,

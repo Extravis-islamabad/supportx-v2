@@ -15,6 +15,7 @@ import {
   Space,
   Table,
   Tag,
+  Tooltip,
   Typography,
 } from 'antd';
 import { useState } from 'react';
@@ -71,6 +72,7 @@ export function CustomFieldsTab() {
   const fields = useCustomFields('incident');
   const change = useCustomFieldChange();
   const [editing, setEditing] = useState<CustomField | 'new' | null>(null);
+  const [removing, setRemoving] = useState<CustomField | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
   const all = fields.data ?? [];
   const run = (next: CustomFieldChange, onDone?: () => void) => {
@@ -102,38 +104,22 @@ export function CustomFieldsTab() {
     run({ kind: 'order', entity: 'incident', ids });
   };
   const remove = (field: CustomField) => {
-    const confirmRemove = () => {
-      run({ kind: 'delete', id: field.id, version: field.version, confirm: field.in_use });
-    };
-    if (!field.in_use) {
-      void modal.confirm({
-        title: t('custom_fields.remove_title', { name: fieldName(field, locale) }),
-        content: t('custom_fields.remove_unused'),
-        okText: t('custom_fields.remove'),
-        okButtonProps: {
-          danger: true,
-          ...({ 'data-testid': 'cf-remove-ok' } as Record<string, string>),
-        },
-        cancelText: t('actions.cancel'),
-        onOk: confirmRemove,
-      });
+    if (field.in_use) {
+      // AC4 (D-087): a field in use asks first; retiring is the recommended answer.
+      setRemoving(field);
       return;
     }
-    // AC4: a field in use asks first, and offers retiring instead.
     void modal.confirm({
       title: t('custom_fields.remove_title', { name: fieldName(field, locale) }),
-      content: t('custom_fields.remove_in_use'),
-      okText: t('custom_fields.remove_anyway'),
+      content: t('custom_fields.remove_unused'),
+      okText: t('custom_fields.remove'),
       okButtonProps: {
         danger: true,
         ...({ 'data-testid': 'cf-remove-ok' } as Record<string, string>),
       },
-      cancelText: field.retired ? t('actions.cancel') : t('custom_fields.retire_instead'),
-      onOk: confirmRemove,
-      onCancel: () => {
-        if (!field.retired) {
-          run({ kind: 'update', id: field.id, version: field.version, body: { retired: true } });
-        }
+      cancelText: t('actions.cancel'),
+      onOk: () => {
+        run({ kind: 'delete', id: field.id, version: field.version, confirm: false });
       },
     });
   };
@@ -194,20 +180,7 @@ export function CustomFieldsTab() {
             key: 'index',
             title: t('custom_fields.index'),
             render: (_: unknown, f: CustomField) => (
-              <Tag
-                color={
-                  f.index_state === 'active'
-                    ? 'green'
-                    : f.index_state === 'failed'
-                      ? 'red'
-                      : f.index_state === 'requested'
-                        ? 'gold'
-                        : undefined
-                }
-                data-testid={`cf-index-${f.key}`}
-              >
-                {t(`custom_field_index_state.${f.index_state}`)}
-              </Tag>
+              <IndexTag field={f} testId={`cf-index-${f.key}`} />
             ),
           },
           {
@@ -277,8 +250,9 @@ export function CustomFieldsTab() {
       />
       {editing !== null && (
         <CustomFieldEditor
-          key={editing === 'new' ? 'new' : `${editing.id}-${String(editing.version)}`}
-          field={editing === 'new' ? null : editing}
+          key={editing === 'new' ? 'new' : editing.id}
+          // The saved field as it is now (index progress arrives live); the draft keeps edits.
+          field={editing === 'new' ? null : (all.find((f) => f.id === editing.id) ?? editing)}
           pending={change.isPending}
           problems={problems}
           onClose={() => {
@@ -297,6 +271,73 @@ export function CustomFieldsTab() {
           }}
         />
       )}
+      <Modal
+        open={removing !== null}
+        title={
+          removing === null
+            ? ''
+            : t('custom_fields.remove_title', { name: fieldName(removing, locale) })
+        }
+        onCancel={() => {
+          setRemoving(null);
+        }}
+        destroyOnHidden
+        data-testid="cf-remove-dialog"
+        footer={
+          removing === null
+            ? null
+            : [
+                <Button
+                  key="cancel"
+                  onClick={() => {
+                    setRemoving(null);
+                  }}
+                >
+                  {t('actions.cancel')}
+                </Button>,
+                <Button
+                  key="remove"
+                  danger
+                  type={removing.retired ? 'primary' : 'default'}
+                  onClick={() => {
+                    run({
+                      kind: 'delete',
+                      id: removing.id,
+                      version: removing.version,
+                      confirm: true,
+                    });
+                    setRemoving(null);
+                  }}
+                  data-testid="cf-remove-ok"
+                >
+                  {t('custom_fields.remove_anyway')}
+                </Button>,
+                ...(removing.retired
+                  ? []
+                  : [
+                      <Button
+                        key="retire"
+                        type="primary"
+                        autoFocus
+                        onClick={() => {
+                          run({
+                            kind: 'update',
+                            id: removing.id,
+                            version: removing.version,
+                            body: { retired: true },
+                          });
+                          setRemoving(null);
+                        }}
+                        data-testid="cf-retire-recommended"
+                      >
+                        {t('custom_fields.retire_recommended')}
+                      </Button>,
+                    ]),
+              ]
+        }
+      >
+        <Typography.Paragraph>{t('custom_fields.remove_in_use')}</Typography.Paragraph>
+      </Modal>
     </Card>
   );
 }
@@ -645,9 +686,7 @@ function CustomFieldEditor({
                         {t('custom_fields.index_help')}
                       </Typography.Paragraph>
                       <Space wrap>
-                        <Tag data-testid="cf-editor-index-state">
-                          {t(`custom_field_index_state.${field.index_state}`)}
-                        </Tag>
+                        <IndexTag field={field} testId="cf-editor-index-state" />
                         {(field.index_state === 'none' || field.index_state === 'failed') && (
                           <WriteButton
                             size="small"
@@ -656,13 +695,23 @@ function CustomFieldEditor({
                             }}
                             data-testid="cf-request-index"
                           >
-                            {t('custom_fields.request_index')}
+                            {field.index_state === 'failed'
+                              ? t('custom_fields.request_again')
+                              : t('custom_fields.request_index')}
                           </WriteButton>
                         )}
                       </Space>
                       {field.index_state === 'failed' && (
-                        <Typography.Paragraph type="danger" style={{ marginTop: 4 }}>
-                          {t('custom_fields.index_failed')}
+                        <Typography.Paragraph
+                          type="danger"
+                          style={{ marginTop: 4 }}
+                          data-testid="cf-index-failure"
+                        >
+                          {t('custom_fields.index_failed', {
+                            reason: t(
+                              `custom_field_index_error.${field.index_error ?? 'unexpected'}`,
+                            ),
+                          })}
                         </Typography.Paragraph>
                       )}
                     </div>
@@ -802,5 +851,29 @@ function ChoicesEditor({
         )}
       </Flex>
     </Form.Item>
+  );
+}
+
+const INDEX_COLOURS: Record<CustomField['index_state'], string | undefined> = {
+  none: undefined,
+  pending: 'gold',
+  building: 'processing',
+  active: 'green',
+  failed: 'red',
+};
+
+/** Where a field's index is (D-088), live; a failure says why on hover. */
+function IndexTag({ field, testId }: { field: CustomField; testId: string }) {
+  const t = useLabel();
+  const tag = (
+    <Tag color={INDEX_COLOURS[field.index_state]} data-testid={testId}>
+      {t(`custom_field_index_state.${field.index_state}`)}
+    </Tag>
+  );
+  if (field.index_state !== 'failed') return tag;
+  return (
+    <Tooltip title={t(`custom_field_index_error.${field.index_error ?? 'unexpected'}`)}>
+      {tag}
+    </Tooltip>
   );
 }

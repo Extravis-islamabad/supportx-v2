@@ -20,6 +20,7 @@ from app.modules.metadata.domain.fields import (
     ChoiceDisplay,
     CustomFieldEntity,
     FieldType,
+    IndexFailure,
     IndexState,
 )
 from app.modules.metadata.infra.models import CustomField
@@ -93,7 +94,7 @@ class CustomFieldOut(BaseModel):
     removed: bool = Field(description="Removed while in use: only for old values and history.")
     in_use: bool = Field(description="A record holds a value: it can be retired, not deleted.")
     index_state: IndexState
-    index_error: str | None
+    index_error: IndexFailure | None = Field(description="Why the index failed (state failed).")
     version: int
 
     @classmethod
@@ -124,7 +125,7 @@ class CustomFieldOut(BaseModel):
             removed=row.deleted_at is not None,
             in_use=row.first_used_at is not None,
             index_state=IndexState(row.index_state),
-            index_error=row.index_error,
+            index_error=None if row.index_error is None else IndexFailure(row.index_error),
             version=row.version,
         )
 
@@ -297,7 +298,7 @@ async def request_index(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         ),
     ],
 ) -> CustomFieldOut:
-    """The index is built by the migration job (D-087); `index_state` says how far it got."""
+    """The index worker builds it (D-088); `index_state` says how far it got, live."""
     del subject
     note.details = {"change": "index_requested"}
     row = await service.request_index(

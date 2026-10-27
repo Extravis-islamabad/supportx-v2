@@ -90,6 +90,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "CustomFieldEntity": "custom_field_entity",
     "FieldType": "custom_field_type",
     "IndexState": "custom_field_index_state",
+    "IndexFailure": "custom_field_index_error",
 }
 
 

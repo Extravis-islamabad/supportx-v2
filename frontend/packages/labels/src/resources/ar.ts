@@ -1803,7 +1803,6 @@ export const ar: LabelResource = {
   'custom_field_display.radio': 'أزرار',
   'custom_field_entity.incident': 'الحوادث',
   'custom_field_index_state.none': 'غير مفهرس',
-  'custom_field_index_state.requested': 'طُلب الفهرس',
   'custom_field_index_state.active': 'مفهرس',
   'custom_field_index_state.failed': 'تعذّر إنشاء الفهرس',
   'errors.custom_field_not_found': 'هذا الحقل المخصص غير موجود (لم يعد موجودًا).',
@@ -1850,10 +1849,6 @@ export const ar: LabelResource = {
   'custom_fields.remove_title': 'حذف «{{name}}»؟',
   'custom_fields.remove_unused':
     'لا يحمل أي سجل قيمة في هذا الحقل بعد. سيختفي من النماذج والقوالب.',
-  'custom_fields.remove_in_use':
-    'تحمل سجلات قيمًا في هذا الحقل. حذفه يخفيه من النماذج والسجلات والقوائم والمرشحات، وتبقى القيم القديمة في السجل التاريخي لكل سجل. أما الإيقاف فيبقيه ظاهرًا في السجلات القديمة.',
-  'custom_fields.remove_anyway': 'احذف على أي حال',
-  'custom_fields.retire_instead': 'أوقفه بدلًا من ذلك',
   'custom_fields.help_in.en': 'نص المساعدة بالإنجليزية',
   'custom_fields.help_in.ar': 'نص المساعدة بالعربية',
   'custom_fields.help_in.ur': 'نص المساعدة بالأردية',
@@ -1876,11 +1871,7 @@ export const ar: LabelResource = {
   'custom_fields.default_help': 'تُملأ في الحوادث الجديدة، ويمكن تغييرها.',
   'custom_fields.advanced': 'للتكاملات والأداء',
   'custom_fields.api_name': 'الاسم في الواجهة البرمجية والمرشحات',
-  'custom_fields.index_help':
-    'إذا كانت القوائم تُصفّى كثيرًا بهذا الحقل، فإن الفهرس يجعلها أسرع. يُنشأ في الخلفية دون إيقاف العمل.',
   'custom_fields.request_index': 'إنشاء فهرس',
-  'custom_fields.index_failed':
-    'تعذّر إنشاء الفهرس. اطلب من المسؤول مراجعة سجل مهمة قاعدة البيانات، ثم حاول مرة أخرى.',
   'custom_fields.yes': 'نعم',
   'custom_fields.no': 'لا',
   'custom_fields.clear': 'مسح',
@@ -1889,4 +1880,21 @@ export const ar: LabelResource = {
   'custom_fields.unknown_field': 'حقل محذوف',
   'custom_fields.filter_field': 'الحقل',
   'custom_fields.filter_value': 'قيمة {{field}}',
+  'custom_field_index_state.pending': 'الفهرس قيد الانتظار',
+  'custom_field_index_state.building': 'جارٍ إنشاء الفهرس',
+  'custom_field_index_error.timed_out': 'استغرق الإنشاء وقتًا طويلًا فأُوقف.',
+  'custom_field_index_error.busy': 'كان جدول الحوادث مشغولًا بأعمال صيانة أخرى.',
+  'custom_field_index_error.disk_full': 'نفدت مساحة القرص في قاعدة البيانات.',
+  'custom_field_index_error.out_of_memory': 'نفدت ذاكرة قاعدة البيانات.',
+  'custom_field_index_error.value_too_large': 'بعض القيم في هذا الحقل أطول من أن تُفهرس.',
+  'custom_field_index_error.unexpected':
+    'خطأ غير متوقع في قاعدة البيانات؛ يمكن للمشغّل رؤيته في سجل عامل الفهرسة.',
+  'custom_fields.index_help':
+    'إذا كانت القوائم تُصفّى كثيرًا بهذا الحقل، فإن الفهرس يجعلها أسرع. يُنشأ في الخلفية خلال دقيقة أو دقيقتين دون إيقاف العمل.',
+  'custom_fields.index_failed': 'تعذّر إنشاء الفهرس: {{reason}} يمكنك الطلب مرة أخرى.',
+  'custom_fields.request_again': 'حاول مرة أخرى',
+  'custom_fields.remove_in_use':
+    'تحمل سجلات قيمًا في هذا الحقل. يُنصح بإيقافه: لن يُعرض في الحوادث الجديدة لكنه يبقى ظاهرًا في السجلات التي تحمله. أما حذفه فيخفيه في كل مكان، وتبقى القيم القديمة في السجل التاريخي لكل سجل فقط.',
+  'custom_fields.retire_recommended': 'إيقاف (موصى به)',
+  'custom_fields.remove_anyway': 'احذف على أي حال',
 };

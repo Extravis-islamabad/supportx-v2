@@ -74,6 +74,13 @@ fanout:
     requests: {cpu: 50m, memory: 128Mi}
     limits: {cpu: 500m, memory: 384Mi}
 
+# Custom field index worker (D-088): one copy builds the indexes admins ask for, one at a time
+# (an advisory lock keeps a second copy or the migrate Job's fallback pass from building too).
+indexWorker:
+  resources:
+    requests: {cpu: 20m, memory: 96Mi}
+    limits: {cpu: 250m, memory: 256Mi}
+
 web:
   replicas: 1
   resources:

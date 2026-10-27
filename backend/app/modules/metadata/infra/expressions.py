@@ -35,14 +35,24 @@ def value_sql(table: str, key: str, kind: FieldType) -> tuple[str, Any]:
         return f"(CASE WHEN jsonb_typeof{raw} = 'number' THEN {text}::numeric END)", Numeric()
     if kind == FieldType.YES_NO:
         return f"(CASE WHEN jsonb_typeof{raw} = 'boolean' THEN {text}::boolean END)", Boolean()
+    # Dates and times are built from their parts: `::date` and `::timestamptz` depend on the
+    # session's DateStyle and TimeZone, so PostgreSQL refuses them in an index; make_date,
+    # make_timestamp and AT TIME ZONE 'UTC' are immutable. clean_value stores exactly these shapes.
+
+    def part(start: int, length: int) -> str:
+        return f"substr({text}, {start}, {length})::int"
+
     if kind == FieldType.DATE:
-        return f"(CASE WHEN {text} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}$' THEN {text}::date END)", Date()
+        day = f"make_date({part(1, 4)}, {part(6, 2)}, {part(9, 2)})"
+        return f"(CASE WHEN {text} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}$' THEN {day} END)", Date()
     if kind == FieldType.DATETIME:
-        # Stored in UTC ISO text (clean_value), so this cast is the same for every session.
-        return (
-            f"(CASE WHEN {text} ~ '^\\d{{4}}-\\d{{2}}-\\d{{2}}T' THEN {text}::timestamptz END)",
-            TIMESTAMP(timezone=True),
+        seconds = f"split_part(substr({text}, 18), '+', 1)::double precision"
+        moment = (
+            f"(make_timestamp({part(1, 4)}, {part(6, 2)}, {part(9, 2)}, {part(12, 2)},"
+            f" {part(15, 2)}, {seconds}) AT TIME ZONE 'UTC')"
         )
+        shape = "'^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?\\+00:00$'"
+        return f"(CASE WHEN {text} ~ {shape} THEN {moment} END)", TIMESTAMP(timezone=True)
     return text, String()
 
 
@@ -58,7 +68,7 @@ def index_name(entity: str, key: str, kind: FieldType) -> str:
 
 
 def index_sql(table: str, entity: str, key: str, kind: FieldType) -> str:
-    """CREATE INDEX CONCURRENTLY for one promoted field (run by the migration job, D-087)."""
+    """CREATE INDEX CONCURRENTLY for one promoted field (run by the index worker, D-088)."""
     sql, _ = value_sql(table, key, kind)
     name = index_name(entity, key, kind)
     if kind == FieldType.MULTI_CHOICE:

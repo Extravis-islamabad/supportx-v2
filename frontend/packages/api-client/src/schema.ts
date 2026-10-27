@@ -711,7 +711,7 @@ export interface paths {
         put?: never;
         /**
          * Ask for an index on a custom field
-         * @description The index is built by the migration job (D-087); `index_state` says how far it got.
+         * @description The index worker builds it (D-088); `index_state` says how far it got, live.
          */
         post: operations["request_index_api_v1_custom_fields__field_id__index_post"];
         delete?: never;
@@ -3174,8 +3174,8 @@ export interface components {
              * @description A record holds a value: it can be retired, not deleted.
              */
             in_use: boolean;
-            /** Index Error */
-            index_error: string | null;
+            /** @description Why the index failed (state failed). */
+            index_error: components["schemas"]["IndexFailure"] | null;
             index_state: components["schemas"]["IndexState"];
             /**
              * Key
@@ -3677,11 +3677,17 @@ export interface components {
          */
         Impact: "one_person" | "team" | "department_or_site" | "organisation";
         /**
-         * IndexState
-         * @description Promotion to an index (REQ-INC-014 AC2), done by the migration job (D-087).
+         * IndexFailure
+         * @description Why an index could not be built, as admins read it; the database's text is only logged.
          * @enum {string}
          */
-        IndexState: "none" | "requested" | "active" | "failed";
+        IndexFailure: "timed_out" | "busy" | "disk_full" | "out_of_memory" | "value_too_large" | "unexpected";
+        /**
+         * IndexState
+         * @description Promotion to an index (REQ-INC-014 AC2), built by the index worker (D-087, D-088).
+         * @enum {string}
+         */
+        IndexState: "none" | "pending" | "building" | "active" | "failed";
         /**
          * Kind
          * @description How a file may be shown: an image or a PDF previews in the browser; others download.

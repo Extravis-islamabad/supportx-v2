@@ -1404,7 +1404,6 @@ export const ur: LabelResource = {
   'custom_field_display.radio': 'بٹن',
   'custom_field_entity.incident': 'واقعات',
   'custom_field_index_state.none': 'انڈیکس نہیں',
-  'custom_field_index_state.requested': 'انڈیکس کی درخواست کی گئی',
   'custom_field_index_state.active': 'انڈیکس شدہ',
   'custom_field_index_state.failed': 'انڈیکس نہیں بن سکا',
   'errors.custom_field_not_found': 'یہ اپنی مرضی کا خانہ موجود نہیں (اب نہیں رہا)۔',
@@ -1452,10 +1451,6 @@ export const ur: LabelResource = {
   'custom_fields.remove_title': '”{{name}}“ ہٹائیں؟',
   'custom_fields.remove_unused':
     'ابھی کسی ریکارڈ میں اس خانے کی قدر نہیں۔ یہ فارموں اور سانچوں سے ہٹ جائے گا۔',
-  'custom_fields.remove_in_use':
-    'ریکارڈز میں اس خانے کی قدریں موجود ہیں۔ ہٹانے سے یہ فارموں، ریکارڈز، فہرستوں اور فلٹرز سے چھپ جائے گا؛ پرانی قدریں ہر ریکارڈ کے تاریخچے میں رہیں گی۔ ریٹائر کرنے سے یہ پرانے ریکارڈز پر نظر آتا رہے گا۔',
-  'custom_fields.remove_anyway': 'پھر بھی ہٹائیں',
-  'custom_fields.retire_instead': 'اس کے بجائے ریٹائر کریں',
   'custom_fields.help_in.en': 'انگریزی میں مدد کا متن',
   'custom_fields.help_in.ar': 'عربی میں مدد کا متن',
   'custom_fields.help_in.ur': 'اردو میں مدد کا متن',
@@ -1478,11 +1473,7 @@ export const ur: LabelResource = {
   'custom_fields.default_help': 'نئے واقعات میں بھری جاتی ہے؛ لوگ اسے بدل سکتے ہیں۔',
   'custom_fields.advanced': 'انٹیگریشنز اور کارکردگی کے لیے',
   'custom_fields.api_name': 'API اور فلٹرز میں نام',
-  'custom_fields.index_help':
-    'اگر فہرستیں اکثر اس خانے سے فلٹر ہوتی ہیں تو انڈیکس انہیں تیز کر دیتا ہے۔ یہ کام روکے بغیر پس منظر میں بنتا ہے۔',
   'custom_fields.request_index': 'انڈیکس بنائیں',
-  'custom_fields.index_failed':
-    'انڈیکس نہیں بن سکا۔ اپنے منتظم سے ڈیٹا بیس جاب کا لاگ چیک کروائیں، پھر دوبارہ کوشش کریں۔',
   'custom_fields.yes': 'ہاں',
   'custom_fields.no': 'نہیں',
   'custom_fields.clear': 'صاف کریں',
@@ -1491,4 +1482,21 @@ export const ur: LabelResource = {
   'custom_fields.unknown_field': 'ہٹایا گیا خانہ',
   'custom_fields.filter_field': 'خانہ',
   'custom_fields.filter_value': '{{field}} کی قدر',
+  'custom_field_index_state.pending': 'انڈیکس زیرِ انتظار',
+  'custom_field_index_state.building': 'انڈیکس بن رہا ہے',
+  'custom_field_index_error.timed_out': 'بنانے میں بہت وقت لگا اس لیے روک دیا گیا۔',
+  'custom_field_index_error.busy': 'واقعات کا جدول دیگر دیکھ بھال میں مصروف تھا۔',
+  'custom_field_index_error.disk_full': 'ڈیٹا بیس کی ڈسک کی جگہ ختم ہو گئی۔',
+  'custom_field_index_error.out_of_memory': 'ڈیٹا بیس کی میموری ختم ہو گئی۔',
+  'custom_field_index_error.value_too_large': 'اس خانے کی کچھ قدریں انڈیکس کے لیے بہت لمبی ہیں۔',
+  'custom_field_index_error.unexpected':
+    'ڈیٹا بیس کی غیر متوقع خرابی؛ آپ کا آپریٹر اسے انڈیکس ورکر کے لاگ میں دیکھ سکتا ہے۔',
+  'custom_fields.index_help':
+    'اگر فہرستیں اکثر اس خانے سے فلٹر ہوتی ہیں تو انڈیکس انہیں تیز کر دیتا ہے۔ یہ ایک دو منٹ میں کام روکے بغیر پس منظر میں بنتا ہے۔',
+  'custom_fields.index_failed': 'انڈیکس نہیں بن سکا: {{reason}} آپ دوبارہ درخواست کر سکتے ہیں۔',
+  'custom_fields.request_again': 'دوبارہ کوشش کریں',
+  'custom_fields.remove_in_use':
+    'ریکارڈز میں اس خانے کی قدریں موجود ہیں۔ ریٹائر کرنا تجویز کیا جاتا ہے: یہ نئے واقعات پر پیش نہیں ہوگا لیکن جن ریکارڈز میں ہے وہاں نظر آتا رہے گا۔ ہٹانے سے یہ ہر جگہ چھپ جائے گا؛ پرانی قدریں صرف ہر ریکارڈ کے تاریخچے میں رہیں گی۔',
+  'custom_fields.retire_recommended': 'ریٹائر کریں (تجویز کردہ)',
+  'custom_fields.remove_anyway': 'پھر بھی ہٹائیں',
 };

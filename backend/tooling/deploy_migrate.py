@@ -8,7 +8,8 @@ Run by the chart's migrate Job (one per Helm revision, before the new pods start
    (`SUPPORTX_DEPLOY_ADMIN_URL` unset);
 3. `alembic upgrade head` as supportx_migrator, under an advisory lock so two Jobs (two quick
    upgrades) never migrate at once;
-4. build the custom field indexes admins asked for (tooling/custom_field_indexes.py, D-087).
+4. one pass of the custom field index worker, as a fallback (tooling/custom_field_indexes.py,
+   D-088): requests made while no worker ran are built here.
 
 Rollback-safe (expand/contract, architecture.md §14.3): when the database is already at a
 revision this code does not know, it was migrated by a newer release and stays as it is (a
@@ -182,8 +183,8 @@ def main() -> int:  # pragma: no cover - thin CLI over tested functions
     }
     sys.stdout.write(f"migrate: {messages[action]}\n")
     if action is not Action.NEWER:
-        # Indexes admins asked for on custom fields (D-087). A failure is recorded on the field
-        # and never fails the deploy.
+        # Fallback for the index worker (D-088). A failure is recorded on the field and never
+        # fails the deploy; a pass the worker is already running is skipped.
         outcome = asyncio.run(custom_field_indexes.run(config.migrator_url))
         sys.stdout.write(f"custom field indexes: {outcome}\n")
     return 0
