@@ -33,6 +33,8 @@ values=(
   "SUPPORTX_OIDC_PORTAL_CLIENT_SECRET=${KEYCLOAK_PORTAL_CLIENT_SECRET}"
   # Identity administration (WP-039): the service account `make keycloak-identity` sets up.
   "SUPPORTX_KEYCLOAK_IDENTITY_CLIENT_SECRET=${KEYCLOAK_IDENTITY_CLIENT_SECRET:-}"
+  # The SSO test identity provider is a realm of the dev Keycloak, on this machine.
+  "SUPPORTX_SSO_FETCH_ALLOW_LOOPBACK=true"
   "SUPPORTX_SESSION_SECRET=${SESSION_SECRET}"
   # Tenant addresses (WP-017): demo.localhost and other.localhost are the seeded tenants' own
   # addresses (browsers resolve *.localhost to this machine; the e2e setup registers their

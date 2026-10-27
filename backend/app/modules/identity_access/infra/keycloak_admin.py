@@ -94,6 +94,8 @@ class IdentityAdmin(Protocol):
 
     async def logout_user(self, user_id: str) -> None: ...  # noqa: D102
 
+    async def user_attributes(self, user_id: str) -> dict[str, list[str]]: ...  # noqa: D102
+
     async def login_events(  # noqa: D102
         self, types: list[str], since_ms: int, user_id: str | None = None
     ) -> list[LoginEvent]: ...
@@ -297,6 +299,14 @@ class KeycloakAdmin:
     async def logout_user(self, user_id: str) -> None:
         """End every Keycloak session of a person (REQ-SEC-031); unknown is fine."""
         await self._call("POST", f"/users/{user_id}/logout", missing_ok=True)
+
+    async def user_attributes(self, user_id: str) -> dict[str, list[str]]:
+        """A person's Keycloak attributes (set by identity provider mappers); unknown: none."""
+        found = await self._json("GET", f"/users/{user_id}", missing_ok=True) or {}
+        return {
+            str(k): [str(v) for v in values]
+            for k, values in (found.get("attributes") or {}).items()
+        }
 
     async def login_events(
         self, types: list[str], since_ms: int, user_id: str | None = None

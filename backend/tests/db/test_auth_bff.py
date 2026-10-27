@@ -27,6 +27,7 @@ from app.modules.identity_access.bff.cookies import (
     set_session_cookie,
 )
 from app.modules.identity_access.infra.crypto import SessionCipher
+from app.modules.identity_access.infra.models import SESSION_LIMITS
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore
 from app.modules.identity_access.service.auth import AuthService
@@ -39,6 +40,7 @@ from tooling.db_testing import ThrowawayDatabase
 pytestmark = pytest.mark.db
 
 CONSOLE = "http://console.test"
+CONSOLE_LIMITS = SESSION_LIMITS["console"]  # a tenant without own settings (Appendix A)
 PORTAL = "http://portal.test"
 
 
@@ -357,8 +359,11 @@ async def test_state_changing_requests_need_the_csrf_token(bff: Bff) -> None:
 
 
 async def test_idle_timeout_ends_the_session(bff: Bff) -> None:
+    # The tenant's console limit (Appendix A default when never set: 60 minutes, REQ-SEC-029).
     await bff.login(bff.user("a"))
-    bff.clock.advance(timedelta(seconds=bff.settings.session_idle_timeout_seconds))
+    bff.clock.advance(timedelta(seconds=CONSOLE_LIMITS["idle"] - 60))
+    assert (await bff.me()).status_code == 200
+    bff.clock.advance(timedelta(seconds=CONSOLE_LIMITS["idle"]))
     response = await bff.me()
     assert (response.status_code, response.json()["code"]) == (401, "session_expired")
     assert not [k for k in bff.kv.data if k.startswith("sx:session:")]
@@ -367,7 +372,7 @@ async def test_idle_timeout_ends_the_session(bff: Bff) -> None:
 async def test_absolute_timeout_ends_even_an_active_session(bff: Bff) -> None:
     bff.idp.access_lifetime = 3 * 3600  # avoid refreshes; this test is about the absolute limit
     await bff.login(bff.user("a"))
-    for _ in range(bff.settings.session_absolute_timeout_seconds // 1200 - 1):
+    for _ in range(CONSOLE_LIMITS["absolute"] // 1200 - 1):
         bff.clock.advance(timedelta(minutes=20))
         assert (await bff.me()).status_code == 200
     bff.clock.advance(timedelta(minutes=20))

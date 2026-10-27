@@ -35,6 +35,7 @@ from app.modules.identity_access.events import (
     UserUpdated,
 )
 from app.modules.identity_access.infra.models import User
+from app.modules.identity_access.service.identity_settings import get_identity_settings
 from app.modules.identity_access.service.roles import map_identity_roles
 from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
 from app.modules.organization import TenantStatus, get_current_tenant
@@ -51,6 +52,9 @@ class ProvisionedUser:
     user_id: uuid.UUID
     tenant_id: uuid.UUID
     tenant_name: str
+    # The tenant's session limits for the app signed in to (REQ-SEC-029), in seconds.
+    session_idle_seconds: int
+    session_absolute_seconds: int
 
 
 async def count_technicians(session: AsyncSession) -> int:
@@ -155,13 +159,23 @@ async def _create_person(
 
 
 async def _sign_in(
-    session: AsyncSession, tenant_id: uuid.UUID, identity: Identity, now: datetime
+    session: AsyncSession,
+    tenant_id: uuid.UUID,
+    identity: Identity,
+    now: datetime,
+    *,
+    create_people: bool,
 ) -> tuple[uuid.UUID, int, list[DomainEvent]]:
-    """The signed-in person (found, linked or created): id, version and the events so far."""
+    """The signed-in person (found, linked or created): id, version and the events so far.
+
+    `create_people` off (REQ-SEC-013 AC3): someone the tenant does not know yet is refused.
+    """
     if identity.user_type is UserType.TECHNICIAN:
         # Taken first, so parallel first sign-ins of technicians claim seats one at a time.
         await hold_limit(session, LimitKey.TECHNICIANS)
     person, linked = await _find_person(session, identity)
+    if person is None and not create_people:
+        raise PermissionDenied(code="sign_in_unknown_person")
     if person is None:
         user_id, version, inserted = await _create_person(session, tenant_id, identity, now)
         if inserted:
@@ -207,7 +221,10 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
             raise PermissionDenied(code="tenant_not_provisioned") from exc
         if tenant.status is not TenantStatus.ACTIVE:
             raise PermissionDenied(code="tenant_suspended")
-        user_id, version, events = await _sign_in(session, tenant_id, identity, now)
+        settings = await get_identity_settings(session)
+        user_id, version, events = await _sign_in(
+            session, tenant_id, identity, now, create_people=settings.create_people_on_sign_in
+        )
         actor = Actor.user(user_id)
         if reason == "login":
             events.append(UserLoggedIn(user_id=user_id, client=client))
@@ -223,7 +240,14 @@ async def provision_user(  # noqa: PLR0913 - keyword-only event context; one log
         # Committed: drop any compiled permissions cached from before (the events do it too,
         # but the browser asks for /auth/me immediately after this login).
         await on_roles_mapped(tenant_id)
-    return ProvisionedUser(user_id=user_id, tenant_id=tenant_id, tenant_name=tenant.name)
+    idle, absolute = settings.session_limits(client)
+    return ProvisionedUser(
+        user_id=user_id,
+        tenant_id=tenant_id,
+        tenant_name=tenant.name,
+        session_idle_seconds=idle,
+        session_absolute_seconds=absolute,
+    )
 
 
 async def record_logout(
