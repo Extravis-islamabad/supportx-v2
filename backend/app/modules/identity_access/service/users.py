@@ -36,6 +36,7 @@ from app.modules.identity_access.events import (
 )
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service.identity_settings import get_identity_settings
+from app.modules.identity_access.service.invitations import mark_accepted
 from app.modules.identity_access.service.roles import map_identity_roles
 from app.modules.licensing import LimitKey, hold_limit, reserve_capacity
 from app.modules.organization import TenantStatus, find_department, find_site, get_current_tenant
@@ -221,6 +222,8 @@ async def _sign_in(  # noqa: PLR0913 - the sign-in and two keyword-only tenant p
     events: list[DomainEvent] = []
     if linked:
         events.append(UserUpdated(user_id=person.id, changed_fields=["sign_in_linked"]))
+        # An invited person's first sign-in accepts the invitation (REQ-SEC-020).
+        await mark_accepted(session, person.id, now)
     return person.id, person.version, events
 
 

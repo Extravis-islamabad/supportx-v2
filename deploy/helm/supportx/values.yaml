@@ -265,7 +265,9 @@ keycloak:
   setLoginTheme: true
   # Upgrade step (WP-039, ADR-036): a Job per revision makes sure the `supportx-identity`
   # service account (least-privileged admin roles) exists with the secret
-  # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's.
+  # `keycloak-identity-secret`, login events are on and the SSO session fits SupportX's. With
+  # `keycloak-realm-secret` it also makes `supportx-realm` (manage-realm only), the account the
+  # consumers worker applies the password policy with.
   setUpIdentityAdmin: true
   resources:
     requests: {cpu: 250m, memory: 768Mi}
@@ -275,6 +277,18 @@ keycloak:
 # guard (D-098): single sign-on then routes only email domains whose ownership was proved.
 # Leave false for single-tenant installations (on-prem).
 multiTenant: false
+
+# Outgoing mail (WP-039, D-089 D3, D-099): the one place mail is configured. SupportX sends
+# through it, and the keycloak-identity Job writes the same server into Keycloak's realm (password
+# and invitation e-mails). Empty host = not configured. The password, if any, is the app secret's
+# `mail-smtp-password` key.
+mail:
+  smtpHost: ""
+  smtpPort: 587
+  smtpSecurity: starttls            # starttls | tls | none
+  smtpUsername: ""
+  fromAddress: ""
+  fromName: SupportX
 
 # --- routing (D2: Gateway API, plain Ingress as the supported fallback) ----------------------------
 routing:

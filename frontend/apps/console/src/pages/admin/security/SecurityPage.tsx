@@ -5,6 +5,8 @@ import { queryKeys } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
 import { useLabel } from '@supportx/ui';
 
+import { InvitationsCard } from './InvitationsCard';
+import { PasswordPolicyCard } from './PasswordPolicyCard';
 import { SessionsCard } from './SessionsCard';
 import { SsoCard } from './SsoCard';
 
@@ -15,15 +17,19 @@ import { SsoCard } from './SsoCard';
 export function SecurityPage() {
   const t = useLabel();
   const queryClient = useQueryClient();
-  useListChannel('identity', () => {
+  const refetch = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.identity.all });
-  });
+  };
+  useListChannel('identity', refetch);
+  useListChannel('invitations', refetch);
   return (
     <Flex vertical gap={16} data-testid="admin-security">
       <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>
         {t('security.intro')}
       </Typography.Paragraph>
       <SsoCard />
+      <PasswordPolicyCard />
+      <InvitationsCard />
       <SessionsCard />
     </Flex>
   );

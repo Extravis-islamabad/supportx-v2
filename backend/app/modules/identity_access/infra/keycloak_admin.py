@@ -57,6 +57,16 @@ class Organization:
 
 
 @dataclass(frozen=True)
+class KeycloakUser:
+    """A realm user (only what SupportX reads)."""
+
+    id: str
+    email: str
+    enabled: bool
+    has_password: bool
+
+
+@dataclass(frozen=True)
 class LoginEvent:
     """One login event (only the parts SupportX reads)."""
 
@@ -96,9 +106,39 @@ class IdentityAdmin(Protocol):
 
     async def user_attributes(self, user_id: str) -> dict[str, list[str]]: ...  # noqa: D102
 
+    async def find_user(self, email: str) -> KeycloakUser | None: ...  # noqa: D102
+
+    async def create_user(  # noqa: D102
+        self, *, email: str, first_name: str, last_name: str, locale: str
+    ) -> str: ...
+
+    async def delete_user(self, user_id: str) -> None: ...  # noqa: D102
+
+    async def add_member(self, organization_id: str, user_id: str) -> None: ...  # noqa: D102
+
+    async def remove_member(self, organization_id: str, user_id: str) -> None: ...  # noqa: D102
+
+    async def set_attributes(self, user_id: str, values: dict[str, str]) -> None: ...  # noqa: D102
+
+    async def send_actions_email(  # noqa: D102
+        self, user_id: str, actions: list[str], lifespan_seconds: int
+    ) -> None: ...
+
+    async def require_actions(self, user_id: str, actions: list[str]) -> None: ...  # noqa: D102
+
+    async def member_tenants(self, user_id: str) -> list[str]: ...  # noqa: D102
+
     async def login_events(  # noqa: D102
         self, types: list[str], since_ms: int, user_id: str | None = None
     ) -> list[LoginEvent]: ...
+
+
+class RealmAdmin(Protocol):
+    """The realm settings SupportX changes as `supportx-realm` (manage-realm; worker only)."""
+
+    async def set_password_policy(self, policy: str) -> None: ...  # noqa: D102 - see KeycloakAdmin
+
+    async def close(self) -> None: ...  # noqa: D102
 
 
 def admin_base(settings: Settings) -> tuple[str, str] | None:
@@ -144,6 +184,26 @@ class KeycloakAdmin:
             base,
             realm,
             client_id=settings.keycloak_identity_client_id,
+            client_secret=secret.get_secret_value(),
+            timeout=settings.oidc_timeout_seconds,
+        )
+
+    @classmethod
+    def realm_from_settings(cls, settings: Settings) -> "KeycloakAdmin | None":
+        """The realm-settings client (`supportx-realm`), or None when not set up.
+
+        Its service account holds manage-realm, so only the consumers worker gets the secret
+        (the chart gives it to no other pod): an API process can never change the realm.
+        """
+        found = admin_base(settings)
+        secret = settings.keycloak_realm_client_secret
+        if found is None or secret is None or not secret.get_secret_value():
+            return None
+        base, realm = found
+        return cls(
+            base,
+            realm,
+            client_id=settings.keycloak_realm_client_id,
             client_secret=secret.get_secret_value(),
             timeout=settings.oidc_timeout_seconds,
         )
@@ -307,6 +367,98 @@ class KeycloakAdmin:
             for k, values in (found.get("attributes") or {}).items()
         }
 
+    async def find_user(self, email: str) -> KeycloakUser | None:
+        """The realm user with this email (exact), or None."""
+        found = await self._json(
+            "GET", "/users", params={"email": email, "exact": "true", "briefRepresentation": "true"}
+        )
+        for item in found or []:
+            if str(item.get("email", "")).lower() == email.lower():
+                credentials = await self._json("GET", f"/users/{item['id']}/credentials") or []
+                return KeycloakUser(
+                    id=str(item["id"]),
+                    email=str(item["email"]),
+                    enabled=bool(item.get("enabled", True)),
+                    has_password=any(c.get("type") == "password" for c in credentials),
+                )
+        return None
+
+    async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
+        """A new realm user without a password (they set one from the e-mail); its ID."""
+        response = await self._call(
+            "POST",
+            "/users",
+            json={
+                "username": email,
+                "email": email,
+                "firstName": first_name,
+                "lastName": last_name,
+                "enabled": True,
+                # Reached through an e-mail SupportX asked for: the address is the person's.
+                "emailVerified": True,
+                "attributes": {"locale": [locale]},
+            },
+        )
+        assert response is not None  # noqa: S101 - not missing_ok
+        return response.headers["location"].rsplit("/", 1)[1]
+
+    async def delete_user(self, user_id: str) -> None:
+        """Remove a realm user (an unused invitation's); already gone is fine."""
+        await self._call("DELETE", f"/users/{user_id}", missing_ok=True)
+
+    async def add_member(self, organization_id: str, user_id: str) -> None:
+        """Make a user a member of the organization (already one is fine)."""
+        try:
+            await self._call(
+                "POST", f"/organizations/{organization_id}/members", content=f'"{user_id}"'
+            )
+        except IdentityAdminRefused as exc:
+            if exc.status != httpx.codes.CONFLICT:
+                raise
+
+    async def remove_member(self, organization_id: str, user_id: str) -> None:
+        """End a user's membership of the organization; not a member is fine."""
+        await self._call(
+            "DELETE", f"/organizations/{organization_id}/members/{user_id}", missing_ok=True
+        )
+
+    async def set_attributes(self, user_id: str, values: dict[str, str]) -> None:
+        """Set some attributes of a user, keeping the others (and the profile)."""
+        current = await self._json("GET", f"/users/{user_id}")
+        if current is None:
+            return
+        attributes = dict(current.get("attributes") or {})
+        attributes.update({name: [value] for name, value in values.items()})
+        await self._call("PUT", f"/users/{user_id}", json={**current, "attributes": attributes})
+
+    async def send_actions_email(
+        self, user_id: str, actions: list[str], lifespan_seconds: int
+    ) -> None:
+        """Keycloak's own e-mail asking the user to do `actions` (D-099), valid that long."""
+        await self._call(
+            "PUT",
+            f"/users/{user_id}/execute-actions-email",
+            params={"lifespan": lifespan_seconds},
+            json=actions,
+        )
+
+    async def require_actions(self, user_id: str, actions: list[str]) -> None:
+        """Actions the user must do at their next sign-in (e.g. UPDATE_PASSWORD)."""
+        current = await self._json("GET", f"/users/{user_id}")
+        if current is None:
+            return
+        wanted = sorted({*(current.get("requiredActions") or []), *actions})
+        await self._call("PUT", f"/users/{user_id}", json={**current, "requiredActions": wanted})
+
+    async def member_tenants(self, user_id: str) -> list[str]:
+        """The tenant IDs of the organizations the user is a member of."""
+        found = await self._json("GET", f"/organizations/members/{user_id}/organizations") or []
+        tenants: list[str] = []
+        for brief in found:
+            item = await self._json("GET", f"/organizations/{brief['id']}", missing_ok=True) or {}
+            tenants += (item.get("attributes") or {}).get("tenant_id") or []
+        return tenants
+
     async def login_events(
         self, types: list[str], since_ms: int, user_id: str | None = None
     ) -> list[LoginEvent]:
@@ -329,6 +481,10 @@ class KeycloakAdmin:
                 )
             )
         return events
+
+    async def set_password_policy(self, policy: str) -> None:
+        """The realm's password policy (a partial representation: nothing else changes)."""
+        await self._call("PUT", "", json={"passwordPolicy": policy})
 
 
 def _day(epoch_ms: int) -> str:

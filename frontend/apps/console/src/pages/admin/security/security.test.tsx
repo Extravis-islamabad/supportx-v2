@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { IdentitySettings, SsoProvider } from '@supportx/api-client';
+import type { IdentitySettings, Invitation, SsoProvider } from '@supportx/api-client';
 import { fakeSession, problem } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
@@ -23,8 +23,36 @@ const DEFAULTS: IdentitySettings = {
   portal_idle_seconds: 1800,
   portal_absolute_seconds: 43200,
   create_people_on_sign_in: true,
+  invitation_valid_days: 7,
+  password_min_length: 12,
+  password_upper: true,
+  password_lower: true,
+  password_digits: true,
+  password_special: true,
+  password_history: 5,
+  password_expiry_days: 0,
+  password_breached_check: true,
+  password_policy_editable: true,
+  password_policy_state: 'default',
+  password_policy_error: null,
   version: 0,
 };
+
+function invitation(overrides: Partial<Invitation> = {}): Invitation {
+  return {
+    id: 'i1',
+    user_id: 'u1',
+    email: 'ina@acme.test',
+    status: 'pending',
+    delivery: 'email',
+    sent_at: '2026-10-27T10:00:00Z',
+    expires_at: '2026-11-03T10:00:00Z',
+    accepted_at: null,
+    sends: 1,
+    version: 1,
+    ...overrides,
+  };
+}
 
 function provider(overrides: Partial<SsoProvider> = {}): SsoProvider {
   return {
@@ -53,6 +81,7 @@ function routes(extra: Parameters<typeof consoleApi>[0] = {}) {
     routes: {
       'GET /api/v1/identity/settings': { body: DEFAULTS },
       'GET /api/v1/identity/sso': { body: { items: [] } },
+      'GET /api/v1/identity/invitations': { body: { items: [] } },
       ...extra.routes,
     },
   };
@@ -119,6 +148,209 @@ describe('sessions and people creation', () => {
     render(<App />);
     await screen.findByTestId('user-name');
     expect(screen.queryByRole('tab', { name: 'Sign-in and security' })).toBeNull();
+  });
+});
+
+describe('password policy (WP-039 session 2, REQ-SEC-005)', () => {
+  it('a length under the floor is refused at the field at once; only the policy fields are saved, and the state shows', async () => {
+    const fake = api(
+      routes({
+        routes: {
+          'PUT /api/v1/identity/settings': ({ body }) => ({
+            body: {
+              ...DEFAULTS,
+              ...(body as Partial<IdentitySettings>),
+              password_policy_state: 'applying',
+              version: 1,
+            },
+            headers: { ETag: '"1"' },
+          }),
+        },
+      }),
+    );
+    render(<App />);
+    const length = await screen.findByTestId('security-password_min_length');
+    expect((length as HTMLInputElement).value).toBe('12');
+    expect(screen.getByTestId('security-password-state').textContent).toBe('Installation default');
+    fireEvent.change(length, { target: { value: '6' } });
+    expect(
+      within(screen.getByTestId('security-password_min_length-field')).getByRole('alert')
+        .textContent,
+    ).toBe('Use between 8 and 64.');
+    expect(screen.getByTestId('security-password-save').hasAttribute('disabled')).toBe(true);
+    fireEvent.change(length, { target: { value: '14' } });
+    fireEvent.click(screen.getByTestId('security-password_breached_check'));
+    fireEvent.click(screen.getByTestId('security-password-save'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/identity/settings')).toHaveLength(1);
+    });
+    const sent = fake.find('PUT', '/api/v1/identity/settings')[0]?.body as Record<string, unknown>;
+    expect(sent.password_min_length).toBe(14);
+    expect(sent.password_breached_check).toBe(false);
+    expect('portal_idle_seconds' in sent).toBe(false); // the sessions card's fields are its own
+    expect(
+      await screen.findByText('Password policy saved. It applies to passwords set from now on.'),
+    ).toBeTruthy();
+    expect(screen.getByTestId('security-password-state').textContent).toBe('Being applied');
+  });
+
+  it('a save sends the version read; when another admin saved first it says so and takes their version', async () => {
+    let reads = 0;
+    const fake = api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/settings': () => {
+            reads += 1;
+            return { body: { ...DEFAULTS, version: reads === 1 ? 0 : 1 } };
+          },
+          'PUT /api/v1/identity/settings': {
+            status: 409,
+            body: problem(409, 'version_conflict', { params: { expected_version: 0 } }),
+          },
+        },
+      }),
+    );
+    render(<App />);
+    fireEvent.change(await screen.findByTestId('security-password_min_length'), {
+      target: { value: '16' },
+    });
+    fireEvent.click(screen.getByTestId('security-password-save'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/identity/settings')).toHaveLength(1);
+    });
+    expect(fake.find('PUT', '/api/v1/identity/settings')[0]?.headers.get('If-Match')).toBe('"0"');
+    expect(
+      await screen.findByText(
+        'Another administrator saved these settings first. Their changes are loaded: check yours and save again.',
+      ),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(reads).toBeGreaterThan(1); // their version, fetched again
+    });
+    // What was typed is kept, to save again on top of their change.
+    expect(screen.getByTestId<HTMLInputElement>('security-password_min_length').value).toBe('16');
+  });
+
+  it('a policy the sign-in service did not take says why and is applied again', async () => {
+    const fake = api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/settings': {
+            body: {
+              ...DEFAULTS,
+              version: 2,
+              password_policy_state: 'failed',
+              password_policy_error: 'password_policy_keycloak_unavailable',
+            },
+          },
+          'POST /api/v1/identity/settings/password-policy/apply': {
+            body: { ...DEFAULTS, version: 2, password_policy_state: 'applying' },
+          },
+        },
+      }),
+    );
+    render(<App />);
+    const failed = await screen.findByTestId('security-password-failed');
+    expect(failed.textContent).toContain(
+      'The sign-in service could not be reached. Apply again in a moment.',
+    );
+    fireEvent.click(screen.getByTestId('security-password-apply'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/identity/settings/password-policy/apply')).toHaveLength(1);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('security-password-failed')).toBeNull();
+    });
+  });
+
+  it("on a shared installation the policy is the platform's and cannot be edited", async () => {
+    api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/settings': {
+            body: { ...DEFAULTS, password_policy_editable: false },
+          },
+        },
+      }),
+    );
+    render(<App />);
+    const length = await screen.findByTestId('security-password_min_length');
+    expect(length.hasAttribute('disabled')).toBe(true);
+    expect(screen.queryByTestId('security-password-save')).toBeNull();
+    expect(screen.getByTestId('security-password').textContent).toContain(
+      'the platform sets its password policy',
+    );
+  });
+});
+
+describe('invitations (WP-039 session 2, REQ-SEC-018..020)', () => {
+  it('lists invitations with their state; a waiting one is sent again or withdrawn', async () => {
+    const fake = api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/invitations': {
+            body: {
+              items: [
+                invitation(),
+                invitation({ id: 'i2', email: 'sam@acme.test', status: 'accepted' }),
+              ],
+            },
+          },
+          'POST /api/v1/identity/invitations/i1/resend': { body: invitation({ version: 2 }) },
+          'POST /api/v1/identity/invitations/i1/revoke': {
+            body: invitation({ version: 2, status: 'revoked' }),
+          },
+        },
+      }),
+    );
+    render(<App />);
+    const list = await screen.findByTestId('security-invitations-list');
+    await within(list).findByText('ina@acme.test');
+    expect(
+      within(list)
+        .getAllByTestId('invitation-status')
+        .map((tag) => tag.textContent),
+    ).toEqual(['Waiting', 'Accepted']);
+    expect(within(list).getAllByTestId('invitation-resend')).toHaveLength(1); // not the accepted
+    fireEvent.click(within(list).getByTestId('invitation-resend'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/identity/invitations/i1/resend')).toHaveLength(1);
+    });
+    expect(
+      fake.find('POST', '/api/v1/identity/invitations/i1/resend')[0]?.headers.get('If-Match'),
+    ).toBe('"1"');
+    expect(await screen.findByText('Invitation sent again.')).toBeTruthy();
+    fireEvent.click(within(list).getByTestId('invitation-revoke'));
+    const confirm = await screen.findAllByRole('button', { name: 'Withdraw' });
+    fireEvent.click(confirm.at(-1) ?? document.body); // the pop-up's, after the row's
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/identity/invitations/i1/revoke')).toHaveLength(1);
+    });
+  });
+
+  it('how long links work is checked at once and saved alone', async () => {
+    const fake = api(
+      routes({
+        routes: {
+          'PUT /api/v1/identity/settings': ({ body }) => ({
+            body: { ...DEFAULTS, ...(body as Partial<IdentitySettings>), version: 1 },
+          }),
+        },
+      }),
+    );
+    render(<App />);
+    const days = await screen.findByTestId('security-invitation-days');
+    fireEvent.change(days, { target: { value: '45' } });
+    expect(
+      within(screen.getByTestId('security-invitation-days-field')).getByRole('alert').textContent,
+    ).toBe('Use between 1 and 30 days.');
+    fireEvent.change(days, { target: { value: '14' } });
+    fireEvent.click(screen.getByTestId('security-invitation-days-save'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/identity/settings')[0]?.body).toEqual({
+        invitation_valid_days: 14,
+      });
+    });
   });
 });
 
