@@ -9,10 +9,12 @@ import {
   useInvitations,
   useInvite,
   useRequireNewPassword,
+  useResetMfa,
+  useSession,
   type UserDetail,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { reportError, useDateTime, useLabel } from '@supportx/ui';
+import { reportError, useAccess, useDateTime, useLabel } from '@supportx/ui';
 
 /**
  * Sign-in actions on a person's record (WP-039 session 2, lane B; shown in WP-021's person
@@ -28,6 +30,9 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
   const invite = useInvite();
   const act = useInvitationAction();
   const requireNew = useRequireNewPassword();
+  const resetMfa = useResetMfa();
+  const { can } = useAccess();
+  const self = useSession().data?.user.id === user.id;
   const [key, setKey] = useState(() => crypto.randomUUID());
   const queryClient = useQueryClient();
   useListChannel(notSignedIn ? 'invitations' : null, () => {
@@ -65,6 +70,28 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
             </Button>
           </Popconfirm>
         </div>
+        {can('identity.manage') && !self && (
+          <div>
+            <Popconfirm
+              title={t('people.reset_mfa_confirm', { name: user.display_name })}
+              description={t('people.reset_mfa_explain')}
+              okText={t('people.reset_mfa')}
+              cancelText={t('actions.cancel')}
+              onConfirm={() => {
+                resetMfa.mutate(user.id, {
+                  onSuccess: () => {
+                    void message.success(t('people.reset_mfa_done', { name: user.display_name }));
+                  },
+                  onError,
+                });
+              }}
+            >
+              <Button loading={resetMfa.isPending} data-testid="person-reset-mfa">
+                {t('people.reset_mfa')}
+              </Button>
+            </Popconfirm>
+          </div>
+        )}
       </Flex>
     );
   }

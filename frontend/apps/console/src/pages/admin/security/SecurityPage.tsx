@@ -6,6 +6,7 @@ import { useListChannel } from '@supportx/realtime';
 import { useLabel } from '@supportx/ui';
 
 import { InvitationsCard } from './InvitationsCard';
+import { MfaPolicyCard } from './MfaPolicyCard';
 import { PasswordPolicyCard } from './PasswordPolicyCard';
 import { SessionsCard } from './SessionsCard';
 import { SsoCard } from './SsoCard';
@@ -29,6 +30,7 @@ export function SecurityPage() {
       </Typography.Paragraph>
       <SsoCard />
       <PasswordPolicyCard />
+      <MfaPolicyCard />
       <InvitationsCard />
       <SessionsCard />
     </Flex>

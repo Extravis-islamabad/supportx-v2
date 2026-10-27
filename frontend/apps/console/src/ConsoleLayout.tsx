@@ -19,6 +19,7 @@ import {
   AppShell,
   CommandPalette,
   ConnectivityBanner,
+  MfaReminder,
   LicenceBanners,
   reportError,
   useCommandPaletteShortcut,
@@ -160,6 +161,7 @@ export function ConsoleLayout() {
       banners={
         <>
           <ConnectivityBanner />
+          {pathname !== '/profile' && <MfaReminder />}
           <LicenceBanners />
           <AuditAlertBanner />
           <FilesBanner />

@@ -26,7 +26,14 @@ import {
 } from '@supportx/api-client';
 import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx/forms';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
-import { ConflictDialog, PresenceAvatars, reportError, useLabel, WriteButton } from '@supportx/ui';
+import {
+  AccountSecurityCard,
+  ConflictDialog,
+  PresenceAvatars,
+  reportError,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -102,6 +109,7 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
+      <AccountSecurityCard />
       <FormDensityCard userId={me.id} value={me.form_density} />
       <ProfileForm
         user={user.data}
