@@ -40,6 +40,7 @@ from tests.db.test_access_api import fake_session
 from tests.db.test_entitlements import set_term
 from tests.db.test_rate_limit import valkey_url
 from tests.db.test_users_api import seed_users
+from tooling import timing
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
@@ -951,6 +952,7 @@ SELECT tenant_id, id, $2 FROM announcements WHERE tenant_id = $1 AND audience = 
 """
 
 
+@pytest.mark.timing
 async def test_ten_thousand_announcements_list_fast(world: World) -> None:
     """Filtered list p95 < 100 ms on 10,000 rows (all-scope admin and site-scoped technician)."""
     org = await make_ann(world, "Perf")
@@ -996,4 +998,5 @@ async def test_ten_thousand_announcements_list_fast(world: World) -> None:
         }
         print(f"\n[perf] announcements_10k {name}: rows={ROWS}, {report[name]}")  # noqa: T201
     assert all(r["items"] > 0 for r in report.values()), report  # real pages, not empty ones
-    assert all(r["p95_ms"] < 100 for r in report.values()), report
+    timing.record("announcements_list_10k", report)
+    assert all(r["p95_ms"] < timing.limit(100) for r in report.values()), report

@@ -1,7 +1,6 @@
 """Filter DSL: grammar, allowlist, limits and safe compilation. Pure, no database."""
 
 import json
-import sys
 import time
 import uuid
 from datetime import UTC, datetime
@@ -23,6 +22,7 @@ from app.shared.api.filters import (
     parse_filter_json,
     relative_range,
 )
+from tooling import timing
 
 table = Table(
     "things",
@@ -302,15 +302,7 @@ def test_simple_parameters_are_validated_like_the_dsl(
     assert caught.value.errors[0].code == code
 
 
-TRACED_LIMIT_MS = 25  # 5 ms, scaled for coverage tracing on shared runners
-
-
-def _traced() -> bool:
-    """Coverage (or a debugger) is measuring: a trace function, or a sys.monitoring tool."""
-    tools = (sys.monitoring.get_tool(tool) for tool in range(6))
-    return sys.gettrace() is not None or any(tool is not None for tool in tools)
-
-
+@pytest.mark.timing
 def test_compiling_a_full_size_filter_is_fast() -> None:
     tree = {
         "and": [
@@ -331,9 +323,7 @@ def test_compiling_a_full_size_filter_is_fast() -> None:
         timings.append(time.process_time() - started)
     per_filter_ms = min(timings) / runs * 1000
     print(f"\n[perf] filter_compile: conditions=30 depth=3 ms_per_filter={per_filter_ms:.3f}")  # noqa: T201
-    # 5 ms is the bound for the code itself. Coverage tracing (every CI run) makes Python code
-    # about five times slower and CI's shared 2-vCPU runners add more: there the fastest batch
-    # took 5.2 ms when the code needs about 1. Under a tracer the same bound is scaled, so a real
-    # regression (a several-fold slowdown) still fails while tracing overhead does not.
-    limit_ms = TRACED_LIMIT_MS if _traced() else 5
-    assert per_filter_ms < limit_ms
+    # 5 ms, strictly in the nightly run (no coverage, its own machine); ten times that in pull
+    # requests, where coverage tracing and shared 2-vCPU runners cost several times over.
+    timing.record("filter_compile_ms", per_filter_ms)
+    assert per_filter_ms < timing.limit(5)
