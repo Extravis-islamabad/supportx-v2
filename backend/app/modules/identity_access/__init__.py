@@ -58,6 +58,7 @@ from app.modules.identity_access.service.directory import (
     user_contacts,
     user_names,
 )
+from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
     person_placement,
@@ -217,7 +218,7 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION],
+    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,

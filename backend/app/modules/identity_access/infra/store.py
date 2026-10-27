@@ -5,6 +5,7 @@ session IDs nor tokens (the values are AES-GCM encrypted).
 """
 
 import hashlib
+import time
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -19,6 +20,7 @@ LOCK_PREFIX = "sx:session-lock:"
 # A person's sessions started before this moment are over (deactivation, sign-in turned off).
 ENDED_PREFIX = "sx:sessions-ended:"
 SSO_TEST_PREFIX = "sx:sso-test:"
+LIMIT_PREFIX = "sx:limit:"
 
 
 def _hashed(prefix: str, value: str) -> str:
@@ -32,6 +34,7 @@ class KeyValue(Protocol):
     async def getdel(self, key: str) -> bytes | None: ...  # noqa: D102
     async def set(self, key: str, value: bytes, *, px: int, nx: bool = False) -> bool | None: ...  # noqa: D102
     async def delete(self, key: str) -> int: ...  # noqa: D102
+    async def count(self, key: str, *, px: int) -> int: ...  # noqa: D102 - one more hit, kept px ms
 
 
 class ValkeyKeyValue:
@@ -55,6 +58,13 @@ class ValkeyKeyValue:
     async def delete(self, key: str) -> int:  # noqa: D102
         deleted: int = await self._client.delete(key)
         return deleted
+
+    async def count(self, key: str, *, px: int) -> int:  # noqa: D102
+        async with self._client.pipeline(transaction=True) as pipe:
+            pipe.incr(key)
+            pipe.pexpire(key, px, nx=True)
+            hits, _ = await pipe.execute()
+        return int(hits)
 
 
 class SessionStore:
@@ -83,6 +93,13 @@ class SessionStore:
         """Remember a pending login (PKCE verifier, nonce, returnTo) under its state value."""
         key = _hashed(LOGIN_PREFIX, state)
         await self._kv.set(key, self._cipher.encrypt(data, bound_to=key), px=_ms(ttl))
+
+    async def hit(self, scope: str, subject: str, window: timedelta) -> int:
+        """Count one more request of `subject` in the current `window`; the count so far."""
+        bucket = int(time.time() // window.total_seconds())
+        return await self._kv.count(
+            _hashed(LIMIT_PREFIX, f"{scope}:{subject}:{bucket}"), px=_ms(window)
+        )
 
     async def put_sso_test(self, test_id: str, data: dict[str, Any], ttl: timedelta) -> None:
         """Keep a single sign-on test's progress and result (WP-039), encrypted: it names people."""

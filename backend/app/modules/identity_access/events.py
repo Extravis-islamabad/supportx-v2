@@ -147,13 +147,29 @@ class AccessSettingsChanged(DomainEvent):
 
 
 class IdentitySettingsChanged(DomainEvent):
-    """The tenant's sign-in settings changed (WP-039): sessions, people creation."""
+    """The tenant's sign-in settings changed (WP-039).
+
+    Sessions, people creation, invitations, the password policy, or the worker's result
+    applying it (`password_policy_state`).
+    """
 
     event_type: ClassVar[str] = "identity_access.identity_settings.changed"
     schema_version: ClassVar[int] = 1
     aggregate_type: ClassVar[str] = "tenant"
 
     changed_fields: list[str]
+
+
+class PasswordPolicyChanged(DomainEvent):
+    """An admin saved the password policy, or asked to apply it again.
+
+    The worker writes it into the realm, reading it from the settings when applied, so only the
+    newest policy is ever written.
+    """
+
+    event_type: ClassVar[str] = "identity_access.password_policy.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant"
 
 
 class SsoProviderChanged(DomainEvent):
@@ -165,6 +181,17 @@ class SsoProviderChanged(DomainEvent):
 
     change: Literal["added", "updated", "tested", "switched_on", "switched_off", "removed"]
     state: Literal["draft", "tested", "on", "off"]
+
+
+class InvitationChanged(DomainEvent):
+    """An invitation was sent, resent, accepted or revoked (WP-039 session 2)."""
+
+    event_type: ClassVar[str] = "identity_access.invitation.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "invitation"
+
+    change: Literal["sent", "resent", "accepted", "revoked"]
+    status: Literal["pending", "accepted", "revoked"]
 
 
 EVENTS: tuple[type[DomainEvent], ...] = (
@@ -180,5 +207,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     PeopleImportProgressed,
     AccessSettingsChanged,
     IdentitySettingsChanged,
+    PasswordPolicyChanged,
     SsoProviderChanged,
+    InvitationChanged,
 )

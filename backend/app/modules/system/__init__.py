@@ -1,7 +1,14 @@
 """System module: liveness and readiness of the API process (ADR-018), and platform services.
 
 Health: no tables, no events; one consumer, the dev-only event logger (service/dev_event_log.py).
-It is also the reference example of the module registry contract: one `module = ModuleSpec(...)`
+It is also the reference example of the module registry contract: one `MAIL_SEND = ConsumerSpec(
+    name="system__mail_send",
+    event_types=(MailQueued.event_type,),
+    handler=mail.on_mail_queued,
+    ack_wait_seconds=120,  # a slow mail server, a 10 MB attachment
+)
+
+module = ModuleSpec(...)`
 declaring routers, lifecycle hooks and consumers.
 
 Platform services (architecture.md §6.8) live in `app/shared` and own their tables there; only
@@ -26,7 +33,7 @@ from app.modules.system.infra.probes import (
     ValkeyProbe,
     WorkerHeartbeatProbe,
 )
-from app.modules.system.service import files
+from app.modules.system.service import files, mail
 from app.modules.system.service.dev_event_log import DEV_EVENT_LOGGER
 from app.modules.system.service.readiness import ReadinessService
 from app.shared.events import BusNames, ConsumerSpec
@@ -34,6 +41,8 @@ from app.shared.files.events import EVENTS as FILE_EVENTS
 from app.shared.files.events import FileUploaded
 from app.shared.files.ports import register_quota
 from app.shared.files.service.core import FileServices
+from app.shared.mail.events import EVENTS as MAIL_EVENTS
+from app.shared.mail.events import MailQueued
 from app.shared.schedules import ScheduleSpec
 
 
@@ -104,18 +113,27 @@ FILE_SCAN = ConsumerSpec(
     ack_wait_seconds=300,
 )
 
+MAIL_SEND = ConsumerSpec(
+    name="system__mail_send",
+    event_types=(MailQueued.event_type,),
+    handler=mail.on_mail_queued,
+    ack_wait_seconds=120,  # a slow mail server, a 10 MB attachment
+)
+
 module = ModuleSpec(
     name="system",
     routers=[router, files_router],
     on_startup=[_startup],
-    consumers=[DEV_EVENT_LOGGER, FILE_SCAN],
-    events=FILE_EVENTS,
+    consumers=[DEV_EVENT_LOGGER, FILE_SCAN, MAIL_SEND],
+    events=(*FILE_EVENTS, *MAIL_EVENTS),
     permissions=[PermissionSpec(FILES_MANAGE)],
     realtime=files.REALTIME,
     schedules=[
         ScheduleSpec("system__files_scan_sweep", 300, files.scan_sweep),
         ScheduleSpec("system__files_purge", 3600, files.purge),
         ScheduleSpec("system__files_scanner_check", 3600, files.check_scanner),
+        ScheduleSpec("system__mail_retry", 60, mail.retry),
+        ScheduleSpec("system__mail_purge", 3600, mail.purge),
     ],
     usage_counters={"storage_gb": files.storage_gb_used},
 )

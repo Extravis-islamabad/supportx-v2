@@ -96,6 +96,11 @@ class Settings(BaseSettings):
     # settings that need Keycloak answer `identity_admin_not_configured`.
     keycloak_identity_client_id: str = "supportx-identity"
     keycloak_identity_client_secret: SecretStr | None = None
+    # Realm settings (WP-039 session 2): the password policy is a realm setting (manage-realm),
+    # so it has its own service account, whose secret only the consumers worker holds. None: the
+    # policy is saved but not applied (`password_policy_not_configured`).
+    keycloak_realm_client_id: str = "supportx-realm"
+    keycloak_realm_client_secret: SecretStr | None = None
     # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
     # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
     # the test identity provider runs on the same machine.
@@ -104,6 +109,23 @@ class Settings(BaseSettings):
     # not a feature switch (D-098): single sign-on may then route only email domains whose
     # ownership the tenant proved. Off for single-tenant installations (on-prem, D-070).
     multi_tenant: bool = False
+
+    # Outgoing mail (WP-039 session 2, D-089 D3, D-099): the one place mail is configured. The
+    # mail service sends through it, and the deploy's identity step writes the same server into
+    # Keycloak's realm so its password and invitation e-mails leave from the same sender.
+    # None host = not configured (`mail_configured()` false; nothing is queued).
+    mail_smtp_host: str | None = None
+    mail_smtp_port: int = Field(default=587, ge=1, le=65535)
+    mail_smtp_security: Literal["starttls", "tls", "none"] = "starttls"
+    mail_smtp_username: str | None = None
+    mail_smtp_password: SecretStr | None = None
+    mail_from_address: str | None = None
+    mail_from_name: str = Field(default="SupportX", max_length=120)
+    mail_timeout_seconds: float = Field(default=15.0, gt=0, le=120)
+    # Sending is tried this often before a message is marked failed.
+    mail_max_attempts: int = Field(default=5, ge=1, le=20)
+    # Bodies and attachments are personal data: cleared this long after sending or failing.
+    mail_content_retention_days: int = Field(default=30, ge=1, le=3650)
     # Public base URLs of the two UIs. They may carry a path: in Kubernetes both share one host,
     # the portal under /portal (WP-014, D3). The OIDC callback is <origin>/api/v1/auth/callback
     # (same origin as the UI, D-009); after login the browser lands on the returnTo path, else on
