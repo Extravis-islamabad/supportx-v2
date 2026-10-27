@@ -49,6 +49,7 @@ from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.directory import (
     display_names,
+    people_matching,
     user_contacts,
     user_names,
 )
@@ -193,6 +194,7 @@ __all__ = [
     "display_names",
     "get_policy",
     "module",
+    "people_matching",
     "require",
     "scope_filter",
     "user_contacts",

@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   allOf,
   queryKeys,
-  searchFilter,
   useUsers,
   type FilterExpression,
   type UserDetail,
@@ -14,24 +13,11 @@ import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
 import { NoAccess, useAccess, useAppearance, useLabel } from '@supportx/ui';
 
 import { UserAccessDrawer } from './UserAccessDrawer';
+import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 
 const SORTS = ['display_name', '-display_name', '-last_login_at', '-created_at'] as const;
 const TYPES = ['technician', 'requester'] as const;
 const STATUSES = ['active', 'disabled'] as const;
-const SEARCH_DELAY_MS = 300;
-
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [value, delay]);
-  return debounced;
-}
 
 function equals(field: string, value: string | undefined): FilterExpression | undefined {
   return value === undefined ? undefined : { field, op: 'eq', value };
@@ -54,10 +40,11 @@ export function UsersPage() {
   const query = useDebounced(search, SEARCH_DELAY_MS);
 
   const filter = useMemo(
-    () => allOf(searchFilter(query), equals('user_type', userType), equals('status', status)),
-    [query, userType, status],
+    () => allOf(equals('user_type', userType), equals('status', status)),
+    [userType, status],
   );
-  const users = useUsers({ filter, sort, limit: 25 }, allowed);
+  // Names and emails, however they are typed (WP-027).
+  const users = useUsers({ filter, q: query, sort, limit: 25 }, allowed);
   // Live (WP-011): a new or changed user refreshes the lists on screen and the changed records.
   const queryClient = useQueryClient();
   useListChannel(allowed ? 'users' : null, (message) => {

@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
@@ -36,7 +36,9 @@ router = APIRouter(
     },
 )
 
-UsersQuery = Annotated[ListQuery, Depends(list_query(directory.USER_FIELDS))]
+UsersQuery = Annotated[
+    ListQuery, Depends(list_query(directory.USER_FIELDS, extra_parameters=frozenset({"q"})))
+]
 
 
 class UserDetail(BaseModel):
@@ -97,13 +99,24 @@ EditProfile = Annotated[Subject, Depends(require_permission("profile.edit"))]
 
 
 @router.get("", summary="List users")
-async def list_users(session: TenantSession, query: UsersQuery, subject: ViewUsers) -> UserPage:
+async def list_users(
+    session: TenantSession,
+    query: UsersQuery,
+    subject: ViewUsers,
+    q: Annotated[
+        str | None,
+        Query(
+            max_length=200,
+            description="Search names and emails: word starts, Arabic and Urdu spellings, typos.",
+        ),
+    ] = None,
+) -> UserPage:
     """Users the caller may see (`users.view`, filtered to its scope).
 
-    Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), sort with
-    `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
+    Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), search with `q`,
+    sort with `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
     """
-    page = await directory.list_users(session, subject, query)
+    page = await directory.list_users(session, subject, query, text=(q or "").strip() or None)
     return UserPage(
         items=[UserDetail.of(u, subject) for u in page.rows],
         next_cursor=page.next_cursor,

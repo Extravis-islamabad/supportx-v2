@@ -3,7 +3,9 @@
 - custom_fields: definitions per tenant and entity (metadata module). RLS; the app may read,
   insert and update, never delete (removing sets deleted_at; a used field is only retired).
 - work_items.custom: the values (typed JSONB by key), GIN index (jsonb_path_ops) for filters.
-- work_items.custom_text: their free text, written by the app on every save, for search.
+- work_items.custom_text: their free text, written by the app in the same UPDATE as the values;
+  work_items.search_vector (migration 0020) is rebuilt to include it, so search finds custom
+  field text (a generated column cannot read field definitions, so the app writes the text).
 
 Promoted fields get their own expression indexes from the index worker
 (`workers.custom_field_indexes`, D-088; the deploy's migrate Job runs the same code as a
@@ -12,7 +14,7 @@ fallback), not from a migration: they are tenant data.
 Additive (expand only; reversible).
 
 Revision ID: 0021
-Revises: 0019
+Revises: 0020
 Created: 2026-10-26
 """
 
@@ -25,7 +27,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0021"
-down_revision: str | None = "0019"
+down_revision: str | None = "0020"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -58,6 +60,27 @@ INDEX_FAILURES = (
 
 def _in(column: str, codes: Sequence[str]) -> str:
     return f"{column} IN (" + ", ".join(f"'{c}'" for c in codes) + ")"
+
+
+# The search vector of migration 0020, then with the custom field text (WP-026, ADR-030).
+OLD_VECTOR = (
+    "sx_search_vector(subject, regexp_replace(description, '<[^>]*>|&[a-zA-Z0-9#]+;', ' ', 'g'))"
+)
+NEW_VECTOR = (
+    "sx_search_vector(subject, regexp_replace(coalesce(description, ''),"
+    " '<[^>]*>|&[a-zA-Z0-9#]+;', ' ', 'g') || ' ' || coalesce(custom_text, ''))"
+)
+
+
+def _search_vector(expression: str) -> None:
+    # A generated column's expression cannot change in place: drop and add it again.
+    op.execute("DROP INDEX ix_wi_search_vector")
+    op.execute("ALTER TABLE work_items DROP COLUMN search_vector")
+    op.execute(
+        "ALTER TABLE work_items ADD COLUMN search_vector tsvector"
+        f" GENERATED ALWAYS AS ({expression}) STORED"
+    )
+    op.execute("CREATE INDEX ix_wi_search_vector ON work_items USING gin (search_vector)")
 
 
 def upgrade() -> None:
@@ -166,9 +189,11 @@ def upgrade() -> None:
         postgresql_using="gin",
         postgresql_ops={"custom": "jsonb_path_ops"},
     )
+    _search_vector(NEW_VECTOR)
 
 
 def downgrade() -> None:
+    _search_vector(OLD_VECTOR)
     op.drop_index(
         "ix_wi_custom",
         table_name="work_items",

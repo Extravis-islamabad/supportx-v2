@@ -12,7 +12,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
@@ -45,25 +45,12 @@ import { personName, scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
 import { PriorityTag, SlaTag, StatusTag } from './tags';
+import { SEARCH_DELAY_MS, useDebounced } from '../../useDebounced';
 
 const SORTS = ['-updated_at', '-created_at', 'priority', 'display_number', 'subject'] as const;
 const PRIORITIES = ['p1', 'p2', 'p3', 'p4'] as const;
-const SEARCH_DELAY_MS = 300;
 const DEFAULT_VIEW = 'open';
 const ID_PATTERN = /^([A-Za-z]{2,6}-)?\d{1,18}$/;
-
-function useDebounced<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebounced(value);
-    }, delay);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [value, delay]);
-  return debounced;
-}
 
 /** Subject words, or a display ID ("INC-12", "12"), in one search box. */
 function searchOf(text: string): FilterExpression | undefined {

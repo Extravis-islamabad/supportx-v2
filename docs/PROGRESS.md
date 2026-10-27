@@ -4,10 +4,10 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-020c-FIX (all WP-020c QA findings, D-086), 2026-10-26. Before it:
-  WP-020c (incident settings screens and templates, D-083).
-- **Next work package:** WP-026 (custom fields), the critical path (mvp-build-plan.md); then
-  WP-020d..020f, WP-021..028. Lane B builds WP-027 (search) in parallel.
+- **Last completed:** WP-026 (custom fields on incidents, D-087, D-088, ADR-030), 2026-10-27.
+  Lane B: WP-027 (search, D-085, ADR-029), merged 2026-10-27.
+- **Next work package:** WP-026 QA (~/Desktop/qa-wp026/), then WP-029 (business rules,
+  routing; needs WP-026) on the critical path; WP-020d..020f, WP-021..028.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -413,6 +413,34 @@ Playwright `qa-wp020c.spec.ts`).
 - [x] Accessibility: the WP-022 file-scanning banner's link is underlined (axe
   `link-in-text-block`, on every console screen while no scanner is installed). Lane B informed.
 
+### [x] WP-026 — Custom fields for every module (REQ-INC-014; D-087, D-088; ADR-030; done 2026-10-27)
+- [x] Definitions in the new `metadata` module (`custom_fields`, RLS, history, outbox,
+  audit): 14 types (text, long text, whole and decimal numbers, money with one ISO currency,
+  date, date and time in UTC, pick one, pick several as list or buttons, yes/no, email, phone,
+  web address, person), names and help in en/ar/ur, choices (a removed choice stays retired),
+  validation (required, min/max, lengths, a format pattern; patterns that backtrack
+  catastrophically are refused), a starting value, order, retire, remove (a field in use asks
+  first, Retire is the recommended answer; values and history stay; keys are never reused).
+- [x] Values on the incident as typed JSON (`work_items.custom`), checked by the metadata
+  module (people must exist in the tenant), required by the field or by a template (D-086
+  rules), recorded in history as `custom.<key>`, filtered through the shared DSL (typed:
+  numbers, dates, date-times, multi-choice, yes/no, person) and searchable
+  (`work_items.custom_text` in `search_vector`, migration 0021 after lane B's 0020).
+- [x] Indexes on request (AC2, D-088): `workers.custom_field_indexes` (its own Deployment, the
+  only one besides the migrate Job with the migrator role) builds them every 30 s with CREATE
+  INDEX CONCURRENTLY, one at a time; states pending, building, active, failed with a labelled
+  reason, live; the migrate Job runs one pass as a fallback. Found on the way: `::date` and
+  `::timestamptz` can never be indexed (not immutable); dates and times are now built from
+  their parts.
+- [x] Console: Admin › Incidents › Custom fields (list, editor drawer, reorder, retire, remove,
+  index), the create form (template rules, starting values, required checks, switching
+  templates), record properties with edit in place, History labels, template editor rows and
+  starting values, one custom field filter in the incidents list; all live.
+- [x] Found on the way: a template still requiring a removed or retired field blocked new
+  incidents and later template edits; leftover rules are now ignored or dropped.
+- [ ] Later (D-087): asset and CI lookups (with their modules); list columns and export
+  (WP-020d); portal (WP-028 uses the template's requester flags).
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -435,6 +463,42 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   including the login page and e-mails; an unknown host falls back to the default brand; a colour
   failing contrast is refused with a translated message; e2e covers both hosts.
 - **Depends on:** WP-010, WP-014 (ingress/TLS), WP-016 (admin permission for branding)
+
+### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
+Branch `feat/wp-027-search`. REQ-INC-085.
+- Search port `app/shared/search`, with PostgreSQL full-text and pg_trgm as the MVP engine
+  (D-085). Migration 0020 adds:
+  - pg_trgm, `sx_search_normalize` and `sx_search_vector`;
+  - generated search columns and GIN indexes on `work_items` and `users`, declared as
+    `unmapped_column` so the ORM never loads or returns them.
+- One normalisation for Arabic, Urdu and Latin text (diacritics, letter variants, digits), in
+  SQL and Python; a test proves they agree.
+- Matching: every word must match, by prefix, English or Arabic stem, or trigram typo tolerance
+  (subjects and names). Urdu word forms match by prefix.
+- `GET /incidents/search` (`q`, `ids`, `requester_id`, `status_category`). It starts from the
+  list's own scope query (`staff_rows`), so results equal the list for every scope rule (D-052,
+  D-068; tested for IDs too). It matches by display ID (Arabic and Urdu digits too, any status or
+  assignee, ranked first), subject and description words, and requester or on-behalf-of name or
+  email.
+- People search: `GET /users?q=`, the user pickers, the admin Users page and the assignee picker
+  (`policy.holders`). Half names, typos, Arabic hamza forms, Urdu letters typed as Arabic, email
+  parts.
+- Console:
+  - Ctrl+K palette: incidents found by ID, words or person, with requester and status in words;
+    recently viewed incidents while nothing is typed (kept per user in the browser); live while
+    open.
+  - `IncidentPicker` for link and merge dialogs: recent, same requester, search, status filter,
+    never the record itself, live.
+  - People pickers keep the email on the second line.
+- Labels in en, ar and ur (including the palette's Urdu labels).
+- Tests: 12 unit; 10 with Postgres (search), plus the users, incidents and migration suites;
+  4 console; e2e `search.spec.ts` (Arabic word form, typo, recent, axe in light, dark, high contrast and
+  Arabic).
+- Follow-ups:
+  - the link, merge and parent dialogs (WP-020e, V1) use `IncidentPicker`;
+  - search in the incidents list (WP-020d, lane A) can switch from the `contains` filter to the
+    port;
+  - custom-field text joins the vector in WP-026 (lane A, migration 0021).
 
 ### [x] WP-022 — Files and safe attachments (lane B; D-082; ADR-028; done 2026-10-26, 3 sessions)
 Plan: ~/Desktop/wp-022-plan.md (approved with D-082). Branch `feat/wp-022-files`.
@@ -581,6 +645,29 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ## Session log (newest first)
 
+### 2026-10-27 — WP-026: custom fields (lane A)
+
+- Built WP-026 (D-087 defaults; the product owner's answers are D-088): metadata module,
+  values on incidents, filters, search text, history, templates, admin screen, form, record,
+  list filter, index worker. Merged main with lane B's WP-027; migration 0021 follows 0020 and
+  rebuilds the search vector with the custom field text.
+- The 2 skipped backend tests are the opt-in volume and load checks (audit scale, file
+  uploads); nothing to fix.
+- Tests: 14 backend database tests for custom fields, 1 in search, 46 metadata domain tests, 9
+  index-failure unit tests, 9 Vitest tests, one two-user Playwright journey (green in CI).
+- Local Vitest timed out on first renders while containers outside SupportX loaded the Docker
+  VM (load average 47); the same tests pass alone and in CI.
+
+### 2026-10-26 — WP-027 search and record pickers (lane B)
+
+- Planned and built in one session in `../supportx-v2-wp027`. The product owner confirmed
+  PostgreSQL full-text search for MVP (D-085) and asked for typo tolerance (pg_trgm) and a port
+  ready for pgvector (ADR-029).
+- Coordinated with lane A (WP-026). This WP keeps migration 0020 and ADR-029; WP-026 takes 0021,
+  D-086 and ADR-030, and feeds custom-field text into the same vector.
+- Found and fixed while building: an INSERT returned the generated tsvector with every new
+  incident. The search columns are now `unmapped_column`s.
+- Shared `useDebounced` (`apps/console/src/useDebounced.ts`) replaces two copies.
 ### 2026-10-26 — WP-022 review follow-ups (lane B)
 
 - D-084 recorded: the admin "rotate data key" action is V1; new enum values are additive, and

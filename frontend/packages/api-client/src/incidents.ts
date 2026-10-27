@@ -21,6 +21,7 @@ export type IncidentViewCount = components['schemas']['WorkItemViewCountOut'];
 export type IncidentAssignee = components['schemas']['WorkItemAssigneeOut'];
 export type IncidentHistoryEntry = components['schemas']['WorkItemHistoryEntryOut'];
 export type IncidentPerson = components['schemas']['PersonOut'];
+export type IncidentSearchResult = components['schemas']['WorkItemSearchOut'];
 export type Priority = components['schemas']['Priority'];
 export type Impact = components['schemas']['Impact'];
 export type Urgency = components['schemas']['Urgency'];
@@ -36,6 +37,17 @@ export interface IncidentsQuery {
   tag?: string;
   limit?: number;
   trash?: boolean;
+}
+
+/** Search parameters (GET /incidents/search, WP-027). */
+export interface IncidentSearchQuery {
+  /** Display ID, words, or the requester's name or email. Empty: most recently updated. */
+  q?: string;
+  /** Only these records (recently viewed), in the user's scope. */
+  ids?: string[];
+  requesterId?: string;
+  statusCategories?: StatusCategory[];
+  limit?: number;
 }
 
 const path = (id: string) => `/api/v1/incidents/${id}`;
@@ -128,6 +140,33 @@ export function useIncidentCategories(enabled = true) {
     queryFn: () => call(api.GET('/api/v1/incidents/categories')),
     enabled,
     staleTime: 60_000,
+  });
+}
+
+/**
+ * Incidents the user may see, best match first: exactly the records the lists show (D-052).
+ * Kept under the list key, so every list refresh (realtime, saves) refreshes searches too.
+ */
+export function useIncidentSearch(query: IncidentSearchQuery, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.search(query),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/incidents/search', {
+          params: {
+            query: {
+              q: query.q === undefined || query.q.trim() === '' ? undefined : query.q.trim(),
+              ids: query.ids,
+              requester_id: query.requesterId,
+              status_category: query.statusCategories,
+              limit: query.limit ?? 20,
+            },
+          },
+        }),
+      ),
+    enabled: enabled && (query.ids === undefined || query.ids.length > 0),
+    staleTime: 0,
+    placeholderData: (previous) => previous,
   });
 }
 

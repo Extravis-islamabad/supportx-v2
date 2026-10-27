@@ -8304,6 +8304,30 @@
         "title": "WorkItemScaleValueOut",
         "type": "object"
       },
+      "WorkItemSearchOut": {
+        "description": "Search results, best first, with the people on them (name and email).",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkItemListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "people": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PersonOut"
+            },
+            "title": "People",
+            "type": "object"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "WorkItemSearchOut",
+        "type": "object"
+      },
       "WorkItemSettingsPatch": {
         "additionalProperties": false,
         "description": "Type settings to change (only those sent). If-Match: the catalogue's `version`.",
@@ -15082,6 +15106,164 @@
         ]
       }
     },
+    "/api/v1/incidents/search": {
+      "get": {
+        "description": "Records you may see, exactly as in the lists (REQ-INC-085), best match first.\n\nWithout `q`: the most recently updated (narrowed by the other parameters).",
+        "operationId": "search_api_v1_incidents_search_get",
+        "parameters": [
+          {
+            "description": "Display ID, subject or description words, or the requester's name or email. Word forms (English, Arabic), Urdu word starts and typos match.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Display ID, subject or description words, or the requester's name or email. Word forms (English, Arabic), Urdu word starts and typos match.",
+              "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status_category",
+            "required": false,
+            "schema": {
+              "default": [],
+              "items": {
+                "$ref": "#/components/schemas/StatusCategory"
+              },
+              "title": "Status Category",
+              "type": "array"
+            }
+          },
+          {
+            "in": "query",
+            "name": "requester_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Requester Id"
+            }
+          },
+          {
+            "description": "Only these records (e.g. recently viewed).",
+            "in": "query",
+            "name": "ids",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "format": "uuid",
+                    "type": "string"
+                  },
+                  "maxItems": 20,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these records (e.g. recently viewed).",
+              "title": "Ids"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Search incidents",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
     "/api/v1/incidents/settings": {
       "get": {
         "description": "Statuses, actions, transitions, scales, the matrix, reasons and the prefix.",
@@ -20391,9 +20573,28 @@
     },
     "/api/v1/users": {
       "get": {
-        "description": "Users the caller may see (`users.view`, filtered to its scope).\n\nFilter with the DSL (`filter=`) and/or simple parameters (`status=active`), sort with\n`sort=-last_login_at,display_name`, page with `limit` and `cursor`.",
+        "description": "Users the caller may see (`users.view`, filtered to its scope).\n\nFilter with the DSL (`filter=`) and/or simple parameters (`status=active`), search with `q`,\nsort with `sort=-last_login_at,display_name`, page with `limit` and `cursor`.",
         "operationId": "list_users_api_v1_users_get",
         "parameters": [
+          {
+            "description": "Search names and emails: word starts, Arabic and Urdu spellings, typos.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Search names and emails: word starts, Arabic and Urdu spellings, typos.",
+              "title": "Q"
+            }
+          },
           {
             "description": "Filter DSL as JSON (schema: FilterExpression).",
             "in": "query",

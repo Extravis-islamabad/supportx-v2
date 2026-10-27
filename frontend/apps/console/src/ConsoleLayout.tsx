@@ -31,6 +31,7 @@ import { useTenantChannel } from '@supportx/realtime';
 
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
+import { usePaletteIncidents } from './pages/incidents/usePaletteIncidents';
 
 import { NAV } from './nav';
 
@@ -45,6 +46,7 @@ export function ConsoleLayout() {
   const switchTenant = useSwitchTenant();
   const licence = useLicence();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState('');
   const openPalette = useCallback(() => {
     setPaletteOpen(true);
   }, []);
@@ -106,6 +108,12 @@ export function ConsoleLayout() {
     ],
     [nav, t],
   );
+  const paletteRecords = usePaletteIncidents(
+    paletteOpen,
+    paletteQuery,
+    session?.user.id ?? null,
+    access.can('incidents.view') && licence.has('incident'),
+  );
   const section = pathname.split('/')[1] ?? '';
   const activeKey = section === '' ? 'home' : section;
 
@@ -161,6 +169,8 @@ export function ConsoleLayout() {
         onOpenChange={setPaletteOpen}
         commands={commands}
         onNavigate={(path) => void navigate(path)}
+        onQueryChange={setPaletteQuery}
+        records={paletteRecords}
       />
     </AppShell>
   );
