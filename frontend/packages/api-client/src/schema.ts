@@ -3089,10 +3089,7 @@ export interface components {
          */
         BrandingIn: {
             /** Gradient */
-            gradient?: [
-                string,
-                string
-            ] | null;
+            gradient?: string[] | null;
             /** Icon File Id */
             icon_file_id?: string | null;
             /** Logo Dark File Id */
@@ -3122,10 +3119,7 @@ export interface components {
             /** Customised */
             customised: boolean;
             /** Gradient */
-            gradient: [
-                string,
-                string
-            ];
+            gradient: string[];
             logos: components["schemas"]["Logos"];
             /** Portal Name */
             portal_name: {
@@ -3158,19 +3152,13 @@ export interface components {
          */
         BrandingSettingsOut: {
             /** Chosen Gradient */
-            chosen_gradient: [
-                string,
-                string
-            ] | null;
+            chosen_gradient: string[] | null;
             /** Chosen Primary Colour */
             chosen_primary_colour: string | null;
             /** Customised */
             customised: boolean;
             /** Gradient */
-            gradient: [
-                string,
-                string
-            ];
+            gradient: string[];
             /** Icon File Id */
             icon_file_id: string | null;
             /** Logo Dark File Id */
@@ -3270,10 +3258,7 @@ export interface components {
             /** Passes */
             passes: boolean;
             /** Suggested Gradient */
-            suggested_gradient: [
-                string,
-                string
-            ] | null;
+            suggested_gradient: string[] | null;
             /** Suggested Primary */
             suggested_primary: string | null;
         };
@@ -3283,10 +3268,7 @@ export interface components {
          */
         ColoursIn: {
             /** Gradient */
-            gradient?: [
-                string,
-                string
-            ] | null;
+            gradient?: string[] | null;
             /** Primary Colour */
             primary_colour?: string | null;
         };

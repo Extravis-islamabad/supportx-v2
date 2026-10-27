@@ -14,7 +14,14 @@ export interface Appearance {
   setMode: (mode: ThemeMode) => void;
   setDirection: (direction: Direction) => void;
   setLocale: (locale: Locale) => void;
+  /**
+   * Replace the brand from one source (WP-017): `address` (before sign-in, from the host) or
+   * `tenant` (the signed-in tenant's, which wins). `undefined` clears that source.
+   */
+  setBranding: (source: BrandingSource, branding: Partial<Branding> | undefined) => void;
 }
+
+export type BrandingSource = 'address' | 'tenant';
 
 export const AppearanceContext = createContext<Appearance | null>(null);
 

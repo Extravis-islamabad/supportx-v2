@@ -1,7 +1,13 @@
 import { Alert, Flex, Typography } from 'antd';
 
 import { useSession } from '@supportx/api-client';
-import { useAppearance, useLabel, useLicence, useLiveAnnouncementFeed } from '@supportx/ui';
+import {
+  brandText,
+  useAppearance,
+  useLabel,
+  useLicence,
+  useLiveAnnouncementFeed,
+} from '@supportx/ui';
 
 const ALERT_TYPE = { info: 'info', warning: 'warning', critical: 'error' } as const;
 
@@ -38,8 +44,13 @@ export function HomePage() {
         <Typography.Title level={1} style={{ color: 'inherit', marginTop: 0 }}>
           {t('home.title', { name: session?.user.display_name ?? '' })}
         </Typography.Title>
-        <Typography.Paragraph style={{ color: 'inherit', marginBottom: 0, fontSize: 16 }}>
-          {t('app.portal.name')}
+        {/* The tenant's welcome text, else its portal name, else ours (WP-017, REQ-PRT-016). */}
+        <Typography.Paragraph
+          style={{ color: 'inherit', marginBottom: 0, fontSize: 16, whiteSpace: 'pre-line' }}
+        >
+          {brandText(branding, 'welcomeText', locale) ??
+            brandText(branding, 'portalName', locale) ??
+            t('app.portal.name')}
         </Typography.Paragraph>
       </section>
       <section aria-labelledby="announcements-heading" data-testid="portal-announcements">

@@ -59,6 +59,9 @@ RESPONSES: dict[int | str, dict[str, object]] = {
 }
 
 
+Gradient = Annotated[list[Annotated[str, Field(max_length=7)]], Field(min_length=2, max_length=2)]
+
+
 class Logos(BaseModel):
     """Public URLs of the generated images (None: the SupportX default is shown)."""
 
@@ -79,7 +82,7 @@ class BrandingOut(BaseModel):
     tenant_slug: str | None = Field(description="None for the default brand (unknown address).")
     customised: bool
     primary_colour: str = Field(description="The seed of every primary shade.")
-    gradient: tuple[str, str]
+    gradient: list[str] = Field(min_length=2, max_length=2)
     product_name: dict[str, str]
     portal_name: dict[str, str]
     welcome_text: dict[str, str]
@@ -91,7 +94,7 @@ class BrandingSettingsOut(BrandingOut):
     """The branding screen: what was chosen (null = default) and the uploads behind the logos."""
 
     chosen_primary_colour: str | None
-    chosen_gradient: tuple[str, str] | None
+    chosen_gradient: list[str] | None
     logo_file_id: uuid.UUID | None
     logo_dark_file_id: uuid.UUID | None
     icon_file_id: uuid.UUID | None
@@ -101,9 +104,7 @@ class BrandingIn(BaseModel):
     """The whole branding; null or empty restores that part's default."""
 
     primary_colour: str | None = Field(default=None, max_length=7)
-    gradient: (
-        tuple[Annotated[str, Field(max_length=7)], Annotated[str, Field(max_length=7)]] | None
-    ) = None
+    gradient: Gradient | None = None
     product_name: dict[str, str] = Field(default_factory=dict, max_length=3)
     portal_name: dict[str, str] = Field(default_factory=dict, max_length=3)
     welcome_text: dict[str, str] = Field(default_factory=dict, max_length=3)
@@ -116,9 +117,7 @@ class ColoursIn(BaseModel):
     """Colours to check before saving (the live preview)."""
 
     primary_colour: str | None = Field(default=None, max_length=7)
-    gradient: (
-        tuple[Annotated[str, Field(max_length=7)], Annotated[str, Field(max_length=7)]] | None
-    ) = None
+    gradient: Gradient | None = None
 
 
 class CheckOut(BaseModel):
@@ -136,7 +135,7 @@ class ColourReportOut(BaseModel):
     passes: bool
     checks: list[CheckOut]
     suggested_primary: str | None
-    suggested_gradient: tuple[str, str] | None
+    suggested_gradient: list[str] | None
 
 
 ASSET_FIELDS = {
@@ -179,7 +178,7 @@ def _out(slug: str | None, view: branding.BrandingView | None) -> BrandingOut:
         tenant_slug=slug,
         customised=view.customised,
         primary_colour=colours.primary,
-        gradient=colours.gradient,
+        gradient=list(colours.gradient),
         product_name=view.product_name,
         portal_name=view.portal_name,
         welcome_text=view.welcome_text,
@@ -192,7 +191,7 @@ def _settings_out(slug: str, view: branding.BrandingView) -> BrandingSettingsOut
     return BrandingSettingsOut(
         **_out(slug, view).model_dump(),
         chosen_primary_colour=view.primary_colour,
-        chosen_gradient=view.gradient,
+        chosen_gradient=list(view.gradient) if view.gradient else None,
         logo_file_id=view.logo_file_id,
         logo_dark_file_id=view.logo_dark_file_id,
         icon_file_id=view.icon_file_id,
@@ -259,7 +258,7 @@ async def put_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         tenant_id=subject.tenant_id,
         changes=branding.BrandingChanges(
             primary_colour=body.primary_colour,
-            gradient=body.gradient,
+            gradient=(body.gradient[0], body.gradient[1]) if body.gradient else None,
             product_name=body.product_name,
             portal_name=body.portal_name,
             welcome_text=body.welcome_text,
@@ -280,7 +279,9 @@ async def check_colours(body: ColoursIn, subject: Manage) -> ColourReportOut:
     """WCAG AA checks for colours being chosen, with the nearest passing ones (no save)."""
     del subject
     primary = branding.normalise_or_none(body.primary_colour)
-    gradient = branding.normalise_pair_or_none(body.gradient)
+    gradient = branding.normalise_pair_or_none(
+        (body.gradient[0], body.gradient[1]) if body.gradient else None
+    )
     report = branding.colour_report(primary, gradient)
     return ColourReportOut(
         passes=report.passes,
@@ -289,7 +290,7 @@ async def check_colours(body: ColoursIn, subject: Manage) -> ColourReportOut:
             for c in report.checks
         ],
         suggested_primary=report.suggested_primary,
-        suggested_gradient=report.suggested_gradient,
+        suggested_gradient=list(report.suggested_gradient) if report.suggested_gradient else None,
     )
 
 

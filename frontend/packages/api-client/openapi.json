@@ -2197,18 +2197,12 @@
           "gradient": {
             "anyOf": [
               {
+                "items": {
+                  "maxLength": 7,
+                  "type": "string"
+                },
                 "maxItems": 2,
                 "minItems": 2,
-                "prefixItems": [
-                  {
-                    "maxLength": 7,
-                    "type": "string"
-                  },
-                  {
-                    "maxLength": 7,
-                    "type": "string"
-                  }
-                ],
                 "type": "array"
               },
               {
@@ -2301,16 +2295,11 @@
             "type": "boolean"
           },
           "gradient": {
+            "items": {
+              "type": "string"
+            },
             "maxItems": 2,
             "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
             "title": "Gradient",
             "type": "array"
           },
@@ -2380,16 +2369,9 @@
           "chosen_gradient": {
             "anyOf": [
               {
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ],
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
               },
               {
@@ -2414,16 +2396,11 @@
             "type": "boolean"
           },
           "gradient": {
+            "items": {
+              "type": "string"
+            },
             "maxItems": 2,
             "minItems": 2,
-            "prefixItems": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "string"
-              }
-            ],
             "title": "Gradient",
             "type": "array"
           },
@@ -2668,16 +2645,9 @@
           "suggested_gradient": {
             "anyOf": [
               {
-                "maxItems": 2,
-                "minItems": 2,
-                "prefixItems": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "string"
-                  }
-                ],
+                "items": {
+                  "type": "string"
+                },
                 "type": "array"
               },
               {
@@ -2713,18 +2683,12 @@
           "gradient": {
             "anyOf": [
               {
+                "items": {
+                  "maxLength": 7,
+                  "type": "string"
+                },
                 "maxItems": 2,
                 "minItems": 2,
-                "prefixItems": [
-                  {
-                    "maxLength": 7,
-                    "type": "string"
-                  },
-                  {
-                    "maxLength": 7,
-                    "type": "string"
-                  }
-                ],
                 "type": "array"
               },
               {

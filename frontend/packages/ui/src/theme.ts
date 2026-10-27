@@ -20,7 +20,15 @@ export interface Branding {
   gradient: readonly [string, string];
   /** Logo files; the product name is shown when a variant is missing. */
   logos: BrandLogos;
+  /** Tab icon and home-screen icon URLs (WP-017); the SupportX files when absent. */
+  favicon?: string;
+  appleTouchIcon?: string;
+  /** Tenant texts per language (English is the fallback); the labels' defaults when absent. */
+  texts?: BrandTexts;
 }
+
+export type BrandTextKey = 'productName' | 'portalName' | 'welcomeText';
+export type BrandTexts = Partial<Record<BrandTextKey, Partial<Record<Locale, string>>>>;
 
 /**
  * The SupportX brand: primary #7e40d1 (the logo gradient's midpoint; white text 5.93:1), gradient

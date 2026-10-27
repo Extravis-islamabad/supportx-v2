@@ -22,5 +22,7 @@ export {
   DEFAULT_BRANDING,
   THEME_MODES,
   type Branding,
+  type BrandTextKey,
+  type BrandTexts,
   type ThemeMode,
 } from './theme';

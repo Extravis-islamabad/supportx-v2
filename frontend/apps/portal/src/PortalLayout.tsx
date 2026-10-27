@@ -7,9 +7,11 @@ import {
   AnnouncementBanners,
   AppHeader,
   BrandLogo,
+  brandText,
   ConnectivityBanner,
   LicenceBanners,
   reportError,
+  useAppearance,
   useLabel,
   useLicence,
 } from '@supportx/ui';
@@ -23,6 +25,7 @@ const NAV: { path: string; labelKey: LabelKey }[] = [
 /** Portal frame: one header with a simple top navigation; no sidebar, no command palette. */
 export function PortalLayout() {
   const t = useLabel();
+  const { branding, locale } = useAppearance();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const session = useSession().data;
@@ -38,8 +41,8 @@ export function PortalLayout() {
         start={
           <Flex align="center" gap={12} style={{ flex: 1, minWidth: 0 }}>
             <BrandLogo height={28} />
-            <Typography.Text type="secondary" ellipsis>
-              {t('app.portal.name')}
+            <Typography.Text type="secondary" ellipsis data-testid="portal-name">
+              {brandText(branding, 'portalName', locale) ?? t('app.portal.name')}
             </Typography.Text>
           </Flex>
         }
