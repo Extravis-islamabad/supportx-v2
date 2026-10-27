@@ -11,6 +11,8 @@ import {
   ErrorBoundary,
   ErrorReporterProvider,
   LicenceProvider,
+  PASSWORD_RESET_PATH,
+  PasswordResetPage,
   SessionGate,
   TenantBranding,
   type SessionGateProps,
@@ -38,6 +40,9 @@ export function App({ navigate }: AppProps) {
               // The SSO test's landing page needs no session: the test may run in a private
               // window, signed in as nobody (WP-039).
               <SsoTestDonePage />
+            ) : window.location.pathname === PASSWORD_RESET_PATH ? (
+              // "Forgot password?" is for people who cannot sign in (WP-039 session 2).
+              <PasswordResetPage app="console" />
             ) : (
               <SessionGate app="console" navigate={navigate}>
                 {(session) => (

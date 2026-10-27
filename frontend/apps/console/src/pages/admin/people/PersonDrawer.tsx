@@ -44,6 +44,7 @@ import {
   useLabel,
 } from '@supportx/ui';
 
+import { PersonSignInActions } from '../security/PersonSignInActions';
 import { UserAccessPanel } from '../UserAccessDrawer';
 import { roleName } from '../roleName';
 import { personFieldKey } from './fields';
@@ -575,6 +576,7 @@ function PersonStatus({ user }: { user: UserDetail }) {
           }}
         />
       </Flex>
+      <PersonSignInActions user={user} />
       {user.status === 'active' ? (
         <Popconfirm
           title={t('people.deactivate.confirm', { name: user.display_name })}

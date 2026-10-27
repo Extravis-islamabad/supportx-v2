@@ -168,8 +168,9 @@ export function useApplyPasswordPolicy() {
 // --- invitations (REQ-SEC-018..020; users.manage) ----------------------------------------------
 
 /** The tenant's newest invitations, or one person's (`userId`). */
-export function useInvitations(userId?: string) {
+export function useInvitations(userId?: string, enabled = true) {
   return useQuery({
+    enabled,
     queryKey:
       userId === undefined
         ? queryKeys.identity.invitations
