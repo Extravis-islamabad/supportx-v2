@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { SEEDED } from '../stack';
-import { expectAccessible, goToSection, navItems, signIn, signInAs } from './helpers';
+import { expectAccessible, goToSection, navItems, settledBox, signIn, signInAs } from './helpers';
 
 const SECTIONS = [
   'Service requests',
@@ -75,7 +75,7 @@ test('RTL: the Arabic user gets Arabic labels right-to-left', async ({ page }) =
   const home = nav.getByText('الرئيسية', { exact: true }).filter({ visible: true });
   await expect(home).toBeVisible();
   // The top bar starts on the right in RTL (the side bar layouts: see layouts.spec.ts).
-  const box = await home.boundingBox();
+  const box = await settledBox(home);
   const width = page.viewportSize()?.width ?? 0;
   expect(box?.x ?? 0).toBeGreaterThan(width / 2);
   await expectAccessible(page, 'home (Arabic, RTL)');

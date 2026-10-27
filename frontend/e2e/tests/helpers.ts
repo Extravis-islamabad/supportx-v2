@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, type Page } from '@playwright/test';
+import { expect, type Locator, type Page } from '@playwright/test';
 
 import { passwordOf, USERS, type E2eUser } from '../stack';
 
@@ -153,4 +153,37 @@ export async function goToSection(page: Page, label: string): Promise<void> {
     .filter({ visible: true })
     .first()
     .click();
+}
+
+/**
+ * Wait until the web fonts have loaded and two frames have painted. Layout measured earlier
+ * can be a few pixels off: a fallback font has other metrics (a 3.4 px miss on CI, #80).
+ */
+export async function settledLayout(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          resolve();
+        });
+      });
+    });
+  });
+}
+
+/** A box measured once fonts are in and it stopped moving (the same twice in a row). */
+export async function settledBox(
+  locator: Locator,
+): Promise<Awaited<ReturnType<Locator['boundingBox']>>> {
+  const page = locator.page();
+  await settledLayout(page);
+  let previous = await locator.boundingBox();
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    await page.waitForTimeout(50);
+    const next = await locator.boundingBox();
+    if (JSON.stringify(next) === JSON.stringify(previous)) return next;
+    previous = next;
+  }
+  return previous;
 }

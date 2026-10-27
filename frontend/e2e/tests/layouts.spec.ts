@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { expectAccessible, goToSection, mainNav, navItems, signInAs } from './helpers';
+import { expectAccessible, goToSection, mainNav, navItems, settledBox, signInAs } from './helpers';
 
 /**
  * Navigation layouts (WP-011): top bar (default), side bar, compact side bar. The choice is a
@@ -85,12 +85,12 @@ test('three layouts: same menus, persisted server-side, live on another session,
     });
     await expect(a.locator('html')).toHaveAttribute('dir', 'rtl');
     const width = a.viewportSize()?.width ?? 0;
-    const sider = await a.locator('.ant-layout-sider').boundingBox();
+    const sider = await settledBox(a.locator('.ant-layout-sider'));
     expect(sider?.x ?? 0).toBeGreaterThan(width / 2);
     await expectAccessible(a, 'compact side bar, Arabic');
     await chooseLayout(a, 'شريط علوي');
     await expect(a.getByTestId('nav-top')).toBeVisible();
-    const first = await mainNav(a).locator('li[role="menuitem"]').first().boundingBox();
+    const first = await settledBox(mainNav(a).locator('li[role="menuitem"]').first());
     expect(first?.x ?? 0).toBeGreaterThan(width / 2);
     await expectAccessible(a, 'top bar, Arabic');
     await a.screenshot({ path: 'test-results/layout-top-ar.png' });
