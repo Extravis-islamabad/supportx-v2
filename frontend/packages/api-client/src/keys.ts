@@ -86,6 +86,16 @@ export const queryKeys = {
     usage: ['files', 'usage'] as const,
     status: ['files', 'status'] as const,
   },
+  automation: {
+    all: ['automation'] as const,
+    fields: (recordType: string) => ['automation', 'fields', recordType] as const,
+    rules: (recordType: string) => ['automation', 'rules', recordType] as const,
+    routing: (recordType: string) => ['automation', 'routing', recordType] as const,
+    routingSettings: (recordType: string) =>
+      ['automation', 'routing-settings', recordType] as const,
+    assignment: (groupId: string) => ['automation', 'assignment', groupId] as const,
+    availability: (userIds: string[]) => ['automation', 'availability', ...userIds] as const,
+  },
   organization: {
     all: ['organization'] as const,
     list: (kind: string) => ['organization', kind] as const,

@@ -21,8 +21,10 @@ from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
 from app.modules.work_items.service.access import permissions
+from app.modules.work_items.service.automation import register_types
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
+from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.usage import register_record_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 
@@ -30,14 +32,17 @@ from app.shared.files.ports import register_owner_access, unregister_owner_acces
 async def _startup(app: FastAPI) -> None:
     del app
     register_owner_access(FILE_ACCESS)
+    register_sources()
 
 
 async def _shutdown(app: FastAPI) -> None:
     del app
     unregister_owner_access(FILE_ACCESS.owner_types)
+    unregister_sources()
 
 
 register_record_usage()
+register_types()
 
 module = ModuleSpec(
     name="work_items",

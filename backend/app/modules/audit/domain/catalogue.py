@@ -93,6 +93,18 @@ ACTIONS: dict[str, Action] = _actions(
     ("user.role_assigned", AuditCategory.ACCESS, "identity_access"),
     ("user.role_removed", AuditCategory.ACCESS, "identity_access"),
     ("user.preferences_changed", AuditCategory.ACCESS, "identity_access"),
+    # automation (WP-029)
+    ("automation.rule_created", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.rule_changed", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.rule_deleted", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.rules_reordered", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.routing_created", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.routing_changed", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.routing_deleted", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.routing_reordered", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.routing_settings_changed", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.assignment_changed", AuditCategory.CONFIGURATION, "automation"),
+    ("automation.availability_changed", AuditCategory.ACCESS, "automation"),
     # people (WP-021)
     ("user.created", AuditCategory.ACCESS, "identity_access"),
     ("user.changed", AuditCategory.ACCESS, "identity_access"),

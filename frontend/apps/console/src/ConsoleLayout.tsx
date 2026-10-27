@@ -29,6 +29,7 @@ import {
 } from '@supportx/ui';
 import { useTenantChannel } from '@supportx/realtime';
 
+import { AvailabilitySwitch } from './AvailabilitySwitch';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
 import { FilesBanner } from './pages/admin/files/FilesBanner';
@@ -62,6 +63,11 @@ export function ConsoleLayout() {
     if (event.type === 'organization.structure_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.organization.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
+      return;
+    }
+    // Rules, routing, auto-assignment or someone's availability changed (WP-029).
+    if (event.type === 'automation.changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.automation.all });
       return;
     }
     if (event.type === 'metadata.custom_fields_changed') {
@@ -146,6 +152,11 @@ export function ConsoleLayout() {
           onLogout={() => void logout()}
           onProfile={() => void navigate('/profile')}
           onOpenPalette={openPalette}
+          extra={
+            session.user.user_type === 'technician' && licence.has('incident') ? (
+              <AvailabilitySwitch userId={session.user.id} />
+            ) : undefined
+          }
           switchingTenant={switchTenant.isPending}
           onSwitchTenant={(tenantId) => {
             switchTenant.mutate(tenantId, {

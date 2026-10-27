@@ -26,6 +26,7 @@ from app.modules.metadata.service.custom_fields import (
     filter_fields,
     mark_used,
     problem_params,
+    register_field_usage,
     text_for_search,
 )
 from app.modules.metadata.service.realtime import ROUTES
@@ -51,5 +52,6 @@ __all__ = [
     "mark_used",
     "module",
     "problem_params",
+    "register_field_usage",
     "text_for_search",
 ]

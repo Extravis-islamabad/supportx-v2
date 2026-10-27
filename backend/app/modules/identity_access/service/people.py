@@ -85,6 +85,8 @@ class Placement:
 
     site_id: uuid.UUID | None
     department_id: uuid.UUID | None
+    # Business rules may test it (WP-029, REQ-RUL-002: requester attributes).
+    vip: bool = False
 
 
 @dataclass(frozen=True)
@@ -492,14 +494,16 @@ async def person_placement(session: AsyncSession, user_id: uuid.UUID | None) -> 
     if user_id is None:
         return Placement(None, None)
     row = (
-        await session.execute(select(User.site_id, User.department_id).where(User.id == user_id))
+        await session.execute(
+            select(User.site_id, User.department_id, User.vip).where(User.id == user_id)
+        )
     ).one_or_none()
     if row is None:
         return Placement(None, None)
     site_id = row.site_id
     if site_id is None and row.department_id is not None:
         site_id = await department_site(session, row.department_id)
-    return Placement(site_id, row.department_id)
+    return Placement(site_id, row.department_id, row.vip)
 
 
 async def _people_using(column: Any, session: AsyncSession, unit_id: uuid.UUID) -> int:  # noqa: ANN401 - a User column

@@ -128,6 +128,13 @@ FIELDS = ResourceFields(
         "resolution_due_at": FilterField(
             WorkItem.resolution_due_at, FieldType.DATETIME, sortable=True, simple=False
         ),
+        # Reporting needs these too (WP-035, D-100 D9); they filter the list just the same.
+        "first_responded_at": FilterField(
+            WorkItem.first_responded_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
+        "paused_seconds": FilterField(WorkItem.paused_seconds, FieldType.INTEGER),
+        "department_id": FilterField(WorkItem.department_id, FieldType.UUID),
+        "desk_id": FilterField(WorkItem.desk_id, FieldType.UUID),
     },
     id_column=WorkItem.id,
     default_sort=("-updated_at",),

@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata
+from app.modules.automation import RuleEvent, log_trace
 from app.modules.identity_access import (
     Subject,
     authorize_stored,
@@ -90,8 +91,8 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
 )
+from app.modules.work_items.service import automation, followers, templates
 from app.modules.work_items.service import catalogue as config
-from app.modules.work_items.service import followers, templates
 from app.modules.work_items.service.access import RESOURCE
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
@@ -110,6 +111,7 @@ from app.shared.history import (
     history_entries,
     record_changes,
 )
+from app.shared.ids import new_id
 from app.shared.richtext import is_blank, sanitize_html
 
 RECORD_TYPE = followers.RECORD_TYPE
@@ -1087,6 +1089,138 @@ def _closed(record: WorkItem) -> bool:
 
 # --- create ---------------------------------------------------------------------------------------
 
+# What business rules see of a new record's input (with group, technician, priority and custom
+# fields added by the caller), and which of those are IDs.
+RULE_INPUTS = (
+    "subject",
+    "description",
+    "requester_id",
+    "on_behalf_of_id",
+    "site_id",
+    "department_id",
+    "category_id",
+    "impact",
+    "urgency",
+    "level",
+    "tags",
+)
+_REFERENCE_INPUTS = frozenset(
+    {"requester_id", "on_behalf_of_id", "site_id", "department_id", "category_id"}
+)
+
+
+def _first_priority(
+    cat: Catalogue, cleaned: Mapping[str, Any], manual: str | None, rules: Mapping[str, Any]
+) -> tuple[str, PrioritySource]:
+    """A rule's priority, else the person's (with a reason), else the matrix (REQ-RUL-006)."""
+    if "priority" in rules:
+        return rules["priority"], PrioritySource.RULE
+    if manual is not None:
+        return manual, PrioritySource.MANUAL
+    computed = compute_priority(
+        cleaned.get("impact"), cleaned.get("urgency"), cat.matrix, cat.default_priority
+    )
+    return computed.priority, computed.source
+
+
+def _apply_automated(
+    values: Mapping[str, Any],
+    cleaned: dict[str, Any],
+    custom: dict[str, Any] | None,
+    group_id: uuid.UUID | None,
+    technician_id: uuid.UUID | None,
+) -> tuple[dict[str, Any] | None, uuid.UUID | None, uuid.UUID | None]:
+    """Automated snapshot values back into a new record's typed inputs (priority aside)."""
+    for name, value in values.items():
+        if name.startswith("custom."):
+            custom = {**(custom or {}), name.removeprefix("custom."): value}
+        elif name == "group_id":
+            group_id = uuid.UUID(value) if value else None
+        elif name == "technician_id":
+            technician_id = uuid.UUID(value) if value else None
+        elif name in _REFERENCE_INPUTS:
+            cleaned[name] = uuid.UUID(value) if value else None
+        elif name != "priority":
+            cleaned[name] = value
+    return custom, group_id, technician_id
+
+
+async def _rules_on_edit(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    columns: dict[str, Any],
+    eligible: "automation.EligibleProvider | None" = None,
+) -> "automation.Automated":
+    """Run the rules on an edit and fold their values into `columns` (typed, custom merged).
+
+    With `eligible`, a move to another group without a technician is auto-assigned inside
+    that group afterwards (REQ-ASG-001 "on move"), never outside it.
+    """
+    facts = await automation.requester_facts(session, record.requester_id)
+    before = {**_snapshot(record), **automation.flat_custom(record.custom), **facts}
+    edited = {
+        name: _json(value)
+        for name, value in columns.items()
+        if name not in {"custom", "custom_text"}
+    }
+    if "custom" in columns:
+        current_custom = automation.flat_custom(record.custom)
+        edited |= dict.fromkeys(current_custom)
+        edited |= automation.flat_custom(columns["custom"])
+    automated = await automation.automate(
+        session,
+        wtype,
+        event=RuleEvent.UPDATE,
+        record_id=record.id,
+        before=before,
+        after={**before, **edited},
+        eligible=eligible,
+        route=False,
+        assign_moment="move" if eligible is not None else None,
+    )
+    custom_changes: dict[str, Any] = {}
+    for name, value in automated.values.items():
+        if name.startswith("custom."):
+            custom_changes[name.removeprefix("custom.")] = value
+        elif name in _REFERENCE_INPUTS or name in {"group_id", "technician_id"}:
+            columns[name] = uuid.UUID(value) if value else None
+        else:
+            columns[name] = value
+    if "priority" in automated.values:
+        columns["priority_source"] = PrioritySource.RULE
+    if custom_changes:
+        merged = {**(columns.get("custom", record.custom) or {}), **custom_changes}
+        columns["custom"] = {k: v for k, v in merged.items() if v is not None}
+        columns["custom_text"] = await _custom_text(session, wtype, columns["custom"])
+    return automated
+
+
+async def _eligible(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, holders: PermissionHolders
+) -> list[uuid.UUID]:
+    """Who may work the type (auto-assignment then keeps the group's members only)."""
+    found = await holders.holders(session, subject.tenant_id, wtype.permission("edit"), limit=500)
+    return [user_id for user_id, _name in found]
+
+
+async def _record_automation(
+    session: AsyncSession, record: WorkItem, automated: automation.Automated
+) -> None:
+    """One history entry per rule, routing and assignment step, and the run log (REQ-WI-004)."""
+    for ref, changes in automated.entries:
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=record.id,
+            version=record.version,
+            kind="updated",
+            changes=[Change(name, old, new) for name, old, new in changes],
+            source="rule",
+            automation_ref=ref,
+        )
+    await log_trace(session, record.type, record.id, automated.trace)
+
 
 async def _place(session: AsyncSession, cleaned: dict[str, Any]) -> None:
     """Site and department from the requester unless sent (REQ-INC-016 AC1, WP-021).
@@ -1149,18 +1283,43 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     if problems:
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
-    if manual is not None:
-        priority, priority_source = manual, PrioritySource.MANUAL
-    else:
-        computed = compute_priority(
-            cleaned.get("impact"), cleaned.get("urgency"), cat.matrix, cat.default_priority
-        )
-        priority, priority_source = computed.priority, computed.source
     initial = next(s.code for s in cat.statuses if not s.system and not s.disabled)
-    now = _now()
     channel = cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
+    # Automation in the documented order (REQ-RUL-006): business rules, the matrix, routing and
+    # auto-assignment. What the person entered stays their history; each automated change is
+    # its own entry naming the rule, the routing reason or the assignment method.
+    record_id = new_id()
+    entered = {
+        **{name: _json(cleaned.get(name)) for name in RULE_INPUTS},
+        "group_id": _json(group_id),
+        "technician_id": _json(technician_id),
+        "priority": manual,
+        "channel": channel,
+        "status": initial,
+        "status_category": cat.lifecycle.category(initial),
+        "template_id": str(template.id),
+        **automation.flat_custom(custom),
+        **await automation.requester_facts(session, cleaned["requester_id"]),
+    }
+    automated = await automation.automate(
+        session,
+        wtype,
+        event=RuleEvent.CREATE,
+        record_id=record_id,
+        before=None,
+        after=entered,
+        eligible=lambda: _eligible(session, subject, wtype, holders),
+        route=True,
+        assign_moment="create",
+    )
+    custom, group_id, technician_id = _apply_automated(
+        automated.values, cleaned, custom, group_id, technician_id
+    )
+    priority, priority_source = _first_priority(cat, cleaned, manual, automated.values)
+    now = _now()
     number = await next_display_number(session, wtype.counter_key)
     record = WorkItem(
+        id=record_id,
         type=wtype.code,
         display_number=number,
         display_id=f"{cat.prefix}-{number}",
@@ -1206,6 +1365,11 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     )
     handed_over = reach == LOST
     after = _snapshot(record)
+    # The person's entry holds what they entered; automated values are named in their own entries.
+    by_person = {
+        name: (entered.get(name) if name in automated.values else value)
+        for name, value in after.items()
+    }
     await record_changes(
         session,
         record_type=RECORD_TYPE,
@@ -1213,11 +1377,14 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         version=record.version,
         kind="created",
         changes=[
-            Change(name, None, value) for name, value in after.items() if value not in (None, [])
+            Change(name, None, value)
+            for name, value in by_person.items()
+            if value not in (None, [])
         ],
         source=source,
         reason=priority_reason,
     )
+    await _record_automation(session, record, automated)
     await record_event(
         session,
         WorkItemCreated(
@@ -1317,12 +1484,18 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     if custom is not None and custom != (record.custom or {}):
         columns["custom"] = custom
         columns["custom_text"] = await _custom_text(session, wtype, custom)
+    automated = automation.Automated()
+    if columns:
+        # Business rules on the edit (REQ-RUL-001, 006), before the priority matrix.
+        automated = await _rules_on_edit(session, wtype, record, columns)
     impact = columns.get("impact", record.impact)
     urgency = columns.get("urgency", record.urgency)
     recomputed = False
     if priority_sent and manual is not None:
         if manual != record.priority or record.priority_source != PrioritySource.MANUAL:
             columns |= {"priority": manual, "priority_source": PrioritySource.MANUAL}
+    elif "priority" in automated.values:
+        pass  # a rule set it (REQ-RUL-006: rules before the matrix)
     elif priority_sent or (
         record.priority_source != PrioritySource.MANUAL and ({"impact", "urgency"} & set(columns))
     ):
@@ -1353,8 +1526,13 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
     after |= {name: None for name in before if name not in after}
     before |= {name: None for name in after if name not in before}
     automatic = {"priority", "priority_source"} if recomputed else set()
+    by_rules = set(automated.values) | (
+        {"priority_source"} if "priority" in automated.values else set()
+    )
     people = [
-        Change(n, before[n], v) for n, v in after.items() if before[n] != v and n not in automatic
+        Change(n, before[n], v)
+        for n, v in after.items()
+        if before[n] != v and n not in automatic and n not in by_rules
     ]
     if people:
         await record_changes(
@@ -1380,6 +1558,7 @@ async def update(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one record, one ver
             source=source,
             automation_ref={"kind": "matrix"},
         )
+    await _record_automation(session, updated, automated)
     await record_event(
         session,
         WorkItemUpdated(
@@ -1476,10 +1655,14 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     changes = await _status_change(
         session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
     )
+    # Rules see a status move as an edit ("status changed to Resolved", REQ-RUL-001); they
+    # cannot set the status themselves, so the life cycle stays in charge.
+    automated = await _rules_on_edit(session, wtype, record, changes)
     updated = await _update(session, record, expected_version, changes)
     await _record_status(
         session, before, updated, action, source=source, reason=text, automatic=False
     )
+    await _record_automation(session, updated, automated)
     return await _view(session, subject, wtype, updated)
 
 
@@ -1537,6 +1720,19 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     had_technician = record.technician_id is not None
     was_assigned = record.group_id is not None or had_technician
     columns: dict[str, Any] = {"group_id": group_id, "technician_id": technician_id}
+    # Rules see the assignment as an edit; a move to a new group with nobody named may then
+    # be auto-assigned inside that group (REQ-RUL-001, REQ-ASG-001).
+    moved_to = group_id if group_id is not None and group_id != record.group_id else None
+    automated = await _rules_on_edit(
+        session,
+        wtype,
+        record,
+        columns,
+        eligible=(lambda: _eligible(session, subject, wtype, holders))
+        if moved_to is not None and technician_id is None
+        else None,
+    )
+    technician_id = columns["technician_id"]
     if technician_id is not None and record.first_assigned_at is None:
         columns["first_assigned_at"] = _now()
     if was_assigned:
@@ -1554,7 +1750,9 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
     )
     handed_over = reach == LOST
     after = _snapshot(updated, ("group_id", "technician_id", "reassignment_count"))
-    changes = [Change(n, before[n], v) for n, v in after.items() if before[n] != v]
+    # What the rules or auto-assignment set has its own entries, with the rule named.
+    chosen = {n: v for n, v in after.items() if n not in automated.values}
+    changes = [Change(n, before[n], v) for n, v in chosen.items() if before[n] != v]
     if reason_code is not None:
         changes.append(Change("assignment_reason", None, reason_code))
     if handed_over:
@@ -1569,6 +1767,7 @@ async def _assign(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one assignment, ev
         source=source,
         reason=text,
     )
+    await _record_automation(session, updated, automated)
     await record_event(
         session,
         WorkItemAssigned(

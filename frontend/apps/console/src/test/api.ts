@@ -47,6 +47,8 @@ export function consoleApi({
       },
     },
     'GET /api/v1/organization/branding': { body: fakeBranding() },
+    // Availability switch in the header (WP-029): available unless a test says otherwise.
+    'GET /api/v1/automation/availability': { body: [] },
     ...routes,
   });
 }
