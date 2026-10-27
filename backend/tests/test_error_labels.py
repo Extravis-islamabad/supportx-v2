@@ -4,6 +4,8 @@ The UI shows `message_key` through the labels package; a code without a label wo
 humanized raw text. Reads the TypeScript resources directly so the check runs in the backend job.
 """
 
+import importlib
+import pkgutil
 import re
 from pathlib import Path
 
@@ -27,7 +29,19 @@ _FIELD_ERROR = re.compile(
 )
 
 
+def _import_application() -> None:
+    """Import every application module, so every error class is known.
+
+    Error classes are found as subclasses, which exist only once their module is imported: with
+    pytest-xdist a worker may not have imported, say, the mail service before this test runs.
+    """
+    for module in pkgutil.walk_packages([str(APP_DIR)], prefix="app."):
+        if ".tests" not in module.name:
+            importlib.import_module(module.name)
+
+
 def error_codes() -> set[str]:
+    _import_application()
     codes = {cls.code for cls in _subclasses(errors.AppError)} | {errors.AppError.code}
     codes |= set(errors._HTTP_STATUS_CODES.values())  # noqa: SLF001 - the mapping is the contract
     for source in APP_DIR.rglob("*.py"):

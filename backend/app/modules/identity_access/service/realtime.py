@@ -49,6 +49,8 @@ ROLES_LIST = LiveList("roles", "roles.view")
 IMPORTS_LIST = LiveList("people_imports", "users.manage")
 # Admin > Sign-in and security (WP-039): the settings and SSO set-ups, for identity managers.
 IDENTITY_LIST = LiveList("identity", "identity.manage")
+# Invitations (WP-039 session 2): the security screen's list and each person's record.
+INVITATIONS_LIST = LiveList("invitations", "users.manage")
 
 # Changes to these user fields change what the user may do: their connections are cut.
 ACCESS_FIELDS = frozenset({"status", "user_type"})
@@ -88,6 +90,7 @@ CHANNELS = [
     ROLES_LIST.spec(),
     IMPORTS_LIST.spec(),
     IDENTITY_LIST.spec(),
+    INVITATIONS_LIST.spec(),
 ]
 
 
@@ -239,6 +242,19 @@ async def _identity_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     )
 
 
+async def _invitation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """An invitation was sent, resent, accepted or withdrawn: people managers' screens refetch."""
+    del session
+    return RealtimeEffects(
+        publications=INVITATIONS_LIST.publications(
+            envelope.tenant_id,
+            "invitations.changed",
+            uuid.UUID(str(envelope.aggregate_id)),
+            actor_id=_actor(envelope),
+        )
+    )
+
+
 async def _plan_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """The tenant's plan changed: permissions depend on features, so everyone rejoins.
 
@@ -272,4 +288,5 @@ ROUTES = [
         ("identity_access.identity_settings.changed", "identity_access.sso_provider.changed"),
         _identity_changed,
     ),
+    RealtimeRoute(("identity_access.invitation.changed",), _invitation_changed),
 ]
