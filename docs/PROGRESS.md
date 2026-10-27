@@ -587,7 +587,19 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   - [ ] REQ-SEC-005 AC2's "try again at" lock-out message: session 3.
 - [ ] Session 3 — MFA (SEC-022, 024, 025 with recovery codes), my account (SEC-028), idle
   warning and kept drafts (SEC-029 UI), the "everything through SupportX" e2e (SEC-017),
-  Security administrator role (D7).
+  Security administrator role (D7). Built on `feat/wp-039-session3` (D-104); waiting for: the
+  e2e `sign-in-security.spec.ts` on the shared stack (QA lock), PR.
+  - [x] lock-out: 15 minutes growing to an hour (LINEAR; Keycloak cannot double, measured), one
+    message for every failed sign-in (en/ar/ur; a locked account reads like an unknown one);
+  - [x] MFA policy per role (Appendix A defaults), counts, grace period; enforcement at sign-in
+    and hourly; recovery codes offered at sign-in; admin reset (never one's own, audited, the
+    person e-mailed); Security administrator role;
+  - [x] My account (console My profile, portal My account): password, MFA set-up, recovery codes
+    on Keycloak's pages with the current password asked; recent sign-ins; MFA reminder banner;
+  - [x] idle warning 2 minutes ahead, sign-out at the limit; kept input in New incident (PR #87,
+    agreed and reviewed with lane A; the record page and composer are lane A's);
+  - [x] proved on Keycloak 26.8.1: TOTP enrolment from a link, wrong and old codes refused,
+    recovery codes once each, credentials read and removed through the admin API.
 - **Domain proof (D-098):** multi-tenant installations refuse SSO routing for unverified domains
   (guard built); the DNS TXT proof itself is WP-014d's. Session 2 also fixes the audit-integrity
   banner's axe failure (failing test first). OIDC is checked
@@ -853,6 +865,16 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-039 session 3: lock-out, MFA, my account, idle warning (lane B)
+
+- Built on `feat/wp-039-session3`: see the WP-039 checklist; decision D-104 (pending review).
+- Also merged today: #82 `subject_for` (lane C's workers decide like the API), #85 and #86 (the
+  timing-test rule: 10x the target in PRs, the target in the nightly perf.yml), #87 kept drafts.
+- Tests: identity, auth and access DB 97; console 217, ui 81, portal 7, forms 12. The e2e
+  `sign-in-security.spec.ts` waits for the QA lock (lane A holds it).
+- Outside scope, recorded: the record page's in-place edits and the composer keep no draft yet
+  (lane A, WP-020d/e); REQ-SEC-030 (active sessions list) and REQ-SEC-027 (step-up) are V1.
 
 ### 2026-10-28 — Backend CI in parallel shards, PR #76 (lane B; product owner priority)
 
