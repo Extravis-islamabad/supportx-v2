@@ -30,9 +30,13 @@ async function call(page: Page, method: string, path: string, body?: unknown, ve
   return page.request.fetch(`/api/v1${path}`, { method, data: body, headers });
 }
 
+/** Choose an option in an Ant Design select, by its exact text in the list that is open. */
 async function pick(page: Page, testId: string, option: string | RegExp) {
   await page.getByTestId(testId).click();
-  await page.locator('.ant-select-dropdown:visible').getByText(option).first().click();
+  const text = typeof option === 'string' ? new RegExp(`^${option}$`) : option;
+  const list = page.locator('.ant-select-dropdown:not(.ant-select-dropdown-hidden)').last();
+  await list.locator('.ant-select-item-option-content', { hasText: text }).first().click();
+  await expect(list).toBeHidden();
 }
 
 const created: string[] = [];
@@ -94,7 +98,7 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
       await pick(form, 'inc-template', templateName);
     }).toPass(LIVE);
     await form.getByTestId('inc-subject').fill(subject);
-    await pick(form, 'inc-requester', /^Adel E2E Admin$/);
+    await pick(form, 'inc-requester', /Adel E2E Admin/);
     await form.getByTestId('inc-save').click();
     await expect(form.getByTestId(`error-custom-${key}`)).toHaveText('This field is required.');
     await pick(form, `inc-custom-${key}`, 'First');
