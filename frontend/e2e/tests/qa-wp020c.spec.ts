@@ -19,6 +19,7 @@ const ADMIN_SCREENS = [
   '/admin/files',
   '/admin/incidents/general',
   '/admin/incidents/templates',
+  '/admin/incidents/custom-fields',
   '/admin/incidents/statuses',
   '/admin/incidents/reasons',
   '/admin/incidents/priority',

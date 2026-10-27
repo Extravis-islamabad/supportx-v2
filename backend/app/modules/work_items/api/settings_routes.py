@@ -24,10 +24,13 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain.classification import Impact, Priority, Scale, Urgency
 from app.modules.work_items.domain.lifecycle import ReasonMode, WorkItemAction
 from app.modules.work_items.domain.templates import (
+    CUSTOM_PREFIX,
     TEMPLATE_DESCRIPTION_MAX,
     TEMPLATE_GROUP_MAX,
+    FieldRule,
     PickList,
     TemplateField,
+    is_custom,
     rules_from_json,
 )
 from app.modules.work_items.domain.types import WorkItemType
@@ -130,6 +133,16 @@ class FieldRuleIO(BaseModel):
     requester_can_see: bool = Field(default=True, description="For the portal (WP-028).")
     requester_can_fill: bool = Field(default=False, description="For the portal (WP-028).")
 
+    @classmethod
+    def of(cls, rule: FieldRule) -> "FieldRuleIO":
+        """From the domain rule."""
+        return cls(
+            shown=rule.shown,
+            required=rule.required,
+            requester_can_see=rule.requester_can_see,
+            requester_can_fill=rule.requester_can_fill,
+        )
+
 
 class TemplateOut(BaseModel):
     """A template as admins and the create form see it."""
@@ -144,12 +157,16 @@ class TemplateOut(BaseModel):
     disabled: bool
     copied_from_id: uuid.UUID | None = Field(description="Set on copies (REQ-INC-035 AC3).")
     fields: dict[TemplateField, FieldRuleIO]
+    custom_fields: dict[str, FieldRuleIO] = Field(
+        description="Custom field rules by key (WP-026); sent as `fields['custom.<key>']`."
+    )
     defaults: dict[str, Any] = Field(description="Starting values by field.")
     version: int
 
     @classmethod
     def of(cls, row: WorkItemTemplate) -> "TemplateOut":
         """From a row."""
+        rules = rules_from_json(row.field_rules)
         return cls(
             id=row.id,
             code=row.code,
@@ -161,13 +178,14 @@ class TemplateOut(BaseModel):
             disabled=row.disabled_at is not None,
             copied_from_id=row.copied_from_id,
             fields={
-                TemplateField(name): FieldRuleIO(
-                    shown=rule.shown,
-                    required=rule.required,
-                    requester_can_see=rule.requester_can_see,
-                    requester_can_fill=rule.requester_can_fill,
-                )
-                for name, rule in rules_from_json(row.field_rules).items()
+                TemplateField(name): FieldRuleIO.of(rule)
+                for name, rule in rules.items()
+                if not is_custom(name)
+            },
+            custom_fields={
+                name.removeprefix(CUSTOM_PREFIX): FieldRuleIO.of(rule)
+                for name, rule in rules.items()
+                if is_custom(name)
             },
             defaults=dict(row.defaults),
             version=row.version,

@@ -89,6 +89,8 @@ jobs:
           (cd backend && nohup uv run python -m workers.consumers > ../consumers.log 2>&1 &)
           # Live screens (WP-011): domain events → Centrifugo through the fan-out worker.
           (cd backend && nohup uv run python -m workers.realtime_fanout > ../fanout.log 2>&1 &)
+          # Custom field indexes on request (D-088): the index worker, as the migrator role.
+          (cd backend && nohup uv run python -m workers.custom_field_indexes > ../indexes.log 2>&1 &)
           (cd frontend && nohup pnpm --filter @supportx/console dev > ../console.log 2>&1 &)
           # The portal (WP-012: requesters' announcements and banners) on its own port.
           (cd frontend && nohup pnpm --filter @supportx/portal dev > ../portal.log 2>&1 &)
@@ -108,7 +110,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           make dev-ps
-          tail -n 200 api.log relay.log consumers.log fanout.log console.log portal.log || true
+          tail -n 200 api.log relay.log consumers.log fanout.log indexes.log console.log portal.log || true
           # Warnings and errors from the whole run (the tails above only show its end).
           grep -hE '\[(warning|error) ' api.log consumers.log relay.log | tail -n 100 || true
           docker compose --project-directory deploy/compose -f deploy/compose/docker-compose.yml \

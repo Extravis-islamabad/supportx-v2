@@ -9,6 +9,7 @@ make backend-dev                                  # API (terminal 1)
 make worker-relay                                 # event relay (terminal 2)
 make worker-consumers                             # event consumers (terminal 3)
 make worker-fanout                                # live updates (terminal 3b)
+make worker-indexes                               # custom field indexes (terminal 3c, D-088)
 cd frontend && pnpm --filter @supportx/console dev  # console (terminal 4)
 make e2e
 ```
@@ -25,6 +26,7 @@ make e2e
 | `realtime-security.spec.ts` | raw WebSocket attacks: forged / expired tokens, foreign channels, API refusals; a role change cuts the connection in under a second                                                                                                                                                                                             |
 | `layouts.spec.ts`           | top bar / side bar / compact side bar: same menus, stored server-side (reload, second session live), axe in light/dark/high contrast and Arabic                                                                                                                                                                                 |
 | `incident-settings.spec.ts` | WP-020c: a level added by an admin appears live on a technician's open form; an admin-built template (required impact details, hidden tags, urgency starting value) is used by a technician and named on the record; switching templates asks before clearing; settings screens and the form pass axe in light, dark and Arabic |
+| `custom-fields.spec.ts`     | WP-026: a custom pick list added by an admin reaches an open form live; required by a template; filled, edited in place and filtered; indexed by the index worker; removed after a confirmation that recommends Retire, keeping its history                                                                                     |
 
 **Measurements (on demand, not in CI):** `pnpm --filter @supportx/e2e perf:latency` (200 saves,
 commit → other browser, p50/p95/p99) and `pnpm --filter @supportx/e2e perf:load [2000] [200]`

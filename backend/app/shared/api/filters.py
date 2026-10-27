@@ -26,11 +26,13 @@ import uuid
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Any, NoReturn
 
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import ColumnElement, and_, or_, true
+from sqlalchemy import ColumnElement, String, and_, func, not_, or_, true
+from sqlalchemy.dialects.postgresql import array
 
 from app.core.errors import FieldError, ParamValue, ValidationFailed
 
@@ -46,6 +48,8 @@ class FieldType(StrEnum):
     DATETIME = "datetime"
     INTEGER = "integer"
     BOOLEAN = "boolean"
+    DECIMAL = "decimal"  # WP-026: number fields with a fraction (custom fields)
+    DATE = "date"  # WP-026: calendar dates without a time (custom fields)
 
 
 class Op(StrEnum):
@@ -98,6 +102,8 @@ OPERATORS: Mapping[FieldType, frozenset[Op]] = {
     FieldType.DATETIME: frozenset(_EQUALITY | _ORDERED | _RELATIVE),
     FieldType.INTEGER: frozenset(_EQUALITY | _ORDERED),
     FieldType.BOOLEAN: frozenset({Op.EQ, Op.NE, Op.IS_NULL, Op.IS_NOT_NULL}),
+    FieldType.DECIMAL: frozenset(_EQUALITY | _ORDERED),
+    FieldType.DATE: frozenset(_EQUALITY | _ORDERED),
 }
 _NO_VALUE = {Op.IS_NULL, Op.IS_NOT_NULL} | (_RELATIVE - {Op.LAST_N_DAYS, Op.NEXT_N_DAYS})
 _LIST = {Op.IN, Op.NOT_IN}
@@ -154,6 +160,8 @@ class FilterField:
     filterable: bool = True
     sortable: bool = False
     simple: bool = True  # also usable as `?name=value`
+    # A JSONB array of codes (multiple choice): eq / in mean "includes", ne / not_in "excludes".
+    array: bool = False
 
 
 @dataclass(frozen=True)
@@ -295,6 +303,8 @@ class _Compiler:
             FieldType.DATETIME: self._datetime,
             FieldType.INTEGER: self._integer,
             FieldType.BOOLEAN: self._boolean,
+            FieldType.DECIMAL: self._decimal,
+            FieldType.DATE: self._date,
         }
 
     # nodes
@@ -340,7 +350,7 @@ class _Compiler:
 
     # expressions
 
-    def expression(
+    def expression(  # noqa: PLR0911 - one return per kind of condition, flat
         self,
         spec: FilterField,
         op: Op,
@@ -353,7 +363,12 @@ class _Compiler:
         if op in _NO_VALUE:
             if present and raw is not None:
                 _fail(path, "value_not_allowed", op=op.value)
+            if spec.array:
+                empty = or_(spec.column.is_(None), func.jsonb_array_length(spec.column) == 0)
+                return empty if op is Op.IS_NULL else not_(empty)
             return self._no_value(spec.column, op)
+        if spec.array:
+            return self._array(spec, op, raw, path)
         if op in {Op.LAST_N_DAYS, Op.NEXT_N_DAYS}:
             if type(raw) is not int or not 1 <= raw <= MAX_RELATIVE_DAYS:
                 _fail(path, "invalid_value", expected="days", max=MAX_RELATIVE_DAYS)
@@ -363,6 +378,21 @@ class _Compiler:
         if op is Op.BETWEEN:
             return self._between(spec, raw, path)
         return self._compare(spec.column, op, self._coerce(spec, raw, path))
+
+    def _array(self, spec: FilterField, op: Op, raw: Any, path: str) -> ColumnElement[bool]:  # noqa: ANN401 - untrusted JSON
+        if op in _LIST:
+            if not isinstance(raw, list) or not raw:
+                _fail(path, "invalid_value", expected="list")
+            if len(raw) > self.limits.max_list_items:
+                _fail(path, "list_too_long", max_items=self.limits.max_list_items)
+            codes = [self._coerce(spec, item, f"{path}[{i}]") for i, item in enumerate(raw)]
+            hit = spec.column.has_any(array(codes, type_=String))
+        else:
+            hit = spec.column.has_key(self._coerce(spec, raw, path))
+        if op in {Op.EQ, Op.IN}:
+            return hit  # type: ignore[no-any-return]  # Any column attribute
+        # "does not include" also matches records without the field, like ne elsewhere.
+        return or_(spec.column.is_(None), not_(hit))
 
     def _no_value(self, column: Any, op: Op) -> ColumnElement[bool]:  # noqa: ANN401 - column
         if op is Op.IS_NULL:
@@ -467,6 +497,27 @@ class _Compiler:
             _fail(path, "invalid_value", expected="boolean")
         return raw
 
+    @staticmethod
+    def _decimal(raw: Any, path: str, _spec: FilterField) -> Decimal:  # noqa: ANN401
+        if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
+            _fail(path, "invalid_value", expected="decimal")
+        try:
+            value = Decimal(str(raw))
+        except InvalidOperation:
+            _fail(path, "invalid_value", expected="decimal")
+        if not value.is_finite() or abs(value) > Decimal(10) ** 15:
+            _fail(path, "invalid_value", expected="decimal")
+        return value
+
+    @staticmethod
+    def _date(raw: Any, path: str, _spec: FilterField) -> date:  # noqa: ANN401
+        if not isinstance(raw, str) or len(raw) != 10:  # noqa: PLR2004 - YYYY-MM-DD
+            _fail(path, "invalid_value", expected="date")
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            _fail(path, "invalid_value", expected="date")
+
 
 def parse_filter_json(text: str, limits: FilterLimits = DEFAULT_LIMITS) -> JsonValue:
     """Decode the `filter` parameter; size is checked before parsing."""
@@ -526,4 +577,6 @@ def _from_query(field_type: FieldType, text: str) -> object:
             return text  # rejected by the compiler with a typed error
     if field_type is FieldType.BOOLEAN:
         return {"true": True, "false": False}.get(text, text)
+    if field_type is FieldType.DECIMAL:
+        return text  # the decimal coercer reads text too
     return text

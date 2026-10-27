@@ -85,6 +85,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "Kind": "file_kind",
     "OwnerType": "file_owner_type",
     "StatusOut.warnings[]": "file_warning",
+    # Custom fields (WP-026)
+    "ChoiceDisplay": "custom_field_display",
+    "CustomFieldEntity": "custom_field_entity",
+    "FieldType": "custom_field_type",
+    "IndexState": "custom_field_index_state",
+    "IndexFailure": "custom_field_index_error",
 }
 
 

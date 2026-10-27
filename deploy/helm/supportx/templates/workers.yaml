@@ -1,8 +1,9 @@
-{{- /* The event workers (ADR-019, ADR-023): one Deployment each, same image. */ -}}
+{{- /* The workers (ADR-019, ADR-023; index worker D-088): one Deployment each, same image. */ -}}
 {{- $workers := list
   (dict "component" "relay" "module" "workers.outbox_relay" "replicas" .Values.relay.replicas "resources" .Values.relay.resources)
   (dict "component" "consumers" "module" "workers.consumers" "replicas" .Values.consumers.replicas "resources" .Values.consumers.resources)
   (dict "component" "fanout" "module" "workers.realtime_fanout" "replicas" 1 "resources" .Values.fanout.resources)
+  (dict "component" "indexes" "module" "workers.custom_field_indexes" "replicas" 1 "resources" .Values.indexWorker.resources)
 -}}
 {{- range $w := $workers }}
 {{- $c := dict "root" $ "component" $w.component }}
@@ -52,6 +53,14 @@ spec:
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: relay-db-password}}
             - name: SUPPORTX_RELAY_DATABASE_URL
               value: "postgresql://supportx_relay:$(SUPPORTX_SECRET_RELAY_DB_PASSWORD)@{{ include "supportx.dbHost" $ }}:{{ include "supportx.dbPort" $ }}/{{ $.Values.postgresql.database }}"
+            {{- end }}
+            {{- if eq $w.component "indexes" }}
+            # Builds custom field indexes (D-088): only the table owner may, so this worker alone
+            # gets the migrator role, straight to PostgreSQL (CREATE INDEX CONCURRENTLY).
+            - name: SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: migrator-db-password}}
+            - name: SUPPORTX_MIGRATION_DATABASE_URL
+              value: "postgresql://supportx_migrator:$(SUPPORTX_SECRET_MIGRATOR_DB_PASSWORD)@{{ include "supportx.dbHost" $ }}:{{ include "supportx.dbPort" $ }}/{{ $.Values.postgresql.database }}"
             {{- end }}
             {{- if eq $w.component "consumers" }}
             # Signs the audit log's anchors (ADR-027); only this worker holds the key.

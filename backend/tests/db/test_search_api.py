@@ -244,3 +244,33 @@ async def test_search_is_tenant_isolated_at_the_database(world: World) -> None:
         await world.call("PUT", f"/users/{a.tech_b}/roles/{wide}", a, a.admin)
     ).status_code == 204
     assert found(await search(world, a, a.tech_b, "secret")) == []
+
+
+async def test_custom_field_text_is_searchable_and_follows_edits(world: World) -> None:
+    """WP-026 (ADR-030): free text in custom fields is part of the record's search body."""
+    a = world.a
+    for body in (
+        {"entity": "incident", "field_type": "text", "labels": {"en": "Asset tag"}},
+        {
+            "entity": "incident",
+            "field_type": "choice",
+            "labels": {"en": "Floor"},
+            "choices": [{"labels": {"en": "Basement"}}],
+        },
+    ):
+        made = await world.call("POST", "/custom-fields", a, a.admin, json=body)
+        assert made.status_code == 201, made.text
+    item = await world.create(
+        a,
+        a.admin,
+        subject="Laptop broken",
+        custom={"asset_tag": "bluefin laptop", "floor": "basement"},
+    )
+    assert found(await search(world, a, a.lead, "bluefin")) == [item["id"]]
+    assert found(await search(world, a, a.lead, "basement")) == []  # choice codes are not text
+    edited = await world.patch(a, a.admin, item, custom={"asset_tag": "kestrel desk"})
+    assert edited.status_code == 200, edited.text
+    assert found(await search(world, a, a.lead, "kestrel")) == [item["id"]]
+    assert found(await search(world, a, a.lead, "bluefin")) == []
+    # Subject and description still count as before.
+    assert item["id"] in found(await search(world, a, a.lead, "laptop"))

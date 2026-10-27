@@ -632,6 +632,94 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/custom-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Custom fields of an entity
+         * @description Every field in display order; retired ones are marked, not hidden (old values).
+         */
+        get: operations["list_fields_api_v1_custom_fields_get"];
+        put?: never;
+        /**
+         * Add a custom field
+         * @description A new field at the end of the entity's list. Its key comes from the English name.
+         */
+        post: operations["create_field_api_v1_custom_fields_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-fields/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder custom fields
+         * @description Forms, records and filters follow the new order at once.
+         */
+        put: operations["put_order_api_v1_custom_fields_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/custom-fields/{field_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a custom field
+         * @description A field records hold values in needs `confirm=true`, else 409 `custom_field_in_use`.
+         */
+        delete: operations["delete_field_api_v1_custom_fields__field_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a custom field
+         * @description Names, help, choices, default, validation; retire or bring back.
+         */
+        patch: operations["patch_field_api_v1_custom_fields__field_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/custom-fields/{field_id}/index": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for an index on a custom field
+         * @description The index worker builds it (D-088); `index_state` says how far it got, live.
+         */
+        post: operations["request_index_api_v1_custom_fields__field_id__index_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/entitlements": {
         parameters: {
             query?: never;
@@ -2902,6 +2990,12 @@ export interface components {
          */
         CheckStatus: "ok" | "failed" | "not_configured";
         /**
+         * ChoiceDisplay
+         * @description How a single choice is shown on forms.
+         * @enum {string}
+         */
+        ChoiceDisplay: "list" | "radio";
+        /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
          */
@@ -3007,6 +3101,170 @@ export interface components {
             count: number;
             /** Counter */
             counter: string;
+        };
+        /**
+         * CustomFieldChoiceIO
+         * @description One choice. Send `code` for an existing one; a new one gets a code from its name.
+         */
+        CustomFieldChoiceIO: {
+            /** Code */
+            code?: string | null;
+            /**
+             * Labels
+             * @description {"en": ..., "ar": ..., "ur": ...}; en required.
+             */
+            labels: {
+                [key: string]: string;
+            };
+            /**
+             * Retired
+             * @default false
+             */
+            retired: boolean;
+        };
+        /**
+         * CustomFieldEntity
+         * @description Records that carry custom fields (only incidents exist yet; others join as they come).
+         * @enum {string}
+         */
+        CustomFieldEntity: "incident";
+        /**
+         * CustomFieldIn
+         * @description A new field.
+         */
+        CustomFieldIn: {
+            /** Choices */
+            choices?: components["schemas"]["CustomFieldChoiceIO"][];
+            /**
+             * Currency
+             * @description ISO 4217, currency type.
+             */
+            currency?: string | null;
+            /** Default */
+            default?: unknown;
+            /** @default list */
+            display: components["schemas"]["ChoiceDisplay"];
+            entity: components["schemas"]["CustomFieldEntity"];
+            field_type: components["schemas"]["FieldType"];
+            /** Help */
+            help?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Labels
+             * @description Name per language; en required.
+             */
+            labels: {
+                [key: string]: string;
+            };
+            validation?: components["schemas"]["CustomFieldValidationIO"];
+        };
+        /**
+         * CustomFieldOrderIn
+         * @description Every field of the entity, in the new order.
+         */
+        CustomFieldOrderIn: {
+            entity: components["schemas"]["CustomFieldEntity"];
+            /** Ids */
+            ids: string[];
+        };
+        /**
+         * CustomFieldOut
+         * @description A custom field. `key` is for the API only: screens show `labels`.
+         */
+        CustomFieldOut: {
+            /** Choices */
+            choices: components["schemas"]["CustomFieldChoiceIO"][];
+            /** Currency */
+            currency: string | null;
+            /** Default */
+            default?: unknown;
+            display: components["schemas"]["ChoiceDisplay"];
+            entity: components["schemas"]["CustomFieldEntity"];
+            field_type: components["schemas"]["FieldType"];
+            /** Help */
+            help: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * In Use
+             * @description A record holds a value: it can be retired, not deleted.
+             */
+            in_use: boolean;
+            /** @description Why the index failed (state failed). */
+            index_error: components["schemas"]["IndexFailure"] | null;
+            index_state: components["schemas"]["IndexState"];
+            /**
+             * Key
+             * @description Stable; the name values use in `custom`. Never shown as text.
+             */
+            key: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /**
+             * Removed
+             * @description Removed while in use: only for old values and history.
+             */
+            removed: boolean;
+            /** Retired */
+            retired: boolean;
+            /** Sort Order */
+            sort_order: number;
+            validation: components["schemas"]["CustomFieldValidationIO"];
+            /** Version */
+            version: number;
+        };
+        /**
+         * CustomFieldPatch
+         * @description What to change (only what is sent). The type and key cannot change.
+         */
+        CustomFieldPatch: {
+            /** Choices */
+            choices?: components["schemas"]["CustomFieldChoiceIO"][] | null;
+            /** Currency */
+            currency?: string | null;
+            /** Default */
+            default?: unknown;
+            display?: components["schemas"]["ChoiceDisplay"] | null;
+            /** Help */
+            help?: {
+                [key: string]: string;
+            } | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Retired */
+            retired?: boolean | null;
+            validation?: components["schemas"]["CustomFieldValidationIO"] | null;
+        };
+        /**
+         * CustomFieldValidationIO
+         * @description Rules beyond the type. Numbers are decimal text (exact).
+         */
+        CustomFieldValidationIO: {
+            /** Max */
+            max?: string | null;
+            /** Max Length */
+            max_length?: number | null;
+            /** Min */
+            min?: string | null;
+            /** Min Length */
+            min_length?: number | null;
+            /** Pattern */
+            pattern?: string | null;
+            /**
+             * Required
+             * @default false
+             */
+            required: boolean;
         };
         /**
          * DeliveryReason
@@ -3192,6 +3450,12 @@ export interface components {
              */
             shown: boolean;
         };
+        /**
+         * FieldType
+         * @description What a custom field holds.
+         * @enum {string}
+         */
+        FieldType: "text" | "long_text" | "integer" | "decimal" | "currency" | "date" | "datetime" | "choice" | "multi_choice" | "yes_no" | "email" | "phone" | "url" | "person";
         /**
          * FileOut
          * @description A file and where it is attached. The scan state decides whether it opens.
@@ -3434,6 +3698,18 @@ export interface components {
          * @enum {string}
          */
         Impact: "one_person" | "team" | "department_or_site" | "organisation";
+        /**
+         * IndexFailure
+         * @description Why an index could not be built, as admins read it; the database's text is only logged.
+         * @enum {string}
+         */
+        IndexFailure: "timed_out" | "busy" | "disk_full" | "out_of_memory" | "value_too_large" | "unexpected";
+        /**
+         * IndexState
+         * @description Promotion to an index (REQ-INC-014 AC2), built by the index worker (D-087, D-088).
+         * @enum {string}
+         */
+        IndexState: "none" | "pending" | "building" | "active" | "failed";
         /**
          * Kind
          * @description How a file may be shown: an image or a PDF previews in the browser; others download.
@@ -4081,6 +4357,13 @@ export interface components {
              * @description Set on copies (REQ-INC-035 AC3).
              */
             copied_from_id: string | null;
+            /**
+             * Custom Fields
+             * @description Custom field rules by key (WP-026); sent as `fields['custom.<key>']`.
+             */
+            custom_fields: {
+                [key: string]: components["schemas"]["FieldRuleIO"];
+            };
             /**
              * Defaults
              * @description Starting values by field.
@@ -4745,6 +5028,13 @@ export interface components {
              */
             confirm_lose_access: boolean;
             /**
+             * Custom
+             * @description Custom field values by key (GET /custom-fields?entity=...).
+             */
+            custom?: {
+                [key: string]: unknown;
+            } | null;
+            /**
              * Description
              * @description Rich text (HTML), sanitised.
              */
@@ -4916,6 +5206,13 @@ export interface components {
             created_at: string;
             /** Created By */
             created_by: string | null;
+            /**
+             * Custom
+             * @description Custom field values by key (WP-026).
+             */
+            custom: {
+                [key: string]: unknown;
+            };
             /** Description */
             description: string | null;
             /** Display Id */
@@ -5072,6 +5369,13 @@ export interface components {
              * @default false
              */
             confirm_lose_access: boolean;
+            /**
+             * Custom
+             * @description Custom values to change by key (null clears one); others kept.
+             */
+            custom?: {
+                [key: string]: unknown;
+            } | null;
             /** Description */
             description?: string | null;
             impact?: components["schemas"]["Impact"] | null;
@@ -7669,6 +7973,401 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_fields_api_v1_custom_fields_get: {
+        parameters: {
+            query: {
+                entity: components["schemas"]["CustomFieldEntity"];
+                /** @description Also fields removed while in use (to show old values). */
+                include_removed?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_field_api_v1_custom_fields_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_order_api_v1_custom_fields_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldOrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_field_api_v1_custom_fields__field_id__delete: {
+        parameters: {
+            query?: {
+                /** @description Remove even though records hold values (they keep them). */
+                confirm?: boolean;
+            };
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict, or custom_field_in_use (retire it instead). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    patch_field_api_v1_custom_fields__field_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustomFieldPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict, or custom_field_in_use (retire it instead). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    request_index_api_v1_custom_fields__field_id__index_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                field_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomFieldOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict, or custom_field_in_use (retire it instead). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Validation Error */

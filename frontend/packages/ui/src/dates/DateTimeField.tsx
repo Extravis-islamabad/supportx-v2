@@ -1,4 +1,5 @@
 import { DatePicker, Space, Typography } from 'antd';
+import dayjs from 'dayjs';
 
 import { useLabel } from '../appearance';
 
@@ -60,6 +61,37 @@ export function DateTimeField({
       />
       {hideZone !== true && <ZoneNote zone={zone} />}
     </Space>
+  );
+}
+
+export interface DateFieldProps {
+  /** A calendar day "YYYY-MM-DD" or null; no time, no zone. */
+  value: string | null;
+  onChange: (value: string | null) => void;
+  id?: string;
+  testId?: string;
+  disabled?: boolean;
+  ariaLabel?: string;
+}
+
+/** A calendar day (custom date fields, WP-026): the same day for everyone, in every zone. */
+export function DateField({ value, onChange, id, testId, disabled, ariaLabel }: DateFieldProps) {
+  return (
+    <DatePicker
+      id={id}
+      format="YYYY-MM-DD"
+      allowClear
+      disabled={disabled}
+      aria-label={ariaLabel}
+      value={value === null || value === '' ? null : dayjs(value)}
+      onChange={(picked) => {
+        // Cleared: antd passes null at run time although its type says Dayjs.
+        const day = picked as typeof picked | null;
+        onChange(day === null ? null : day.format('YYYY-MM-DD'));
+      }}
+      data-testid={testId}
+      style={{ minWidth: 180 }}
+    />
   );
 }
 

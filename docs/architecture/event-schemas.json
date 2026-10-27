@@ -780,6 +780,46 @@
         "type": "object"
       }
     },
+    "metadata.custom_field.changed": {
+      "1": {
+        "description": "A custom field was added, changed, retired, brought back, removed or reordered.",
+        "properties": {
+          "change": {
+            "title": "Change",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "custom_field_id": {
+            "format": "uuid",
+            "title": "Custom Field Id",
+            "type": "string"
+          },
+          "entity": {
+            "title": "Entity",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "custom_field_id",
+          "entity",
+          "key",
+          "change",
+          "changed_fields"
+        ],
+        "title": "CustomFieldChanged",
+        "type": "object"
+      }
+    },
     "organization.membership.changed": {
       "1": {
         "description": "A user was added to or removed from a site or support group.",

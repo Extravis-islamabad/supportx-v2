@@ -86,6 +86,16 @@ SUITE_RECORDS = (
         SUITE_PREFIX,
     ),
     (
+        # Custom fields the suite added (WP-026), with their history and change log entries.
+        "field_changes",
+        (
+            "DELETE FROM field_changes WHERE record_type = 'custom_field' AND record_id IN"
+            " (SELECT id FROM custom_fields WHERE labels->>'en' LIKE $1)"
+        ),
+        SUITE_PREFIX,
+    ),
+    ("custom_fields", "DELETE FROM custom_fields WHERE labels->>'en' LIKE $1", SUITE_PREFIX),
+    (
         # Pick-list values the suite added (admin values only, never a shipped one).
         "work_item_reasons",
         "DELETE FROM work_item_reasons WHERE labels->>'en' LIKE $1 AND code LIKE 'v\\_%'",

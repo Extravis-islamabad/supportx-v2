@@ -169,6 +169,7 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 FIELD_PROBLEMS = frozenset(
     {
         "required",
+        "invalid_value",
         "value_too_long",
         "invalid_choice",
         "not_allowed",

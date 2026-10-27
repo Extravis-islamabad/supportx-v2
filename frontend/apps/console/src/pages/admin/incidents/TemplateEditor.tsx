@@ -17,6 +17,7 @@ import { useState } from 'react';
 
 import {
   ApiError,
+  useCustomFields,
   useIncidentCatalogue,
   useIncidentTemplateChange,
   type FieldRule,
@@ -26,6 +27,8 @@ import {
 } from '@supportx/api-client';
 import { reportError, RichTextField, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
+import { CustomFieldControl } from '../../customFields/fields';
+import { fieldName } from '../../customFields/values';
 import { CategoryCascade } from '../../incidents/CategoryCascade';
 import { listValueLabel, scaleLabel, templateLabel } from '../../incidents/labels';
 import { GroupPicker, SitePicker } from '../../incidents/pickers';
@@ -67,8 +70,16 @@ const DEFAULTABLE = new Set<TemplateField>([
 ]);
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'];
 const URGENCIES = ['low', 'medium', 'high', 'critical'];
-type Rules = Record<TemplateField, FieldRule>;
-type Defaults = Partial<Record<TemplateField, unknown>>;
+// Built-in fields by name, custom fields as `custom.<key>` (WP-026).
+type Rules = Record<string, FieldRule>;
+type Defaults = Record<string, unknown>;
+const CUSTOM = 'custom.';
+const NEW_RULE: FieldRule = {
+  shown: true,
+  required: false,
+  requester_can_see: true,
+  requester_can_fill: false,
+};
 type Flag = keyof FieldRule;
 const FLAGS: Flag[] = ['shown', 'required', 'requester_can_see', 'requester_can_fill'];
 
@@ -83,7 +94,7 @@ function blankRules(): Rules {
         requester_can_fill: FIXED.has(f) || f === 'description',
       },
     ]),
-  ) as Rules;
+  );
 }
 
 const NO_CHANNEL = 'none'; // the radio's "no default" (a radio value is never null: QA BUG-08)
@@ -113,6 +124,7 @@ export function TemplateEditor({
   const { locale } = useAppearance();
   const { message } = App.useApp();
   const catalogue = useIncidentCatalogue();
+  const customFields = useCustomFields('incident');
   const change = useIncidentTemplateChange();
   const [names, setNames] = useState<Labels>(template?.labels ?? {});
   const [description, setDescription] = useState(template?.description ?? '');
@@ -120,12 +132,24 @@ export function TemplateEditor({
   const [forRequesters, setForRequesters] = useState(template?.for_requesters ?? false);
   const [rules, setRules] = useState<Rules>(() => ({
     ...blankRules(),
-    ...((template?.fields ?? {}) as Partial<Rules>),
+    ...(template?.fields ?? {}),
+    ...Object.fromEntries(
+      Object.entries(template?.custom_fields ?? {}).map(([key, rule]) => [`${CUSTOM}${key}`, rule]),
+    ),
   }));
-  const [defaults, setDefaults] = useState<Defaults>((template?.defaults ?? {}) as Defaults);
+  const [defaults, setDefaults] = useState<Defaults>(template?.defaults ?? {});
   const [problems, setProblems] = useState<string[]>([]);
-  const fieldLabel = (f: TemplateField) => t(`work_item.field.${f}`);
-  const setDefault = (f: TemplateField, value: unknown) => {
+  // Custom fields in use on new incidents (retired ones take no values) follow the built-in ones.
+  const custom = (customFields.data ?? []).filter((f) => !f.retired);
+  const customByName = new Map(custom.map((f) => [`${CUSTOM}${f.key}`, f]));
+  const rows: string[] = [...FIELDS, ...custom.map((f) => `${CUSTOM}${f.key}`)];
+  const ruleOf = (name: string): FieldRule => rules[name] ?? NEW_RULE;
+  const fieldLabel = (name: string) => {
+    const found = customByName.get(name);
+    if (found !== undefined) return fieldName(found, locale);
+    return t(`work_item.field.${name}`);
+  };
+  const setDefault = (f: string, value: unknown) => {
     setDefaults({ ...defaults, [f]: value });
   };
   const shippedName =
@@ -136,17 +160,23 @@ export function TemplateEditor({
   const save = () => {
     setProblems([]);
     const labels = cleanLabels(names);
+    const known = new Set(rows);
     const cleanDefaults = Object.fromEntries(
       Object.entries(defaults).filter(
-        ([, v]) =>
-          v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0),
+        ([name, v]) =>
+          known.has(name) &&
+          v !== null &&
+          v !== undefined &&
+          v !== '' &&
+          !(Array.isArray(v) && v.length === 0),
       ),
     );
     const body = {
       description: description.trim() === '' ? null : description.trim(),
       group_name: group.trim() === '' ? null : group.trim(),
       for_requesters: forRequesters,
-      fields: rules,
+      // Only fields that exist now: a rule left by a removed field is dropped (AC4).
+      fields: Object.fromEntries(rows.map((name) => [name, ruleOf(name)])),
       defaults: cleanDefaults,
     };
     change.mutate(
@@ -168,7 +198,7 @@ export function TemplateEditor({
             setProblems([t('settings.changed_elsewhere')]);
             return;
           }
-          const found = templateProblems(t, error);
+          const found = templateProblems(t, error, fieldLabel);
           if (found.length > 0) setProblems(found);
           else reportError(error);
         },
@@ -176,9 +206,25 @@ export function TemplateEditor({
     );
   };
 
-  const defaultControl = (f: TemplateField) => {
-    const id = `tpl-default-${f}`;
-    const value = defaults[f];
+  const defaultControl = (name: string) => {
+    const id = `tpl-default-${name}`;
+    const value = defaults[name];
+    const found = customByName.get(name);
+    if (found !== undefined) {
+      return (
+        <CustomFieldControl
+          id={id}
+          field={found}
+          value={value ?? null}
+          onChange={(next) => {
+            setDefault(name, next);
+          }}
+          testId={id}
+          ariaLabel={fieldLabel(name)}
+        />
+      );
+    }
+    const f = name as TemplateField;
     switch (f) {
       case 'subject':
         return (
@@ -406,34 +452,35 @@ export function TemplateEditor({
       </Typography.Paragraph>
       <Table
         size="small"
-        rowKey={(f: TemplateField) => f}
+        rowKey={(f: string) => f}
         pagination={false}
-        dataSource={FIELDS}
+        dataSource={rows}
         scroll={{ x: true }}
         columns={[
           {
             key: 'field',
             title: t('templates.field_name'),
-            render: (_: unknown, f: TemplateField) => fieldLabel(f),
+            render: (_: unknown, f: string) => <bdi dir="auto">{fieldLabel(f)}</bdi>,
           },
           ...FLAGS.map((flag) => ({
             key: flag,
             title: t(`templates.flag.${flag}`),
-            render: (_: unknown, f: TemplateField) => {
+            render: (_: unknown, f: string) => {
               // Subject and requester: always shown and required, and always seen and filled
               // in by requesters, or nobody could log an incident from the portal (D-086).
-              const locked = FIXED.has(f);
+              const locked = FIXED.has(f as TemplateField);
+              const rule = ruleOf(f);
               const control = (
                 <Switch
                   size="small"
-                  checked={rules[f][flag]}
+                  checked={rule[flag]}
                   disabled={locked}
                   aria-label={t('templates.flag_for', {
                     flag: t(`templates.flag.${flag}`),
                     field: fieldLabel(f),
                   })}
                   onChange={(on) => {
-                    setRules({ ...rules, [f]: toggle(rules[f], flag, on) });
+                    setRules({ ...rules, [f]: toggle(rule, flag, on) });
                   }}
                   data-testid={`tpl-rule-${f}-${flag}`}
                 />
@@ -456,8 +503,8 @@ export function TemplateEditor({
         ]}
       />
       {(() => {
-        const hiddenRequired = FIELDS.filter(
-          (f) => !rules[f].shown && rules[f].required && defaults[f] == null,
+        const hiddenRequired = rows.filter(
+          (f) => !ruleOf(f).shown && ruleOf(f).required && defaults[f] == null,
         );
         return hiddenRequired.length === 0 ? null : (
           <Typography.Text type="warning" role="status" data-testid="tpl-editor-hidden-required">
@@ -481,11 +528,17 @@ export function TemplateEditor({
         colon={false}
         component="div"
       >
-        {FIELDS.filter((f) => DEFAULTABLE.has(f)).map((f) => (
-          <Form.Item key={f} label={fieldLabel(f)} htmlFor={`tpl-default-${f}`}>
-            {defaultControl(f)}
-          </Form.Item>
-        ))}
+        {rows
+          .filter(
+            (f) =>
+              DEFAULTABLE.has(f as TemplateField) ||
+              (customByName.has(f) && customByName.get(f)?.field_type !== 'person'),
+          )
+          .map((f) => (
+            <Form.Item key={f} label={fieldLabel(f)} htmlFor={`tpl-default-${f}`}>
+              {defaultControl(f)}
+            </Form.Item>
+          ))}
       </Form>
     </Drawer>
   );

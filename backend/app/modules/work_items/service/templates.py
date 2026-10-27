@@ -8,7 +8,7 @@ template can never offer a value a create would refuse (REQ-WI-009 AC4); a value
 """
 
 import uuid
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Any, Literal
 
@@ -16,9 +16,11 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.modules import metadata
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Urgency
 from app.modules.work_items.domain.templates import (
+    CUSTOM_PREFIX,
     FIXED_FIELDS,
     TEMPLATE_DESCRIPTION_MAX,
     TEMPLATE_GROUP_MAX,
@@ -26,6 +28,7 @@ from app.modules.work_items.domain.templates import (
     PickList,
     TemplateField,
     clean_impact_details,
+    is_custom,
     missing_required,
     rule_problems,
     rules_from_json,
@@ -188,6 +191,15 @@ async def _clean_defaults(  # noqa: C901, PLR0912, PLR0915 - one rule per field,
             elif node.disabled_at is not None:
                 problems.append((path, "category_disabled"))
             cleaned[name] = str(node_id)
+        elif is_custom(name):
+            # A custom field's starting value, checked by its own rules (WP-026).
+            key = name.removeprefix(CUSTOM_PREFIX)
+            value_by_key, found = await metadata.clean(
+                session, wtype.code.value, {key: value}, creating=False
+            )
+            problems += [(path, code) for _, code in found]
+            if not found and value_by_key.get(key) is not None:
+                cleaned[name] = value_by_key[key]
         else:
             problems.append((path, "no_default_allowed"))
     return cleaned, problems
@@ -245,6 +257,31 @@ async def _changed(  # noqa: PLR0913 - the record, its changes and their context
     )
 
 
+async def _known_custom(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    rules: Mapping[str, FieldRule],
+    defaults: Mapping[str, Any],
+    sent: Iterable[str],
+) -> tuple[dict[str, FieldRule], dict[str, Any], list[tuple[str, str]]]:
+    """Rules and starting values without custom fields the tenant no longer has (WP-026).
+
+    A rule sent now for an unknown field is refused; one left over from a field removed since
+    is dropped quietly, so the template stays editable and copyable (REQ-INC-014 AC4).
+    """
+    names = {n for n in [*rules, *defaults] if is_custom(n)}
+    if not names:
+        return dict(rules), dict(defaults), []
+    known = await metadata.definitions(session, wtype.code.value)
+    stale = {n for n in names if n.removeprefix(CUSTOM_PREFIX) not in known}
+    problems = [(f"fields.{n}", "unknown_field") for n in sorted(stale & set(sent))]
+    return (
+        {n: r for n, r in rules.items() if n not in stale},
+        {n: v for n, v in defaults.items() if n not in stale},
+        problems,
+    )
+
+
 # --- writes ---------------------------------------------------------------------------------------
 
 
@@ -268,6 +305,10 @@ async def create_template(
     rules = _rules(values.get("fields"), base)
     raw_defaults = dict(copied_from.defaults) if copied_from else {}
     raw_defaults.update(values.get("defaults") or {})
+    rules, raw_defaults, codes = await _known_custom(
+        session, wtype, rules, raw_defaults, sent=(values.get("fields") or {})
+    )
+    problems += codes
     defaults, codes = await _clean_defaults(session, wtype, raw_defaults)
     problems += codes
     problems += rule_problems(rules, defaults)
@@ -347,7 +388,7 @@ async def _demote_default(session: AsyncSession, wtype: WorkItemType, source: So
         )
 
 
-async def update_template(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
+async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule per setting, flat
     session: AsyncSession,
     wtype: WorkItemType,
     template_id: uuid.UUID,
@@ -383,12 +424,19 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912 - one rule per settin
     defaults: dict[str, Any] = dict(template.defaults)
     if "fields" in values:
         rules = _rules(values["fields"], rules)
+    if "defaults" in values:
+        defaults = dict(values["defaults"] or {})
+    if "fields" in values or "defaults" in values:
+        rules, defaults, codes = await _known_custom(
+            session, wtype, rules, defaults, sent=(values.get("fields") or {})
+        )
+        problems += codes
         changes["field_rules"] = rules_to_json(rules)
     if "defaults" in values:
-        defaults, codes = await _clean_defaults(session, wtype, values["defaults"] or {})
+        defaults, codes = await _clean_defaults(session, wtype, defaults)
         problems += codes
-        changes["defaults"] = defaults
     if "fields" in values or "defaults" in values:
+        changes["defaults"] = defaults
         problems += rule_problems(rules, defaults)
     disabled = values.get("disabled")
     make_default = values.get("is_default")
@@ -460,11 +508,26 @@ async def for_create(
     return found
 
 
-def required_problems(
-    template: WorkItemTemplate, values: Mapping[str, Any]
+async def required_problems(
+    session: AsyncSession,
+    wtype: WorkItemType,
+    template: WorkItemTemplate,
+    values: Mapping[str, Any],
 ) -> list[tuple[str, str]]:
-    """Fields the template requires that the create left empty."""
-    return missing_required(rules_from_json(template.field_rules), values)
+    """Fields the template requires that the create left empty.
+
+    Custom fields retired or removed since the template was saved take no new values, so their
+    rules no longer apply (WP-026).
+    """
+    rules = rules_from_json(template.field_rules)
+    custom = [n for n in rules if is_custom(n)]
+    if custom:
+        known = await metadata.definitions(session, wtype.code.value)
+        for name in custom:
+            found = known.get(name.removeprefix(CUSTOM_PREFIX))
+            if found is None or found.retired:
+                del rules[name]
+    return missing_required(rules, values)
 
 
 async def emptied_required(
@@ -492,7 +555,7 @@ async def emptied_required(
         for name, value in after.items()
         if name in rules
         and rules[name].required
-        and TemplateField(name) not in FIXED_FIELDS
+        and not (name in set(TemplateField) and TemplateField(name) in FIXED_FIELDS)
         and _empty(value)
         and not _empty(before.get(name))
     ]

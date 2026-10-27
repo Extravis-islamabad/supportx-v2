@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
+from app.modules import metadata
 from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.conversation_routes import (
@@ -106,6 +107,9 @@ class WorkItemIn(BaseModel):
     template_id: uuid.UUID | None = Field(
         default=None, description="Default: the tenant's default template (its rules apply)."
     )
+    custom: dict[str, Any] | None = Field(
+        default=None, description="Custom field values by key (GET /custom-fields?entity=...)."
+    )
     priority: Priority | None = Field(
         default=None, description="Set by hand (needs change_priority and a reason)."
     )
@@ -136,6 +140,9 @@ class WorkItemPatch(BaseModel):
     impact_details: str | None = Field(default=None, max_length=IMPACT_DETAILS_MAX * 2)
     urgency: Urgency | None = None
     level: str | None = Field(default=None, max_length=40)
+    custom: dict[str, Any] | None = Field(
+        default=None, description="Custom values to change by key (null clears one); others kept."
+    )
     priority: Priority | None = Field(
         default=None,
         description="A value sets it by hand (with a reason); null: back to the matrix.",
@@ -223,6 +230,7 @@ class WorkItemOut(BaseModel):
     priority_source: PrioritySource
     level: str | None = Field(description="A `level` list code (may be a retired one).")
     template_id: uuid.UUID | None = Field(description="The template it was created from.")
+    custom: dict[str, Any] = Field(description="Custom field values by key (WP-026).")
     status: str
     status_category: StatusCategory
     status_reason_code: str | None
@@ -300,6 +308,7 @@ _RECORD_FIELDS = (
     "priority_source",
     "level",
     "template_id",
+    "custom",
     "status",
     "status_category",
     "status_reason_code",
@@ -738,7 +747,17 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
     Query_ = Annotated[  # noqa: N806 - type alias
-        ListQuery, Depends(list_query(FIELDS, extra_parameters=frozenset({"view", "tag"})))
+        ListQuery,
+        Depends(
+            list_query(
+                FIELDS,
+                extra_parameters=frozenset({"view", "tag"}),
+                # Custom fields filter as `custom.<key>` (WP-026), typed per tenant.
+                fields_for=lambda session: metadata.filter_fields(
+                    session, wtype.code.value, "work_items"
+                ),
+            )
+        ),
     ]
     location = f"/api/v1/{wtype.path}"
     name = wtype.code.replace("_", " ")

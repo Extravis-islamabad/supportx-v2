@@ -40,8 +40,12 @@ applies underneath.
    text)`, then `scoped_query.where(match.predicate).order_by(match.rank.desc(), ...)`.
 4. Test word forms in Arabic and Urdu, a typo, and that results equal the list for each scope rule.
 
-Custom fields (WP-026) feed their free-text values into the work item body through
-`sx_custom_text(custom)`.
+Custom fields (WP-026, ADR-030) feed their free text into the work item body through the
+`work_items.custom_text` column: the app writes it in the same UPDATE as the values (text, long
+text, email, phone and web address fields; choices and people are not text), and
+`search_vector` appends it (migration 0021). A generated column cannot read the field
+definitions, so the text is kept by the app, not computed by a SQL function. A removed field's
+text leaves the record's search on its next save.
 
 ## Languages
 

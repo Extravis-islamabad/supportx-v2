@@ -18,6 +18,7 @@ import { useNavigate } from 'react-router';
 import {
   allOf,
   queryKeys,
+  useCustomFields,
   useIncidentCatalogue,
   useIncidents,
   useIncidentCounters,
@@ -39,6 +40,7 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { choiceName, fieldName } from '../customFields/values';
 import { personName, scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
@@ -74,15 +76,34 @@ export function IncidentsPage() {
   const [view, setView] = useState<string>(DEFAULT_VIEW);
   const [search, setSearch] = useState('');
   const [priority, setPriority] = useState<string>();
+  // One custom field filter (WP-026, REQ-INC-014 AC1): a pick list or yes/no field and a value.
+  const [customKey, setCustomKey] = useState<string>();
+  const [customValue, setCustomValue] = useState<string>();
   const [sort, setSort] = useState<string>('-updated_at');
   const text = useDebounced(search.trim(), SEARCH_DELAY_MS);
+  const customFields = useCustomFields('incident', false, allowed);
+  const filterable = (customFields.data ?? []).filter(
+    (f) =>
+      f.field_type === 'choice' || f.field_type === 'multi_choice' || f.field_type === 'yes_no',
+  );
+  const customField = filterable.find((f) => f.key === customKey);
+  const customCondition: FilterExpression | undefined =
+    customField === undefined || customValue === undefined
+      ? undefined
+      : {
+          field: `custom.${customField.key}`,
+          op: 'eq',
+          value: customField.field_type === 'yes_no' ? customValue === 'yes' : customValue,
+        };
   const filter = useMemo(
     () =>
       allOf(
         searchOf(text),
         priority === undefined ? undefined : { field: 'priority', op: 'eq', value: priority },
+        customCondition,
       ),
-    [text, priority],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the condition is derived from these
+    [text, priority, customField?.key, customField?.field_type, customValue],
   );
   const trash = mode === 'trash';
   const list = useIncidents({ view, filter, sort, limit: 50, trash }, allowed);
@@ -200,6 +221,49 @@ export function IncidentsPage() {
           style={{ minWidth: 'min(200px, 100%)' }}
           data-testid="inc-filter-priority"
         />
+        {filterable.length > 0 && (
+          <Space.Compact>
+            <Select
+              aria-label={t('custom_fields.filter_field')}
+              placeholder={t('custom_fields.filter_field')}
+              allowClear
+              value={customField?.key}
+              onChange={(key: string | undefined) => {
+                setCustomKey(key);
+                setCustomValue(undefined);
+              }}
+              options={filterable.map((f) => ({ value: f.key, label: fieldName(f, locale) }))}
+              style={{ minWidth: 'min(180px, 100%)' }}
+              data-testid="inc-filter-custom-field"
+            />
+            {customField !== undefined && (
+              <Select
+                aria-label={t('custom_fields.filter_value', {
+                  field: fieldName(customField, locale),
+                })}
+                placeholder={t('users.any')}
+                allowClear
+                value={customValue}
+                onChange={(value: string | undefined) => {
+                  setCustomValue(value);
+                }}
+                options={
+                  customField.field_type === 'yes_no'
+                    ? [
+                        { value: 'yes', label: t('custom_fields.yes') },
+                        { value: 'no', label: t('custom_fields.no') },
+                      ]
+                    : customField.choices.map((c) => ({
+                        value: c.code ?? '',
+                        label: choiceName(t, customField, c.code ?? '', locale),
+                      }))
+                }
+                style={{ minWidth: 'min(180px, 100%)' }}
+                data-testid="inc-filter-custom-value"
+              />
+            )}
+          </Space.Compact>
+        )}
         <Select
           aria-label={t('users.sort')}
           prefix={`${t('users.sort')}:`}

@@ -61,6 +61,15 @@ async def _work_item_config(conn: asyncpg.Connection) -> None:
             name,
             default,
         )
+    for key, name in (("e2e_floor", "E2E floor"), ("keep_room", "Keep room")):
+        await conn.execute(
+            "INSERT INTO custom_fields (id, tenant_id, entity, key, field_type, labels)"
+            " VALUES (gen_random_uuid(), $1, 'incident', $2, 'text',"
+            " jsonb_build_object('en', $3::text))",
+            seed_dev.DEMO_TENANT_ID,
+            key,
+            name,
+        )
     for code, name in (("v_e2e1", "E2E level"), ("tier_1", "E2E renamed"), ("v_keep", "Keep")):
         await conn.execute(
             "INSERT INTO work_item_reasons (tenant_id, type, list, code, labels, sort_order)"
@@ -167,6 +176,7 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         "work_item_followers": 0,
         "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
         "work_item_templates": 1,
+        "custom_fields": 1,
         "work_item_reasons": 1,
         "group_members": 1,
         "support_groups": 2,

@@ -339,6 +339,7 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     display_id: 'INC-7',
     subject: 'Mail is down',
     description: '<p>Since <strong>9:00</strong>.</p>',
+    custom: {},
     requester_id: requester,
     on_behalf_of_id: null,
     channel: 'phone',
@@ -544,7 +545,42 @@ export function fakeIncidentTemplate(overrides: Partial<IncidentTemplate> = {}):
         },
       ]),
     ),
+    custom_fields: {},
     defaults: {},
+    version: 1,
+    ...overrides,
+  };
+}
+
+type CustomField = components['schemas']['CustomFieldOut'];
+
+/** GET /custom-fields: one active incident field of `field_type` (text unless overridden). */
+export function fakeCustomField(overrides: Partial<CustomField> = {}): CustomField {
+  return {
+    id: '01900000-0000-7000-8000-0000000c0f01',
+    entity: 'incident',
+    key: 'room',
+    field_type: 'text',
+    labels: { en: 'Room', ar: 'الغرفة' },
+    help: null,
+    choices: [],
+    display: 'list',
+    default: null,
+    validation: {
+      required: false,
+      min: null,
+      max: null,
+      min_length: null,
+      max_length: null,
+      pattern: null,
+    },
+    currency: null,
+    sort_order: 0,
+    retired: false,
+    removed: false,
+    in_use: false,
+    index_state: 'none',
+    index_error: null,
     version: 1,
     ...overrides,
   };
