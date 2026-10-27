@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { signInAs } from './helpers';
+import { settledLayout, signInAs } from './helpers';
 
 /**
  * WP-020c QA findings that need a real browser (~/Desktop/qa-wp020c/QA-REPORT.md): BUG-03 no
@@ -27,10 +27,13 @@ const ADMIN_SCREENS = [
   '/admin/incidents/levels',
   '/admin/incidents/closure-codes',
   '/admin/incidents/reply-templates',
+  '/admin/automation/business-rules',
+  '/admin/automation/routing',
 ];
 
 /** Elements wider than the window (what makes the page scroll sideways). */
 async function overflow(page: Page): Promise<{ page: number; window: number; culprits: string[] }> {
+  await settledLayout(page);
   return page.evaluate(() => {
     const width = window.innerWidth;
     const culprits = [...document.querySelectorAll<HTMLElement>('body *')]
