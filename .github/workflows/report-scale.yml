@@ -1,0 +1,81 @@
+# Reports at 1 million incidents (WP-035, D-100 D5: every widget operational, at most 2 s): every
+# built-in report and the widget totals, as an admin and as a group-scoped technician, with
+# timings in the job summary. Too heavy for every PR or a developer laptop (product owner,
+# 2026-10-28); nightly and on demand.
+name: Report scale
+
+on:
+  schedule:
+    - cron: "41 3 * * *" # nightly 03:41 UTC, after the audit and performance runs start
+  workflow_dispatch:
+    inputs:
+      rows:
+        description: Number of incidents
+        default: "1000000"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  FORCE_COLOR: "1"
+
+jobs:
+  report-scale:
+    name: report scale
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: pgvector/pgvector:0.8.7-pg16-bookworm
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-admin-${{ github.run_id }}
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+      valkey:
+        image: valkey/valkey:9.1.2-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "valkey-cli ping" --health-interval 5s --health-timeout 5s
+          --health-retries 20
+    env:
+      SUPPORTX_TEST_ADMIN_URL: postgresql://postgres:ci-admin-${{ github.run_id }}@127.0.0.1:5432/postgres
+      SUPPORTX_TEST_APP_PASSWORD: ci-app-${{ github.run_id }}
+      SUPPORTX_TEST_MIGRATOR_PASSWORD: ci-migrator-${{ github.run_id }}
+      SUPPORTX_TEST_RELAY_PASSWORD: ci-relay-${{ github.run_id }}
+      SUPPORTX_REQUIRE_DB_TESTS: "1"
+      SUPPORTX_TEST_VALKEY_URL: valkey://127.0.0.1:6379/0
+      SUPPORTX_REQUIRE_VALKEY_TESTS: "1"
+      SUPPORTX_PERF_STRICT: "1" # assert the 2-second target itself (tooling/timing.py)
+      SUPPORTX_REPORT_SCALE_ROWS: ${{ inputs.rows || '1000000' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Volume test
+        working-directory: backend
+        env:
+          SUPPORTX_REPORT_SCALE_REPORT: ${{ runner.temp }}/report-scale.json
+        run: uv run pytest --no-cov -q -s -m scale tests/db/test_reports_scale.py
+      - name: Timings (job summary)
+        if: ${{ !cancelled() }}
+        run: |
+          if [ -f "$RUNNER_TEMP/report-scale.json" ]; then
+            { echo '### Reports at volume'; echo '```json'; cat "$RUNNER_TEMP/report-scale.json"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Keep the timings for trends
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: report-scale-${{ github.run_number }}
+          path: ${{ runner.temp }}/report-scale.json
+          if-no-files-found: ignore
+          retention-days: 90
