@@ -114,6 +114,9 @@ export function AppHeader({
   // Narrow only when a small breakpoint was measured: before the first measurement (and where
   // nothing matches, as in tests without media queries) the header stays the wide one.
   const narrow = screens.md === false && (screens.xs === true || screens.sm === true);
+  // Below 992 px search and appearance are icons too: the header also holds the notification
+  // bell (WP-023), and at 768 px the top layout's menu left no room for their labels (BUG-07).
+  const compact = narrow || (screens.md === true && screens.lg === false);
   const canSwitch = onSwitchTenant !== undefined && session.tenants.length > 1;
   const appearanceIsOpen = useAppearanceOpen();
   // Escape closes the panel wherever the focus is inside it (QA BUG-15), not only on its button.
@@ -177,7 +180,7 @@ export function AppHeader({
         </Typography.Text>
       )}
       {onOpenPalette !== undefined &&
-        (narrow ? (
+        (compact ? (
           <Button
             icon={<SearchOutlined />}
             aria-label={t('palette.open')}
@@ -207,10 +210,10 @@ export function AppHeader({
         <Button
           data-testid="appearance-menu"
           aria-expanded={appearanceIsOpen}
-          aria-label={narrow ? t('appearance.title') : undefined}
-          icon={narrow ? <BgColorsOutlined /> : undefined}
+          aria-label={compact ? t('appearance.title') : undefined}
+          icon={compact ? <BgColorsOutlined /> : undefined}
         >
-          {narrow ? null : t('appearance.title')}
+          {compact ? null : t('appearance.title')}
         </Button>
       </Popover>
       {narrow ? null : canSwitch ? (

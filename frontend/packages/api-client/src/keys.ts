@@ -124,6 +124,15 @@ export const queryKeys = {
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
   },
+  notifications: {
+    all: ['notifications'] as const,
+    centre: ['notifications', 'centre'] as const,
+    preferences: ['notifications', 'preferences'] as const,
+    rules: ['notifications', 'rules'] as const,
+    status: ['notifications', 'status'] as const,
+    deliveries: (recordType: string, recordId: string) =>
+      ['notifications', 'deliveries', recordType, recordId] as const,
+  },
   organization: {
     all: ['organization'] as const,
     list: (kind: string) => ['organization', kind] as const,

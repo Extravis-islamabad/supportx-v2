@@ -50,6 +50,12 @@ export function consoleApi({
     // Availability switch in the header (WP-029): available unless a test says otherwise.
     'GET /api/v1/automation/availability': { body: [] },
     'GET /api/v1/automation/loop-stops': { body: [] },
+    // Notifications (WP-023): an empty centre and default preferences unless a test says otherwise.
+    'GET /api/v1/notifications': { body: { items: [], next_cursor: null, unread: 0 } },
+    'GET /api/v1/notifications/preferences': {
+      body: { choices: [], do_not_disturb: false, version: 0 },
+    },
+    'GET /api/v1/notifications/status': { body: { mail_configured: true, waiting: 0 } },
     ...routes,
   });
 }

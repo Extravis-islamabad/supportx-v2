@@ -32,6 +32,8 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { AvailabilitySwitch } from './AvailabilitySwitch';
+import { NotificationBell } from './notifications/NotificationBell';
+import { NotificationsBanner } from './notifications/NotificationsBanner';
 import { useAvailabilityItem } from './useAvailabilityItem';
 import { TechnicianVisibilityQuestion } from './pages/admin/TechnicianVisibility';
 import { AuditAlertBanner } from './pages/admin/audit/AuditAlertBanner';
@@ -168,9 +170,12 @@ export function ConsoleLayout() {
           onOpenPalette={openPalette}
           menuItems={availabilityItems}
           extra={
-            session.user.user_type === 'technician' && licence.has('incident') ? (
-              <AvailabilitySwitch userId={session.user.id} />
-            ) : undefined
+            <>
+              <NotificationBell />
+              {session.user.user_type === 'technician' && licence.has('incident') && (
+                <AvailabilitySwitch userId={session.user.id} />
+              )}
+            </>
           }
           switchingTenant={switchTenant.isPending}
           onSwitchTenant={(tenantId) => {
@@ -191,6 +196,7 @@ export function ConsoleLayout() {
           <AuditAlertBanner />
           <LoopBanner />
           <FilesBanner />
+          <NotificationsBanner />
           <TechnicianVisibilityQuestion />
           <AnnouncementBanners
             enabled={licence.has('incident')}
