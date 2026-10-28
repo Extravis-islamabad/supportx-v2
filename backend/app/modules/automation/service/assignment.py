@@ -34,8 +34,17 @@ from app.modules.automation.infra.models import (
     TechnicianAvailability,
 )
 from app.modules.automation.service.business_rules import _invalid
-from app.modules.organization import active_unit_ids
+from app.modules.organization import active_unit_ids, memberships, unit_heads
 from app.shared.events import record_event
+from app.shared.history import (
+    Change,
+    Source,
+    count_saves,
+    history_page,
+    people_names,
+    record_changes,
+    stale_version,
+)
 
 LOAD_CAP_MAX = 1000
 SETTINGS_FIELDS = (
@@ -94,10 +103,12 @@ async def save_group_settings(
     current = await group_settings(session, group_id)
     version = current.version if current is not None else 0
     if version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": version},
-        )
+        if current is None:
+            raise Conflict(
+                code="version_conflict",
+                params={"expected_version": expected_version, "current_version": version},
+            )
+        raise await stale_version(session, current, expected_version=expected_version)
     context = session.info[SESSION_TENANT_KEY]
     changes = {name: values[name] for name in SETTINGS_FIELDS if name in values}
     if current is None:
@@ -139,12 +150,81 @@ async def availability(
     return {u: found.get(u, Availability.AVAILABLE) for u in user_ids}
 
 
+AVAILABILITY_RECORD_TYPE = "technician_availability"
+
+
+@dataclass(frozen=True)
+class AvailabilityState:
+    """Someone's state, and who set it when (QA WP-029 follow-up: "set Away by <name>")."""
+
+    state: Availability
+    changed_at: datetime | None
+    changed_by: str | None
+
+
+async def _named(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> dict[uuid.UUID, str]:
+    names: dict[uuid.UUID, str] = {}
+    for user_id in set(user_ids):
+        found = await people_names(session, [str(user_id)])
+        if found:
+            names[user_id] = found[0]
+    return names
+
+
+async def availability_states(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, AvailabilityState]:
+    """Each person's state with its last change (no row: available, never changed)."""
+    if not user_ids:
+        return {}
+    rows = (
+        await session.execute(
+            select(TechnicianAvailability).where(TechnicianAvailability.user_id.in_(list(user_ids)))
+        )
+    ).scalars()
+    found = {row.user_id: row for row in rows}
+    names = await _named(session, [r.changed_by for r in found.values() if r.changed_by])
+    states: dict[uuid.UUID, AvailabilityState] = {}
+    for user_id in user_ids:
+        row = found.get(user_id)
+        states[user_id] = (
+            AvailabilityState(Availability.AVAILABLE, None, None)
+            if row is None
+            else AvailabilityState(
+                Availability(row.state),
+                row.changed_at,
+                names.get(row.changed_by) if row.changed_by else None,
+            )
+        )
+    return states
+
+
+async def may_set_availability(
+    session: AsyncSession, setter: uuid.UUID, user_id: uuid.UUID, *, manages_people: bool
+) -> bool:
+    """Yourself; anyone with `users.manage`; or the lead of a group the person is in."""
+    if setter == user_id or manages_people:
+        return True
+    for group_id in (await memberships(session, user_id)).group_ids:
+        lead, _ = await unit_heads(session, group_id, None)
+        if lead == setter:
+            return True
+    return False
+
+
 async def set_availability(
-    session: AsyncSession, user_id: uuid.UUID, state: Availability
+    session: AsyncSession,
+    user_id: uuid.UUID,
+    state: Availability,
+    source: Source = "ui",
 ) -> Availability:
-    """A technician sets themselves (or an admin sets them) Available or Away (REQ-ASG-006)."""
+    """Set someone Available or Away (REQ-ASG-006): themselves, their group lead or an admin.
+
+    Each change is a line in the person's availability history (who, when, from what).
+    """
     context = session.info[SESSION_TENANT_KEY]
     now = datetime.now(UTC)
+    before = (await availability(session, [user_id]))[user_id]
     await session.execute(
         insert(TechnicianAvailability)
         .values(
@@ -159,12 +239,42 @@ async def set_availability(
             set_={"state": state.value, "changed_at": now, "changed_by": context.user_id},
         )
     )
+    if before != state:
+        saves = await count_saves(session, AVAILABILITY_RECORD_TYPE, user_id)
+        await record_changes(
+            session,
+            record_type=AVAILABILITY_RECORD_TYPE,
+            record_id=user_id,
+            version=saves + 1,
+            kind="updated",
+            changes=[Change("state", before.value, state.value)],
+            source=source,
+        )
     await record_event(
         session,
         AvailabilityChanged(user_id=user_id, state=state.value),
         aggregate_id=user_id,
     )
     return state
+
+
+async def availability_history(
+    session: AsyncSession, user_id: uuid.UUID, limit: int = 20
+) -> list[AvailabilityState]:
+    """The person's availability changes, newest first: the state set, by whom, when."""
+    entries, _ = await history_page(session, AVAILABILITY_RECORD_TYPE, user_id, limit=limit)
+    actors = [uuid.UUID(e.actor_id) for e in entries if e.actor_id]
+    names = await _named(session, actors)
+    return [
+        AvailabilityState(
+            Availability(str(change.new)),
+            entry.occurred_at,
+            names.get(uuid.UUID(entry.actor_id)) if entry.actor_id else None,
+        )
+        for entry in entries
+        for change in entry.changes
+        if change.field == "state"
+    ]
 
 
 @dataclass(frozen=True)
