@@ -143,7 +143,7 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
     """
     cat = await config.load(session, wtype)
     days = cat.closure.auto_close_days
-    if days is None or not closing.requester_channels():
+    if days is None or not await closing.requester_channels(session):
         return 0
     # Business days are at least as long as calendar days: a cheap first cut in SQL.
     rows = await session.scalars(

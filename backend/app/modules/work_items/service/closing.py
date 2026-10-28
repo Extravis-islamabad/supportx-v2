@@ -7,10 +7,12 @@ Two ports for other modules:
 
 * `register_open_work(kind, checker, completer)`: tasks, checklists and child incidents
   (WP-020e) and approvals (WP-030) report what is still open on a record;
-* `register_requester_channel(name)` and `resolution_notified(...)`: a channel that really
-  reaches requesters (WP-023 e-mail, WP-028 portal) says so, and tells this module when the
-  requester was told of a resolution. Auto-close counts from that moment only (product owner,
-  2026-10-28), and cannot be switched on while no channel reaches requesters.
+* `register_requester_channel(name, reaches)` and `resolution_notified(...)`: a channel that
+  can tell requesters (WP-023/024 e-mail, WP-028 portal) says, per tenant, whether it reaches
+  them now (`reaches(session)`: None, or a reason code such as "mail_failing"), and tells this
+  module when the requester was told of a resolution. Auto-close counts from that moment only
+  (product owner, 2026-10-28), and neither switches on nor closes anything while no channel
+  reaches the tenant's requesters (BUG-02, agreed with lane B 2026-10-29).
 """
 
 import uuid
@@ -45,7 +47,9 @@ OpenWorkChecker = Callable[[AsyncSession, WorkItem], Awaitable[Sequence[OpenItem
 OpenWorkCompleter = Callable[[AsyncSession, WorkItem], Awaitable[None]]
 
 _checkers: dict[OpenWorkKind, tuple[OpenWorkChecker, OpenWorkCompleter | None]] = {}
-_requester_channels: set[str] = set()
+# Per tenant: None when the channel reaches this tenant's requesters now, else why not.
+ChannelReach = Callable[[AsyncSession], Awaitable[str | None]]
+_requester_channels: dict[str, ChannelReach] = {}
 
 # The moves this module looks at.
 RESOLVE = WorkItemAction.RESOLVE
@@ -66,19 +70,25 @@ def unregister_open_work(kind: OpenWorkKind) -> None:
     _checkers.pop(kind, None)
 
 
-def register_requester_channel(name: str) -> None:
-    """A channel that really reaches requesters (e-mail, portal) is available."""
-    _requester_channels.add(name)
+def register_requester_channel(name: str, reaches: ChannelReach) -> None:
+    """A channel that can tell requesters (e-mail, portal); `reaches` answers per tenant."""
+    _requester_channels[name] = reaches
 
 
 def unregister_requester_channel(name: str) -> None:
     """Undo `register_requester_channel` (tests, a channel switched off)."""
-    _requester_channels.discard(name)
+    _requester_channels.pop(name, None)
 
 
-def requester_channels() -> frozenset[str]:
-    """Channels that can tell a requester of a resolution; none until WP-023/024/028."""
-    return frozenset(_requester_channels)
+async def requester_channel_states(session: AsyncSession) -> dict[str, str | None]:
+    """Each registered channel for the session's tenant: None if it reaches, else why not."""
+    return {name: await reaches(session) for name, reaches in sorted(_requester_channels.items())}
+
+
+async def requester_channels(session: AsyncSession) -> frozenset[str]:
+    """Channels that reach the session's tenant's requesters now."""
+    states = await requester_channel_states(session)
+    return frozenset(name for name, reason in states.items() if reason is None)
 
 
 async def open_items(session: AsyncSession, record: WorkItem) -> list[OpenItem]:
@@ -247,17 +257,21 @@ async def missing_for(
     return missing_fields(required, values, record.custom or {})
 
 
-async def resolution_notified(session: AsyncSession, record_id: uuid.UUID, at: datetime) -> bool:
-    """The requester was told of the resolution (by a channel that reaches them).
+async def resolution_notified(
+    session: AsyncSession, record_id: uuid.UUID, *, event_at: datetime, at: datetime
+) -> bool:
+    """The requester was told of the resolution announced at `event_at`.
 
     Stamps the moment once per resolution; auto-close counts from it. False when the record is
-    no longer resolved or was already stamped (a second channel, a retry).
+    no longer resolved, was already stamped (a second channel, a retry), or was resolved again
+    after `event_at`: a late notice of an earlier resolution never starts the clock (BUG-02).
     """
     stamped = await session.execute(
         update(WorkItem)
         .where(
             WorkItem.id == record_id,
             WorkItem.status_category == StatusCategory.RESOLVED.value,
+            WorkItem.resolved_at <= event_at,
             WorkItem.resolution_notified_at.is_(None),
             WorkItem.deleted_at.is_(None),
         )

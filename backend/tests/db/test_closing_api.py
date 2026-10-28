@@ -168,6 +168,12 @@ async def test_req_inc_097_reopen_keeps_the_past_and_asks_again(world: World) ->
     assert ("closure_code", "fixed") in seen
 
 
+async def _reaches(session: object) -> str | None:
+    """A requester channel that reaches every tenant (the port is per tenant since BUG-02)."""
+    del session
+    return None
+
+
 async def test_req_inc_096_auto_close_waits_for_a_channel_that_tells_requesters(
     world: World,
 ) -> None:
@@ -175,7 +181,7 @@ async def test_req_inc_096_auto_close_waits_for_a_channel_that_tells_requesters(
     assert (await settings(world, org))["closure"]["auto_close_days"] is None  # off by default
     refused = await change_closure(world, org, auto_close_days=3)
     assert field_codes(refused) == {"auto_close_days": "auto_close_needs_notifications"}
-    closing.register_requester_channel("email")
+    closing.register_requester_channel("email", _reaches)
     try:
         allowed = await change_closure(world, org, auto_close_days=3)
         assert allowed.status_code == 200, allowed.text
@@ -341,12 +347,15 @@ async def test_req_inc_096_ac3_auto_close_only_after_the_requester_was_told(
     never_told = (
         await world.act(org, org.admin, await world.create(org, org.admin), "resolve")
     ).json()
-    closing.register_requester_channel("email")
+    closing.register_requester_channel("email", _reaches)
     try:
         assert (await change_closure(world, org, auto_close_days=1)).status_code == 200
         async with app_db.tenant_session(TenantContext(org.tenant)) as session:
             assert await closing.resolution_notified(
-                session, uuid.UUID(told["id"]), datetime.now(UTC) - timedelta(days=4)
+                session,
+                uuid.UUID(told["id"]),
+                event_at=datetime.now(UTC),
+                at=datetime.now(UTC) - timedelta(days=4),
             )
         async with app_db.tenant_session(TenantContext(org.tenant)) as session:
             closed = await resolution.auto_close_due(session, INCIDENT, datetime.now(UTC))
