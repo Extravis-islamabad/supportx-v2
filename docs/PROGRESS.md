@@ -663,7 +663,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   Closing (closure rules, open work, auto-close disabled with the reason while no channel
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
 
-### [ ] WP-020d — Views, columns, bulk and export (D-110; built 2026-10-28, QA next)
+### [ ] WP-020d — Views, columns, bulk and export (D-111; built 2026-10-28, QA next)
 - **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0036 (after lane C's
   0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
   actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
@@ -1134,7 +1134,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
 
-- Built to the approved plan; defaults recorded as D-110 (pending review). Backend: new
+- Built to the approved plan; defaults recorded as D-111 (pending review). Backend: new
   built-in views, saved views, list settings, list fields, view filters, bulk jobs (migration
   0036, renumbered after lane C's 0035). Console: column chooser, view editor with the shared
   filter builder, time range, search chips, page size, selection across pages, bulk dialog and
