@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { App, Button, Card, Descriptions, Flex, List, Modal, Space, Spin, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
@@ -155,6 +156,7 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
  */
 export function SsoCard() {
   const t = useLabel();
+  const list = useListFormat();
   const dates = useDateTime();
   const { modal } = App.useApp();
   const providers = useSsoProviders();
@@ -276,7 +278,7 @@ export function SsoCard() {
                 </Space>
                 <Typography.Text type="secondary">
                   {t('security.sso.domains_list', {
-                    domains: provider.domains.join(', '),
+                    domains: list(provider.domains),
                   })}
                 </Typography.Text>
                 {provider.tested_at != null && (
