@@ -55,6 +55,9 @@ from app.modules.automation.service.registry import (
     register_record_type,
 )
 from app.modules.automation.service.routing import route_record
+from app.modules.automation.service.transitions import NOT_FOR_YOU as TRANSITION_NOT_FOR_YOU
+from app.modules.automation.service.transitions import Audience as TransitionAudience
+from app.modules.automation.service.transitions import audience as transition_audience
 from app.modules.automation.service.transitions import list_settings as transition_settings
 from app.modules.automation.service.transitions import refusal as transition_refusal
 from app.modules.automation.service.triggers import TRIGGER_EVENT_TYPES, on_record_event
@@ -89,6 +92,7 @@ module = ModuleSpec(
 )
 
 __all__ = [
+    "TRANSITION_NOT_FOR_YOU",
     "Applier",
     "AssignmentChoice",
     "AssignmentResult",
@@ -107,6 +111,7 @@ __all__ = [
     "RulesOutcome",
     "RulesRun",
     "TraceLine",
+    "TransitionAudience",
     "TriggerEvent",
     "auto_assign",
     "log_trace",
@@ -118,6 +123,7 @@ __all__ = [
     "register_record_type",
     "route_record",
     "run_business_rules",
+    "transition_audience",
     "transition_refusal",
     "transition_settings",
 ]
