@@ -1,4 +1,4 @@
-import { Alert, Input, Modal, Select, Space, Typography } from 'antd';
+import { Alert, Button, Input, Modal, Select, Space, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -7,9 +7,11 @@ import {
   type IncidentActionState,
   type IncidentCatalogue,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   FormProblem,
   RichTextField,
+  RichTextView,
   useAppearance,
   useLabel,
   lengthLimit,
@@ -70,8 +72,11 @@ export function MoveDialog({
   onConfirm,
 }: {
   state: IncidentActionState;
-  /** The record's resolution and closure code now (a rule may ask for either on either move). */
-  current: { resolution: string | null; closure_code: string | null };
+  /**
+   * The record's resolution and closure code now (a rule may ask for either on either move), and
+   * the resolution it had before a reopen, offered for reuse (D-107).
+   */
+  current: { resolution: string | null; closure_code: string | null; previous?: string | null };
   catalogue: IncidentCatalogue | undefined;
   pending: boolean;
   error: unknown;
@@ -81,6 +86,7 @@ export function MoveDialog({
   onConfirm: (input: MoveInput) => void;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const fieldName = useIncidentFieldName();
   const me = useSession().data?.user.id;
@@ -192,7 +198,7 @@ export function MoveDialog({
             showIcon
             role="alert"
             message={t('incidents.closing.missing', {
-              fields: recordFields.map(fieldName).join(t('list.separator')),
+              fields: listFormat(recordFields.map(fieldName), 'conjunction'),
             })}
             data-testid="inc-closing-missing"
           />
@@ -221,6 +227,25 @@ export function MoveDialog({
               {t('work_item.field.resolution')}
               {resolutionRequired ? ' *' : ''}
             </Typography.Text>
+            {current.previous != null && resolution === '' && (
+              <Alert
+                type="info"
+                data-testid="inc-previous-resolution"
+                message={t('incidents.closing.previous_resolution')}
+                description={<RichTextView html={current.previous} />}
+                action={
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setResolution(current.previous ?? '');
+                    }}
+                    data-testid="inc-previous-resolution-reuse"
+                  >
+                    {t('incidents.closing.reuse')}
+                  </Button>
+                }
+              />
+            )}
             <RichTextField
               label={t('work_item.field.resolution')}
               value={resolution}
