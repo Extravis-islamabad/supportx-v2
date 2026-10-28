@@ -14,8 +14,9 @@
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
   #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic; the 1M-row
-  volume test runs in GitHub (`report-scale.yml`). Next: QA round, WP-033 plan. Lanes and claimed
-  numbers: docs/LANES.md.
+  volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA round done
+  (~/Desktop/qa-wp035, 8 bugs listed). WP-033 plan written (~/Desktop/wp-033-plan.md), awaiting the
+  product owner. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -1004,6 +1005,19 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   `tests/db/test_reports_scale.py`: 1M incidents generated inside PostgreSQL, every built-in
   report plus widget totals, admin and group-scoped technician, strict 2 s target; the
   technician never sees another group's numbers. Timings in the job summary and a 90-day artifact.
+- First run (40644943080, 1,000,000 incidents, strict 2 s): all 49 timed queries pass. Slowest
+  median 0.73 s (admin, received per month), "open by" reports 0.33-0.37 s, widget totals 0.23 s,
+  30-day reports 0.02-0.07 s, drill-down list page 0.008 s; load 118 s.
+
+### 2026-10-28 — WP-035 QA round (lane C)
+- Under the QA lock, Playwright (admin plus a group-scoped technician) and Chrome; report
+  ~/Desktop/qa-wp035/QA-REPORT.md. Permissions hold everywhere (reports, drill-down, exports,
+  scheduled mails, live totals). 8 bugs listed, not fixed: BUG-01 records exports head the ID and
+  subject columns "Unknown value"; BUG-02 Arabic PDF chart labels drawn in reversed letter order;
+  BUG-03..08 low (Arabic legend overlap, PDF header date order, Latin comma in Arabic filter
+  words, PDF label cut-off, "Stacked ..." cut, built-in title kept after changes). The dev stack
+  cannot make PDFs (worker without the `pdf` group; checked with the renderer instead).
+  Dashboards are WP-036.
 
 ### 2026-10-28 — WP-035: reports e2e in English and Arabic (lane C)
 - QA lock from lane B/A; `reports.spec.ts` on the shared stack. Fixed: status tag contrast,
