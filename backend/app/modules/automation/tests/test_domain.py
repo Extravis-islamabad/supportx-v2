@@ -218,6 +218,31 @@ def test_req_asg_001_rule_then_category_then_fallback() -> None:
     assert (fallback.group_id, fallback.reason) == ("g-sd", "fallback")
 
 
+def test_wp024_the_entry_points_group_comes_after_the_rules_before_the_category() -> None:
+    """A mailbox's support group (WP-024): rules first, then it, then the category's group."""
+    printers = RoutingRuleDef(
+        "r1", "Printers", {"field": "category_id", "op": "eq", "value": "c-print"}, "g-print"
+    )
+    by_rule = route(
+        [printers],
+        {"category_id": "c-print"},
+        category_group="g-net",
+        fallback_group="g-sd",
+        entry_group="g-mail",
+    )
+    assert by_rule is not None
+    assert by_rule.reason == "rule"
+    by_entry = route(
+        [printers],
+        {"category_id": "c-net"},
+        category_group="g-net",
+        fallback_group="g-sd",
+        entry_group="g-mail",
+    )
+    assert by_entry is not None
+    assert (by_entry.group_id, by_entry.reason) == ("g-mail", "entry")
+
+
 def test_req_asg_001_ac3_a_chosen_group_stays_unless_the_rule_overwrites() -> None:
     record = {"category_id": "c-print", "group_id": "g-mine"}
     condition = {"field": "category_id", "op": "eq", "value": "c-print"}
