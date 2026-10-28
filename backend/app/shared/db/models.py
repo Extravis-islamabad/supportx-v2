@@ -12,7 +12,7 @@ tooling/rls_guard.py fails CI if either part is missing.
 """
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, MetaData, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -75,11 +75,23 @@ class TenantKeyed:
         )
 
 
+def _now() -> datetime:
+    return datetime.now(UTC)
+
+
 class Timestamps:
-    """Creation and last-change time (timestamptz)."""
+    """Creation and last-change time (timestamptz).
+
+    Every update moves `updated_at` (ORM saves and bulk UPDATE statements alike), so a 409 can
+    say when the save the user missed happened (QA WP-029 BUG-05). Computed in Python: a value
+    the database computed would expire the attribute after the flush, and reading it again
+    would need I/O the async session cannot do implicitly.
+    """
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), sort_order=900)
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), sort_order=901)
+    updated_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), onupdate=_now, sort_order=901
+    )
 
 
 class Actors:

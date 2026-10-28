@@ -337,8 +337,11 @@ async def save_branding(  # noqa: PLR0913 - who, with which files, what, and the
     row = await _row(session)
     current = row.version if row is not None else 0
     if current != expected_version:
-        if row is None:
-            raise Conflict(code="version_conflict", params={"current_version": current})
+        if row is None:  # nothing saved yet: nobody to name
+            raise Conflict(
+                code="version_conflict",
+                params={"expected_version": expected_version, "current_version": current},
+            )
         raise await stale_version(session, row, expected_version=expected_version)
 
     images = (changes.logo_file_id, changes.logo_dark_file_id, changes.icon_file_id)

@@ -135,3 +135,18 @@ async def test_bug_05_shared_repository_conflicts_name_who_and_when(world: World
         version=created.json()["version"],
     )
     assert_who_and_when(params)
+
+
+async def test_bug_05_changed_at_is_the_last_save_not_the_first(world: World) -> None:
+    """Lane B review: every save moves updated_at, so "saved it at" is the save the user missed."""
+    org = world.a
+    path = "/automation/transitions/close?record_type=incident"
+    first = await saved_twice(
+        world, org, "PUT", path, {"roles": ["tenant_admin"]}, {"roles": ["x"]}, version=0
+    )
+    second = await saved_twice(
+        world, org, "PUT", path, {"roles": ["technician"]}, {"roles": ["x"]}, version=1
+    )
+    assert datetime.fromisoformat(second["changed_at"]) > datetime.fromisoformat(
+        first["changed_at"]
+    )
