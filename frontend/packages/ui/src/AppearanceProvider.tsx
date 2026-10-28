@@ -77,11 +77,16 @@ function useFavicon(brand: Branding): void {
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
-  // Every option shows its whole label, wrapping when the list is narrow, never cut to
-  // "Stacked ..." (QA WP-035 BUG-07). Lists keep the box's width, so long lists stay virtual
-  // (fast, and every option keeps its accessible name).
+  // Dropdown lists (product owner, 2026-10-28, after QA WP-035 BUG-07): at least as wide as
+  // their field (Ant Design's own min-width), growing to the longest option up to 360 px and
+  // never past the screen; lists stay virtual (fast, every option keeps its accessible name).
+  '.ant-select-dropdown { width: max-content !important; ' +
+  'max-width: min(360px, calc(100vw - 16px)); } ' +
+  // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
+  // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
-  '{ white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }';
+  '{ white-space: normal; word-break: normal; overflow-wrap: normal; overflow: hidden; ' +
+  'text-overflow: ellipsis; }';
 
 /**
  * Theme (light / dark / high contrast, brand seeds), text direction and language for everything
