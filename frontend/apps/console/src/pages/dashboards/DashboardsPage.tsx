@@ -38,6 +38,7 @@ import {
   useAccess,
   useAppearance,
   useConflict,
+  useConflictRetry,
   useFormProblem,
   WriteButton,
 } from '@supportx/ui';
@@ -268,11 +269,22 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
   const remove = useDeleteDashboard(dashboardRef);
   const problem = useFormProblem();
   const conflict = useConflict();
+  // Sharing is a one-step change: "Keep my changes" makes it again on the saved version.
+  const shareConflict = useConflictRetry();
   const [editing, setEditing] = useState(
     () => new URLSearchParams(window.location.search).get('edit') === '1',
   );
   const [pending, setPending] = useState<DashboardBody>();
   const dashboard = found.data;
+  // The version an edit started from (QA WP-036 BUG-01): someone else's save while I edit must
+  // neither reset my draft nor let my Done overwrite theirs; my save carries this version, so a
+  // newer one is a 409 and the conflict dialog says who changed it and when.
+  const [editedVersion, setEditedVersion] = useState<number>();
+  const loadedVersion = dashboard?.version;
+  if (!editing && editedVersion !== undefined) setEditedVersion(undefined);
+  if (editing && editedVersion === undefined && loadedVersion !== undefined) {
+    setEditedVersion(loadedVersion);
+  }
 
   if (found.isError) {
     // Deleted, or no longer shared with this viewer (REQ-DSH-028 AC2): say so, keep them going.
@@ -293,7 +305,7 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
   const starred = list.data?.favourites.includes(dashboard.ref) ?? false;
   const isHome = list.data?.home === dashboard.ref;
 
-  const save = (body: DashboardBody, version = dashboard.version) => {
+  const save = (body: DashboardBody, version = editedVersion ?? dashboard.version) => {
     update.mutate(
       { changes: { body }, version },
       {
@@ -393,14 +405,17 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
                   disabled={!can('dashboards.share')}
                   aria-label={t('dashboards.share_everyone')}
                   onChange={(shared) => {
-                    update.mutate(
-                      { changes: { shared }, version: dashboard.version },
-                      {
-                        onError: (error) => {
-                          if (!conflict.take(error)) problem.show(error);
+                    const share = (version: number) => {
+                      update.mutate(
+                        { changes: { shared }, version },
+                        {
+                          onError: (error) => {
+                            if (!shareConflict.take(error, share)) problem.show(error);
+                          },
                         },
-                      },
-                    );
+                      );
+                    };
+                    share(dashboard.version);
                   }}
                   data-testid="dashboard-share"
                 />
@@ -437,7 +452,8 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
       </Flex>
       <FormProblem problem={problem} />
       <DashboardView
-        key={`${dashboard.ref}:${String(dashboard.version)}`}
+        // A newer version from someone else refreshes the view, but never an edit in progress.
+        key={`${dashboard.ref}:${String(editing ? (editedVersion ?? dashboard.version) : dashboard.version)}`}
         dashboard={dashboard}
         editing={editing}
         onDone={(body) => {
@@ -447,6 +463,7 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
           setEditing(false);
         }}
       />
+      <ConflictDialog {...shareConflict.dialog} fieldLabel={() => t('dashboards.share_everyone')} />
       <ConflictDialog
         open={conflict.open}
         error={conflict.error}
