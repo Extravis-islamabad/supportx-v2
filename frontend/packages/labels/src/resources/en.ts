@@ -1676,6 +1676,7 @@ export const en = {
   'closure_code.no_fault_found': 'No fault found',
   'closure_code.duplicate': 'Duplicate',
   'closure_code.user_error': 'User error',
+  'closure_code.confirmed_by_requester': 'Confirmed by requester',
   'settings.matrix': 'Priority matrix',
   'settings.matrix_help':
     'Priority is worked out from impact and urgency. Changes apply to new calculations at once; existing incidents keep their priority until their impact or urgency changes.',
@@ -2392,6 +2393,8 @@ export const en = {
   'automation.why.routing_rule': 'Routed by the rule “{{name}}”.',
   'automation.why.routing_category': "Routed to the category's group.",
   'automation.why.routing_fallback': 'Routed to the fallback group (no rule matched).',
+  'automation.why.routing_entry':
+    'Routed to the group of the way it came in (a mailbox, the portal).',
   'automation.why.assigned': 'Auto-assigned by {{method}} within the group.',
   'automation.why.assigned_loads':
     'Auto-assigned by {{method}} within the group; loads compared: {{loads}}.',
@@ -3609,6 +3612,8 @@ export const en = {
     'Go ahead only if this work no longer matters. Your confirmation is kept in the history.',
   'incidents.closing.resolution_placeholder':
     'What fixed it, so the requester and colleagues can follow it.',
+  'incidents.closing.previous_resolution': 'Resolution before it was reopened',
+  'incidents.closing.reuse': 'Reuse',
   'incidents.closing.closure_code_shown': 'Closure code: {{code}}',
   'incidents.closing.auto_close_on':
     'Closes automatically on {{date}} unless the requester answers.',

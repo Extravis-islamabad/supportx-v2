@@ -290,6 +290,7 @@ async def automate(  # noqa: PLR0913 - the documented order, one step after the 
     eligible: EligibleProvider | None,
     route: bool,
     assign_moment: Literal["create", "move"] | None,
+    entry_group_id: uuid.UUID | None = None,
 ) -> Automated:
     """Business rules, then routing, then auto-assignment (REQ-RUL-006 steps 2 and 4).
 
@@ -314,7 +315,9 @@ async def automate(  # noqa: PLR0913 - the documented order, one step after the 
     done.values.update(outcome.values)
     done.trace = outcome.trace
     if route:
-        choice = await route_record(session, wtype.code.value, current, record_id=record_id)
+        choice = await route_record(
+            session, wtype.code.value, current, record_id=record_id, entry_group_id=entry_group_id
+        )
         if choice is not None:
             ref: dict[str, Any] = {"kind": "routing", "reason": choice.reason}
             if choice.rule_id is not None:

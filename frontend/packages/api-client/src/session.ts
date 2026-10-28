@@ -41,7 +41,14 @@ export function useSession() {
 export function useLogout(): () => Promise<void> {
   const queryClient = useQueryClient();
   return async () => {
-    await call(api.POST('/api/v1/auth/logout'));
+    try {
+      await call(api.POST('/api/v1/auth/logout'));
+    } catch (error) {
+      // 401: the server ended the session already (idle limit, deactivation). Signing out
+      // here must still happen, or the screen stays "signed in" with nothing behind it
+      // (QA WP-039 BUG-03).
+      if (!(error instanceof ApiError && error.status === 401)) throw error;
+    }
     setCsrfToken(null);
     queryClient.removeQueries({ predicate: (query) => query.queryKey[0] !== queryKeys.session[0] });
     queryClient.setQueryData(queryKeys.session, null);

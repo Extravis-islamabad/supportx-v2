@@ -24,6 +24,7 @@ import {
 } from '@supportx/ui';
 
 import { useActionReason } from './actionReason';
+import { usePreviousResolution } from './previousResolution';
 import { incidentView, useIncidentFieldName } from './conflict';
 import { MoveDialog, type OpenWork } from './MoveDialog';
 import { GroupPicker } from './pickers';
@@ -55,6 +56,7 @@ export function StatusActions({
 }) {
   const t = useLabel();
   const reasonText = useActionReason();
+  const previousResolution = usePreviousResolution(item);
   const { message, modal } = App.useApp();
   const { locale } = useAppearance();
   const act = useIncidentAction(item.id);
@@ -178,7 +180,11 @@ export function StatusActions({
       {askingNow !== null && (
         <MoveDialog
           state={askingNow}
-          current={{ resolution: item.resolution, closure_code: item.closure_code }}
+          current={{
+            resolution: item.resolution,
+            closure_code: item.closure_code,
+            previous: previousResolution,
+          }}
           catalogue={catalogue}
           pending={act.isPending}
           error={act.error}

@@ -293,7 +293,7 @@ async def test_req_inc_096_ac1_the_requester_confirms_and_it_closes(world: World
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["closed"] is True
     now = await fresh(world, org, item)
-    assert (now["status_category"], now["closure_code"]) == ("closed", "fixed")
+    assert (now["status_category"], now["closure_code"]) == ("closed", "confirmed_by_requester")
     again = await world.call("POST", f"{BASE}/{resolved['id']}/resolution/confirm", org, org.tech_b)
     assert problem(again) == (409, "not_resolved")
 
@@ -344,7 +344,7 @@ async def test_req_inc_096_ac3_auto_close_only_after_the_requester_was_told(
     finally:
         closing.unregister_requester_channel("email")
     now = await fresh(world, org, told)
-    assert (now["status_category"], now["closure_code"]) == ("closed", "fixed")
+    assert (now["status_category"], now["closure_code"]) == ("closed", "confirmed_by_requester")
     history = await world.history(org, now)
     assert any((h.get("automation") or {}).get("rule") == "auto_close" for h in history)
     # Resolved for days, but nobody told the requester: never auto-closed.
@@ -367,6 +367,22 @@ async def test_req_inc_094_a_closure_code_required_to_resolve_is_asked_by_the_mo
     resolved = await world.act(org, org.admin, item, "resolve", closure_code="workaround")
     assert resolved.status_code == 200, resolved.text
     assert resolved.json()["closure_code"] == "workaround"
+
+
+async def test_d107_existing_tenants_get_the_requester_closure_code_once(world: World) -> None:
+    """Seed version 3: tenants seeded before it get "confirmed by requester", exactly once."""
+    org = world.a
+    await settings(world, org)  # seeded at the current version
+    await world.sql(
+        "DELETE FROM work_item_reasons WHERE tenant_id = $1 AND code = 'confirmed_by_requester'",
+        org.tenant,
+    )
+    await world.sql(
+        "UPDATE work_item_type_settings SET seed_version = 2 WHERE tenant_id = $1", org.tenant
+    )
+    for _ in range(2):  # the top-up runs once; a second read changes nothing
+        codes = [c["code"] for c in (await settings(world, org))["closure_codes"]]
+        assert codes.count("confirmed_by_requester") == 1
 
 
 # --- the requester's reply from outside the console (e-mail WP-024, portal WP-028) ------------
