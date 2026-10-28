@@ -688,7 +688,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Export through lane C's report export (`content: records`); built-in views travel as their
   filter equivalents (`GET /incidents/view-filters`, each tested to return the view's rows).
 - [ ] Export columns and sort: wire once lane C's #108 is on main.
-- Tests: `tests/db/test_list_views_api.py` (14), the new-views test in `test_incidents_api.py`,
+- Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
