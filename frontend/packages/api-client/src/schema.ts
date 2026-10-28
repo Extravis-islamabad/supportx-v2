@@ -6467,7 +6467,7 @@ export interface components {
          * @description Why a check failed. Stable codes only: raw exception text never leaves the server.
          * @enum {string}
          */
-        FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "not_running" | "stale_heartbeat" | "error";
+        FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "not_running" | "stale_heartbeat" | "disconnected" | "backlog" | "error";
         /**
          * Feature
          * @description A licensable capability. A module declares one in its ModuleSpec (`feature=`).
@@ -8095,6 +8095,13 @@ export interface components {
              * @description Informational checks that are not OK.
              */
             degraded?: string[];
+            /**
+             * Event Delivery
+             * @description stalled: an event worker is down, disconnected from PostgreSQL or NATS, or events wait too long to be published. Notifications, live updates and exports are delayed until it recovers; nothing is lost.
+             * @default ok
+             * @enum {string}
+             */
+            event_delivery: "ok" | "stalled";
             /** Failed */
             failed: string[];
             /**

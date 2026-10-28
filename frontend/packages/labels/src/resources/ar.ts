@@ -3863,4 +3863,15 @@ export const ar: LabelResource = {
     'الروابط المرسلة سابقًا لا تزال تعمل أيضًا حتى تنتهي صلاحيتها.',
   'security.invitations.resent_earlier_work':
     'أُرسلت الدعوة مجددًا. كان لدى هذا الشخص حساب قبل الدعوة، لذا تظل الروابط المرسلة سابقًا تعمل أيضًا حتى تنتهي صلاحيتها.',
+  'failure_reason.disconnected': 'لا يمكن الوصول إلى قاعدة البيانات أو ناقل الرسائل',
+  'failure_reason.backlog': 'الأحداث تنتظر لمدة طويلة جدًا',
+  'readiness_check.outbox_relay': 'مُرحّل الأحداث',
+  'readiness_check.event_consumers': 'معالجة الأحداث',
+  'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.nats': 'ناقل الرسائل',
+  'event_delivery.stalled.title': 'توقف تسليم الأحداث',
+  'event_delivery.stalled.body':
+    'الإشعارات والتحديثات المباشرة والتصديرات متأخرة. لن يضيع شيء: ستُرسل فور تعافي الخدمة.',
+  'event_delivery_state.ok': 'يجري التسليم',
+  'event_delivery_state.stalled': 'متوقف',
 };

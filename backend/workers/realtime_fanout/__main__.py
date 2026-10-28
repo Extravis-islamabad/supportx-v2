@@ -15,6 +15,7 @@ from workers.heartbeat import Heartbeat
 from workers.metrics import ConsumerMetrics, FanoutMetrics
 from workers.realtime_fanout.fanout import Fanout
 from workers.realtime_fanout.runner import FanoutRunner, consumer_spec
+from workers.resilience import Connectivity
 
 log = get_logger("workers.realtime_fanout")
 
@@ -39,13 +40,22 @@ async def main(stop: asyncio.Event) -> None:
         return
     provider, meter = runtime.meter(settings)
     started = asyncio.Event()
-    ops = await runtime.start_ops(settings, ready=lambda: started.is_set() and not stop.is_set())
+    connectivity = Connectivity(give_up_after=settings.worker_give_up_seconds)
+    ops = await runtime.start_ops(
+        settings,
+        ready=lambda: started.is_set() and not stop.is_set() and connectivity.connected,
+    )
     consumer_metrics = ConsumerMetrics()
     consumer_metrics.bind(meter)
     metrics = FanoutMetrics()
     metrics.bind(meter)
     registry = load_registry()
-    connected = await bus.connect(settings, "fanout")
+    connected = await bus.connect_until_ready(settings, "fanout", connectivity, stop)
+    if connected is None:
+        await client.aclose()
+        await database.dispose()
+        await runtime.stop_ops(ops)
+        return
     spec = consumer_spec(registry)
     runner = FanoutRunner(
         registry=registry,
@@ -57,9 +67,9 @@ async def main(stop: asyncio.Event) -> None:
         retry=RetryPolicy.from_settings(settings, spec),
         ack_wait=settings.consumer_ack_wait_seconds,
         metrics=consumer_metrics,
+        connectivity=connectivity,
     )
-    await runner.ensure()
-    await runner.subscribe()
+    # The runner creates and binds its durable consumer in run(), retrying while NATS is away.
     log.info("fanout_ready", event_types=list(spec.event_types))
     started.set()
 
@@ -68,10 +78,15 @@ async def main(stop: asyncio.Event) -> None:
             connected.heartbeats,
             "fanout",
             interval=settings.heartbeat_interval_seconds,
-            stats=lambda: {**metrics.snapshot(), "lag_messages": consumer_metrics.lag},
+            stats=lambda: {
+                **metrics.snapshot(),
+                "lag_messages": consumer_metrics.lag,
+                **connectivity.snapshot(),
+            },
         )
         beat = asyncio.create_task(heartbeat.run(stop))
         while not stop.is_set():
+            bus.watch_bus(connected, connectivity)
             await runner.refresh_lag()
             await runtime.pause(stop, settings.heartbeat_interval_seconds)
         await beat

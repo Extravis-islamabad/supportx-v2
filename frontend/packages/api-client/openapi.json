@@ -5742,6 +5742,8 @@
           "unexpected_response",
           "not_running",
           "stale_heartbeat",
+          "disconnected",
+          "backlog",
           "error"
         ],
         "title": "FailureReason",
@@ -9684,6 +9686,16 @@
             },
             "title": "Degraded",
             "type": "array"
+          },
+          "event_delivery": {
+            "default": "ok",
+            "description": "stalled: an event worker is down, disconnected from PostgreSQL or NATS, or events wait too long to be published. Notifications, live updates and exports are delayed until it recovers; nothing is lost.",
+            "enum": [
+              "ok",
+              "stalled"
+            ],
+            "title": "Event Delivery",
+            "type": "string"
           },
           "failed": {
             "items": {

@@ -3845,6 +3845,17 @@ export const en = {
     'Links sent earlier also still work until they expire.',
   'security.invitations.resent_earlier_work':
     'Invitation sent again. This person had an account before the invitation, so links sent earlier also still work until they expire.',
+  'failure_reason.disconnected': 'Cannot reach the database or the message bus',
+  'failure_reason.backlog': 'Events are waiting too long',
+  'readiness_check.outbox_relay': 'Event relay',
+  'readiness_check.event_consumers': 'Event processing',
+  'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.nats': 'Message bus',
+  'event_delivery.stalled.title': 'Event delivery is stalled',
+  'event_delivery.stalled.body':
+    'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
+  'event_delivery_state.ok': 'Delivering',
+  'event_delivery_state.stalled': 'Stalled',
 } as const;
 
 export type LabelKey = keyof typeof en;
