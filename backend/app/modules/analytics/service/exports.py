@@ -260,7 +260,13 @@ class _Job:
         return columns, rows, lead + [_number(v) for v in totals]
 
     def record_names(self) -> list[str]:
-        """Fields of a records export: the report's groupings first, then the entity's list."""
+        """Fields of a records export.
+
+        The chosen columns (checked by the compiler), else the report's groupings first, then
+        the entity's list.
+        """
+        if self.definition.columns is not None:
+            return [n for n in self.definition.columns if self.source.fields.get(n) is not None]
         grouped = [g.field for g in self.compiled.groups]
         wanted = grouped + [
             f for f in RECORD_FIELDS.get(self.source.entity, ()) if f not in grouped
@@ -281,7 +287,7 @@ class _Job:
         statement = (
             self.source.rows.where(self.compiled.where)
             .with_only_columns(*[fields[n].column for n in names], maintain_column_froms=True)
-            .order_by(*[fields[n].column for n in names[: len(self.compiled.groups)]])
+            .order_by(*self._record_order(names))
             .limit(limit)
             .execution_options(yield_per=BATCH)
         )
@@ -293,6 +299,18 @@ class _Job:
                     await self.namer.prepare(name, dimension, [r[index] for r in batch])
             for record_ in batch:
                 yield [self._cell(name, record_[i]) for i, name in enumerate(names)]
+
+    def _record_order(self, names: list[str]) -> list[Any]:
+        """The chosen sort, else the groupings' order; the id last, so pages are stable."""
+        fields = self.source.fields.fields
+        if self.definition.sort:
+            keys = [
+                fields[k.field].column.desc() if k.desc else fields[k.field].column.asc()
+                for k in self.definition.sort
+            ]
+        else:
+            keys = [fields[n].column for n in names[: len(self.compiled.groups)]]
+        return [*keys, self.source.fields.id_column]
 
     def _cell(self, name: str, value: object) -> Value:
         dimension = self.source.dimensions.get(name)
