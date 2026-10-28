@@ -534,4 +534,20 @@ export {
   type NotificationRuleInput,
   type NotificationStatus,
 } from './notifications';
+export {
+  useCreateMailbox,
+  useDiscardMail,
+  useMailboxes,
+  useReleaseMail,
+  useRemoveMailbox,
+  useTestMailbox,
+  useUpdateMailbox,
+  useWaitingMail,
+  type Mailbox,
+  type MailboxChange,
+  type MailboxInput,
+  type MailboxTest,
+  type ReleasedMail,
+  type WaitingMail,
+} from './mailboxes';
 export { useEventDelivery, type Readiness } from './system';

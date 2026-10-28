@@ -68,6 +68,8 @@ from app.modules.identity_access.service.directory import (
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
+    create_requester_from_mail,
+    person_by_email,
     person_placement,
     register_people_usage,
 )
@@ -132,7 +134,10 @@ def _worker_policy() -> PolicyService:
 
 
 def worker_policy() -> PolicyService:
-    """The policy service for code running outside the API (a job acting as a user)."""
+    """The policy service for code without the app (workers, jobs), as the API decides.
+
+    For example the `holders` of an incident made from mail (WP-024).
+    """
     return _worker_policy()
 
 
@@ -291,6 +296,7 @@ __all__ = [
     "UserType",
     "authorize",
     "authorize_stored",
+    "create_requester_from_mail",
     "direct_reports",
     "display_names",
     "get_policy",
@@ -298,6 +304,7 @@ __all__ = [
     "module",
     "notifiable_people",
     "people_matching",
+    "person_by_email",
     "person_placement",
     "require",
     "role_names",

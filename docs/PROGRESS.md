@@ -664,7 +664,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
 
 ### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
-- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0037 (after lane C's 0036 knowledge and
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after lane B's 0037 mailboxes, lane C's 0036 knowledge and
   0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
   actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
 - [x] REQ-INC-104: column chooser over every list field (custom fields as `custom.<key>`, system
@@ -692,8 +692,8 @@ New `automation` module (migration 0025); incidents register their rule fields (
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
 ### [ ] WP-020e — Tasks, worklogs and links (D-112, approved; built 2026-10-28, QA next)
-- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after WP-020d's
-  0037): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0039 (after WP-020d's
+  0038): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
   tests), `task_owner_access`, and `follows_id` copied into `follows` links per tenant. Draft PR
   #120 (stacked on #114).
 - [x] REQ-INC-072: tasks with their own status, owner, group, priority and due time; "done /
@@ -1155,7 +1155,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ### 2026-10-28 — WP-020e: tasks, worklogs and links (lane A)
 
-- Built to the approved plan; defaults recorded as D-112 (approved as listed). Migration 0038; API
+- Built to the approved plan; defaults recorded as D-112 (approved as listed). Migration 0039; API
   for tasks, worklogs and links; three record tabs, history in words, the task-owner setting on
   Admin › Incidents › Closing. Draft PR #120 (stacked on #114); e2e and QA next.
 - Lane C's dashboards took D-110, so WP-020d's defaults moved to D-111.
@@ -1164,13 +1164,55 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 - Built to the approved plan; defaults D-111 (approved with group sharing). Backend: new
   built-in views, saved views, list settings, list fields, view filters, bulk jobs (migration
-  0037, renumbered after lane C's 0035 dashboards and 0036 knowledge). Console: column chooser, view editor with the shared
+  0038, renumbered after 0035 dashboards, 0036 knowledge and 0037 mailboxes). Console: column chooser, view editor with the shared
   filter builder, time range, search chips, page size, selection across pages, bulk dialog and
   progress, export. Draft PR #114; e2e and the QA round next, then WP-020e.
 - Lane C found that migration 0034's data step changed no rows under FORCE RLS; confirmed with a
   test and fixed in #116 (loop per tenant).
 - Merges now go through `gh pr merge` without `--admin` (branch protection: 8 required checks,
   no bypass, product owner 2026-10-28). Cross-lane reviews are posted as PR comments.
+
+### 2026-10-29 — WP-024 email channel, session 1 (lane B)
+Plan: ~/Desktop/wp-024-plan.md. Defaults: D-109, approved with customer-registered OAuth apps
+and the held-mail review queue as MVP.
+- **Mailboxes** (`integrations` module, migration 0037 after main's 0036): IMAP with TLS by
+  default and plain only when allowed (audited), passwords sealed with the installation key
+  ring. Admin › Mail shows each mailbox's state and reason and how much mail waits, with
+  add/change/test/remove, refusals at the form, the shared conflict dialog and live updates on
+  the tenant channel (Arabic counts in six forms).
+- **Fetching** every 2 minutes. A message is changed on the server only after it is stored, and
+  the `mail_fetched` ledger makes each message count once. Loops (our own addresses), floods,
+  too-large mail and automatic mail (out-of-office, bounces, lists) create nothing. Strangers
+  follow the mailbox's policy and get a polite answer.
+- **Incidents** (work_items implements the inbound port; lane A reviews):
+  - new mail becomes an incident in the requester's name, with channel e-mail and the
+    mailbox's group as entry group (#110);
+  - the requester's reply lands on its incident through `add_requester_reply` (#105). It
+    resumes or reopens the incident; a late reply starts a follow-up whose ID is answered to
+    the sender in their language;
+  - an out-of-office is recorded, moves nothing and notifies nobody;
+  - a technician's mail on a record is held ("not the requester");
+  - a refused create is held with the fields a template or rule needs.
+- **Threading:** notification e-mail subjects carry "[INC-12]". A reply without the token is
+  matched by In-Reply-To/References against the delivery log (`notifications.records_for_mail`).
+  The quoted history is dropped.
+- **Review queue** (D-109 (9)): held and too-large mail per mailbox, each with its reason. An
+  admin hands it in again (no flood check) or discards it; both are audited. Held mail keeps its
+  copy until then.
+- **Docs:** `docs/guides/mail-oauth-apps.md`, a step-by-step guide to the customer's own
+  Microsoft Graph and Gmail apps (session 2 uses them).
+- **Tests:**
+  - parser and routing units;
+  - ledger, policy, RLS, fetch state, queue and follow-up answer on PostgreSQL;
+  - the real incident services;
+  - the mailbox API;
+  - the IMAP reader against a private GreenMail (test-only image);
+  - console tests.
+  Full `make check` green: 1732 passed, 7 skipped, all opt-in (volume and load variables,
+  WeasyPrint).
+- **Session 2:** Microsoft Graph and Gmail, attachments from mail. Next for lane B: the
+  dev-profile Mailpit on k3d (product owner), which turns the skipped cluster mail tests back on
+  (#125's `SUPPORTX_E2E_MAIL_URL`).
 
 ### 2026-10-28 — Worker resilience: PostgreSQL and NATS restarts (lane B; must-fix before the pilot)
 - **Cause:** at 14:37 the shared stack's relay and fan-out died when PostgreSQL and NATS

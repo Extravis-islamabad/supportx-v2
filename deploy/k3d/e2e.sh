@@ -28,5 +28,15 @@ SUPPORTX_E2E_CENTRIFUGO_TOKEN_SECRET="$(secret centrifugo-token-secret)"
 SUPPORTX_MIGRATION_DATABASE_URL="postgresql://supportx_migrator:$(secret migrator-db-password)@127.0.0.1:$PG_PORT/supportx"
 export SUPPORTX_E2E_KEYCLOAK_ADMIN_PASSWORD SUPPORTX_E2E_CENTRIFUGO_TOKEN_SECRET SUPPORTX_MIGRATION_DATABASE_URL
 
+# The dev profile's mail catcher (values-dev.yaml mailCatcher, 127.0.0.1:28025): with it the
+# mail journeys run (invitations, password links, notifications, scheduled reports); without it
+# they skip as expected (frontend/e2e/mail.ts mailUnavailable).
+MAIL_URL="${SUPPORTX_E2E_MAIL_URL:-http://127.0.0.1:28025}"
+if curl -fsS "$MAIL_URL/readyz" >/dev/null 2>&1; then
+  export SUPPORTX_E2E_MAIL_URL="$MAIL_URL"
+else
+  echo "e2e: no mail catcher at $MAIL_URL; mail journeys will skip" >&2
+fi
+
 cd "$ROOT/frontend"
 pnpm --filter @supportx/e2e exec playwright test "$@"

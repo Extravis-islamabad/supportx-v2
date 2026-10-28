@@ -15,7 +15,7 @@ Bodies and attachments are cleared `mail_content_retention_days` after the messa
 """
 
 import uuid
-from collections.abc import Collection
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
@@ -247,3 +247,15 @@ async def purge_content(session: AsyncSession, now: datetime | None = None) -> i
 def sender_domain(settings: Settings) -> str:
     """The console's host, for messages that need a domain (Message-ID fallback)."""
     return urlsplit(settings.console_url).hostname or "supportx"
+
+
+async def mails_with_message_ids(
+    session: AsyncSession, message_ids: Sequence[str]
+) -> list[uuid.UUID]:
+    """The sent messages with these Message-IDs (a reply's In-Reply-To/References), this tenant."""
+    if not message_ids:
+        return []
+    # Stored as sent ("<id@host>"); a parsed reply names them without the brackets.
+    wanted = [f"<{i.strip('<>')}>" for i in list(message_ids)[:50]]
+    rows = await session.scalars(select(MailMessage.id).where(MailMessage.message_id.in_(wanted)))
+    return list(rows)
