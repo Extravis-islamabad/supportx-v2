@@ -14,13 +14,29 @@ import { MyExportsButton } from '../../reports/exports';
 const FORMATS = ['xlsx', 'csv'] as const;
 type Format = (typeof FORMATS)[number];
 
+/** "-updated_at,subject" as the export's sort keys (it takes up to three). */
+function sortKeys(sort: string): { field: string; desc: boolean }[] {
+  return sort
+    .split(',')
+    .map((term) => term.trim())
+    .filter((term) => term !== '')
+    .slice(0, 3)
+    .map((term) => ({ field: term.replace(/^-/, ''), desc: term.startsWith('-') }));
+}
+
 export function ListExport({
   title,
   filter,
+  columns,
+  sort,
 }: {
   title: string;
   /** null: the active view cannot be exported. */
   filter: FilterExpression | undefined | null;
+  /** The list's columns, in their order: the file has the same ones (lane C's #108). */
+  columns: string[];
+  /** The list's sort, e.g. "-updated_at". */
+  sort: string;
 }) {
   const t = useLabel();
   const { can } = useAccess();
@@ -85,6 +101,8 @@ export function ListExport({
                   limit: null,
                   chart: 'table',
                   percent: false,
+                  columns,
+                  sort: sortKeys(sort),
                 },
               },
             },

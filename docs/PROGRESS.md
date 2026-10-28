@@ -663,7 +663,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   Closing (closure rules, open work, auto-close disabled with the reason while no channel
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
 
-### [ ] WP-020d — Views, columns, bulk and export (D-111; built 2026-10-28, QA next)
+### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
 - **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0036 (after lane C's
   0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
   actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
@@ -673,7 +673,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] REQ-INC-105/152: built-in views overdue, due today, followed by me, shared with me, from my
   direct reports; each tested against its definition, with live counts. Deferred: pending
   approval (WP-030), the type filter (WP-031).
-- [x] REQ-INC-106: saved views (private or shared) built with lane C's FilterBuilder; "apply
+- [x] REQ-INC-106: saved views (private, chosen groups or everyone; D-111 as approved) built with lane C's FilterBuilder; "apply
   without saving" changes only the screen; the saved filter is the list API's `filter` as is.
 - [x] REQ-INC-108: time range (created, updated, due, resolved; presets and custom; quarter exact
   in the user's zone); the active range names its field.
@@ -687,7 +687,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   history names the job; lists refresh once per batch.
 - [x] Export through lane C's report export (`content: records`); built-in views travel as their
   filter equivalents (`GET /incidents/view-filters`, each tested to return the view's rows).
-- [ ] Export columns and sort: wire once lane C's #108 is on main.
+- [x] Export columns and sort: the file has the list's columns and sort (lane C's #108).
 - Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 

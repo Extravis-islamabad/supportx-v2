@@ -50,3 +50,35 @@ def test_sources_are_registered_at_import_for_the_workers() -> None:
         [sys.executable, "-c", probe], capture_output=True, text=True, check=False
     )
     assert done.returncode == 0, done.stderr
+
+
+def test_list_columns_are_fields_the_records_export_takes() -> None:
+    """The console's built-in columns (pages/incidents/list/columns.tsx) are list fields, so the
+    export (lane C's #108, which takes the entity's fields) gets the same columns."""
+    columns = {
+        "display_id",
+        "subject",
+        "requester_id",
+        "status",
+        "priority",
+        "group_id",
+        "technician_id",
+        "resolution_due_at",
+        "updated_at",
+        "created_at",
+        "status_changed_at",
+        "first_responded_at",
+        "resolved_at",
+        "closed_at",
+        "status_category",
+        "channel",
+        "impact",
+        "urgency",
+        "level",
+        "closure_code",
+        "site_id",
+        "department_id",
+        "category_id",
+        "reopen_count",
+    }
+    assert columns <= set(FIELDS.fields)

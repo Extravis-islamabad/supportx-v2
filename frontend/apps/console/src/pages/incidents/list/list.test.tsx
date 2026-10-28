@@ -265,6 +265,34 @@ describe('Incident list (WP-020d)', () => {
     expect(fake.find('PUT', '/api/v1/incidents/list-settings/my_open')).toHaveLength(0);
   });
 
+  it("export: the file gets the view as a filter, the list's columns and its sort", async () => {
+    const fake = api({
+      routes: routes({
+        'POST /api/v1/reports/exports': { status: 202, body: { id: 'e1' } },
+        'GET /api/v1/reports/exports': { body: [] },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    fireEvent.click(screen.getByTestId('inc-export'));
+    fireEvent.click(await screen.findByTestId('inc-export-start'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/reports/exports')).toHaveLength(1);
+    });
+    const body = fake.find('POST', '/api/v1/reports/exports')[0]?.body as {
+      content: string;
+      definition: { filter: unknown; columns: string[]; sort: unknown };
+    };
+    expect(body.content).toBe('records');
+    expect(body.definition.filter).toEqual({
+      field: 'status_category',
+      op: 'in',
+      value: ['open', 'paused'],
+    });
+    expect(body.definition.columns[0]).toBe('display_id');
+    expect(body.definition.sort).toEqual([{ field: 'updated_at', desc: true }]);
+  });
+
   it('REQ-INC-108: "this week" on created adds one named condition', async () => {
     const fake = api({ routes: routes() });
     render(<App />);
