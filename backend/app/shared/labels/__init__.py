@@ -20,6 +20,11 @@ from typing import Final
 
 LANGUAGES: Final = ("en", "ar", "ur")
 FALLBACK: Final = "en"
+RTL_LANGUAGES: Final = frozenset({"ar", "ur"})
+# Unicode isolates (FSI ... PDI): a value filled into right-to-left text keeps its own order, so a
+# date, a time zone or a Latin name never reorders its parts (QA WP-035 BUG-04).
+FSI: Final = "\u2068"
+PDI: Final = "\u2069"
 _FILE = Path(__file__).with_name("resources.json")
 _PARAM = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 _ARABIC_FEW = range(3, 11)
@@ -71,7 +76,8 @@ def _lookup(key: str, language: str, count: int | None) -> str:
 def label(key: str, language: str, **params: object) -> str:
     """The label of `key` in `language` (falling back to English), with `{{params}}` filled.
 
-    `count=<int>` also picks the plural form, like i18next does in the UI.
+    `count=<int>` also picks the plural form, like i18next does in the UI. In Arabic and Urdu
+    every filled value is wrapped in Unicode isolates (FSI/PDI), as the console does.
     """
     count = params.get("count")
     text = _lookup(
@@ -79,7 +85,24 @@ def label(key: str, language: str, **params: object) -> str:
         language if language in LANGUAGES else FALLBACK,
         count if isinstance(count, int) else None,
     )
-    return _PARAM.sub(lambda m: str(params.get(m.group(1), m.group(0))), text)
+    rtl = language in RTL_LANGUAGES
+
+    def fill(match: re.Match[str]) -> str:
+        if match.group(1) not in params:
+            return match.group(0)
+        value = str(params[match.group(1)])
+        return f"{FSI}{value}{PDI}" if rtl else value
+
+    return _PARAM.sub(fill, text)
 
 
-__all__ = ["LANGUAGES", "MissingLabelError", "has_label", "label", "plural_category"]
+__all__ = [
+    "FSI",
+    "LANGUAGES",
+    "PDI",
+    "RTL_LANGUAGES",
+    "MissingLabelError",
+    "has_label",
+    "label",
+    "plural_category",
+]

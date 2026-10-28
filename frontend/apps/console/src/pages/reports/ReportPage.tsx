@@ -35,6 +35,7 @@ import {
   type ChartType,
   type DateBucket,
   type ReportDefinition,
+  type ReportField,
   type ReportResult,
   type ReportRow,
   type SavedReport,
@@ -49,16 +50,25 @@ import {
   type FilterModel,
   type FilterValueType,
 } from '@supportx/forms';
-import { useLabels } from '@supportx/labels';
+import {
+  useIsolate,
+  useJoinParts,
+  useLabels,
+  useListFormat,
+  type ListKind,
+} from '@supportx/labels';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
+  reportError,
+  FormProblem,
   describeError,
   lengthLimit,
   NoAccess,
   useAccess,
   useConflict,
   useConflictRetry,
+  useFormProblem,
   useDateTime,
   WriteButton,
 } from '@supportx/ui';
@@ -160,6 +170,7 @@ function fieldType(type: string): FilterValueType {
 
 function ReportView({ latest }: { latest: Base }) {
   const t = useLabels();
+  const isolate = useIsolate();
   // The report as this view opened it: its definition is what "changed" compares with.
   const [base, setBase] = useState(latest);
   const navigate = useNavigate();
@@ -176,6 +187,7 @@ function ReportView({ latest }: { latest: Base }) {
     base.definition.chart === 'table' ? 'table' : 'chart',
   );
   const [drill, setDrill] = useState<Drill | null>(null);
+  const [copying, setCopying] = useState(false);
 
   const definition = useMemo<ReportDefinition>(
     () => ({
@@ -195,10 +207,20 @@ function ReportView({ latest }: { latest: Base }) {
   // A newer save made elsewhere is taken while nothing is edited here; with edits, saving
   // meets it in the conflict dialog.
   if (latest.saved?.version !== base.saved?.version && !edited) load(latest);
+  // Back to the report as it was opened: its grouping, filter, measures and chart (BUG-08).
+  const reset = () => {
+    load(base);
+  };
   const toRun = useDebounced(definition, RUN_DELAY_MS);
   const run = useReportRun(toRun, problems.size === 0);
   const result = run.data;
   const words = useReportWords(result);
+  // A run the server refused (time limit, queue full) is a notice here; a failure (an outage, a
+  // server error) is the app's error toast with its reference, once (D-105).
+  const refused = run.error instanceof ApiError && run.error.isRefusal;
+  useEffect(() => {
+    if (run.error && !refused) reportError(run.error);
+  }, [run.error, refused]);
 
   // Live (rule c): the numbers follow the list they count (REQ-RPT-008 AC2).
   const last = useRef(0);
@@ -246,12 +268,39 @@ function ReportView({ latest }: { latest: Base }) {
     setDraft({ ...draft, group_by: groups.slice(0, index === 0 && field === undefined ? 0 : 2) });
   };
 
+  const joinParts = useJoinParts();
   const rowTitle = (row: ReportRow) =>
-    (result?.groups ?? []).map((g, i) => words.key(g, row.keys[i])).join(' · ');
+    joinParts((result?.groups ?? []).map((g, i) => words.key(g, row.keys[i])));
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Header base={base} definition={definition} result={result} canRun={problems.size === 0} />
+      {base.builtin !== null && edited && (
+        // A changed built-in report says so: it is no longer the shipped one (QA WP-035 BUG-08).
+        <Alert
+          type="info"
+          showIcon
+          data-testid="report-modified"
+          message={t('reports.changed_from', { name: isolate(base.name) })}
+          description={t('reports.changed_from_hint')}
+          action={
+            <Space wrap>
+              <Button onClick={reset} data-testid="report-reset">
+                {t('reports.reset')}
+              </Button>
+              <WriteButton
+                type="primary"
+                disabled={problems.size > 0 || !can('reports.create')}
+                onClick={() => {
+                  setCopying(true);
+                }}
+              >
+                {t('reports.save_copy')}
+              </WriteButton>
+            </Space>
+          }
+        />
+      )}
       <Card size="small" title={t('reports.filters')}>
         {complexFilter ? (
           <Alert type="info" showIcon message={t('reports.filter_read_only')} />
@@ -355,11 +404,12 @@ function ReportView({ latest }: { latest: Base }) {
           />
         )}
       </Flex>
-      {run.error && (
+      {refused && run.error && (
         <Alert
-          type="error"
+          type="warning"
           showIcon
           message={describeError(run.error, t).title}
+          description={describeError(run.error, t).detail}
           data-testid="report-error"
         />
       )}
@@ -368,9 +418,9 @@ function ReportView({ latest }: { latest: Base }) {
           size="small"
           title={
             <Space wrap>
-              <span>{t('reports.as_of', { time: dates.format(result.as_of) })}</span>
+              <span>{t('reports.as_of', { time: isolate(dates.format(result.as_of)) })}</span>
               <Typography.Text type="secondary">
-                {t('reports.times_in', { zone: result.time_zone })}
+                {t('reports.times_in', { zone: isolate(result.time_zone) })}
               </Typography.Text>
             </Space>
           }
@@ -400,6 +450,8 @@ function ReportView({ latest }: { latest: Base }) {
       )}
       <Flex gap={12} wrap align="center">
         <Actions
+          copying={copying}
+          onCopying={setCopying}
           base={base}
           latest={latest}
           onLoad={load}
@@ -438,11 +490,15 @@ function Header({
   canRun: boolean;
 }) {
   const t = useLabels();
+  const isolate = useIsolate();
   const words = useReportWords(result);
   const star = useStarReport();
   const library = useReportLibrary();
   const starred = library.data?.favourites.includes(base.ref) ?? false;
-  const summary = filterInWords(definition.filter, words, t);
+  const fields = useReportEntity(definition.entity).data?.fields ?? [];
+  const list = useListFormat();
+  const joinParts = useJoinParts();
+  const summary = filterInWords(definition.filter, words, fields, t, list, joinParts);
   return (
     <Space direction="vertical" size={4} style={{ width: '100%' }}>
       <Flex justify="space-between" align="center" wrap gap={12}>
@@ -467,12 +523,14 @@ function Header({
         {result && (
           <Descriptions.Item label={t('reports.total')}>
             <span data-testid="report-total">
-              {result.measures
-                .map(
-                  (m, i) =>
-                    `${words.measure(result.entity, m.code).name}: ${words.value(m, result.totals[i])}`,
-                )
-                .join(' · ')}
+              {joinParts(
+                result.measures.map((m, i) =>
+                  t('reports.measure_value', {
+                    name: isolate(words.measure(result.entity, m.code).name),
+                    value: isolate(words.value(m, result.totals[i])),
+                  }),
+                ),
+              )}
             </span>
           </Descriptions.Item>
         )}
@@ -486,7 +544,10 @@ function Header({
 function filterInWords(
   filter: unknown,
   words: ReportWords,
+  fields: ReportField[],
   t: (key: string, p?: Record<string, string | number>) => string,
+  list: (items: readonly string[], kind?: ListKind) => string,
+  joinParts: (parts: readonly string[]) => string,
 ): string {
   const model = fromDsl(filter);
   if (model === null) return t('reports.filter_custom');
@@ -499,25 +560,25 @@ function filterInWords(
       return t('reports.filter_days', { field, days: Number(value) });
     }
     if (value === null) return `${field} ${op}`;
-    const shown = Array.isArray(value) ? value.filter((v) => v !== null).join(', ') : String(value);
-    const group = {
+    // Every value by its name: codes by their label, groups, sites and people by name, never an
+    // id (rule d); lists joined the UI language's way (QA WP-035 BUG-05).
+    const group = fields.find((f) => f.name === row.field)?.dimension ?? {
       field: row.field,
       kind: 'code',
       label_prefix: row.field,
       reference: null,
       bucket: null,
-    } as const;
+    };
+    const name = (v: unknown) =>
+      typeof v === 'string' && row.op !== 'between' ? words.key(group, v) : String(v);
+    const values = (Array.isArray(value) ? value : [value]).filter((v) => v !== null).map(name);
     const named =
-      Array.isArray(value) && row.op !== 'between'
-        ? value
-            .map((v) =>
-              typeof v === 'string' && !/^[0-9a-f-]{36}$/.test(v) ? words.key(group, v) : v,
-            )
-            .join(', ')
-        : shown;
+      row.op === 'between'
+        ? list(values, 'unit')
+        : list(values, row.op === 'in' ? 'disjunction' : 'unit');
     return `${field} ${op} ${named}`;
   });
-  return parts.join(model.join === 'and' ? ' · ' : ` ${t('reports.or')} `);
+  return model.join === 'and' ? joinParts(parts) : list(parts, 'disjunction');
 }
 
 function Results({
@@ -700,6 +761,8 @@ function percentOf(value: number | null | undefined, total: number | null | unde
 }
 
 function Actions({
+  copying,
+  onCopying,
   base,
   latest,
   onLoad,
@@ -708,6 +771,9 @@ function Actions({
   onSaved,
   onDeleted,
 }: {
+  /** The "save as my report" dialog is open (also opened from the "changed" notice). */
+  copying: boolean;
+  onCopying: (open: boolean) => void;
   /** The report as the view opened it (its version goes with the save). */
   base: Base;
   /** The same report as it is now (live), for the conflict dialog. */
@@ -720,11 +786,11 @@ function Actions({
   onDeleted: () => void;
 }) {
   const t = useLabels();
+  const isolate = useIsolate();
   const library = useReportLibrary();
   const create = useCreateReport();
   const update = useUpdateReport(base.saved?.id ?? '');
   const remove = useDeleteReport(base.saved?.id ?? '');
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState(t('reports.copy_of', { name: base.name }));
   const [folder, setFolder] = useState<string>('mine');
   const [key] = useState(() => crypto.randomUUID());
@@ -732,12 +798,15 @@ function Actions({
   // A save someone else beat (409): who, when and what, in the shared dialog (BUG-05).
   const conflict = useConflict();
   const removeConflict = useConflictRetry();
+  // Refusals at the page or dialog that saved; failures as the app's toast (D-105).
+  const problem = useFormProblem();
+  const copyProblem = useFormProblem();
   const removeIt = (version: number): Promise<void> =>
     remove
       .mutateAsync(version)
       .then(onDeleted)
       .catch((error: unknown) => {
-        if (!removeConflict.take(error, (at) => void removeIt(at))) throw error;
+        if (!removeConflict.take(error, (at) => void removeIt(at))) problem.show(error);
       });
   const saveChanges = (version: number) => {
     update.mutate(
@@ -747,7 +816,7 @@ function Actions({
           onLoad(savedBase(report));
         },
         onError: (error) => {
-          conflict.take(error);
+          if (!conflict.take(error)) problem.show(error);
         },
       },
     );
@@ -761,7 +830,7 @@ function Actions({
           type={base.saved?.canEdit ? 'default' : 'primary'}
           disabled={!canSave}
           onClick={() => {
-            setOpen(true);
+            onCopying(true);
           }}
           data-testid="report-save-copy"
         >
@@ -785,7 +854,7 @@ function Actions({
             danger
             onClick={() =>
               Modal.confirm({
-                title: t('reports.delete_confirm', { name: base.name }),
+                title: t('reports.delete_confirm', { name: isolate(base.name) }),
                 okText: t('reports.delete'),
                 okButtonProps: { danger: true },
                 cancelText: t('reports.cancel'),
@@ -801,11 +870,9 @@ function Actions({
       {base.saved !== null && !base.saved.canEdit && (
         <Typography.Text type="secondary">{t('reports.not_editable_hint')}</Typography.Text>
       )}
-      {update.error && !(update.error instanceof ApiError && update.error.isConflict) && (
-        <Typography.Text type="danger" role="alert">
-          {describeError(update.error, t).title}
-        </Typography.Text>
-      )}
+      <div style={{ flexBasis: '100%' }}>
+        <FormProblem problem={problem} />
+      </div>
       <ConflictDialog
         {...removeConflict.dialog}
         fieldLabel={(field) => t(DEFINITION_PARTS[field] ?? 'reports.layout')}
@@ -828,15 +895,17 @@ function Actions({
         }}
       />
       <Modal
-        open={open}
+        open={copying}
         title={t('reports.save_copy')}
         okText={t('reports.save')}
         cancelText={t('reports.cancel')}
         okButtonProps={{ disabled: name.trim() === '', loading: create.isPending }}
         onCancel={() => {
-          setOpen(false);
+          onCopying(false);
+          copyProblem.clear();
         }}
         onOk={() => {
+          copyProblem.clear();
           create.mutate(
             {
               key,
@@ -850,6 +919,9 @@ function Actions({
             {
               onSuccess: (report) => {
                 onSaved(report.id);
+              },
+              onError: (error) => {
+                copyProblem.show(error);
               },
             },
           );
@@ -874,7 +946,7 @@ function Actions({
               { value: 'mine', label: t('reports.my_reports_private') },
               ...(library.data?.folders ?? []).map((f) => ({
                 value: f.id,
-                label: t('reports.shared_folder_named', { name: f.name }),
+                label: t('reports.shared_folder_named', { name: isolate(f.name) }),
               })),
             ]}
             data-testid="report-save-folder"
@@ -882,11 +954,7 @@ function Actions({
           {folder !== 'mine' && (
             <Alert type="info" showIcon message={t('reports.shared_save_hint')} />
           )}
-          {create.error && (
-            <Typography.Text type="danger" role="alert">
-              {describeError(create.error, t).title}
-            </Typography.Text>
-          )}
+          <FormProblem problem={copyProblem} />
         </Space>
       </Modal>
     </Flex>
