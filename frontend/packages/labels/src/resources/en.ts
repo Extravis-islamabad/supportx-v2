@@ -3902,6 +3902,22 @@ export const en = {
   'incidents.bulk.recent': 'Bulk changes',
   'incidents.bulk.none': 'No bulk changes yet.',
   'incidents.bulk.details': 'Details',
+  'bulk_action.edit': 'Edit',
+  'bulk_action.assign': 'Assign',
+  'bulk_action.take': 'Take',
+  'bulk_action.resolve': 'Resolve',
+  'bulk_action.close': 'Close',
+  'bulk_outcome.done': 'Changed',
+  'bulk_outcome.skipped': 'Skipped',
+  'bulk_status.queued': 'Waiting',
+  'bulk_status.running': 'Running',
+  'bulk_status.done': 'Finished',
+  'bulk_status.failed': 'Stopped',
+  'view_visibility.private': 'Only me',
+  'view_visibility.shared': 'Everyone who sees incidents',
+  'event_type.work_items.view.changed': 'Saved view changed',
+  'event_type.work_items.list_settings.changed': 'List settings changed',
+  'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
 } as const;
 
 export type LabelKey = keyof typeof en;

@@ -609,7 +609,7 @@ async def view_filters(
     """
     me = str(subject.user_id)
     open_ = _cond("status_category", "in", [c.value for c in OPEN_CATEGORIES])
-    nothing = _cond("id", "is_null")
+    nothing = _cond("id", op="is_null")
     mine = _cond("technician_id", "eq", me)
     groups = sorted(str(g) for g in subject.group_ids)
     in_groups: dict[str, Any] | str = (
@@ -637,31 +637,33 @@ async def view_filters(
     )
     reports = await direct_reports(session, subject.user_id)
     due_today = _all(
-        open_, _cond("resolution_due_at", "after_now"), _cond("resolution_due_at", "today")
+        open_, _cond("resolution_due_at", op="after_now"), _cond("resolution_due_at", op="today")
     )
     return {
         "open": open_,
         "my_open": _all(open_, mine),
-        "unassigned": _all(open_, _cond("technician_id", "is_null")),
+        "unassigned": _all(open_, _cond("technician_id", op="is_null")),
         "my_groups_open": both(open_, in_groups) if groups else nothing,
-        "overdue": _all(open_, _cond("resolution_due_at", "before_now")),
+        "overdue": _all(open_, _cond("resolution_due_at", op="before_now")),
         "due_today": due_today,
         "waiting": _cond("status_category", "eq", StatusCategory.PAUSED.value),
         "resolved": _cond("status_category", "eq", StatusCategory.RESOLVED.value),
-        "created_today": _cond("created_at", "today"),
+        "created_today": _cond("created_at", op="today"),
         "updated_by_me": _cond("updated_by", "eq", me),
         "followed_by_me": listed(followed),
         "shared_with_me": listed(shared),
         "from_my_reports": both(open_, listed(reports, "requester_id")) if reports else nothing,
-        "without_sla": _all(open_, _cond("sla_policy_id", "is_null")),
+        "without_sla": _all(open_, _cond("sla_policy_id", op="is_null")),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
         "all": None,
-        "my_overdue": _all(mine, open_, _cond("resolution_due_at", "before_now")),
+        "my_overdue": _all(mine, open_, _cond("resolution_due_at", op="before_now")),
         "my_due_today": _all(mine, due_today),
         "waiting_on_me": _all(mine, _cond("status_category", "eq", StatusCategory.OPEN.value)),
         "updated_by_others": NOT_EXPRESSIBLE,  # "changed or written by someone else" needs SQL
-        "unassigned_in_my_groups": both(_all(open_, _cond("technician_id", "is_null")), in_groups)
+        "unassigned_in_my_groups": both(
+            _all(open_, _cond("technician_id", op="is_null")), in_groups
+        )
         if groups
         else nothing,
     }
