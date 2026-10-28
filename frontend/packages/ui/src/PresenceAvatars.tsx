@@ -1,6 +1,6 @@
+import { useListFormat } from '@supportx/labels';
 import { Avatar, Flex, Tooltip, Typography, theme } from 'antd';
 
-import { useListFormat } from '@supportx/labels';
 import type { PresenceMember } from '@supportx/realtime';
 
 import { useLabel } from './appearance';

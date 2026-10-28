@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { App, Button, Card, Descriptions, Flex, List, Modal, Space, Spin, Typography } from 'antd';
 import { useEffect, useRef, useState } from 'react';
 
@@ -9,7 +10,6 @@ import {
   useSwitchSso,
   type SsoProvider,
 } from '@supportx/api-client';
-import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
   reportError,
@@ -156,7 +156,7 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
  */
 export function SsoCard() {
   const t = useLabel();
-  const listFormat = useListFormat();
+  const list = useListFormat();
   const dates = useDateTime();
   const { modal } = App.useApp();
   const providers = useSsoProviders();
@@ -278,7 +278,7 @@ export function SsoCard() {
                 </Space>
                 <Typography.Text type="secondary">
                   {t('security.sso.domains_list', {
-                    domains: listFormat(provider.domains),
+                    domains: list(provider.domains),
                   })}
                 </Typography.Text>
                 {provider.tested_at != null && (

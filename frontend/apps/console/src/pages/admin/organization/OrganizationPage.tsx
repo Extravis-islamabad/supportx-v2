@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { PlusOutlined } from '@ant-design/icons';
 import {
   Alert,
@@ -27,7 +28,6 @@ import {
   type StructureKind,
   useSession,
 } from '@supportx/api-client';
-import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
   FormProblem,

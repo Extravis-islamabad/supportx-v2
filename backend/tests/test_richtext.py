@@ -95,3 +95,18 @@ def test_images_are_stored_files_only() -> None:
     ):
         assert "<img" not in sanitize_html(f"<p>{dropped}</p>"), dropped
     assert not is_blank(kept)
+
+
+def test_d108_callouts_keep_only_the_four_kinds() -> None:
+    """Knowledge callouts (D-108 (9)): info, warning, tip, note; any other value is stripped."""
+    for kind in ("info", "warning", "tip", "note"):
+        kept = sanitize_html(f'<div data-callout="{kind}"><p>Restart first.</p></div>')
+        assert f'data-callout="{kind}"' in kept
+    for bad in ("danger", "info onclick", "javascript:alert(1)", ""):
+        cleaned = sanitize_html(f'<div data-callout="{bad}"><p>Restart first.</p></div>')
+        assert "data-callout" not in cleaned
+        assert "Restart first." in cleaned
+    handlers = sanitize_html('<div data-callout="tip" onclick="x()" style="color:red">Hi</div>')
+    assert "onclick" not in handlers
+    assert "style" not in handlers
+    assert 'data-callout="tip"' in handlers

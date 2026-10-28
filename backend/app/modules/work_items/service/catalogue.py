@@ -15,6 +15,7 @@ Defaults added later (WP-020c: levels, closure codes, the standard template) are
 moves its `seed_version` forward first (UPDATE ... WHERE seed_version < n RETURNING).
 """
 
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
@@ -44,6 +45,7 @@ from app.modules.work_items.domain.lifecycle import (
     WorkItemAction,
 )
 from app.modules.work_items.domain.templates import (
+    CONFIRMED_BY_REQUESTER,
     DEFAULT_LIST_VALUES,
     PickList,
     default_rules,
@@ -65,7 +67,7 @@ from app.shared.ids import new_id
 
 # 1: WP-020 (life cycle, scales, matrix, reasons, categories); 2: WP-020c (levels, closure
 # codes, the standard template).
-SEED_VERSION = 2
+SEED_VERSION = 3  # 3: the closure code "confirmed by requester" (D-107)
 STANDARD_TEMPLATE = "standard"
 
 
@@ -166,7 +168,7 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
     )
     if existing is not None:
         if existing < SEED_VERSION:
-            await _top_up(session, wtype, tenant)
+            await _top_up(session, wtype, tenant, existing)
         return
     inserted = await session.scalar(
         insert(WorkItemTypeSettings)
@@ -294,7 +296,9 @@ def _seed_v2(session: AsyncSession, wtype: WorkItemType, tenant: Any, desk: Any)
     )
 
 
-async def _top_up(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> None:  # noqa: ANN401 - uuid
+async def _top_up(
+    session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID, existing: int
+) -> None:
     """Give a tenant seeded by an older version the newer defaults, exactly once."""
     moved = await session.scalar(
         update(WorkItemTypeSettings)
@@ -307,8 +311,26 @@ async def _top_up(session: AsyncSession, wtype: WorkItemType, tenant: Any) -> No
     )
     if moved is None:  # another transaction topped it up first
         return
-    _seed_v2(session, wtype, tenant, await default_desk_id(session))
+    if existing < 2:  # noqa: PLR2004 - the seed version that added levels, codes, templates
+        _seed_v2(session, wtype, tenant, await default_desk_id(session))
+        await session.flush()
+    await _seed_v3(session, wtype, tenant)
     await session.flush()
+
+
+async def _seed_v3(session: AsyncSession, wtype: WorkItemType, tenant: uuid.UUID) -> None:
+    """The closure code "confirmed by requester" (D-107); kept when a tenant already has it."""
+    await session.execute(
+        insert(WorkItemReason)
+        .values(
+            tenant_id=tenant,
+            type=wtype.code,
+            list=PickList.CLOSURE_CODE.value,
+            code=CONFIRMED_BY_REQUESTER,
+            sort_order=len(DEFAULT_LIST_VALUES[PickList.CLOSURE_CODE]) - 1,
+        )
+        .on_conflict_do_nothing()
+    )
 
 
 async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:

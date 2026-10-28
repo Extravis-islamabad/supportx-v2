@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { FSI, isRtlLocale, PDI, type LabelInput, type LabelParams, type Locale } from './label';
@@ -27,7 +28,12 @@ export type ListKind = 'conjunction' | 'disjunction' | 'unit';
  */
 export function useListFormat(): (items: readonly string[], kind?: ListKind) => string {
   const { i18n } = useTranslation();
-  return (items, kind = 'unit') => formatList(i18n.language, items, kind);
+  const language = i18n.language;
+  // Stable per language, so callers may use it inside useMemo.
+  return useCallback(
+    (items: readonly string[], kind: ListKind = 'unit') => formatList(language, items, kind),
+    [language],
+  );
 }
 
 /** `useListFormat` outside React (a given language). */
@@ -47,10 +53,13 @@ export function formatList(
  */
 export function useJoinParts(): (parts: readonly string[], separator?: string) => string {
   const { i18n } = useTranslation();
-  return (parts, separator = ' · ') =>
-    (isRtlLocale(i18n.language as Locale) ? parts.map((p) => `${FSI}${p}${PDI}`) : parts).join(
-      separator,
-    );
+  const rtl = isRtlLocale(i18n.language as Locale);
+  // Stable per direction, so callers may use it inside useMemo.
+  return useCallback(
+    (parts: readonly string[], separator = ' · ') =>
+      (rtl ? parts.map((p) => `${FSI}${p}${PDI}`) : parts).join(separator),
+    [rtl],
+  );
 }
 
 /**
@@ -60,6 +69,10 @@ export function useJoinParts(): (parts: readonly string[], separator?: string) =
  */
 export function useIsolate(): (value: string | number) => string {
   const { i18n } = useTranslation();
-  return (value) =>
-    isRtlLocale(i18n.language as Locale) ? `${FSI}${String(value)}${PDI}` : String(value);
+  const rtl = isRtlLocale(i18n.language as Locale);
+  // Stable per direction, so callers may use it inside useMemo.
+  return useCallback(
+    (value: string | number) => (rtl ? `${FSI}${String(value)}${PDI}` : String(value)),
+    [rtl],
+  );
 }

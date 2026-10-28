@@ -115,6 +115,11 @@ in a worker with pixel and size limits) and `@tiptap/extension-image` (MIT, 3.31
 values only, with size, row, column and cell limits and a zip-bomb check) with its companion
 `et-xmlfile` (MIT); dev-only `types-openpyxl` (Apache-2.0 typeshed stubs).
 
+**Approved additions (D-110, WP-036):** `react-grid-layout` (MIT, pinned 2.2.4) with its MIT
+companions `react-draggable`, `react-resizable`, `fast-equals`, `resize-observer-polyfill`,
+`clsx`, `prop-types`: free-form dashboard layout, lazy-loaded in edit mode only, keyboard
+move/resize buttons kept, right to left mirrored and checked by e2e.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.

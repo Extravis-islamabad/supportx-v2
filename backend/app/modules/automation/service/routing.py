@@ -234,8 +234,12 @@ async def route_record(
     record: Mapping[str, JsonValue],
     *,
     record_id: uuid.UUID,
+    entry_group_id: uuid.UUID | None = None,
 ) -> RoutingChoice | None:
     """The group for a record (REQ-ASG-001), or None to keep what it has.
+
+    `entry_group_id`: the group of the entry point the record came in by (a mailbox's support
+    group, WP-024), set by that entry point, never by a client.
 
     Only active groups are ever chosen; a rule naming a group made inactive since is passed
     over, so the next rule (or the category, or the fallback) decides.
@@ -272,11 +276,15 @@ async def route_record(
     fallback = settings.fallback_group_id
     if fallback is not None and not await active_unit_ids(session, "group", [fallback]):
         fallback = None
+    entry = entry_group_id
+    if entry is not None and not await active_unit_ids(session, "group", [entry]):
+        entry = None
     choice = route(
         definitions,
         record,
         category_group=category_group,
         fallback_group=str(fallback) if fallback else None,
+        entry_group=str(entry) if entry else None,
     )
     if choice is not None:
         context = session.info[SESSION_TENANT_KEY]
