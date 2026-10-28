@@ -879,6 +879,35 @@ async def test_bug_01_sending_again_stops_the_earlier_link(world: World) -> None
     assert second_account in world.admin.accounts
 
 
+async def test_earlier_links_work_says_whether_an_earlier_link_still_works(world: World) -> None:
+    """Product owner 2026-10-28: Keycloak cannot withdraw one link (proved on 26.8.1), so for an
+    account that existed before the invitation the screen states the earlier links still work."""
+    made = await _invite(world, await _person(world))
+    assert made["earlier_links_work"] is False  # one link so far
+    again = await world.call(
+        "POST",
+        f"/identity/invitations/{made['id']}/resend",
+        world.a,
+        headers={"If-Match": f'"{made["version"]}"'},
+    )
+    assert again.json()["earlier_links_work"] is False  # made afresh: the earlier link is dead
+
+    existing = KeycloakUser(
+        id="kc-existing", email="nadia@acme.test", enabled=True, has_password=False
+    )
+    world.admin.accounts[existing.id] = existing  # e.g. made by hand before the invitation
+    invited = await _invite(world, await _person(world, "nadia@acme.test", "en"))
+    resent = await world.call(
+        "POST",
+        f"/identity/invitations/{invited['id']}/resend",
+        world.a,
+        headers={"If-Match": f'"{invited["version"]}"'},
+    )
+    assert resent.status_code == 200, resent.text
+    assert resent.json()["earlier_links_work"] is True
+    assert existing.id in world.admin.accounts  # not ours to delete
+
+
 async def test_expired_and_accepted_invitations(world: World) -> None:
     """REQ-SEC-020 AC1 (expired shows as such) and AC3 (the first sign-in accepts it)."""
     first = await _invite(world, await _person(world))

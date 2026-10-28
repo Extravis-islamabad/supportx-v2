@@ -6560,6 +6560,11 @@ export interface components {
              * @enum {string}
              */
             delivery: "email" | "existing_account";
+            /**
+             * Earlier Links Work
+             * @description Links e-mailed earlier still work until they expire (shown on screen).
+             */
+            earlier_links_work: boolean;
             /** Email */
             email: string;
             /**

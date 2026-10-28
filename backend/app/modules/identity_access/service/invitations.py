@@ -13,7 +13,9 @@ installation's sender with the tenant's name; it never names the inviting admin 
   an expired or used link, single use, proved on 26.8.1);
 - **revoked** by an admin: an account SupportX made for the invitation and never used is
   deleted, so the link stops at once (AC2); otherwise the person leaves the organization;
-- **resent**: a new e-mail and a new expiry (the previous link stays single use).
+- **resent**: a new e-mail and a new expiry. The earlier link stops when the account was made for
+  the invitation (made afresh); for an account that existed before, Keycloak cannot withdraw it,
+  so it works until it expires and the screen says so (`earlier_links_work`).
 
 Someone who already has a Keycloak password (a person of another tenant) gets the membership
 and no e-mail: they sign in as they are used to (`delivery = existing_account`).
@@ -60,6 +62,10 @@ class InvitationView:
     expires_at: datetime
     accepted_at: datetime | None
     sends: int
+    # Links e-mailed earlier still work until they expire: Keycloak cannot withdraw one link
+    # (proved on 26.8.1, even after ending the user's sessions), and only an account this
+    # invitation made can be made afresh. The screen says so (product owner, 2026-10-28).
+    earlier_links_work: bool
     version: int
 
 
@@ -80,6 +86,7 @@ def _view(row: Invitation, now: datetime | None = None) -> InvitationView:
         expires_at=row.expires_at,
         accepted_at=row.accepted_at,
         sends=row.sends,
+        earlier_links_work=row.sends > 1 and row.delivery == "email" and not row.created_account,
         version=row.version,
     )
 

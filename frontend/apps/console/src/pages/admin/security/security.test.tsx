@@ -50,6 +50,7 @@ function invitation(overrides: Partial<Invitation> = {}): Invitation {
     expires_at: '2026-11-03T10:00:00Z',
     accepted_at: null,
     sends: 1,
+    earlier_links_work: false,
     version: 1,
     ...overrides,
   };
@@ -335,6 +336,45 @@ describe('invitations (WP-039 session 2, REQ-SEC-018..020)', () => {
     await waitFor(() => {
       expect(fake.find('POST', '/api/v1/identity/invitations/i1/revoke')).toHaveLength(1);
     });
+  });
+
+  it('says when links sent earlier still work after sending again', async () => {
+    // Keycloak cannot withdraw one link (proved on 26.8.1): for an account that existed before
+    // the invitation, the earlier e-mail's link works until it expires (product owner).
+    const after = invitation({ version: 2, sends: 2, earlier_links_work: true });
+    api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/invitations': { body: { items: [invitation()] } },
+          'POST /api/v1/identity/invitations/i1/resend': { body: after },
+        },
+      }),
+    );
+    render(<App />);
+    const list = await screen.findByTestId('security-invitations-list');
+    await within(list).findByText('ina@acme.test');
+    expect(within(list).queryByTestId('invitation-earlier-links')).toBeNull();
+    fireEvent.click(within(list).getByTestId('invitation-resend'));
+    expect(
+      await screen.findByText(
+        'Invitation sent again. This person had an account before the invitation, so links sent earlier also still work until they expire.',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('shows on the list that earlier links still work', async () => {
+    api(
+      routes({
+        routes: {
+          'GET /api/v1/identity/invitations': {
+            body: { items: [invitation({ sends: 2, earlier_links_work: true })] },
+          },
+        },
+      }),
+    );
+    render(<App />);
+    const note = await screen.findByTestId('invitation-earlier-links');
+    expect(note.textContent).toBe('Links sent earlier also still work until they expire.');
   });
 
   it('how long links work is checked at once and saved alone', async () => {

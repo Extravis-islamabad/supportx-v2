@@ -66,6 +66,7 @@ const SENT: Invitation = {
   expires_at: '2026-11-03T10:00:00Z',
   accepted_at: null,
   sends: 1,
+  earlier_links_work: false,
   version: 1,
 };
 

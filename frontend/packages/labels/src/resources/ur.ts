@@ -3260,4 +3260,8 @@ export const ur: LabelResource = {
     'درخواست گزار کا جواب “{{status}}” کو دوبارہ شروع کرتا ہے',
   'incidents.closing.open_work_title_one': 'کام کا {{count}} حصہ ابھی کھلا ہے',
   'incidents.closing.open_work_title_other': 'کام کے {{count}} حصے ابھی کھلے ہیں',
+  'security.invitations.earlier_links_work':
+    'پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
+  'security.invitations.resent_earlier_work':
+    'دعوت دوبارہ بھیج دی گئی۔ اس شخص کا اکاؤنٹ دعوت سے پہلے موجود تھا، اس لیے پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
 };

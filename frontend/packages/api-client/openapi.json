@@ -6508,6 +6508,11 @@
             "title": "Delivery",
             "type": "string"
           },
+          "earlier_links_work": {
+            "description": "Links e-mailed earlier still work until they expire (shown on screen).",
+            "title": "Earlier Links Work",
+            "type": "boolean"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -6561,6 +6566,7 @@
           "expires_at",
           "accepted_at",
           "sends",
+          "earlier_links_work",
           "version"
         ],
         "title": "InvitationOut",
