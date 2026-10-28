@@ -198,7 +198,7 @@ describe('widget library on screen (D-114)', () => {
     const list = await screen.findByTestId('widget-my_open_list');
     expect(await within(list).findByText('Mail is down')).toBeDefined();
     expect(within(list).getByTestId('widget-record-INC-8')).toBeDefined();
-    const asked = fake.find('GET', '/api/v1/incidents')[0]?.url ?? '';
+    const asked = fake.find('GET', '/api/v1/incidents')[0]?.url.toString() ?? '';
     expect(decodeURIComponent(asked)).toContain(ME); // "me" is the viewer
     expect(decodeURIComponent(asked)).toContain('sort=priority');
     expect(screen.getByTestId('widget-title-my_open_list').textContent).toBe('My open work');
