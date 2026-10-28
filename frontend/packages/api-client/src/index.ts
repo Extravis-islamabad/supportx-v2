@@ -410,6 +410,7 @@ export {
 export {
   useAutomationChange,
   useAvailability,
+  useAvailabilityHistory,
   useBusinessRules,
   useGroupAssignment,
   useIncidentAutomation,

@@ -180,10 +180,13 @@ export function ConditionBuilder({
   value,
   onChange,
   allowOp = () => true,
+  invalid = () => false,
 }: {
   fields: RuleFieldOut[];
   value: Conditions;
   onChange: (next: Conditions) => void;
+  /** Whether row `index` has a problem from the server (marked, QA WP-029 BUG-03). */
+  invalid?: (index: number) => boolean;
   /** Narrows the operators offered (triggers: "changed from" for the status only). */
   allowOp?: (field: string, op: string) => boolean;
 }) {
@@ -216,9 +219,17 @@ export function ConditionBuilder({
         const field = byName.get(row.field);
         const ops =
           field === undefined ? [] : OPERATORS[field.kind].filter((op) => allowOp(field.name, op));
+        const status = invalid(index) ? 'error' : undefined;
         return (
           // Rows have no ID: they are edited in place, never reordered.
-          <Flex key={index} gap={8} wrap align="center" data-testid={`condition-${String(index)}`}>
+          <Flex
+            key={index}
+            gap={8}
+            wrap
+            align="center"
+            data-testid={`condition-${String(index)}`}
+            data-invalid={status}
+          >
             <Select
               aria-label={t('automation.conditions.field')}
               showSearch
@@ -230,6 +241,7 @@ export function ConditionBuilder({
               }}
               options={fieldOptions(fields, name)}
               style={{ minWidth: 200 }}
+              status={status}
               data-testid={`condition-${String(index)}-field`}
             />
             <Select
@@ -242,6 +254,7 @@ export function ConditionBuilder({
               }}
               options={ops.map((op) => ({ value: op, label: t(`rule_op.${op}`) }))}
               style={{ minWidth: 160 }}
+              status={status}
               data-testid={`condition-${String(index)}-op`}
             />
             {field !== undefined && row.op !== '' && !NO_VALUE.has(row.op) && (

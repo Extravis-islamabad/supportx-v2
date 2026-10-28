@@ -8,17 +8,24 @@ import {
   type ReplyTemplate,
 } from '@supportx/api-client';
 import {
+  ConflictDialog,
   describeError,
   EmptyText,
+  FormProblem,
+  markHandled,
   reportError,
   RichTextField,
   RichTextView,
+  useConflict,
+  useFormProblem,
   useLabel,
   WriteButton,
   lengthLimit,
 } from '@supportx/ui';
 
 type Editing = { kind: 'create' } | { kind: 'update'; template: ReplyTemplate } | null;
+const templateView = (template: ReplyTemplate | undefined) =>
+  template && { name: template.name, body: template.body };
 
 /**
  * Reply templates (REQ-INC-058), managed by admins (settings.manage) here, beside the other
@@ -33,22 +40,46 @@ export function ReplyTemplatesTab() {
   const [editing, setEditing] = useState<Editing>(null);
   const [name, setName] = useState('');
   const [body, setBody] = useState('');
+  // Any other refusal (a rule, a limit) is shown in the form too (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const start = (next: Editing) => {
     change.reset();
+    problem.clear();
     setEditing(next);
     setName(next?.kind === 'update' ? next.template.name : '');
     setBody(next?.kind === 'update' ? next.template.body : '');
   };
   const error = change.error instanceof ApiError ? change.error : null;
-  const save = () => {
+  // A template someone changed first (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{ template: ReplyTemplate; remove: boolean }>();
+  const live = templates.data?.find((x) => x.id === tried?.template.id);
+  const stale = (template: ReplyTemplate, remove: boolean) => (failure: unknown) => {
+    if (!conflict.take(failure)) return false;
+    setTried({ template, remove });
+    void templates.refetch();
+    return true;
+  };
+  const remove = (template: ReplyTemplate, version = template.version) => {
+    change.mutate(
+      { kind: 'delete', id: template.id, version },
+      {
+        onError: (failure) => {
+          if (!stale(template, true)(failure)) reportError(failure);
+        },
+      },
+    );
+  };
+  const save = (version?: number) => {
     if (editing === null) return;
+    problem.clear();
     change.mutate(
       editing.kind === 'create'
         ? { kind: 'create', name, body }
         : {
             kind: 'update',
             id: editing.template.id,
-            version: editing.template.version,
+            version: version ?? editing.template.version,
             name,
             body,
           },
@@ -58,7 +89,9 @@ export function ReplyTemplatesTab() {
           start(null);
         },
         onError: (failure) => {
-          if (!(failure instanceof ApiError && failure.status === 422)) reportError(failure);
+          if (editing.kind === 'update' && stale(editing.template, false)(failure)) return;
+          if (failure instanceof ApiError && failure.status === 422) markHandled(failure);
+          else problem.show(failure);
         },
       },
     );
@@ -109,10 +142,7 @@ export function ReplyTemplatesTab() {
                     okButtonProps={{ danger: true }}
                     cancelText={t('actions.cancel')}
                     onConfirm={() => {
-                      change.mutate(
-                        { kind: 'delete', id: template.id, version: template.version },
-                        { onError: reportError },
-                      );
+                      remove(template);
                     }}
                   >
                     <Button type="link" danger>
@@ -156,6 +186,7 @@ export function ReplyTemplatesTab() {
               description={error.fieldErrors.map((f) => t(f.message_key, f.params ?? {})).join(' ')}
             />
           )}
+          <FormProblem problem={problem} />
           <Flex justify="end" gap={8}>
             <Button
               onClick={() => {
@@ -167,7 +198,9 @@ export function ReplyTemplatesTab() {
             <WriteButton
               type="primary"
               loading={change.isPending}
-              onClick={save}
+              onClick={() => {
+                save();
+              }}
               data-testid="tpl-save"
             >
               {t('actions.save')}
@@ -175,6 +208,33 @@ export function ReplyTemplatesTab() {
           </Flex>
         </Space>
       )}
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) =>
+          t(field === 'body' ? 'reply_templates.body' : 'reply_templates.name')
+        }
+        opened={templateView(tried?.template)}
+        latest={templateView(live)}
+        onReload={() => {
+          conflict.clear();
+          // An open form shows their version, my edits dropped.
+          if (!tried?.remove && live !== undefined) start({ kind: 'update', template: live });
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined && live !== undefined) {
+            const version = conflict.latestVersion ?? live.version;
+            if (tried.remove) remove(live, version);
+            else {
+              setEditing({ kind: 'update', template: live });
+              save(version);
+            }
+          }
+          setTried(undefined);
+        }}
+      />
     </Card>
   );
 }

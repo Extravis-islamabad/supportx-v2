@@ -40,7 +40,13 @@ from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Change, Source, explain_conflict, record_changes
+from app.shared.history import (
+    Change,
+    Source,
+    explain_conflict,
+    record_changes,
+    register_people_names,
+)
 from app.shared.mail import Language
 from app.shared.search import ENGINE
 
@@ -334,6 +340,10 @@ async def display_names(session: AsyncSession, user_ids: Sequence[str]) -> list[
     """Display names in the given order (unknown IDs skipped)."""
     names = await user_names(session, user_ids)
     return [names[str(user_id)] for user_id in user_ids if str(user_id) in names]
+
+
+# Every module's 409 names who saved the record since (QA WP-029 BUG-05).
+register_people_names(display_names)
 
 
 @dataclass(frozen=True)

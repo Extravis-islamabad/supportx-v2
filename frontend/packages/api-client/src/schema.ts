@@ -754,9 +754,29 @@ export interface paths {
         get?: never;
         /**
          * Set a technician Available or Away
-         * @description Yourself always; someone else only with `users.manage`.
+         * @description Yourself always; a member of your group as its lead; anyone with `users.manage`.
          */
         put: operations["put_availability_api_v1_automation_availability__user_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/availability/{user_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Availability changes of one person
+         * @description Newest first: who set them Available or Away, and when (yourself, leads, admins).
+         */
+        get: operations["get_availability_history_api_v1_automation_availability__user_id__history_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -4033,6 +4053,18 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * AllowedForOut
+         * @description Who a transition is limited to: roles, group names, people on the record (codes).
+         */
+        AllowedForOut: {
+            /** Groups */
+            groups: string[];
+            /** Relatives */
+            relatives: string[];
+            /** Roles */
+            roles: components["schemas"]["RoleNameOut"][];
+        };
+        /**
          * AnnouncementAction
          * @description AnnouncementStatus actions, in the order the UI shows them.
          * @enum {string}
@@ -4928,6 +4960,17 @@ export interface components {
          */
         Availability: "available" | "away";
         /**
+         * AvailabilityChangeOut
+         * @description One availability change: the state set, by whom, when.
+         */
+        AvailabilityChangeOut: {
+            /** Changed At */
+            changed_at: string | null;
+            /** Changed By */
+            changed_by: string | null;
+            state: components["schemas"]["Availability"];
+        };
+        /**
          * AvailabilityIn
          * @description Set Available or Away.
          */
@@ -4936,9 +4979,16 @@ export interface components {
         };
         /**
          * AvailabilityOut
-         * @description A technician's own state (REQ-ASG-006): Away is never auto-assigned.
+         * @description Someone's state (REQ-ASG-006): Away is never auto-assigned. Who set it, and when.
          */
         AvailabilityOut: {
+            /** Changed At */
+            changed_at?: string | null;
+            /**
+             * Changed By
+             * @description Display name of who set it.
+             */
+            changed_by?: string | null;
             state: components["schemas"]["Availability"];
             /**
              * User Id
@@ -7921,6 +7971,18 @@ export interface components {
             version: number;
         };
         /**
+         * RoleNameOut
+         * @description A role: system roles are labelled by key, other roles shown by name.
+         */
+        RoleNameOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** System */
+            system: boolean;
+        };
+        /**
          * RolePatch
          * @description Changes to a custom role; `permissions` replaces the whole matrix when given.
          */
@@ -9414,6 +9476,8 @@ export interface components {
             action: string;
             /** Allowed */
             allowed: boolean;
+            /** @description Refused as not_for_you: who may run it (QA WP-029 C2). */
+            allowed_for?: components["schemas"]["AllowedForOut"] | null;
             /**
              * Confirmation
              * @description Asked before the move runs, per language (en, ar, ur).
@@ -13038,6 +13102,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_availability_history_api_v1_automation_availability__user_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityChangeOut"][];
                 };
             };
             /** @description Not signed in. */

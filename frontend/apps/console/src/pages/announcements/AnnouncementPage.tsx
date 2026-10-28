@@ -32,10 +32,14 @@ import {
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
 import { useRecordChannel, useTenantChannel, type PresenceMember } from '@supportx/realtime';
 import {
+  useConflictRetry,
   ConflictDialog,
   describeError,
+  FormProblem,
   PresenceAvatars,
   reportError,
+  useConflict,
+  useFormProblem,
   useLabel,
   useRefetchAfter,
   WriteButton,
@@ -135,6 +139,19 @@ function AnnouncementDetail({
   }, [viewers]);
 
   const remove = useDeleteAnnouncement(item.id);
+  // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
+  const removeConflict = useConflictRetry();
+  const removeIt = (version: number) => {
+    remove.mutate(version, {
+      onSuccess: () => {
+        void message.success(t('announcements.deleted'));
+        void navigate('/announcements');
+      },
+      onError: (error) => {
+        if (!removeConflict.take(error, removeIt)) reportError(error);
+      },
+    });
+  };
   const canEdit = item.can_manage;
   const me = useSession().data?.user.id;
 
@@ -154,6 +171,10 @@ function AnnouncementDetail({
         </Space>
         <PresenceAvatars viewers={viewers} selfUserId={me ?? null} />
       </Flex>
+      <ConflictDialog
+        {...removeConflict.dialog}
+        fieldLabel={(field) => t(`announcement.field.${field}`)}
+      />
       {changedBy !== null && (
         <Alert
           type="warning"
@@ -221,13 +242,7 @@ function AnnouncementDetail({
                       okText={t('announcements.delete')}
                       cancelText={t('actions.cancel')}
                       onConfirm={() => {
-                        remove.mutate(item.version, {
-                          onSuccess: () => {
-                            void message.success(t('announcements.deleted'));
-                            void navigate('/announcements');
-                          },
-                          onError: reportError,
-                        });
+                        removeIt(item.version);
                       }}
                     >
                       <WriteButton danger loading={remove.isPending} data-testid="ann-delete">
@@ -268,6 +283,23 @@ function Window({ item }: { item: Announcement }) {
   );
 }
 
+// What a person sees of an announcement, for the conflict dialog (QA WP-029 BUG-05).
+const VIEWED = [
+  'title',
+  'body',
+  'severity',
+  'audience',
+  'site_ids',
+  'group_ids',
+  'show_as_banner',
+  'publish_from',
+  'publish_until',
+  'owner_id',
+  'status',
+] as const;
+const announcementView = (item: Announcement | undefined) =>
+  item && Object.fromEntries(VIEWED.map((field) => [field, item[field]]));
+
 /** Every action, always in the same order; the ones not possible now are disabled with why. */
 function StatusActions({ item }: { item: Announcement }) {
   const t = useLabel();
@@ -275,16 +307,30 @@ function StatusActions({ item }: { item: Announcement }) {
   const act = useAnnouncementAction(item.id);
   const [asking, setAsking] = useState<AnnouncementAction | null>(null);
   const [reason, setReason] = useState('');
-  const run = (action: AnnouncementAction, why?: string) => {
+  // With the reason dialog open, its refusal is shown there (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // Moved or changed by someone after it was shown (409): the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{
+    action: AnnouncementAction;
+    why?: string;
+    opened: Announcement;
+  }>();
+  const run = (action: AnnouncementAction, why?: string, version = item.version) => {
+    problem.clear();
     act.mutate(
-      { action, version: item.version, reason: why },
+      { action, version, reason: why },
       {
         onSuccess: () => {
           setAsking(null);
           setReason('');
           void message.success(t(`announcements.done.${action}`));
         },
-        onError: reportError,
+        onError: (error) => {
+          if (conflict.take(error)) setTried({ action, why, opened: item });
+          else if (asking !== null) problem.show(error);
+          else reportError(error);
+        },
       },
     );
   };
@@ -328,9 +374,11 @@ function StatusActions({ item }: { item: Announcement }) {
         onCancel={() => {
           setAsking(null);
           setReason('');
+          problem.clear();
         }}
         destroyOnHidden
       >
+        <FormProblem problem={problem} />
         <label htmlFor="ann-reason">
           <Typography.Text>{t('announcements.reason')}</Typography.Text>
         </label>
@@ -345,6 +393,26 @@ function StatusActions({ item }: { item: Announcement }) {
           data-testid="ann-reason"
         />
       </Modal>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(`announcement.field.${field}`)}
+        opened={announcementView(tried?.opened)}
+        latest={announcementView(item)}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+          setAsking(null);
+          setReason('');
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) {
+            run(tried.action, tried.why, conflict.latestVersion ?? item.version);
+          }
+          setTried(undefined);
+        }}
+      />
     </Flex>
   );
 }
@@ -365,8 +433,11 @@ function EditForm({
   // The version these values are based on: sent as If-Match.
   const [baseVersion, setBaseVersion] = useState(item.version);
   const [conflict, setConflict] = useState<unknown>(null);
+  // A refusal with no field to point at is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const dirty = (): Field[] => FIELDS.filter((name) => form.getFieldState(name).isDirty);
   const save = (values: Values, version: number, fields: readonly Field[]) => {
+    problem.clear();
     update.mutate(
       { changes: bodyOf(values, fields), version },
       {
@@ -376,7 +447,7 @@ function EditForm({
         },
         onError: (error) => {
           if (error instanceof ApiError && error.isConflict) setConflict(error);
-          else if (!applyServerErrors(error, form.setError, FIELDS)) reportError(error);
+          else if (!applyServerErrors(error, form.setError, FIELDS)) problem.show(error);
         },
       },
     );
@@ -386,21 +457,24 @@ function EditForm({
       <AnnouncementFields
         form={form}
         footer={
-          <Space>
-            <WriteButton
-              type="primary"
-              loading={update.isPending}
-              data-testid="ann-save"
-              onClick={() =>
-                void form.handleSubmit((values) => {
-                  save(values, baseVersion, dirty());
-                })()
-              }
-            >
-              {t('actions.save')}
-            </WriteButton>
-            <Button onClick={onDone}>{t('actions.cancel')}</Button>
-          </Space>
+          <>
+            <FormProblem problem={problem} />
+            <Space>
+              <WriteButton
+                type="primary"
+                loading={update.isPending}
+                data-testid="ann-save"
+                onClick={() =>
+                  void form.handleSubmit((values) => {
+                    save(values, baseVersion, dirty());
+                  })()
+                }
+              >
+                {t('actions.save')}
+              </WriteButton>
+              <Button onClick={onDone}>{t('actions.cancel')}</Button>
+            </Space>
+          </>
         }
       />
       <ConflictDialog

@@ -558,3 +558,59 @@ async def test_new_tables_are_tenant_isolated(world: World, table: str) -> None:
         pass  # no DELETE grant on this table: refused outright, which is isolation too
     finally:
         await database.dispose()
+
+
+async def make_lead(world: World, org: Org, group: uuid.UUID, lead: uuid.UUID) -> None:
+    listed = await world.call("GET", "/organization/groups", org, org.admin)
+    (found,) = [g for g in listed.json() if g["id"] == str(group)]
+    version = f'"{found["version"]}"'
+    changed = await world.call(
+        "PATCH",
+        f"/organization/groups/{group}",
+        org,
+        org.admin,
+        json={"lead_id": str(lead)},
+        headers={"If-Match": version},
+    )
+    assert changed.status_code == 200, changed.text
+
+
+async def test_follow_up_a_group_lead_sets_a_member_away_and_it_is_recorded(
+    world: World,
+) -> None:
+    """Product owner, 2026-10-28: leads and admins set a member's availability, with history."""
+    org = world.a
+    await make_lead(world, org, org.ga, org.tech_c)
+    away = await world.call(
+        "PUT", f"/automation/availability/{org.tech_a}", org, org.tech_c, json={"state": "away"}
+    )
+    assert away.status_code == 200, away.text
+    (state,) = (
+        await world.call(
+            "GET",
+            "/automation/availability",
+            org,
+            org.tech_a,
+            params={"user_ids": [str(org.tech_a)]},
+        )
+    ).json()
+    assert (state["state"], state["changed_by"]) == ("away", "Alpha Tech C")
+    assert state["changed_at"] is not None
+    # Someone the lead does not lead (tech B is only in GB): refused.
+    other = await world.call(
+        "PUT", f"/automation/availability/{org.tech_b}", org, org.tech_c, json={"state": "away"}
+    )
+    assert other.status_code == 403
+    # Back to Available by an admin; both changes are in the history, newest first.
+    back = await world.call(
+        "PUT", f"/automation/availability/{org.tech_a}", org, org.admin, json={"state": "available"}
+    )
+    assert back.status_code == 200, back.text
+    history = await world.call(
+        "GET", f"/automation/availability/{org.tech_a}/history", org, org.tech_c
+    )
+    assert history.status_code == 200, history.text
+    assert [(h["state"], h["changed_by"]) for h in history.json()] == [
+        ("available", "Alpha Admin"),
+        ("away", "Alpha Tech C"),
+    ]

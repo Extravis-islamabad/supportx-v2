@@ -29,8 +29,10 @@ import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   AccountSecurityCard,
   ConflictDialog,
+  FormProblem,
   PresenceAvatars,
   reportError,
+  useFormProblem,
   useLabel,
   useLicence,
   WriteButton,
@@ -38,6 +40,7 @@ import {
 
 import { AvailabilityCard } from '../AvailabilitySwitch';
 import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
+import { LedGroupsCard } from '../GroupMembersAvailability';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -118,7 +121,10 @@ export function ProfilePage() {
       <NotificationPreferencesCard />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (
-        <AvailabilityCard userId={me.id} />
+        <>
+          <AvailabilityCard userId={me.id} />
+          <LedGroupsCard userId={me.id} />
+        </>
       )}
       <ProfileForm
         user={user.data}
@@ -142,6 +148,8 @@ function ProfileForm({
   const { message } = App.useApp();
   const queryClient = useQueryClient();
   const update = useUpdateUser(user.id);
+  // A refusal with no field to point at is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   // The version this form's values are based on: sent as If-Match on save.
   const [baseVersion, setBaseVersion] = useState(user.version);
   const base = useRef(baseVersion);
@@ -181,6 +189,7 @@ function ProfileForm({
 
   const changedFields = () => FIELDS.filter((name) => form.getFieldState(name).isDirty);
   const save = (values: Values, version: number, fields: readonly Field[]) => {
+    problem.clear();
     update.mutate(
       { changes: changesOf(values, fields), version },
       {
@@ -194,7 +203,7 @@ function ProfileForm({
           if (error instanceof ApiError && error.isConflict) {
             setConflict(error);
           } else if (!applyServerErrors(error, form.setError, FIELDS)) {
-            reportError(error);
+            problem.show(error);
           }
         },
       },
@@ -240,6 +249,7 @@ function ProfileForm({
           helpKey="profile.time_zone_help"
           render={(field) => <Input {...field} data-testid="profile-time-zone" />}
         />
+        <FormProblem problem={problem} />
         <Space>
           <WriteButton
             type="primary"

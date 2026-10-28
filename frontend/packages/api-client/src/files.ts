@@ -210,7 +210,7 @@ export function useFileRules() {
 export function useUpdateFileRules() {
   const queryClient = useQueryClient();
   return useMutation({
-    // The page says what went wrong (a conflict as a warning, the rest reported).
+    // The page says what went wrong (a conflict in the conflict dialog, the rest reported).
     meta: { silent: true },
     mutationFn: ({ body, version }: { body: FileRulesInput; version: number }) =>
       call(
@@ -221,6 +221,12 @@ export function useUpdateFileRules() {
       ),
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKeys.files.rules, saved);
+    },
+    onError: (error) => {
+      // A stale save: fetch the saved rules, so the conflict dialog can compare (QA WP-029 BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.files.rules });
+      }
     },
   });
 }

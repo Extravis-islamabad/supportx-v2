@@ -36,15 +36,21 @@ import {
 } from '@supportx/api-client';
 import { refreshRecord, useRecordChannel } from '@supportx/realtime';
 import {
+  useConflictRetry,
   ConflictDialog,
+  FormProblem,
   ToneTag,
   lengthLimit,
+  markHandled,
   reportError,
   useAccess,
   useAppearance,
+  useConflict,
+  useFormProblem,
   useLabel,
 } from '@supportx/ui';
 
+import { MemberAvailability } from '../../../MemberAvailability';
 import { PersonSignInActions } from '../security/PersonSignInActions';
 import { UserAccessPanel } from '../UserAccessDrawer';
 import { roleName } from '../roleName';
@@ -202,6 +208,8 @@ function PersonForm({
   const [base, setBase] = useState(() => ({ values: snapshot(user), version: user?.version }));
   const [conflict, setConflict] = useState<unknown>();
   const [problems, setProblems] = useState<Record<string, string>>({});
+  // A refusal with no field to point at (a rule, a limit) is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [form] = Form.useForm<Values>();
   const [dirty, setDirty] = useState(false);
   // The record moved on (adjusted while rendering, as for useDraft): with no unsaved edits the
@@ -226,7 +234,10 @@ function PersonForm({
       : new Intl.DateTimeFormat(locale, { timeStyle: 'short' }).format(new Date(user.updated_at));
 
   const showProblems = (error: unknown): boolean => {
-    if (!(error instanceof ApiError) || error.status !== 422) return false;
+    if (!(error instanceof ApiError) || error.status !== 422 || error.fieldErrors.length === 0) {
+      return false;
+    }
+    markHandled(error);
     setProblems(
       Object.fromEntries(
         error.fieldErrors.map((f) => [
@@ -240,6 +251,7 @@ function PersonForm({
 
   const save = (values: Values, version = base.version) => {
     setProblems({});
+    problem.clear();
     if (user === undefined) {
       const body = { ...changes(values, {}), first_name: values.first_name ?? '' };
       create.mutate(
@@ -254,7 +266,7 @@ function PersonForm({
             onSaved?.(saved);
           },
           onError: (error) => {
-            if (!showProblems(error)) reportError(error);
+            if (!showProblems(error)) problem.show(error);
           },
         },
       );
@@ -279,7 +291,7 @@ function PersonForm({
             setConflict(error);
             return;
           }
-          if (!showProblems(error)) reportError(error);
+          if (!showProblems(error)) problem.show(error);
         },
       },
     );
@@ -449,6 +461,7 @@ function PersonForm({
         >
           <Input.TextArea rows={3} count={lengthLimit(LENGTHS.description ?? 5000)} />
         </Form.Item>
+        <FormProblem problem={problem} />
         <Button
           type="primary"
           htmlType="submit"
@@ -591,15 +604,54 @@ function PlacementFields({
 /** Type, sign-in and active/deactivated, each its own audited action. */
 function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
   const t = useLabel();
-  const { message, modal } = App.useApp();
+  const { can } = useAccess();
+  const { modal } = App.useApp();
   const { setType, setSignIn, deactivate } = usePersonChange();
   const [reactivating, setReactivating] = useState(false);
-  const onError = (error: unknown) => {
-    if (error instanceof ApiError && error.isConflict) {
-      void message.warning(t('people.changed_reload'));
+  // Changed by someone after it was shown (409): the shared dialog says who, when and what
+  // (QA WP-029 BUG-05); "Keep my changes" makes the change again on the saved version.
+  const conflict = useConflict();
+  const [retry, setRetry] = useState<(version: number) => void>();
+  const failed = (again: (version: number) => void) => (error: unknown) => {
+    if (conflict.take(error)) {
+      setRetry(() => again);
       return;
     }
     reportError(error);
+  };
+  const saved = (next: UserDetail) => own.add(next.version);
+  const changeType = (userType: UserDetail['user_type'], version = user.version) => {
+    setType.mutate(
+      { id: user.id, version, userType },
+      {
+        onError: failed((at) => {
+          changeType(userType, at);
+        }),
+        onSuccess: saved,
+      },
+    );
+  };
+  const changeSignIn = (allowed: boolean, version = user.version) => {
+    setSignIn.mutate(
+      { id: user.id, version, allowed },
+      {
+        onError: failed((at) => {
+          changeSignIn(allowed, at);
+        }),
+        onSuccess: saved,
+      },
+    );
+  };
+  const deactivateNow = (version = user.version) => {
+    deactivate.mutate(
+      { id: user.id, version },
+      {
+        onError: failed((at) => {
+          deactivateNow(at);
+        }),
+        onSuccess: saved,
+      },
+    );
   };
   const busy = setType.isPending || setSignIn.isPending || deactivate.isPending;
   return (
@@ -628,10 +680,7 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
           }))}
           onChange={(value) => {
             const change = () => {
-              setType.mutate(
-                { id: user.id, version: user.version, userType: value },
-                { onError, onSuccess: (saved) => own.add(saved.version) },
-              );
+              changeType(value);
             };
             if (value !== 'technician') {
               change();
@@ -656,13 +705,17 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
           checked={user.can_sign_in}
           disabled={busy}
           onChange={(allowed) => {
-            setSignIn.mutate(
-              { id: user.id, version: user.version, allowed },
-              { onError, onSuccess: (saved) => own.add(saved.version) },
-            );
+            changeSignIn(allowed);
           }}
         />
       </Flex>
+      {user.user_type === 'technician' && (
+        <Flex gap={16} wrap align="start">
+          <Typography.Text>{t('availability.member_label')}</Typography.Text>
+          {/* An admin sets a sick technician Away: no auto-assigned work (QA WP-029 follow-up). */}
+          <MemberAvailability userId={user.id} canSet={can('users.manage')} showHistory />
+        </Flex>
+      )}
       <PersonSignInActions user={user} />
       {user.status === 'active' ? (
         <Popconfirm
@@ -671,10 +724,7 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
           okText={t('people.deactivate')}
           cancelText={t('actions.cancel')}
           onConfirm={() => {
-            deactivate.mutate(
-              { id: user.id, version: user.version },
-              { onError, onSuccess: (saved) => own.add(saved.version) },
-            );
+            deactivateNow();
           }}
         >
           <Button danger loading={deactivate.isPending} data-testid="person-deactivate">
@@ -700,6 +750,20 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
           setReactivating(false);
         }}
       />
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(personFieldKey(field))}
+        onReload={() => {
+          conflict.clear();
+          setRetry(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (retry !== undefined) retry(conflict.latestVersion ?? user.version);
+          setRetry(undefined);
+        }}
+      />
     </Flex>
   );
 }
@@ -722,38 +786,49 @@ function ReactivateDialog({
   const roles = useRoles(open && can('roles.view'));
   const groups = useUnits('groups', open && can('groups.view'));
   const { reactivate } = usePersonChange();
+  const problem = useFormProblem();
+  // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflictRetry();
   const [keepRoles, setKeepRoles] = useState<string[] | null>(null);
   const [keepGroups, setKeepGroups] = useState<string[] | null>(null);
   const roleIds = keepRoles ?? held.data?.role_ids ?? [];
   const groupIds = keepGroups ?? held.data?.group_ids ?? [];
+  const send = (version: number) => {
+    problem.clear();
+    reactivate.mutate(
+      { id: user.id, version, keepRoleIds: roleIds, keepGroupIds: groupIds },
+      {
+        onSuccess: (saved) => {
+          own.add(saved.version);
+          onClose();
+        },
+        onError: (error) => {
+          if (!conflict.take(error, send)) problem.show(error);
+        },
+      },
+    );
+  };
   return (
     <Modal
       open={open}
       title={t('people.reactivate.title', { name: user.display_name })}
       okText={t('people.reactivate')}
       cancelText={t('actions.cancel')}
-      onCancel={onClose}
+      onCancel={() => {
+        problem.clear();
+        onClose();
+      }}
       okButtonProps={{ 'data-testid': 'reactivate-confirm', loading: reactivate.isPending }}
       destroyOnHidden
       onOk={() => {
-        reactivate.mutate(
-          { id: user.id, version: user.version, keepRoleIds: roleIds, keepGroupIds: groupIds },
-          {
-            onSuccess: (saved) => {
-              own.add(saved.version);
-              onClose();
-            },
-            onError: (error) => {
-              reportError(error);
-            },
-          },
-        );
+        send(user.version);
       }}
     >
       {held.data === undefined ? (
         <Spin />
       ) : (
         <Space direction="vertical" style={{ width: '100%' }}>
+          <FormProblem problem={problem} />
           <Typography.Paragraph>{t('people.reactivate.explain')}</Typography.Paragraph>
           <Typography.Title level={5}>{t('access.roles')}</Typography.Title>
           {held.data.role_ids.length === 0 ? (
@@ -787,6 +862,7 @@ function ReactivateDialog({
           )}
         </Space>
       )}
+      <ConflictDialog {...conflict.dialog} fieldLabel={(field) => t(personFieldKey(field))} />
     </Modal>
   );
 }

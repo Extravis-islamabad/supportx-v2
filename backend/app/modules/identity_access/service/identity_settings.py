@@ -39,6 +39,7 @@ from app.modules.identity_access.infra.models import (
     IdentitySettings,
 )
 from app.shared.events import record_event
+from app.shared.history import stale_version
 
 AppName = Literal["console", "portal"]
 MIN_INVITATION_DAYS, MAX_INVITATION_DAYS = 1, 30  # Appendix A: 7 days, at most 30
@@ -166,6 +167,9 @@ async def save_identity_settings(
     check_session_limits(values)
     current = await get_identity_settings(session)
     if current.version != expected_version:
+        saved = await session.scalar(select(IdentitySettings))
+        if saved is not None:
+            raise await stale_version(session, saved, expected_version=expected_version)
         raise Conflict(
             code="version_conflict",
             params={"expected_version": expected_version, "current_version": current.version},

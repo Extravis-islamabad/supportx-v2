@@ -36,6 +36,7 @@ from app.modules.organization.infra.domain_check import DomainCheckError
 from app.modules.organization.infra.models import TenantDomain
 from app.shared.events import record_event
 from app.shared.files.service.core import current_data_key
+from app.shared.history import stale_version
 
 if TYPE_CHECKING:
     import uuid
@@ -189,7 +190,7 @@ async def upload_certificate(  # noqa: PLR0913 - which domain, the files' key ri
     """Use the tenant's own certificate for this domain (on-prem single node)."""
     row = await _row(session, domain_id)
     if row.version != expected_version:
-        raise Conflict(code="version_conflict", params={"current_version": row.version})
+        raise await stale_version(session, row, expected_version=expected_version)
     try:
         checked = check_certificate(chain_pem, key_pem, row.host, datetime.now(UTC))
     except DomainProblem as exc:
@@ -216,7 +217,7 @@ async def remove_domain(
     """Stop using the domain at once (soft delete; its host can be added again later)."""
     row = await _row(session, domain_id)
     if row.version != expected_version:
-        raise Conflict(code="version_conflict", params={"current_version": row.version})
+        raise await stale_version(session, row, expected_version=expected_version)
     row.deleted_at = datetime.now(UTC)
     row.version += 1
     await session.flush()

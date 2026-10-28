@@ -25,7 +25,7 @@ import {
   type UserDetail,
 } from '@supportx/api-client';
 import { refreshList, useRealtimeUser, useRecordChannel } from '@supportx/realtime';
-import { PresenceAvatars, useAccess, useLabel } from '@supportx/ui';
+import { FormProblem, PresenceAvatars, useAccess, useFormProblem, useLabel } from '@supportx/ui';
 
 import { roleName } from './roleName';
 
@@ -126,6 +126,8 @@ function UnitsSection({
   const units = useUnits(kind, can(`${kind}.view`));
   const { create, membership } = useUnitMutations(kind);
   const [name, setName] = useState('');
+  // A refused new group or site (a name taken, a limit) is shown under its field (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const editable = can(`${kind}.manage`);
   const titleId = `access-${kind}`;
   return (
@@ -170,17 +172,24 @@ function UnitsSection({
             disabled={name.trim() === ''}
             loading={create.isPending}
             onClick={() => {
+              problem.clear();
               create.mutate(name.trim(), {
                 onSuccess: (unit) => {
                   setName('');
                   membership.mutate({ unitId: unit.id, userId, member: true });
                 },
+                onError: problem.show,
               });
             }}
           >
             {t('actions.add')}
           </Button>
         </Space.Compact>
+      )}
+      {problem.error !== null && (
+        <div style={{ marginTop: 8 }}>
+          <FormProblem problem={problem} />
+        </div>
       )}
     </section>
   );

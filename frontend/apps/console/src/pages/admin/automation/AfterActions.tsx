@@ -18,11 +18,14 @@ export function AfterActions({
   actions,
   onChange,
   testId,
+  invalid = () => false,
 }: {
   fields: RuleFieldOut[];
   actions: TriggerActionIO[];
   onChange: (next: TriggerActionIO[]) => void;
   testId: string;
+  /** Whether action `index` has a problem from the server (marked, QA WP-029 BUG-03). */
+  invalid?: (index: number) => boolean;
 }) {
   const t = useLabel();
   const name = useFieldName();
@@ -36,11 +39,13 @@ export function AfterActions({
       {actions.map((action, index) => {
         const field = action.field != null ? byName.get(action.field) : undefined;
         const id = `${testId}-${String(index)}`;
+        const status = invalid(index) ? 'error' : undefined;
         return (
           // Actions have no ID: they are edited in place.
-          <Flex key={index} gap={8} wrap align="center" data-testid={id}>
+          <Flex key={index} gap={8} wrap align="center" data-testid={id} data-invalid={status}>
             <Select
               aria-label={t('automation.action_kind')}
+              status={status}
               value={action.kind}
               onChange={(kind: TriggerActionIO['kind']) => {
                 update(
@@ -68,6 +73,7 @@ export function AfterActions({
                   }}
                   options={fieldOptions(settable, name)}
                   style={{ minWidth: 200 }}
+                  status={status}
                   data-testid={`${id}-field`}
                 />
                 {field !== undefined && (

@@ -8,6 +8,7 @@ before: the permission alone decides.
 
 import uuid
 from collections.abc import Mapping
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select
@@ -30,6 +31,7 @@ from app.modules.automation.infra.models import TransitionSetting
 from app.modules.automation.service.business_rules import _invalid
 from app.modules.automation.service.registry import record_type as registered
 from app.shared.events import record_event
+from app.shared.history import stale_version
 
 # Why an action is not offered to someone (the UI labels them `action_reason.<code>`).
 NOT_OFFERED = "not_offered"  # its conditions do not hold for this record
@@ -123,9 +125,12 @@ async def save_setting(
         raise _invalid(problems)
     current = await setting(session, record_type, action)
     if (current.version if current is not None else 0) != expected_version:
-        raise Conflict(
-            code="version_conflict", params={"current": current.version if current else 0}
-        )
+        if current is None:  # reset by someone else: nobody to name
+            raise Conflict(
+                code="version_conflict",
+                params={"expected_version": expected_version, "current_version": 0},
+            )
+        raise await stale_version(session, current, expected_version=expected_version)
     if current is None:
         context = session.info[SESSION_TENANT_KEY]
         current = TransitionSetting(
@@ -153,7 +158,7 @@ async def reset_setting(
     if current is None:
         return
     if current.version != expected_version:
-        raise Conflict(code="version_conflict", params={"current": current.version})
+        raise await stale_version(session, current, expected_version=expected_version)
     await session.delete(current)
     await session.flush()
     await _changed(session, record_type, "deleted")
@@ -179,6 +184,24 @@ def rule_of(row: TransitionSetting) -> TransitionRule:
         group_ids=frozenset(str(g) for g in row.group_ids),
         relatives=frozenset(Relative(r) for r in row.relatives),
         conditions=row.conditions,
+    )
+
+
+@dataclass(frozen=True)
+class Audience:
+    """Who a transition is limited to (empty lists: anyone permitted)."""
+
+    roles: list[str]
+    group_ids: list[str]
+    relatives: list[str]
+
+
+def audience(row: TransitionSetting) -> Audience:
+    """The roles, groups and people on the record who may run it, in the admin's order."""
+    return Audience(
+        roles=list(row.roles),
+        group_ids=[str(g) for g in row.group_ids],
+        relatives=list(row.relatives),
     )
 
 

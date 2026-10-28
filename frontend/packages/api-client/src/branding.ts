@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -62,6 +63,12 @@ export function useSaveBranding() {
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKeys.branding.settings, saved);
       void queryClient.invalidateQueries({ queryKey: queryKeys.branding.current });
+    },
+    onError: (error) => {
+      // A stale save: fetch the saved branding, so the conflict dialog can compare (QA WP-029 BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.branding.settings });
+      }
     },
   });
 }
@@ -161,6 +168,9 @@ export function useUploadCertificate() {
         }),
       ),
     onSuccess: changed,
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) changed();
+    },
   });
 }
 
@@ -176,5 +186,8 @@ export function useRemoveDomain() {
         }),
       ),
     onSuccess: changed,
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) changed();
+    },
   });
 }

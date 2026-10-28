@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -84,6 +85,10 @@ export function useRoleMutations() {
         }),
       ),
     onSuccess: invalidate,
+    // A stale save: fetch the saved role, so the conflict dialog can compare (QA WP-029 BUG-05).
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) invalidate();
+    },
   });
   const remove = useMutation({
     meta: { silent: true },

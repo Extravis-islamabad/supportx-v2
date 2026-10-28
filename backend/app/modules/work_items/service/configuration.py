@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, NotFound
+from app.core.errors import NotFound
 from app.modules.work_items.domain.classification import (
     Impact,
     MatrixError,
@@ -55,7 +55,12 @@ from app.modules.work_items.infra.models import (
 )
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service.catalogue import Catalogue
-from app.modules.work_items.service.settings import SETTINGS_RECORD_TYPE, invalid, labels_of
+from app.modules.work_items.service.settings import (
+    SETTINGS_RECORD_TYPE,
+    invalid,
+    labels_of,
+    stale_settings,
+)
 from app.shared.db.display_ids import NumberAlreadyUsedError, set_next_number
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
@@ -85,14 +90,7 @@ async def _bump(  # noqa: PLR0913 - the step and its context, explicit
     user_id: uuid.UUID | None,
 ) -> Catalogue:
     """Check the version, then bump it, write history and the event; the new catalogue."""
-    if current.settings_version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={
-                "expected_version": expected_version,
-                "current_version": current.settings_version,
-            },
-        )
+    await _check_version(session, wtype, current, expected_version)
     if not changes:
         return current
     await session.execute(
@@ -124,15 +122,11 @@ async def _bump(  # noqa: PLR0913 - the step and its context, explicit
     return await config.load(session, wtype)
 
 
-def _check_version(current: Catalogue, expected_version: int) -> None:
+async def _check_version(
+    session: AsyncSession, wtype: WorkItemType, current: Catalogue, expected_version: int
+) -> None:
     if current.settings_version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={
-                "expected_version": expected_version,
-                "current_version": current.settings_version,
-            },
-        )
+        raise await stale_settings(session, wtype, current, expected_version)
 
 
 # --- statuses -------------------------------------------------------------------------------------
@@ -150,7 +144,7 @@ async def update_status(  # noqa: PLR0913 - the change and its context, explicit
 ) -> Catalogue:
     """Labels (translations) and colour of a status; its category and code never change."""
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     row = await session.scalar(
         select(WorkItemStatus).where(WorkItemStatus.type == wtype.code, WorkItemStatus.code == code)
     )
@@ -200,7 +194,7 @@ async def update_transition(  # noqa: PLR0913 - the change and its context, expl
 ) -> Catalogue:
     """Turn a transition's reason prompt off, optional or required."""
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     if action not in set(WorkItemAction) or WorkItemAction(action) in SYSTEM_ACTIONS:
         raise NotFound(code="transition_not_found")
     found = current.lifecycle.transitions.get((from_status, WorkItemAction(action)))
@@ -259,7 +253,7 @@ async def update_scale_value(  # noqa: PLR0913 - the change and its context, exp
 ) -> Catalogue:
     """Labels and colour of one impact, urgency or priority value (the values are fixed)."""
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     if scale not in set(Scale):
         raise NotFound(code="scale_value_not_found")
     row = await session.scalar(
@@ -310,7 +304,7 @@ async def replace_matrix(  # noqa: PLR0913 - the change and its context, explici
 ) -> Catalogue:
     """The whole matrix at once; an empty or unknown cell refuses all of it (REQ-INC-009 AC4)."""
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     matrix = {(c.get("impact", ""), c.get("urgency", "")): c.get("priority", "") for c in cells}
     if len(matrix) != len(cells) or set(matrix) - {(i, u) for i in Impact for u in Urgency}:
         raise invalid(field="cells", field_code="matrix_incomplete")
@@ -369,7 +363,7 @@ async def add_list_value(  # noqa: PLR0913 - the value and its context, explicit
     """A new value at the end of a list; returns the catalogue and the new value's code."""
     pick_list = _list(list_name)
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     named = labels_of(labels, allow_none=False)
     if len(current.list_values(pick_list)) >= LIST_VALUES_MAX:
         raise invalid(field="labels", field_code="too_many")
@@ -422,7 +416,7 @@ async def update_list_value(  # noqa: PLR0913, C901 - the change and its context
     """Rename / translate, colour, retire or bring back one value."""
     pick_list = _list(list_name)
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     row = await session.scalar(
         select(WorkItemReason).where(
             WorkItemReason.type == wtype.code,
@@ -504,7 +498,7 @@ async def reorder_list(  # noqa: PLR0913 - the order and its context, explicit
     """The new order of every value of a list (pickers and filters follow it at once)."""
     pick_list = _list(list_name)
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     before = [v.code for v in current.list_values(pick_list)]
     if order_problems(before, codes):
         raise invalid(field="codes", field_code="order_must_list_every_value")
@@ -546,7 +540,7 @@ async def change_next_number(  # noqa: PLR0913 - the change and its context, exp
 ) -> Catalogue:
     """The number the next record gets; never one already handed out (AC3)."""
     current = await config.load(session, wtype)
-    _check_version(current, expected_version)
+    await _check_version(session, wtype, current, expected_version)
     if next_number == current.last_number + 1:
         return current
     try:

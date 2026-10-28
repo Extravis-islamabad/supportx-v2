@@ -13,6 +13,7 @@ import {
   Switch,
   Table,
   Tabs,
+  Divider,
   Typography,
 } from 'antd';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -24,17 +25,24 @@ import {
   useStructureChange,
   useUsers,
   type StructureKind,
+  useSession,
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  FormProblem,
   NoAccess,
   ToneTag,
   lengthLimit,
+  markHandled,
   reportError,
   useAccess,
+  useConflict,
+  useFormProblem,
   useLabel,
   useLicence,
 } from '@supportx/ui';
+
+import { GroupMembersAvailability } from '../../../GroupMembersAvailability';
 
 type Row = {
   id: string;
@@ -150,9 +158,13 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
   const data = (rows.data ?? []) as unknown as Row[];
   const language = document.documentElement.lang || 'en';
 
-  const removeRow = (row: Row) => {
+  // A unit someone changed before it was removed (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const [removing, setRemoving] = useState<Row>();
+  const live = data.find((r) => r.id === removing?.id);
+  const removeRow = (row: Row, version = row.version) => {
     remove.mutate(
-      { id: row.id, version: row.version },
+      { id: row.id, version },
       {
         onSuccess: () => {
           void message.success(t('organization.removed', { name: unitName(row, t, language) }));
@@ -163,7 +175,12 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
             const uses = Object.entries(error.params)
               .map(([what, count]) => t(`organization.uses.${what}`, { count: Number(count) }))
               .join(', ');
+            markHandled(error); // said here, with what still uses it
             void message.warning(t('organization.in_use', { uses }));
+            return;
+          }
+          if (conflict.take(error)) {
+            setRemoving(row);
             return;
           }
           reportError(error);
@@ -293,6 +310,22 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
             : []),
         ]}
       />
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(`organization.field.${field}`)}
+        opened={unitView(kind, removing)}
+        latest={unitView(kind, live)}
+        onReload={() => {
+          conflict.clear();
+          setRemoving(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (live !== undefined) removeRow(live, conflict.latestVersion ?? live.version);
+          setRemoving(undefined);
+        }}
+      />
       <UnitEditor
         kind={kind}
         row={editing === 'new' ? undefined : editing}
@@ -323,6 +356,14 @@ function initial(kind: StructureKind, row: Row | undefined): Record<string, unkn
   return values;
 }
 
+/** What a person edits of a unit, by the form's field names, for the conflict dialog. */
+function unitView(kind: StructureKind, row: Row | undefined): object | undefined {
+  if (row === undefined) return undefined;
+  const names = [...FIELDS[kind].map((field) => field.name), 'disabled'];
+  if (kind === 'desks') names.push('labels');
+  return Object.fromEntries(names.map((name) => [name, row[name] ?? null]));
+}
+
 /** Add or change one unit. Keeps the version it opened; a save elsewhere shows the conflict. */
 function UnitEditor({
   kind,
@@ -338,17 +379,26 @@ function UnitEditor({
   onClose: () => void;
 }) {
   const t = useLabel();
+  const { can } = useAccess();
+  const me = useSession().data?.user.id;
   const { message } = App.useApp();
   const { create, update } = useStructureChange(kind);
   const [form] = Form.useForm<Record<string, unknown>>();
   const [problems, setProblems] = useState<Record<string, string>>({});
+  // A refusal with no field to point at (a rule, a limit) is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [conflict, setConflict] = useState<unknown>();
   const [version, setVersion] = useState<number | undefined>(row?.version);
   const [opened, setOpened] = useState<string | undefined>(row?.id);
+  // The unit as this form is based on it: the conflict dialog compares it with the live one
+  // (units keep no field history, so the server cannot name the fields: QA WP-029 BUG-05).
+  const [base, setBase] = useState<Row | undefined>(row);
   if (row?.id !== opened) {
     setOpened(row?.id);
     setVersion(row?.version);
+    setBase(row);
     setProblems({});
+    problem.clear();
   }
   const stale = latest !== undefined && version !== undefined && latest.version !== version;
 
@@ -376,7 +426,8 @@ function UnitEditor({
       setConflict(error);
       return;
     }
-    if (error instanceof ApiError && error.status === 422) {
+    if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+      markHandled(error);
       setProblems(
         Object.fromEntries(
           error.fieldErrors.map((f) => [
@@ -387,11 +438,12 @@ function UnitEditor({
       );
       return;
     }
-    reportError(error);
+    problem.show(error);
   };
 
   const save = (values: Record<string, unknown>, at = version) => {
     setProblems({});
+    problem.clear();
     const done = () => {
       void message.success(t('common.saved'));
       onClose();
@@ -470,6 +522,7 @@ function UnitEditor({
             <Switch data-testid="unit-disabled" />
           </Form.Item>
         )}
+        <FormProblem problem={problem} />
         <Button
           type="primary"
           htmlType="submit"
@@ -479,10 +532,25 @@ function UnitEditor({
           {t('actions.save')}
         </Button>
       </Form>
+      {kind === 'groups' && row !== undefined && (
+        <>
+          <Divider />
+          <Typography.Title level={2} style={{ fontSize: 16 }}>
+            {t('availability.group_members')}
+          </Typography.Title>
+          {/* The lead or an admin sets a sick member Away (QA WP-029 follow-up). */}
+          <GroupMembersAvailability
+            groupId={row.id}
+            canSet={can('users.manage') || (me !== undefined && row.lead_id === me)}
+          />
+        </>
+      )}
       <ConflictDialog
         open={conflict !== undefined}
         error={conflict}
         fieldLabel={(field) => t(`organization.field.${field}`)}
+        opened={unitView(kind, base)}
+        latest={unitView(kind, latest)}
         onReload={() => {
           setConflict(undefined);
           onClose();
@@ -490,6 +558,7 @@ function UnitEditor({
         onKeepMine={() => {
           setConflict(undefined);
           if (latest === undefined) return;
+          setBase(latest);
           setVersion(latest.version);
           save(form.getFieldsValue(), latest.version);
         }}

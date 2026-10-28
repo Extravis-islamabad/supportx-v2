@@ -195,8 +195,9 @@ describe('password policy (WP-039 session 2, REQ-SEC-005)', () => {
     expect(screen.getByTestId('security-password-state').textContent).toBe('Being applied');
   });
 
-  it('a save sends the version read; when another admin saved first it says so and takes their version', async () => {
+  it('a save sends the version read; when another admin saved first the conflict dialog asks, and keeping mine saves on their version', async () => {
     let reads = 0;
+    let puts = 0;
     const fake = api(
       routes({
         routes: {
@@ -204,9 +205,14 @@ describe('password policy (WP-039 session 2, REQ-SEC-005)', () => {
             reads += 1;
             return { body: { ...DEFAULTS, version: reads === 1 ? 0 : 1 } };
           },
-          'PUT /api/v1/identity/settings': {
-            status: 409,
-            body: problem(409, 'version_conflict', { params: { expected_version: 0 } }),
+          'PUT /api/v1/identity/settings': () => {
+            puts += 1;
+            return puts === 1
+              ? {
+                  status: 409,
+                  body: problem(409, 'version_conflict', { params: { expected_version: 0 } }),
+                }
+              : { body: { ...DEFAULTS, password_min_length: 16, version: 2 } };
           },
         },
       }),
@@ -220,16 +226,18 @@ describe('password policy (WP-039 session 2, REQ-SEC-005)', () => {
       expect(fake.find('PUT', '/api/v1/identity/settings')).toHaveLength(1);
     });
     expect(fake.find('PUT', '/api/v1/identity/settings')[0]?.headers.get('If-Match')).toBe('"0"');
-    expect(
-      await screen.findByText(
-        'Another administrator saved these settings first. Their changes are loaded: check yours and save again.',
-      ),
-    ).toBeTruthy();
+    // The shared conflict dialog (QA WP-029 BUG-05), not a passing message.
+    expect(await screen.findByText('Someone else changed this')).toBeTruthy();
     await waitFor(() => {
       expect(reads).toBeGreaterThan(1); // their version, fetched again
     });
     // What was typed is kept, to save again on top of their change.
     expect(screen.getByTestId<HTMLInputElement>('security-password_min_length').value).toBe('16');
+    fireEvent.click(screen.getByTestId('conflict-keep-mine'));
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/identity/settings')).toHaveLength(2);
+    });
+    expect(fake.find('PUT', '/api/v1/identity/settings')[1]?.headers.get('If-Match')).toBe('"1"');
   });
 
   it('a policy the sign-in service did not take says why and is applied again', async () => {

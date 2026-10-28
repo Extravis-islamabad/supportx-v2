@@ -1,6 +1,6 @@
 # Notifications: the one notification engine
 
-WP-023 (D-105). Every module that wants people told about its records registers through one
+WP-023 (D-106). Every module that wants people told about its records registers through one
 port; the `notifications` module decides who hears what, on which channel, in which language,
 and records every message. Modules never send mail or in-app messages themselves
 (`tests/test_notification_senders.py`).

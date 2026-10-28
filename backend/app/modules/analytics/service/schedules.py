@@ -55,7 +55,7 @@ from app.modules.analytics.service.exports import (
 from app.modules.identity_access import Subject, mail_recipients
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Change, Source, record_changes
+from app.shared.history import Change, Source, record_changes, stale_version
 from app.shared.labels import label
 from app.shared.mail import (
     MAX_ATTACHMENT_BYTES,
@@ -304,10 +304,7 @@ async def update_schedule(  # noqa: PLR0913 - the change, explicit
     _require(subject, settings)
     row = await get_schedule(session, subject, schedule_id)
     if row.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": row.version},
-        )
+        raise await stale_version(session, row, expected_version=expected_version)
     await _check(session, subject, values)
     before = _snapshot(row)
     _apply(row, values)
@@ -331,10 +328,7 @@ async def set_paused(  # noqa: PLR0913 - the change, explicit
     """Pause, or resume (which clears the failure count and plans the next run)."""
     row = await get_schedule(session, subject, schedule_id)
     if row.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": row.version},
-        )
+        raise await stale_version(session, row, expected_version=expected_version)
     before = _snapshot(row)
     if paused:
         row.status, row.paused_reason = "paused", "paused_by_owner"

@@ -62,16 +62,27 @@ describe('licence banners', () => {
 });
 
 describe('error reporting', () => {
-  it('shows a translated toast with a copy-reference action, never the code', async () => {
+  it('shows a refusal translated, never the code, and without a reference (QA WP-029 BUG-02)', async () => {
     renderUi(<span />);
     act(() => {
       reportError(
-        new ApiError(403, problem(403, 'technician_limit_reached', { request_id: 'req-42' }), null),
+        new ApiError(403, problem(403, 'technician_limit_reached', { request_id: 'req-41' }), null),
       );
     });
     expect(await screen.findByText(/All technician seats/)).toBeDefined();
     expect(screen.queryByText(/technician_limit_reached/)).toBeNull();
-    const copy = screen.getByRole('button', { name: /Copy reference/ });
+    expect(screen.queryByRole('button', { name: /Copy reference/ })).toBeNull();
+  });
+
+  it('shows a real failure as a translated toast with a copy-reference action', async () => {
+    renderUi(<span />);
+    act(() => {
+      reportError(
+        new ApiError(500, problem(500, 'internal_error', { request_id: 'req-42' }), null),
+      );
+    });
+    expect(screen.queryByText(/internal_error/)).toBeNull();
+    const copy = await screen.findByRole('button', { name: /Copy reference/ });
     expect(copy.getAttribute('data-reference')).toBe('req-42');
     fireEvent.click(copy);
     expect(await screen.findByText('Reference copied')).toBeDefined();

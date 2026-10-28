@@ -84,6 +84,7 @@ from app.modules.identity_access.service.policy import (
     visible,
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
+from app.modules.identity_access.service.roles import RoleName, role_names
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
@@ -278,6 +279,7 @@ __all__ = [
     "PolicyService",
     "RecordFacts",
     "ResourceType",
+    "RoleName",
     "SodRule",
     "Subject",
     "UserType",
@@ -291,6 +293,7 @@ __all__ = [
     "people_matching",
     "person_placement",
     "require",
+    "role_names",
     "scope_filter",
     "subject_for",
     "user_contacts",

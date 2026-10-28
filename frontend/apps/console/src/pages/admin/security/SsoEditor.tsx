@@ -8,8 +8,18 @@ import {
   type SsoInput,
   type SsoProvider,
 } from '@supportx/api-client';
-import { lengthLimit, reportError, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  lengthLimit,
+  markHandled,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
+import { ssoView, useSsoFieldName } from './conflict';
 import { FieldNote } from './FieldNote';
 
 type Preset = SsoInput['preset'];
@@ -102,19 +112,29 @@ function typedProblems(form: Form, editing: boolean): Record<string, string> {
  */
 export function SsoEditor({
   open,
-  provider,
+  provider: opened,
+  latest,
   onClose,
 }: {
   open: boolean;
+  /** The set-up as it was when the editor opened (null: a new one). */
   provider: SsoProvider | null;
+  /** The same set-up as it is now (live), for the conflict dialog. */
+  latest?: SsoProvider;
   onClose: (saved: SsoProvider | null) => void;
 }) {
   const t = useLabel();
   const create = useCreateSso();
   const update = useUpdateSso();
+  // The version this form is based on: "Reload" and "Keep my changes" move it on (BUG-05).
+  const [provider, setProvider] = useState(opened);
+  const conflict = useConflict();
+  const ssoField = useSsoFieldName();
   const editing = provider !== null;
   const [form, setForm] = useState<Form>(() => formFrom(provider, provider?.preset ?? 'entra'));
   const [refused, setRefused] = useState<Record<string, string>>({});
+  // A refusal with no field to point at is shown at the top of the editor (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [key] = useState(() => crypto.randomUUID());
   const saml = form.preset === 'saml';
   const typed = typedProblems(form, editing);
@@ -170,7 +190,10 @@ export function SsoEditor({
   };
 
   const onError = (error: unknown) => {
+    // Another admin saved this set-up first: the shared dialog says who, when and what.
+    if (conflict.take(error)) return;
     if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+      markHandled(error);
       setRefused(
         Object.fromEntries(
           error.fieldErrors.map((f) => {
@@ -184,9 +207,10 @@ export function SsoEditor({
       );
       return;
     }
-    reportError(error);
+    problem.show(error);
   };
-  const submit = () => {
+  const submit = (version = provider?.version ?? 0) => {
+    problem.clear();
     if (provider === null) {
       create.mutate(
         { body: body(), key },
@@ -199,7 +223,7 @@ export function SsoEditor({
       );
     } else {
       update.mutate(
-        { id: provider.id, body: body(), version: provider.version },
+        { id: provider.id, body: body(), version },
         {
           onSuccess: (saved) => {
             onClose(saved);
@@ -236,6 +260,7 @@ export function SsoEditor({
       width={560}
       title={t(editing ? 'security.sso.edit_title' : 'security.sso.add_title')}
       onClose={() => {
+        problem.clear();
         onClose(null);
       }}
       destroyOnHidden
@@ -245,13 +270,16 @@ export function SsoEditor({
           type="primary"
           loading={create.isPending || update.isPending}
           disabled={!required || Object.keys(typed).length > 0}
-          onClick={submit}
+          onClick={() => {
+            submit();
+          }}
           data-testid="sso-save"
         >
           {t('actions.save')}
         </WriteButton>
       }
     >
+      <FormProblem problem={problem} />
       <Flex vertical gap={16}>
         <Segmented
           value={form.preset}
@@ -427,6 +455,25 @@ export function SsoEditor({
           </Typography.Text>
         </Flex>
       </Flex>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={ssoField}
+        opened={ssoView(provider)}
+        latest={ssoView(latest)}
+        onReload={() => {
+          conflict.clear();
+          if (latest === undefined) return;
+          setProvider(latest);
+          setForm(formFrom(latest, latest.preset));
+          setRefused({});
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (latest !== undefined) setProvider(latest);
+          submit(conflict.latestVersion ?? latest?.version);
+        }}
+      />
     </Drawer>
   );
 }

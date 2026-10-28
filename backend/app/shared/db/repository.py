@@ -23,9 +23,10 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import BadRequest, Conflict, NotFound
+from app.core.errors import BadRequest, NotFound
 from app.core.tenancy import TenantContext
 from app.shared.clock import Clock, system_clock
+from app.shared.history.conflicts import stale_version
 from app.shared.ids import new_id
 
 MAX_PAGE_SIZE = 200
@@ -157,14 +158,10 @@ class Repository[EntityT]:
         updated: EntityT | None = await self.session.scalar(statement)
         if updated is not None:
             return updated
-        current_version = await self.session.scalar(
-            select(self.model.version).where(
-                self.model.id == entity_id, self.model.deleted_at.is_(None)
-            )
+        current = await self.session.scalar(
+            select(self.model).where(self.model.id == entity_id, self.model.deleted_at.is_(None))
         )
-        if current_version is None:
+        if current is None:
             raise NotFound(params={"id": str(entity_id)})
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": current_version},
-        )
+        # Who saved it since, and when (QA WP-029 BUG-05).
+        raise await stale_version(self.session, current, expected_version=expected_version)

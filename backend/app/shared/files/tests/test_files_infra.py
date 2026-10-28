@@ -247,7 +247,8 @@ def test_services_from_settings() -> None:
     assert isinstance(found.scanner, ClamdScanner)
     assert (found.scanner.host, found.scanner.port) == ("clamav", 3310)
     found.require_storage()
-    bare = FileServices.from_settings(Settings())
+    # No settings at all: a developer's backend/.env must not leak in (it names ClamAV).
+    bare = FileServices.from_settings(Settings.load(env_file=None))
     assert isinstance(bare.scanner, NoScanner)
     with pytest.raises(StorageNotConfigured):
         bare.require_storage()

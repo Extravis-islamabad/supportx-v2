@@ -52,6 +52,7 @@ from app.modules.identity_access.service.policy import UNMAPPED_DEFAULT
 from app.modules.identity_access.service.roles import ensure_system_roles
 from app.modules.organization import email_branding, get_current_tenant
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
+from app.shared.history import stale_version
 from app.shared.ids import new_id
 from app.shared.labels import LANGUAGES, label
 from app.shared.mail import Language, OutgoingMail, mail_configured, queue_mail, wrap_html
@@ -180,6 +181,8 @@ async def set_policy(
     )
     current = 0 if row is None else row.version
     if current != expected_version:
+        if row is not None:
+            raise await stale_version(session, row, expected_version=expected_version)
         raise Conflict(
             code="version_conflict",
             params={"expected_version": expected_version, "current_version": current},

@@ -13,7 +13,19 @@ import {
   type CustomDomain,
 } from '@supportx/api-client';
 import { useTenantChannel } from '@supportx/realtime';
-import { reportError, ToneTag, useDateTime, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  describeError,
+  FormProblem,
+  markHandled,
+  reportError,
+  ToneTag,
+  useConflict,
+  useDateTime,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 import { domainProblem, fieldProblems, pemProblem } from './checks';
 import { FieldProblem } from './FieldProblem';
@@ -30,11 +42,27 @@ function refusalAt(t: Translate, error: unknown, field: string): string | null {
   return found === undefined ? null : found.map((p) => t(p.key, p.params)).join(' ');
 }
 
+/** What a person sees of a domain, for the conflict dialog (QA WP-029 BUG-05). */
+const domainView = (domain: CustomDomain | null | undefined) =>
+  domain == null
+    ? undefined
+    : {
+        status: domain.status,
+        tls_status: domain.tls_status,
+        certificate_not_after: domain.certificate_not_after,
+      };
+const domainPart = (t: Translate, field: string) =>
+  t(field === 'status' ? 'domains.status' : 'domains.tls');
+
 function CertificateDialog({
-  domain,
+  domain: opened,
+  latest,
   onClose,
 }: {
+  /** The domain as it was when the dialog opened. */
   domain: CustomDomain | null;
+  /** The same domain as it is now (live), for the conflict dialog. */
+  latest: CustomDomain | undefined;
   onClose: () => void;
 }) {
   const t = useLabel();
@@ -44,6 +72,35 @@ function CertificateDialog({
   const [privateKey, setPrivateKey] = useState('');
   // The server's refusal stays until the field it is about changes.
   const [refused, setRefused] = useState<unknown>(null);
+  // A refusal with no field to point at is shown in the dialog too (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // A domain another admin changed first (409): the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const [domain, setDomain] = useState(opened);
+  if (opened?.id !== domain?.id) setDomain(opened);
+  const send = (version = domain?.version) => {
+    if (domain === null || version === undefined) return;
+    problem.clear();
+    upload.mutate(
+      { id: domain.id, version, certificate, privateKey },
+      {
+        onSuccess: () => {
+          void message.success(t('domains.certificate_saved'));
+          setCertificate('');
+          setPrivateKey('');
+          setRefused(null);
+          onClose();
+        },
+        // What is wrong with the certificate is said in the dialog, which stays open.
+        onError: (error) => {
+          if (conflict.take(error)) return;
+          if (Object.keys(fieldProblems(error)).length === 0) problem.show(error);
+          else markHandled(error);
+          setRefused(error);
+        },
+      },
+    );
+  };
   const typed = {
     certificate: pemProblem('certificate', certificate),
     private_key: pemProblem('private_key', privateKey),
@@ -69,30 +126,33 @@ function CertificateDialog({
       destroyOnHidden
       onCancel={() => {
         setRefused(null);
+        problem.clear();
         onClose();
       }}
       onOk={() => {
-        if (domain === null) return;
-        upload.mutate(
-          { id: domain.id, version: domain.version, certificate, privateKey },
-          {
-            onSuccess: () => {
-              void message.success(t('domains.certificate_saved'));
-              setCertificate('');
-              setPrivateKey('');
-              setRefused(null);
-              onClose();
-            },
-            // What is wrong with the certificate is said in the dialog, which stays open.
-            onError: (error) => {
-              if (Object.keys(fieldProblems(error)).length === 0) reportError(error);
-              setRefused(error);
-            },
-          },
-        );
+        send();
       }}
     >
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => domainPart(t, field)}
+        opened={domainView(domain)}
+        latest={domainView(latest)}
+        onReload={() => {
+          conflict.clear();
+          setCertificate('');
+          setPrivateKey('');
+          if (latest !== undefined) setDomain(latest);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (latest !== undefined) setDomain(latest);
+          send(conflict.latestVersion ?? latest?.version);
+        }}
+      />
       <Flex vertical gap={12}>
+        <FormProblem problem={problem} />
         <Typography.Paragraph type="secondary">
           {t('domains.certificate_hint')}
         </Typography.Paragraph>
@@ -170,6 +230,15 @@ export function DomainsCard() {
   });
 
   const data = domains.data;
+  // A domain another admin changed first (409) while removing it: the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const [removing, setRemoving] = useState<CustomDomain>();
+  const live = data?.items.find((d) => d.id === removing?.id);
+  const removeDomain = (domain: CustomDomain, version = domain.version) =>
+    remove.mutateAsync({ id: domain.id, version }).catch((error: unknown) => {
+      if (conflict.take(error)) setRemoving(domain);
+      else reportError(error);
+    });
   return (
     <Card title={t('domains.title')} data-testid="branding-domains">
       <Flex vertical gap={12}>
@@ -210,12 +279,16 @@ export function DomainsCard() {
                       setKey(crypto.randomUUID());
                     },
                     onError: (error) => {
+                      // Any refusal is said at the host field, once (QA WP-029 BUG-02).
                       const atField =
                         refusalAt(t, error, 'host') ??
                         (error instanceof ApiError && HOST_CONFLICTS.has(error.code)
                           ? t(error.messageKey, error.params)
-                          : null);
+                          : error instanceof ApiError && error.isRefusal && !error.isConflict
+                            ? describeError(error, t).title
+                            : null);
                       if (atField === null) reportError(error);
+                      else markHandled(error);
                       setHostRefusal(atField);
                       // A refused key may not be retried with another host.
                       setKey(crypto.randomUUID());
@@ -281,10 +354,7 @@ export function DomainsCard() {
                       okText: t('domains.remove'),
                       okButtonProps: { danger: true },
                       cancelText: t('actions.cancel'),
-                      onOk: () =>
-                        remove
-                          .mutateAsync({ id: domain.id, version: domain.version })
-                          .catch(reportError),
+                      onOk: () => removeDomain(domain),
                     });
                   }}
                   data-testid={`domain-remove-${domain.host}`}
@@ -325,8 +395,27 @@ export function DomainsCard() {
           )}
         />
       </Flex>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => domainPart(t, field)}
+        opened={domainView(removing)}
+        latest={domainView(live)}
+        onReload={() => {
+          conflict.clear();
+          setRemoving(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (removing !== undefined && live !== undefined) {
+            void removeDomain(live, conflict.latestVersion ?? live.version);
+          }
+          setRemoving(undefined);
+        }}
+      />
       <CertificateDialog
         domain={certificateFor}
+        latest={data?.items.find((d) => d.id === certificateFor?.id)}
         onClose={() => {
           setCertificateFor(null);
         }}

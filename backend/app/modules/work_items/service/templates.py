@@ -15,7 +15,7 @@ from typing import Any, Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.core.errors import FieldError, NotFound, ValidationFailed
 from app.modules import metadata
 from app.modules.organization import default_desk_id, existing_departments, existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Urgency
@@ -47,7 +47,7 @@ from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service.settings import labels_of
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Change, ChangeKind, Source, record_changes
+from app.shared.history import Change, ChangeKind, Source, record_changes, stale_version
 from app.shared.richtext import is_blank, sanitize_html
 
 TEMPLATE_RECORD_TYPE = "work_item_template"
@@ -410,9 +410,12 @@ async def update_template(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     """Change any part of a template; making it the default unsets the previous default."""
     template = await _get(session, wtype, template_id)
     if template.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": template.version},
+        raise await stale_version(
+            session,
+            template,
+            expected_version=expected_version,
+            record_type=TEMPLATE_RECORD_TYPE,
+            record_id=template.id,
         )
     problems: list[tuple[str, str]] = []
     changes: dict[str, Any] = {}
