@@ -68,6 +68,7 @@ from app.modules.work_items.domain.classification import (
     Urgency,
     compute_priority,
 )
+from app.modules.work_items.domain.closure import ASKED_BY_MOVE
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
@@ -106,7 +107,7 @@ from app.modules.work_items.infra.models import (
     WorkItemConversation,
     WorkItemFollower,
 )
-from app.modules.work_items.service import automation, followers, templates
+from app.modules.work_items.service import automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service.access import RESOURCE
 from app.modules.work_items.service.catalogue import Catalogue
@@ -205,6 +206,9 @@ class ActionState:
     confirmation: Mapping[str, str] | None = None
     # Refused as "not for you": who may run it (QA WP-029 C2).
     allowed_for: "AllowedFor | None" = None
+    # Resolve and close: record fields the closure rules still need (the move asks for its own
+    # field, the resolution or the closure code); WP-020f, REQ-INC-094.
+    missing: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -406,6 +410,11 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                 confirmation=await transitions.confirmation(action.value),
                 allowed_for=(
                     await transitions.allowed_for(action.value) if refused == NOT_FOR_YOU else None
+                ),
+                missing=tuple(
+                    name
+                    for name in await closing.missing_for(session, cat, record, action)
+                    if name != ASKED_BY_MOVE.get(action.value)
                 ),
             )
         )
@@ -1151,6 +1160,9 @@ STAMP_FIELDS = (
     "closed_at",
     "reopen_count",
     "last_reopened_at",
+    # WP-020f: the fix and the closure code; history keeps them after a reopen (REQ-INC-097).
+    "resolution",
+    "closure_code",
 )
 
 
@@ -1163,6 +1175,7 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
     source: Source,
     reason: str | None,
     automatic: bool,
+    extra: Sequence[Change] = (),
 ) -> None:
     after = _snapshot(record, STAMP_FIELDS)
     await record_changes(
@@ -1171,7 +1184,7 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
         record_id=record.id,
         version=record.version,
         kind="status",
-        changes=[Change(n, before[n], v) for n, v in after.items() if before[n] != v],
+        changes=[Change(n, before[n], v) for n, v in after.items() if before[n] != v] + list(extra),
         source=source,
         reason=reason,
         automation_ref={"kind": "auto_move", "rule": "assignment", "action": action}
@@ -1710,8 +1723,12 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     source: Source,
     holders: PermissionHolders,
     group_id: uuid.UUID | None = None,
+    closing_input: closing.MoveInput | None = None,
 ) -> WorkItemView:
     """Run a life-cycle action (REQ-INC-046/047). System actions cannot be called.
+
+    Resolve asks for the resolution, close for the closure code; both follow the closure
+    rules and the open-work checks (WP-020f), on every path that runs a move.
 
     Start work on an unassigned record first assigns it to the user (as Take does, with the
     same group rules), then starts it, in one transaction; both steps are in history (QA BUG-05).
@@ -1767,16 +1784,27 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
         raise Conflict(
             code="invalid_transition", params={"from": record.status, "action": action}
         ) from error
+    closing_step = await closing.before_move(
+        session, cat, record, action, closing_input or closing.MoveInput()
+    )
     before = _snapshot(record, STAMP_FIELDS)
     changes = await _status_change(
         session, wtype, record, action, target=target, reason_code=reason_code, reason_text=text
     )
+    changes.update(closing_step.changes)
     # Rules see a status move as an edit ("status changed to Resolved", REQ-RUL-001); they
     # cannot set the status themselves, so the life cycle stays in charge.
     automated = await _rules_on_edit(session, wtype, record, changes)
     updated = await _update(session, record, expected_version, changes)
     await _record_status(
-        session, before, updated, action, source=source, reason=text, automatic=False
+        session,
+        before,
+        updated,
+        action,
+        source=source,
+        reason=text,
+        automatic=False,
+        extra=closing_step.history,
     )
     await _record_automation(session, updated, automated)
     return await _view(session, subject, wtype, updated)

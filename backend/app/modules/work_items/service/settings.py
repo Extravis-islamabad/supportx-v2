@@ -15,13 +15,24 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.modules import metadata
 from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.classification import Impact, Priority, Urgency
+from app.modules.work_items.domain.closure import (
+    AUTO_CLOSE_MAX,
+    AUTO_CLOSE_MIN,
+    WINDOW_MAX,
+    WINDOW_MIN,
+    OpenWorkKind,
+    OpenWorkMode,
+    rule_field_problems,
+)
 from app.modules.work_items.domain.conversation import FirstResponseAction
 from app.modules.work_items.domain.types import WorkItemType, prefix_problems
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import closing
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.db.display_ids import NumberAlreadyUsedError, set_next_number
 from app.shared.db.repository import Repository
@@ -178,6 +189,115 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     await record_event(
         session,
         WorkItemSettingsChanged(type=wtype.code, changed_fields=sorted(c.field for c in history)),
+        aggregate_id=settings_id,
+        aggregate_version=expected_version + 1,
+    )
+    session.expire_all()
+    return await config.load(session, wtype)
+
+
+CLOSURE_FIELDS = (
+    "resolve_requires",
+    "close_requires",
+    "open_work",
+    "complete_open_work",
+    "auto_close_days",
+    "reopen_window_days",
+)
+
+
+def _closure_before(current: Catalogue) -> dict[str, Any]:
+    c = current.closure
+    return {
+        "resolve_requires": list(c.resolve_requires),
+        "close_requires": list(c.close_requires),
+        "open_work": dict(c.open_work),
+        "complete_open_work": c.complete_open_work,
+        "auto_close_days": c.auto_close_days,
+        "reopen_window_days": c.reopen_window_days,
+    }
+
+
+def _days(value: Any, low: int, high: int) -> int | None:  # noqa: ANN401 - JSON value
+    if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
+        return None
+    return value
+
+
+async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule per setting, flat
+    session: AsyncSession,
+    wtype: WorkItemType,
+    *,
+    expected_version: int,
+    values: Mapping[str, Any],
+    source: Source,
+    user_id: uuid.UUID | None,
+) -> Catalogue:
+    """Closure rules, open work, auto-close and the reopen window (WP-020f; If-Match).
+
+    Auto-close cannot be switched on while no channel can tell requesters of a resolution: an
+    incident is never auto-closed for a requester who was never told (product owner).
+    """
+    current = await config.load(session, wtype)
+    problems: list[FieldError] = []
+    changes: dict[str, Any] = {}
+
+    def problem(field: str, code: str, **params: Any) -> None:  # noqa: ANN401 - problem params
+        problems.extend(invalid(field=field, field_code=code, **params).errors)
+
+    custom = await metadata.definitions(session, wtype.code.value)
+    for name in ("resolve_requires", "close_requires"):
+        if name in values:
+            chosen = list(dict.fromkeys(values[name] or []))
+            if rule_field_problems(chosen, custom):
+                problem(name, "invalid_choice")
+            changes[name] = chosen
+    if "open_work" in values:
+        saved = dict(values["open_work"] or {})
+        kinds, modes = set(OpenWorkKind), set(OpenWorkMode)
+        if any(k not in kinds or v not in modes for k, v in saved.items()):
+            problem("open_work", "invalid_choice")
+        changes["open_work"] = saved
+    if "complete_open_work" in values:
+        changes["complete_open_work"] = bool(values["complete_open_work"])
+    if "auto_close_days" in values:
+        days = values["auto_close_days"]
+        if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:
+            problem("auto_close_days", "out_of_range", min=AUTO_CLOSE_MIN, max=AUTO_CLOSE_MAX)
+        elif days is not None and not closing.requester_channels():
+            problem("auto_close_days", "auto_close_needs_notifications")
+        changes["auto_close_days"] = days
+    if "reopen_window_days" in values:
+        window = _days(values["reopen_window_days"], WINDOW_MIN, WINDOW_MAX)
+        if window is None:
+            problem("reopen_window_days", "out_of_range", min=WINDOW_MIN, max=WINDOW_MAX)
+        changes["reopen_window_days"] = values["reopen_window_days"]
+    if problems:
+        raise ValidationFailed(errors=problems)
+    before = _closure_before(current)
+    changes = {k: v for k, v in changes.items() if before[k] != v}
+    if current.settings_version != expected_version:
+        raise await stale_settings(session, wtype, current, expected_version)
+    if not changes:
+        return current
+    await session.execute(
+        update(WorkItemTypeSettings)
+        .where(WorkItemTypeSettings.type == wtype.code)
+        .values(**changes, version=WorkItemTypeSettings.version + 1, updated_by=user_id)
+    )
+    settings_id = uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}")
+    await record_changes(
+        session,
+        record_type=SETTINGS_RECORD_TYPE,
+        record_id=settings_id,
+        version=expected_version + 1,
+        kind="updated",
+        changes=[Change(k, before[k], v) for k, v in changes.items()],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemSettingsChanged(type=wtype.code, changed_fields=sorted(changes)),
         aggregate_id=settings_id,
         aggregate_version=expected_version + 1,
     )

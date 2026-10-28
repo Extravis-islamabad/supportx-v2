@@ -1933,6 +1933,15 @@ export const ur: LabelResource = {
   'errors.order_out_of_date': 'اس دوران فہرست بدل گئی۔ دوبارہ لوڈ کر کے ترتیب دیں۔',
   'errors.rule_not_found': 'یہ قاعدہ اب موجود نہیں۔',
   'errors.rule_refused': '{{message_ur}}',
+  'errors.closure_rules': 'یہ کرنے سے پہلے کچھ چیزیں درکار ہیں۔',
+  'errors.open_work_blocked': 'یہ کام کھلا ہونے تک یہ نہیں ہو سکتا: {{items}}۔',
+  'errors.open_work_unconfirmed':
+    'کام ابھی کھلا ہے: {{items}}۔ پھر بھی آگے بڑھنے کے لیے تصدیق کریں۔',
+  'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
+  'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
+  'errors.field.auto_close_needs_notifications':
+    'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',
+  'errors.field.not_for_this_status': 'یہ ترتیب صرف ان حالتوں کے لیے ہے جو کسی کا انتظار کرتی ہیں۔',
   'errors.too_many_rules': 'ہر ریکارڈ قسم کے لیے زیادہ سے زیادہ {{max}} قاعدے۔',
   'event_type.automation.assignment.waiting': 'دستیاب ٹیکنیشن کا انتظار',
   'event_type.automation.availability.changed': 'دستیابی بدلی',

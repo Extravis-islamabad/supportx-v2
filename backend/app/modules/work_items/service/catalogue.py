@@ -34,6 +34,7 @@ from app.modules.work_items.domain.classification import (
 )
 from app.modules.work_items.domain.lifecycle import (
     DEFAULT_REASONS,
+    DefaultStatus,
     Lifecycle,
     ReasonList,
     ReasonMode,
@@ -78,6 +79,20 @@ class StatusInfo:
     labels: dict[str, str] | None
     system: bool
     disabled: bool
+    # A requester reply moves a record in this paused status back to in progress (REQ-INC-051).
+    resume_on_requester_reply: bool = False
+
+
+@dataclass(frozen=True)
+class ClosureSettings:
+    """Closing rules of one type (WP-020f; REQ-INC-094..098)."""
+
+    resolve_requires: tuple[str, ...]
+    close_requires: tuple[str, ...]
+    open_work: Mapping[str, str]
+    complete_open_work: bool
+    auto_close_days: int | None
+    reopen_window_days: int
 
 
 @dataclass(frozen=True)
@@ -120,6 +135,7 @@ class Catalogue:
     matrix: Mapping[tuple[str, str], str]
     scales: list[ScaleValue]
     reasons: list[ReasonInfo]  # every pick list, retired values included (marked)
+    closure: ClosureSettings
     last_number: int = 0  # the last display number handed out (0: none yet)
 
     def reason_codes(self, reason_list: ReasonList | PickList | None) -> list[str]:
@@ -176,6 +192,8 @@ async def ensure_seeded(session: AsyncSession, wtype: WorkItemType) -> None:
             colour=s.colour,
             sort_order=index,
             system=s.system,
+            # Appendix A: awaiting requester -> in progress on a requester reply (REQ-INC-051).
+            resume_on_requester_reply=s.code == DefaultStatus.AWAITING_REQUESTER,
         )
         for index, s in enumerate(wtype.statuses)
     ]
@@ -351,7 +369,15 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
         default_urgency=settings.default_urgency,
         lifecycle=lifecycle,
         statuses=[
-            StatusInfo(s.code, s.category, s.colour, s.labels, s.system, s.disabled_at is not None)
+            StatusInfo(
+                s.code,
+                s.category,
+                s.colour,
+                s.labels,
+                s.system,
+                s.disabled_at is not None,
+                s.resume_on_requester_reply,
+            )
             for s in status_rows
         ],
         matrix={(c.impact, c.urgency): c.priority for c in cells},
@@ -360,5 +386,13 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             ReasonInfo(r.list, r.code, r.labels, r.sort_order, r.colour, r.disabled_at is not None)
             for r in reasons
         ],
+        closure=ClosureSettings(
+            resolve_requires=tuple(settings.resolve_requires),
+            close_requires=tuple(settings.close_requires),
+            open_work=dict(settings.open_work),
+            complete_open_work=settings.complete_open_work,
+            auto_close_days=settings.auto_close_days,
+            reopen_window_days=settings.reopen_window_days,
+        ),
         last_number=await last_number(session, wtype.counter_key),
     )

@@ -56,6 +56,7 @@ from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.access import FIELDS
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
+from app.modules.work_items.service.closing import MoveInput, requester_channels
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, list_query, request_zone
@@ -160,6 +161,9 @@ class WorkItemPatch(BaseModel):
     )
 
 
+RESOLUTION_MAX = DESCRIPTION_MAX * 2  # rich text, like the description
+
+
 class WorkItemTransitionIn(BaseModel):
     """The reason, when the transition asks for one."""
 
@@ -170,6 +174,18 @@ class WorkItemTransitionIn(BaseModel):
     group_id: uuid.UUID | None = Field(
         default=None,
         description="Start work on an unassigned record: which of your groups (as with Take).",
+    )
+    resolution: str | None = Field(
+        default=None,
+        max_length=RESOLUTION_MAX,
+        description="Resolve: the fix, rich text (sanitised). REQ-INC-090.",
+    )
+    closure_code: str | None = Field(
+        default=None, max_length=40, description="Close: a closure code. REQ-INC-093."
+    )
+    confirm_open_work: bool = Field(
+        default=False,
+        description="Resolve or close although work is still open (the warning was shown).",
     )
 
 
@@ -215,6 +231,10 @@ class WorkItemActionStateOut(BaseModel):
     )
     allowed_for: "AllowedForOut | None" = Field(
         default=None, description="Refused as not_for_you: who may run it (QA WP-029 C2)."
+    )
+    missing: list[str] = Field(
+        default_factory=list,
+        description="Resolve and close: record fields the closure rules still need (REQ-INC-094).",
     )
 
 
@@ -271,6 +291,14 @@ class WorkItemOut(BaseModel):
     closed_at: datetime | None
     last_reopened_at: datetime | None
     reopen_count: int
+    resolution: str | None = Field(description="The fix, sanitised rich text (REQ-INC-090).")
+    closure_code: str | None = Field(description="A closure_code pick-list code (REQ-INC-093).")
+    resolution_notified_at: datetime | None = Field(
+        description="When the requester was told of the resolution; auto-close counts from it."
+    )
+    follows_id: uuid.UUID | None = Field(
+        description="The earlier record a requester's late reply followed (REQ-INC-098)."
+    )
     reassignment_count: int
     paused_seconds: int
     paused_since: datetime | None
@@ -351,6 +379,10 @@ _RECORD_FIELDS = (
     "closed_at",
     "last_reopened_at",
     "reopen_count",
+    "resolution",
+    "closure_code",
+    "resolution_notified_at",
+    "follows_id",
     "reassignment_count",
     "paused_seconds",
     "paused_since",
@@ -382,6 +414,7 @@ def _state(a: service.ActionState) -> WorkItemActionStateOut:
             groups=a.allowed_for.groups,
             relatives=a.allowed_for.relatives,
         ),
+        missing=list(a.missing),
     )
 
 
@@ -451,6 +484,26 @@ class WorkItemStatusOut(BaseModel):
     labels: dict[str, str] | None = Field(description="Admin overrides; null: shipped labels.")
     system: bool
     disabled: bool
+    resume_on_requester_reply: bool = Field(
+        default=False,
+        description="A requester reply moves a record in this paused status to in progress.",
+    )
+
+
+class WorkItemClosureOut(BaseModel):
+    """Closing rules (WP-020f; REQ-INC-094..098)."""
+
+    resolve_requires: list[str] = Field(description="Fields required before resolving.")
+    close_requires: list[str] = Field(description="Fields required before closing.")
+    open_work: dict[str, str] = Field(
+        description="Open work kind -> warn or block (defaults for kinds not listed)."
+    )
+    complete_open_work: bool
+    auto_close_days: int | None = Field(description="Business days; null: off.")
+    reopen_window_days: int
+    requester_channels: list[str] = Field(
+        description="Channels that can tell requesters; auto-close needs one."
+    )
 
 
 class WorkItemTransitionOut(BaseModel):
@@ -535,6 +588,7 @@ class WorkItemCatalogueOut(BaseModel):
     reasons: list[WorkItemReasonOut]
     levels: list[WorkItemListValueOut] = Field(description="Support levels (REQ-INC-007).")
     closure_codes: list[WorkItemListValueOut] = Field(description="REQ-INC-093.")
+    closure: WorkItemClosureOut
     next_number: int = Field(description="The display number the next record gets.")
 
     @classmethod
@@ -557,6 +611,7 @@ class WorkItemCatalogueOut(BaseModel):
                     labels=s.labels,
                     system=s.system,
                     disabled=s.disabled,
+                    resume_on_requester_reply=s.resume_on_requester_reply,
                 )
                 for s in cat.statuses
             ],
@@ -603,8 +658,32 @@ class WorkItemCatalogueOut(BaseModel):
             ],
             levels=[_value(v) for v in cat.list_values(PickList.LEVEL)],
             closure_codes=[_value(v) for v in cat.list_values(PickList.CLOSURE_CODE)],
+            closure=WorkItemClosureOut(
+                resolve_requires=list(cat.closure.resolve_requires),
+                close_requires=list(cat.closure.close_requires),
+                open_work=dict(cat.closure.open_work),
+                complete_open_work=cat.closure.complete_open_work,
+                auto_close_days=cat.closure.auto_close_days,
+                reopen_window_days=cat.closure.reopen_window_days,
+                requester_channels=sorted(requester_channels()),
+            ),
             next_number=cat.last_number + 1,
         )
+
+
+class WorkItemClosurePatch(BaseModel):
+    """Closing rules to change (only those sent). If-Match: the catalogue's `version`."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    resolve_requires: list[str] | None = Field(default=None, max_length=30)
+    close_requires: list[str] | None = Field(default=None, max_length=30)
+    open_work: dict[str, str] | None = None
+    complete_open_work: bool | None = None
+    auto_close_days: int | None = Field(
+        default=None, description="1 to 30 business days; null switches auto-close off."
+    )
+    reopen_window_days: int | None = None
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -972,6 +1051,34 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         set_etag(response, cat.settings_version)
         return WorkItemCatalogueOut.of(cat)
 
+    @router.patch(
+        "/settings/closure", summary=f"Change how {name}s resolve and close", responses=CONFLICT
+    )
+    async def patch_closure(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        body: WorkItemClosurePatch,
+        session: TenantSession,
+        subject: Admin,
+        version: ExpectedVersion,
+        response: Response,
+        request: Request,
+        note: Annotated[
+            AuditNote, audited(f"{name}.settings_changed", object_type=f"{name}_settings")
+        ],
+    ) -> WorkItemCatalogueOut:
+        """Closure rules, open work, auto-close (needs a channel that tells requesters), reopen."""
+        note.details = {"changed_fields": sorted(body.model_fields_set)}
+        sent = body.model_dump(include=body.model_fields_set)
+        cat = await settings_service.update_closure_settings(
+            session,
+            wtype,
+            expected_version=version,
+            values={k: v for k, v in sent.items() if v is not None or k == "auto_close_days"},
+            source=source_of(request),
+            user_id=subject.user_id,
+        )
+        set_etag(response, cat.settings_version)
+        return WorkItemCatalogueOut.of(cat)
+
     @router.get("/categories", summary="Category tree")
     async def categories(session: TenantSession, subject: View) -> list[WorkItemCategoryOut]:
         """Every node, parents first; disabled nodes are marked, not hidden."""
@@ -1132,6 +1239,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             source=source_of(request),
             holders=policy,
             group_id=body.group_id if body else None,
+            closing_input=MoveInput(
+                resolution=body.resolution,
+                closure_code=body.closure_code,
+                confirm_open_work=body.confirm_open_work,
+            )
+            if body
+            else None,
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
