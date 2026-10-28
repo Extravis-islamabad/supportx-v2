@@ -321,9 +321,13 @@ export function IncidentsPage() {
       )}
       <Flex gap={12} wrap>
         {!trash && (
-          <Space.Compact>
+          // Wraps on narrow screens: the selector and its buttons never widen the page.
+          <Flex gap={8} wrap style={{ minWidth: 0, maxWidth: '100%' }}>
             <Select
               aria-label={t('incidents.view')}
+              // Many views: searchable by name.
+              showSearch
+              optionFilterProp="label"
               prefix={`${t('incidents.view')}:`}
               value={view}
               onChange={(next: string) => {
@@ -387,7 +391,7 @@ export function IncidentsPage() {
             >
               {t('incidents.views.new')}
             </Button>
-          </Space.Compact>
+          </Flex>
         )}
         <SearchChips
           text={search}

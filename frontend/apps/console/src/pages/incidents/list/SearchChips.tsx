@@ -28,7 +28,7 @@ export function SearchChips({
   const t = useLabel();
   const suggestions = chipSuggestions(text, fields, words, t, chips);
   return (
-    <Flex gap={8} wrap align="center" style={{ minWidth: 0 }}>
+    <Flex gap={8} wrap align="center" style={{ minWidth: 0, maxWidth: '100%' }}>
       <AutoComplete
         value={text}
         onChange={onText}
@@ -41,7 +41,7 @@ export function SearchChips({
           if (chip !== undefined) onChips([...chips, chip]);
           onText('');
         }}
-        style={{ width: 320, maxWidth: '100%' }}
+        style={{ width: 'min(320px, 100%)' }}
       >
         <Input.Search
           allowClear
