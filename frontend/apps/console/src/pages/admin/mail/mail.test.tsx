@@ -228,6 +228,16 @@ describe('Admin › Mail', () => {
     expect(from.textContent).toMatch(/\u2068[^\u2069]*2026[^\u2069]*\u2069/); // the time, whole
   });
 
+  it("BUG-03: the editor's switches keep their own size", async () => {
+    // QA WP-024 BUG-03: the field column stretched each switch into a full-width bar.
+    window.history.pushState({}, '', '/admin/mail');
+    api({ me: ADMIN, routes: { [`GET ${BASE}`]: { body: [] } } });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-add'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    expect(within(editor).getByTestId('mailbox-enabled').style.alignSelf).toBe('flex-start');
+  });
+
   it('technicians do not see the tab', async () => {
     window.history.pushState({}, '', '/admin/users');
     api({ routes: {} });
