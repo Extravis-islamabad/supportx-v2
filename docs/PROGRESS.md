@@ -690,7 +690,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
-### [ ] WP-020e — Tasks, worklogs and links (D-112; built 2026-10-28, QA next)
+### [ ] WP-020e — Tasks, worklogs and links (D-112, approved; built 2026-10-28, QA next)
 - **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0037 (after WP-020d's
   0036): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
   tests), `task_owner_access`, and `follows_id` copied into `follows` links per tenant. Draft PR
