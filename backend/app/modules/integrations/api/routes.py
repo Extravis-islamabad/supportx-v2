@@ -150,8 +150,12 @@ class MailboxOut(BaseModel):
         )
 
 
-def _values(body: BaseModel) -> dict[str, Any]:
-    values = body.model_dump(exclude_unset=True, exclude={"password"})
+def _values(body: BaseModel, *, new: bool = False) -> dict[str, Any]:
+    # A new mailbox keeps its defaults (port 993); a change carries only what was sent.
+    if new:
+        values = body.model_dump(exclude_none=True, exclude={"password"})
+    else:
+        values = body.model_dump(exclude_unset=True, exclude={"password"})
     return {k: (v.value if hasattr(v, "value") else v) for k, v in values.items()}
 
 
@@ -181,7 +185,7 @@ async def create_mailbox(
 
     async def run() -> Created:
         view = await service.create_mailbox(
-            session, settings, subject.tenant_id, _values(body), password=body.password
+            session, settings, subject.tenant_id, _values(body, new=True), password=body.password
         )
         out = MailboxOut.of(view)
         return Created(body=out, headers={"ETag": f'"{out.version}"'})
