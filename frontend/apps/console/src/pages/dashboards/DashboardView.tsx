@@ -46,6 +46,7 @@ import {
   COLUMNS,
   normalBody,
   readingOrder,
+  settle,
   ROW_PX,
   widgetTitle,
   type Body,
@@ -101,12 +102,11 @@ export function DashboardView({
     setDraft(next);
   };
   const moveWidget = (id: string, place: Partial<Place>) => {
-    change({
-      ...draft,
-      widgets: draft.widgets.map((w) =>
-        w.id === id ? { ...w, place: adjust(w.place, place) } : w,
-      ),
-    });
+    // Keyboard moves follow the free grid's rules: nothing is left on top of anything.
+    const next = draft.widgets.map((w) =>
+      w.id === id ? { ...w, place: adjust(w.place, place) } : w,
+    );
+    change({ ...draft, widgets: settle(next, id) });
   };
   const userId = session?.user.id ?? '';
   const ordered = narrow ? readingOrder(body.widgets) : body.widgets;

@@ -7,6 +7,7 @@ import { scriptedRealtime } from '@supportx/realtime/testing';
 
 import { App } from '../../App';
 import { consoleApi, fakeSession, problem } from '../../test/api';
+import { adjust, settle, type Place } from './layout';
 
 // WP-036 QA round (~/Desktop/qa-wp036/QA-REPORT.md): one failing test per bug ID, then the fix.
 
@@ -229,5 +230,27 @@ describe('WP-036 QA fixes', () => {
     const again = fake.find('PATCH', `/api/v1/dashboards/${MINE.ref}`)[1];
     expect(again?.body).toEqual({ shared: true });
     expect(again?.headers.get('If-Match')).toBe('"4"'); // over the version they saved
+  });
+
+  it('BUG-02: a keyboard move never leaves widgets on top of each other (same rules as dragging)', () => {
+    const box = (id: string, place: Place) => ({ id, title: id, report_ref: 'builtin:x', place });
+    const before = [box('w1', { x: 0, y: 0, w: 3, h: 2 }), box('w2', { x: 3, y: 0, w: 3, h: 2 })];
+    // "Move right" on w1, as in the QA screenshot: w1 now covers w2's first column.
+    const moved = before.map((w) =>
+      w.id === 'w1' ? { ...w, place: adjust(w.place, { x: w.place.x + 1 }) } : w,
+    );
+    const after = settle(moved, 'w1');
+    const one = after.find((w) => w.id === 'w1')?.place;
+    const two = after.find((w) => w.id === 'w2')?.place;
+    expect(one).toMatchObject({ x: 1, y: 0 }); // the moved widget goes where it was sent
+    const overlap =
+      one !== undefined &&
+      two !== undefined &&
+      one.x < two.x + two.w &&
+      two.x < one.x + one.w &&
+      one.y < two.y + two.h &&
+      two.y < one.y + one.h;
+    expect(overlap).toBe(false);
+    expect(two).toMatchObject({ x: 3, y: 2 }); // pushed below, as the free grid does
   });
 });
