@@ -14,7 +14,7 @@ from typing import Any
 import pytest
 
 from app.modules.analytics.domain.tables import CellKind, ChartData, Column, PdfInput
-from app.modules.analytics.infra.svgchart import chart_svg
+from app.modules.analytics.infra.svgchart import chart_html, chart_svg
 
 pytestmark = pytest.mark.pdf
 
@@ -119,13 +119,14 @@ def test_d100_a_url_in_markup_is_refused_by_the_fetcher_not_fetched() -> None:
 
 
 def test_svg_chart_escapes_labels_and_mirrors_for_rtl() -> None:
-    svg = chart_svg("bar", ["<b>P1</b>", "P2"], [3, None], rtl=False)
-    assert "<b>" not in svg
-    assert "&lt;b&gt;P1" in svg
-    ltr = chart_svg("bar", ["first", "second"], [1, 2], rtl=False)
-    rtl = chart_svg("bar", ["first", "second"], [1, 2], rtl=True)
-    first_x = [float(m) for m in re.findall(r'<text x="([\d.]+)"[^>]*>first<', ltr)]
-    first_x_rtl = [float(m) for m in re.findall(r'<text x="([\d.]+)"[^>]*>first<', rtl)]
+    html = chart_html("bar", ["<b>P1</b>", "P2"], [3, None], rtl=False, series_name="n")
+    assert "<b>" not in html
+    assert "&lt;b&gt;P1" in html
+    ltr = chart_svg("bar", [1, 2], rtl=False)
+    rtl = chart_svg("bar", [1, 2], rtl=True)
+    first_x = [float(m) for m in re.findall(r'<text x="([\d.]+)"[^>]*>1<', ltr)]
+    first_x_rtl = [float(m) for m in re.findall(r'<text x="([\d.]+)"[^>]*>1<', rtl)]
     assert first_x[0] < first_x_rtl[0]  # the first category starts on the right in RTL
-    doughnut = chart_svg("doughnut", ["a", "b"], [1, 3], rtl=False)
+    assert 'dir="rtl"' in chart_html("bar", ["a"], [1], rtl=True, series_name="n")
+    doughnut = chart_svg("doughnut", [1, 3], rtl=False)
     assert doughnut.count("<path") == 2
