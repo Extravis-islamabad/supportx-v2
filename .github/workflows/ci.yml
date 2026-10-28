@@ -78,14 +78,13 @@ jobs:
         run: make db-migrate db-current db-guard
 
   backend-tests:
-    name: backend tests ${{ matrix.shard }}/3 (${{ matrix.workers }} workers)
+    name: backend tests ${{ matrix.shard }}/3
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false # every shard reports its failures in one run
       matrix:
         shard: [1, 2, 3] # keep in step with SUPPORTX_TEST_SHARD below
-        workers: [2, 4] # EXPERIMENT (removed before merge)
     # Real PostgreSQL (same pgvector image as the dev stack) and PgBouncer in transaction mode, so
     # the RLS, migration and tenant-isolation tests run on every PR and can never be skipped.
     # NATS JetStream is started as a step below (service containers cannot pass `-js`).
@@ -173,7 +172,7 @@ jobs:
           SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
           # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
           SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json
-        run: uv run pytest -n ${{ matrix.workers }} --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
+        run: uv run pytest -n 4 --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
       - name: Event bus latency and throughput (job summary)
         if: ${{ !cancelled() }}
         run: |
@@ -184,7 +183,7 @@ jobs:
       - name: Keep this shard's coverage for the backend job
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: backend-coverage-${{ matrix.shard }}-w${{ matrix.workers }}
+          name: backend-coverage-${{ matrix.shard }}
           path: backend/.coverage.shard${{ matrix.shard }}
           include-hidden-files: true
           retention-days: 1
@@ -193,7 +192,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: backend-timings-${{ matrix.shard }}-w${{ matrix.workers }}
+          name: backend-timings-${{ matrix.shard }}
           path: ${{ runner.temp }}/timings.json
           retention-days: 14
           if-no-files-found: warn
