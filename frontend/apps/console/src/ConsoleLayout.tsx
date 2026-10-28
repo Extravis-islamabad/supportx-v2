@@ -32,6 +32,7 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { AvailabilitySwitch } from './AvailabilitySwitch';
+import { EventDeliveryBanner } from './EventDeliveryBanner';
 import { NotificationBell } from './notifications/NotificationBell';
 import { NotificationsBanner } from './notifications/NotificationsBanner';
 import { useAvailabilityItem } from './useAvailabilityItem';
@@ -191,6 +192,7 @@ export function ConsoleLayout() {
       banners={
         <>
           <ConnectivityBanner />
+          <EventDeliveryBanner />
           {pathname !== '/profile' && <MfaReminder />}
           <LicenceBanners />
           <AuditAlertBanner />

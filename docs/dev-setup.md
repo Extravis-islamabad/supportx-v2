@@ -326,3 +326,12 @@ Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows 
   in ADR-012.
 - Temporal's `auto-setup` image stopped at 1.29.7 (newer server versions ship without it). It is
   fine for dev; how Temporal is deployed in real environments is decided in WP-014.
+
+## Tool versions
+
+Every tool has an exact version, so an upstream release never changes a build: Node in `.nvmrc`,
+Python in `backend/.python-version`, pnpm in `package.json` and `frontend/package.json`
+(`packageManager`, which Corepack reads from anywhere in the repo), uv in the backend setup action
+and image, actions and pre-commit hooks by commit SHA, container images by exact tag.
+`backend/tests/test_tool_pins.py` fails when one floats or two places disagree. Upgrades come as
+deliberate PRs (Dependabot proposes them weekly).

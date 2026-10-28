@@ -13,10 +13,12 @@ from app.modules import licensing
 from app.shared.events import ConsumerSpec, EventRegistry, install_registry
 from app.shared.events.consumers import consumers_from_modules
 from workers import bus, runtime
+from workers.bus import watch_bus
 from workers.consumers.runner import ConsumerRunner, RetryPolicy
 from workers.consumers.schedules import run_schedule, schedules_from_modules
 from workers.heartbeat import Heartbeat
 from workers.metrics import ConsumerMetrics
+from workers.resilience import Connectivity
 
 log = get_logger("workers.consumers")
 
@@ -34,14 +36,21 @@ async def main(stop: asyncio.Event) -> None:
     settings = runtime.load_settings("supportx-consumers")
     provider, meter = runtime.meter(settings)
     started = asyncio.Event()
-    ops = await runtime.start_ops(settings, ready=lambda: started.is_set() and not stop.is_set())
+    connectivity = Connectivity(give_up_after=settings.worker_give_up_seconds)
+    ops = await runtime.start_ops(
+        settings,
+        ready=lambda: started.is_set() and not stop.is_set() and connectivity.connected,
+    )
     metrics = ConsumerMetrics()
     metrics.bind(meter)
     specs = enabled_consumers(settings)
     database = Database.from_settings(settings)
     # Handlers ask the entitlement interface like the API does (identity_access.subject_for).
     stop_entitlements = await licensing.start_worker_service(settings, database, discover_modules())
-    connected = await bus.connect(settings, "consumers")
+    connected = await bus.connect_until_ready(settings, "consumers", connectivity, stop)
+    if connected is None:
+        await runtime.stop_ops(ops)
+        return
     runners = [
         ConsumerRunner(
             spec,
@@ -51,12 +60,11 @@ async def main(stop: asyncio.Event) -> None:
             retry=RetryPolicy.from_settings(settings, spec),
             ack_wait=settings.consumer_ack_wait_seconds,
             metrics=metrics,
+            connectivity=connectivity,
         )
         for spec in specs
     ]
-    for runner in runners:
-        await runner.ensure()
-        await runner.subscribe()
+    # Each runner creates and binds its durable consumer in run(), retrying while NATS is away.
     log.info("consumers_ready", consumers=[r.name for r in runners])
     started.set()
 
@@ -65,10 +73,11 @@ async def main(stop: asyncio.Event) -> None:
             connected.heartbeats,
             "consumers",
             interval=settings.heartbeat_interval_seconds,
-            stats=metrics.snapshot,
+            stats=lambda: {**metrics.snapshot(), **connectivity.snapshot()},
         )
         beat = asyncio.create_task(heartbeat.run(stop))
         while not stop.is_set():
+            watch_bus(connected, connectivity)
             for runner in runners:
                 await runner.refresh_lag()
             try:

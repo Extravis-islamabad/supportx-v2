@@ -67,6 +67,8 @@ test('REQ-INC-106: a view built with the filter builder lists exactly its incide
   await page.getByTestId('inc-view-name').fill(`E2E list ${stamp}`);
   await page.getByTestId('inc-view-filter-add').click();
   const fields = await openSelect(page, 'inc-view-filter-field-0');
+  // The field list is long and virtual: search it, as people do.
+  await page.keyboard.type('Subject');
   await fields.getByTitle('Subject', { exact: true }).click();
   await page.getByTestId('inc-view-filter-value-0').fill(`E2E list ${stamp} printer`);
   await expectAccessible(page, 'view editor');
@@ -82,6 +84,8 @@ test('REQ-INC-106: a view built with the filter builder lists exactly its incide
   await page.getByTestId('inc-view-name').fill(`E2E list ${stamp}`);
   await page.getByTestId('inc-view-filter-add').click();
   const again = await openSelect(page, 'inc-view-filter-field-0');
+  // The field list is long and virtual: search it, as people do.
+  await page.keyboard.type('Subject');
   await again.getByTitle('Subject', { exact: true }).click();
   await page.getByTestId('inc-view-filter-value-0').fill(`E2E list ${stamp} printer`);
   await page.getByTestId('inc-view-save').click();

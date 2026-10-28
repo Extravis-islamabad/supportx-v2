@@ -14,6 +14,7 @@ This module (with the relay) is the only place that publishes to NATS. The API p
 an import-linter contract forbids `nats` in app code apart from the read-only readiness probes.
 """
 
+import asyncio
 import contextlib
 import math
 import socket
@@ -30,6 +31,7 @@ from nats.js.kv import KeyValue
 from app.core.config import Settings
 from app.core.logging import get_logger
 from app.shared.events import BusNames
+from workers.resilience import Connectivity
 
 log = get_logger(__name__)
 
@@ -151,3 +153,35 @@ async def connect(settings: Settings, component: str) -> Bus:
     names = bus_names(settings)
     heartbeats = await provision(js, names, settings)
     return Bus(client=client, js=js, names=names, heartbeats=heartbeats)
+
+
+async def connect_until_ready(
+    settings: Settings, component: str, connectivity: Connectivity, stop: asyncio.Event
+) -> Bus | None:
+    """`connect`, retried with backoff while NATS is away at start-up (None if stopped first).
+
+    Past `worker_give_up_seconds` WorkerUnrecoverable ends the process (exit code 1).
+    """
+    while not stop.is_set():
+        try:
+            connected = await connect(settings, component)
+        except (nats.errors.Error, OSError, TimeoutError) as exc:
+            connectivity.down("bus", exc)
+            await connectivity.wait("bus", stop)
+            continue
+        connectivity.up("bus")
+        return connected
+    return None
+
+
+def watch_bus(connected: Bus, connectivity: Connectivity) -> None:
+    """Record whether the NATS client is connected now, and give up when it has been too long.
+
+    Called from each worker's observe loop: a quiet bus raises nothing on its own (fetches just
+    time out), so the client's own state is what tells an outage.
+    """
+    if connected.client.is_connected:
+        connectivity.up("bus")
+    else:
+        connectivity.down("bus")
+    connectivity.check()

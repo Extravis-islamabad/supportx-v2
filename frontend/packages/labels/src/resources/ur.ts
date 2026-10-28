@@ -3385,6 +3385,17 @@ export const ur: LabelResource = {
     '{{count}} صارفین کے پاس یہ کردار ہے۔ وہ کردار منتخب کریں جس میں انہیں منتقل کیا جائے؛ کوئی بھی خاموشی سے رسائی نہیں کھوتا۔',
   'users.total_one': '{{count}} صارف',
   'users.total_other': '{{count}} صارفین',
+  'failure_reason.disconnected': 'ڈیٹا بیس یا میسج بس تک رسائی نہیں',
+  'failure_reason.backlog': 'واقعات بہت دیر سے انتظار میں ہیں',
+  'readiness_check.outbox_relay': 'واقعات ریلے',
+  'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
+  'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
+  'readiness_check.nats': 'میسج بس',
+  'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
+  'event_delivery.stalled.body':
+    'اطلاعات، براہ راست اپ ڈیٹس اور ایکسپورٹس میں تاخیر ہے۔ کچھ ضائع نہیں ہوگا: سروس بحال ہوتے ہی یہ بھیج دیے جائیں گے۔',
+  'event_delivery_state.ok': 'ترسیل جاری',
+  'event_delivery_state.stalled': 'رکی ہوئی',
   // WP-020f: resolving and closing, open work, the requester's answer.
   'conversation.follow_up_started':
     'یہ جواب دوبارہ کھولنے کی مدت کے بعد آیا، اس لیے ایک نیا واقعہ شروع ہوا: {{id}}۔',
@@ -3681,4 +3692,5 @@ export const ur: LabelResource = {
   'incidents.views.groups_needed': 'کم از کم ایک گروپ منتخب کریں، یا کوئی اور انتخاب۔',
   'view_visibility.groups': 'منتخب گروپ',
   'view_visibility.everyone': 'ہر وہ شخص جو واقعات دیکھتا ہے',
+  'incidents.bulk.select_page': 'اس صفحے کے تمام واقعات منتخب کریں',
 };

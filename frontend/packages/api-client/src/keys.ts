@@ -15,6 +15,7 @@ export const queryKeys = {
   session: ['auth', 'me'] as const,
   entitlements: ['entitlements'] as const,
   health: ['system', 'health'] as const,
+  eventDelivery: ['system', 'event-delivery'] as const,
   // The server version for the About dialog (same endpoint as health, different data shape).
   version: ['system', 'version'] as const,
   access: {

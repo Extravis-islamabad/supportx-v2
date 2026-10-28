@@ -33,6 +33,7 @@ from nats.js import JetStreamContext
 from app.core.logging import get_logger
 from app.shared.events import OUTBOX_CHANNEL, BusNames
 from workers.metrics import RelayMetrics
+from workers.resilience import Connectivity, unavailable
 
 log = get_logger(__name__)
 
@@ -87,7 +88,6 @@ WHERE ctid IN (
 )
 """
 PURGE_CHUNK_SIZE = 5000
-RECONNECT_DELAY_SECONDS = 2.0
 _RECOVERABLE = (OSError, asyncpg.PostgresConnectionError, asyncpg.InterfaceError)
 
 
@@ -113,6 +113,7 @@ class OutboxRelay:
         purge_interval: float,
         processed_retention: timedelta = timedelta(days=30),
         metrics: RelayMetrics | None = None,
+        connectivity: Connectivity | None = None,
     ) -> None:
         self.dsn = dsn
         self.js = js
@@ -124,6 +125,7 @@ class OutboxRelay:
         self.purge_interval = purge_interval
         self.processed_retention = processed_retention
         self.metrics = metrics or RelayMetrics()
+        self.connectivity = connectivity or Connectivity(give_up_after=float("inf"))
         self._pool: asyncpg.Pool | None = None
         self._listener: asyncpg.Connection | None = None
         self._wake = asyncio.Event()
@@ -167,16 +169,23 @@ class OutboxRelay:
     # --- main loop ------------------------------------------------------------------------------
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Relay until `stop` is set, reconnecting to PostgreSQL after connection loss."""
+        """Relay until `stop` is set, riding out PostgreSQL restarts (workers/resilience.py).
+
+        Rows stay unpublished while the database or the bus is away and go out, in order, once
+        both answer; past `worker_give_up_seconds` WorkerUnrecoverable ends the process.
+        """
         while not stop.is_set():
             try:
                 await self.connect()
+                self.connectivity.up("database")
                 log.info("relay_started", stream=self.names.events_stream)
                 await self._loop(stop)
-            except _RECOVERABLE:
-                log.warning("relay_database_unavailable", exc_info=True)
+            except Exception as exc:
+                if unavailable(exc) != "database" and not isinstance(exc, _RECOVERABLE):
+                    raise
+                self.connectivity.down("database", exc)
                 await self.close()
-                await self._sleep(stop, RECONNECT_DELAY_SECONDS)
+                await self.connectivity.wait("database", stop)
         await self.close()
 
     async def _loop(self, stop: asyncio.Event) -> None:
@@ -196,17 +205,14 @@ class OutboxRelay:
             for waiter in waiters:
                 waiter.cancel()
 
-    @staticmethod
-    async def _sleep(stop: asyncio.Event, seconds: float) -> None:
-        with contextlib.suppress(TimeoutError):
-            await asyncio.wait_for(stop.wait(), seconds)
-
     async def drain(self) -> int:
         """Publish batches until the outbox is empty or publishing stops making progress."""
         total = 0
         while True:
             selected, published = await self.publish_batch()
             total += published
+            if selected and not published and self.connectivity.connected is False:
+                self.connectivity.check()  # the bus is away: give up in time, never spin
             if selected < self.batch_size or published == 0:
                 return total
 
@@ -232,6 +238,12 @@ class OutboxRelay:
                 await conn.execute(MARK_PUBLISHED, published)
             if failed:
                 await conn.executemany(MARK_FAILED, failed)
+        if published:
+            self.connectivity.up("bus")
+        elif failed and all(_bus_away(r) for r in results):
+            # Every publish failed because NATS is away: the rows wait (MARK_FAILED kept the
+            # attempt count and reason) and go out once it is back.
+            self.connectivity.down("bus", next(r for r in results if isinstance(r, BaseException)))
         duplicates = sum(1 for result in results if result is _DUPLICATE)
         self.metrics.published(len(published), duplicates)
         self.metrics.failed(len(failed))
@@ -327,10 +339,20 @@ class OutboxRelay:
         try:
             async with self.pool.acquire() as conn:
                 age = await conn.fetchval(OLDEST_UNPUBLISHED_AGE)
-        except (*_RECOVERABLE, RuntimeError):
+        except Exception as exc:
+            # Any outage (also "the database system is shutting down", which is no connection
+            # error): keep the last age; the relay loop marks the database down and waits.
+            if unavailable(exc) is None and not isinstance(exc, (*_RECOVERABLE, RuntimeError)):
+                raise
             return self.metrics.oldest_unpublished_age_seconds
         self.metrics.oldest_unpublished_age_seconds = float(age or 0.0)
         return self.metrics.oldest_unpublished_age_seconds
+
+
+def _bus_away(result: object) -> bool:
+    return isinstance(result, BaseException) and (
+        unavailable(result) == "bus" or isinstance(result, TimeoutError)
+    )
 
 
 class _Duplicate:
