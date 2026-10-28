@@ -1009,6 +1009,13 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   `role_names` and people-name resolver); both lanes told.
 - The shared dev stack now runs from `../supportx-v2-stack` (detached origin/main), never from a
   lane's working branch (LANES.md), after the stack picked up this branch mid-QA.
+- C4: the 12 leftover QA custom fields of 2026-10-27 in Demo Company (11 "QA …" fields and
+  "!!!") retired through the API under the QA lock (reversible; nothing deleted).
+- `make check`: lint, typecheck, import contracts green; backend 1552 passed after fixing three
+  tests (two expected the old 409 params; the files settings test read a developer's
+  backend/.env, now `Settings.load(env_file=None)`); frontend all suites green.
+- Noted by lane B's WP-039 QA: Urdu is about 380 label keys short (e.g. the portal header);
+  Urdu becomes mandatory from Stage 2 (D-006), recorded here as a Stage 2 item.
 
 ### 2026-10-28 — WP-039 session 3: lock-out, MFA, my account, idle warning (lane B)
 

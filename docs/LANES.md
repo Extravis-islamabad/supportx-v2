@@ -8,7 +8,7 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 | Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
 |---|---|---|---|---|---|---|
 | A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-029-FIX (PR open); next WP-020f | `fix/wp-029-qa` | main folder (`supportx-v2`) | 0025, 0028 (merged) | D-096, D-097, D-102, D-105; ADR-035 |
-| B | Identity, mail, notifications | WP-039 merged (#93, #91); CI shard follow-ups (#96, PR open); WP-039 QA (holds the lock); WP-023 notifications in `../supportx-v2-ntf` | `ci/shard-weights` | `../supportx-v2-ci` | 0024, 0026, 0032 (merged) | D-098, D-099, D-103, D-104 |
+| B | Identity, mail, notifications | WP-039 merged (#93, #91); CI shard follow-ups (#96, PR open); WP-039 QA done (~/Desktop/qa-wp039, 5 bugs); WP-023 notifications in `../supportx-v2-ntf` | `ci/shard-weights` | `../supportx-v2-ci` | 0024, 0026, 0032 (merged) | D-098, D-099, D-103, D-104 |
 | C | Reports and dashboards | WP-035: sessions 1-3 merged (#73, #77, #84); session 4 scheduled reports (this PR) | `feat/wp-035-schedules` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029 (merged), 0031 | D-100, D-101; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
