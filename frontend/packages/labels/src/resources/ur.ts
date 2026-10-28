@@ -423,9 +423,13 @@ export const ur: LabelResource = {
   'incidents.sort.priority': 'ترجیح، سب سے زیادہ پہلے',
   'incidents.sort.display_number': 'شناخت، پرانے پہلے',
   'incidents.sort.subject': 'موضوع حروفِ تہجی سے',
-  'incidents.view_notice': 'منظر «{{view}}»: {{count}} دکھائے گئے۔',
-  'incidents.filter_notice': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
-  'incidents.hidden_notice_capped':
+  'incidents.view_notice_one': 'منظر «{{view}}»: {{count}} دکھایا گیا۔',
+  'incidents.view_notice_other': 'منظر «{{view}}»: {{count}} دکھائے گئے۔',
+  'incidents.filter_notice_one': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
+  'incidents.filter_notice_other': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
+  'incidents.hidden_notice_capped_one':
+    'آپ جو دیکھ سکتے ہیں ان میں سے {{count}} سے زیادہ دوسرے واقعات اس منظر میں نہیں۔',
+  'incidents.hidden_notice_capped_other':
     'آپ جو دیکھ سکتے ہیں ان میں سے {{count}} سے زیادہ دوسرے واقعات اس منظر میں نہیں۔',
   'incidents.show_all': 'سب دکھائیں',
   'incidents.no_sla': 'کوئی SLA لاگو نہیں',
@@ -454,7 +458,6 @@ export const ur: LabelResource = {
   'incidents.assigned': 'تفویض محفوظ ہو گئی۔',
   'incidents.handed_over': '{{id}} {{group}} کے حوالے کر دیا گیا۔',
   'incidents.handover_confirm': 'حوالے کریں',
-  'incidents.this_incident': 'یہ واقعہ',
   'incidents.taken': 'اب یہ آپ کا ہے۔',
   'incidents.take_choose_group': 'آپ کا کون سا گروپ اسے لے گا؟',
   'auth.switch_to': '{{tenant}} پر جائیں',
@@ -480,7 +483,8 @@ export const ur: LabelResource = {
   'incidents.no_site': 'کوئی مقام نہیں',
   'incidents.no_technician': 'کوئی ٹیکنیشن نہیں',
   'incidents.no_category': 'کوئی زمرہ نہیں',
-  'incidents.open_load': '{{count}} کھلے',
+  'incidents.open_load_one': '{{count}} کھلا',
+  'incidents.open_load_other': '{{count}} کھلے',
   'incidents.site_help': 'درخواست گزار کا مقام استعمال کرنے کے لیے خالی چھوڑیں۔',
   'incidents.history.all': 'سب',
   'incidents.history.people': 'لوگ',
@@ -904,6 +908,7 @@ export const ur: LabelResource = {
   'live.someone': 'کوئی',
   'incidents.tab.conversation': 'گفتگو ({{count}})',
   'incidents.handover_title': '{{id}} حوالے کریں؟',
+  'incidents.handover_title_new': 'یہ واقعہ حوالے کریں؟',
   'incidents.handover_keep_following': 'اس واقعے کو فالو کرتے رہیں',
   'incidents.handover_confirm_following': 'حوالے کریں اور فالو جاری رکھیں',
   'richtext.undo': 'واپس کریں',
@@ -1103,13 +1108,17 @@ export const ur: LabelResource = {
   'files.admin.usage': 'اسٹوریج',
   'files.admin.used_of': '{{limit}} میں سے {{used}} استعمال',
   'files.admin.used_unlimited': '{{used}} استعمال (کوئی حد نہیں)',
-  'files.admin.files_count': '{{count}} فائلیں',
+  'files.admin.files_count_one': '{{count}} فائل',
+  'files.admin.files_count_other': '{{count}} فائلیں',
   'files.admin.scanning': 'میلویئر اسکیننگ',
   'files.admin.scanning_ok': 'ہر نئی فائل کھولے جانے سے پہلے میلویئر کے لیے جانچی جاتی ہے۔',
   'files.admin.signature_date': 'میلویئر سگنیچرز بتاریخ {{date}}',
-  'files.admin.waiting': '{{count}} جانچ کے منتظر',
-  'files.admin.failed': '{{count}} کی جانچ نہیں ہو سکی',
-  'files.admin.not_scanned': '{{count}} اسکین نہیں ہوئیں',
+  'files.admin.waiting_one': '{{count}} جانچ کی منتظر',
+  'files.admin.waiting_other': '{{count}} جانچ کے منتظر',
+  'files.admin.failed_one': '{{count}} کی جانچ نہیں ہو سکی',
+  'files.admin.failed_other': '{{count}} کی جانچ نہیں ہو سکی',
+  'files.admin.not_scanned_one': '{{count}} اسکین نہیں ہوئی',
+  'files.admin.not_scanned_other': '{{count}} اسکین نہیں ہوئیں',
   'files.banner.title': 'فائل اسکیننگ پر توجہ درکار ہے',
   'files.banner.open': 'فائل کی ترتیبات کھولیں',
   'richtext.image_uploading': 'تصویر اپ لوڈ ہو رہی ہے…',
@@ -1133,10 +1142,14 @@ export const ur: LabelResource = {
   'followers.remove_ok': 'ہٹائیں',
   'incidents.handover_moves':
     '{{id}} {{group}} کو منتقل ہو جائے گا، ان واقعات سے باہر جن پر آپ کام کرتے ہیں۔',
+  'incidents.handover_moves_new':
+    'یہ واقعہ {{group}} کو منتقل ہو جائے گا، ان واقعات سے باہر جن پر آپ کام کرتے ہیں۔',
   'incidents.handover_following_text':
     'آپ اسے فالو کرتے رہیں گے: آپ اب بھی اسے کھول سکتے ہیں، اس کی تازہ کاریاں براہ راست دیکھ سکتے ہیں اور نجی نوٹس شامل کر سکتے ہیں، لیکن اسے تبدیل نہیں کر سکتے۔ آپ کسی بھی وقت فالو کرنا بند کر سکتے ہیں۔',
   'incidents.handover_text':
     'اس کے بعد آپ {{id}} نہیں دیکھ سکیں گے اور نہ ہی آپ کو اس کے بارے میں بتایا جائے گا۔ تاریخ میں حوالگی درج ہوتی ہے۔',
+  'incidents.handover_text_new':
+    'اس کے بعد آپ یہ واقعہ نہیں دیکھ سکیں گے اور نہ ہی آپ کو اس کے بارے میں بتایا جائے گا۔ تاریخ میں حوالگی درج ہوتی ہے۔',
   'incidents.handed_over_following':
     '{{id}} {{group}} کے حوالے کر دیا گیا۔ آپ اسے فالو کرتے رہیں گے۔',
   // WP-020c: incident settings, templates, levels, closure codes, form density
@@ -1962,7 +1975,11 @@ export const ur: LabelResource = {
   'settings.section.transitions': 'حالت کی تبدیلیاں',
   'automation.after_move': '“{{action}}” کے بعد',
   'automation.note_text': 'نوٹ کا متن',
-  'automation.panel.none': 'اس ریکارڈ پر کسی ٹرگر نے کام نہیں کیا۔',
+  'automation.panel.none': 'آٹومیشن نے اس ریکارڈ پر کچھ نہیں کیا۔',
+  'automation.panel.steps': 'قواعد، روٹنگ اور تفویض',
+  'automation.panel.triggers': 'ٹرگرز',
+  'automation.panel.history_hint':
+    'ہر تبدیلی، اور اسے کس نے یا کس چیز نے کیا، تاریخ میں بھی موجود ہے۔',
   'automation.panel.note': 'نجی نوٹ شامل کریں',
   'automation.panel.set': '{{field}} سیٹ کریں',
   'automation.reason.has_value': 'اس میں پہلے سے قدر تھی',
@@ -2281,7 +2298,8 @@ export const ur: LabelResource = {
   'reports.my_exports': 'میری ایکسپورٹس',
   'reports.download': 'ڈاؤن لوڈ',
   'reports.no_exports': 'ابھی کوئی ایکسپورٹ نہیں۔',
-  'reports.export_rows': '{{count}} قطاریں',
+  'reports.export_rows_one': '{{count}} قطار',
+  'reports.export_rows_other': '{{count}} قطاریں',
   'reports.cannot_export':
     'آپ کو رپورٹس ایکسپورٹ کرنے کی اجازت درکار ہے، اور ہر شرط کی قدر ہونی چاہیے۔',
   'reports.settings': 'رپورٹ کی ترتیبات',
@@ -2364,7 +2382,9 @@ export const ur: LabelResource = {
   'reports.scope_note':
     'اعداد صرف ان ریکارڈز کو گنتے ہیں جو آپ دیکھ سکتے ہیں، اس لیے یہ کسی ساتھی سے مختلف ہو سکتے ہیں۔',
   'reports.data_table': 'اعداد کو جدول کی صورت میں دکھائیں',
-  'reports.chart_summary':
+  'reports.chart_summary_one':
+    '{{field}} کے مطابق {{count}} گروپ کا چارٹ؛ نیچے جدول میں وہی اعداد ہیں۔',
+  'reports.chart_summary_other':
     '{{field}} کے مطابق {{count}} گروپس کا چارٹ؛ نیچے جدول میں وہی اعداد ہیں۔',
   'reports.all_records': 'اس رپورٹ کے تمام ریکارڈز',
   'reports.drill_count': 'ریکارڈز: {{count}}',
@@ -2902,4 +2922,10 @@ export const ur: LabelResource = {
   'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',
   'forms.start_empty': 'خالی سے شروع کریں',
   'forms.draft_restored': 'آپ کا غیر محفوظ اندراج بحال کر دیا گیا۔',
+  'roles.delete_in_use_one':
+    '{{count}} صارف کے پاس یہ کردار ہے۔ وہ کردار منتخب کریں جس میں انہیں منتقل کیا جائے؛ کوئی بھی خاموشی سے رسائی نہیں کھوتا۔',
+  'roles.delete_in_use_other':
+    '{{count}} صارفین کے پاس یہ کردار ہے۔ وہ کردار منتخب کریں جس میں انہیں منتقل کیا جائے؛ کوئی بھی خاموشی سے رسائی نہیں کھوتا۔',
+  'users.total_one': '{{count}} صارف',
+  'users.total_other': '{{count}} صارفین',
 };
