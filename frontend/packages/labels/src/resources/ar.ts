@@ -3,7 +3,7 @@ import type { LabelResource } from './en';
 // Arabic is mandatory from day one (D-006). Missing keys fall back to English.
 export const ar: LabelResource = {
   'product.name': 'SupportX',
-  'app.console.name': 'وحدة تحكم الفني',
+  'app.console.name': 'SupportX',
   'app.portal.name': 'بوابة الخدمة الذاتية',
   'appearance.dark_mode': 'الوضع الداكن',
   'appearance.right_to_left': 'من اليمين إلى اليسار',
@@ -4001,4 +4001,5 @@ export const ar: LabelResource = {
     'الإشعارات والتحديثات المباشرة والتصديرات متأخرة. لن يضيع شيء: ستُرسل فور تعافي الخدمة.',
   'event_delivery_state.ok': 'يجري التسليم',
   'event_delivery_state.stalled': 'متوقف',
+  'shell.breadcrumbs': 'أنت هنا',
 };

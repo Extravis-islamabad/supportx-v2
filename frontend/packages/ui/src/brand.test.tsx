@@ -129,7 +129,9 @@ describe('about dialog', () => {
     await waitFor(() => {
       expect(screen.getByTestId('about-version').textContent).toBe('Version 0.1.0');
     });
-    expect(screen.getByText('Technician Console')).toBeTruthy();
+    // The product, never "Technician Console" (product owner, 2026-10-28: it fits nobody's job).
+    expect(screen.getAllByText('SupportX').length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain('Technician Console');
     expect(screen.getAllByRole('img', { name: 'SupportX' }).length).toBeGreaterThan(0);
     fake.restore();
   });

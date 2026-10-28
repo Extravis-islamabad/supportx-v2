@@ -1,7 +1,7 @@
 // English is the reference dictionary: every key must exist here (CI-enforced later, §9.5).
 export const en = {
   'product.name': 'SupportX',
-  'app.console.name': 'Technician Console',
+  'app.console.name': 'SupportX',
   'app.portal.name': 'Self-Service Portal',
   'appearance.dark_mode': 'Dark mode',
   'appearance.right_to_left': 'Right-to-left',
@@ -3979,6 +3979,7 @@ export const en = {
     'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
+  'shell.breadcrumbs': 'You are here',
 } as const;
 
 export type LabelKey = keyof typeof en;
