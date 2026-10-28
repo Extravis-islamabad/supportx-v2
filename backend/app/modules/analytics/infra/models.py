@@ -14,6 +14,7 @@ from typing import Any
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     ForeignKeyConstraint,
     Index,
@@ -246,3 +247,82 @@ class ReportSchedule(TenantEntity):
     last_result: Mapped[str | None] = mapped_column(String(60))  # "sent" or a problem code
     last_sent: Mapped[int | None] = mapped_column(SmallInteger)
     last_failed: Mapped[int | None] = mapped_column(SmallInteger)
+
+
+class Dashboard(TenantEntity):
+    """A user-made dashboard (WP-036): its widgets and filter defaults in one document.
+
+    Private to its owner until shared with everyone (REQ-DSH-026). Built-in dashboards are code
+    (domain/dashboard.py), never rows.
+    """
+
+    __tablename__ = "dashboards"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_dashboards_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_dashboards_owner"
+        ),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 120", name="name_length"),
+        CheckConstraint(
+            "description IS NULL OR char_length(description) <= 1000", name="description_length"
+        ),
+        CheckConstraint("jsonb_typeof(body) = 'object'", name="body_object"),
+        CheckConstraint("pg_column_size(body) <= 262144", name="body_size"),
+        Index("ix_dashboards_tenant_owner", "tenant_id", "owner_id", "name"),
+        Index(
+            "ix_dashboards_tenant_shared",
+            "tenant_id",
+            "name",
+            postgresql_where=text("shared AND deleted_at IS NULL"),
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(120))
+    # Translations of the name ({"ar": ...}); a missing language falls back to `name` (DSH-045).
+    names: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    description: Mapped[str | None] = mapped_column(Text)
+    owner_id: Mapped[uuid.UUID]
+    shared: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    body: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # The dashboard this one was copied from: "builtin:<code>" or an id (REQ-DSH-021).
+    copied_from: Mapped[str | None] = mapped_column(String(100))
+
+
+class DashboardPreference(TenantKeyed, Base):
+    """One person's dashboard choices: their home (REQ-DSH-002) and favourites (REQ-DSH-005)."""
+
+    __tablename__ = "dashboard_preferences"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_dashboard_preferences_user",
+        ),
+        CheckConstraint(
+            "home_ref IS NULL OR char_length(home_ref) BETWEEN 1 AND 100", name="home_ref_length"
+        ),
+        CheckConstraint("cardinality(favourites) <= 200", name="favourites_count"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    home_ref: Mapped[str | None] = mapped_column(String(100))
+    favourites: Mapped[list[str]] = mapped_column(ARRAY(String(100)), server_default="{}")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+
+
+class DashboardRoleDefault(TenantKeyed, Base):
+    """The home dashboard an admin chose for a role (REQ-DSH-002)."""
+
+    __tablename__ = "dashboard_role_defaults"
+    __table_args__ = (
+        # By role key: the key is what a signed-in person's permissions carry (roles' (tenant,
+        # key) is unique only among live roles, so no foreign key; a deleted role's row is unused).
+        CheckConstraint("role_key ~ '^[a-z][a-z0-9_]{1,62}$'", name="role_key_format"),
+        CheckConstraint(
+            "char_length(dashboard_ref) BETWEEN 1 AND 100", name="dashboard_ref_length"
+        ),
+    )
+
+    role_key: Mapped[str] = mapped_column(String(63), primary_key=True)
+    dashboard_ref: Mapped[str] = mapped_column(String(100))
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)

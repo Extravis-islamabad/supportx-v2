@@ -8,7 +8,9 @@ folders and favourites are tables of this module.
 
 No module-wide licence feature: each run checks the feature of the entity it reports on.
 
-Public interface for other modules: none yet (dashboards, WP-036, are part of this module).
+Dashboards (WP-036) are part of this module: widgets are report definitions.
+
+Public interface for other modules: none yet.
 """
 
 from fastapi import FastAPI
@@ -16,8 +18,10 @@ from fastapi import FastAPI
 from app.core.authorization import PermissionSpec, Scope
 from app.core.database import Database
 from app.core.modules import ModuleSpec
+from app.modules.analytics.api.dashboards import router as dashboards_router
 from app.modules.analytics.api.routes import REPORTING_DB_STATE, SLOTS_STATE, router
 from app.modules.analytics.events import EVENTS
+from app.modules.analytics.service import dashboards
 from app.modules.analytics.service.exports import EXPORT
 from app.modules.analytics.service.jobs import (
     on_export_requested,
@@ -45,6 +49,11 @@ PERMISSIONS = (
     PermissionSpec(EXPORT, None, ("all",), defaults=(("technician", "all"),)),
     # Scheduling mails reports to people: administrators by default (custom roles may add it).
     PermissionSpec(SCHEDULE, None, ("all",)),
+    # Dashboards (WP-036, REQ-DSH-029): technicians make their own; sharing with everyone and
+    # setting role homes are for administrators by default.
+    PermissionSpec(dashboards.CREATE, None, _OWN, defaults=(("technician", "own"),)),
+    PermissionSpec(dashboards.SHARE, None, ("all",)),
+    PermissionSpec(dashboards.MANAGE_DEFAULTS, None, ("all",)),
 )
 
 
@@ -66,7 +75,7 @@ async def _shutdown(app: FastAPI) -> None:
 
 module = ModuleSpec(
     name="analytics",
-    routers=[router],
+    routers=[router, dashboards_router],
     events=EVENTS,
     permissions=PERMISSIONS,
     realtime=ROUTES,
