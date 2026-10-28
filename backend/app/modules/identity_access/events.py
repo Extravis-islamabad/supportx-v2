@@ -109,7 +109,7 @@ class UserCreated(DomainEvent):
 
     user_id: uuid.UUID
     user_type: Literal["technician", "requester"]
-    source: Literal["admin", "import"]
+    source: Literal["admin", "import", "email"]  # email: a mail sender made a requester (WP-024)
 
 
 class UserStatusChanged(DomainEvent):

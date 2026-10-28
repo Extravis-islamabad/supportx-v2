@@ -1302,7 +1302,8 @@
           "source": {
             "enum": [
               "admin",
-              "import"
+              "import",
+              "email"
             ],
             "title": "Source",
             "type": "string"

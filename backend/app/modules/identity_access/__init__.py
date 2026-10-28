@@ -67,6 +67,8 @@ from app.modules.identity_access.service.directory import (
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
+    create_requester_from_mail,
+    person_by_email,
     person_placement,
     register_people_usage,
 )
@@ -285,12 +287,14 @@ __all__ = [
     "UserType",
     "authorize",
     "authorize_stored",
+    "create_requester_from_mail",
     "display_names",
     "get_policy",
     "mail_recipients",
     "module",
     "notifiable_people",
     "people_matching",
+    "person_by_email",
     "person_placement",
     "require",
     "role_names",
