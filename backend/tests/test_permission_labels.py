@@ -40,6 +40,7 @@ def test_every_permission_has_a_label_and_description(locale: str) -> None:
 
 
 def test_catalogue_has_the_reserved_itsm_permissions() -> None:
-    assert {"requests.assign", "changes.approve", "cmdb.manage", "knowledge.manage"} <= set(
+    # knowledge.manage was split into the knowledge module's own permissions (D-108 (7))
+    assert {"requests.assign", "changes.approve", "cmdb.manage", "knowledge.approve"} <= set(
         CATALOGUE.permissions
     )

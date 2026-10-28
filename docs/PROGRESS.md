@@ -16,8 +16,9 @@
   #77, export #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic;
   the 1M-row volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA
   round done (~/Desktop/qa-wp035, 8 bugs), all fixed in WP-035-FIX (#103). WP-036 dashboards
-  built (sessions 1-2, PR open); then WP-033 knowledge sessions 1-4 (plan approved as D-108; knowledge moved from
-  lane B). Lanes and claimed numbers: docs/LANES.md.
+  merged (#106), free-form layout follow-up (D-110, #115). WP-033 knowledge (plan D-108, moved
+  from lane B): session 1 (backend core) built, PR open; sessions 2-4 next. Lanes and claimed
+  numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -1104,6 +1105,29 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-033 session 1: knowledge backend core (lane C)
+
+- Knowledge module (D-108): settings, article types (file 08 Appendix A defaults on first use),
+  topic tree (six levels, move with subtree, delete moves the articles first), articles with a
+  first draft, autosave with If-Match, one open draft per language, new version from the
+  published one, translations. Migration 0036 with RLS on all five tables; a trigger keeps
+  published and superseded versions unchanged (REQ-KB-020 AC2).
+- Permissions: the 11 D-108 (7) permissions, declared by the module with role defaults
+  (technician: view/create at group, edit own and submit at own; requester: view at own). The
+  reserved `knowledge.view`/`knowledge.manage` left identity's list (lane B told); custom roles'
+  `knowledge.manage` becomes create + edit own + submit. That data step runs once per tenant
+  with app.tenant_id set, because FORCE RLS hides every row from a migration without it. The
+  same issue was found in 0034 and lane A fixed it (#116).
+- Who reads what: staff by technician audience (all or their groups); drafts only for the
+  author, owners and approvers; requesters get nothing from staff paths (their portal reading
+  is session 2). Lists, single reads and search share one predicate (REQ-KB-048).
+- Rich text: `div[data-callout]` with the four callout kinds is kept by the sanitiser.
+- Bug found by the tests: changing only the expiry date skipped the review/expiry check, so
+  the database constraint answered with a 500. Fixed in the service.
+- Not in this session (sessions 2-4 per D-108): review and approval, publish/withdraw,
+  requester portal reading, attachments (files owner type with lane B), console and portal
+  screens, knowledge-manager role seed, department audiences for requesters.
 
 ### 2026-10-28 — WP-020f: resolution, closure, reopen and cancel (lane A)
 
