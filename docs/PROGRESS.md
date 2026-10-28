@@ -14,8 +14,9 @@
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
   #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic; the 1M-row
-  volume test runs in GitHub (`report-scale.yml`). Next: QA round, WP-033 plan. Lanes and claimed
-  numbers: docs/LANES.md.
+  volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA round done
+  (~/Desktop/qa-wp035, 8 bugs listed). WP-033 plan written (~/Desktop/wp-033-plan.md), awaiting the
+  product owner. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -973,6 +974,19 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ## Session log (newest first)
 
+### 2026-10-28 — CI follow-ups: shard weights from CI, 2 vs 4 workers (lane B, #96)
+- Each backend shard now keeps its file timings as an artifact; `make backend-shard-weights`
+  rebuilds `tests/shard_weights.json` from a CI run (the old weights, from a laptop, summed to
+  ~300 s against 4,309 worker-seconds on CI; shard 3 carried 2,047, shard 2 736).
+- Test step per shard before (6 main runs): slowest 370–581 s, spread up to 2.3x (214 vs 491).
+  After (3 runs): 488/480/444, 494/486/420, 483/351/406 s: even shards; the slowest shard is
+  within the runners' own noise of before (~8 minutes).
+- 2 workers per shard (same commit, side by side, twice): 617/590/453 and 546/500/407 s against
+  4 workers' 494/486/420 and 483/351/406; one 2-worker shard failed (an order-dependent
+  assertion in `test_auth_bff.py`, fixed). **Kept 4 workers.**
+- Two strict timings left in `test_filters.py` (50 ms, 10 ms) now use `tooling/timing.py`
+  (10x in PRs, the target nightly).
+
 ### 2026-10-28 — WP-039 session 3: lock-out, MFA, my account, idle warning (lane B)
 
 - Built on `feat/wp-039-session3`: see the WP-039 checklist; decision D-104 (pending review).
@@ -991,6 +1005,19 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   `tests/db/test_reports_scale.py`: 1M incidents generated inside PostgreSQL, every built-in
   report plus widget totals, admin and group-scoped technician, strict 2 s target; the
   technician never sees another group's numbers. Timings in the job summary and a 90-day artifact.
+- First run (40644943080, 1,000,000 incidents, strict 2 s): all 49 timed queries pass. Slowest
+  median 0.73 s (admin, received per month), "open by" reports 0.33-0.37 s, widget totals 0.23 s,
+  30-day reports 0.02-0.07 s, drill-down list page 0.008 s; load 118 s.
+
+### 2026-10-28 — WP-035 QA round (lane C)
+- Under the QA lock, Playwright (admin plus a group-scoped technician) and Chrome; report
+  ~/Desktop/qa-wp035/QA-REPORT.md. Permissions hold everywhere (reports, drill-down, exports,
+  scheduled mails, live totals). 8 bugs listed, not fixed: BUG-01 records exports head the ID and
+  subject columns "Unknown value"; BUG-02 Arabic PDF chart labels drawn in reversed letter order;
+  BUG-03..08 low (Arabic legend overlap, PDF header date order, Latin comma in Arabic filter
+  words, PDF label cut-off, "Stacked ..." cut, built-in title kept after changes). The dev stack
+  cannot make PDFs (worker without the `pdf` group; checked with the renderer instead).
+  Dashboards are WP-036.
 
 ### 2026-10-28 — WP-035: reports e2e in English and Arabic (lane C)
 - QA lock from lane B/A; `reports.spec.ts` on the shared stack. Fixed: status tag contrast,
