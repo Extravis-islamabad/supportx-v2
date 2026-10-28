@@ -270,7 +270,7 @@ describe('The record (WP-029 part 2)', () => {
     });
     open(`/incidents/${ITEM.id}`);
     const warning = await screen.findByTestId('inc-loop-warning');
-    expect(warning.textContent).toContain('Ping, Pong');
+    expect(warning.textContent).toContain('Ping and Pong');
   });
 
   it('REQ-WF-003: a move with a confirmation asks before it runs', async () => {
@@ -324,6 +324,6 @@ describe('Admins are told about stopped loops (REQ-RUL-028 AC3)', () => {
     open('/');
     const banner = await screen.findByTestId('loop-banner');
     expect(banner.textContent).toContain('Automation stopped 1 loop in the last day.');
-    expect(banner.textContent).toContain('Ping, Pong');
+    expect(banner.textContent).toContain('Ping and Pong');
   });
 });

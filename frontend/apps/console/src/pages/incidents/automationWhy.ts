@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { useLabel } from '@supportx/ui';
 
 type People = Record<string, { display_name: string; email: string } | undefined>;
@@ -14,6 +15,7 @@ export function useAutomationWhy(): (
   people: People,
 ) => string {
   const t = useLabel();
+  const listFormat = useListFormat();
   return (automation, people) => {
     const text = (value: unknown) => (typeof value === 'string' ? value : '');
     switch (automation.kind) {
@@ -33,12 +35,12 @@ export function useAutomationWhy(): (
         const method = t(`assign_method.${text(automation.method)}`);
         const loads = automation.loads as Record<string, number> | undefined;
         if (loads === undefined) return t('automation.why.assigned', { method });
-        const compared = Object.entries(loads)
-          .map(
+        const compared = listFormat(
+          Object.entries(loads).map(
             ([user, load]) =>
               `${people[user]?.display_name ?? t('automation.someone')} ${String(load)}`,
-          )
-          .join(t('list.separator'));
+          ),
+        );
         return t('automation.why.assigned_loads', { method, loads: compared });
       }
       case 'matrix':

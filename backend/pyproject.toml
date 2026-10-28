@@ -125,6 +125,7 @@ markers = [
     "pdf: needs WeasyPrint and Pango (`uv sync --group pdf`; the worker image in CI); skipped if absent, required with SUPPORTX_REQUIRE_PDF_TESTS=1",
     "scale: volume test, runs only with SUPPORTX_AUDIT_SCALE_ROWS (CI 100k, nightly 10M) or SUPPORTX_REPORT_SCALE_ROWS (nightly 1M)",
     "timing: asserts a speed (tooling/timing.py): 10x the target in PRs, the target nightly (perf.yml)",
+    "resilience: restarts its own PostgreSQL and NATS containers under running workers; only with SUPPORTX_RESILIENCE_TESTS=1 (CI job worker resilience)",
 ]
 
 [tool.coverage.run]
@@ -192,6 +193,12 @@ layers = ["api", "service", "infra", "domain"]
 name = "automation layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.automation"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
+name = "integrations layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.integrations"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]

@@ -12,6 +12,7 @@ import {
   useUnits,
   type IncidentHistoryEntry,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useAccess, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 import { fieldName, useCustomValueText } from '../customFields/values';
@@ -61,6 +62,7 @@ const FLAGS = new Set(['handed_over_out_of_reach']);
  */
 export function IncidentHistory({ id }: { id: string }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
   const { can } = useAccess();
@@ -158,7 +160,7 @@ export function IncidentHistory({ id }: { id: string }) {
     if (CHANGED_ONLY.has(change.field)) return t('history.changed');
     if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
     if (Array.isArray(value))
-      return value.length === 0 ? t('history.empty') : value.join(t('list.separator'));
+      return value.length === 0 ? t('history.empty') : listFormat(value.map(String));
     if (typeof value === 'string' || typeof value === 'number') return String(value);
     return t('history.changed');
   };
@@ -193,6 +195,12 @@ export function IncidentHistory({ id }: { id: string }) {
                       {t('incidents.history.automatic')}
                     </Tag>
                     {/* A real space after each tag: the tag's margin is not a word gap (QA C5). */}{' '}
+                  </>
+                )}
+                {entry.bulk_job_id != null && (
+                  <>
+                    {/* REQ-INC-120 AC4: a bulk change names its job. */}
+                    <Tag data-testid="inc-history-bulk">{t('incidents.history.bulk')}</Tag>{' '}
                   </>
                 )}
                 {entry.automation !== null && whyText(entry.automation) !== '' && (

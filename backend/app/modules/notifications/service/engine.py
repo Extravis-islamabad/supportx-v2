@@ -57,6 +57,7 @@ from app.shared.mail import (
     OutgoingMail,
     mail_configured,
     queue_mail,
+    with_token,
     wrap_html,
 )
 from app.shared.notifications.ports import (
@@ -288,16 +289,18 @@ async def _email(
     message: Message,
 ) -> None:
     tenant, context, code = target.envelope.tenant_id, target.context, target.code
+    # The record's token in the subject: a reply finds its record (REQ-NTF-002, WP-024).
+    subject = with_token(message.email.subject, context.display_id)
     brand = await email_branding(session, settings, tenant, message.language)
     open_text = label("notification.open_record", message.language, id=context.display_id)
     content = html_body(
         message.email.body, link=message.link, link_text=open_text, colour=brand.primary_colour
     )
-    html = wrap_html(content, brand=brand, language=message.language, title=message.email.subject)
+    html = wrap_html(content, brand=brand, language=message.language, title=subject)
     plain = _text_with_link(message, open_text)
     common = (session, target, NotificationChannel.EMAIL)
     if not mail_configured(settings):
-        waiting = Rendered(message.email.subject, plain)
+        waiting = Rendered(subject, plain)
         await _record(
             *common, DeliveryState.WAITING, language=message.language, waiting=waiting, html=html
         )
@@ -312,7 +315,7 @@ async def _email(
                 kind="notification",
                 to=(person.email,),
                 language=message.language,
-                subject=message.email.subject,
+                subject=subject,
                 text=plain,
                 html=html,
                 sender_name=brand.product_name,

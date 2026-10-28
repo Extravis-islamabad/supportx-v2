@@ -8,8 +8,8 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** WP-020f QA round, then WP-020d/e (views and bulk; tasks, worklogs and
-  links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** WP-020d e2e and QA round (built, draft #114), then WP-020e (tasks,
+  worklogs and links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
@@ -647,9 +647,10 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Port for e-mail and the portal: `work_items.add_requester_reply` saves a requester's reply
   from outside the console (requester or on-behalf-of only) and runs the reactions above; an
   automatic reply (out-of-office) is recorded and moves nothing (`automatic` on the event).
-- [ ] Follow-up (lane C's #103): lane A's hand-joined visible lists move to `useListFormat` /
-  `useJoinParts` (customFields/values.ts, IncidentPage tags, pickers.tsx, IncidentConversation
-  recipients, AuditEntryDrawer, actionReason.ts, ConflictDialog fields), before WP-020d/e.
+- [x] Follow-up (lane C's #103): lane A's hand-joined visible lists moved to `useListFormat` /
+  `useJoinParts`, with a guard test (`packages/labels/src/list-joins.test.ts`; #111).
+- [x] Migration 0034's data step ran without a tenant and changed nothing under FORCE RLS (lane
+  C's finding); it now loops per tenant (#116, `tests/db/test_closure_migration.py`).
 - [ ] Wired by later packages: requester notified (`resolution_notified`, WP-023/024/028),
   confirm/reject links (WP-023), e-mail replies (WP-024), tasks and links (WP-020e), approvals
   (WP-030), knowledge search (WP-033), working calendars and SLA resume/restart (WP-025).
@@ -662,6 +663,34 @@ New `automation` module (migration 0025); incidents register their rule fields (
   "waits until the requester is told"; history and why-lines in words; Admin › Incidents ›
   Closing (closure rules, open work, auto-close disabled with the reason while no channel
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
+
+### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after lane B's 0037 mailboxes, lane C's 0036 knowledge and
+  0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
+  actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
+- [x] REQ-INC-104: column chooser over every list field (custom fields as `custom.<key>`, system
+  times), reorder by buttons, resize on the header (mouse or arrow keys), sort by any sortable
+  column on the server; saved per user per view. List rows carry custom values and more fields.
+- [x] REQ-INC-105/152: built-in views overdue, due today, followed by me, shared with me, from my
+  direct reports; each tested against its definition, with live counts. Deferred: pending
+  approval (WP-030), the type filter (WP-031).
+- [x] REQ-INC-106: saved views (private, chosen groups or everyone; D-111 as approved) built with lane C's FilterBuilder; "apply
+  without saving" changes only the screen; the saved filter is the list API's `filter` as is.
+- [x] REQ-INC-108: time range (created, updated, due, resolved; presets and custom; quarter exact
+  in the user's zone); the active range names its field.
+- [x] REQ-INC-109: search chips from suggestions ("Status is Open"), no syntax; results in place.
+  (The search panel over the current screen is WP-027's palette.)
+- [x] REQ-INC-110: page size 25/50/100, saved with the view's settings.
+- [x] REQ-INC-119/120: select rows, the page or "all N" (frozen when the job starts, ≤1,000);
+  actions disabled with the reason until something is selected; bulk edit (only ticked fields),
+  assign, take, resolve, close as a background job in the consumers worker, as the requester;
+  per-record results with reasons in words; live progress; "Bulk changes" keeps results;
+  history names the job; lists refresh once per batch.
+- [x] Export through lane C's report export (`content: records`); built-in views travel as their
+  filter equivalents (`GET /incidents/view-filters`, each tested to return the view's rows).
+- [x] Export columns and sort: the file has the list's columns and sort (lane C's #108).
+- Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
+  Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
@@ -1106,6 +1135,83 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ## Session log (newest first)
 
+### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
+
+- Built to the approved plan; defaults D-111 (approved with group sharing). Backend: new
+  built-in views, saved views, list settings, list fields, view filters, bulk jobs (migration
+  0038, renumbered after 0035 dashboards, 0036 knowledge and 0037 mailboxes). Console: column chooser, view editor with the shared
+  filter builder, time range, search chips, page size, selection across pages, bulk dialog and
+  progress, export. Draft PR #114; e2e and the QA round next, then WP-020e.
+- Lane C found that migration 0034's data step changed no rows under FORCE RLS; confirmed with a
+  test and fixed in #116 (loop per tenant).
+- Merges now go through `gh pr merge` without `--admin` (branch protection: 8 required checks,
+  no bypass, product owner 2026-10-28). Cross-lane reviews are posted as PR comments.
+
+### 2026-10-29 — WP-024 email channel, session 1 (lane B)
+Plan: ~/Desktop/wp-024-plan.md. Defaults: D-109, approved with customer-registered OAuth apps
+and the held-mail review queue as MVP.
+- **Mailboxes** (`integrations` module, migration 0037 after main's 0036): IMAP with TLS by
+  default and plain only when allowed (audited), passwords sealed with the installation key
+  ring. Admin › Mail shows each mailbox's state and reason and how much mail waits, with
+  add/change/test/remove, refusals at the form, the shared conflict dialog and live updates on
+  the tenant channel (Arabic counts in six forms).
+- **Fetching** every 2 minutes. A message is changed on the server only after it is stored, and
+  the `mail_fetched` ledger makes each message count once. Loops (our own addresses), floods,
+  too-large mail and automatic mail (out-of-office, bounces, lists) create nothing. Strangers
+  follow the mailbox's policy and get a polite answer.
+- **Incidents** (work_items implements the inbound port; lane A reviews):
+  - new mail becomes an incident in the requester's name, with channel e-mail and the
+    mailbox's group as entry group (#110);
+  - the requester's reply lands on its incident through `add_requester_reply` (#105). It
+    resumes or reopens the incident; a late reply starts a follow-up whose ID is answered to
+    the sender in their language;
+  - an out-of-office is recorded, moves nothing and notifies nobody;
+  - a technician's mail on a record is held ("not the requester");
+  - a refused create is held with the fields a template or rule needs.
+- **Threading:** notification e-mail subjects carry "[INC-12]". A reply without the token is
+  matched by In-Reply-To/References against the delivery log (`notifications.records_for_mail`).
+  The quoted history is dropped.
+- **Review queue** (D-109 (9)): held and too-large mail per mailbox, each with its reason. An
+  admin hands it in again (no flood check) or discards it; both are audited. Held mail keeps its
+  copy until then.
+- **Docs:** `docs/guides/mail-oauth-apps.md`, a step-by-step guide to the customer's own
+  Microsoft Graph and Gmail apps (session 2 uses them).
+- **Tests:**
+  - parser and routing units;
+  - ledger, policy, RLS, fetch state, queue and follow-up answer on PostgreSQL;
+  - the real incident services;
+  - the mailbox API;
+  - the IMAP reader against a private GreenMail (test-only image);
+  - console tests.
+  Full `make check` green: 1732 passed, 7 skipped, all opt-in (volume and load variables,
+  WeasyPrint).
+- **Session 2:** Microsoft Graph and Gmail, attachments from mail. Next for lane B: the
+  dev-profile Mailpit on k3d (product owner), which turns the skipped cluster mail tests back on
+  (#125's `SUPPORTX_E2E_MAIL_URL`).
+
+### 2026-10-28 — Worker resilience: PostgreSQL and NATS restarts (lane B; must-fix before the pilot)
+- **Cause:** at 14:37 the shared stack's relay and fan-out died when PostgreSQL and NATS
+  restarted, and nothing brought them back.
+  - The relay counted only connection errors as outages; "the database system is shutting
+    down" (`CannotConnectNowError`) crashed it.
+  - Monitoring calls ended the process on a NATS error.
+  - Consumers charged database outages to events as attempts, so a long outage dead-lettered
+    them.
+  - Readiness said "started", not "connected".
+- **Fix:** see events.md, "When PostgreSQL or NATS restarts".
+  - Settings: `SUPPORTX_WORKER_GIVE_UP_SECONDS` (300) and
+    `SUPPORTX_EVENT_BACKLOG_STALLED_SECONDS` (120).
+  - `/ready` gains `event_delivery: ok|stalled` and the reasons `disconnected` and `backlog`.
+  - Administrators see a banner.
+- **Tests:**
+  - `tests/resilience/test_worker_restarts.py` restarts real containers: every event is
+    published and claimed once, nothing is dead-lettered, the relay is unready during the outage
+    and both workers survive; a worker exits 1 past its give-up time. CI job "worker
+    resilience".
+  - The same test against main fails: ready while PostgreSQL was down; never exits.
+  - Plus 14 unit tests, probe tests and a `/ready` test.
+- Also: `GET /notifications/status` reads the app's settings, never a fresh `backend/.env`
+  (found by lane A).
 ### 2026-10-28 — Dashboard widget library (D-114, lane C)
 
 - Product owner request after using the dashboards: "Add widget" opens a searchable catalogue

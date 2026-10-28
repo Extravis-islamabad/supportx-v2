@@ -160,6 +160,16 @@
         "title": "ActionStateOut",
         "type": "object"
       },
+      "AfterFetch": {
+        "description": "What happens to a message on the mail server once it is in SupportX (REQ-ADM-067).",
+        "enum": [
+          "mark_read",
+          "move",
+          "delete"
+        ],
+        "title": "AfterFetch",
+        "type": "string"
+      },
       "AllowedForOut": {
         "description": "Who a transition is limited to: roles, group names, people on the record (codes).",
         "properties": {
@@ -3543,6 +3553,212 @@
         "title": "BuiltinReportOut",
         "type": "object"
       },
+      "BulkAction": {
+        "description": "What a bulk job does to each record.",
+        "enum": [
+          "edit",
+          "assign",
+          "take",
+          "resolve",
+          "close"
+        ],
+        "title": "BulkAction",
+        "type": "string"
+      },
+      "BulkJobIn": {
+        "description": "A bulk change: the picked rows, or every record of the list (`all_matching`).\n\nWith `all_matching`, send the list's own query parameters (view, filter, tag, simple\nfilters) with this request: the records are fixed now, at most 1,000.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/BulkAction"
+          },
+          "all_matching": {
+            "default": false,
+            "title": "All Matching",
+            "type": "boolean"
+          },
+          "changes": {
+            "additionalProperties": true,
+            "description": "Edit: only the changed fields. Assign: group_id, technician_id, confirm_lose_access. Resolve: resolution. Close: closure_code. Both: confirm_open_work.",
+            "title": "Changes",
+            "type": "object"
+          },
+          "record_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Record Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "BulkJobIn",
+        "type": "object"
+      },
+      "BulkJobOut": {
+        "description": "A bulk job with its progress and results.",
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/BulkAction"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "done_count": {
+            "title": "Done Count",
+            "type": "integer"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BulkResultOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "skipped_count": {
+            "title": "Skipped Count",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/BulkStatus"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "action",
+          "status",
+          "total",
+          "processed",
+          "done_count",
+          "skipped_count",
+          "results",
+          "created_at",
+          "started_at",
+          "finished_at"
+        ],
+        "title": "BulkJobOut",
+        "type": "object"
+      },
+      "BulkOutcome": {
+        "description": "What happened to one record of a bulk job.",
+        "enum": [
+          "done",
+          "skipped"
+        ],
+        "title": "BulkOutcome",
+        "type": "string"
+      },
+      "BulkResultOut": {
+        "description": "What happened to one record; a skip carries the reason as a code (and field).",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "display_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Id"
+          },
+          "field": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Field"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/BulkOutcome"
+          },
+          "params": {
+            "additionalProperties": true,
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "display_id",
+          "outcome"
+        ],
+        "title": "BulkResultOut",
+        "type": "object"
+      },
+      "BulkStatus": {
+        "description": "Where a bulk job is.",
+        "enum": [
+          "queued",
+          "running",
+          "done",
+          "failed"
+        ],
+        "title": "BulkStatus",
+        "type": "string"
+      },
       "CertificateIn": {
         "description": "PEM certificate chain (the host's certificate first) and its unencrypted private key.",
         "properties": {
@@ -3797,6 +4013,61 @@
         ],
         "title": "ConditionOperator",
         "type": "string"
+      },
+      "ConnectionSecurity": {
+        "description": "Transport security of an IMAP or SMTP connection.",
+        "enum": [
+          "tls",
+          "starttls",
+          "none"
+        ],
+        "title": "ConnectionSecurity",
+        "type": "string"
+      },
+      "ConnectionTestIn": {
+        "additionalProperties": false,
+        "description": "Settings to try (a new password, or the stored one when left out).",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "ConnectionTestIn",
+        "type": "object"
+      },
+      "ConnectionTestOut": {
+        "description": "Whether the mailbox answered; `reason` is a code the UI shows as its label.",
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "ConnectionTestOut",
+        "type": "object"
       },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
@@ -5742,6 +6013,8 @@
           "unexpected_response",
           "not_running",
           "stale_heartbeat",
+          "disconnected",
+          "backlog",
           "error"
         ],
         "title": "FailureReason",
@@ -7722,6 +7995,135 @@
         "title": "LinkOut",
         "type": "object"
       },
+      "ListColumn": {
+        "description": "One column of the list: a field key (`custom.<key>` for custom fields) and its width.",
+        "properties": {
+          "key": {
+            "maxLength": 80,
+            "title": "Key",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pixels; none for the default width.",
+            "title": "Width"
+          }
+        },
+        "required": [
+          "key"
+        ],
+        "title": "ListColumn",
+        "type": "object"
+      },
+      "ListFieldNamingOut": {
+        "description": "How the field's values are named (as in reports): a code prefix or a kind of record.",
+        "properties": {
+          "bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Prefix"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          }
+        },
+        "required": [
+          "field",
+          "kind",
+          "label_prefix",
+          "reference"
+        ],
+        "title": "ListFieldNamingOut",
+        "type": "object"
+      },
+      "ListFieldOut": {
+        "description": "A field the list filters by, sorts by (`sortable`) or shows as a column.",
+        "properties": {
+          "dimension": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ListFieldNamingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sortable": {
+            "title": "Sortable",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "values",
+          "multiple",
+          "sortable",
+          "dimension"
+        ],
+        "title": "ListFieldOut",
+        "type": "object"
+      },
       "ListOrderIn": {
         "additionalProperties": false,
         "description": "Every code of the list, in the new order.",
@@ -7739,6 +8141,90 @@
           "codes"
         ],
         "title": "ListOrderIn",
+        "type": "object"
+      },
+      "ListSettingIn": {
+        "description": "Your columns, sort and page size for one view.",
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ListColumn"
+            },
+            "maxItems": 40,
+            "title": "Columns",
+            "type": "array"
+          },
+          "page_size": {
+            "default": 50,
+            "description": "25, 50 or 100.",
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          }
+        },
+        "title": "ListSettingIn",
+        "type": "object"
+      },
+      "ListSettingOut": {
+        "description": "Saved settings, or the defaults (`version` null) when none were saved.",
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ListColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_key",
+          "columns",
+          "sort",
+          "page_size",
+          "version"
+        ],
+        "title": "ListSettingOut",
         "type": "object"
       },
       "ListValueIn": {
@@ -7984,6 +8470,542 @@
         ],
         "title": "LoopStopOut",
         "type": "object"
+      },
+      "MailboxCreates": {
+        "description": "What a new (non-reply) message to the mailbox becomes.",
+        "enum": [
+          "incident",
+          "nothing"
+        ],
+        "title": "MailboxCreates",
+        "type": "string"
+      },
+      "MailboxIn": {
+        "additionalProperties": false,
+        "description": "A new mailbox.",
+        "properties": {
+          "address": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Address",
+            "type": "string"
+          },
+          "after_fetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AfterFetch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allow_plain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allow a connection without TLS (audited).",
+            "title": "Allow Plain"
+          },
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "creates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailboxCreates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "host": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "move_to": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To"
+          },
+          "password": {
+            "description": "Stored sealed; never shown.",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "port": {
+            "default": 993,
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "security": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionSecurity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown_senders": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownSenders"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "username": {
+            "maxLength": 320,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "username",
+          "address",
+          "password"
+        ],
+        "title": "MailboxIn",
+        "type": "object"
+      },
+      "MailboxOut": {
+        "description": "A mailbox as the mail page shows it.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "after_fetch": {
+            "$ref": "#/components/schemas/AfterFetch"
+          },
+          "allow_plain": {
+            "title": "Allow Plain",
+            "type": "boolean"
+          },
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "creates": {
+            "$ref": "#/components/schemas/MailboxCreates"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "has_password": {
+            "title": "Has Password",
+            "type": "boolean"
+          },
+          "held": {
+            "description": "Messages kept for an admin (refused, flooding, not matched).",
+            "title": "Held",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_fetch_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch At"
+          },
+          "move_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "security": {
+            "$ref": "#/components/schemas/ConnectionSecurity"
+          },
+          "state": {
+            "$ref": "#/components/schemas/MailboxState"
+          },
+          "state_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code; the UI shows its label.",
+            "title": "State Reason"
+          },
+          "unknown_senders": {
+            "$ref": "#/components/schemas/UnknownSenders"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "display_name",
+          "host",
+          "port",
+          "security",
+          "allow_plain",
+          "username",
+          "has_password",
+          "folder",
+          "after_fetch",
+          "move_to",
+          "creates",
+          "group_id",
+          "unknown_senders",
+          "allowed_domains",
+          "enabled",
+          "state",
+          "state_reason",
+          "last_fetch_at",
+          "held",
+          "version"
+        ],
+        "title": "MailboxOut",
+        "type": "object"
+      },
+      "MailboxPatch": {
+        "additionalProperties": false,
+        "description": "Fields to change; a password replaces the stored one.",
+        "properties": {
+          "after_fetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AfterFetch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allow_plain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allow a connection without TLS (audited).",
+            "title": "Allow Plain"
+          },
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "creates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailboxCreates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "move_to": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "security": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionSecurity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown_senders": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownSenders"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "MailboxPatch",
+        "type": "object"
+      },
+      "MailboxState": {
+        "description": "What the mail page shows for a mailbox (REQ-ADM-066 AC1).",
+        "enum": [
+          "not_set_up",
+          "working",
+          "failing"
+        ],
+        "title": "MailboxState",
+        "type": "string"
       },
       "MatrixCellIn": {
         "description": "One cell.",
@@ -9704,6 +10726,16 @@
             "title": "Degraded",
             "type": "array"
           },
+          "event_delivery": {
+            "default": "ok",
+            "description": "stalled: an event worker is down, disconnected from PostgreSQL or NATS, or events wait too long to be published. Notifications, live updates and exports are delayed until it recovers; nothing is lost.",
+            "enum": [
+              "ok",
+              "stalled"
+            ],
+            "title": "Event Delivery",
+            "type": "string"
+          },
           "failed": {
             "items": {
               "type": "string"
@@ -9929,6 +10961,40 @@
         ],
         "title": "Relative",
         "type": "string"
+      },
+      "ReleasedOut": {
+        "description": "What a released message became; `reason` when it waits again.",
+        "properties": {
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reason Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "reason_params"
+        ],
+        "title": "ReleasedOut",
+        "type": "object"
       },
       "ReplyMode": {
         "description": "Which composer a reply came from (REQ-INC-058).",
@@ -12579,6 +13645,241 @@
           "can_edit"
         ],
         "title": "SavedReportOut",
+        "type": "object"
+      },
+      "SavedViewIn": {
+        "description": "A view to save. `filter` and `sort` are the list API's own parameters, as sent.",
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ListColumn"
+            },
+            "maxItems": 40,
+            "title": "Columns",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "FilterExpression (the list's `filter`), or none for all.",
+            "title": "Filter"
+          },
+          "group_ids": {
+            "description": "For visibility `groups`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "e.g. -created_at",
+            "title": "Sort"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ViewVisibility",
+            "default": "private"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SavedViewIn",
+        "type": "object"
+      },
+      "SavedViewOut": {
+        "description": "A saved view; `mine` says whether you may change it.",
+        "properties": {
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/ListColumn"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "mine": {
+            "title": "Mine",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ViewVisibility"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "visibility",
+          "group_ids",
+          "owner_id",
+          "mine",
+          "filter",
+          "columns",
+          "sort",
+          "version",
+          "updated_at"
+        ],
+        "title": "SavedViewOut",
+        "type": "object"
+      },
+      "SavedViewPatch": {
+        "description": "Fields to change; the ones left out keep their value.",
+        "properties": {
+          "columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ListColumn"
+                },
+                "maxItems": 40,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "group_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Ids"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "sort": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort"
+          },
+          "visibility": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ViewVisibility"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "SavedViewPatch",
         "type": "object"
       },
       "Scale": {
@@ -15252,6 +16553,16 @@
         "title": "TypingIn",
         "type": "object"
       },
+      "UnknownSenders": {
+        "description": "What mail from an address SupportX does not know does (REQ-INC-027).",
+        "enum": [
+          "create",
+          "create_allowed_domains",
+          "reject"
+        ],
+        "title": "UnknownSenders",
+        "type": "string"
+      },
       "Urgency": {
         "description": "How fast it must be fixed, lowest first.",
         "enum": [
@@ -15980,6 +17291,50 @@
         "title": "VersionOut",
         "type": "object"
       },
+      "ViewFilterOut": {
+        "description": "A built-in view as a filter, for what takes a filter and not a view (the export).",
+        "properties": {
+          "expressible": {
+            "description": "False: the view needs more than the filter DSL.",
+            "title": "Expressible",
+            "type": "boolean"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None with `expressible`: no condition.",
+            "title": "Filter"
+          },
+          "view": {
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "expressible",
+          "filter"
+        ],
+        "title": "ViewFilterOut",
+        "type": "object"
+      },
+      "ViewVisibility": {
+        "description": "Who sees a saved view in their list of views (D-111 as approved: like dashboards).",
+        "enum": [
+          "private",
+          "groups",
+          "everyone"
+        ],
+        "title": "ViewVisibility",
+        "type": "string"
+      },
       "Visibility": {
         "description": "Public: the requester sees it (portal, email). Private: staff only.",
         "enum": [
@@ -16001,6 +17356,89 @@
           "visibility"
         ],
         "title": "VisibilityIn",
+        "type": "object"
+      },
+      "WaitingIn": {
+        "additionalProperties": false,
+        "description": "Which waiting message (by its Message-ID).",
+        "properties": {
+          "message_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "WaitingIn",
+        "type": "object"
+      },
+      "WaitingOut": {
+        "description": "A message in the review queue (held, or too large to take in).",
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "held",
+              "too_large"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code; the UI shows its label.",
+            "title": "Reason"
+          },
+          "reason_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reason Params",
+            "type": "object"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "releasable": {
+            "description": "Whether handing it in again can help.",
+            "title": "Releasable",
+            "type": "boolean"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "sender",
+          "subject",
+          "outcome",
+          "reason",
+          "reason_params",
+          "received_at",
+          "releasable"
+        ],
+        "title": "WaitingOut",
         "type": "object"
       },
       "Widget-Input": {
@@ -16987,6 +18425,19 @@
             "description": "Set when automation made the change, e.g. {kind: matrix}.",
             "title": "Automation"
           },
+          "bulk_job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The bulk job that made this change for its actor (WP-020d).",
+            "title": "Bulk Job Id"
+          },
           "change_id": {
             "format": "uuid",
             "title": "Change Id",
@@ -17363,10 +18814,39 @@
           "channel": {
             "$ref": "#/components/schemas/Channel"
           },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closure Code"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "custom": {
+            "additionalProperties": true,
+            "description": "Custom values by key.",
+            "title": "Custom",
+            "type": "object"
           },
           "deleted_at": {
             "anyOf": [
@@ -17380,9 +18860,33 @@
             ],
             "title": "Deleted At"
           },
+          "department_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department Id"
+          },
           "display_id": {
             "title": "Display Id",
             "type": "string"
+          },
+          "first_responded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Responded At"
           },
           "group_id": {
             "anyOf": [
@@ -17401,6 +18905,16 @@
             "title": "Id",
             "type": "string"
           },
+          "impact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Impact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "level": {
             "anyOf": [
               {
@@ -17418,6 +18932,10 @@
           "priority_source": {
             "$ref": "#/components/schemas/PrioritySource"
           },
+          "reopen_count": {
+            "title": "Reopen Count",
+            "type": "integer"
+          },
           "requester_id": {
             "format": "uuid",
             "title": "Requester Id",
@@ -17434,6 +18952,18 @@
               }
             ],
             "title": "Resolution Due At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
           },
           "site_id": {
             "anyOf": [
@@ -17465,6 +18995,18 @@
           },
           "status_category": {
             "$ref": "#/components/schemas/StatusCategory"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
           },
           "status_reason_code": {
             "anyOf": [
@@ -17505,6 +19047,16 @@
             "title": "Updated At",
             "type": "string"
           },
+          "urgency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Urgency"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -17532,7 +19084,16 @@
           "created_at",
           "updated_at",
           "deleted_at",
-          "version"
+          "version",
+          "impact",
+          "urgency",
+          "department_id",
+          "closure_code",
+          "reopen_count",
+          "status_changed_at",
+          "first_responded_at",
+          "resolved_at",
+          "closed_at"
         ],
         "title": "WorkItemListItem",
         "type": "object"
@@ -30914,6 +32475,378 @@
         ]
       }
     },
+    "/api/v1/incidents/bulk": {
+      "post": {
+        "description": "Queue a background job (up to 1,000 records); progress arrives on your channel.\n\nEach record is changed as you, with its own permissions, transitions and closure rules;\na record that refuses is skipped with the reason. Send an Idempotency-Key.",
+        "operationId": "start_bulk_api_v1_incidents_bulk_post",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "View"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tag"
+            }
+          },
+          {
+            "description": "Filter DSL as JSON (schema: FilterExpression).",
+            "in": "query",
+            "name": "filter",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "contentMediaType": "application/json",
+              "contentSchema": {
+                "$ref": "#/components/schemas/FilterExpression"
+              },
+              "description": "JSON text of a FilterExpression.",
+              "title": "Filter"
+            }
+          },
+          {
+            "description": "e.g. -created_at,display_name",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "e.g. -created_at,display_name",
+              "title": "Sort"
+            }
+          },
+          {
+            "description": "Page size (default 50, max 200).",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Page size (default 50, max 200).",
+              "title": "Limit"
+            }
+          },
+          {
+            "description": "next_cursor of the previous page.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor of the previous page.",
+              "title": "Cursor"
+            }
+          },
+          {
+            "description": "Also count matches (capped).",
+            "in": "query",
+            "name": "include_total",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Also count matches (capped).",
+              "title": "Include Total",
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkJobIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change many incidents at once",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/bulk-jobs": {
+      "get": {
+        "description": "Newest first, without the per-record results.",
+        "operationId": "bulk_jobs_api_v1_incidents_bulk_jobs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BulkJobOut"
+                  },
+                  "title": "Response Bulk Jobs Api V1 Incidents Bulk Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your latest bulk jobs",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/bulk-jobs/{job_id}": {
+      "get": {
+        "description": "Progress and a result per finished record.",
+        "operationId": "bulk_job_api_v1_incidents_bulk_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkJobOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "One of your bulk jobs",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
     "/api/v1/incidents/categories": {
       "get": {
         "description": "Every node, parents first; disabled nodes are marked, not hidden.",
@@ -31243,6 +33176,267 @@
           }
         },
         "summary": "Your personal counters",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/list-fields": {
+      "get": {
+        "description": "Built-in and custom fields (`custom.<key>`), as the list's filter and sort take them.",
+        "operationId": "list_fields_api_v1_incidents_list_fields_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ListFieldOut"
+                  },
+                  "title": "Response List Fields Api V1 Incidents List Fields Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Fields of the list (filter, sort, columns)",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/list-settings/{view_key}": {
+      "get": {
+        "description": "For one view: a built-in view code, `all`, or `custom:<saved view id>`.",
+        "operationId": "list_setting_api_v1_incidents_list_settings__view_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_key",
+            "required": true,
+            "schema": {
+              "title": "View Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSettingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your columns, sort and page size",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "put": {
+        "description": "Columns and sort of this view only, for you only (REQ-INC-104 AC1, AC3).",
+        "operationId": "save_list_setting_api_v1_incidents_list_settings__view_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_key",
+            "required": true,
+            "schema": {
+              "title": "View Key",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The version read; leave out only for the first save.",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The version read; leave out only for the first save.",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListSettingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSettingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "description": "The version is stale; the problem names what changed."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save your list settings",
         "tags": [
           "incidents"
         ]
@@ -31683,6 +33877,383 @@
           }
         },
         "summary": "Change a reply template",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/saved-views": {
+      "get": {
+        "description": "By name. Shared views are listed for everyone; only their owner changes them.",
+        "operationId": "saved_views_api_v1_incidents_saved_views_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SavedViewOut"
+                  },
+                  "title": "Response Saved Views Api V1 Incidents Saved Views Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your saved views and the shared ones",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "post": {
+        "description": "The filter is checked like the list's; names are unique per owner (ignoring case).",
+        "operationId": "create_saved_view_api_v1_incidents_saved_views_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save a view",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/saved-views/{view_id}": {
+      "delete": {
+        "description": "Needs If-Match.",
+        "operationId": "delete_saved_view_api_v1_incidents_saved_views__view_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "View Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "description": "The version is stale; the problem names what changed."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove your view",
+        "tags": [
+          "incidents"
+        ]
+      },
+      "patch": {
+        "description": "Needs If-Match. Only the fields sent change.",
+        "operationId": "update_saved_view_api_v1_incidents_saved_views__view_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "view_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "View Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SavedViewPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedViewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "description": "The version is stale; the problem names what changed."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change your view",
         "tags": [
           "incidents"
         ]
@@ -33613,6 +36184,72 @@
           }
         },
         "summary": "Incidents in the trash",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/view-filters": {
+      "get": {
+        "description": "Each built-in view and personal counter as the filter DSL, where the DSL can say it.",
+        "operationId": "view_filters_api_v1_incidents_view_filters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ViewFilterOut"
+                  },
+                  "title": "Response View Filters Api V1 Incidents View Filters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Built-in views as filters",
         "tags": [
           "incidents"
         ]
@@ -35716,6 +38353,790 @@
         "summary": "Show others you are writing",
         "tags": [
           "incidents"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes": {
+      "get": {
+        "description": "Every mailbox with its state (the mail page, REQ-ADM-066 AC1).",
+        "operationId": "list_mailboxes_api_v1_integrations_mailboxes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MailboxOut"
+                  },
+                  "title": "Response List Mailboxes Api V1 Integrations Mailboxes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Mailboxes",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "post": {
+        "description": "Send an Idempotency-Key: a retried request returns the same 201.",
+        "operationId": "create_mailbox_api_v1_integrations_mailboxes_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailboxIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}": {
+      "delete": {
+        "description": "Stop reading it; the records it made keep their history.",
+        "operationId": "remove_mailbox_api_v1_integrations_mailboxes__mailbox_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "patch": {
+        "description": "If-Match: the version you read. A connection change is tested again at the next fetch.",
+        "operationId": "update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailboxPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
+      "post": {
+        "description": "Connects and looks for new mail; changes nothing on the server or here.",
+        "operationId": "test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionTestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Test a mailbox's connection",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting": {
+      "get": {
+        "description": "The review queue: held mail is never invisible (D-109 (9)).",
+        "operationId": "waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WaitingOut"
+                  },
+                  "title": "Response Waiting Mail Api V1 Integrations Mailboxes  Mailbox Id  Waiting Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Mail waiting for an admin",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard": {
+      "post": {
+        "description": "It stays in the ledger as discarded, without its copy.",
+        "operationId": "discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not waiting any more (mail_not_waiting)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Discard a waiting message",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release": {
+      "post": {
+        "description": "Without the flood check; held again, with the new reason, if it still cannot be taken in.",
+        "operationId": "release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not waiting any more (mail_not_waiting)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Hand a held message in again",
+        "tags": [
+          "integrations"
         ]
       }
     },

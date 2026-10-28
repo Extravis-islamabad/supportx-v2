@@ -7,6 +7,7 @@ import {
   type IncidentActionState,
   type IncidentCatalogue,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   FormProblem,
   RichTextField,
@@ -85,6 +86,7 @@ export function MoveDialog({
   onConfirm: (input: MoveInput) => void;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const fieldName = useIncidentFieldName();
   const me = useSession().data?.user.id;
@@ -196,7 +198,7 @@ export function MoveDialog({
             showIcon
             role="alert"
             message={t('incidents.closing.missing', {
-              fields: recordFields.map(fieldName).join(t('list.separator')),
+              fields: listFormat(recordFields.map(fieldName), 'conjunction'),
             })}
             data-testid="inc-closing-missing"
           />

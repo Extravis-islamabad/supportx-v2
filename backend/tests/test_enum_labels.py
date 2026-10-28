@@ -21,8 +21,20 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # Mailboxes (WP-024)
+    "AfterFetch": "mailbox_after_fetch",
+    "ConnectionSecurity": "mailbox_security",
+    "MailboxCreates": "mailbox_creates",
+    "MailboxState": "mailbox_state",
+    "UnknownSenders": "mailbox_unknown_senders",
+    "WaitingOut.outcome": "mail_outcome",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
+    # Incident lists and bulk jobs (WP-020d)
+    "BulkAction": "bulk_action",
+    "BulkOutcome": "bulk_outcome",
+    "BulkStatus": "bulk_status",
+    "ViewVisibility": "view_visibility",
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
@@ -82,6 +94,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "FormDensity": "form_density",
     "Op": "filter_op",
     "ReadinessResponse.status": "readiness_status",
+    "ReadinessResponse.event_delivery": "event_delivery_state",
     "StateReason": "entitlement_reason",
     "TenantStatus": "tenant_status",
     "UserDetail.locale": "locale",

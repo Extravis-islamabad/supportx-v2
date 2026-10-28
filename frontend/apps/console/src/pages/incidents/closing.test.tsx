@@ -212,7 +212,7 @@ describe('Resolving', () => {
     const missing = await screen.findByTestId('inc-closing-missing');
     await waitFor(() => {
       expect(missing.textContent).toBe(
-        'Fill these on the record first: Category, Site, Repair cost.',
+        'Fill these on the record first: Category, Site, and Repair cost.',
       );
     });
     expect(missing.textContent).not.toContain('category_id');
@@ -506,6 +506,30 @@ describe('History', () => {
     expect(text).not.toContain('<p>');
   });
 
+  it('REQ-INC-120 AC4: a change made by a bulk job says so', async () => {
+    rememberTab(SESSION_USER, 'history');
+    api({
+      routes: {
+        ...COMMON,
+        ...record(fakeIncident()),
+        [`GET ${PATH}/history`]: {
+          body: {
+            items: [
+              entry({
+                bulk_job_id: '01900000-0000-7000-8000-00000000b001',
+                changes: [{ field: 'status', old: 'resolved', new: 'closed' }],
+              }),
+            ],
+            next_cursor: null,
+            people: {},
+          },
+        },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('inc-history-bulk')).textContent).toBe('Bulk change');
+  });
+
   it('REQ-INC-051/095/096: requester replies and confirmed open work read in words', async () => {
     rememberTab(SESSION_USER, 'history');
     api({
@@ -563,7 +587,8 @@ describe('Arabic', () => {
     render(<App />);
     fireEvent.click(await screen.findByTestId('inc-action-resolve'));
     const missing = await screen.findByTestId('inc-closing-missing');
-    expect(missing.textContent).toBe('املأ هذه في السجل أولًا: الفئة.');
+    // One field, isolated (FSI/PDI) like every list item in right-to-left text.
+    expect(missing.textContent).toBe('املأ هذه في السجل أولًا: \u2068الفئة\u2069.');
     const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toContain('الحل');
     await waitFor(() => {

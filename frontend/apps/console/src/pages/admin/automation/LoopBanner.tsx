@@ -2,6 +2,7 @@ import { Alert } from 'antd';
 import { Link } from 'react-router';
 
 import { useLoopStops } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useAccess, useLabel } from '@supportx/ui';
 
 /**
@@ -10,6 +11,7 @@ import { useAccess, useLabel } from '@supportx/ui';
  */
 export function LoopBanner() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { can } = useAccess();
   const allowed = can('automation.view');
   const stops = useLoopStops(allowed);
@@ -24,7 +26,7 @@ export function LoopBanner() {
       description={
         <>
           {t(`automation.loop.${latest.cap}`, {
-            triggers: latest.triggers.join(t('list.separator')),
+            triggers: listFormat(latest.triggers, 'conjunction'),
           })}{' '}
           <Link to={`/incidents/${latest.record_id}`} style={{ textDecoration: 'underline' }}>
             {t('automation.loop.open')}
