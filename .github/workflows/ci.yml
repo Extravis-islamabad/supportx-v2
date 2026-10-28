@@ -170,6 +170,8 @@ jobs:
         working-directory: backend
         env:
           SUPPORTX_PERF_REPORT: ${{ runner.temp }}/event-perf.json
+          # Each file's seconds, to refresh tests/shard_weights.json from CI (tooling/pytest_shards.py).
+          SUPPORTX_TEST_TIMINGS: ${{ runner.temp }}/timings.json
         run: uv run pytest -n 4 --dist loadgroup --cov-report= --cov-fail-under=0 --durations=15
       - name: Event bus latency and throughput (job summary)
         if: ${{ !cancelled() }}
@@ -186,6 +188,14 @@ jobs:
           include-hidden-files: true
           retention-days: 1
           if-no-files-found: error
+      - name: Keep this shard's file timings (to refresh tests/shard_weights.json)
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: backend-timings-${{ matrix.shard }}
+          path: ${{ runner.temp }}/timings.json
+          retention-days: 14
+          if-no-files-found: warn
       - name: NATS logs on failure
         if: ${{ failure() }}
         run: docker logs --tail 200 nats

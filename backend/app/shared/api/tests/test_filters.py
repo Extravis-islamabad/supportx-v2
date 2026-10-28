@@ -233,13 +233,16 @@ def test_value_and_list_limits() -> None:
     assert problem(cond("title", "eq", "toolong"), limits=limits)[1] == "value_too_long"
 
 
+@pytest.mark.timing
 def test_deep_nesting_is_refused_at_the_limit_without_recursing_further() -> None:
     tree: Any = cond("title", "eq", "a")
     for _ in range(5000):  # far deeper than Python's default recursion limit would allow
         tree = {"and": [tree]}
     started = time.perf_counter()
     path, code, params = problem(tree)
-    assert time.perf_counter() - started < 0.05
+    elapsed = time.perf_counter() - started
+    timing.record("filter_deep_refusal_s", elapsed)
+    assert elapsed < timing.limit(0.05)
     assert code == "filter_too_deep"
     assert params == {"max_depth": 5}
     assert path == "filter" + ".and[0]" * 5
@@ -250,12 +253,15 @@ def test_too_many_conditions_is_refused() -> None:
     assert problem(tree)[1:] == ("too_many_conditions", {"max_conditions": 30})
 
 
+@pytest.mark.timing
 def test_raw_text_size_and_json_validity_are_checked_before_parsing() -> None:
     huge = json.dumps({"or": [cond("title", "eq", "x" * 100)] * 200})
     started = time.perf_counter()
     with pytest.raises(ValidationFailed) as too_large:
         parse_filter_json(huge)
-    assert time.perf_counter() - started < 0.01
+    elapsed = time.perf_counter() - started
+    timing.record("filter_oversize_refusal_s", elapsed)
+    assert elapsed < timing.limit(0.01)
     assert too_large.value.errors[0].code == "filter_too_large"
     with pytest.raises(ValidationFailed) as broken:
         parse_filter_json('{"field": "title",')
