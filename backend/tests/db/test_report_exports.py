@@ -9,6 +9,7 @@ import csv
 import io
 import uuid
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -16,9 +17,15 @@ import pytest_asyncio
 from openpyxl import load_workbook
 
 from app.core.database import Database, create_engine
+from app.core.errors import ServiceUnavailable
 from app.core.tenancy import TenantContext
 from app.modules.analytics.api.routes import STORAGE_STATE
-from app.modules.analytics.service.exports import Worker, build_export
+from app.modules.analytics.service.exports import (
+    SubjectLoader,
+    Worker,
+    build_export,
+    fail_stalled_exports,
+)
 from app.modules.identity_access import subject_for
 from tests.db import test_reports_api
 from tests.db.test_incidents_api import CONSOLE, Org, World
@@ -82,7 +89,11 @@ async def _request(world: World, org: Any, user: uuid.UUID, **body: Any) -> Any:
 
 
 async def _build(
-    migrated_db: ThrowawayDatabase, storage: MemoryStorage, org: Org, export_id: str
+    migrated_db: ThrowawayDatabase,
+    storage: MemoryStorage,
+    org: Org,
+    export_id: str,
+    load_subject: SubjectLoader = subject_for,
 ) -> None:
     """What the consumers worker does for one requested export."""
     database = Database(
@@ -96,7 +107,7 @@ async def _build(
                 Worker(
                     reporting=database,
                     storage=storage,
-                    load_subject=subject_for,
+                    load_subject=load_subject,
                     render_pdf=None,
                     timeout_seconds=30,
                     max_rows=1000,
@@ -319,3 +330,57 @@ async def test_categories_are_named_by_their_full_path_like_the_screens(
         await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.admin)
     ).content.decode("utf-8-sig")
     assert "Hardware \u203a Printer" in data  # "Hardware > Printer" with the angle quote
+
+
+async def no_entitlements(session: Any, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Any:  # noqa: ANN401 - SubjectLoader
+    """A worker without the entitlement service, as the consumers worker was (e2e, 2026-10-28)."""
+    del session, tenant_id, user_id
+    raise ServiceUnavailable(code="entitlements_unavailable")
+
+
+async def test_req_rpt_056_a_worker_missing_a_service_fails_the_export_visibly(
+    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase
+) -> None:
+    world, storage = exporting
+    a = world.a
+    export = (await _request(world, a, a.tech_a, format="csv")).json()
+    await _build(migrated_db, storage, a, export["id"], load_subject=no_entitlements)
+    mine = next(
+        e
+        for e in (await world.call("GET", "/reports/exports", a, a.tech_a)).json()
+        if e["id"] == export["id"]
+    )
+    assert (mine["status"], mine["problem"]) == ("failed", "report_failed")  # not "running"
+    assert storage.files == {}
+
+
+async def test_req_rpt_056_an_export_lost_by_its_worker_is_failed_by_the_sweep(
+    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase
+) -> None:
+    world, _storage = exporting
+    a = world.a
+    lost = (await _request(world, a, a.tech_a, format="csv")).json()
+    database = Database(
+        create_engine(migrated_db.app_url, application_name="t", use_null_pool=True)
+    )
+    try:
+        now = datetime.now(UTC)
+        async with database.tenant_session(TenantContext(a.tenant)) as session:
+            assert await fail_stalled_exports(session, now - timedelta(hours=1)) == 0  # recent
+        async with database.tenant_session(TenantContext(a.tenant)) as session:
+            assert await fail_stalled_exports(session, now + timedelta(seconds=1)) == 1
+    finally:
+        await database.dispose()
+    mine = next(
+        e
+        for e in (await world.call("GET", "/reports/exports", a, a.tech_a)).json()
+        if e["id"] == lost["id"]
+    )
+    assert (mine["status"], mine["problem"]) == ("failed", "report_failed")
+    finished = await world.sql(
+        "SELECT 1 FROM outbox_events WHERE tenant_id = $1 AND aggregate_id = $2"
+        " AND event_type = 'analytics.report_export.finished'",
+        a.tenant,
+        lost["id"],
+    )
+    assert finished  # the person sees it fail live
