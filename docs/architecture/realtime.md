@@ -37,6 +37,20 @@ Measured on the dev stack: commit → other browser p50 153 ms, p95 275 ms (200 
 Lists today: `users` (`users.view`), `roles` (`roles.view`). `GET /api/v1/realtime/lists/{list}`
 tells a browser which of these channels it should join.
 
+**Personal counts (WP-020d QA BUG-01).** Someone who sees every record follows only the shared
+`queue:{list}` channel, which hears about record changes but not about changes that matter only to
+one person. Those go to the person's own `user:` channel, with IDs only:
+
+| Change | Message | Recounts |
+|---|---|---|
+| follow, unfollow, a hand-over that keeps access | `work_items.lists_changed` | "Followed by me", "Shared with me" |
+| a reply or note by someone else | `work_items.lists_changed` (technician and followers, not the writer) | "Updated by others" |
+| a person's manager changed | `users.reports_changed` (old and new manager) | "From my direct reports" |
+| site or group membership | `access.changed` (already sent, with revocation) | "My groups, open", "Unassigned in my groups" |
+
+Counts that change with the clock (overdue, due today, created today, the 24-hour "updated by
+others") are refetched every minute while the list is open; no event announces the clock.
+
 ## Security
 
 - **No anonymous joins.** A browser connects with a short-lived connection token

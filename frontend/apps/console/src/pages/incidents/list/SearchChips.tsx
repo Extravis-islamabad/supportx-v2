@@ -28,7 +28,9 @@ export function SearchChips({
   const t = useLabel();
   const suggestions = chipSuggestions(text, fields, words, t, chips);
   return (
-    <Flex gap={8} wrap align="center" style={{ minWidth: 0, maxWidth: '100%' }}>
+    // A column of fixed width: chips go under the box and add height, never width, so the
+    // controls after the search keep their place when a chip is added (WP-020d QA BUG-02).
+    <Flex vertical gap={4} style={{ width: 'min(320px, 100%)' }} data-testid="inc-search-group">
       <AutoComplete
         value={text}
         onChange={onText}
@@ -41,7 +43,7 @@ export function SearchChips({
           if (chip !== undefined) onChips([...chips, chip]);
           onText('');
         }}
-        style={{ width: 'min(320px, 100%)' }}
+        style={{ width: '100%' }}
       >
         <Input.Search
           allowClear
@@ -50,18 +52,22 @@ export function SearchChips({
           data-testid="inc-search"
         />
       </AutoComplete>
-      {chips.map((chip) => (
-        <Tag
-          key={`${chip.field}:${chip.value}`}
-          closable
-          onClose={() => {
-            onChips(chips.filter((c) => c !== chip));
-          }}
-          data-testid={`inc-chip-${chip.field}-${chip.value}`}
-        >
-          {chip.label}
-        </Tag>
-      ))}
+      {chips.length > 0 && (
+        <Flex gap={4} wrap>
+          {chips.map((chip) => (
+            <Tag
+              key={`${chip.field}:${chip.value}`}
+              closable
+              onClose={() => {
+                onChips(chips.filter((c) => c !== chip));
+              }}
+              data-testid={`inc-chip-${chip.field}-${chip.value}`}
+            >
+              {chip.label}
+            </Tag>
+          ))}
+        </Flex>
+      )}
     </Flex>
   );
 }

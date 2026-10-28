@@ -114,6 +114,9 @@ def _access_changed(tenant_id: uuid.UUID, user_ids: list[uuid.UUID]) -> list[Pub
     return [Publication(personal(tenant_id, u), "access.changed", ids=(str(u),)) for u in user_ids]
 
 
+REPORTS_CHANGED = "users.reports_changed"
+
+
 async def _user_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
     """A user record was provisioned or edited: their record, the users lists, their own screens."""
     tenant = envelope.tenant_id
@@ -139,6 +142,11 @@ async def _user_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
             groups=sorted(units.group_ids),
             owners=[user_id],
             actor_id=_actor(envelope),
+        ),
+        # A new or former direct report: both managers' "from my direct reports" recount.
+        *(
+            Publication(personal(tenant, uuid.UUID(str(m))), REPORTS_CHANGED, ids=(str(user_id),))
+            for m in envelope.payload.get("managers", ())
         ),
     ]
     revoke = [user_id] if ACCESS_FIELDS & set(fields) else []
