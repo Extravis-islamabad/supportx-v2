@@ -132,3 +132,9 @@ def test_bug_01_a_forwarded_request_keeps_what_was_forwarded() -> None:
 
 def test_bug_01_nothing_a_person_wrote_is_lost() -> None:
     assert request_text("-- \nonly a signature") == "-- \nonly a signature"
+
+
+def test_a_pasted_token_with_directional_marks_still_threads() -> None:
+    """Isolation rule: a token copied from a screen carries FSI/PDI; the reply still threads."""
+    reply = parse("Subject: Re: [\u2068INC-12\u2069] printer\r\n\r\nok".encode())
+    assert reply.tokens == ("INC-12",)

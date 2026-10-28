@@ -108,7 +108,8 @@ describe('DateTimeField', () => {
   it('labels the zone in Arabic too', async () => {
     session('Asia/Dubai');
     renderUi(<Harness initial={null} onChange={vi.fn()} />, { locale: 'ar' });
-    expect(await screen.findByText('الأوقات بتوقيت Asia/Dubai.')).toBeDefined();
+    // A Latin zone name in Arabic text is isolated (the isolation rule, packages/labels).
+    expect(await screen.findByText('الأوقات بتوقيت \u2068Asia/Dubai\u2069.')).toBeDefined();
   });
 
   it('a range shows both ends in the zone and the zone once', async () => {
