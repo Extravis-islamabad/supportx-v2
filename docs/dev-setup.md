@@ -326,3 +326,13 @@ Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows 
   in ADR-012.
 - Temporal's `auto-setup` image stopped at 1.29.7 (newer server versions ship without it). It is
   fine for dev; how Temporal is deployed in real environments is decided in WP-014.
+
+## Merging
+
+`main` takes changes through GitHub's merge queue: when a pull request's required checks pass,
+`gh pr merge <number> --merge` adds it to the queue (no catching up with `main` by hand). The
+queue tests it on top of `main` and the pull requests ahead of it, with the same required checks
+(the workflows also trigger on `merge_group`; docs-only groups take the fast path), and merges it
+when they pass. A failing entry leaves the queue and the ones behind it are tested again without
+it. Two pull requests that each pass alone but break together (two migrations with the same
+number, for example) fail in the queue, not on `main`.
