@@ -2837,6 +2837,8 @@ export const en = {
   'reports.filter_days': '{{field}} in the last {{days}} days',
   'reports.or': 'or',
   'reports.total': 'Total',
+  'errors.field.unknown_column': 'This column does not exist for these records.',
+  'errors.field.duplicate_column': 'Each column can be listed once.',
   'permission.dashboards.create.description':
     'Make your own dashboards and copy ready-made or shared ones.',
   'permission.dashboards.share.description':

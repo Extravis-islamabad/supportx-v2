@@ -2854,6 +2854,8 @@ export const ar: LabelResource = {
   'reports.filter_days': '{{field}} في آخر {{days}} يومًا',
   'reports.or': 'أو',
   'reports.total': 'الإجمالي',
+  'errors.field.unknown_column': 'هذا العمود غير موجود لهذه السجلات.',
+  'errors.field.duplicate_column': 'يمكن إدراج كل عمود مرة واحدة.',
   'permission.dashboards.create.description':
     'إنشاء لوحات معلوماتك ونسخ اللوحات الجاهزة أو المشتركة.',
   'permission.dashboards.share.description':
