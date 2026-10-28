@@ -14,19 +14,28 @@ Mail runs in a worker, so the requester's subject is compiled now and the policy
 """
 
 import uuid
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Mapping, Sequence
+from contextlib import asynccontextmanager
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
+from app.core.errors import AppError, ValidationFailed
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import subject_for, worker_policy
-from app.modules.work_items.domain.types import INCIDENT, parse_display_id
+from app.modules.work_items.domain.types import INCIDENT, Channel, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import catalogue
+from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.conversations import add_requester_reply
-from app.shared.mail.ports import CreatedRecord, FoundRecord
+from app.shared.mail.ports import (
+    CreatedRecord,
+    FoundRecord,
+    InboundRefused,
+    register_inbound_target,
+    unregister_inbound_target,
+)
 
 RECORD_TYPE = INCIDENT.code.value
 
@@ -37,6 +46,31 @@ def _tenant(session: AsyncSession) -> uuid.UUID:
         msg = "mail is handled in a tenant session"
         raise TypeError(msg)
     return context.tenant_id
+
+
+# A create refused for missing or invalid fields: the admin's review queue names them (their
+# `field.<name>` labels), so they know what the template or rule asks for (D-109 (9)).
+FIELDS_NEEDED = "mail_fields_needed"
+
+
+@asynccontextmanager
+async def _refusals() -> AsyncIterator[None]:
+    """An expected refusal of the incident side, as the port's InboundRefused (held, not lost)."""
+    try:
+        yield
+    except ValidationFailed as refused:
+        fields = sorted({e.field.removeprefix("body.") for e in refused.errors})
+        if fields:
+            raise InboundRefused(FIELDS_NEEDED, {"fields": ",".join(fields)}) from refused
+        raise InboundRefused(refused.instance_code, _text(refused.params)) from refused
+    except AppError as refused:
+        if refused.status >= 500:  # noqa: PLR2004 - an outage is retried, never held
+            raise
+        raise InboundRefused(refused.instance_code, _text(refused.params)) from refused
+
+
+def _text(params: Mapping[str, object]) -> dict[str, str]:
+    return {key: str(value) for key, value in params.items()}
 
 
 def _found(row: WorkItem) -> FoundRecord:
@@ -88,6 +122,36 @@ class IncidentsFromMail:
                 return _found(row)
         return None
 
+    async def create_from_mail(  # noqa: PLR0913 - the port's fields, explicit
+        self,
+        session: AsyncSession,
+        *,
+        requester_id: uuid.UUID,
+        subject: str,
+        body_html: str,
+        group_id: uuid.UUID | None,
+        message_id: str,
+    ) -> CreatedRecord:
+        """A new incident in the requester's name, channel e-mail, routed with the mailbox's group.
+
+        Created as the requester would in the portal (their own rights, priority, routing and
+        automation as for any new record); the mailbox's group is the entry point's group.
+        """
+        del message_id  # the ledger keeps it
+        requester = await subject_for(session, _tenant(session), requester_id)
+        async with _refusals():
+            made = await items.create(
+                session,
+                requester,
+                INCIDENT,
+                {"subject": subject, "description": body_html, "requester_id": requester_id},
+                source="email",
+                holders=worker_policy(),
+                channel=Channel.EMAIL,
+                entry_group_id=group_id,
+            )
+        return CreatedRecord(RECORD_TYPE, made.record.id, made.record.display_id)
+
     async def reply_from_mail(  # noqa: PLR0913 - the port's fields, explicit
         self,
         session: AsyncSession,
@@ -104,16 +168,30 @@ class IncidentsFromMail:
         if row is None:  # pragma: no cover - found in this transaction
             return None
         subject = await subject_for(session, _tenant(session), author_id)
-        follow_up = await add_requester_reply(
-            session,
-            INCIDENT,
-            row,
-            body=body_html,
-            source="email",
-            automatic=automatic,
-            subject=subject,
-            holders=worker_policy(),
-        )
+        async with _refusals():
+            follow_up = await add_requester_reply(
+                session,
+                INCIDENT,
+                row,
+                body=body_html,
+                source="email",
+                automatic=automatic,
+                subject=subject,
+                holders=worker_policy(),
+            )
         if follow_up is None:
             return None
         return CreatedRecord(RECORD_TYPE, follow_up.id, follow_up.display_id)
+
+
+TARGET = IncidentsFromMail()
+
+
+def register() -> None:
+    """Incidents take mail in (at import, so the worker that fetches mailboxes has it too)."""
+    register_inbound_target(TARGET)
+
+
+def unregister() -> None:
+    """For tests that register their own target."""
+    unregister_inbound_target(RECORD_TYPE)

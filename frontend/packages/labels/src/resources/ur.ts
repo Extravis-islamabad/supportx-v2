@@ -3564,4 +3564,11 @@ export const ur: LabelResource = {
     'اس سے کچھ نہیں بنے گا۔ وصول شدہ میل کی فہرست میں ایک سطر رہے گی کہ اسے رد کیا گیا۔',
   'mail.waiting.released': 'دوبارہ داخل کیا گیا: {{outcome}}',
   'mail.waiting.still_waiting': 'یہ دوبارہ منتظر ہے: {{reason}}',
+  'mail_waiting_reason.fields_needed':
+    'واقعہ نہیں بنایا گیا: اسے {{fields}} درکار ہیں، جو کسی سانچے یا قاعدے نے مانگے ہیں۔ جب یہ لازمی نہ رہیں تو دوبارہ داخل کریں، یا واقعہ ہاتھ سے بنائیں۔',
+  'mail_waiting_reason.other_fields_one': '{{count}} دوسرا خانہ',
+  'mail_waiting_reason.other_fields_other': '{{count}} دوسرے خانے',
+  'mailbox_answer.follow_up.subject': '[{{id}}] {{subject}}',
+  'mailbox_answer.follow_up.body':
+    'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
 };

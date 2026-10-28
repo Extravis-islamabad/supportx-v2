@@ -167,6 +167,36 @@ describe('Admin › Mail', () => {
     expect(await screen.findByText('Handed in again: Incident created')).toBeTruthy();
   });
 
+  it('names the fields a refused incident needs, never a raw key', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const box = fakeMailbox({ held: 1 });
+    api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [box] },
+        [`GET ${BASE}/${box.id}/waiting`]: {
+          body: [
+            {
+              message_id: 'm@acme.test',
+              sender: 'sara@acme.test',
+              subject: 'Printer jams',
+              outcome: 'held',
+              reason: 'mail_fields_needed',
+              reason_params: { fields: 'category_id,custom.asset_tag' },
+              received_at: '2026-10-28T09:00:00Z',
+              releasable: true,
+            },
+          ],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-review'));
+    const reason = await screen.findByTestId('mail-waiting-reason');
+    expect(reason.textContent).toContain('it needs Category and 1 other field');
+    expect(reason.textContent).not.toContain('custom.asset_tag');
+  });
+
   it('technicians do not see the tab', async () => {
     window.history.pushState({}, '', '/admin/users');
     api({ routes: {} });

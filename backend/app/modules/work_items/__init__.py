@@ -21,7 +21,7 @@ from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
-from app.modules.work_items.service import notifications, report_names, resolution
+from app.modules.work_items.service import inbound_mail, notifications, report_names, resolution
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
@@ -64,6 +64,8 @@ register_sources()
 report_names.register()
 # Incident notifications (WP-023, lane B with lane A's review): at import, for the worker too.
 notifications.register()
+# Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
+inbound_mail.register()
 
 module = ModuleSpec(
     name="work_items",

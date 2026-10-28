@@ -27,7 +27,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import Conflict
 from app.core.logging import get_logger
-from app.modules.identity_access import create_requester_from_mail, person_by_email
+from app.modules.identity_access import (
+    create_requester_from_mail,
+    mail_recipients,
+    person_by_email,
+)
 from app.modules.integrations.domain.mailboxes import (
     WAITING,
     MailboxCreates,
@@ -40,7 +44,7 @@ from app.modules.integrations.domain.mailboxes import (
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.notifications import records_for_mail
 from app.shared.labels import label
-from app.shared.mail import MailRefused, OutgoingMail, mail_configured, queue_mail
+from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text
 from app.shared.mail.ports import FoundRecord, InboundRefused, InboundTarget, inbound_target
 
@@ -97,19 +101,38 @@ async def _recent(session: AsyncSession, sender: str) -> int:
     )
 
 
-async def _answer(
-    session: AsyncSession, settings: Settings, mailbox: Mailbox, message: InboundMessage, key: str
+async def _answer(  # noqa: PLR0913 - the message, who, what to say and its values
+    session: AsyncSession,
+    settings: Settings,
+    mailbox: Mailbox,
+    message: InboundMessage,
+    key: str,
+    *,
+    person: uuid.UUID | None = None,
+    **values: str,
 ) -> None:
-    """A polite answer to a person whose mail created nothing (never to automatic mail)."""
+    """A short answer to the sender (mail that created nothing, or a follow-up's new ID).
+
+    In the person's mail language when the sender is someone the tenant knows, else English.
+    Never to automatic mail: two systems answering each other would loop.
+    """
     if message.automatic is not None or not mail_configured(settings) or not message.sender:
         return
-    subject = label(f"{key}.subject", "en", subject=message.subject)
-    text = label(f"{key}.body", "en", address=mailbox.address)
+    known = await mail_recipients(session, [person]) if person is not None else {}
+    language: Language = known[person].language if person in known else "en"
+    subject = label(f"{key}.subject", language, subject=message.subject, **values)
+    text = label(f"{key}.body", language, address=mailbox.address, **values)
     try:
         await queue_mail(
             session,
             settings,
-            OutgoingMail(kind="mailbox_answer", to=(message.sender,), subject=subject, text=text),
+            OutgoingMail(
+                kind="mailbox_answer",
+                to=(message.sender,),
+                language=language,
+                subject=subject,
+                text=text,
+            ),
         )
     except MailRefused as refused:
         log.warning("mailbox_answer_refused", code=refused.code)
@@ -161,7 +184,7 @@ async def _automatic(ctx: _Context, found: FoundRecord, reason: str | None) -> O
     )  # fmt: skip
 
 
-async def _reply(ctx: _Context, found: FoundRecord) -> Outcome:
+async def _reply(ctx: _Context, settings: Settings, found: FoundRecord) -> Outcome:
     """The requester's reply; staff and others reply in the app (no entry, lane A)."""
     if ctx.sender_id is None or ctx.sender_id not in found.requester_ids:
         return await _finish(
@@ -175,6 +198,13 @@ async def _reply(ctx: _Context, found: FoundRecord) -> Outcome:
         automatic=False,
         message_id=ctx.message.message_id,
     )
+    if follow_up is not None:
+        # Too late to reopen: a new incident follows the closed one; the sender learns its ID,
+        # and the token in the subject makes their next reply land on it (WP-020f, lane A).
+        await _answer(
+            ctx.session, settings, ctx.mailbox, ctx.message, "mailbox_answer.follow_up",
+            person=ctx.sender_id, id=follow_up.display_id, previous=found.display_id,
+        )  # fmt: skip
     record = follow_up or found
     return await _finish(
         ctx.session, ctx.mailbox, ctx.message, Outcome.REPLIED,
@@ -250,7 +280,7 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
         return await _finish(session, mailbox, message, decision.outcome, reason=decision.reason)
     try:
         if found is not None:
-            return await _reply(ctx, found)
+            return await _reply(ctx, settings, found)
         return await _create(ctx, create_requester=decision.create_requester)
     except InboundRefused as refused:
         return await _finish(

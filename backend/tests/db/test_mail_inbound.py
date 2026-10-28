@@ -29,6 +29,7 @@ from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
     InboundRefused,
+    inbound_target,
     register_inbound_target,
     unregister_inbound_target,
 )
@@ -51,6 +52,7 @@ class FakeIncidents:
     created: list[dict[str, object]] = field(default_factory=list)
     replies: list[dict[str, object]] = field(default_factory=list)
     refuse: str | None = None
+    follow_up: CreatedRecord | None = None  # a reply after the reopen window starts one
 
     async def find_record(
         self, session: object, *, tokens: Sequence[str], record_ids: Sequence[uuid.UUID]
@@ -73,7 +75,7 @@ class FakeIncidents:
     ) -> CreatedRecord | None:
         del session
         self.replies.append({"record": record.display_id, **values})
-        return None
+        return self.follow_up
 
 
 @dataclass
@@ -106,11 +108,14 @@ async def world(migrated_db: ThrowawayDatabase) -> AsyncIterator[World]:
         await session.flush()
         mailbox_id = box.id
     incidents = FakeIncidents()
+    real = inbound_target("incident")  # work_items registers the real one at import
     register_inbound_target(incidents)
     try:
         yield World(migrated_db, database, tenant, known, mailbox_id, incidents)
     finally:
         unregister_inbound_target("incident")
+        if real is not None:
+            register_inbound_target(real)
         await database.dispose()
 
 
@@ -200,6 +205,33 @@ async def test_a_reply_that_lost_its_token_finds_the_record_by_the_mail_it_answe
     outcome = await _process(world, _mail(Subject="Re: Printer jams", In_Reply_To=sent))
     assert outcome is Outcome.REPLIED
     assert [r["record"] for r in world.incidents.replies] == ["INC-9"]
+
+
+async def test_a_late_reply_tells_the_sender_the_new_incidents_id(world: World) -> None:
+    """WP-020f with lane A: closed too long to reopen, so a follow-up; the sender learns its ID."""
+    world.incidents.records["INC-7"] = FoundRecord(
+        "incident", uuid.uuid4(), "INC-7", frozenset({world.known})
+    )
+    world.incidents.follow_up = CreatedRecord("incident", uuid.uuid4(), "INC-8")
+    mailing = make_settings(mail_smtp_host="smtp.acme.test", mail_from_address="it@acme.test")
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        mailbox = await session.get(Mailbox, world.mailbox)
+        assert mailbox is not None
+        raw = _mail(Subject="Re: [INC-7] Printer jams")
+        assert await process(session, mailing, mailbox, raw, own_addresses=OWN) is Outcome.REPLIED
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        (sent,) = await conn.fetch(
+            "SELECT recipients, subject, text_body FROM mail_messages"
+            " WHERE tenant_id = $1 AND kind = 'mailbox_answer'",
+            world.tenant,
+        )
+    finally:
+        await conn.close()
+    assert list(sent["recipients"]) == ["sara@acme.test"]
+    assert sent["subject"].startswith("[INC-8] ")  # the next reply lands on the new incident
+    assert "INC-7" in sent["text_body"]
+    assert "INC-8" in sent["text_body"]
 
 
 async def test_an_out_of_office_is_recorded_and_wakes_nothing(world: World) -> None:

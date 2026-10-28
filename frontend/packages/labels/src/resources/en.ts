@@ -3960,6 +3960,13 @@ export const en = {
     'Nothing is created from it. The list of fetched mail keeps a line saying it was discarded.',
   'mail.waiting.released': 'Handed in again: {{outcome}}',
   'mail.waiting.still_waiting': 'It waits again: {{reason}}',
+  'mail_waiting_reason.fields_needed':
+    'The incident was not created: it needs {{fields}}, asked for by a template or rule. Hand it in again once they are not required, or create the incident by hand.',
+  'mail_waiting_reason.other_fields_one': '{{count}} other field',
+  'mail_waiting_reason.other_fields_other': '{{count}} other fields',
+  'mailbox_answer.follow_up.subject': '[{{id}}] {{subject}}',
+  'mailbox_answer.follow_up.body':
+    'Thank you for your reply. {{previous}} was closed too long ago to reopen, so your message started a new incident: {{id}}. Reply to this e-mail to add to it.',
 } as const;
 
 export type LabelKey = keyof typeof en;

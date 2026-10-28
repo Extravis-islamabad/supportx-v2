@@ -3978,4 +3978,15 @@ export const ar: LabelResource = {
     'لن يُنشأ منها شيء. تحتفظ قائمة البريد المستلم بسطر يفيد بأنها تُجوهلت.',
   'mail.waiting.released': 'أُعيد إدخالها: {{outcome}}',
   'mail.waiting.still_waiting': 'عادت إلى الانتظار: {{reason}}',
+  'mail_waiting_reason.fields_needed':
+    'لم تُنشأ الحادثة: تحتاج إلى {{fields}}، يطلبها قالب أو قاعدة. أعد إدخالها عندما لا تعود مطلوبة، أو أنشئ الحادثة يدويًا.',
+  'mail_waiting_reason.other_fields_one': 'حقل آخر واحد',
+  'mail_waiting_reason.other_fields_other': '{{count}} حقل آخر',
+  'mail_waiting_reason.other_fields_zero': 'لا حقول أخرى',
+  'mail_waiting_reason.other_fields_two': 'حقلان آخران',
+  'mail_waiting_reason.other_fields_few': '{{count}} حقول أخرى',
+  'mail_waiting_reason.other_fields_many': '{{count}} حقلًا آخر',
+  'mailbox_answer.follow_up.subject': '[{{id}}] {{subject}}',
+  'mailbox_answer.follow_up.body':
+    'شكرًا لردك. أُغلقت {{previous}} منذ مدة طويلة لا تسمح بإعادة فتحها، لذلك بدأت رسالتك حادثة جديدة: {{id}}. رُد على هذه الرسالة للإضافة إليها.',
 };

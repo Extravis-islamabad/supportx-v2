@@ -8,16 +8,29 @@ import {
   type Mailbox,
   type WaitingMail,
 } from '@supportx/api-client';
+import { en, useListFormat } from '@supportx/labels';
 import { markHandled, reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
 // Reasons this module gives; any other is the record owner's refusal, an error code.
 const OWN_REASONS = new Set(['sender_rate', 'not_requester', 'no_target', 'too_large']);
+// The incident side refused for fields a template or rule asks for (params.fields: their names).
+const FIELDS_NEEDED = 'mail_fields_needed';
 
 /** A waiting message's reason in words, with its parameters filled. */
 function useWaitingReason(): (reason: string | null, params: Record<string, string>) => string {
   const t = useLabel();
+  const list = useListFormat();
   return (reason, params) => {
     const code = reason ?? 'no_target';
+    if (code === FIELDS_NEEDED) {
+      const names = (params.fields ?? '').split(',').filter(Boolean);
+      // Built-in fields by their names; custom ones (no built-in label) counted, never shown raw.
+      const known = names.filter((name) => `work_item.field.${name}` in en);
+      const others = names.length - known.length;
+      const shown = known.map((name) => t(`work_item.field.${name}`));
+      if (others > 0) shown.push(t('mail_waiting_reason.other_fields', { count: others }));
+      return t('mail_waiting_reason.fields_needed', { fields: list(shown, 'conjunction') });
+    }
     return OWN_REASONS.has(code) ? t(`mail_waiting_reason.${code}`) : t(`errors.${code}`, params);
   };
 }
