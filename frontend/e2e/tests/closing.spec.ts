@@ -51,6 +51,8 @@ test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen 
   const item = (await created.json()) as { id: string };
   made.push(item.id);
   await page.goto(`/incidents/${item.id}`);
+  // The record opens on Conversation (D-081); the resolution is shown on Details.
+  await page.getByRole('tab', { name: 'Details' }).click();
 
   // Resolve: the dialog asks for a resolution first.
   await page.getByTestId('inc-action-resolve').click();
@@ -78,8 +80,7 @@ test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen 
   await page.getByTestId('inc-reason-confirm').click();
   await expect(page.getByTestId('inc-resolution-card')).toHaveCount(0);
   await page.getByRole('tab', { name: /History/ }).click();
-  await expect(page.getByTestId('inc-history-entry').first()).toBeVisible();
-  await expect(page.locator('[data-testid="inc-history-entry"]')).toContainText([
-    /Workaround given/,
-  ]);
+  await expect(
+    page.getByTestId('inc-history-entry').filter({ hasText: 'Workaround given' }).first(),
+  ).toBeVisible();
 });
