@@ -45,6 +45,7 @@ from app.modules.identity_access import (
     RoleName,
     Subject,
     authorize_stored,
+    direct_reports,
     display_names,
     person_placement,
     role_names,
@@ -525,12 +526,33 @@ def _start_of_today(zone: tzinfo, now: datetime) -> datetime:
     return local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
 
 
-def view_predicates(
-    subject: Subject, *, zone: tzinfo, now: datetime
+async def views_for(
+    session: AsyncSession, subject: Subject, *, zone: tzinfo
 ) -> dict[str, ColumnElement[bool]]:
-    """Code → predicate of every built-in view, in the order the UI lists them."""
+    """`view_predicates` for the subject now, with the people the views need looked up."""
+    reports = await direct_reports(session, subject.user_id)
+    return view_predicates(subject, zone=zone, now=_now(), reports=reports)
+
+
+def view_predicates(
+    subject: Subject,
+    *,
+    zone: tzinfo,
+    now: datetime,
+    reports: Sequence[uuid.UUID] = (),
+) -> dict[str, ColumnElement[bool]]:
+    """Code → predicate of every built-in view, in the order the UI lists them.
+
+    `reports` are the subject's direct reports (people whose manager they are). Overdue and due
+    today read the resolution due time the SLA module fills; "shared with me" is a follow that
+    grants access (D-068), which only a hand-over (and later, sharing) gives.
+    """
     groups = subject.group_ids
     today = _start_of_today(zone, now)
+    tomorrow = today + timedelta(days=1)
+    following = select(WorkItemFollower.work_item_id).where(
+        WorkItemFollower.user_id == subject.user_id, WorkItemFollower.deleted_at.is_(None)
+    )
     return {
         "open": _open(),
         "my_open": and_(_open(), WorkItem.technician_id == subject.user_id),
@@ -538,17 +560,26 @@ def view_predicates(
         "my_groups_open": and_(_open(), WorkItem.group_id.in_(groups))
         if groups
         else WorkItem.id.is_(None),
+        "overdue": and_(_open(), WorkItem.resolution_due_at < now),
+        "due_today": and_(
+            _open(), WorkItem.resolution_due_at >= now, WorkItem.resolution_due_at < tomorrow
+        ),
         "waiting": WorkItem.status_category == StatusCategory.PAUSED,
         "resolved": WorkItem.status_category == StatusCategory.RESOLVED,
-        "created_today": and_(
-            WorkItem.created_at >= today, WorkItem.created_at < today + timedelta(days=1)
-        ),
+        "created_today": and_(WorkItem.created_at >= today, WorkItem.created_at < tomorrow),
         "updated_by_me": WorkItem.updated_by == subject.user_id,
+        "followed_by_me": WorkItem.id.in_(following),
+        "shared_with_me": WorkItem.id.in_(
+            following.where(WorkItemFollower.grants_access.is_(True))
+        ),
+        "from_my_reports": and_(_open(), WorkItem.requester_id.in_(reports))
+        if reports
+        else WorkItem.id.is_(None),
         "without_sla": and_(_open(), WorkItem.sla_policy_id.is_(None)),
         "closed": WorkItem.status_category == StatusCategory.CLOSED,
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
         "all": WorkItem.id.is_not(None),
-        **_personal(subject, now=now, today_end=today + timedelta(days=1)),
+        **_personal(subject, now=now, today_end=tomorrow),
     }
 
 
@@ -610,10 +641,15 @@ VIEW_CODES = (
     "my_open",
     "unassigned",
     "my_groups_open",
+    "overdue",
+    "due_today",
     "waiting",
     "resolved",
     "created_today",
     "updated_by_me",
+    "followed_by_me",
+    "shared_with_me",
+    "from_my_reports",
     "without_sla",
     "closed",
     "canceled",
@@ -649,7 +685,7 @@ async def list_page(  # noqa: PLR0913 - the list's filters, explicit
         await config.ensure_seeded(session, wtype)
         statement = staff_rows(subject, wtype)
     if view is not None:
-        predicates = view_predicates(subject, zone=zone, now=_now())
+        predicates = await views_for(session, subject, zone=zone)
         if view not in predicates:
             raise _errors([("view", "invalid_choice")])
         statement = statement.where(predicates[view])
@@ -662,7 +698,7 @@ async def view_counts(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, *, zone: tzinfo
 ) -> list[tuple[str, int, bool]]:
     """(view code, count up to COUNT_CAP, capped) for every built-in view."""
-    predicates = view_predicates(subject, zone=zone, now=_now())
+    predicates = await views_for(session, subject, zone=zone)
     base = staff_rows(subject, wtype)
     found: list[tuple[str, int, bool]] = []
     for code in VIEW_CODES:
