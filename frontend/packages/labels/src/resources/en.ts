@@ -2339,6 +2339,7 @@ export const en = {
   'errors.rule_not_found': 'This rule no longer exists.',
   'errors.rule_refused': '{{message}}',
   'errors.closure_rules': 'Some things are needed before this can be done.',
+  'errors.not_resolved': 'This is no longer waiting for your answer: it is not resolved now.',
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
   'errors.open_work_unconfirmed': 'Work is still open: {{items}}. Confirm to go ahead anyway.',
   'errors.field.required_to_resolve': 'Needed before resolving.',

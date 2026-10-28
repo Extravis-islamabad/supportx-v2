@@ -13,7 +13,7 @@ from typing import Annotated, Any, Literal
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.authorization import require_permission
+from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
 from app.modules import metadata
@@ -51,6 +51,7 @@ from app.modules.work_items.domain.types import (
     WorkItemType,
 )
 from app.modules.work_items.infra.models import WorkItem, WorkItemCategory
+from app.modules.work_items.service import resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
@@ -162,6 +163,31 @@ class WorkItemPatch(BaseModel):
 
 
 RESOLUTION_MAX = DESCRIPTION_MAX * 2  # rich text, like the description
+
+
+class ResolutionRejectIn(BaseModel):
+    """Why it is not fixed: the requester's own words, shown as a public reply."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    comment: str = Field(max_length=RESOLUTION_MAX)
+
+
+class ResolutionAnswerOut(BaseModel):
+    """What the requester's answer did (requesters see no more of the record here)."""
+
+    display_id: str
+    status: str
+    closed: bool = Field(description="False on confirm: a technician closes it (closure rules).")
+
+    @classmethod
+    def of(cls, answered: "resolution.Answered") -> "ResolutionAnswerOut":
+        """From the service's answer."""
+        return cls(
+            display_id=answered.record.display_id,
+            status=answered.record.status,
+            closed=answered.closed,
+        )
 
 
 class WorkItemTransitionIn(BaseModel):
@@ -876,6 +902,8 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Delete = Annotated[Subject, Depends(require_permission(perm("delete")))]  # noqa: N806 - type alias
     Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
+    # The record's own requester (no console permission): the service checks it is theirs.
+    SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
     Query_ = Annotated[  # noqa: N806 - type alias
         ListQuery,
         Depends(
@@ -1249,6 +1277,38 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
+
+    @router.post(
+        "/{record_id}/resolution/confirm",
+        summary="The requester confirms the resolution",
+        responses=CONFLICT,
+    )
+    async def confirm_resolution(
+        record_id: uuid.UUID, session: TenantSession, subject: SignedIn, request: Request
+    ) -> ResolutionAnswerOut:
+        """Closes it with the requester as actor (REQ-INC-096). 409 `not_resolved` otherwise."""
+        answered = await resolution.confirm(
+            session, subject, wtype, record_id, source=source_of(request)
+        )
+        return ResolutionAnswerOut.of(answered)
+
+    @router.post(
+        "/{record_id}/resolution/reject",
+        summary="The requester says it is not fixed",
+        responses=CONFLICT,
+    )
+    async def reject_resolution(
+        record_id: uuid.UUID,
+        body: ResolutionRejectIn,
+        session: TenantSession,
+        subject: SignedIn,
+        request: Request,
+    ) -> ResolutionAnswerOut:
+        """Reopens it to in progress; the comment is a public reply by the requester."""
+        answered = await resolution.reject(
+            session, subject, wtype, record_id, comment=body.comment, source=source_of(request)
+        )
+        return ResolutionAnswerOut.of(answered)
 
     @router.post("/{record_id}/assign", summary="Assign or reassign", responses=CONFLICT)
     async def assign(  # noqa: PLR0913, PLR0917 - FastAPI dependencies

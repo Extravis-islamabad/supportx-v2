@@ -3,14 +3,20 @@
 Real PostgreSQL, the incidents test world. Each test names the requirement and criterion.
 """
 
+import uuid
 from collections.abc import AsyncIterator, Iterator
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 import pytest_asyncio
 
+from app.core.database import Database
+from app.core.tenancy import TenantContext
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
-from app.modules.work_items.service import closing
+from app.modules.work_items.domain.types import INCIDENT
+from app.modules.work_items.service import closing, resolution
+from tests.db.test_conversation_api import say, timeline
 from tests.db.test_incidents_api import BASE, Org, World, field_codes, incidents_world, problem
 from tooling.db_testing import ThrowawayDatabase
 
@@ -190,3 +196,153 @@ async def test_req_inc_100_ac2_a_canceled_record_takes_no_edits(world: World) ->
         headers={"If-Match": f'"{canceled["version"]}"'},
     )
     assert problem(edited) == (409, "record_closed")
+
+
+# --- the requester (session 2) ---------------------------------------------------------------
+
+
+async def as_requester(world: World, org: Org) -> dict[str, Any]:
+    """An assigned incident whose requester is technician B (who may reply in the console)."""
+    return await world.create(
+        org,
+        org.admin,
+        requester_id=str(org.tech_b),
+        group_id=str(org.gb),
+        technician_id=str(org.tech_c),
+    )
+
+
+async def requester_reply(world: World, org: Org, item: dict[str, Any], text: str) -> Any:  # noqa: ANN401 - JSON
+    return await say(world, org, org.tech_b, item, kind="reply", body=f"<p>{text}</p>")
+
+
+async def test_req_inc_051_ac1_a_requester_reply_resumes_awaiting_requester(world: World) -> None:
+    org = world.a
+    item = await as_requester(world, org)
+    waiting = await world.act(
+        org,
+        org.admin,
+        item,
+        "wait_requester",
+        reason_code="more_information",
+        reason_text="Which floor?",
+    )
+    assert waiting.status_code == 200, waiting.text
+    assert (await requester_reply(world, org, waiting.json(), "Third floor")).status_code == 201
+    now = await fresh(world, org, item)
+    assert now["status"] == "in_progress"
+    history = await world.history(org, now)
+    assert any((h.get("automation") or {}).get("rule") == "requester_reply" for h in history)
+
+
+async def test_req_inc_051_ac2_waiting_on_a_third_party_does_not_move(world: World) -> None:
+    org = world.a
+    item = await as_requester(world, org)
+    waiting = await world.act(
+        org, org.admin, item, "wait_third_party", reason_code="vendor", reason_text="Vendor"
+    )
+    assert waiting.status_code == 200, waiting.text
+    await requester_reply(world, org, waiting.json(), "Any news?")
+    assert (await fresh(world, org, item))["status"] == "awaiting_third_party"
+
+
+async def test_req_inc_098_ac1_a_reply_within_the_window_reopens(world: World) -> None:
+    org = world.a
+    item = await as_requester(world, org)
+    resolved = (await world.act(org, org.admin, item, "resolve")).json()
+    closed = (await world.act(org, org.admin, resolved, "close")).json()
+    await requester_reply(world, org, closed, "It jams again")
+    now = await fresh(world, org, item)
+    assert (now["status"], now["reopen_count"]) == ("in_progress", 1)
+
+
+async def test_req_inc_098_ac2_a_reply_after_the_window_starts_a_new_record(world: World) -> None:
+    org = world.a
+    item = await as_requester(world, org)
+    resolved = (await world.act(org, org.admin, item, "resolve")).json()
+    closed = (await world.act(org, org.admin, resolved, "close")).json()
+    await world.sql(
+        "UPDATE work_items SET closed_at = now() - interval '8 days' WHERE id = $1",
+        uuid.UUID(closed["id"]),
+    )
+    replied = await requester_reply(world, org, closed, "New problem with the same printer")
+    assert replied.status_code == 201, replied.text
+    follow_up = replied.json()["follow_up"]
+    assert follow_up is not None
+    assert (await fresh(world, org, item))["status"] == "closed"  # the old one stays closed
+    new = (await world.call("GET", f"{BASE}/{follow_up['id']}", org, org.admin)).json()
+    assert new["follows_id"] == closed["id"]
+    assert new["display_id"] == follow_up["display_id"]
+    assert "New problem with the same printer" in (new["description"] or "")
+
+
+async def test_req_inc_096_ac1_the_requester_confirms_and_it_closes(world: World) -> None:
+    org = world.a
+    item = await as_requester(world, org)
+    resolved = (await world.act(org, org.admin, item, "resolve")).json()
+    stranger = await world.call(
+        "POST", f"{BASE}/{resolved['id']}/resolution/confirm", org, org.tech_a
+    )
+    assert stranger.status_code == 404  # only the record's own requester
+    confirmed = await world.call(
+        "POST", f"{BASE}/{resolved['id']}/resolution/confirm", org, org.tech_b
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["closed"] is True
+    now = await fresh(world, org, item)
+    assert (now["status_category"], now["closure_code"]) == ("closed", "fixed")
+    again = await world.call("POST", f"{BASE}/{resolved['id']}/resolution/confirm", org, org.tech_b)
+    assert problem(again) == (409, "not_resolved")
+
+
+async def test_req_inc_096_ac2_not_fixed_reopens_with_the_comment(world: World) -> None:
+    org = world.a
+    item = await as_requester(world, org)
+    resolved = (await world.act(org, org.admin, item, "resolve")).json()
+    empty = await world.call(
+        "POST", f"{BASE}/{resolved['id']}/resolution/reject", org, org.tech_b, json={"comment": " "}
+    )
+    assert field_codes(empty) == {"comment": "required"}
+    rejected = await world.call(
+        "POST",
+        f"{BASE}/{resolved['id']}/resolution/reject",
+        org,
+        org.tech_b,
+        json={"comment": "Still jams on page 2"},
+    )
+    assert rejected.status_code == 200, rejected.text
+    now = await fresh(world, org, item)
+    assert (now["status"], now["reopen_count"]) == ("in_progress", 1)
+    entries = (await timeline(world, org, org.admin, item)).json()["items"]
+    assert any(
+        e["kind"] == "reply" and e["visibility"] == "public" and "page 2" in e["body"]
+        for e in entries
+    )
+
+
+async def test_req_inc_096_ac3_auto_close_only_after_the_requester_was_told(
+    world: World, app_db: Database
+) -> None:
+    org = world.a
+    told = (await world.act(org, org.admin, await world.create(org, org.admin), "resolve")).json()
+    never_told = (
+        await world.act(org, org.admin, await world.create(org, org.admin), "resolve")
+    ).json()
+    closing.register_requester_channel("email")
+    try:
+        assert (await change_closure(world, org, auto_close_days=1)).status_code == 200
+        async with app_db.tenant_session(TenantContext(org.tenant)) as session:
+            assert await closing.resolution_notified(
+                session, uuid.UUID(told["id"]), datetime.now(UTC) - timedelta(days=4)
+            )
+        async with app_db.tenant_session(TenantContext(org.tenant)) as session:
+            closed = await resolution.auto_close_due(session, INCIDENT, datetime.now(UTC))
+        assert closed == 1
+    finally:
+        closing.unregister_requester_channel("email")
+    now = await fresh(world, org, told)
+    assert (now["status_category"], now["closure_code"]) == ("closed", "fixed")
+    history = await world.history(org, now)
+    assert any((h.get("automation") or {}).get("rule") == "auto_close" for h in history)
+    # Resolved for days, but nobody told the requester: never auto-closed.
+    assert (await fresh(world, org, never_told))["status_category"] == "resolved"

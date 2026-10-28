@@ -2353,6 +2353,7 @@ export const ar: LabelResource = {
   'errors.rule_not_found': 'لم تعد هذه القاعدة موجودة.',
   'errors.rule_refused': '{{message_ar}}',
   'errors.closure_rules': 'هناك أمور مطلوبة قبل تنفيذ هذا الإجراء.',
+  'errors.not_resolved': 'لم يعد هذا بانتظار ردّك: لم يعد محلولًا الآن.',
   'errors.open_work_blocked': 'لا يمكن تنفيذ هذا ما دام هذا العمل مفتوحًا: {{items}}.',
   'errors.open_work_unconfirmed': 'لا يزال هناك عمل مفتوح: {{items}}. أكّد للمتابعة على أي حال.',
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',

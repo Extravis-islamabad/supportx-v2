@@ -76,6 +76,10 @@ class Subjects(Protocol):
         ...
 
 
+class ReplyPolicy(Subjects, items.PermissionHolders, Protocol):
+    """The policy service as a reply needs it: mentions, and a requester's follow-up record."""
+
+
 class ConversationRepository(Repository[WorkItemConversation]):
     """Conversation entries of the session's tenant."""
 
@@ -157,6 +161,8 @@ class Added:
     entry: WorkItemConversation
     not_notified: list[uuid.UUID]
     names: dict[str, tuple[str, str]]
+    # A requester's late reply started a new record following this one (REQ-INC-098).
+    follow_up: WorkItem | None = None
 
 
 def _needed_action(kind: EntryKind, visibility: Visibility) -> str:
@@ -288,9 +294,13 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
     to: Sequence[str],
     cc: Sequence[str],
     source: Source,
-    policy: Subjects,
+    policy: ReplyPolicy,
 ) -> Added:
-    """Save a reply or a note (REQ-INC-057/058/061/063/065)."""
+    """Save a reply or a note (REQ-INC-057/058/061/063/065).
+
+    A public reply by the requester (or the person it is for) moves the record on: resumed when
+    it waits on them, reopened within the window, or followed by a new record (WP-020f).
+    """
     if kind == EntryKind.REPLY:
         chosen = Visibility.PUBLIC if visibility is None else visibility
         mode: ReplyMode | None = reply_mode or ReplyMode.REPLY
@@ -381,10 +391,69 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
         aggregate_id=entry.id,
         aggregate_version=entry.version,
     )
+    follow_up = None
+    if kind == EntryKind.REPLY and subject.user_id in {record.requester_id, record.on_behalf_of_id}:
+        follow_up = await items.on_requester_reply(
+            session, subject, wtype, record, body=clean, source=source, holders=policy
+        )
     names = await user_contacts(
         session, [str(u) for u in (*not_notified, subject.user_id, *mentioned)]
     )
-    return Added(entry, not_notified, names)
+    return Added(entry, not_notified, names, follow_up)
+
+
+async def add_requester_comment(
+    session: AsyncSession, record: WorkItem, body: str, *, source: Source
+) -> WorkItemConversation:
+    """The requester's own words as a public reply (a rejected resolution, REQ-INC-096 AC2).
+
+    The caller checked that the signed-in person is the record's requester; this adds no
+    permission check of its own and moves nothing (the caller made the move).
+    """
+    clean = sanitize_html(body)
+    state, reason = delivery_for(
+        EntryKind.REPLY, email_channel=await email_channel_configured(session)
+    )
+    entry = await ConversationRepository(session).add(
+        WorkItemConversation(
+            work_item_id=record.id,
+            kind=EntryKind.REPLY,
+            visibility=Visibility.PUBLIC,
+            reply_mode=ReplyMode.REPLY,
+            body=clean,
+            recipients=None,
+            delivery_state=state,
+            delivery_reason=reason,
+            first_response=False,
+            mentioned_ids=[],
+        )
+    )
+    await record_changes(
+        session,
+        record_type=followers.RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="child_added",
+        changes=[
+            Change("conversation_entry", None, _entry_code(EntryKind.REPLY, Visibility.PUBLIC))
+        ],
+        source=source,
+    )
+    await record_event(
+        session,
+        WorkItemConversationAdded(
+            work_item_id=record.id,
+            entry_id=entry.id,
+            kind=EntryKind.REPLY,
+            visibility=Visibility.PUBLIC,
+            delivery_state=state,
+            first_response=False,
+            mentioned_ids=[],
+        ),
+        aggregate_id=entry.id,
+        aggregate_version=entry.version,
+    )
+    return entry
 
 
 async def _entry(

@@ -68,7 +68,7 @@ from app.modules.work_items.domain.classification import (
     Urgency,
     compute_priority,
 )
-from app.modules.work_items.domain.closure import ASKED_BY_MOVE
+from app.modules.work_items.domain.closure import ASKED_BY_MOVE, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
@@ -1176,6 +1176,7 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
     reason: str | None,
     automatic: bool,
     extra: Sequence[Change] = (),
+    rule: str = "assignment",
 ) -> None:
     after = _snapshot(record, STAMP_FIELDS)
     await record_changes(
@@ -1187,9 +1188,7 @@ async def _record_status(  # noqa: PLR0913 - the move, its reason and its source
         changes=[Change(n, before[n], v) for n, v in after.items() if before[n] != v] + list(extra),
         source=source,
         reason=reason,
-        automation_ref={"kind": "auto_move", "rule": "assignment", "action": action}
-        if automatic
-        else None,
+        automation_ref={"kind": "auto_move", "rule": rule, "action": action} if automatic else None,
     )
     await record_event(
         session,
@@ -1808,6 +1807,135 @@ async def transition(  # noqa: PLR0913 - the action and its context, explicit
     )
     await _record_automation(session, updated, automated)
     return await _view(session, subject, wtype, updated)
+
+
+# --- the requester replies (WP-020f) --------------------------------------------------------------
+
+REQUESTER_REPLY = "requester_reply"
+
+
+async def system_move(  # noqa: PLR0913 - the move and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    cat: Catalogue,
+    record: WorkItem,
+    action: WorkItemAction,
+    *,
+    source: Source,
+    rule: str = REQUESTER_REPLY,
+    given: closing.MoveInput | None = None,
+) -> WorkItem:
+    """A move the requester makes (a reply, a confirmation); history names the rule."""
+    target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
+    step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
+    before = _snapshot(record, STAMP_FIELDS)
+    changes = await _status_change(
+        session, wtype, record, action, target=target, reason_code=None, reason_text=None
+    )
+    changes.update(step.changes)
+    updated = await _update(session, record, record.version, changes)
+    await _record_status(
+        session,
+        before,
+        updated,
+        action,
+        source=source,
+        reason=None,
+        automatic=True,
+        rule=rule,
+    )
+    return updated
+
+
+async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    body: str,
+    source: Source,
+    holders: PermissionHolders,
+) -> WorkItem | None:
+    """What a requester's public reply does to the record (REQ-INC-051, REQ-INC-098).
+
+    Waiting on them: back to in progress where the status says so. Resolved or closed: within
+    the reopen window it reopens; after it a new record follows this one, which is returned so
+    the requester can be told its ID.
+    """
+    cat = await config.load(session, wtype)
+    category = StatusCategory(record.status_category)
+    allowed = set(cat.lifecycle.actions_from(record.status))
+    if category == StatusCategory.PAUSED:
+        status = next((s for s in cat.statuses if s.code == record.status), None)
+        resumes = status is not None and status.resume_on_requester_reply
+        if resumes and WorkItemAction.RESUME in allowed:
+            await system_move(session, wtype, cat, record, WorkItemAction.RESUME, source=source)
+        return None
+    if category not in {StatusCategory.RESOLVED, StatusCategory.CLOSED}:
+        return None
+    done_at = record.closed_at if category == StatusCategory.CLOSED else record.resolved_at
+    if within_reopen_window(done_at, datetime.now(UTC), cat.closure.reopen_window_days):
+        if WorkItemAction.REOPEN in allowed:
+            await system_move(session, wtype, cat, record, WorkItemAction.REOPEN, source=source)
+        return None
+    return await _follow_up(
+        session, subject, wtype, record, body=body, source=source, holders=holders
+    )
+
+
+async def _follow_up(  # noqa: PLR0913 - the reply and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    body: str,
+    source: Source,
+    holders: PermissionHolders,
+) -> WorkItem | None:
+    """A new record from a late reply, following the old one (REQ-INC-098 AC2).
+
+    It keeps the old record's requester, subject, site, department and category; the reply is
+    its description. When the new record cannot be created (a template that requires more),
+    the reply stays on the closed record and its history says so.
+    """
+    values = {
+        "subject": record.subject,
+        "description": body,
+        "requester_id": record.requester_id,
+        "on_behalf_of_id": record.on_behalf_of_id,
+        "site_id": record.site_id,
+        "department_id": record.department_id,
+        "category_id": record.category_id,
+    }
+    try:
+        async with session.begin_nested():
+            created = await create(session, subject, wtype, values, source=source, holders=holders)
+            follow = await _update(
+                session, created.record, created.record.version, {"follows_id": record.id}
+            )
+    except (ValidationFailed, PermissionDenied, Conflict):
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=record.id,
+            version=record.version,
+            kind="child_changed",
+            changes=[Change("follow_up_not_created", None, new=True)],
+            source=source,
+        )
+        return None
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=record.id,
+        version=record.version,
+        kind="child_added",
+        changes=[Change("followed_by", None, follow.display_id)],
+        source=source,
+    )
+    return follow
 
 
 # --- assignment -----------------------------------------------------------------------------------

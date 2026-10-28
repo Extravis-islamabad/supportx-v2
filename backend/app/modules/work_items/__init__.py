@@ -20,7 +20,7 @@ from app.core.modules import ModuleSpec
 from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
-from app.modules.work_items.service import report_names
+from app.modules.work_items.service import report_names, resolution
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
@@ -29,6 +29,7 @@ from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
 from app.modules.work_items.service.usage import register_record_usage
 from app.shared.files.ports import register_owner_access, unregister_owner_access
+from app.shared.schedules import ScheduleSpec
 
 
 async def _startup(app: FastAPI) -> None:
@@ -63,6 +64,8 @@ module = ModuleSpec(
     realtime=ROUTES,
     on_startup=[_startup],
     on_shutdown=[_shutdown],
+    # REQ-INC-096: resolved records the requester was told about close after N business days.
+    schedules=[ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule)],
 )
 
 __all__ = ["module"]

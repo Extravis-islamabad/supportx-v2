@@ -2066,6 +2066,26 @@ export interface paths {
         patch: operations["patch_settings_api_v1_incidents_settings_patch"];
         trace?: never;
     };
+    "/api/v1/incidents/settings/closure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change how incidents resolve and close
+         * @description Closure rules, open work, auto-close (needs a channel that tells requesters), reopen.
+         */
+        patch: operations["patch_closure_api_v1_incidents_settings_closure_patch"];
+        trace?: never;
+    };
     "/api/v1/incidents/settings/lists/{list_name}/order": {
         parameters: {
             query?: never;
@@ -2521,6 +2541,46 @@ export interface paths {
         get: operations["mentionable_api_v1_incidents__record_id__mentionable_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/resolution/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The requester confirms the resolution
+         * @description Closes it with the requester as actor (REQ-INC-096). 409 `not_resolved` otherwise.
+         */
+        post: operations["confirm_resolution_api_v1_incidents__record_id__resolution_confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/resolution/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The requester says it is not fixed
+         * @description Reopens it to in progress; the comment is a public reply by the requester.
+         */
+        post: operations["reject_resolution_api_v1_incidents__record_id__resolution_reject_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5060,6 +5120,8 @@ export interface components {
          */
         ConversationAddedOut: {
             entry: components["schemas"]["ConversationEntryOut"];
+            /** @description A requester's reply after the reopen window started this record (098). */
+            follow_up?: components["schemas"]["FollowUpOut"] | null;
             /** Not Notified */
             not_notified: string[];
             /** People */
@@ -5854,6 +5916,19 @@ export interface components {
          * @enum {string}
          */
         FollowReason: "self" | "added" | "handed_over" | "mentioned";
+        /**
+         * FollowUpOut
+         * @description The new record a late reply started; the requester is told its ID.
+         */
+        FollowUpOut: {
+            /** Display Id */
+            display_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
         /**
          * FollowerOut
          * @description Someone following the record.
@@ -7517,6 +7592,29 @@ export interface components {
             week_start?: ("monday" | "sunday") | null;
         };
         /**
+         * ResolutionAnswerOut
+         * @description What the requester's answer did (requesters see no more of the record here).
+         */
+        ResolutionAnswerOut: {
+            /**
+             * Closed
+             * @description False on confirm: a technician closes it (closure rules).
+             */
+            closed: boolean;
+            /** Display Id */
+            display_id: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ResolutionRejectIn
+         * @description Why it is not fixed: the requester's own words, shown as a public reply.
+         */
+        ResolutionRejectIn: {
+            /** Comment */
+            comment: string;
+        };
+        /**
          * ResultOrder
          * @description Order of grouped rows.
          * @enum {string}
@@ -8369,6 +8467,11 @@ export interface components {
             labels?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Resume On Requester Reply
+             * @description Paused statuses: a requester reply moves the record to in progress (051).
+             */
+            resume_on_requester_reply?: boolean | null;
         };
         /**
          * SubscriptionTokenRequest
@@ -9074,6 +9177,11 @@ export interface components {
             confirmation?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Missing
+             * @description Resolve and close: record fields the closure rules still need (REQ-INC-094).
+             */
+            missing?: string[];
             /** Reason */
             reason?: string | null;
             reason_list?: components["schemas"]["ReasonList"] | null;
@@ -9137,6 +9245,7 @@ export interface components {
             actions: components["schemas"]["WorkItemAction"][];
             /** Auto Status On Assign */
             auto_status_on_assign: boolean;
+            closure: components["schemas"]["WorkItemClosureOut"];
             /**
              * Closure Codes
              * @description REQ-INC-093.
@@ -9247,6 +9356,66 @@ export interface components {
             labels?: {
                 [key: string]: string;
             } | null;
+        };
+        /**
+         * WorkItemClosureOut
+         * @description Closing rules (WP-020f; REQ-INC-094..098).
+         */
+        WorkItemClosureOut: {
+            /**
+             * Auto Close Days
+             * @description Business days; null: off.
+             */
+            auto_close_days: number | null;
+            /**
+             * Close Requires
+             * @description Fields required before closing.
+             */
+            close_requires: string[];
+            /** Complete Open Work */
+            complete_open_work: boolean;
+            /**
+             * Open Work
+             * @description Open work kind -> warn or block (defaults for kinds not listed).
+             */
+            open_work: {
+                [key: string]: string;
+            };
+            /** Reopen Window Days */
+            reopen_window_days: number;
+            /**
+             * Requester Channels
+             * @description Channels that can tell requesters; auto-close needs one.
+             */
+            requester_channels: string[];
+            /**
+             * Resolve Requires
+             * @description Fields required before resolving.
+             */
+            resolve_requires: string[];
+        };
+        /**
+         * WorkItemClosurePatch
+         * @description Closing rules to change (only those sent). If-Match: the catalogue's `version`.
+         */
+        WorkItemClosurePatch: {
+            /**
+             * Auto Close Days
+             * @description 1 to 30 business days; null switches auto-close off.
+             */
+            auto_close_days?: number | null;
+            /** Close Requires */
+            close_requires?: string[] | null;
+            /** Complete Open Work */
+            complete_open_work?: boolean | null;
+            /** Open Work */
+            open_work?: {
+                [key: string]: string;
+            } | null;
+            /** Reopen Window Days */
+            reopen_window_days?: number | null;
+            /** Resolve Requires */
+            resolve_requires?: string[] | null;
         };
         /**
          * WorkItemFieldChangeOut
@@ -9513,6 +9682,11 @@ export interface components {
             /** Closed At */
             closed_at: string | null;
             /**
+             * Closure Code
+             * @description A closure_code pick-list code (REQ-INC-093).
+             */
+            closure_code: string | null;
+            /**
              * Conversation Actions
              * @description add_note, reply, manage_followers: whether you may, and why not.
              */
@@ -9558,6 +9732,11 @@ export interface components {
              * @description You follow this record.
              */
             following: boolean;
+            /**
+             * Follows Id
+             * @description The earlier record a requester's late reply followed (REQ-INC-098).
+             */
+            follows_id: string | null;
             /** Group Id */
             group_id: string | null;
             /** History Count */
@@ -9606,8 +9785,18 @@ export interface components {
              * Format: uuid
              */
             requester_id: string;
+            /**
+             * Resolution
+             * @description The fix, sanitised rich text (REQ-INC-090).
+             */
+            resolution: string | null;
             /** Resolution Due At */
             resolution_due_at: string | null;
+            /**
+             * Resolution Notified At
+             * @description When the requester was told of the resolution; auto-close counts from it.
+             */
+            resolution_notified_at: string | null;
             /** Resolved At */
             resolved_at: string | null;
             /** Site Id */
@@ -9836,6 +10025,12 @@ export interface components {
             labels: {
                 [key: string]: string;
             } | null;
+            /**
+             * Resume On Requester Reply
+             * @description A requester reply moves a record in this paused status to in progress.
+             * @default false
+             */
+            resume_on_requester_reply: boolean;
             /** System */
             system: boolean;
         };
@@ -9853,6 +10048,17 @@ export interface components {
          */
         WorkItemTransitionIn: {
             /**
+             * Closure Code
+             * @description Close: a closure code. REQ-INC-093.
+             */
+            closure_code?: string | null;
+            /**
+             * Confirm Open Work
+             * @description Resolve or close although work is still open (the warning was shown).
+             * @default false
+             */
+            confirm_open_work: boolean;
+            /**
              * Group Id
              * @description Start work on an unassigned record: which of your groups (as with Take).
              */
@@ -9861,6 +10067,11 @@ export interface components {
             reason_code?: string | null;
             /** Reason Text */
             reason_text?: string | null;
+            /**
+             * Resolution
+             * @description Resolve: the fix, rich text (sanitised). REQ-INC-090.
+             */
+            resolution?: string | null;
         };
         /**
          * WorkItemTransitionOut
@@ -18827,6 +19038,87 @@ export interface operations {
             };
         };
     };
+    patch_closure_api_v1_incidents_settings_closure_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemClosurePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemCatalogueOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     put_list_order_api_v1_incidents_settings_lists__list_name__order_put: {
         parameters: {
             query?: never;
@@ -20907,6 +21199,162 @@ export interface operations {
             };
             /** @description No such record visible to you. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    confirm_resolution_api_v1_incidents__record_id__resolution_confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolutionAnswerOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reject_resolution_api_v1_incidents__record_id__resolution_reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolutionRejectIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolutionAnswerOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };
