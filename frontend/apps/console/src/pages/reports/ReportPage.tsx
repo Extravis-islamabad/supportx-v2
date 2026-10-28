@@ -1,5 +1,4 @@
 import { InfoCircleOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
-import { useQueryClient } from '@tanstack/react-query';
 import {
   Alert,
   Button,
@@ -17,12 +16,11 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
-  queryKeys,
   useCreateReport,
   useDeleteReport,
   useIncidentCatalogue,
@@ -57,7 +55,6 @@ import {
   useListFormat,
   type ListKind,
 } from '@supportx/labels';
-import { refreshList, useListChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
   reportError,
@@ -77,6 +74,7 @@ import { useDebounced } from '../../useDebounced';
 import { PRIORITY_COLOURS } from '../incidents/priorityColours';
 import { DrillDrawer, type Drill } from './DrillDrawer';
 import { ExportButton, MyExportsButton } from './exports';
+import { useLiveReportRefresh } from './liveRefresh';
 import { ScheduleButton } from './schedules';
 import { INCIDENT_REPORT_FIELDS, useReportWords, type ReportWords } from './names';
 
@@ -92,8 +90,6 @@ const CHARTS: ChartType[] = [
 ];
 const BUCKETS: DateBucket[] = ['day', 'week', 'month', 'quarter', 'year', 'age'];
 const RUN_DELAY_MS = 400;
-// Live: list signals can arrive in bursts (bulk edits); a report refreshes at most once a second.
-const LIVE_REFRESH_MS = 1_000;
 
 interface Base {
   ref: string;
@@ -174,7 +170,6 @@ function ReportView({ latest }: { latest: Base }) {
   // The report as this view opened it: its definition is what "changed" compares with.
   const [base, setBase] = useState(latest);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { can } = useAccess();
   const dates = useDateTime();
   const entity = useReportEntity(base.definition.entity);
@@ -223,23 +218,7 @@ function ReportView({ latest }: { latest: Base }) {
   }, [run.error, refused]);
 
   // Live (rule c): the numbers follow the list they count (REQ-RPT-008 AC2).
-  const last = useRef(0);
-  const pending = useRef<number | null>(null);
-  useListChannel(result?.list_path ?? null, () => {
-    const wait = Math.max(0, last.current + LIVE_REFRESH_MS - Date.now());
-    if (pending.current !== null) return;
-    pending.current = window.setTimeout(() => {
-      pending.current = null;
-      last.current = Date.now();
-      refreshList(queryClient, queryKeys.reports.runs);
-    }, wait);
-  });
-  useEffect(
-    () => () => {
-      if (pending.current !== null) window.clearTimeout(pending.current);
-    },
-    [],
-  );
+  useLiveReportRefresh(result?.list_path ?? null);
 
   const fields = entity.data?.fields ?? [];
   const offered = fields.filter(
@@ -581,13 +560,14 @@ function filterInWords(
   return model.join === 'and' ? joinParts(parts) : list(parts, 'disjunction');
 }
 
-function Results({
+export function Results({
   result,
   definition,
   words,
   view,
   onDrill,
   onDrillAll,
+  chartHeight,
 }: {
   result: ReportResult;
   definition: ReportDefinition;
@@ -595,6 +575,8 @@ function Results({
   view: 'chart' | 'table';
   onDrill: (row: ReportRow) => void;
   onDrillAll: () => void;
+  /** Dashboard widgets draw smaller charts than the report viewer. */
+  chartHeight?: number;
 }) {
   const t = useLabels();
   const catalogue = useIncidentCatalogue();
@@ -742,6 +724,7 @@ function Results({
       <Chart
         option={option}
         ariaLabel={summary}
+        height={chartHeight}
         onSelect={(index) => {
           const rows = rowsByCategory[index];
           if (rows?.length === 1 && rows[0]) onDrill(rows[0]);
