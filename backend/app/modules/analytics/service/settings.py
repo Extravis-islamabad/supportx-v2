@@ -14,12 +14,13 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
+from app.core.errors import FieldError, PermissionDenied, ValidationFailed
 from app.modules import organization
 from app.modules.analytics.events import ReportSettingsChanged
 from app.modules.analytics.infra.models import ReportSettings
 from app.modules.identity_access import Subject
 from app.shared.events import record_event
+from app.shared.history import stale_version
 
 if TYPE_CHECKING:
     from app.core.tenancy import TenantContext
@@ -122,10 +123,7 @@ async def update_settings(
         raise PermissionDenied(params={"permission": MANAGE})
     row = await tenant_settings(session)
     if row.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": row.version},
-        )
+        raise await stale_version(session, row, expected_version=expected_version)
     changes = {k: v for k, v in _check(values).items() if getattr(row, k) != v}
     if not changes:
         return row

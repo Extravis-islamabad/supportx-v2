@@ -1,10 +1,15 @@
 import { Alert, Empty, List, Space, Typography } from 'antd';
 import { useState } from 'react';
 
-import { useIncidentAutomation, type AutomationRunOut } from '@supportx/api-client';
+import {
+  useIncidentAutomation,
+  useIncidentHistory,
+  type AutomationRunOut,
+} from '@supportx/api-client';
 import { ToneTag, useDateTime, useLabel, type Tone } from '@supportx/ui';
 
 import { useFieldName } from '../admin/automation/rules';
+import { SAVE_PATH_KINDS, useAutomationWhy } from './automationWhy';
 
 const SHOWN = new Set(['trigger', 'loop_guard']);
 const LOOP_SHOWN_MS = 24 * 60 * 60 * 1000;
@@ -57,15 +62,80 @@ export function LoopWarning({ id }: { id: string }) {
 }
 
 /**
- * What triggers and a move's "after" actions did on this record, each action with its outcome
- * (REQ-RUL-010), and loops the guard stopped (REQ-RUL-028). Live with the record's history.
+ * Everything automation did on this record: business rules, routing and auto-assignment in the
+ * save (from the history, QA WP-029 C3), then what triggers and a move's "after" actions did,
+ * each action with its outcome (REQ-RUL-010), and loops the guard stopped (REQ-RUL-028). Live
+ * with the record's history.
  */
 export function IncidentAutomation({ id }: { id: string }) {
   const t = useLabel();
+  const runs = useIncidentAutomation(id);
+  // The whole history (the History tab's default, so one cache): the automation filter's key
+  // is this panel's own.
+  const history = useIncidentHistory(id, 'all');
+  const shown = (runs.data ?? []).filter((r) => SHOWN.has(r.kind) && r.outcome !== 'own_change');
+  const steps = (history.data?.pages ?? []).flatMap((page) =>
+    page.items.filter(
+      (entry) => entry.automation !== null && SAVE_PATH_KINDS.has(String(entry.automation.kind)),
+    ),
+  );
+  const people = Object.assign({}, ...(history.data?.pages.map((p) => p.people) ?? [])) as Record<
+    string,
+    { display_name: string; email: string } | undefined
+  >;
+  const pending = runs.isPending || history.isPending;
+  if (!pending && shown.length === 0 && steps.length === 0) {
+    return <Empty description={t('automation.panel.none')} data-testid="inc-automation-empty" />;
+  }
+  return (
+    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+      {steps.length > 0 && <SaveSteps steps={steps} people={people} />}
+      {(pending || shown.length > 0) && <TriggerRuns runs={shown} loading={runs.isPending} />}
+      <Typography.Text type="secondary" data-testid="inc-automation-history-hint">
+        {t('automation.panel.history_hint')}
+      </Typography.Text>
+    </Space>
+  );
+}
+
+type HistoryItem = NonNullable<
+  ReturnType<typeof useIncidentHistory>['data']
+>['pages'][number]['items'][number];
+
+/** Rules, routing and assignment in the save: the same "why" lines as the History tab. */
+function SaveSteps({
+  steps,
+  people,
+}: {
+  steps: HistoryItem[];
+  people: Record<string, { display_name: string; email: string } | undefined>;
+}) {
+  const t = useLabel();
+  const dates = useDateTime();
+  const why = useAutomationWhy();
+  return (
+    <List<HistoryItem>
+      header={<Typography.Text strong>{t('automation.panel.steps')}</Typography.Text>}
+      dataSource={steps}
+      data-testid="inc-automation-steps"
+      renderItem={(entry) => (
+        <List.Item data-testid="inc-automation-step">
+          <Space wrap>
+            <Typography.Text>{why(entry.automation ?? {}, people)}</Typography.Text>
+            <Typography.Text type="secondary">{dates.format(entry.occurred_at)}</Typography.Text>
+          </Space>
+        </List.Item>
+      )}
+    />
+  );
+}
+
+/** What triggers and a move's "after" actions did, and loops the guard stopped. */
+function TriggerRuns({ runs, loading }: { runs: AutomationRunOut[]; loading: boolean }) {
+  const t = useLabel();
   const field = useFieldName();
   const dates = useDateTime();
-  const runs = useIncidentAutomation(id);
-  const shown = (runs.data ?? []).filter((r) => SHOWN.has(r.kind) && r.outcome !== 'own_change');
+  const shown = runs;
   const title = (run: AutomationRunOut) => {
     if (run.kind === 'loop_guard') return t('automation.loop.title');
     if (run.detail.source === 'transition' && run.automation_name !== null) {
@@ -75,12 +145,10 @@ export function IncidentAutomation({ id }: { id: string }) {
     }
     return run.automation_name ?? t('automation.someone');
   };
-  if (!runs.isPending && shown.length === 0) {
-    return <Empty description={t('automation.panel.none')} data-testid="inc-automation-empty" />;
-  }
   return (
     <List<AutomationRunOut>
-      loading={runs.isPending}
+      header={<Typography.Text strong>{t('automation.panel.triggers')}</Typography.Text>}
+      loading={loading}
       dataSource={shown}
       data-testid="inc-automation"
       renderItem={(run) => {

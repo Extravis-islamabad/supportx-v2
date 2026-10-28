@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { API_BASE, api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -38,6 +39,9 @@ export function useSaveIdentitySettings() {
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKeys.identity.settings, saved);
     },
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.settings }),
+    ),
   });
 }
 
@@ -52,6 +56,13 @@ export function useSsoProviders() {
 function useSsoChanged() {
   const queryClient = useQueryClient();
   return () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.sso });
+}
+
+/** A stale change: fetch the saved version, so the conflict dialog can compare (QA WP-029 BUG-05). */
+function onConflict(refresh: () => void) {
+  return (error: unknown) => {
+    if (error instanceof ApiError && error.isConflict) refresh();
+  };
 }
 
 /** Add a set-up (checked, saved in draft); `key` is the Idempotency-Key of this attempt. */
@@ -83,6 +94,7 @@ export function useUpdateSso() {
         }),
       ),
     onSuccess: changed,
+    onError: onConflict(changed),
   });
 }
 
@@ -101,6 +113,7 @@ export function useSwitchSso() {
         ),
       ),
     onSuccess: changed,
+    onError: onConflict(changed),
   });
 }
 
@@ -116,6 +129,7 @@ export function useRemoveSso() {
         }),
       ),
     onSuccess: changed,
+    onError: onConflict(changed),
   });
 }
 
@@ -228,6 +242,7 @@ export function useInvitationAction() {
         ),
       ),
     onSuccess: changed,
+    onError: onConflict(changed),
   });
 }
 
@@ -276,6 +291,9 @@ export function useSetMfaMode() {
         }),
       ),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.mfa }),
+    onError: onConflict(
+      () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.mfa }),
+    ),
   });
 }
 

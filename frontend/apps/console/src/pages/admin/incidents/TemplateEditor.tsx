@@ -16,7 +16,6 @@ import {
 import { useState } from 'react';
 
 import {
-  ApiError,
   useCustomFields,
   useIncidentCatalogue,
   useIncidentTemplateChange,
@@ -26,9 +25,11 @@ import {
   type TemplateField,
 } from '@supportx/api-client';
 import {
+  ConflictDialog,
   reportError,
   RichTextField,
   useAppearance,
+  useConflict,
   useLabel,
   WriteButton,
   lengthLimit,
@@ -40,7 +41,13 @@ import { CategoryCascade } from '../../incidents/CategoryCascade';
 import { listValueLabel, scaleLabel, templateLabel } from '../../incidents/labels';
 import { GroupPicker, SitePicker } from '../../incidents/pickers';
 import { TagsInput } from '../../incidents/TagsInput';
-import { cleanLabels, templateProblems } from './helpers';
+import {
+  cleanLabels,
+  refusalMessages,
+  templateProblems,
+  templateView,
+  useTemplatePartName,
+} from './helpers';
 import { LabelsFields, Problems } from './shared';
 
 const FIELDS: TemplateField[] = [
@@ -121,10 +128,14 @@ function toggle(rule: FieldRule, flag: Flag, on: boolean): FieldRule {
  * values. Contradictions are prevented here and refused by the server (REQ-WI-009 AC4).
  */
 export function TemplateEditor({
-  template,
+  template: opened,
+  latest,
   onClose,
 }: {
+  /** The template as it was when the editor opened (null: a new one). */
   template: IncidentTemplate | null;
+  /** The same template as it is now (live), for the conflict dialog. */
+  latest?: IncidentTemplate;
   onClose: () => void;
 }) {
   const t = useLabel();
@@ -133,6 +144,10 @@ export function TemplateEditor({
   const catalogue = useIncidentCatalogue();
   const customFields = useCustomFields('incident');
   const change = useIncidentTemplateChange();
+  // The version this form is based on: "Reload" and "Keep my changes" move it on (BUG-05).
+  const [template, setTemplate] = useState(opened);
+  const conflict = useConflict();
+  const partName = useTemplatePartName();
   const [names, setNames] = useState<Labels>(template?.labels ?? {});
   const [description, setDescription] = useState(template?.description ?? '');
   const [group, setGroup] = useState(template?.group_name ?? '');
@@ -164,7 +179,24 @@ export function TemplateEditor({
       ? templateLabel(t, { ...template, labels: null }, locale)
       : null;
 
-  const save = () => {
+  // Their version, my edits dropped ("Reload" in the conflict dialog).
+  const load = (next: IncidentTemplate) => {
+    setTemplate(next);
+    setNames(next.labels ?? {});
+    setDescription(next.description ?? '');
+    setGroup(next.group_name ?? '');
+    setForRequesters(next.for_requesters);
+    setRules({
+      ...blankRules(),
+      ...next.fields,
+      ...Object.fromEntries(
+        Object.entries(next.custom_fields).map(([key, rule]) => [`${CUSTOM}${key}`, rule]),
+      ),
+    });
+    setDefaults(next.defaults);
+    setProblems([]);
+  };
+  const save = (version = template?.version ?? 0) => {
     setProblems([]);
     const labels = cleanLabels(names);
     const known = new Set(rows);
@@ -192,7 +224,7 @@ export function TemplateEditor({
         : {
             kind: 'update',
             id: template.id,
-            version: template.version,
+            version,
             body: { ...body, labels: labels ?? (template.code === null ? {} : null) },
           },
       {
@@ -201,11 +233,10 @@ export function TemplateEditor({
           onClose();
         },
         onError: (error) => {
-          if (error instanceof ApiError && error.isConflict) {
-            setProblems([t('settings.changed_elsewhere')]);
-            return;
-          }
-          const found = templateProblems(t, error, fieldLabel);
+          // Someone saved it first: the shared dialog says who, when and what (BUG-05).
+          if (conflict.take(error)) return;
+          // A refusal is shown in the editor, once (QA WP-029 BUG-02).
+          const found = refusalMessages(t, error, templateProblems(t, error, fieldLabel));
           if (found.length > 0) setProblems(found);
           else reportError(error);
         },
@@ -391,7 +422,9 @@ export function TemplateEditor({
           <WriteButton
             type="primary"
             loading={change.isPending}
-            onClick={save}
+            onClick={() => {
+              save();
+            }}
             data-testid="tpl-editor-save"
           >
             {t('actions.save')}
@@ -547,6 +580,22 @@ export function TemplateEditor({
             </Form.Item>
           ))}
       </Form>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={partName}
+        opened={templateView(template)}
+        latest={templateView(latest)}
+        onReload={() => {
+          conflict.clear();
+          if (latest !== undefined) load(latest);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (latest !== undefined) setTemplate(latest);
+          save(conflict.latestVersion ?? latest?.version);
+        }}
+      />
     </Drawer>
   );
 }

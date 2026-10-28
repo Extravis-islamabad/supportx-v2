@@ -5,7 +5,7 @@ import { loginUrl, useRequestPasswordReset, type App } from '@supportx/api-clien
 
 import { useLabel } from './appearance';
 import { BrandedPage } from './brand';
-import { reportError } from './errors';
+import { FormProblem, useFormProblem } from './errors';
 
 export const PASSWORD_RESET_PATH = '/password-reset';
 
@@ -24,6 +24,8 @@ export function PasswordResetPage({ app }: { app: App }) {
   const [email, setEmail] = useState('');
   const [touched, setTouched] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
+  // A refusal (too many requests, a rule) is shown in the form (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const valid = LOOKS_LIKE_EMAIL.test(email.trim());
   const back = (
     <Button href={loginUrl(app, '/')} data-testid="reset-back">
@@ -35,11 +37,12 @@ export function PasswordResetPage({ app }: { app: App }) {
     setTouched(true);
     if (!valid) return;
     const address = email.trim();
+    problem.clear();
     request.mutate(address, {
       onSuccess: () => {
         setSentTo(address);
       },
-      onError: reportError,
+      onError: problem.show,
     });
   };
 
@@ -77,6 +80,7 @@ export function PasswordResetPage({ app }: { app: App }) {
                     </Typography.Text>
                   )}
                 </Flex>
+                <FormProblem problem={problem} />
                 <Flex gap={8} wrap>
                   <Button
                     type="primary"

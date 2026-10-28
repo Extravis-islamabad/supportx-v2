@@ -317,6 +317,32 @@ async def test_req_wf_004_who_may_run_is_shown_disabled_with_the_reason_and_refu
     assert (await world.act(org, org.tech_a, mine.json(), "resolve")).status_code == 200
 
 
+async def test_c2_a_refused_move_names_who_may_run_it(world: World) -> None:
+    """QA WP-029 C2: "only certain people" says who: roles, groups and people on the record."""
+    org = world.a
+    await save_transition(
+        world,
+        org,
+        "resolve",
+        roles=["tenant_admin"],
+        group_ids=[str(org.gb)],
+        relatives=["requester"],
+    )
+    item = await world.create(org, org.admin, group_id=str(org.ga), technician_id=str(org.tech_a))
+    seen = await world.call("GET", f"{BASE}/{item['id']}", org, org.tech_a)
+    (state,) = [a for a in seen.json()["actions"] if a["action"] == "resolve"]
+    assert (state["allowed"], state["reason"]) == (False, "not_for_you")
+    who = state["allowed_for"]
+    assert [(r["key"], r["system"]) for r in who["roles"]] == [("tenant_admin", True)]
+    assert who["groups"] == ["Alpha GB"]
+    assert who["relatives"] == ["requester"]
+    # Allowed, or refused for another reason: nobody is named.
+    admin = await world.call("GET", f"{BASE}/{item['id']}", org, org.admin)
+    (mine,) = [a for a in admin.json()["actions"] if a["action"] == "resolve"]
+    assert mine["allowed"] is True
+    assert mine["allowed_for"] is None
+
+
 async def test_req_wf_003_ac1_offered_only_when_its_conditions_hold(world: World) -> None:
     org = world.a
     await save_transition(

@@ -149,6 +149,80 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
     expect((sent?.body as { name: string }).name).toBe('VIP first!');
   });
 
+  it('BUG-05: a stale save says who saved it, when, and which fields changed', async () => {
+    let saved = false;
+    routes({
+      // After the other save, the list has their version (a new name and state).
+      'GET /api/v1/automation/rules': () => ({
+        body: saved
+          ? [rule({ name: 'VIP first (Bilal)', state: 'disabled', version: 2 })]
+          : [rule({})],
+      }),
+      'PATCH /api/v1/automation/rules/r-1': () => {
+        saved = true;
+        return {
+          status: 409,
+          body: problem(409, 'version_conflict', {
+            params: {
+              expected_version: 1,
+              current_version: 2,
+              changed_by: 'Bilal Admin',
+              changed_at: '2026-10-28T09:30:00Z',
+              changed_fields: '',
+            },
+          }),
+        };
+      },
+    });
+    open('/admin/automation/business-rules');
+    fireEvent.click(await screen.findByText('VIP first'));
+    fireEvent.change(await screen.findByTestId('rule-name'), { target: { value: 'Mine' } });
+    fireEvent.click(screen.getByTestId('rule-save'));
+    const who = await screen.findByTestId('conflict-who');
+    expect(who.textContent).toContain('Bilal Admin saved it at');
+    await waitFor(() => {
+      expect(who.textContent).toContain('Changed: Name, State.');
+    });
+  });
+
+  it('BUG-03: every problem names its field, and the field is marked', async () => {
+    routes({
+      'PATCH /api/v1/automation/rules/r-1': {
+        status: 422,
+        body: problem(422, 'validation_failed', {
+          errors: [
+            {
+              field: 'body.name',
+              code: 'required',
+              message_key: 'errors.field.required',
+              params: {},
+            },
+            {
+              field: 'body.actions.0.field',
+              code: 'field_not_settable',
+              message_key: 'errors.field.field_not_settable',
+              params: {},
+            },
+          ],
+        }),
+      },
+    });
+    open('/admin/automation/business-rules');
+    fireEvent.click(await screen.findByText('VIP first'));
+    fireEvent.click(await screen.findByTestId('rule-save'));
+    const problems = await screen.findByTestId('rule-problems');
+    const items = [...problems.querySelectorAll('li')].map((li) => li.textContent);
+    expect(items).toEqual(['Name: This field is required.', expect.stringMatching(/^Action 1: /)]);
+    // Marked where they are: the name input and the first action's row.
+    expect(
+      screen
+        .getByTestId('rule-name')
+        .closest('.ant-input-status-error, .ant-input-affix-wrapper-status-error'),
+    ).not.toBeNull();
+    expect(screen.getByTestId('action-0').getAttribute('data-invalid')).toBe('error');
+    expect(screen.getByTestId('action-0-field').className).toContain('status-error');
+  });
+
   it('a refusal takes its message in English, Arabic (RTL) and Urdu (RTL)', async () => {
     routes();
     open('/admin/automation/business-rules');
@@ -235,6 +309,45 @@ describe('Availability switch (WP-029, REQ-ASG-006)', () => {
       fake.find('PUT', '/api/v1/automation/availability/01900000-0000-7000-8000-000000000101')[0]
         ?.body,
     ).toEqual({ state: 'away' });
+  });
+
+  it('follow-up: a group lead sees who set a member Away and sets them Available', async () => {
+    const ME = '01900000-0000-7000-8000-000000000101';
+    const fake = routes({
+      'GET /api/v1/organization/groups': {
+        body: [{ ...GROUPS[0], lead_id: ME, member_ids: ['u-7'] }],
+      },
+      'GET /api/v1/incidents/assignees': {
+        body: [
+          { id: 'u-7', display_name: 'Tariq Technician', email: 't@demo.test', open_count: 2 },
+        ],
+      },
+      'GET /api/v1/automation/availability': {
+        body: [
+          {
+            user_id: 'u-7',
+            state: 'away',
+            changed_by: 'Amal Admin',
+            changed_at: '2026-10-28T09:00:00Z',
+          },
+        ],
+      },
+      'PUT /api/v1/automation/availability/u-7': { body: { user_id: 'u-7', state: 'available' } },
+    });
+    open('/profile');
+    const card = await screen.findByTestId('led-groups-card');
+    expect(card.textContent).toContain('Service desk');
+    const by = await screen.findByTestId('member-availability-by-u-7');
+    expect(by.textContent).toMatch(/^Set Away by Amal Admin at /);
+    const toggle = screen.getByTestId('member-availability-switch-u-7');
+    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(toggle);
+    await waitFor(() => {
+      expect(fake.find('PUT', '/api/v1/automation/availability/u-7')).toHaveLength(1);
+    });
+    expect(fake.find('PUT', '/api/v1/automation/availability/u-7')[0]?.body).toEqual({
+      state: 'available',
+    });
   });
 
   it('below 1200 px it is one tap away in the user menu', async () => {

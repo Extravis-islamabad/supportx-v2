@@ -2,7 +2,7 @@ import { Alert, Badge, Button, Card, Flex, Select, Space, Table, Typography } fr
 import { useState } from 'react';
 
 import type { IncidentCatalogue, IncidentScale, Priority } from '@supportx/api-client';
-import { useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { ConflictDialog, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { scaleLabel } from '../../incidents/labels';
 import { useDraft, useOpenedVersion, useSettingsSave } from './helpers';
@@ -36,7 +36,7 @@ export function PriorityTab({ catalogue }: { catalogue: IncidentCatalogue }) {
 function MatrixCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const { save, pending, problems } = useSettingsSave();
+  const { save, conflictDialog, pending, problems } = useSettingsSave();
   const source: Matrix = Object.fromEntries(
     catalogue.matrix.map((c) => [cellKey(c.impact, c.urgency), c.priority]),
   );
@@ -140,6 +140,7 @@ function MatrixCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           {t('actions.reset')}
         </Button>
       </Space>
+      <ConflictDialog {...conflictDialog} />
     </Card>
   );
 }
@@ -147,7 +148,7 @@ function MatrixCard({ catalogue }: { catalogue: IncidentCatalogue }) {
 function ScaleCard({ scale, catalogue }: { scale: IncidentScale; catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const { save, pending, problems, clear } = useSettingsSave();
+  const { save, conflictDialog, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<ScaleValue | null>(null);
   const opened = useOpenedVersion(editing !== null, catalogue.version);
   const values = SCALES[scale].map(
@@ -230,6 +231,7 @@ function ScaleCard({ scale, catalogue }: { scale: IncidentScale; catalogue: Inci
           testId={`scale-${scale}-dialog`}
         />
       )}
+      <ConflictDialog {...conflictDialog} />
     </Card>
   );
 }

@@ -51,14 +51,19 @@ import {
 } from '@supportx/api-client';
 import {
   Attachments,
+  ConflictDialog,
   describeError,
+  FormProblem,
   inlineImageIds,
+  markHandled,
   reportError,
   RichTextField,
   RichTextView,
   ToneTag,
   useAccess,
+  useConflictRetry,
   useDateTime,
+  useFormProblem,
   useLabel,
   WriteButton,
   type MentionSearch,
@@ -66,6 +71,7 @@ import {
 
 import { useTenantChannel } from '@supportx/realtime';
 
+import { useIncidentFieldName } from './conflict';
 import { useTypingSignal } from './typing';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
@@ -316,6 +322,25 @@ function EntryCard({
   const { token } = theme.useToken();
   const { message } = App.useApp();
   const change = useChangeNoteVisibility(item.id);
+  // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflictRetry();
+  const fieldName = useIncidentFieldName();
+  const switchTo = (visibility: Visibility, version: number) => {
+    change.mutate(
+      { entryId: entry.id, visibility, version },
+      {
+        onSuccess: () => void message.success(t(`conversation.made_${visibility}`)),
+        onError: (error) => {
+          if (
+            !conflict.take(error, (at) => {
+              switchTo(visibility, at);
+            })
+          )
+            reportError(error);
+        },
+      },
+    );
+  };
   const author = people[entry.created_by ?? '']?.display_name ?? t('conversation.someone');
   const isPrivate = entry.visibility === 'private';
   const accent = isPrivate
@@ -414,13 +439,7 @@ function EntryCard({
             okText={t(`conversation.make_${next}`)}
             cancelText={t('actions.cancel')}
             onConfirm={() => {
-              change.mutate(
-                { entryId: entry.id, visibility: next, version: entry.version },
-                {
-                  onSuccess: () => void message.success(t(`conversation.made_${next}`)),
-                  onError: reportError,
-                },
-              );
+              switchTo(next, entry.version);
             }}
           >
             <Button size="small" type="link" data-testid="conv-switch-visibility">
@@ -429,6 +448,7 @@ function EntryCard({
           </Popconfirm>
         </Flex>
       )}
+      <ConflictDialog {...conflict.dialog} fieldLabel={fieldName} />
     </Card>
   );
 }
@@ -500,6 +520,8 @@ function Composer({
     );
   const error = add.error instanceof ApiError ? add.error : null;
   const fieldErrors = error?.status === 422 ? error.fieldErrors : [];
+  // Any other refusal (a rule, a limit) is shown here too, not as a toast (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const send = (confirmed = false) => {
     const blind = cannotSee(body);
     if (!confirmed && blind.length > 0) {
@@ -508,6 +530,7 @@ function Composer({
     }
     setUnseen(null);
     stopTyping();
+    problem.clear();
     const clean = withoutComposerMarkers(body);
     add.mutate(
       {
@@ -544,7 +567,8 @@ function Composer({
         },
         onError: (failure) => {
           setKey(crypto.randomUUID()); // corrected input is a new request
-          if (!(failure instanceof ApiError && failure.status === 422)) reportError(failure);
+          if (failure instanceof ApiError && failure.status === 422) markHandled(failure);
+          else problem.show(failure);
         },
       },
     );
@@ -670,6 +694,7 @@ function Composer({
           }
         />
       )}
+      <FormProblem problem={problem} />
       <Flex justify="end" gap={8}>
         <Button
           onClick={() => {

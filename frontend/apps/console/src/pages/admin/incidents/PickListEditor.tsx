@@ -14,7 +14,7 @@ import {
 import { useState } from 'react';
 
 import { useIncidentCatalogue, type Labels, type PickList } from '@supportx/api-client';
-import { EmptyText, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import { ConflictDialog, EmptyText, useAppearance, useLabel, WriteButton } from '@supportx/ui';
 
 import { labelled } from '../../incidents/labels';
 import { shippedKey, useOpenedVersion, useSettingsSave } from './helpers';
@@ -49,7 +49,7 @@ export function PickListEditor({
 }) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const { save, pending, problems, clear } = useSettingsSave();
+  const { save, conflictDialog, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<PickValue | 'new' | null>(null);
   const catalogue = useIncidentCatalogue();
   const opened = useOpenedVersion(editing !== null, catalogue.data?.version ?? 0);
@@ -247,6 +247,7 @@ export function PickListEditor({
           testId={`list-${list}-dialog`}
         />
       )}
+      <ConflictDialog {...conflictDialog} />
     </Card>
   );
 }

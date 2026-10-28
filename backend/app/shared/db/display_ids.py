@@ -32,7 +32,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import SESSION_TENANT_KEY
 from app.core.tenancy import TenantContext
-from app.shared.db.models import Base
+from app.shared.db.models import Base, utc_now
 
 PREFIX_PATTERN = r"^[A-Z]{2,6}$"
 _PREFIX = re.compile(PREFIX_PATTERN)
@@ -56,7 +56,7 @@ class DisplayIdSequence(Base):
     prefix: Mapped[str] = mapped_column(primary_key=True)
     last_value: Mapped[int]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
 
 
 def format_display_id(prefix: str, value: int) -> str:

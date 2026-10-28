@@ -2,12 +2,20 @@ import { Alert, App, Button, Card, Modal, Radio, Space, Typography } from 'antd'
 import { useState } from 'react';
 
 import {
-  ApiError,
   useAccessSettings,
   useSaveAccessSettings,
+  type AccessSettings,
   type TechnicianScope,
 } from '@supportx/api-client';
-import { reportError, useAccess, useLabel } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  useAccess,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  type ConflictDialogProps,
+} from '@supportx/ui';
 
 const SCOPES: TechnicianScope[] = ['group', 'all'];
 
@@ -43,31 +51,61 @@ function Choices({
   );
 }
 
-function useSave(onDone?: () => void) {
+const answerView = (settings: AccessSettings | undefined) =>
+  settings && { technician_scope: settings.technician_scope };
+
+/**
+ * `opened`: the settings when the choice began, `latest` the live ones; a save someone else beat (409) opens the shared
+ * conflict dialog with both (QA WP-029 BUG-05). "Reload" drops the choice
+ * (`onDone`), "Keep my changes" saves it again on their version.
+ */
+function useSave(
+  onDone: () => void,
+  opened: AccessSettings | undefined,
+  latest: AccessSettings | undefined,
+) {
   const t = useLabel();
   const { message } = App.useApp();
   const save = useSaveAccessSettings();
-  return {
-    pending: save.isPending,
-    run: (scope: TechnicianScope, version: number) => {
-      save.mutate(
-        { scope, version },
-        {
-          onSuccess: () => {
-            void message.success(t('common.saved'));
-            onDone?.();
-          },
-          onError: (error) => {
-            if (error instanceof ApiError && error.isConflict) {
-              void message.warning(t('settings.changed_elsewhere'));
-              return;
-            }
-            reportError(error);
-          },
+  // A refused save is shown where it was made (QA WP-029 BUG-02): render <FormProblem>.
+  const problem = useFormProblem();
+  const conflict = useConflict();
+  const [stopped, setStopped] = useState<TechnicianScope>();
+  const run = (scope: TechnicianScope, version: number) => {
+    problem.clear();
+    save.mutate(
+      { scope, version },
+      {
+        onSuccess: () => {
+          void message.success(t('common.saved'));
+          onDone();
         },
-      );
+        onError: (error) => {
+          if (conflict.take(error)) {
+            setStopped(scope);
+            return;
+          }
+          problem.show(error);
+        },
+      },
+    );
+  };
+  const conflictDialog: ConflictDialogProps = {
+    open: conflict.open,
+    error: conflict.error,
+    fieldLabel: () => t('access_settings.title'),
+    opened: answerView(opened),
+    latest: answerView(latest),
+    onReload: () => {
+      conflict.clear();
+      onDone();
+    },
+    onKeepMine: () => {
+      conflict.clear();
+      if (stopped !== undefined) run(stopped, conflict.latestVersion ?? latest?.version ?? 0);
     },
   };
+  return { pending: save.isPending, problem, run, conflictDialog };
 }
 
 /**
@@ -83,9 +121,15 @@ export function TechnicianVisibilityQuestion() {
   const settings = useAccessSettings(allowed);
   const [scope, setScope] = useState<TechnicianScope>('group');
   const [open, setOpen] = useState(false);
-  const save = useSave(() => {
-    setOpen(false);
-  });
+  // The settings when the question was opened, for the conflict dialog.
+  const [opened, setOpened] = useState<AccessSettings>();
+  const save = useSave(
+    () => {
+      setOpen(false);
+    },
+    opened,
+    settings.data,
+  );
   if (!allowed || settings.data?.answered_at !== null) return null;
   return (
     <>
@@ -99,6 +143,7 @@ export function TechnicianVisibilityQuestion() {
           <Button
             type="primary"
             onClick={() => {
+              setOpened(settings.data);
               setOpen(true);
             }}
             data-testid="technician-scope-choose"
@@ -118,15 +163,18 @@ export function TechnicianVisibilityQuestion() {
         }}
         onCancel={() => {
           setOpen(false);
+          save.problem.clear();
         }}
         destroyOnHidden
         data-testid="technician-scope-question"
       >
         <Space direction="vertical" size="middle">
+          <FormProblem problem={save.problem} />
           <Typography.Paragraph>{t('access_settings.explain')}</Typography.Paragraph>
           <Choices value={scope} onChange={setScope} />
         </Space>
       </Modal>
+      <ConflictDialog {...save.conflictDialog} />
     </>
   );
 }
@@ -136,10 +184,18 @@ export function TechnicianVisibilityCard() {
   const t = useLabel();
   const { can } = useAccess();
   const settings = useAccessSettings(can('roles.manage'));
-  const [draft, setDraft] = useState<{ scope: TechnicianScope; base: number } | null>(null);
-  const save = useSave(() => {
-    setDraft(null);
-  });
+  const [draft, setDraft] = useState<{
+    scope: TechnicianScope;
+    base: number;
+    opened: AccessSettings;
+  } | null>(null);
+  const save = useSave(
+    () => {
+      setDraft(null);
+    },
+    draft?.opened,
+    settings.data,
+  );
   if (!can('roles.manage') || settings.data === undefined) return null;
   const saved = settings.data;
   const value = draft?.scope ?? saved.technician_scope;
@@ -152,9 +208,14 @@ export function TechnicianVisibilityCard() {
         <Choices
           value={value}
           onChange={(scope) => {
-            setDraft({ scope, base: draft?.base ?? saved.version });
+            setDraft({
+              scope,
+              base: draft?.base ?? saved.version,
+              opened: draft?.opened ?? saved,
+            });
           }}
         />
+        <FormProblem problem={save.problem} />
         <Button
           type="primary"
           disabled={draft === null || draft.scope === saved.technician_scope}
@@ -167,6 +228,7 @@ export function TechnicianVisibilityCard() {
           {t('actions.save')}
         </Button>
       </Space>
+      <ConflictDialog {...save.conflictDialog} />
     </Card>
   );
 }

@@ -30,7 +30,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantKeyed, TenantScoped, UuidPrimaryKey
+from app.shared.db.models import Base, TenantKeyed, TenantScoped, UuidPrimaryKey, utc_now
 
 OUTCOMES = "('done', 'refused', 'failed')"
 ACTOR_TYPES = (
@@ -190,7 +190,7 @@ class AuditSettings(TenantKeyed, Base):
     refusal_window_minutes: Mapped[int] = mapped_column(Integer)
     read_categories: Mapped[list[str]] = mapped_column(JSONB)
     version: Mapped[int] = mapped_column(default=1, server_default="1")
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
 
 
@@ -296,7 +296,7 @@ class AuditCutoff(TenantKeyed, Base):
     __tablename__ = "audit_cutoffs"
 
     hidden_before: Mapped[datetime]
-    updated_at: Mapped[datetime]
+    updated_at: Mapped[datetime] = mapped_column(onupdate=utc_now)
 
 
 class AuditRestored(TenantKeyed, Base):

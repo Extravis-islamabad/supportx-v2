@@ -2,7 +2,7 @@ import { Badge, Button, Card, Flex, Select, Table, Tag, Typography } from 'antd'
 import { useState } from 'react';
 
 import type { IncidentCatalogue, ReasonMode } from '@supportx/api-client';
-import { useAppearance, useLabel } from '@supportx/ui';
+import { ConflictDialog, useAppearance, useLabel } from '@supportx/ui';
 
 import { statusLabel } from '../../incidents/labels';
 import { useOpenedVersion, useSettingsSave } from './helpers';
@@ -20,7 +20,7 @@ const MODES: ReasonMode[] = ['none', 'optional', 'required'];
 export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const { save, pending, problems, clear } = useSettingsSave();
+  const { save, conflictDialog, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<Status | null>(null);
   const opened = useOpenedVersion(editing !== null, catalogue.version);
   const close = () => {
@@ -167,6 +167,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
           testId="status-dialog"
         />
       )}
+      <ConflictDialog {...conflictDialog} />
     </Flex>
   );
 }

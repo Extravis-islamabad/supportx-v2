@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 
 import {
+  ApiError,
   queryKeys,
   useCreateReport,
   useDeleteReport,
@@ -36,6 +37,7 @@ import {
   type ReportDefinition,
   type ReportResult,
   type ReportRow,
+  type SavedReport,
 } from '@supportx/api-client';
 import { Chart, kitOption } from '@supportx/charts';
 import {
@@ -50,10 +52,13 @@ import {
 import { useLabels } from '@supportx/labels';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
   describeError,
   lengthLimit,
   NoAccess,
   useAccess,
+  useConflict,
+  useConflictRetry,
   useDateTime,
   WriteButton,
 } from '@supportx/ui';
@@ -89,6 +94,25 @@ interface Base {
   saved: { id: string; version: number; canEdit: boolean } | null;
 }
 
+function savedBase(report: SavedReport): Base {
+  return {
+    ref: report.id,
+    name: report.name,
+    description: report.description ?? '',
+    definition: report.definition,
+    builtin: null,
+    saved: { id: report.id, version: report.version, canEdit: report.can_edit },
+  };
+}
+
+// A saved report's definition by the names this screen gives its parts (QA WP-029 BUG-05).
+const DEFINITION_PARTS: Record<string, string> = {
+  chart: 'reports.chart',
+  filter: 'reports.filters',
+  group_by: 'reports.group_by',
+  measures: 'reports.measures',
+};
+
 /** /reports/builtin/:code and /reports/:id: the report viewer (REQ-RPT-050). */
 export function ReportPage() {
   const t = useLabels();
@@ -113,16 +137,7 @@ export function ReportPage() {
         : null;
     }
     const report = saved.data;
-    return report
-      ? {
-          ref: report.id,
-          name: report.name,
-          description: report.description ?? '',
-          definition: report.definition,
-          builtin: null,
-          saved: { id: report.id, version: report.version, canEdit: report.can_edit },
-        }
-      : null;
+    return report ? savedBase(report) : null;
   }, [code, library.data, saved.data, t]);
 
   if (!allowed) return <NoAccess titleKey="nav.reports" />;
@@ -130,8 +145,9 @@ export function ReportPage() {
   if (base === null) {
     return loading ? null : <Result status="404" title={t('errors.report_not_found')} />;
   }
-  // Keyed by report and version: another report, or a newer save, starts from its definition.
-  return <ReportView key={`${base.ref}:${String(base.saved?.version ?? 0)}`} base={base} />;
+  // Keyed by report: another report starts from its definition; a newer save of this one is
+  // taken by the view itself (kept edits meet it in the conflict dialog, QA WP-029 BUG-05).
+  return <ReportView key={base.ref} latest={base} />;
 }
 
 function fieldType(type: string): FilterValueType {
@@ -142,8 +158,10 @@ function fieldType(type: string): FilterValueType {
   );
 }
 
-function ReportView({ base }: { base: Base }) {
+function ReportView({ latest }: { latest: Base }) {
   const t = useLabels();
+  // The report as this view opened it: its definition is what "changed" compares with.
+  const [base, setBase] = useState(latest);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = useAccess();
@@ -166,6 +184,17 @@ function ReportView({ base }: { base: Base }) {
     }),
     [draft, model, complexFilter, base.definition.filter],
   );
+  // Their newer save (or this view's own) becomes the report on screen; edits are dropped.
+  const load = (next: Base) => {
+    setBase(next);
+    setDraft(next.definition);
+    setModel(fromDsl(next.definition.filter) ?? { join: 'and', rows: [] });
+    setView(next.definition.chart === 'table' ? 'table' : 'chart');
+  };
+  const edited = JSON.stringify(definition) !== JSON.stringify(base.definition);
+  // A newer save made elsewhere is taken while nothing is edited here; with edits, saving
+  // meets it in the conflict dialog.
+  if (latest.saved?.version !== base.saved?.version && !edited) load(latest);
   const toRun = useDebounced(definition, RUN_DELAY_MS);
   const run = useReportRun(toRun, problems.size === 0);
   const result = run.data;
@@ -372,6 +401,8 @@ function ReportView({ base }: { base: Base }) {
       <Flex gap={12} wrap align="center">
         <Actions
           base={base}
+          latest={latest}
+          onLoad={load}
           definition={definition}
           canSave={problems.size === 0 && can('reports.create')}
           onSaved={(id) => void navigate(`/reports/${id}`)}
@@ -670,12 +701,19 @@ function percentOf(value: number | null | undefined, total: number | null | unde
 
 function Actions({
   base,
+  latest,
+  onLoad,
   definition,
   canSave,
   onSaved,
   onDeleted,
 }: {
+  /** The report as the view opened it (its version goes with the save). */
   base: Base;
+  /** The same report as it is now (live), for the conflict dialog. */
+  latest: Base;
+  /** Show a saved version (theirs, or this save's), edits dropped. */
+  onLoad: (next: Base) => void;
   definition: ReportDefinition;
   canSave: boolean;
   onSaved: (id: string) => void;
@@ -691,6 +729,29 @@ function Actions({
   const [folder, setFolder] = useState<string>('mine');
   const [key] = useState(() => crypto.randomUUID());
   const changed = JSON.stringify(definition) !== JSON.stringify(base.definition);
+  // A save someone else beat (409): who, when and what, in the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const removeConflict = useConflictRetry();
+  const removeIt = (version: number): Promise<void> =>
+    remove
+      .mutateAsync(version)
+      .then(onDeleted)
+      .catch((error: unknown) => {
+        if (!removeConflict.take(error, (at) => void removeIt(at))) throw error;
+      });
+  const saveChanges = (version: number) => {
+    update.mutate(
+      { changes: { definition }, version },
+      {
+        onSuccess: (report) => {
+          onLoad(savedBase(report));
+        },
+        onError: (error) => {
+          conflict.take(error);
+        },
+      },
+    );
+  };
   const whyNot = canSave ? undefined : t('reports.cannot_save');
 
   return (
@@ -714,7 +775,7 @@ function Actions({
             disabled={!canSave || !changed}
             loading={update.isPending}
             onClick={() => {
-              update.mutate({ changes: { definition }, version: base.saved?.version ?? 0 });
+              saveChanges(base.saved?.version ?? 0);
             }}
             data-testid="report-save"
           >
@@ -728,7 +789,7 @@ function Actions({
                 okText: t('reports.delete'),
                 okButtonProps: { danger: true },
                 cancelText: t('reports.cancel'),
-                onOk: () => remove.mutateAsync(base.saved?.version ?? 0).then(onDeleted),
+                onOk: () => removeIt(base.saved?.version ?? 0),
               })
             }
             data-testid="report-delete"
@@ -740,11 +801,32 @@ function Actions({
       {base.saved !== null && !base.saved.canEdit && (
         <Typography.Text type="secondary">{t('reports.not_editable_hint')}</Typography.Text>
       )}
-      {update.error && (
+      {update.error && !(update.error instanceof ApiError && update.error.isConflict) && (
         <Typography.Text type="danger" role="alert">
           {describeError(update.error, t).title}
         </Typography.Text>
       )}
+      <ConflictDialog
+        {...removeConflict.dialog}
+        fieldLabel={(field) => t(DEFINITION_PARTS[field] ?? 'reports.layout')}
+      />
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(DEFINITION_PARTS[field] ?? 'reports.layout')}
+        opened={base.definition}
+        latest={latest.definition}
+        onReload={() => {
+          conflict.clear();
+          update.reset();
+          onLoad(latest);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          update.reset();
+          saveChanges(conflict.latestVersion ?? latest.saved?.version ?? 0);
+        }}
+      />
       <Modal
         open={open}
         title={t('reports.save_copy')}

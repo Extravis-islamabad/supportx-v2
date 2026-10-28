@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call, rememberEtag } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 import type { FilterExpression } from './users';
@@ -192,6 +193,7 @@ export function useUpdateAnnouncement(id: string) {
 /** Publish, unpublish, archive or reopen; unpublish and archive take an optional reason. */
 export function useAnnouncementAction(id: string) {
   const saved = useSaved();
+  const queryClient = useQueryClient();
   return useMutation({
     meta: { silent: true },
     mutationFn: ({
@@ -221,6 +223,12 @@ export function useAnnouncementAction(id: string) {
       }
     },
     onSuccess: saved,
+    onError: (error) => {
+      // A stale move: fetch the saved announcement, so the conflict dialog can compare (BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.detail(id) });
+      }
+    },
   });
 }
 
@@ -271,6 +279,12 @@ export function useUpdateAnnouncementSettings() {
       queryClient.setQueryData(queryKeys.announcements.settings, settings);
       // Who may publish changed: the action buttons of open announcements too.
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.announcements.all, 'detail'] });
+    },
+    onError: (error) => {
+      // A stale save: fetch the saved rule, so the conflict dialog can compare (QA WP-029 BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.settings });
+      }
     },
   });
 }

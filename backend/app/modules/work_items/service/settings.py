@@ -26,7 +26,7 @@ from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.db.display_ids import NumberAlreadyUsedError, set_next_number
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Change, Source, record_changes
+from app.shared.history import Change, Source, record_changes, stale_version
 
 SETTINGS_RECORD_TYPE = "work_item_settings"
 CATEGORY_RECORD_TYPE = "work_item_category"
@@ -49,6 +49,30 @@ def invalid(field: str, field_code: str, **params: Any) -> ValidationFailed:  # 
 
 
 _invalid = invalid
+
+
+async def stale_settings(
+    session: AsyncSession, wtype: WorkItemType, current: Catalogue, expected_version: int
+) -> Conflict:
+    """409 for a stale save of a type's settings: who changed which settings, and when."""
+    row = await session.scalar(
+        select(WorkItemTypeSettings).where(WorkItemTypeSettings.type == wtype.code)
+    )
+    if row is None:
+        return Conflict(
+            code="version_conflict",
+            params={
+                "expected_version": expected_version,
+                "current_version": current.settings_version,
+            },
+        )
+    return await stale_version(
+        session,
+        row,
+        expected_version=expected_version,
+        record_type=SETTINGS_RECORD_TYPE,
+        record_id=uuid.uuid5(uuid.NAMESPACE_URL, f"work_item_settings:{wtype.code}"),
+    )
 
 
 async def get_catalogue(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
@@ -119,13 +143,7 @@ async def update_settings(  # noqa: PLR0913, C901, PLR0912, PLR0915 - one rule p
     }
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if current.settings_version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={
-                "expected_version": expected_version,
-                "current_version": current.settings_version,
-            },
-        )
+        raise await stale_settings(session, wtype, current, expected_version)
     history = [Change(k, before[k], v) for k, v in changes.items()]
     if next_number is not None and next_number != current.last_number + 1:
         try:
@@ -315,9 +333,12 @@ async def update_category(  # noqa: PLR0913 - the change and its context, explic
     changes = {k: v for k, v in changes.items() if before[k] != v}
     if not changes:
         if node.version != expected_version:
-            raise Conflict(
-                code="version_conflict",
-                params={"expected_version": expected_version, "current_version": node.version},
+            raise await stale_version(
+                session,
+                node,
+                expected_version=expected_version,
+                record_type=CATEGORY_RECORD_TYPE,
+                record_id=node.id,
             )
         return node
     updated = await CategoryRepository(session).update(

@@ -213,6 +213,25 @@ class WorkItemActionStateOut(BaseModel):
     confirmation: dict[str, str] | None = Field(
         default=None, description="Asked before the move runs, per language (en, ar, ur)."
     )
+    allowed_for: "AllowedForOut | None" = Field(
+        default=None, description="Refused as not_for_you: who may run it (QA WP-029 C2)."
+    )
+
+
+class RoleNameOut(BaseModel):
+    """A role: system roles are labelled by key, other roles shown by name."""
+
+    key: str
+    name: str
+    system: bool
+
+
+class AllowedForOut(BaseModel):
+    """Who a transition is limited to: roles, group names, people on the record (codes)."""
+
+    roles: list[RoleNameOut]
+    groups: list[str]
+    relatives: list[str]
 
 
 class WorkItemOut(BaseModel):
@@ -354,6 +373,15 @@ def _state(a: service.ActionState) -> WorkItemActionStateOut:
         reason_mode=ReasonMode(a.reason_mode),
         reason_list=ReasonList(a.reason_list) if a.reason_list else None,
         confirmation=dict(a.confirmation) if a.confirmation else None,
+        allowed_for=None
+        if a.allowed_for is None
+        else AllowedForOut(
+            roles=[
+                RoleNameOut(key=r.key, name=r.name, system=r.system) for r in a.allowed_for.roles
+            ],
+            groups=a.allowed_for.groups,
+            relatives=a.allowed_for.relatives,
+        ),
     )
 
 

@@ -1,8 +1,7 @@
 import { Modal, Typography } from 'antd';
 
-import { ApiError } from '@supportx/api-client';
-
 import { useAppearance, useLabel } from '../appearance';
+import { explain } from './conflictDetails';
 
 export interface ConflictDialogProps {
   open: boolean;
@@ -14,23 +13,13 @@ export interface ConflictDialogProps {
   error?: unknown;
   /** Display name of a changed field code (`title` → "Title"); default: the code's label. */
   fieldLabel?: (field: string) => string;
-}
-
-interface Explanation {
-  by: string;
-  at: string | null;
-  fields: string[];
-}
-
-function explain(error: unknown): Explanation | null {
-  if (!(error instanceof ApiError) || !error.isConflict) return null;
-  const { changed_by: by, changed_at: at, changed_fields: fields } = error.params;
-  if (typeof by !== 'string' || by === '') return null;
-  return {
-    by,
-    at: typeof at === 'string' ? at : null,
-    fields: typeof fields === 'string' && fields !== '' ? fields.split(',') : [],
-  };
+  /**
+   * The record as the user opened it and as it is now (live). When the server cannot say which
+   * fields changed (a record without field history), the dialog compares the two (QA WP-029
+   * BUG-05). Pass both from every editor.
+   */
+  opened?: object;
+  latest?: object;
 }
 
 /** 409 version_conflict: someone saved this record after it was opened (CLAUDE.md rule g). */
@@ -40,10 +29,12 @@ export function ConflictDialog({
   onKeepMine,
   error,
   fieldLabel,
+  opened,
+  latest,
 }: ConflictDialogProps) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const found = explain(error);
+  const found = explain(error, opened, latest);
   const name = fieldLabel ?? ((field: string) => t(`field.${field}`));
   const when =
     found?.at == null
@@ -65,14 +56,16 @@ export function ConflictDialog({
     >
       {found !== null && (
         <Typography.Paragraph data-testid="conflict-who">
-          {when === null
-            ? t('conflict.changed_by', { name: found.by })
-            : t('conflict.changed_by_at', { name: found.by, time: when })}
+          {found.by !== '' &&
+            (when === null
+              ? t('conflict.changed_by', { name: found.by })
+              : t('conflict.changed_by_at', { name: found.by, time: when }))}
           {found.fields.length > 0 && (
             <>
               {' '}
               {t('conflict.changed_fields', {
-                fields: found.fields.map(name).join(t('list.separator')),
+                // Several codes can share a name (a status's name and colour): each name once.
+                fields: [...new Set(found.fields.map(name))].join(t('list.separator')),
               })}
             </>
           )}

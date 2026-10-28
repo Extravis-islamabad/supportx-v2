@@ -30,6 +30,8 @@ import {
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
+  useConflictRetry,
   EmptyText,
   NoAccess,
   reportError,
@@ -41,6 +43,7 @@ import {
 } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
+import { useIncidentFieldName } from './conflict';
 import { personName, scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
@@ -468,22 +471,33 @@ function RestoreButton({ row }: { row: IncidentListItem }) {
   const t = useLabel();
   const { message } = App.useApp();
   const restore = useRestoreIncident();
+  // Changed by someone after the list showed it (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflictRetry();
+  const fieldName = useIncidentFieldName();
+  const run = (version: number) => {
+    restore.mutate(
+      { id: row.id, version },
+      {
+        onSuccess: () => void message.success(t('incidents.restored')),
+        onError: (error) => {
+          if (!conflict.take(error, run)) reportError(error);
+        },
+      },
+    );
+  };
   return (
-    <WriteButton
-      size="small"
-      loading={restore.isPending}
-      data-testid={`inc-restore-${row.display_id}`}
-      onClick={() => {
-        restore.mutate(
-          { id: row.id, version: row.version },
-          {
-            onSuccess: () => void message.success(t('incidents.restored')),
-            onError: reportError,
-          },
-        );
-      }}
-    >
-      {t('incidents.restore')}
-    </WriteButton>
+    <>
+      <WriteButton
+        size="small"
+        loading={restore.isPending}
+        data-testid={`inc-restore-${row.display_id}`}
+        onClick={() => {
+          run(row.version);
+        }}
+      >
+        {t('incidents.restore')}
+      </WriteButton>
+      <ConflictDialog {...conflict.dialog} fieldLabel={fieldName} />
+    </>
   );
 }

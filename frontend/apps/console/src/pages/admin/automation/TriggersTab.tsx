@@ -26,10 +26,13 @@ import {
   type TriggerOut,
 } from '@supportx/api-client';
 import {
+  FormProblem,
   ConflictDialog,
   ToneTag,
   lengthLimit,
+  markHandled,
   reportError,
+  useFormProblem,
   useAccess,
   useLabel,
   type Tone,
@@ -37,7 +40,9 @@ import {
 
 import { AfterActions } from './AfterActions';
 import { ConditionBuilder } from './fields';
-import { emptyAction, fromTree, problemsOf, toTree, triggerOp, type Conditions } from './rules';
+import { emptyAction, fromTree, toTree, triggerOp, type Conditions } from './rules';
+import { conditionAt, isAt, useEditorProblems, whereOf } from './problems';
+import { ProblemList } from './ProblemList';
 
 const RECORD_TYPE = 'incident';
 const EVENTS = [
@@ -269,29 +274,34 @@ function TriggerEditor({
   const [draft, setDraft] = useState<Draft>(() => draftOf(trigger));
   const [opened, setOpened] = useState<string | undefined>(trigger?.id);
   const [version, setVersion] = useState(trigger?.version);
-  const [problems, setProblems] = useState<string[]>([]);
+  const issues = useEditorProblems();
+  const { problems } = issues;
+  // A refusal with no problem list (a rule, a limit) is shown here (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [conflict, setConflict] = useState<unknown>();
   if (open && opened !== (trigger?.id ?? 'new')) {
     setOpened(trigger?.id ?? 'new');
     setDraft(draftOf(trigger));
     setVersion(trigger?.version);
-    setProblems([]);
+    issues.clear();
+    problem.clear();
   }
   const stale = latest !== undefined && version !== undefined && latest.version !== version;
   const edit = (next: Partial<Draft>) => {
     setDraft({ ...draft, ...next });
-    setProblems([]);
+    issues.clear();
   };
   const failed = (error: unknown) => {
     if (error instanceof ApiError && error.isConflict) {
       setConflict(error);
       return;
     }
-    const found = problemsOf(t, error);
-    if (found.length > 0) setProblems(found);
-    else reportError(error);
+    // Each problem at its field, named and marked (QA WP-029 BUG-03).
+    if (issues.take(error)) markHandled(error);
+    else problem.show(error);
   };
   const save = (at = version) => {
+    problem.clear();
     const done = () => {
       void message.success(t('common.saved'));
       onClose();
@@ -329,23 +339,15 @@ function TriggerEditor({
     >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {stale && <Alert type="warning" showIcon message={t('organization.changed_elsewhere')} />}
-        {problems.length > 0 && (
-          <Alert
-            type="error"
-            showIcon
-            data-testid="trigger-problems"
-            message={t('automation.problems')}
-            description={
-              <ul style={{ margin: 0 }}>
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            }
-          />
-        )}
+        <FormProblem problem={problem} />
+        <ProblemList problems={problems} testId="trigger-problems" />
         <Form layout="vertical">
-          <Form.Item label={t('automation.field_name')} htmlFor="trigger-name" required>
+          <Form.Item
+            label={t('automation.field_name')}
+            validateStatus={issues.status('name')}
+            htmlFor="trigger-name"
+            required
+          >
             <Input
               id="trigger-name"
               value={draft.name}
@@ -356,7 +358,11 @@ function TriggerEditor({
               data-testid="trigger-name"
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_description')} htmlFor="trigger-description">
+          <Form.Item
+            label={t('automation.field_description')}
+            validateStatus={issues.status('description')}
+            htmlFor="trigger-description"
+          >
             <Input.TextArea
               id="trigger-description"
               rows={2}
@@ -367,7 +373,11 @@ function TriggerEditor({
               count={lengthLimit(2000)}
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_events')} required>
+          <Form.Item
+            label={t('automation.field_events')}
+            validateStatus={issues.status('events')}
+            required
+          >
             <Checkbox.Group
               value={draft.events}
               onChange={(next) => {
@@ -379,9 +389,11 @@ function TriggerEditor({
           </Form.Item>
           <Form.Item
             label={t('automation.field_conditions')}
+            validateStatus={issues.status('conditions')}
             extra={t('automation.triggers.conditions_help')}
           >
             <ConditionBuilder
+              invalid={(index) => conditionAt(problems, index)}
               fields={all}
               value={draft.conditions}
               onChange={(conditions) => {
@@ -390,8 +402,13 @@ function TriggerEditor({
               allowOp={triggerOp}
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_actions')} required>
+          <Form.Item
+            label={t('automation.field_actions')}
+            validateStatus={issues.status('actions')}
+            required
+          >
             <AfterActions
+              invalid={(index) => isAt(problems, `actions.${String(index)}`)}
               fields={all}
               actions={draft.actions}
               onChange={(actions) => {
@@ -414,7 +431,11 @@ function TriggerEditor({
                 data-testid="trigger-own-change"
               />
             </Form.Item>
-            <Form.Item label={t('automation.field_state')} extra={t('automation.field_state.help')}>
+            <Form.Item
+              label={t('automation.field_state')}
+              validateStatus={issues.status('state')}
+              extra={t('automation.field_state.help')}
+            >
               <Select
                 value={draft.state}
                 onChange={(state: TriggerOut['state']) => {
@@ -445,7 +466,9 @@ function TriggerEditor({
       <ConflictDialog
         open={conflict !== undefined}
         error={conflict}
-        fieldLabel={(field) => t(`automation.field_${field}`)}
+        fieldLabel={(field) => whereOf(t, field)}
+        opened={trigger}
+        latest={latest}
         onReload={() => {
           setConflict(undefined);
           onClose();

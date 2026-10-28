@@ -9,8 +9,22 @@ import {
   type IncidentActionState,
   type IncidentCatalogue,
 } from '@supportx/api-client';
-import { reportError, useAppearance, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  markHandled,
+  reportError,
+  useAppearance,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+  lengthLimit,
+  type FormProblemState,
+} from '@supportx/ui';
 
+import { useActionReason } from './actionReason';
+import { incidentView, useIncidentFieldName } from './conflict';
 import { labelled } from './labels';
 import { GroupPicker } from './pickers';
 
@@ -36,6 +50,7 @@ export function StatusActions({
   catalogue: IncidentCatalogue | undefined;
 }) {
   const t = useLabel();
+  const reasonText = useActionReason();
   const { message, modal } = App.useApp();
   const { locale } = useAppearance();
   const act = useIncidentAction(item.id);
@@ -43,9 +58,17 @@ export function StatusActions({
   // The action waiting for "which of your groups" (start work on an unassigned incident).
   const [choosing, setChoosing] = useState<Pending | null>(null);
   const [group, setGroup] = useState<string | null>(null);
-  const run = (pending: Pending, groupId?: string) => {
+  // A refused move with a dialog open is shown in that dialog (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // Changed by someone after it was shown (409): the shared dialog says who, when and what
+  // (QA WP-029 BUG-05); "Keep my changes" runs the move again on the saved version.
+  const conflict = useConflict();
+  const fieldName = useIncidentFieldName();
+  const [tried, setTried] = useState<{ pending: Pending; groupId?: string; opened: Incident }>();
+  const run = (pending: Pending, groupId?: string, version = item.version) => {
+    problem.clear();
     act.mutate(
-      { ...pending, version: item.version, groupId },
+      { ...pending, version, groupId },
       {
         onSuccess: () => {
           setAsking(null);
@@ -53,20 +76,26 @@ export function StatusActions({
           void message.success(t(`incidents.done.${pending.action}`));
         },
         onError: (error) => {
+          if (conflict.take(error)) {
+            setTried({ pending, groupId, opened: item });
+            return;
+          }
           if (
             error instanceof ApiError &&
             error.fieldErrors.some((e) => e.code === 'group_required')
           ) {
+            markHandled(error); // the dialog asks which group
             setAsking(null);
             setChoosing(pending);
             return;
           }
-          if (
-            (asking !== null || choosing !== null) &&
-            error instanceof ApiError &&
-            error.fieldErrors.length > 0
-          ) {
-            return; // shown in the dialog
+          if (asking !== null && error instanceof ApiError && error.fieldErrors.length > 0) {
+            markHandled(error); // shown at the reason fields
+            return;
+          }
+          if (asking !== null || choosing !== null) {
+            problem.show(error);
+            return;
           }
           reportError(error);
         },
@@ -110,7 +139,7 @@ export function StatusActions({
         return state.allowed || state.reason == null ? (
           button
         ) : (
-          <Tooltip key={action} title={t(`action_reason.${state.reason}`)}>
+          <Tooltip key={action} title={reasonText(state)}>
             <span data-testid={`inc-action-${action}-reason`} data-reason={state.reason}>
               {button}
             </span>
@@ -123,8 +152,10 @@ export function StatusActions({
           catalogue={catalogue}
           pending={act.isPending}
           error={act.error}
+          problem={problem}
           onCancel={() => {
             setAsking(null);
+            problem.clear();
             act.reset();
           }}
           onConfirm={(code, text) => {
@@ -141,6 +172,7 @@ export function StatusActions({
         okButtonProps={{ disabled: group === null, 'data-testid': 'inc-start-confirm' }}
         onCancel={() => {
           setChoosing(null);
+          problem.clear();
           act.reset();
         }}
         onOk={() => {
@@ -148,6 +180,7 @@ export function StatusActions({
         }}
         destroyOnHidden
       >
+        <FormProblem problem={problem} />
         <GroupPicker
           value={group}
           onChange={setGroup}
@@ -155,6 +188,27 @@ export function StatusActions({
           ariaLabel={t('work_item.field.group_id')}
         />
       </Modal>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={fieldName}
+        opened={incidentView(tried?.opened)}
+        latest={incidentView(item)}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+          setAsking(null);
+          setChoosing(null);
+          act.reset();
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) {
+            run(tried.pending, tried.groupId, conflict.latestVersion ?? item.version);
+          }
+          setTried(undefined);
+        }}
+      />
     </Flex>
   );
 }
@@ -177,6 +231,7 @@ function ReasonDialog({
   catalogue,
   pending,
   error,
+  problem,
   onCancel,
   onConfirm,
 }: {
@@ -184,6 +239,7 @@ function ReasonDialog({
   catalogue: IncidentCatalogue | undefined;
   pending: boolean;
   error: unknown;
+  problem: FormProblemState;
   onCancel: () => void;
   onConfirm: (code: string | undefined, text: string) => void;
 }) {
@@ -232,6 +288,7 @@ function ReasonDialog({
       destroyOnHidden
     >
       <Space direction="vertical" style={{ width: '100%' }}>
+        <FormProblem problem={problem} />
         {list !== null && (
           <>
             <label htmlFor="inc-reason-code">

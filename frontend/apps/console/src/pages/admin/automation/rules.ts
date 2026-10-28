@@ -1,9 +1,4 @@
-import {
-  ApiError,
-  useCustomFields,
-  type RuleFieldOut,
-  type TriggerActionIO,
-} from '@supportx/api-client';
+import { useCustomFields, type RuleFieldOut, type TriggerActionIO } from '@supportx/api-client';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { fieldName } from '../../customFields/values';
@@ -79,12 +74,6 @@ export function useFieldName(): (name: string) => string {
 }
 
 /** A problem of a save, in words, for the editor's list (its path names the part). */
-export function problemsOf(t: ReturnType<typeof useLabel>, error: unknown): string[] {
-  if (!(error instanceof ApiError) || error.status !== 422) return [];
-  if (error.fieldErrors.length === 0) return [t(`errors.${error.code}`, error.params)];
-  return error.fieldErrors.map((f) => t(f.message_key, f.params ?? {}));
-}
-
 /** Triggers learn only which fields changed, not from what: "changed from" is the status's. */
 export function triggerOp(field: string, op: string): boolean {
   return op !== 'changed_from' || field === 'status';

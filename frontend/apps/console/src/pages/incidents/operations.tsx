@@ -1,7 +1,9 @@
 import { Tooltip } from 'antd';
 
 import type { IncidentActionState } from '@supportx/api-client';
-import { useLabel, WriteButton } from '@supportx/ui';
+import { WriteButton } from '@supportx/ui';
+
+import { useActionReason } from './actionReason';
 
 /** An operation in its fixed place; disabled ones say why (REQ-WI-010). */
 export function OperationButton({
@@ -17,7 +19,7 @@ export function OperationButton({
   onClick: () => void;
   loading?: boolean;
 }) {
-  const t = useLabel();
+  const reasonText = useActionReason();
   if (state === undefined) return null;
   const button = (
     <WriteButton disabled={!state.allowed} onClick={onClick} loading={loading} data-testid={testId}>
@@ -26,7 +28,7 @@ export function OperationButton({
   );
   if (state.allowed || state.reason == null) return button;
   return (
-    <Tooltip title={t(`action_reason.${state.reason}`)}>
+    <Tooltip title={reasonText(state)}>
       <span data-testid={`${testId}-reason`} data-reason={state.reason}>
         {button}
       </span>

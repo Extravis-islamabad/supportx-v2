@@ -12,6 +12,20 @@ export interface ErrorDescription {
 }
 
 /**
+ * The problem's params as label values. Every code gets them (a label's `{{placeholders}}` are
+ * filled from the params the server sends, QA WP-029 BUG-01); nested values are left out.
+ */
+function labelParams(params: Record<string, unknown>): LabelParams {
+  const values: LabelParams = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      values[key] = value;
+    }
+  }
+  return values;
+}
+
+/**
  * Turn any error into translated text. Never returns a code, JSON or stack trace (rule d): an
  * unknown error becomes the generic "something went wrong" message.
  */
@@ -24,11 +38,12 @@ export function describeError(error: unknown, t: Translate): ErrorDescription {
     return { title: t('errors.network_error'), reference };
   }
   const params = error.params;
+  const values = labelParams(params);
   switch (error.code) {
     case 'entitlement_required': {
       const feature = typeof params.feature === 'string' ? params.feature : null;
       return {
-        title: t('errors.entitlement_required'),
+        title: t('errors.entitlement_required', values),
         detail:
           feature === null
             ? undefined
@@ -39,7 +54,7 @@ export function describeError(error: unknown, t: Translate): ErrorDescription {
     case 'read_only_mode': {
       const reason = typeof params.reason === 'string' ? params.reason : 'no_entitlement';
       return {
-        title: t('errors.read_only_mode'),
+        title: t('errors.read_only_mode', values),
         detail: t(`entitlement_reason.${reason}`),
         reference,
       };
@@ -49,22 +64,12 @@ export function describeError(error: unknown, t: Translate): ErrorDescription {
       // Why exactly (WP-012): the four-eyes rule, a missing audience, an ended window …
       const reason = typeof params.reason === 'string' ? params.reason : null;
       return {
-        title: t(error.messageKey),
-        detail: reason === null ? undefined : t(`action_reason.${reason}`),
+        title: t(error.messageKey, values),
+        detail: reason === null ? undefined : t(`action_reason.${reason}`, values),
         reference,
       };
     }
-    // Files (WP-022): the limits and the refused type are part of the message (AC2).
-    case 'file_too_large':
-    case 'file_type_blocked':
-    case 'storage_quota_exceeded': {
-      const values: Record<string, string | number> = {};
-      for (const [key, value] of Object.entries(params)) {
-        if (typeof value === 'string' || typeof value === 'number') values[key] = value;
-      }
-      return { title: t(error.messageKey, values), reference };
-    }
     default:
-      return { title: t(error.messageKey), reference };
+      return { title: t(error.messageKey, values), reference };
   }
 }

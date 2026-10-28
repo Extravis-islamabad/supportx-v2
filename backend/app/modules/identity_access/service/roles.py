@@ -115,6 +115,26 @@ async def list_roles(session: AsyncSession) -> list[tuple[Role, int]]:
     return [(row[0], int(row[1])) for row in rows]
 
 
+@dataclass(frozen=True)
+class RoleName:
+    """A role as other modules name it: system roles by their key (labelled), others by name."""
+
+    key: str
+    name: str
+    system: bool
+
+
+async def role_names(session: AsyncSession, keys: Sequence[str]) -> list[RoleName]:
+    """Roles of the tenant with these keys, in the given order (unknown keys left out)."""
+    if not keys:
+        return []
+    rows = await session.scalars(
+        select(Role).where(Role.key.in_(list(keys)), Role.deleted_at.is_(None))
+    )
+    found = {row.key: RoleName(row.key, row.name, row.is_system) for row in rows}
+    return [found[key] for key in keys if key in found]
+
+
 async def get_role(session: AsyncSession, catalogue: Catalogue, role_id: uuid.UUID) -> RoleDetail:
     """One role with its permission matrix."""
     role = await RoleRepository(session).get(role_id)

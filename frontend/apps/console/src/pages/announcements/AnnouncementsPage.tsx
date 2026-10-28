@@ -15,7 +15,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
 import {
-  ApiError,
   allOf,
   queryKeys,
   useAnnouncementSettings,
@@ -23,15 +22,18 @@ import {
   useRestoreAnnouncement,
   useUpdateAnnouncementSettings,
   type AnnouncementListItem,
+  type AnnouncementSettings,
   type FilterExpression,
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel, useTenantChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
   EmptyText,
   NoAccess,
   reportError,
   useAccess,
   useAppearance,
+  useConflict,
   useLabel,
   useRefetchAfter,
   WriteButton,
@@ -263,23 +265,43 @@ function RestoreButton({ row }: { row: AnnouncementListItem }) {
   const t = useLabel();
   const { message } = App.useApp();
   const restore = useRestoreAnnouncement();
+  // Changed by someone after the list showed it (409): the shared dialog names who and what
+  // (announcements keep field history); "Keep my changes" restores it anyway.
+  const conflict = useConflict();
+  const run = (version: number) => {
+    restore.mutate(
+      { id: row.id, version },
+      {
+        onSuccess: () => void message.success(t('announcements.restored')),
+        onError: (error) => {
+          if (!conflict.take(error)) reportError(error);
+        },
+      },
+    );
+  };
   return (
-    <WriteButton
-      size="small"
-      loading={restore.isPending}
-      data-testid={`ann-restore-${row.display_id}`}
-      onClick={() => {
-        restore.mutate(
-          { id: row.id, version: row.version },
-          {
-            onSuccess: () => void message.success(t('announcements.restored')),
-            onError: reportError,
-          },
-        );
-      }}
-    >
-      {t('announcements.restore')}
-    </WriteButton>
+    <>
+      <WriteButton
+        size="small"
+        loading={restore.isPending}
+        data-testid={`ann-restore-${row.display_id}`}
+        onClick={() => {
+          run(row.version);
+        }}
+      >
+        {t('announcements.restore')}
+      </WriteButton>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(`announcement.field.${field}`)}
+        onReload={conflict.clear}
+        onKeepMine={() => {
+          conflict.clear();
+          if (conflict.latestVersion !== undefined) run(conflict.latestVersion);
+        }}
+      />
+    </>
   );
 }
 
@@ -295,8 +317,46 @@ function FourEyesSetting() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.announcements.settings });
     }
   });
-  if (settings.data === undefined) return null;
-  const { require_second_publisher: on, version } = settings.data;
+  // The rule as it was when switched, and the switch someone else beat (409): the shared dialog.
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{ checked: boolean; opened: AnnouncementSettings }>();
+  const change = (checked: boolean, version: number, opened: AnnouncementSettings) => {
+    update.mutate(
+      { requireSecond: checked, version },
+      {
+        onSuccess: () => void message.success(t('announcements.settings_saved')),
+        onError: (error) => {
+          if (conflict.take(error)) setTried({ checked, opened });
+          else reportError(error);
+        },
+      },
+    );
+  };
+  const view = (rule: AnnouncementSettings | undefined) =>
+    rule && { require_second_publisher: rule.require_second_publisher };
+  const dialog = (
+    <ConflictDialog
+      open={conflict.open}
+      error={conflict.error}
+      fieldLabel={() => t('announcements.four_eyes')}
+      opened={view(tried?.opened)}
+      latest={view(settings.data)}
+      onReload={() => {
+        conflict.clear();
+        setTried(undefined);
+      }}
+      onKeepMine={() => {
+        conflict.clear();
+        if (tried !== undefined && settings.data !== undefined) {
+          change(tried.checked, conflict.latestVersion ?? settings.data.version, settings.data);
+        }
+        setTried(undefined);
+      }}
+    />
+  );
+  if (settings.data === undefined) return dialog;
+  const current = settings.data;
+  const { require_second_publisher: on, version } = current;
   return (
     <Flex gap={8} align="center">
       <Switch
@@ -305,22 +365,14 @@ function FourEyesSetting() {
         loading={update.isPending}
         data-testid="ann-four-eyes"
         onChange={(checked) => {
-          update.mutate(
-            { requireSecond: checked, version },
-            {
-              onSuccess: () => void message.success(t('announcements.settings_saved')),
-              onError: (error) => {
-                if (error instanceof ApiError && error.isConflict) void settings.refetch();
-                reportError(error);
-              },
-            },
-          );
+          change(checked, version, current);
         }}
       />
       <label htmlFor="four-eyes">
         <Typography.Text>{t('announcements.four_eyes')}</Typography.Text>{' '}
         <Typography.Text type="secondary">{t('announcements.four_eyes_help')}</Typography.Text>
       </label>
+      {dialog}
     </Flex>
   );
 }

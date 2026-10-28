@@ -187,3 +187,16 @@ export async function settledBox(
   }
   return previous;
 }
+
+/**
+ * Open an Ant Design Select and wait until its list has finished opening: clicking an option
+ * while the list still slides in can scroll the virtual list so the option never renders (lane
+ * B, WP-039; a banner above shifts the layout enough to expose it).
+ */
+export async function openSelect(page: Page, testId: string) {
+  await page.getByTestId(testId).click();
+  // The list just closed may still be leaving.
+  const dropdown = page.locator('.ant-select-dropdown:visible:not([class*="-leave"])');
+  await expect(dropdown).not.toHaveClass(/ant-slide-up-(appear|enter)/);
+  return dropdown;
+}

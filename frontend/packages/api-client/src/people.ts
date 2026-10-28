@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call, rememberEtag } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 import type { UserDetail } from './users';
@@ -186,6 +187,12 @@ export function useSaveAccessSettings() {
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKeys.people.accessSettings, saved);
       void queryClient.invalidateQueries({ queryKey: queryKeys.access.all });
+    },
+    onError: (error) => {
+      // A stale save: fetch the saved answer, so the conflict dialog can compare (QA WP-029 BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.people.accessSettings });
+      }
     },
   });
 }

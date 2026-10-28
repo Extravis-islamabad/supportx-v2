@@ -9,7 +9,18 @@ import {
   useSwitchSso,
   type SsoProvider,
 } from '@supportx/api-client';
-import { reportError, ToneTag, useDateTime, useLabel, WriteButton, type Tone } from '@supportx/ui';
+import {
+  ConflictDialog,
+  reportError,
+  ToneTag,
+  useConflict,
+  useDateTime,
+  useLabel,
+  WriteButton,
+  type Tone,
+} from '@supportx/ui';
+
+import { ssoView, useSsoFieldName } from './conflict';
 
 import { SsoEditor } from './SsoEditor';
 
@@ -152,6 +163,23 @@ export function SsoCard() {
   const [editing, setEditing] = useState<SsoProvider | 'new' | null>(null);
   const [testing, setTesting] = useState<SsoProvider | null>(null);
   const items = providers.data?.items ?? [];
+  // A set-up another admin changed first (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const ssoField = useSsoFieldName();
+  const [tried, setTried] = useState<{ provider: SsoProvider; act: 'switch' | 'remove' }>();
+  const live = items.find((p) => p.id === tried?.provider.id);
+  const failed = (provider: SsoProvider, act: 'switch' | 'remove') => (error: unknown) => {
+    if (conflict.take(error)) setTried({ provider, act });
+    else reportError(error);
+  };
+  const switchOver = (provider: SsoProvider, version = provider.version) => {
+    switching.mutate(
+      { id: provider.id, on: provider.state !== 'on', version },
+      { onError: failed(provider, 'switch') },
+    );
+  };
+  const removeIt = (provider: SsoProvider, version = provider.version) =>
+    remove.mutateAsync({ id: provider.id, version }).catch(failed(provider, 'remove'));
 
   return (
     <Card
@@ -200,10 +228,7 @@ export function SsoCard() {
                   disabled={provider.state !== 'on' && provider.tested_at == null}
                   loading={switching.isPending && switching.variables.id === provider.id}
                   onClick={() => {
-                    switching.mutate(
-                      { id: provider.id, on: provider.state !== 'on', version: provider.version },
-                      { onError: reportError },
-                    );
+                    switchOver(provider);
                   }}
                   data-testid="sso-switch"
                 >
@@ -232,10 +257,7 @@ export function SsoCard() {
                       okText: t('actions.delete'),
                       okButtonProps: { danger: true },
                       cancelText: t('actions.cancel'),
-                      onOk: () =>
-                        remove
-                          .mutateAsync({ id: provider.id, version: provider.version })
-                          .catch(reportError),
+                      onOk: () => removeIt(provider),
                     });
                   }}
                   data-testid="sso-remove"
@@ -284,10 +306,33 @@ export function SsoCard() {
           )}
         />
       </Flex>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={ssoField}
+        opened={ssoView(tried?.provider)}
+        latest={ssoView(live)}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) {
+            const version = conflict.latestVersion ?? live?.version;
+            if (tried.act === 'remove') void removeIt(tried.provider, version);
+            else switchOver(tried.provider, version);
+          }
+          setTried(undefined);
+        }}
+      />
       {editing !== null && (
         <SsoEditor
           open
           provider={editing === 'new' ? null : editing}
+          latest={
+            editing === 'new' ? undefined : providers.data?.items.find((p) => p.id === editing.id)
+          }
           onClose={() => {
             setEditing(null);
           }}

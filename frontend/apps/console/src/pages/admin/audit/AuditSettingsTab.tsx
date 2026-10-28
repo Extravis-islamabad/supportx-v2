@@ -2,12 +2,13 @@ import { Alert, Button, Card, Checkbox, Form, InputNumber, Space, Typography } f
 import { useState } from 'react';
 
 import {
+  ApiError,
   useAuditSettings,
   useUpdateAuditSettings,
   type AuditReadCategory,
   type AuditSettings,
 } from '@supportx/api-client';
-import { useAccess, useLabel } from '@supportx/ui';
+import { ConflictDialog, useAccess, useConflict, useLabel } from '@supportx/ui';
 
 import { numberProblem } from '../../../numbers';
 
@@ -36,21 +37,61 @@ const READS: AuditReadCategory[] = [
 export function AuditSettingsTab() {
   const settings = useAuditSettings();
   if (settings.data === undefined) return <Card loading />;
-  // A new version (saved here or by someone else) starts a fresh form.
-  return <SettingsForm key={settings.data.version} saved={settings.data} />;
+  return <SettingsForm latest={settings.data} />;
 }
 
-function SettingsForm({ saved }: { saved: AuditSettings }) {
+// What a person changes of the settings (not their limits), for the conflict dialog.
+const settingsView = (settings: AuditSettings) => ({
+  retention_days: settings.retention_days,
+  read_window_minutes: settings.read_window_minutes,
+  refusal_threshold: settings.refusal_threshold,
+  refusal_window_minutes: settings.refusal_window_minutes,
+  read_categories: settings.read_categories,
+});
+
+function SettingsForm({ latest }: { latest: AuditSettings }) {
   const t = useLabel();
   const { can } = useAccess();
   const editable = can('audit.manage');
   const update = useUpdateAuditSettings();
-  const [draft, setDraft] = useState<AuditSettings>(saved);
+  // The saved settings this form is based on (their version goes with the save), and the draft.
+  const [saved, setSaved] = useState<AuditSettings>(latest);
+  const [draft, setDraft] = useState<AuditSettings>(latest);
+  // A save another admin beat (409): the shared dialog says who, when and what (QA WP-029 BUG-05).
+  const conflict = useConflict();
 
   const setNumber = (key: NumberSetting, value: number | null) => {
     if (value !== null) setDraft({ ...draft, [key]: value });
   };
   const changed = JSON.stringify(draft) !== JSON.stringify(saved);
+  // A new version (saved here or by someone else) refreshes a form with no edits.
+  if (latest.version !== saved.version && !changed && !conflict.open) {
+    setSaved(latest);
+    setDraft(latest);
+  }
+  const submit = (version: number) => {
+    update.mutate(
+      {
+        version,
+        body: {
+          retention_days: draft.retention_days,
+          read_window_minutes: draft.read_window_minutes,
+          refusal_threshold: draft.refusal_threshold,
+          refusal_window_minutes: draft.refusal_window_minutes,
+          read_categories: draft.read_categories,
+        },
+      },
+      {
+        onSuccess: (next) => {
+          setSaved(next);
+          setDraft(next);
+        },
+        onError: (error) => {
+          conflict.take(error);
+        },
+      },
+    );
+  };
   // Out-of-range numbers are refused at the field, never clamped (QA WP-026 BUG-03).
   const problemOf = (key: NumberSetting) => {
     const [min = 1, max = 3650] = draft.limits[key] ?? [];
@@ -127,23 +168,35 @@ function SettingsForm({ saved }: { saved: AuditSettings }) {
             loading={update.isPending}
             data-testid="audit-settings-save"
             onClick={() => {
-              update.mutate({
-                version: saved.version,
-                body: {
-                  retention_days: draft.retention_days,
-                  read_window_minutes: draft.read_window_minutes,
-                  refusal_threshold: draft.refusal_threshold,
-                  refusal_window_minutes: draft.refusal_window_minutes,
-                  read_categories: draft.read_categories,
-                },
-              });
+              submit(saved.version);
             }}
           >
             {t('audit.ui.settings.save')}
           </Button>
         )}
       </Form>
-      {update.error !== null && <ProblemAlert error={update.error} />}
+      {update.error !== null && !(update.error instanceof ApiError && update.error.isConflict) && (
+        <ProblemAlert error={update.error} />
+      )}
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(`audit.setting.${field}`)}
+        opened={settingsView(saved)}
+        latest={settingsView(latest)}
+        onReload={() => {
+          conflict.clear();
+          update.reset();
+          setSaved(latest);
+          setDraft(latest);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          update.reset();
+          setSaved(latest);
+          submit(conflict.latestVersion ?? latest.version);
+        }}
+      />
     </Card>
   );
 }
