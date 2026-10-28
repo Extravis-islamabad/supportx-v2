@@ -106,6 +106,11 @@ class User(TenantEntity):
     status: Mapped[str] = mapped_column(server_default="active")
     user_type: Mapped[str]
     last_login_at: Mapped[datetime | None]
+    # MFA (WP-039 session 3, domain/mfa.py): when it became required for this person here (the
+    # grace period runs from it; cleared when no longer required), and when SupportX last saw
+    # an authenticator on their Keycloak account (sign-in, enrolment, reset keep it current).
+    mfa_required_since: Mapped[datetime | None]
+    mfa_enrolled_at: Mapped[datetime | None]
     # Owned by SupportX, editable by the user (WP-008); identity fields above come from Keycloak.
     signature: Mapped[str | None] = mapped_column(Text)
     time_zone: Mapped[str | None] = mapped_column(String(64))
@@ -310,6 +315,7 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
         CheckConstraint(
             f"password_policy_state IN {PASSWORD_POLICY_STATES!r}", name="password_policy_state"
         ),
+        CheckConstraint("mfa_grace_days BETWEEN 0 AND 30", name="mfa_grace_days_range"),
     )
 
     console_idle_seconds: Mapped[int] = mapped_column(
@@ -342,6 +348,27 @@ class IdentitySettings(TenantKeyed, Timestamps, Actors, Versioned, Base):
     password_breached_check: Mapped[bool] = mapped_column(server_default="true")
     password_policy_state: Mapped[str] = mapped_column(String(20), server_default="default")
     password_policy_error: Mapped[str | None] = mapped_column(String(60))
+    # REQ-SEC-024, Appendix A: days a person has to enrol once MFA is required (7; 0 to 30).
+    mfa_grace_days: Mapped[int] = mapped_column(server_default="7")
+
+
+MFA_MODES = ("off", "optional", "required")
+
+
+class MfaPolicy(TenantEntity):
+    """MFA mode for one role of the tenant (REQ-SEC-024). No row: domain/mfa.py's default."""
+
+    __tablename__ = "mfa_policies"
+    __table_args__ = (
+        CheckConstraint(f"mode IN {MFA_MODES!r}", name="mode_code"),
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"], ["roles.tenant_id", "roles.id"], name="fk_mfa_policies_role"
+        ),
+        UniqueConstraint("tenant_id", "role_id", name="uq_mfa_policies_tenant_role"),
+    )
+
+    role_id: Mapped[uuid.UUID]
+    mode: Mapped[str] = mapped_column(String(10))
 
 
 SSO_PROTOCOLS = ("oidc", "saml")

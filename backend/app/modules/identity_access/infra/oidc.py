@@ -185,6 +185,7 @@ class OidcClient:
         organization: str | None = None,
         prompt: str | None = None,
         idp_hint: str | None = None,
+        action: str | None = None,
     ) -> str:
         """Where to send the browser to log in.
 
@@ -209,6 +210,8 @@ class OidcClient:
             params["prompt"] = prompt
         if idp_hint:  # straight to one identity provider (the SSO test, WP-039)
             params["kc_idp_hint"] = idp_hint
+        if action:  # one of Keycloak's account pages, from My account (WP-039 session 3)
+            params["kc_action"] = action
         return f"{(await self.metadata())['authorization_endpoint']}?{urlencode(params)}"
 
     async def _token_request(self, client: ClientCredentials, form: dict[str, str]) -> TokenSet:

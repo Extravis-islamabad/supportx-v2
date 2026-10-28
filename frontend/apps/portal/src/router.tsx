@@ -18,6 +18,11 @@ export const routes: RouteObject[] = [
         index: true,
         lazy: async () => ({ Component: (await import('./pages/HomePage')).HomePage }),
       },
+      {
+        path: 'account',
+        handle: { titleKey: 'nav.profile' },
+        lazy: async () => ({ Component: (await import('./pages/AccountPage')).AccountPage }),
+      },
       { path: 'requests', handle: { titleKey: 'nav.my_requests' }, lazy: comingSoon },
       { path: 'catalog', handle: { titleKey: 'nav.catalog' }, lazy: comingSoon },
       { path: '*', handle: { titleKey: 'shell.not_found' }, lazy: comingSoon },

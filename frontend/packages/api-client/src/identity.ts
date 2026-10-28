@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { api, call } from './client';
+import { API_BASE, api, call } from './client';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -12,6 +12,10 @@ export type SsoProvider = components['schemas']['SsoOut'];
 export type SsoInput = components['schemas']['SsoBody'];
 export type SsoTestResult = components['schemas']['SsoTestResultOut'];
 export type Invitation = components['schemas']['InvitationOut'];
+export type MfaRole = components['schemas']['MfaRoleOut'];
+export type MfaMode = MfaRole['mode'];
+export type AccountSecurity = components['schemas']['AccountSecurityOut'];
+export type AccountAction = 'password' | 'mfa' | 'recovery_codes';
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
@@ -247,4 +251,62 @@ export function useRequestPasswordReset() {
     mutationFn: (email: string) =>
       call(api.POST('/api/v1/auth/password-reset', { body: { email } })),
   });
+}
+
+// --- MFA (WP-039 session 3; REQ-SEC-022, 024, 025) ---------------------------------------------
+
+/** Every role's MFA mode and its enrolment counts (identity.manage). */
+export function useMfaPolicy() {
+  return useQuery({
+    queryKey: queryKeys.identity.mfa,
+    queryFn: () => call(api.GET('/api/v1/identity/mfa')),
+  });
+}
+
+/** Off, optional or required for one role (If-Match: 0 while it is still the default). */
+export function useSetMfaMode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ roleId, mode, version }: { roleId: string; mode: MfaMode; version: number }) =>
+      call(
+        api.PUT('/api/v1/identity/mfa/roles/{role_id}', {
+          params: { path: { role_id: roleId }, header: ifMatch(version) },
+          body: { mode },
+        }),
+      ),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: queryKeys.identity.mfa }),
+  });
+}
+
+/** Remove a person's authenticator and recovery codes; they set MFA up again (never one's own). */
+export function useResetMfa() {
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: (userId: string) =>
+      call(
+        api.POST('/api/v1/identity/people/{user_id}/reset-mfa', {
+          params: { path: { user_id: userId } },
+        }),
+      ),
+  });
+}
+
+// --- My account (REQ-SEC-028) -----------------------------------------------------------------
+
+/** How the signed-in person signs in, and their recent sign-ins. */
+export function useAccountSecurity() {
+  return useQuery({
+    queryKey: queryKeys.identity.accountSecurity,
+    queryFn: () => call(api.GET('/api/v1/account/security')),
+  });
+}
+
+/**
+ * Where to send the browser to change the password, set MFA up or get new recovery codes on the
+ * sign-in service's own pages. It comes back to `returnTo` with `account_action` and `status`.
+ */
+export function accountActionUrl(action: AccountAction, returnTo: string): string {
+  const params = new URLSearchParams({ action, returnTo });
+  return `${API_BASE}/auth/account-action?${params.toString()}`;
 }

@@ -172,6 +172,18 @@ class PasswordPolicyChanged(DomainEvent):
     aggregate_type: ClassVar[str] = "tenant"
 
 
+class MfaChanged(DomainEvent):
+    """An MFA policy, a person's enrolment or an admin reset changed (WP-039 session 3)."""
+
+    event_type: ClassVar[str] = "identity_access.mfa.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "tenant"
+
+    change: Literal["policy", "enrolled", "reset"]
+    role_id: uuid.UUID | None = None
+    user_id: uuid.UUID | None = None
+
+
 class SsoProviderChanged(DomainEvent):
     """A single sign-on set-up was added, changed, tested, switched on or off, or removed."""
 
@@ -208,6 +220,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     AccessSettingsChanged,
     IdentitySettingsChanged,
     PasswordPolicyChanged,
+    MfaChanged,
     SsoProviderChanged,
     InvitationChanged,
 )

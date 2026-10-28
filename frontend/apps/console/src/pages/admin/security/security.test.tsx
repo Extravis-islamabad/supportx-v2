@@ -32,6 +32,7 @@ const DEFAULTS: IdentitySettings = {
   password_history: 5,
   password_expiry_days: 0,
   password_breached_check: true,
+  mfa_grace_days: 7,
   password_policy_editable: true,
   password_policy_state: 'default',
   password_policy_error: null,

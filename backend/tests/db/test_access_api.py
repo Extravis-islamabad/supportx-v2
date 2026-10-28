@@ -164,6 +164,7 @@ async def test_roles_lifecycle_with_etags(world: World) -> None:
         "technician",
         "requester",
         "auditor",
+        "security_admin",  # WP-039 session 3 (Appendix A)
     }
 
     created = await world.create_role(

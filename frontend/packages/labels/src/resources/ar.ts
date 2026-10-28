@@ -939,6 +939,9 @@ export const ar: LabelResource = {
   'richtext.link_placeholder': 'https://',
   // Audit log (WP-018)
   'nav.audit': 'سجل التدقيق',
+  'role.security_admin': 'مسؤول الأمان',
+  'role.security_admin.description':
+    'تسجيل الدخول والأمان: تسجيل الدخول الموحّد وكلمات المرور والمصادقة متعددة العوامل والجلسات والدعوات؛ دون الوصول إلى السجلات.',
   'role.auditor': 'مدقق',
   'role.auditor.description':
     'يقرأ سجل التدقيق ويبحث فيه ويصدّره ويتحقق منه ويقرأ إعدادات الوصول، ولا يغيّر شيئًا.',
@@ -3179,6 +3182,77 @@ export const ar: LabelResource = {
   'audit.action.invitation.revoked': 'سحب دعوة',
   'audit.action.user.password_reset_forced': 'طلب كلمة مرور جديدة',
   'audit.action.identity.password_policy_reapplied': 'طبّق سياسة كلمات المرور مجددًا',
+  // WP-039 session 3: MFA, my account
+  'mfa_mode.off': 'معطّلة',
+  'mfa_mode.optional': 'اختيارية',
+  'mfa_mode.required': 'مطلوبة',
+  'sign_in_method.password': 'كلمة المرور',
+  'sign_in_method.single_sign_on': 'تسجيل الدخول الموحّد',
+  'sign_in_outcome.success': 'سجّل الدخول',
+  'sign_in_outcome.failed': 'فشل',
+  'errors.field.mfa_grace_out_of_range': 'استخدم بين {{min}} و{{max}} يومًا.',
+  'errors.field.mfa_mode_invalid': 'اختر معطّلة أو اختيارية أو مطلوبة.',
+  'errors.mfa_enrolment_unavailable':
+    'يجب إعداد تسجيل الدخول بخطوتين أولًا، لكن تعذّر الوصول إلى خدمة تسجيل الدخول. حاول مجددًا بعد قليل.',
+  'errors.mfa_reset_not_signed_in': 'لم يسجّل هذا الشخص الدخول بعد، فلا يوجد ما يُعاد تعيينه.',
+  'errors.mfa_reset_own':
+    'لا يمكنك إعادة تعيين تسجيل الدخول بخطوتين الخاص بك. اطلب ذلك من مسؤول آخر.',
+  'errors.role_not_found': 'لم يُعثر على هذا الدور.',
+  'event_type.identity_access.mfa.changed': 'تغيّر تسجيل الدخول بخطوتين',
+  'audit.action.identity.mfa_policy_changed': 'غيّر سياسة تسجيل الدخول بخطوتين',
+  'audit.action.user.mfa_reset': 'أعاد تعيين تسجيل الدخول بخطوتين لشخص',
+  'mail.mfa_reset.subject': 'أُعيد تعيين تسجيل الدخول بخطوتين',
+  'mail.mfa_reset.body':
+    'أعاد مسؤول في {{organisation}} تعيين تسجيل الدخول بخطوتين الخاص بك. عند تسجيل دخولك التالي ستُعِد تطبيق المصادقة مجددًا. إن لم تكن تتوقع ذلك فتواصل مع مكتب الخدمة.',
+  'security.mfa.title': 'تسجيل الدخول بخطوتين',
+  'security.mfa.intro':
+    'رمز من تطبيق مصادقة بعد كلمة المرور. اختر لكل دور أن تكون معطّلة أو اختيارية أو مطلوبة. عندما تصبح مطلوبة يكون أمام الأشخاص مهلة السماح أدناه لإعدادها؛ بعدها يجب إعدادها قبل أي شيء آخر.',
+  'security.mfa.grace': 'أيام الإعداد بعد أن تصبح مطلوبة',
+  'security.mfa.role': 'الدور',
+  'security.mfa.mode': 'تسجيل الدخول بخطوتين',
+  'security.mfa.mode_for': 'تسجيل الدخول بخطوتين لدور {{role}}',
+  'security.mfa.saved': 'حُفظ لدور {{role}}.',
+  'security.mfa.enrolled': 'مُعدّة لدى',
+  'security.mfa.count': '{{enrolled}} من {{holders}}',
+  'account.title': 'تسجيل الدخول والأمان',
+  'account.password': 'كلمة المرور',
+  'account.change_password': 'تغيير كلمة المرور',
+  'account.sso_only': 'تسجّل الدخول عبر تسجيل الدخول الموحّد لمؤسستك، لذا لا توجد كلمة مرور هنا.',
+  'account.mfa.title': 'تسجيل الدخول بخطوتين',
+  'account.mfa.on': 'مفعّلة',
+  'account.mfa.off': 'غير مُعدّة',
+  'account.mfa.due': 'مطلوبة بحلول {{date}}',
+  'account.mfa.policy.off': 'لا تستخدم مؤسستك تسجيل الدخول بخطوتين لأدوارك.',
+  'account.mfa.policy.optional':
+    'اختيارية لأدوارك ومستحسنة: رمز من تطبيق مصادقة يحمي حسابك حتى لو تسرّبت كلمة مرورك.',
+  'account.mfa.policy.required': 'مطلوبة لأدوارك: بعد كلمة المرور تُدخل رمزًا من تطبيق مصادقة.',
+  'account.mfa.set_up': 'إعداد تسجيل الدخول بخطوتين',
+  'account.mfa.another': 'إضافة تطبيق مصادقة آخر',
+  'account.mfa.reminder':
+    'تشترط مؤسستك تسجيل الدخول بخطوتين. أعِدّه بحلول {{date}}؛ بعد ذلك سيُطلب منك إعداده قبل أي شيء آخر.',
+  'account.recovery.get': 'الحصول على رموز الاسترداد',
+  'account.recovery.new': 'رموز استرداد جديدة',
+  'account.recovery.missing':
+    'ليست لديك رموز استرداد: بدون هاتفك لن تتمكن من تسجيل الدخول. احصل عليها الآن واحفظها في مكان آمن.',
+  'account.recent': 'عمليات تسجيل الدخول الأخيرة',
+  'account.recent_none': 'لا توجد عمليات تسجيل دخول في آخر 7 أيام.',
+  'account.details_unavailable':
+    'تعذّر الوصول إلى خدمة تسجيل الدخول الآن، لذا بعض التفاصيل غير متاحة.',
+  'account.done.password': 'غُيّرت كلمة مرورك.',
+  'account.done.mfa': 'أُعِدّ تسجيل الدخول بخطوتين.',
+  'account.done.recovery_codes': 'حُفظت رموز الاسترداد الجديدة.',
+  'account.cancelled': 'لم يتغيّر شيء.',
+  'account.failed': 'لم ينجح ذلك. حاول مجددًا.',
+  'people.reset_mfa': 'إعادة تعيين تسجيل الدخول بخطوتين',
+  'people.reset_mfa_confirm': 'هل تعيد تعيين تسجيل الدخول بخطوتين لـ {{name}}؟',
+  'people.reset_mfa_explain':
+    'تحقق أولًا من هوية من يطلب ذلك. يتوقف تطبيق المصادقة ورموز الاسترداد لديه؛ يعيد إعدادها عند تسجيل دخوله التالي ويصله بريد بذلك.',
+  'people.reset_mfa_done': 'سيعيد {{name}} إعداد تسجيل الدخول بخطوتين عند تسجيل دخوله التالي.',
+  'session.idle.title': 'هل ما زلت هنا؟',
+  'session.idle.body':
+    'سيتم تسجيل خروجك خلال {{time}} لعدم وجود نشاط منذ مدة. يُحفظ كل ما كتبته ويعود عند تسجيل الدخول مجددًا.',
+  'session.idle.stay': 'البقاء مسجّلًا',
+  'session.idle.sign_out': 'تسجيل الخروج الآن',
   'forms.start_empty': 'البدء من جديد',
   'forms.draft_restored': 'استُعيد ما أدخلته ولم يُحفظ.',
 };

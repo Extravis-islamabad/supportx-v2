@@ -54,6 +54,9 @@ class Session:
     # The tenant's limits when the session began (WP-039, REQ-SEC-029); None = the platform's.
     idle_seconds: int | None = None
     absolute_seconds: int | None = None
+    # MFA required here but not set up yet (WP-039 session 3): enrol by then (ISO time), else
+    # None. The console and portal show a reminder with a button to set it up.
+    mfa_due_at: str | None = None
 
     def limits(self, *, idle: timedelta, absolute: timedelta) -> tuple[timedelta, timedelta]:
         """The (idle, absolute) limits of the session; `idle` and `absolute` when it has none."""

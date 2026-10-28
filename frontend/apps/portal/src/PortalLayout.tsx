@@ -11,6 +11,7 @@ import {
   brandText,
   ConnectivityBanner,
   LicenceBanners,
+  MfaReminder,
   reportError,
   useAppearance,
   useLabel,
@@ -47,6 +48,7 @@ export function PortalLayout() {
             </Typography.Text>
           </Flex>
         }
+        onProfile={() => void navigate('/account')}
         onLogout={() => {
           clearAllKeptDrafts(); // an explicit sign-out: the next person at this computer starts clean
           void logout();
@@ -67,6 +69,7 @@ export function PortalLayout() {
         />
       </nav>
       <ConnectivityBanner />
+      {pathname !== '/account' && <MfaReminder />}
       <LicenceBanners />
       {/* The full text is on the home page; banners there would only repeat it. */}
       {pathname !== '/' && (

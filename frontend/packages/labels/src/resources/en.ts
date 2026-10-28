@@ -937,6 +937,9 @@ export const en = {
   'richtext.link_placeholder': 'https://',
   // Audit log (WP-018)
   'nav.audit': 'Audit log',
+  'role.security_admin': 'Security administrator',
+  'role.security_admin.description':
+    'Sign-in and security: single sign-on, passwords, MFA, sessions and invitations; no access to records.',
   'role.auditor': 'Auditor',
   'role.auditor.description':
     'Reads, searches, exports and verifies the audit log and reads access settings; changes nothing.',
@@ -3230,6 +3233,79 @@ export const en = {
   'audit.action.invitation.revoked': 'Withdrew an invitation',
   'audit.action.user.password_reset_forced': 'Required a new password',
   'audit.action.identity.password_policy_reapplied': 'Applied the password policy again',
+  // WP-039 session 3: MFA, my account
+  'mfa_mode.off': 'Off',
+  'mfa_mode.optional': 'Optional',
+  'mfa_mode.required': 'Required',
+  'sign_in_method.password': 'Password',
+  'sign_in_method.single_sign_on': 'Single sign-on',
+  'sign_in_outcome.success': 'Signed in',
+  'sign_in_outcome.failed': 'Failed',
+  'errors.field.mfa_grace_out_of_range': 'Use between {{min}} and {{max}} days.',
+  'errors.field.mfa_mode_invalid': 'Choose off, optional or required.',
+  'errors.mfa_enrolment_unavailable':
+    'Two-step sign-in has to be set up first, but the sign-in service cannot be reached. Try again in a moment.',
+  'errors.mfa_reset_not_signed_in':
+    'This person has not signed in yet, so there is nothing to reset.',
+  'errors.mfa_reset_own': 'You cannot reset your own two-step sign-in. Ask another administrator.',
+  'errors.role_not_found': 'This role was not found.',
+  'event_type.identity_access.mfa.changed': 'Two-step sign-in changed',
+  'audit.action.identity.mfa_policy_changed': 'Changed the two-step sign-in policy',
+  'audit.action.user.mfa_reset': "Reset a person's two-step sign-in",
+  'mail.mfa_reset.subject': 'Your two-step sign-in was reset',
+  'mail.mfa_reset.body':
+    'An administrator of {{organisation}} reset your two-step sign-in. At your next sign-in you will set up your authenticator app again. If you did not expect this, contact your service desk.',
+  'security.mfa.title': 'Two-step sign-in',
+  'security.mfa.intro':
+    'A code from an authenticator app after the password. Choose per role whether it is off, optional or required. When it becomes required, people have the grace period below to set it up; after that they must set it up before anything else.',
+  'security.mfa.grace': 'Days to set it up once required',
+  'security.mfa.role': 'Role',
+  'security.mfa.mode': 'Two-step sign-in',
+  'security.mfa.mode_for': 'Two-step sign-in for {{role}}',
+  'security.mfa.saved': 'Saved for {{role}}.',
+  'security.mfa.enrolled': 'Set up',
+  'security.mfa.count': '{{enrolled}} of {{holders}}',
+  'account.title': 'Sign-in and security',
+  'account.password': 'Password',
+  'account.change_password': 'Change password',
+  'account.sso_only':
+    "You sign in through your organisation's single sign-on, so there is no password here.",
+  'account.mfa.title': 'Two-step sign-in',
+  'account.mfa.on': 'On',
+  'account.mfa.off': 'Not set up',
+  'account.mfa.due': 'Required by {{date}}',
+  'account.mfa.policy.off': 'Your organisation does not use two-step sign-in for your roles.',
+  'account.mfa.policy.optional':
+    'Optional for your roles, and recommended: a code from an authenticator app keeps your account safe even if your password leaks.',
+  'account.mfa.policy.required':
+    'Required for your roles: after your password, you enter a code from an authenticator app.',
+  'account.mfa.set_up': 'Set up two-step sign-in',
+  'account.mfa.another': 'Add another authenticator app',
+  'account.mfa.reminder':
+    'Your organisation requires two-step sign-in. Set it up by {{date}}; after that you will be asked to before anything else.',
+  'account.recovery.get': 'Get recovery codes',
+  'account.recovery.new': 'New recovery codes',
+  'account.recovery.missing':
+    'You have no recovery codes: without your phone you could not sign in. Get them now and keep them safe.',
+  'account.recent': 'Recent sign-ins',
+  'account.recent_none': 'No sign-ins in the last 7 days.',
+  'account.details_unavailable':
+    'The sign-in service cannot be reached right now, so some details are missing.',
+  'account.done.password': 'Your password was changed.',
+  'account.done.mfa': 'Two-step sign-in is set up.',
+  'account.done.recovery_codes': 'Your new recovery codes are saved.',
+  'account.cancelled': 'Nothing was changed.',
+  'account.failed': 'That did not work. Try again.',
+  'people.reset_mfa': 'Reset two-step sign-in',
+  'people.reset_mfa_confirm': 'Reset two-step sign-in for {{name}}?',
+  'people.reset_mfa_explain':
+    'Check who is asking first. Their authenticator app and recovery codes stop working; they set it up again at their next sign-in and get an e-mail about it.',
+  'people.reset_mfa_done': '{{name}} sets up two-step sign-in again at their next sign-in.',
+  'session.idle.title': 'Are you still there?',
+  'session.idle.body':
+    'You will be signed out in {{time}} because nothing happened for a while. Anything you typed is kept and comes back when you sign in again.',
+  'session.idle.stay': 'Stay signed in',
+  'session.idle.sign_out': 'Sign out now',
   'forms.start_empty': 'Start empty',
   'forms.draft_restored': 'Your unsaved input was restored.',
 } as const;

@@ -1,6 +1,7 @@
-import { expect, test, type Browser, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-import { keycloakAdmin, keycloakUserId, PORTAL_URL, stackEnv } from '../stack';
+import { actionLink, mailTo, privateWindow, setPassword } from '../mail';
+import { keycloakAdmin, keycloakUserId, PORTAL_URL } from '../stack';
 import { expectAccessible, signInAs } from './helpers';
 
 /**
@@ -19,56 +20,6 @@ const RUN = Date.now().toString(36);
 const PERSON = { first: 'Ina', last: `Vitee ${RUN}`, email: `ina.${RUN}@demo.test` };
 const BREACHED = 'John!20130605At1753'; // on the shipped list (SecLists), meets every other rule
 const PASSWORD = `Ina-${RUN}-Lantern-7`;
-
-function mailpit(): string {
-  return `http://localhost:${stackEnv().MAILPIT_WEB_PORT ?? '28025'}`;
-}
-
-interface MailSummary {
-  ID: string;
-  Subject: string;
-  From: { Address: string; Name: string };
-}
-
-/** The newest message to `to` whose subject matches, waiting for it to arrive. */
-async function mailTo(to: string, after: number): Promise<{ summary: MailSummary; html: string }> {
-  let found: MailSummary | undefined;
-  await expect
-    .poll(
-      async () => {
-        const response = await fetch(
-          `${mailpit()}/api/v1/search?query=${encodeURIComponent(`to:"${to}"`)}`,
-        );
-        const body = (await response.json()) as { messages: (MailSummary & { Created: string })[] };
-        found = body.messages.find((m) => Date.parse(m.Created) >= after);
-        return found !== undefined;
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
-  const summary: MailSummary | undefined = found;
-  if (summary === undefined) throw new Error(`no e-mail to ${to}`);
-  const message = (await (await fetch(`${mailpit()}/api/v1/message/${summary.ID}`)).json()) as {
-    HTML: string;
-  };
-  return { summary, html: message.HTML };
-}
-
-function actionLink(html: string): string {
-  const match = /href="([^"]*login-actions\/action-token[^"]*)"/.exec(html);
-  expect(match, 'the e-mail has the set-password link').not.toBeNull();
-  return (match?.[1] ?? '').replaceAll('&amp;', '&');
-}
-
-async function privateWindow(browser: Browser): Promise<Page> {
-  return (await browser.newContext()).newPage();
-}
-
-async function setPassword(page: Page, password: string): Promise<void> {
-  await page.locator('#password-new').fill(password);
-  await page.locator('#password-confirm').fill(password);
-  await page.locator('input[type=submit], button[type=submit]').first().click();
-}
 
 test('an invited person sets a password that meets the policy and signs in', async ({
   browser,

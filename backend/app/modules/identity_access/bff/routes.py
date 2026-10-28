@@ -1,6 +1,7 @@
 """BFF endpoints under /api/v1/auth (D-009). Tokens never leave the server."""
 
 import uuid
+from datetime import datetime
 from typing import TYPE_CHECKING, Annotated, Literal
 from urllib.parse import urlencode, urlsplit
 
@@ -22,7 +23,13 @@ from app.modules.identity_access.domain.session import Session
 from app.modules.identity_access.infra.models import User
 from app.modules.identity_access.service import password_reset as password_reset_service
 from app.modules.identity_access.service import sso
-from app.modules.identity_access.service.auth import AuthService, LoginAddress, LoginFailure
+from app.modules.identity_access.service.auth import (
+    AccountAction,
+    AuthService,
+    EnrolFirst,
+    LoginAddress,
+    LoginFailure,
+)
 from app.modules.identity_access.service.sso_test import TestFinished
 from app.modules.organization import tenant_for_host
 from app.shared.realtime import (
@@ -115,6 +122,14 @@ class MeResponse(BaseModel):
     tenants: list[TenantOut]
     csrf_token: str
     permissions: list[EffectivePermission] = Field(default_factory=list)
+    idle_timeout_seconds: int | None = Field(
+        default=None,
+        description="Signed out after this long without activity (warned 2 minutes ahead).",
+    )
+    mfa_due_at: datetime | None = Field(
+        default=None,
+        description="MFA is required here and not set up yet: set it up by then (a reminder).",
+    )
 
 
 class SwitchTenantRequest(BaseModel):
@@ -158,12 +173,13 @@ async def login(
 )
 @entitlement_exempt
 @public_route
-async def callback(
+async def callback(  # noqa: PLR0913, PLR0917 - FastAPI parameters: the callback's query
     request: Request,
     auth: Auth,
     code: str | None = None,
     state: str | None = None,
     error: str | None = None,
+    kc_action_status: str | None = None,
 ) -> RedirectResponse:
     """Keycloak sends the browser here. Creates a new session and sets the session cookie.
 
@@ -178,6 +194,7 @@ async def callback(
             error=error,
             previous_session_id=request.cookies.get(auth.cookie_name),
             host=request.headers.get("host"),
+            action_status=kc_action_status,
         )
     except LoginFailure as failure:
         if "text/html" not in request.headers.get("accept", ""):
@@ -188,6 +205,8 @@ async def callback(
             base = failure.origin + urlsplit(base).path.rstrip("/")
         target = f"{base}/?{query}"
         return RedirectResponse(target, status_code=status.HTTP_303_SEE_OTHER)
+    if isinstance(result, EnrolFirst):  # past the MFA grace period: Keycloak makes them enrol
+        return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
     if isinstance(result, TestFinished):  # an admin's SSO test: no session, back to the pop-up
         await _record_sso_test(request, result)
         return RedirectResponse(result.redirect_to, status_code=status.HTTP_303_SEE_OTHER)
@@ -313,6 +332,10 @@ async def me(found: CurrentSession, request: Request) -> MeResponse:
 async def _describe(request: Request, session: Session) -> MeResponse:
     """Session summary plus the user's SupportX roles and effective permissions."""
     described = AuthService.describe(session)
+    auth: AuthService | None = getattr(request.app.state, "auth", None)
+    if auth is not None:  # this session's own limit (its tenant's, when it began; REQ-SEC-029)
+        idle, _ = session.limits(idle=auth.idle, absolute=auth.absolute)
+        described["idle_timeout_seconds"] = int(idle.total_seconds())
     # Preferences live in the users row (they change after login, on any device).
     database: Database | None = getattr(request.app.state, "db", None)
     if database is not None:
@@ -366,6 +389,34 @@ async def _end_realtime(request: Request, session: Session) -> None:
         )
     except CentrifugoError:
         log.warning("realtime_disconnect_failed", exc_info=True)
+
+
+@router.get(
+    "/account-action",
+    summary="Change password or MFA on the sign-in service's pages",
+    status_code=status.HTTP_302_FOUND,
+    response_class=RedirectResponse,
+)
+@entitlement_exempt
+@public_route
+async def account_action(
+    found: CurrentSession,
+    request: Request,
+    auth: Auth,
+    action: Annotated[AccountAction, Query()],
+    return_to: Annotated[str | None, Query(alias="returnTo", max_length=2048)] = None,
+) -> RedirectResponse:
+    """From My account (REQ-SEC-028): Keycloak asks for the password, then shows its page.
+
+    `password` changes the password, `mfa` sets up an authenticator app, `recovery_codes` makes
+    new recovery codes. The browser comes back to `returnTo` with `account_action` and `status`
+    (success, cancelled, error) and a fresh session; the password never passes through SupportX.
+    """
+    _session_id, session = found
+    address = await _address(request)
+    app: Literal["console", "portal"] = "portal" if session.client == "portal" else "console"
+    url = await auth.start_login(app, return_to, address, account_action=action)
+    return RedirectResponse(url, status_code=status.HTTP_302_FOUND)
 
 
 @router.post("/logout", summary="Log out", status_code=status.HTTP_204_NO_CONTENT)
