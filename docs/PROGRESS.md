@@ -15,8 +15,8 @@
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
   #77, export #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic;
   the 1M-row volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA
-  round done (~/Desktop/qa-wp035, 8 bugs), all fixed in WP-035-FIX. Order (D-108): WP-036
-  dashboards (next), then WP-033 knowledge sessions 1-4 (plan approved as D-108; knowledge moved from
+  round done (~/Desktop/qa-wp035, 8 bugs), all fixed in WP-035-FIX (#103). WP-036 dashboards
+  built (sessions 1-2, PR open); then WP-033 knowledge sessions 1-4 (plan approved as D-108; knowledge moved from
   lane B). Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
@@ -785,6 +785,30 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
+### [~] WP-036 — Home page and live dashboards (lane C; sessions 1-2 of 2 built 2026-10-28)
+Built on WP-035's engine: every widget is a report definition run through `POST /reports/run`, so
+its numbers equal the report's and each viewer sees their own scope (REQ-DSH-028).
+- [x] **Session 1 — backend.** `dashboards` (one versioned document: widgets, places, filter
+  defaults), `dashboard_preferences` (home, favourites), `dashboard_role_defaults` (by role key);
+  RLS on all three. Built-in "Service desk" and "My work" in code (read-only, copyable); `@me` in
+  widget filters is the viewer. Private until shared (`dashboards.share`); homes: own choice, the
+  role's (`dashboards.manage_defaults`, audited), the built-in role home. Events saved, deleted,
+  home changed; realtime to the owner, or everyone for shared and just un-shared dashboards.
+- [x] **Session 2 — console.** `/dashboards` picker (search, favourites first, ready-made, shared,
+  mine, private/shared tags, star); dashboard page (home, copy, share, delete, edit layout);
+  12-column grid (CSS grid, mirrored in RTL, stacked on narrow screens); edit mode with drag to
+  swap, keyboard buttons to move and resize, remove, add widget (search over every report, or a
+  quick chart with a live preview), undo, Done saves with If-Match and the conflict dialog; KPI
+  tiles with trend against the previous period (good/bad by the measure) and a sparkline; chart
+  widgets reuse the report viewer's chart and table, switch type for the viewer only, expand,
+  export, open as report; filter bar (site, group, time range) on every widget, "not filtered
+  by" marker; drill-down in a side drawer; live via the scope-partitioned list channels (at most
+  one refresh a second), connection indicator, polling fallback; the home page shows the home
+  dashboard.
+- Not yet: `react-grid-layout` (D-100 deferred it to WP-036; asked the product owner; the grid
+  works without it); SLA widgets and the SLA dashboard (WP-025); approvals waiting (WP-030);
+  tasks and reminders widgets (their features); embedded page, text, availability, MonetX (V1).
+
 ### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-4 of 4 done 2026-10-28)
 Plan: ~/Desktop/wp-035-plan.md (approved with D-100). Branches `feat/reporting-port` (PR #72, the
 port alone, so lane A can write the incident provider) and `feat/wp-035-reporting`.
@@ -1182,6 +1206,15 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - First run (40644943080, 1,000,000 incidents, strict 2 s): all 49 timed queries pass. Slowest
   median 0.73 s (admin, received per month), "open by" reports 0.33-0.37 s, widget totals 0.23 s,
   30-day reports 0.02-0.07 s, drill-down list page 0.008 s; load 118 s.
+
+### 2026-10-28 — WP-036: live dashboards, sessions 1-2 (lane C)
+- See WP-036 above. Tests: backend `tests/db/test_dashboards_api.py` (10, incl. RLS of three
+  tables, built-ins run for every viewer, homes per role, sharing, copy, If-Match, events);
+  console `pages/dashboards/dashboards.test.tsx` (9: rules, home, picker, filter bar, edit mode,
+  un-shared, Arabic); e2e `dashboards.spec.ts` (live in two browsers within 2 s, technician home,
+  shared dashboard reaches the picker, Arabic, axe). Shared: the report viewer's result view and
+  live refresh are reused (`Results`, `useLiveReportRefresh`); `reports.view` now also shows the
+  Dashboards entry (admin.test expectation updated).
 
 ### 2026-10-28 — WP-035-FIX: the reports QA findings (lane C)
 - Every finding of ~/Desktop/qa-wp035/QA-REPORT.md fixed at its cause, each with a test named

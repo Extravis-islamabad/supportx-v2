@@ -2,6 +2,7 @@ import {
   AlertOutlined,
   AppstoreOutlined,
   BarChartOutlined,
+  DashboardOutlined,
   BookOutlined,
   BugOutlined,
   ClusterOutlined,
@@ -92,6 +93,13 @@ export const NAV: readonly NavItem[] = [
     icon: <NotificationOutlined />,
     feature: 'incident',
     permissions: ['announcements.view'],
+  },
+  {
+    key: 'dashboards',
+    path: '/dashboards',
+    labelKey: 'nav.dashboards',
+    icon: <DashboardOutlined />,
+    permissions: ['reports.view'],
   },
   {
     key: 'reports',

@@ -67,6 +67,12 @@ export const queryKeys = {
     runs: ['reports', 'run'] as const,
     run: (definition: ReportDefinition | undefined) => ['reports', 'run', definition] as const,
   },
+  dashboards: {
+    all: ['dashboards'] as const,
+    list: ['dashboards', 'list'] as const,
+    detail: (ref: string) => ['dashboards', 'detail', ref] as const,
+    roleHomes: ['dashboards', 'role-homes'] as const,
+  },
   incidents: {
     all: ['incidents'] as const,
     list: (query: IncidentsQuery) => ['incidents', 'list', query] as const,

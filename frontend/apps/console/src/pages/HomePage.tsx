@@ -1,14 +1,21 @@
 import { Badge, Card, Col, Row, Space, Statistic, Typography } from 'antd';
 
-import { useSession } from '@supportx/api-client';
-import { useLabel, useLicence } from '@supportx/ui';
+import { useDashboards, useSession } from '@supportx/api-client';
+import { useAccess, useLabel, useLicence } from '@supportx/ui';
 
 import { ApiStatus } from './ApiStatus';
+import { DashboardPage } from './dashboards/DashboardsPage';
 
-/** Landing page: who and where you are, the plan and seat usage. Dashboards come later. */
+/**
+ * Landing page (REQ-DSH-001): who and where you are, then your home dashboard (your choice, your
+ * role's, or the built-in one, REQ-DSH-002), live; then the plan and seat usage.
+ */
 export function HomePage() {
   const t = useLabel();
   const session = useSession().data;
+  const { can } = useAccess();
+  const dashboards = useDashboards(can('reports.view'));
+  const home = dashboards.data?.home;
   const { entitlements } = useLicence();
   const seats = entitlements?.limits.find((limit) => limit.key === 'technicians');
 
@@ -25,6 +32,7 @@ export function HomePage() {
           <ApiStatus />
         </Space>
       </div>
+      {home !== undefined && <DashboardPage dashboardRef={home} home />}
       {entitlements !== null && (
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
