@@ -125,9 +125,10 @@ def _mail(sender: str = "Sara <sara@acme.test>", **headers: str) -> bytes:
     message["To"] = "it@acme.test"
     message["Subject"] = headers.pop("Subject", "Printer jams")
     message["Message-ID"] = headers.pop("Message_ID", f"<{uuid.uuid4().hex}@mail.acme.test>")
+    body = headers.pop("body", "It jams.\n\nOn Mon, IT wrote:\n> old")
     for name, value in headers.items():
         message[name.replace("_", "-")] = value
-    message.set_content(headers.pop("body", "It jams.\n\nOn Mon, IT wrote:\n> old"))
+    message.set_content(body)
     return message.as_bytes()
 
 
@@ -154,6 +155,14 @@ async def test_a_known_sender_creates_one_incident_even_when_fetched_twice(world
     assert "It jams." in str(created["body_html"])
     (row,) = await _ledger(world)
     assert (row.outcome, row.record_type) == ("created", "incident")
+
+
+async def test_bug_01_the_incident_gets_the_request_without_the_signature(world: World) -> None:
+    """QA WP-024 BUG-01: "-- " and what follows it were kept in the new incident's description."""
+    raw = _mail(body="It jams every morning.\n\n-- \nLina\nPhone 123")
+    assert await _process(world, raw) is Outcome.CREATED
+    (created,) = world.incidents.created
+    assert created["body_html"] == "<p>It jams every morning.</p>"
 
 
 async def test_a_reply_lands_on_its_incident_without_the_quote(world: World) -> None:

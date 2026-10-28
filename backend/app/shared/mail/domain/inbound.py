@@ -196,3 +196,25 @@ def reply_text(text: str) -> str:
         kept.append(line)
     result = "\n".join(kept).strip()
     return result or text.strip()
+
+
+def request_text(text: str) -> str:
+    """A new request's text: the signature block removed, everything else kept (REQ-INC-023).
+
+    Unlike a reply, a new mail's quoted or forwarded part is often the request itself ("see
+    below"), so only the lines from a signature separator up to the next quoted or forwarded part
+    go. Nothing a person wrote is lost: a mail that is only a signature is kept whole.
+    """
+    kept: list[str] = []
+    in_signature = False
+    for line in text.replace("\r\n", "\n").split("\n"):
+        stripped = line.strip()
+        if _SIGNATURE.match(line) or _MOBILE_SIGNATURES.match(stripped):
+            in_signature = True
+            continue
+        if in_signature and not any(pattern.match(stripped) for pattern in _QUOTE_STARTS):
+            continue
+        in_signature = False
+        kept.append(line)
+    result = "\n".join(kept).strip()
+    return result or text.strip()
