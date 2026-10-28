@@ -25,7 +25,7 @@
     "vitest": "catalog:"
   },
   "dependencies": {
-    "@hookform/resolvers": "^5.9.2",
+    "@hookform/resolvers": "^6.0.0",
     "react-hook-form": "^7.90.0",
     "zod": "^4.6.7",
     "@supportx/api-client": "workspace:*",
