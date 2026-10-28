@@ -586,6 +586,26 @@ WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom field
 WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-run setup must offer
 "technicians see all incidents" vs the group default.
 
+### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-105; 2 sessions)
+- **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
+- [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
+  consumer reads every event, `ConsumerSpec.accepts` skips the rest without a claim); incidents
+  register from `work_items/service/notifications.py` (lane A reviews); rules per event with
+  defaults, conditions, If-Match, audit, reset (REQ-NTF-008); recipients relative to the record, one
+  message per person, never the actor (REQ-NTF-009); access at send time, requesters public side
+  only, private notes never (REQ-NTF-010); default templates en/ar/ur as labels (REQ-NTF-013 part,
+  -014); delivery rows with state and reason, mail-waiting banner and hand-over when mail works
+  (REQ-NTF-020 part); centre with live badge, day groups, read one/all, do-not-disturb (REQ-INC-131);
+  personal preferences with required events locked (REQ-NTF-016); recipient's language and zone
+  (REQ-INC-133); delivery log API for the incident History tab (REQ-INC-134, lane A places it).
+  Migration 0033. Tests: `tests/db/test_notifications_api.py` (9), domain (8), console Vitest (6),
+  e2e `notifications.spec.ts`.
+- [ ] Session 2: template editor (versions, compare, restore, preview, test send, shared
+  header/footer; REQ-NTF-011/012/013), throttling and storm protection (REQ-NTF-022), digests
+  (REQ-NTF-017), signed action links (REQ-NTF-024; incident confirm/reject with WP-020f), group
+  subscriptions and "unpicked for N minutes" (REQ-NTF-026, REQ-INC-130), resend (REQ-NTF-020 AC2),
+  retention 90/180 days, the portal bell (WP-028).
+
 ### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
 - **Goal:** Each tenant gets its own address and look without a redesign.
 - **Done:** REQ-ADM-055, REQ-PRT-016, REQ-SEC-003, REQ-SEC-004 (docs/architecture/branding.md):
@@ -973,6 +993,21 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-039 QA round and WP-023 session 1 (lane B)
+- **WP-039 QA** on the shared stack (~/Desktop/qa-wp039/QA-REPORT.md):
+  - the e2e journeys pass 10/10;
+  - the lock-out message is identical for a wrong password, an unknown address and a locked
+    account in en, ar and ur;
+  - deactivation ends sessions at once.
+  - **5 bugs for WP-039-FIX:** an old invitation link still works after a resend; a withdrawn
+    link shows the lock-out text; **at the idle limit the screen does not sign out**
+    (`IdleWatcher`); Urdu Keycloak pages are mostly English; the Arabic update-password
+    title says "Password updated".
+- **WP-023 session 1:** see the WP entry. D-105 is pending review.
+- **CI follow-ups (#96, merged):**
+  - the shard weights now come from CI's own timings, and the shards are even;
+  - 2 workers per shard were 10–25% slower than 4, so CI keeps 4.
 
 ### 2026-10-28 — CI follow-ups: shard weights from CI, 2 vs 4 workers (lane B, #96)
 - Each backend shard now keeps its file timings as an artifact; `make backend-shard-weights`
