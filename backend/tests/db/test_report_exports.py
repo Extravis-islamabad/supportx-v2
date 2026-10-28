@@ -426,3 +426,65 @@ async def test_bug_01_no_export_header_reads_unknown_value(
     assert floor in {c.value for row in summary.iter_rows() for c in row}
     header = next([c.value for c in row] for row in records.iter_rows() if row[0].value == floor)
     assert header[1:3] == (["المعرّف", "الموضوع"] if language == "ar" else ["ID", "Subject"])
+
+
+async def test_records_export_takes_chosen_columns_and_sort_for_list_exports(
+    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase
+) -> None:
+    """The incident list's export (WP-020d) reuses this job: its columns, its sort, its scope."""
+    world, storage = exporting
+    a = world.a
+    await test_reports_api.seed(world)
+    await world.create(a, a.admin, subject="Aardvark first", group_id=str(a.ga))
+    requested = await _request(
+        world,
+        a,
+        a.tech_a,
+        format="csv",
+        content="records",
+        definition={
+            "entity": "incident",
+            "columns": ["subject", "display_id", "group_id"],
+            "sort": [{"field": "subject", "desc": False}],
+        },
+    )
+    assert requested.status_code == 202, requested.text
+    await _build(migrated_db, storage, a, requested.json()["id"])
+    data = (
+        await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.tech_a)
+    ).content
+    rows = list(csv.reader(io.StringIO(data.decode("utf-8-sig"))))
+    header_at = next(i for i, r in enumerate(rows) if r[:2] == ["Subject", "ID"])
+    records = rows[header_at + 1 :]
+    assert rows[header_at] == ["Subject", "ID", "Group"]
+    assert records[0][0] == "Aardvark first"  # sorted by subject
+    visible = await test_reports_api.listed(world, a, a.tech_a, None)
+    assert len(records) == len(visible)  # the requester's scope, nothing more
+
+
+@pytest.mark.parametrize(
+    ("definition", "field", "code"),
+    [
+        ({"columns": ["subject", "nope"]}, "columns[1]", "unknown_column"),
+        ({"columns": ["subject", "subject"]}, "columns", "duplicate_column"),
+        ({"sort": [{"field": "nope"}]}, "sort[0].field", "unknown_column"),
+    ],
+)
+async def test_chosen_columns_and_sort_are_checked(
+    exporting: tuple[World, MemoryStorage],
+    definition: dict[str, Any],
+    field: str,
+    code: str,
+) -> None:
+    world, _storage = exporting
+    a = world.a
+    refused = await _request(
+        world,
+        a,
+        a.admin,
+        format="csv",
+        content="records",
+        definition={"entity": "incident", **definition},
+    )
+    assert refused.status_code == 422
+    assert {(e["field"], e["code"]) for e in refused.json()["errors"]} == {(field, code)}

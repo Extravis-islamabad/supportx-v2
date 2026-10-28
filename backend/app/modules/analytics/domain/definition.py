@@ -16,6 +16,9 @@ from app.shared.api.filters import FilterNode
 SCHEMA_VERSION: Literal[1] = 1
 MAX_GROUPS = 2
 MAX_MEASURES = 4
+# Records exports (WP-020d's list export reuses them): chosen fields and sort.
+MAX_COLUMNS = 40
+MAX_SORT = 3
 MAX_GROUP_ROWS = 500  # rows of a grouped result shown at once (Appendix A: viewer page sizes)
 
 
@@ -61,6 +64,15 @@ class ResultOrder(StrEnum):
     VALUE_ASC = "value_asc"
 
 
+class RecordSort(BaseModel):
+    """One sort key of a records export: a field, ascending unless `desc`."""
+
+    model_config = ConfigDict(extra="forbid", title="RecordSort")
+
+    field: str = Field(max_length=64)
+    desc: bool = False
+
+
 class ReportGroupBy(BaseModel):
     """One grouping: a field of the entity; date fields also need a bucket."""
 
@@ -86,6 +98,10 @@ class ReportDefinition(BaseModel):
     limit: int | None = Field(default=None, ge=1, le=MAX_GROUP_ROWS)
     chart: ChartType = ChartType.BAR
     percent: bool = False  # show shares of the total instead of numbers (REQ-DSH-009 AC2)
+    # Records exports only: which fields to list, in order (built-in names and custom.<key>;
+    # default: the groupings, then the entity's usual list), and how to sort them.
+    columns: list[str] | None = Field(default=None, min_length=1, max_length=MAX_COLUMNS)
+    sort: list[RecordSort] = Field(default_factory=list, max_length=MAX_SORT)
 
     def filter_json(self) -> Any:  # noqa: ANN401 - the filter DSL's JSON tree
         """The filter as the DSL compiler reads it (`and`/`or` keys, not Python names)."""
