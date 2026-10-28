@@ -24,6 +24,7 @@ import {
   type Labels,
   type TemplateField,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
   reportError,
@@ -139,6 +140,7 @@ export function TemplateEditor({
   onClose: () => void;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const { message } = App.useApp();
   const catalogue = useIncidentCatalogue();
@@ -549,7 +551,7 @@ export function TemplateEditor({
         return hiddenRequired.length === 0 ? null : (
           <Typography.Text type="warning" role="status" data-testid="tpl-editor-hidden-required">
             {t('templates.hidden_required_hint', {
-              fields: hiddenRequired.map(fieldLabel).join(t('list.separator')),
+              fields: listFormat(hiddenRequired.map(fieldLabel), 'conjunction'),
             })}
           </Typography.Text>
         );

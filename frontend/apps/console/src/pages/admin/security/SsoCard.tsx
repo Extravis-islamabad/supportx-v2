@@ -9,6 +9,7 @@ import {
   useSwitchSso,
   type SsoProvider,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
   reportError,
@@ -155,6 +156,7 @@ function TestDialog({ provider, onClose }: { provider: SsoProvider; onClose: () 
  */
 export function SsoCard() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const dates = useDateTime();
   const { modal } = App.useApp();
   const providers = useSsoProviders();
@@ -276,7 +278,7 @@ export function SsoCard() {
                 </Space>
                 <Typography.Text type="secondary">
                   {t('security.sso.domains_list', {
-                    domains: provider.domains.join(', '),
+                    domains: listFormat(provider.domains),
                   })}
                 </Typography.Text>
                 {provider.tested_at != null && (

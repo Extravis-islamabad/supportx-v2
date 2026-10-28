@@ -165,7 +165,7 @@ describe('Resolving', () => {
     const missing = await screen.findByTestId('inc-closing-missing');
     await waitFor(() => {
       expect(missing.textContent).toBe(
-        'Fill these on the record first: Category, Site, Repair cost.',
+        'Fill these on the record first: Category, Site, and Repair cost.',
       );
     });
     expect(missing.textContent).not.toContain('category_id');
@@ -516,7 +516,8 @@ describe('Arabic', () => {
     render(<App />);
     fireEvent.click(await screen.findByTestId('inc-action-resolve'));
     const missing = await screen.findByTestId('inc-closing-missing');
-    expect(missing.textContent).toBe('املأ هذه في السجل أولًا: الفئة.');
+    // One field, isolated (FSI/PDI) like every list item in right-to-left text.
+    expect(missing.textContent).toBe('املأ هذه في السجل أولًا: \u2068الفئة\u2069.');
     const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toContain('الحل');
     await waitFor(() => {
