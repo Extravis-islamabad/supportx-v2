@@ -9,6 +9,7 @@ import asyncio
 import json
 import math
 from datetime import UTC, datetime
+from typing import Any
 from urllib.parse import urlsplit
 
 import asyncpg
@@ -135,17 +136,29 @@ class WorkerHeartbeatProbe:
     (workers/heartbeat.py); a key expires a minute after its worker stops.
     """
 
-    def __init__(
-        self, url: str, *, name: str, bucket: str, kind: str, stale_after_s: float
+    def __init__(  # noqa: PLR0913 - keyword-only probe settings
+        self,
+        url: str,
+        *,
+        name: str,
+        bucket: str,
+        kind: str,
+        stale_after_s: float,
+        backlog_after_s: float | None = None,
     ) -> None:
         self.name = name
         self._url = url
         self._bucket = bucket
         self._prefix = f"{kind}."
         self._stale_after_s = stale_after_s
+        self._backlog_after_s = backlog_after_s
 
     async def check(self, timeout_s: float) -> None:
-        """Fails with not_running (no heartbeat) or stale_heartbeat (newest one too old)."""
+        """Fails with not_running, stale_heartbeat, disconnected or backlog (delivery stalled).
+
+        `disconnected`: the newest heartbeat says the worker cannot reach PostgreSQL or NATS now
+        (workers/resilience.py). `backlog` (relay): its oldest unpublished event is too old.
+        """
         client = await _connect_nats(self._url, timeout_s)
         try:
             newest = await self._newest_heartbeat(client)
@@ -153,16 +166,23 @@ class WorkerHeartbeatProbe:
             await client.close()
         if newest is None:
             raise ProbeFailedError(FailureReason.NOT_RUNNING)
-        if (datetime.now(UTC) - newest).total_seconds() > self._stale_after_s:
+        at, stats = newest
+        if (datetime.now(UTC) - at).total_seconds() > self._stale_after_s:
             raise ProbeFailedError(FailureReason.STALE_HEARTBEAT)
+        if stats.get("connected") is False:
+            raise ProbeFailedError(FailureReason.DISCONNECTED)
+        age = stats.get("oldest_unpublished_age_seconds")
+        limit = self._backlog_after_s
+        if limit is not None and isinstance(age, (int, float)) and age > limit:
+            raise ProbeFailedError(FailureReason.BACKLOG)
 
-    async def _newest_heartbeat(self, client: NatsClient) -> datetime | None:
+    async def _newest_heartbeat(self, client: NatsClient) -> tuple[datetime, dict[str, Any]] | None:
         try:
             bucket = await client.jetstream().key_value(self._bucket)
             keys = await bucket.keys()
         except (nats.js.errors.BucketNotFoundError, nats.js.errors.NoKeysError):
             return None
-        newest: datetime | None = None
+        newest: tuple[datetime, dict[str, Any]] | None = None
         for key in keys:
             if not key.startswith(self._prefix):
                 continue
@@ -171,8 +191,10 @@ class WorkerHeartbeatProbe:
             except nats.js.errors.KeyNotFoundError:
                 continue  # expired between keys() and get()
             if entry.value:
-                at = datetime.fromisoformat(json.loads(entry.value)["at"])
-                newest = at if newest is None or at > newest else newest
+                document = json.loads(entry.value)
+                at = datetime.fromisoformat(document["at"])
+                if newest is None or at > newest[0]:
+                    newest = (at, dict(document.get("stats") or {}))
         return newest
 
 

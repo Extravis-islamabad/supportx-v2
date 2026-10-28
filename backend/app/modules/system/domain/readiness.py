@@ -23,6 +23,8 @@ class FailureReason(StrEnum):
     UNEXPECTED_RESPONSE = "unexpected_response"
     NOT_RUNNING = "not_running"  # a worker that should send heartbeats sent none
     STALE_HEARTBEAT = "stale_heartbeat"  # its last heartbeat is too old
+    DISCONNECTED = "disconnected"  # the worker runs but cannot reach PostgreSQL or NATS
+    BACKLOG = "backlog"  # events wait to be published for longer than they should
     ERROR = "error"
 
 

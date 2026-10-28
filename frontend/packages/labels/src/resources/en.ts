@@ -3562,6 +3562,17 @@ export const en = {
   'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
+  'failure_reason.disconnected': 'Cannot reach the database or the message bus',
+  'failure_reason.backlog': 'Events are waiting too long',
+  'readiness_check.outbox_relay': 'Event relay',
+  'readiness_check.event_consumers': 'Event processing',
+  'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.nats': 'Message bus',
+  'event_delivery.stalled.title': 'Event delivery is stalled',
+  'event_delivery.stalled.body':
+    'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
+  'event_delivery_state.ok': 'Delivering',
+  'event_delivery_state.stalled': 'Stalled',
 } as const;
 
 export type LabelKey = keyof typeof en;
