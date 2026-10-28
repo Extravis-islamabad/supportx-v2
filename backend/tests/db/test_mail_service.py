@@ -95,13 +95,17 @@ async def test_a_message_is_queued_with_its_event_in_the_callers_transaction(
     mail_id = await _queue(database, tenant)
     conn = await asyncpg.connect(migrated_db.admin_url)
     try:
+        # Only this test's tenant: other tests share the database.
         event = await conn.fetchval(
-            "SELECT envelope::text FROM outbox_events WHERE event_type = 'system.mail.queued'"
+            "SELECT envelope::text FROM outbox_events"
+            " WHERE event_type = 'system.mail.queued' AND tenant_id = $1",
+            tenant,
         )
         # Rolled back with its transaction: nothing queued, no event.
         with pytest.raises(RuntimeError):
             await _queue_then_fail(database, tenant)
-        assert await conn.fetchval("SELECT count(*) FROM mail_messages") == 1
+        queued = "SELECT count(*) FROM mail_messages WHERE tenant_id = $1"
+        assert await conn.fetchval(queued, tenant) == 1
     finally:
         await conn.close()
     assert str(mail_id) in event

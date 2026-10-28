@@ -27,6 +27,7 @@ import {
 import { applyServerErrors, FormField, useForm, z, zodResolver } from '@supportx/forms';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
+  AccountSecurityCard,
   ConflictDialog,
   PresenceAvatars,
   reportError,
@@ -112,6 +113,7 @@ export function ProfilePage() {
         </Descriptions>
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
+      <AccountSecurityCard />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (
         <AvailabilityCard userId={me.id} />

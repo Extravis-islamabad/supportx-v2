@@ -522,6 +522,9 @@ export const ur: LabelResource = {
   'richtext.link_placeholder': 'https://',
   // Audit log (WP-018)
   'nav.audit': 'آڈٹ لاگ',
+  'role.security_admin': 'سکیورٹی ایڈمنسٹریٹر',
+  'role.security_admin.description':
+    'سائن اِن اور سکیورٹی: سنگل سائن آن، پاس ورڈ، ایم ایف اے، سیشن اور دعوت نامے؛ ریکارڈز تک رسائی نہیں۔',
   'role.auditor': 'آڈیٹر',
   'role.auditor.description':
     'آڈٹ لاگ پڑھتا، تلاش کرتا، برآمد کرتا اور اس کی تصدیق کرتا ہے اور رسائی کی ترتیبات پڑھتا ہے؛ کچھ تبدیل نہیں کرتا۔',
@@ -2823,6 +2826,80 @@ export const ur: LabelResource = {
   'audit.action.invitation.revoked': 'دعوت نامہ واپس لیا',
   'audit.action.user.password_reset_forced': 'نیا پاس ورڈ لازمی کیا',
   'audit.action.identity.password_policy_reapplied': 'پاس ورڈ پالیسی دوبارہ لاگو کی',
+  // WP-039 session 3: MFA, my account
+  'mfa_mode.off': 'بند',
+  'mfa_mode.optional': 'اختیاری',
+  'mfa_mode.required': 'لازمی',
+  'sign_in_method.password': 'پاس ورڈ',
+  'sign_in_method.single_sign_on': 'سنگل سائن آن',
+  'sign_in_outcome.success': 'سائن اِن ہوا',
+  'sign_in_outcome.failed': 'ناکام',
+  'errors.field.mfa_grace_out_of_range': '{{min}} اور {{max}} دن کے درمیان رکھیں۔',
+  'errors.field.mfa_mode_invalid': 'بند، اختیاری یا لازمی منتخب کریں۔',
+  'errors.mfa_enrolment_unavailable':
+    'پہلے دو مرحلہ سائن اِن سیٹ اپ کرنا ہے، لیکن سائن اِن سروس تک رسائی نہیں ہو سکی۔ کچھ دیر بعد دوبارہ کوشش کریں۔',
+  'errors.mfa_reset_not_signed_in':
+    'اس شخص نے ابھی سائن اِن نہیں کیا، اس لیے ری سیٹ کرنے کو کچھ نہیں۔',
+  'errors.mfa_reset_own':
+    'آپ اپنا دو مرحلہ سائن اِن خود ری سیٹ نہیں کر سکتے۔ کسی دوسرے ایڈمنسٹریٹر سے کہیں۔',
+  'errors.role_not_found': 'یہ رول نہیں ملا۔',
+  'event_type.identity_access.mfa.changed': 'دو مرحلہ سائن اِن بدلا',
+  'audit.action.identity.mfa_policy_changed': 'دو مرحلہ سائن اِن کی پالیسی بدلی',
+  'audit.action.user.mfa_reset': 'کسی شخص کا دو مرحلہ سائن اِن ری سیٹ کیا',
+  'mail.mfa_reset.subject': 'آپ کا دو مرحلہ سائن اِن ری سیٹ ہو گیا',
+  'mail.mfa_reset.body':
+    '{{organisation}} کے ایک ایڈمنسٹریٹر نے آپ کا دو مرحلہ سائن اِن ری سیٹ کیا۔ اگلے سائن اِن پر آپ اپنی تصدیقی ایپ دوبارہ سیٹ اپ کریں گے۔ اگر آپ کو اس کی توقع نہیں تھی تو اپنے سروس ڈیسک سے رابطہ کریں۔',
+  'security.mfa.title': 'دو مرحلہ سائن اِن',
+  'security.mfa.intro':
+    'پاس ورڈ کے بعد تصدیقی ایپ کا کوڈ۔ ہر رول کے لیے منتخب کریں کہ یہ بند، اختیاری یا لازمی ہو۔ لازمی ہونے پر لوگوں کے پاس اسے سیٹ اپ کرنے کے لیے نیچے دی گئی مہلت ہوتی ہے؛ اس کے بعد انہیں کچھ اور کرنے سے پہلے اسے سیٹ اپ کرنا ہوگا۔',
+  'security.mfa.grace': 'لازمی ہونے کے بعد سیٹ اپ کے دن',
+  'security.mfa.role': 'رول',
+  'security.mfa.mode': 'دو مرحلہ سائن اِن',
+  'security.mfa.mode_for': '{{role}} کے لیے دو مرحلہ سائن اِن',
+  'security.mfa.saved': '{{role}} کے لیے محفوظ ہو گیا۔',
+  'security.mfa.enrolled': 'سیٹ اپ',
+  'security.mfa.count': '{{holders}} میں سے {{enrolled}}',
+  'account.title': 'سائن اِن اور سکیورٹی',
+  'account.password': 'پاس ورڈ',
+  'account.change_password': 'پاس ورڈ بدلیں',
+  'account.sso_only':
+    'آپ اپنی تنظیم کے سنگل سائن آن سے سائن اِن کرتے ہیں، اس لیے یہاں کوئی پاس ورڈ نہیں۔',
+  'account.mfa.title': 'دو مرحلہ سائن اِن',
+  'account.mfa.on': 'آن',
+  'account.mfa.off': 'سیٹ اپ نہیں',
+  'account.mfa.due': '{{date}} تک لازمی',
+  'account.mfa.policy.off': 'آپ کی تنظیم آپ کے رولز کے لیے دو مرحلہ سائن اِن استعمال نہیں کرتی۔',
+  'account.mfa.policy.optional':
+    'آپ کے رولز کے لیے اختیاری، اور تجویز کردہ: تصدیقی ایپ کا کوڈ پاس ورڈ لیک ہونے پر بھی آپ کا اکاؤنٹ محفوظ رکھتا ہے۔',
+  'account.mfa.policy.required':
+    'آپ کے رولز کے لیے لازمی: پاس ورڈ کے بعد آپ تصدیقی ایپ کا کوڈ درج کرتے ہیں۔',
+  'account.mfa.set_up': 'دو مرحلہ سائن اِن سیٹ اپ کریں',
+  'account.mfa.another': 'ایک اور تصدیقی ایپ شامل کریں',
+  'account.mfa.reminder':
+    'آپ کی تنظیم دو مرحلہ سائن اِن لازمی کرتی ہے۔ اسے {{date}} تک سیٹ اپ کریں؛ اس کے بعد کچھ اور کرنے سے پہلے آپ سے کہا جائے گا۔',
+  'account.recovery.get': 'ریکوری کوڈ حاصل کریں',
+  'account.recovery.new': 'نئے ریکوری کوڈ',
+  'account.recovery.missing':
+    'آپ کے پاس ریکوری کوڈ نہیں: فون کے بغیر آپ سائن اِن نہیں کر سکیں گے۔ ابھی حاصل کریں اور محفوظ رکھیں۔',
+  'account.recent': 'حالیہ سائن اِن',
+  'account.recent_none': 'پچھلے 7 دن میں کوئی سائن اِن نہیں۔',
+  'account.details_unavailable':
+    'اس وقت سائن اِن سروس تک رسائی نہیں ہو سکی، اس لیے کچھ تفصیلات موجود نہیں۔',
+  'account.done.password': 'آپ کا پاس ورڈ بدل دیا گیا۔',
+  'account.done.mfa': 'دو مرحلہ سائن اِن سیٹ اپ ہو گیا۔',
+  'account.done.recovery_codes': 'آپ کے نئے ریکوری کوڈ محفوظ ہو گئے۔',
+  'account.cancelled': 'کچھ نہیں بدلا۔',
+  'account.failed': 'یہ کام نہیں ہوا۔ دوبارہ کوشش کریں۔',
+  'people.reset_mfa': 'دو مرحلہ سائن اِن ری سیٹ کریں',
+  'people.reset_mfa_confirm': '{{name}} کا دو مرحلہ سائن اِن ری سیٹ کریں؟',
+  'people.reset_mfa_explain':
+    'پہلے تصدیق کریں کہ کون کہہ رہا ہے۔ ان کی تصدیقی ایپ اور ریکوری کوڈ کام کرنا بند کر دیں گے؛ وہ اگلے سائن اِن پر دوبارہ سیٹ اپ کریں گے اور انہیں ای میل ملے گی۔',
+  'people.reset_mfa_done': '{{name}} اگلے سائن اِن پر دو مرحلہ سائن اِن دوبارہ سیٹ اپ کریں گے۔',
+  'session.idle.title': 'کیا آپ ابھی موجود ہیں؟',
+  'session.idle.body':
+    'کچھ دیر سے کوئی سرگرمی نہیں ہوئی، اس لیے آپ {{time}} میں سائن آؤٹ ہو جائیں گے۔ جو کچھ آپ نے لکھا وہ محفوظ رہے گا اور دوبارہ سائن اِن کرنے پر واپس آ جائے گا۔',
+  'session.idle.stay': 'سائن اِن رہیں',
+  'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',
   'forms.start_empty': 'خالی سے شروع کریں',
   'forms.draft_restored': 'آپ کا غیر محفوظ اندراج بحال کر دیا گیا۔',
 };

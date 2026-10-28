@@ -78,10 +78,22 @@ async function trash(page: Page, ids: string[]): Promise<void> {
   }
 }
 
+/**
+ * Open an Ant Design Select and wait until its list has finished opening: an option clicked
+ * mid-animation can scroll the virtual list until the option is never rendered again.
+ */
+async function openSelect(page: Page, testId: string) {
+  await page.getByTestId(testId).click();
+  // The list just closed may still be leaving.
+  const dropdown = page.locator('.ant-select-dropdown:visible:not([class*="-leave"])');
+  await expect(dropdown).not.toHaveClass(/ant-slide-up-(appear|enter)/);
+  return dropdown;
+}
+
 /** Pick an option in an Ant Design Select (searchable) by typing and clicking its text. */
 async function pick(page: Page, testId: string, search: string, option: string | RegExp) {
   const select = page.getByTestId(testId);
-  await select.click();
+  await openSelect(page, testId);
   const input = select.locator('input');
   if ((await input.count()) > 0 && (await input.isEditable())) await input.fill(search);
   await page
@@ -127,11 +139,7 @@ test('a new incident with rich text appears live for the technician; edits reach
   const subject = `E2E Printer ${stamp()}`;
   try {
     // The technician's list is open before the incident exists.
-    await tech.page.getByTestId('inc-view').click();
-    await tech.page
-      .locator('.ant-select-dropdown:visible')
-      .getByText(/^My open/)
-      .click();
+    await (await openSelect(tech.page, 'inc-view')).getByText(/^My open/).click();
 
     // Logged through the form: requester, group, technician (with email as the second line),
     // impact and urgency with the priority shown live, a description in rich text.
@@ -140,8 +148,7 @@ test('a new incident with rich text appears live for the technician; edits reach
     await pick(form, 'inc-requester', 'E2E Admin', /^Adel E2E Admin$/);
     await pick(form, 'inc-site', 'E2E Site', /^E2E Site /);
     await pick(form, 'inc-group', 'E2E Desk', /^E2E Desk /);
-    await form.getByTestId('inc-technician').click();
-    const option = form.locator('.ant-select-dropdown:visible').getByText('e2e.tech@demo.test', {
+    const option = (await openSelect(form, 'inc-technician')).getByText('e2e.tech@demo.test', {
       exact: false,
     });
     await expect(option).toBeVisible(); // two people of one name stay distinguishable (Area 15)

@@ -184,3 +184,19 @@ def test_urdu_has_every_password_rule_message_and_reads_right_to_left() -> None:
 def test_a_breached_password_is_refused_with_a_reason_in_every_language() -> None:
     for language in ("en", "ar", "ur"):
         assert _messages(language)["invalidPasswordBlacklistedMessage"], language
+
+
+def test_a_locked_account_reads_exactly_like_a_wrong_password() -> None:
+    """D-104: one text for every failed sign-in; it says when to retry, never what happened."""
+    for language in ("en", "ar", "ur"):
+        messages = _messages(language)
+        texts = {
+            messages[key]
+            for key in (
+                "invalidUserMessage",
+                "accountTemporarilyDisabledMessage",
+                "accountPermanentlyDisabledMessage",
+            )
+        }
+        assert len(texts) == 1, language
+        assert "15" in texts.pop(), language

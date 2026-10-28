@@ -13,6 +13,7 @@ import { label, LOCALES, type Locale } from '@supportx/labels';
 
 import { useAppearance, useLabel } from './appearance';
 import { BrandedPage, BrandLogo } from './brand';
+import { IdleWatcher } from './IdleWatcher';
 
 export interface SessionGateProps {
   app: App;
@@ -123,5 +124,10 @@ export function SessionGate({ app, children, navigate = defaultNavigate }: Sessi
       </Flex>
     );
   }
-  return <>{children(me)}</>;
+  return (
+    <>
+      {children(me)}
+      {me.idle_timeout_seconds != null && <IdleWatcher idleSeconds={me.idle_timeout_seconds} />}
+    </>
+  );
 }

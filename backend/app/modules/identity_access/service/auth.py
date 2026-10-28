@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import TYPE_CHECKING, Any, Literal
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import Request
 from sqlalchemy.exc import SQLAlchemyError
@@ -56,6 +56,7 @@ from app.modules.identity_access.infra.oidc import (
     TokenSet,
 )
 from app.modules.identity_access.infra.store import SessionStore
+from app.modules.identity_access.service import mfa as mfa_service
 from app.modules.identity_access.service import sso_test
 from app.modules.identity_access.service.users import provision_user, record_logout, tenant_name
 from app.shared.clock import Clock
@@ -101,6 +102,27 @@ class LoginFailure(Exception):
         self.app = app
         self.problem = problem
         self.origin = origin  # a tenant's own address the login started on (WP-017), if any
+
+
+# My account's changes, as Keycloak's application-initiated actions (proved on 26.8.1).
+ACCOUNT_ACTIONS = {
+    "password": "UPDATE_PASSWORD",
+    "mfa": "CONFIGURE_TOTP",
+    "recovery_codes": "CONFIGURE_RECOVERY_AUTHN_CODES",
+}
+AccountAction = Literal["password", "mfa", "recovery_codes"]
+ACTION_STATUSES = frozenset({"success", "cancelled", "error"})
+
+
+class MfaEnrolmentDue(Exception):
+    """The person is past their MFA grace period here: they enrol before they get a session."""
+
+
+@dataclass(frozen=True)
+class EnrolFirst:
+    """No session yet: the browser signs in again and Keycloak makes the person enrol MFA."""
+
+    redirect_to: str
 
 
 class LoginResult:
@@ -197,6 +219,7 @@ class AuthService:
         address: LoginAddress | None = None,
         *,
         reauthenticate: bool = False,
+        account_action: str | None = None,
     ) -> str:
         """Remember a one-time login state and return Keycloak's authorization URL.
 
@@ -223,6 +246,7 @@ class AuthService:
                 "return_to": safe_return_to(return_to),
                 "origin": origin,
                 "organization": address.organization if address is not None else None,
+                "account_action": account_action,
             },
             LOGIN_STATE_TTL,
         )
@@ -232,10 +256,13 @@ class AuthService:
             nonce=nonce,
             pkce=pkce,
             organization=address.organization if address is not None else None,
-            prompt="login" if reauthenticate else None,
+            # A password change asks for the current password first (REQ-SEC-028 AC2); setting
+            # MFA up too (D-104): only the person may add an authenticator to their account.
+            prompt="login" if reauthenticate or account_action is not None else None,
+            action=None if account_action is None else ACCOUNT_ACTIONS[account_action],
         )
 
-    async def complete_login(
+    async def complete_login(  # noqa: PLR0913 - keyword-only parts of the callback
         self,
         *,
         code: str | None,
@@ -243,7 +270,8 @@ class AuthService:
         error: str | None,
         previous_session_id: str | None,
         host: str | None = None,
-    ) -> "LoginResult | sso_test.TestFinished":
+        action_status: str | None = None,
+    ) -> "LoginResult | EnrolFirst | sso_test.TestFinished":
         """Finish the OIDC callback and create a fresh session (or finish an SSO test).
 
         Any failure is raised as LoginFailure carrying the app it belongs to, so the BFF can send a
@@ -263,13 +291,23 @@ class AuthService:
             raise LoginFailure(app, BadRequest(code="login_failed"), origin)
         try:
             session = await self._login(app, code, pending)
+        except MfaEnrolmentDue:
+            # Keycloak now holds the enrol actions on the account; signing in again (its own
+            # session still stands) runs them before anything else (REQ-SEC-024 AC2).
+            query = urlencode({"app": app, "returnTo": pending["return_to"]})
+            return EnrolFirst(f"{origin or self.origin(app)}/api/v1/auth/login?{query}")
         except AppError as exc:
             raise LoginFailure(app, exc, origin) from exc
         if previous_session_id:  # rotation: the pre-login session (if any) dies here
             await self.store.delete_session(previous_session_id)
         session_id = await self._save_new(session)
         log.info("login", subject=session.subject, tenant_id=session.tenant_id, client=app)
-        return LoginResult(session_id, session, self.landing(app, pending["return_to"], origin))
+        landing = self.landing(app, pending["return_to"], origin)
+        if pending.get("account_action"):  # back to My account with Keycloak's result
+            outcome = action_status if action_status in ACTION_STATUSES else "error"
+            query = urlencode({"account_action": pending["account_action"], "status": outcome})
+            landing += ("&" if "?" in landing else "?") + query
+        return LoginResult(session_id, session, landing)
 
     async def _login(self, app: AppName, code: str, pending: dict[str, Any]) -> Session:
         client = self.client(app, pending.get("origin"))
@@ -324,7 +362,17 @@ class AuthService:
             on_roles_mapped=self.on_roles_mapped,
             directory=self._directory,
         )
+        synced = await mfa_service.on_sign_in(
+            self.database, self.identity_admin, uuid.UUID(target.tenant_id), user.user_id
+        )
+        mfa = synced.status
+        if mfa.must_enrol(now):
+            if not synced.enforced:
+                # Keycloak could not be told: never loop through sign-in, say so instead.
+                raise PermissionDenied(code="mfa_enrolment_unavailable")
+            raise MfaEnrolmentDue
         return Session(
+            mfa_due_at=None if mfa.due_at is None else mfa.due_at.isoformat(),
             subject=identity.subject,
             user_id=str(user.user_id),
             tenant_id=target.tenant_id,
@@ -557,4 +605,5 @@ class AuthService:
             "tenant": {"id": session.tenant_id, "name": session.tenant_name},
             "tenants": [{"id": c.tenant_id, "name": c.name} for c in session.tenants],
             "csrf_token": session.csrf_token,
+            "mfa_due_at": session.mfa_due_at,
         }

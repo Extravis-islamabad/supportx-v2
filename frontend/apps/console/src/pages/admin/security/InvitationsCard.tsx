@@ -9,7 +9,15 @@ import {
   useSaveIdentitySettings,
   type Invitation,
 } from '@supportx/api-client';
-import { reportError, ToneTag, useDateTime, useLabel, WriteButton, type Tone } from '@supportx/ui';
+import {
+  EmptyText,
+  reportError,
+  ToneTag,
+  useDateTime,
+  useLabel,
+  WriteButton,
+  type Tone,
+} from '@supportx/ui';
 
 import { FieldNote } from './FieldNote';
 
@@ -133,7 +141,7 @@ export function InvitationsCard() {
           dataSource={invitations.data?.items ?? []}
           pagination={false}
           scroll={{ x: true }}
-          locale={{ emptyText: t('security.invitations.none') }}
+          locale={{ emptyText: <EmptyText>{t('security.invitations.none')}</EmptyText> }}
           data-testid="security-invitations-list"
           columns={[
             { key: 'email', title: t('security.invitations.person'), dataIndex: 'email' },

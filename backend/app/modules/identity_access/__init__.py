@@ -31,6 +31,7 @@ from app.core.modules import ModuleRegistry, ModuleSpec, discover_modules
 from app.core.tenancy import SESSION_RESOLVER_STATE
 from app.modules.identity_access.api.access import get_policy
 from app.modules.identity_access.api.access import router as access_router
+from app.modules.identity_access.api.account import router as account_router
 from app.modules.identity_access.api.identity import router as identity_router
 from app.modules.identity_access.api.people import access_router as access_settings_router
 from app.modules.identity_access.api.people import imports_router, people_router
@@ -50,7 +51,7 @@ from app.modules.identity_access.infra.crypto import SessionCipher
 from app.modules.identity_access.infra.keycloak_admin import KeycloakAdmin
 from app.modules.identity_access.infra.oidc import OidcClient
 from app.modules.identity_access.infra.store import SessionStore, ValkeyKeyValue
-from app.modules.identity_access.service import directory
+from app.modules.identity_access.service import directory, mfa
 from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.directory import (
@@ -240,12 +241,13 @@ module = ModuleSpec(
         access_router,
         access_settings_router,
         identity_router,
+        account_router,
         realtime_router,
     ],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     events=EVENTS,
-    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY],
+    consumers=[AUTHZ_INVALIDATION, PASSWORD_POLICY_APPLY, mfa.MFA_ROLES],
     # Realtime (WP-011): who may join which channel, and what identity events show on screens.
     channels=CHANNELS,
     realtime=ROUTES,
@@ -253,7 +255,11 @@ module = ModuleSpec(
     permissions=IDENTITY_PERMISSIONS + RESERVED_PERMISSIONS,
     # Licensed technician seats (WP-009); requesters are never counted.
     usage_counters={"technicians": count_technicians},
-    schedules=[ScheduleSpec("identity_access__people_imports", 5, run_people_imports)],
+    schedules=[
+        ScheduleSpec("identity_access__people_imports", 5, run_people_imports),
+        # Past the MFA grace period: Keycloak's enrol actions (WP-039 session 3, REQ-SEC-024).
+        ScheduleSpec("identity_access__mfa_enforce", 3600, mfa.enforce_schedule),
+    ],
 )
 
 # Compiled permissions are refreshed through events at the latest after this (seconds); the
