@@ -3347,4 +3347,34 @@ export const ur: LabelResource = {
   'mail.field.allowed_domains_hint':
     'مثلاً acme.com۔ ان ڈومینز کے بھیجنے والے ایسے درخواست گزار کے طور پر شامل ہوتے ہیں جو سائن ان نہیں کر سکتے۔',
   'mail.field.enabled': 'یہ میل باکس پڑھیں',
+  'audit.action.mailbox.mail_released': 'روکی گئی میل دوبارہ داخل کی',
+  'audit.action.mailbox.mail_discarded': 'روکی گئی میل رد کی',
+  'errors.mail_not_waiting': 'یہ پیغام اب منتظر نہیں: کسی نے پہلے ہی اسے نمٹا دیا۔',
+  'mail_waiting_reason.sender_rate':
+    'ایک گھنٹے میں اس بھیجنے والے کے بہت سے پیغامات (دو نظام ایک دوسرے کو جواب دے رہے ہیں؟)',
+  'mail_waiting_reason.not_requester':
+    'کسی ریکارڈ پر اس کے درخواست گزار کے علاوہ کسی اور کا جواب۔ عملہ کنسول میں جواب دیتا ہے۔',
+  'mail_waiting_reason.no_target': 'اس وقت واقعات میل وصول نہیں کر سکے',
+  'mail_waiting_reason.too_large': '35 MB سے بڑا: وصول نہیں کیا گیا',
+  'mail_outcome.created': 'واقعہ بنایا گیا',
+  'mail_outcome.replied': 'اس کے ریکارڈ میں شامل کیا گیا',
+  'mail_outcome.automatic': 'خودکار جواب کے طور پر درج کیا گیا',
+  'mail_outcome.own_address': 'ہماری اپنی میل: کچھ نہیں بنایا گیا',
+  'mail_outcome.rejected': 'رد کیا گیا، بھیجنے والے کو جواب دیا گیا',
+  'mail_outcome.held': 'دوبارہ منتظر',
+  'mail_outcome.too_large': 'بہت بڑا',
+  'mail_outcome.discarded': 'رد کر دیا گیا',
+  'mail.waiting.open': 'جائزہ',
+  'mail.waiting.title': 'منتظم کی منتظر میل: {{address}}',
+  'mail.waiting.intro':
+    'کچھ ضائع نہیں ہوتا: وجہ درست ہونے کے بعد پیغام دوبارہ داخل کریں، یا رد کریں۔',
+  'mail.waiting.none': 'کچھ منتظر نہیں۔',
+  'mail.waiting.from': '{{sender}} سے · {{when}}',
+  'mail.waiting.release': 'دوبارہ داخل کریں',
+  'mail.waiting.discard': 'رد کریں',
+  'mail.waiting.discard_title': 'یہ پیغام رد کریں؟',
+  'mail.waiting.discard_body':
+    'اس سے کچھ نہیں بنے گا۔ وصول شدہ میل کی فہرست میں ایک سطر رہے گی کہ اسے رد کیا گیا۔',
+  'mail.waiting.released': 'دوبارہ داخل کیا گیا: {{outcome}}',
+  'mail.waiting.still_waiting': 'یہ دوبارہ منتظر ہے: {{reason}}',
 };

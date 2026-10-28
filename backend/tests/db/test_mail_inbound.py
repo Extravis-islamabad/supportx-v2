@@ -20,7 +20,8 @@ from app.modules.integrations.domain.mailboxes import PER_SENDER_LIMIT, AfterFet
 from app.modules.integrations.infra.imap import FetchedMessage, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.integrations.service.fetching import fetch_mailbox
-from app.modules.integrations.service.inbound import process
+from app.modules.integrations.service.inbound import NotWaiting, process
+from app.modules.integrations.service.mailboxes import discard_mail, release_mail, waiting_mail
 from app.modules.notifications.infra.models import NotificationDelivery
 from app.shared.files.keyring import KeyRing
 from app.shared.mail.infra.models import MailMessage
@@ -326,3 +327,63 @@ async def test_a_mailbox_that_cannot_be_reached_says_so(world: World) -> None:
         world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=reader
     )
     assert await _state(world) == ("failing", "imap_login_failed")
+
+
+# --- The review queue (D-109 (9): held mail is never invisible) ------------------------------
+
+
+async def _waiting(world: World) -> list[tuple[str, str | None, bool]]:
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        return [
+            (w.row.outcome, w.row.reason, w.releasable)
+            for w in await waiting_mail(session, world.mailbox)
+        ]
+
+
+async def test_held_mail_waits_with_its_copy_and_can_be_handed_in_again(world: World) -> None:
+    for _ in range(PER_SENDER_LIMIT):
+        await _process(world, _mail())
+    flood = _mail(Message_ID="<flood@mail.acme.test>")
+    assert await _process(world, flood) is Outcome.HELD
+    assert await _waiting(world) == [("held", "sender_rate", True)]
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        row = await release_mail(
+            session, SETTINGS, world.mailbox, "flood@mail.acme.test", admin_id=world.known
+        )
+        assert (row.outcome, row.raw, row.handled_by) == ("created", None, world.known)
+    assert len(world.incidents.created) == PER_SENDER_LIMIT + 1
+    assert await _waiting(world) == []
+
+
+async def test_a_release_that_fails_again_waits_with_the_new_reason(world: World) -> None:
+    world.incidents.refuse = "validation_failed"
+    await _process(world, _mail(Message_ID="<refused@mail.acme.test>"))
+    world.incidents.refuse = "template_field_required"
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        row = await release_mail(
+            session, SETTINGS, world.mailbox, "refused@mail.acme.test", admin_id=world.known
+        )
+        assert (row.outcome, row.reason, row.raw is not None) == (
+            "held",
+            "template_field_required",
+            True,
+        )
+
+
+async def test_a_reply_by_someone_else_can_only_be_discarded(world: World) -> None:
+    world.incidents.records["INC-7"] = FoundRecord("incident", uuid.uuid4(), "INC-7", frozenset())
+    await _process(world, _mail(Subject="Re: [INC-7] x", Message_ID="<other@mail.acme.test>"))
+    assert await _waiting(world) == [("held", "not_requester", False)]
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        with pytest.raises(NotWaiting):
+            await release_mail(
+                session, SETTINGS, world.mailbox, "other@mail.acme.test", admin_id=world.known
+            )
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        await discard_mail(session, world.mailbox, "other@mail.acme.test", admin_id=world.known)
+    assert await _waiting(world) == []
+    (row,) = await _ledger(world)
+    assert (row.outcome, row.handled_by) == ("discarded", world.known)
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        with pytest.raises(NotWaiting):  # twice: someone else was quicker
+            await discard_mail(session, world.mailbox, "other@mail.acme.test", admin_id=world.known)

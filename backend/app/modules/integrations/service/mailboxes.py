@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
 from app.modules.integrations.domain.mailboxes import (
+    WAITING,
     AfterFetch,
     ConnectionSecurity,
     MailboxCreates,
@@ -27,11 +28,13 @@ from app.modules.integrations.domain.mailboxes import (
     Outcome,
     UnknownSenders,
     check_security,
+    releasable,
 )
 from app.modules.integrations.events import MailboxChanged
 from app.modules.integrations.infra.imap import ImapReader, ImapSettings, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
-from app.modules.integrations.service.fetching import key_ring, seal_password
+from app.modules.integrations.service import inbound
+from app.modules.integrations.service.fetching import key_ring, own_addresses, seal_password
 from app.shared.events import record_event
 
 MANAGE = "mailboxes.manage"
@@ -98,7 +101,7 @@ def _problems(values: Mapping[str, Any]) -> list[FieldError]:
 async def _held_counts(session: AsyncSession) -> dict[uuid.UUID, int]:
     rows = await session.execute(
         select(MailFetched.mailbox_id, func.count())
-        .where(MailFetched.outcome == Outcome.HELD.value)
+        .where(MailFetched.outcome.in_([o.value for o in WAITING]))
         .group_by(MailFetched.mailbox_id)
     )
     return {mailbox_id: int(count) for mailbox_id, count in rows}
@@ -225,6 +228,68 @@ async def remove_mailbox(
     await changed(session, row, "removed")
 
 
+@dataclass(frozen=True)
+class WaitingMail:
+    """A message in the review queue: who sent it, about what, and why it waits."""
+
+    row: MailFetched
+    releasable: bool
+
+
+async def waiting_mail(session: AsyncSession, mailbox_id: uuid.UUID) -> list[WaitingMail]:
+    """The mailbox's review queue, oldest first (D-109 (9): held mail is never invisible)."""
+    await get_mailbox(session, mailbox_id)
+    rows = await session.scalars(
+        select(MailFetched)
+        .where(
+            MailFetched.mailbox_id == mailbox_id,
+            MailFetched.outcome.in_([o.value for o in WAITING]),
+        )
+        .order_by(MailFetched.created_at)
+        .limit(500)
+    )
+    return [
+        WaitingMail(row, releasable(Outcome(row.outcome), row.reason) and row.reason is not None)
+        for row in rows
+    ]
+
+
+async def _waiting_row(session: AsyncSession, mailbox: Mailbox, message_id: str) -> MailFetched:
+    row = await session.get(MailFetched, (mailbox.tenant_id, mailbox.id, message_id))
+    if row is None or Outcome(row.outcome) not in WAITING:
+        raise inbound.NotWaiting
+    return row
+
+
+async def release_mail(
+    session: AsyncSession,
+    settings: Settings,
+    mailbox_id: uuid.UUID,
+    message_id: str,
+    *,
+    admin_id: uuid.UUID,
+) -> MailFetched:
+    """Hand a held message in again; the row says what it became (or why it waits again)."""
+    mailbox = (await get_mailbox(session, mailbox_id)).row
+    row = await _waiting_row(session, mailbox, message_id)
+    boxes = list(await session.scalars(select(Mailbox).where(Mailbox.deleted_at.is_(None))))
+    await inbound.release(
+        session, settings, mailbox, row, own_addresses=own_addresses(settings, boxes),
+        admin_id=admin_id,
+    )  # fmt: skip
+    await changed(session, mailbox, "changed")
+    return row
+
+
+async def discard_mail(
+    session: AsyncSession, mailbox_id: uuid.UUID, message_id: str, *, admin_id: uuid.UUID
+) -> None:
+    """Discard a waiting message (kept in the ledger as discarded)."""
+    mailbox = (await get_mailbox(session, mailbox_id)).row
+    await inbound.discard(await _waiting_row(session, mailbox, message_id), admin_id=admin_id)
+    await changed(session, mailbox, "changed")
+
+
 async def test_connection(settings: ImapSettings) -> str | None:
     """Connect and count new mail, changing nothing; None when it works, else a reason code."""
     reader = ImapReader(settings)
@@ -243,10 +308,14 @@ __all__ = [
     "MailboxCreates",
     "MailboxView",
     "UnknownSenders",
+    "WaitingMail",
     "create_mailbox",
+    "discard_mail",
     "get_mailbox",
     "list_mailboxes",
+    "release_mail",
     "remove_mailbox",
     "test_connection",
     "update_mailbox",
+    "waiting_mail",
 ]

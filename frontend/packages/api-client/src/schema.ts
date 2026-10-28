@@ -2717,6 +2717,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mail waiting for an admin
+         * @description The review queue: held mail is never invisible (D-109 (9)).
+         */
+        get: operations["waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a waiting message
+         * @description It stays in the ledger as discarded, without its copy.
+         */
+        post: operations["discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand a held message in again
+         * @description Without the flood check; held again, with the new reason, if it still cannot be taken in.
+         */
+        post: operations["release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -7725,6 +7785,20 @@ export interface components {
          */
         Relative: "requester" | "assignee" | "group_head" | "requester_manager" | "department_head";
         /**
+         * ReleasedOut
+         * @description What a released message became; `reason` when it waits again.
+         */
+        ReleasedOut: {
+            /** Outcome */
+            outcome: string;
+            /** Reason */
+            reason: string | null;
+            /** Reason Params */
+            reason_params: {
+                [key: string]: string;
+            };
+        };
+        /**
          * ReplyMode
          * @description Which composer a reply came from (REQ-INC-058).
          * @enum {string}
@@ -9811,6 +9885,50 @@ export interface components {
          */
         VisibilityIn: {
             visibility: components["schemas"]["Visibility"];
+        };
+        /**
+         * WaitingIn
+         * @description Which waiting message (by its Message-ID).
+         */
+        WaitingIn: {
+            /** Message Id */
+            message_id: string;
+        };
+        /**
+         * WaitingOut
+         * @description A message in the review queue (held, or too large to take in).
+         */
+        WaitingOut: {
+            /** Message Id */
+            message_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "held" | "too_large";
+            /**
+             * Reason
+             * @description Code; the UI shows its label.
+             */
+            reason: string | null;
+            /** Reason Params */
+            reason_params: {
+                [key: string]: string;
+            };
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /**
+             * Releasable
+             * @description Whether handing it in again can help.
+             */
+            releasable: boolean;
+            /** Sender */
+            sender: string;
+            /** Subject */
+            subject: string;
         };
         /**
          * WorkItemAction
@@ -22613,6 +22731,231 @@ export interface operations {
             };
             /** @description No such mailbox (mailbox_not_found). */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitingOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaitingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not waiting any more (mail_not_waiting). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaitingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasedOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not waiting any more (mail_not_waiting). */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

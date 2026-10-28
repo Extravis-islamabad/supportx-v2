@@ -25,13 +25,16 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.core.errors import Conflict
 from app.core.logging import get_logger
 from app.modules.identity_access import create_requester_from_mail, person_by_email
 from app.modules.integrations.domain.mailboxes import (
+    WAITING,
     MailboxCreates,
     MailboxRules,
     Outcome,
     UnknownSenders,
+    releasable,
     route,
 )
 from app.modules.integrations.infra.models import Mailbox, MailFetched
@@ -204,18 +207,17 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
     )  # fmt: skip
 
 
-async def process(  # noqa: PLR0911 - one return per outcome of the module docstring
+async def _handle(  # noqa: PLR0913 - one return per outcome of the module docstring
     session: AsyncSession,
     settings: Settings,
     mailbox: Mailbox,
-    raw: bytes,
+    message: InboundMessage,
+    size: int,
     *,
     own_addresses: tuple[str, ...],
-) -> Outcome | None:
-    """Handle one fetched message; None when it was handled before (skip, but mark it)."""
-    message = parse(raw)
-    if not await _claim(session, mailbox, message):
-        return None
+    vouched: bool = False,
+) -> Outcome:
+    """Decide and act on a claimed message; `vouched`: an admin released it (no flood check)."""
     target = inbound_target(RECORD_TYPE)
     found: FoundRecord | None = None
     if target is not None:
@@ -226,15 +228,16 @@ async def process(  # noqa: PLR0911 - one return per outcome of the module docst
             record_ids=[record_id for kind, record_id in answered if kind == RECORD_TYPE],
         )
     sender_id = await person_by_email(session, message.sender) if message.sender else None
+    recent = 0 if vouched else await _recent(session, message.sender) - 1  # minus this one
     decision = route(
         mailbox=_rules(mailbox),
         automatic=message.automatic,
         sender=message.sender,
         own_addresses=own_addresses,
-        recent_from_sender=await _recent(session, message.sender) - 1,  # minus this one
+        recent_from_sender=recent,
         answers_record=found is not None,
         sender_known=sender_id is not None,
-        size=len(raw),
+        size=size,
     )
     if target is None:
         return await _finish(session, mailbox, message, Outcome.HELD, reason="no_target")
@@ -253,3 +256,69 @@ async def process(  # noqa: PLR0911 - one return per outcome of the module docst
         return await _finish(
             session, mailbox, message, Outcome.HELD, reason=refused.code, params=refused.params
         )
+
+
+async def _keep_while_held(
+    session: AsyncSession, mailbox: Mailbox, message: InboundMessage, raw: bytes | None
+) -> None:
+    row = await session.get(MailFetched, (mailbox.tenant_id, mailbox.id, message.message_id[:500]))
+    if row is not None:
+        row.raw = raw if row.outcome == Outcome.HELD.value else None
+
+
+async def process(
+    session: AsyncSession,
+    settings: Settings,
+    mailbox: Mailbox,
+    raw: bytes,
+    *,
+    own_addresses: tuple[str, ...],
+) -> Outcome | None:
+    """Handle one fetched message; None when it was handled before (skip, but mark it)."""
+    message = parse(raw)
+    if not await _claim(session, mailbox, message):
+        return None
+    outcome = await _handle(
+        session, settings, mailbox, message, len(raw), own_addresses=own_addresses
+    )
+    await _keep_while_held(session, mailbox, message, raw)  # for the review queue
+    return outcome
+
+
+class NotWaiting(Conflict):
+    """The message was released or discarded meanwhile, or cannot be released."""
+
+    code = "mail_not_waiting"
+
+
+async def release(  # noqa: PLR0913 - the message and who vouches for it, explicit
+    session: AsyncSession,
+    settings: Settings,
+    mailbox: Mailbox,
+    row: MailFetched,
+    *,
+    own_addresses: tuple[str, ...],
+    admin_id: uuid.UUID,
+) -> Outcome:
+    """An admin hands a held message in again; held again (with the new reason) if it fails."""
+    if not releasable(Outcome(row.outcome), row.reason):
+        raise NotWaiting
+    await session.refresh(row, ["raw"])  # deferred: only the message being released
+    raw = row.raw
+    if raw is None:
+        raise NotWaiting
+    message = parse(raw)
+    outcome = await _handle(
+        session, settings, mailbox, message, len(raw), own_addresses=own_addresses, vouched=True
+    )
+    row.handled_by = admin_id
+    await _keep_while_held(session, mailbox, message, raw)
+    return outcome
+
+
+async def discard(row: MailFetched, *, admin_id: uuid.UUID) -> None:
+    """An admin discards a waiting message: kept in the ledger as discarded, without its copy."""
+    if Outcome(row.outcome) not in WAITING:
+        raise NotWaiting
+    row.outcome, row.raw, row.handled_by = Outcome.DISCARDED.value, None, admin_id
+    row.updated_at = datetime.now(UTC)

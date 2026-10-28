@@ -120,6 +120,8 @@ def upgrade() -> None:
         sa.Column("reason_params", postgresql.JSONB(), server_default="{}", nullable=False),
         sa.Column("record_type", sa.String(length=40), nullable=True),
         sa.Column("record_id", sa.Uuid(), nullable=True),
+        sa.Column("raw", sa.LargeBinary(), nullable=True),
+        sa.Column("handled_by", sa.Uuid(), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
@@ -128,7 +130,7 @@ def upgrade() -> None:
         ),
         sa.CheckConstraint(
             "outcome IN ('created', 'replied', 'automatic', 'own_address', 'held', 'rejected',"
-            " 'too_large')",
+            " 'too_large', 'discarded')",
             name=op.f("ck_mail_fetched_outcome_code"),
         ),
         sa.ForeignKeyConstraint(
@@ -150,6 +152,12 @@ def upgrade() -> None:
         "ix_mail_fetched_tenant_sender_created",
         "mail_fetched",
         ["tenant_id", "sender", "created_at"],
+    )
+    op.create_index(
+        "ix_mail_fetched_tenant_waiting",
+        "mail_fetched",
+        ["tenant_id", "mailbox_id", "created_at"],
+        postgresql_where=sa.text("outcome IN ('held', 'too_large')"),
     )
     enable_tenant_rls("mail_fetched")
     grant_app("mail_fetched", ("SELECT", "INSERT", "UPDATE"))  # the outcome, once decided

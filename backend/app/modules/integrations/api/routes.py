@@ -6,7 +6,7 @@ one is stored). Changes use If-Match and are audited; create takes an Idempotenc
 
 import uuid
 from datetime import datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -288,3 +288,102 @@ async def test_mailbox(
         )
     )
     return ConnectionTestOut(ok=reason is None, reason=reason)
+
+
+class WaitingOut(BaseModel):
+    """A message in the review queue (held, or too large to take in)."""
+
+    message_id: str
+    sender: str
+    subject: str
+    outcome: Literal["held", "too_large"]
+    reason: str | None = Field(description="Code; the UI shows its label.")
+    reason_params: dict[str, str]
+    received_at: datetime
+    releasable: bool = Field(description="Whether handing it in again can help.")
+
+    @classmethod
+    def of(cls, waiting: service.WaitingMail) -> "WaitingOut":
+        """From the service's view."""
+        row = waiting.row
+        return cls(
+            message_id=row.message_id,
+            sender=row.sender,
+            subject=row.subject,
+            outcome="too_large" if row.outcome == "too_large" else "held",
+            reason=row.reason,
+            reason_params=dict(row.reason_params),
+            received_at=row.created_at,
+            releasable=waiting.releasable,
+        )
+
+
+class WaitingIn(BaseModel):
+    """Which waiting message (by its Message-ID)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    message_id: str = Field(min_length=1, max_length=500)
+
+
+class ReleasedOut(BaseModel):
+    """What a released message became; `reason` when it waits again."""
+
+    outcome: str
+    reason: str | None
+    reason_params: dict[str, str]
+
+
+WAITING_RESPONSES: Responses = {
+    409: {"model": ProblemDetail, "description": "Not waiting any more (mail_not_waiting)."}
+}
+
+
+@router.get("/{mailbox_id}/waiting", summary="Mail waiting for an admin")
+async def waiting_mail(
+    mailbox_id: uuid.UUID, session: TenantSession, subject: Manage
+) -> list[WaitingOut]:
+    """The review queue: held mail is never invisible (D-109 (9))."""
+    del subject
+    return [WaitingOut.of(w) for w in await service.waiting_mail(session, mailbox_id)]
+
+
+@router.post(
+    "/{mailbox_id}/waiting/release",
+    summary="Hand a held message in again",
+    responses=WAITING_RESPONSES,
+    dependencies=[
+        audited("mailbox.mail_released", object_type="mailbox", object_param="mailbox_id")
+    ],
+)
+async def release_mail(
+    mailbox_id: uuid.UUID,
+    body: WaitingIn,
+    session: TenantSession,
+    subject: Manage,
+    settings: AppSettings,
+) -> ReleasedOut:
+    """Without the flood check; held again, with the new reason, if it still cannot be taken in."""
+    row = await service.release_mail(
+        session, settings, mailbox_id, body.message_id, admin_id=subject.user_id
+    )
+    return ReleasedOut(
+        outcome=row.outcome, reason=row.reason, reason_params=dict(row.reason_params)
+    )
+
+
+@router.post(
+    "/{mailbox_id}/waiting/discard",
+    summary="Discard a waiting message",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=WAITING_RESPONSES,
+    dependencies=[
+        audited("mailbox.mail_discarded", object_type="mailbox", object_param="mailbox_id")
+    ],
+)
+async def discard_mail(
+    mailbox_id: uuid.UUID, body: WaitingIn, session: TenantSession, subject: Manage
+) -> Response:
+    """It stays in the ledger as discarded, without its copy."""
+    await service.discard_mail(session, mailbox_id, body.message_id, admin_id=subject.user_id)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

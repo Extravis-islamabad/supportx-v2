@@ -3745,6 +3745,36 @@ export const en = {
   'mail.field.allowed_domains_hint':
     'For example acme.com. Senders from these domains are added as requesters who cannot sign in.',
   'mail.field.enabled': 'Read this mailbox',
+  'audit.action.mailbox.mail_released': 'Handed in held mail again',
+  'audit.action.mailbox.mail_discarded': 'Discarded held mail',
+  'errors.mail_not_waiting': 'This message is no longer waiting: someone handled it already.',
+  'mail_waiting_reason.sender_rate':
+    'Many messages from this sender in an hour (two systems answering each other?)',
+  'mail_waiting_reason.not_requester':
+    'A reply on a record by someone other than its requester. Staff reply in the console.',
+  'mail_waiting_reason.no_target': 'Incidents could not take mail in at that moment',
+  'mail_waiting_reason.too_large': 'Larger than 35 MB: it was not taken in',
+  'mail_outcome.created': 'Incident created',
+  'mail_outcome.replied': 'Added to its record',
+  'mail_outcome.automatic': 'Recorded as an automatic reply',
+  'mail_outcome.own_address': 'Our own mail: nothing created',
+  'mail_outcome.rejected': 'Refused, the sender was answered',
+  'mail_outcome.held': 'Waiting again',
+  'mail_outcome.too_large': 'Too large',
+  'mail_outcome.discarded': 'Discarded',
+  'mail.waiting.open': 'Review',
+  'mail.waiting.title': 'Mail waiting for an admin: {{address}}',
+  'mail.waiting.intro':
+    'Nothing is lost: hand a message in again once its reason is fixed, or discard it.',
+  'mail.waiting.none': 'Nothing is waiting.',
+  'mail.waiting.from': 'From {{sender}} · {{when}}',
+  'mail.waiting.release': 'Hand in again',
+  'mail.waiting.discard': 'Discard',
+  'mail.waiting.discard_title': 'Discard this message?',
+  'mail.waiting.discard_body':
+    'Nothing is created from it. The list of fetched mail keeps a line saying it was discarded.',
+  'mail.waiting.released': 'Handed in again: {{outcome}}',
+  'mail.waiting.still_waiting': 'It waits again: {{reason}}',
 } as const;
 
 export type LabelKey = keyof typeof en;

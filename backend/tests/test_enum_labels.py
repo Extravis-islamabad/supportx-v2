@@ -27,6 +27,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "MailboxCreates": "mailbox_creates",
     "MailboxState": "mailbox_state",
     "UnknownSenders": "mailbox_unknown_senders",
+    "WaitingOut.outcome": "mail_outcome",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
     "NotificationChannel": "notification_channel",

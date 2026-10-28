@@ -9318,6 +9318,40 @@
         "title": "Relative",
         "type": "string"
       },
+      "ReleasedOut": {
+        "description": "What a released message became; `reason` when it waits again.",
+        "properties": {
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reason Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "reason_params"
+        ],
+        "title": "ReleasedOut",
+        "type": "object"
+      },
       "ReplyMode": {
         "description": "Which composer a reply came from (REQ-INC-058).",
         "enum": [
@@ -14764,6 +14798,89 @@
           "visibility"
         ],
         "title": "VisibilityIn",
+        "type": "object"
+      },
+      "WaitingIn": {
+        "additionalProperties": false,
+        "description": "Which waiting message (by its Message-ID).",
+        "properties": {
+          "message_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "WaitingIn",
+        "type": "object"
+      },
+      "WaitingOut": {
+        "description": "A message in the review queue (held, or too large to take in).",
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "held",
+              "too_large"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code; the UI shows its label.",
+            "title": "Reason"
+          },
+          "reason_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reason Params",
+            "type": "object"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "releasable": {
+            "description": "Whether handing it in again can help.",
+            "title": "Releasable",
+            "type": "boolean"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "sender",
+          "subject",
+          "outcome",
+          "reason",
+          "reason_params",
+          "received_at",
+          "releasable"
+        ],
+        "title": "WaitingOut",
         "type": "object"
       },
       "WorkItemAction": {
@@ -33772,6 +33889,295 @@
           }
         },
         "summary": "Test a mailbox's connection",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting": {
+      "get": {
+        "description": "The review queue: held mail is never invisible (D-109 (9)).",
+        "operationId": "waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WaitingOut"
+                  },
+                  "title": "Response Waiting Mail Api V1 Integrations Mailboxes  Mailbox Id  Waiting Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Mail waiting for an admin",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard": {
+      "post": {
+        "description": "It stays in the ledger as discarded, without its copy.",
+        "operationId": "discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not waiting any more (mail_not_waiting)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Discard a waiting message",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release": {
+      "post": {
+        "description": "Without the flood check; held again, with the new reason, if it still cannot be taken in.",
+        "operationId": "release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not waiting any more (mail_not_waiting)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Hand a held message in again",
         "tags": [
           "integrations"
         ]

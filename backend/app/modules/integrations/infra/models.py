@@ -88,9 +88,17 @@ class MailFetched(TenantKeyed, Timestamps, Base):
             name="fk_mail_fetched_mailbox",
         ),
         Index("ix_mail_fetched_tenant_sender_created", "tenant_id", "sender", "created_at"),
+        # The review queue: what waits for an admin, per mailbox (D-109 (9)).
+        Index(
+            "ix_mail_fetched_tenant_waiting",
+            "tenant_id",
+            "mailbox_id",
+            "created_at",
+            postgresql_where=text("outcome IN ('held', 'too_large')"),
+        ),
         CheckConstraint(
             "outcome IN ('created', 'replied', 'automatic', 'own_address', 'held', 'rejected',"
-            " 'too_large')",
+            " 'too_large', 'discarded')",
             name="outcome_code",
         ),
     )
@@ -104,3 +112,7 @@ class MailFetched(TenantKeyed, Timestamps, Base):
     reason_params: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
     record_type: Mapped[str | None] = mapped_column(String(40))
     record_id: Mapped[uuid.UUID | None]
+    # The message as fetched, kept only while it waits for an admin (released or discarded:
+    # cleared). Not kept for mail over the size limit.
+    raw: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
+    handled_by: Mapped[uuid.UUID | None]  # the admin who released or discarded it

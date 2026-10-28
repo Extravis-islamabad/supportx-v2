@@ -80,6 +80,20 @@ class Outcome(StrEnum):
     HELD = "held"
     REJECTED = "rejected"
     TOO_LARGE = "too_large"
+    DISCARDED = "discarded"  # an admin discarded it from the review queue
+
+
+# What waits in the review queue on Admin > Mail (held mail is never invisible, D-109 (9)).
+WAITING = (Outcome.HELD, Outcome.TOO_LARGE)
+# Held for a reason a second try can overcome: a flood (the admin vouches), no record owner yet,
+# or the owning module's refusal (fixed since, e.g. a required field). The rest is discard-only:
+# staff reply in the console, and too-large mail was never taken in.
+NOT_RELEASABLE = frozenset({"not_requester"})
+
+
+def releasable(outcome: Outcome, reason: str | None) -> bool:
+    """Whether an admin may hand a waiting message in again."""
+    return outcome is Outcome.HELD and reason not in NOT_RELEASABLE
 
 
 @dataclass(frozen=True)
