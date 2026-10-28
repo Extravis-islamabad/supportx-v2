@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.modules import discover_modules
+from app.modules import licensing
 from app.shared.events import ConsumerSpec, EventRegistry, install_registry
 from app.shared.events.consumers import consumers_from_modules
 from workers import bus, runtime
@@ -38,6 +39,8 @@ async def main(stop: asyncio.Event) -> None:
     metrics.bind(meter)
     specs = enabled_consumers(settings)
     database = Database.from_settings(settings)
+    # Handlers ask the entitlement interface like the API does (identity_access.subject_for).
+    stop_entitlements = await licensing.start_worker_service(settings, database, discover_modules())
     connected = await bus.connect(settings, "consumers")
     runners = [
         ConsumerRunner(
@@ -90,6 +93,7 @@ async def main(stop: asyncio.Event) -> None:
         )
     finally:
         await connected.close()
+        await stop_entitlements()
         if database is not None:
             await database.dispose()
         provider.shutdown()
