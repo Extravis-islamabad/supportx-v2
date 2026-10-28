@@ -1,8 +1,15 @@
 import {
+  AreaChartOutlined,
   ArrowDownOutlined,
   ArrowUpOutlined,
+  BarChartOutlined,
+  DashboardOutlined,
   ExpandOutlined,
+  LineChartOutlined,
+  NumberOutlined,
+  PieChartOutlined,
   ReloadOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -38,6 +45,17 @@ import { useReportWords, type ReportWords } from '../reports/names';
 import { Results } from '../reports/ReportPage';
 import { kpiPeriod, previousPeriod, sparkline, trend } from './kpi';
 import { ROW_PX, widgetTitle } from './layout';
+
+const CHART_ICONS: Record<ChartType, typeof BarChartOutlined> = {
+  bar: BarChartOutlined,
+  stacked_bar: BarChartOutlined,
+  line: LineChartOutlined,
+  area: AreaChartOutlined,
+  doughnut: PieChartOutlined,
+  gauge: DashboardOutlined,
+  kpi: NumberOutlined,
+  table: TableOutlined,
+};
 
 // Chart types a viewer may switch a widget to (REQ-DSH-015): for that viewer only.
 const SWITCHABLE: ChartType[] = ['bar', 'stacked_bar', 'line', 'area', 'doughnut', 'table'];
@@ -160,6 +178,13 @@ export function Widget({
                   setType(next);
                 }}
                 options={SWITCHABLE.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
+                // An icon of the current type, named for readers, so the title keeps its room
+                // (QA WP-036 C2); the list still says each type in words.
+                labelRender={({ value }) => {
+                  const Icon = CHART_ICONS[value as ChartType];
+                  return <Icon role="img" aria-label={t(`report_chart.${String(value)}`)} />;
+                }}
+                popupMatchSelectWidth={false}
                 data-testid={`widget-type-${widget.id}`}
               />
             )}

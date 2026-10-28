@@ -361,4 +361,13 @@ describe('WP-036 QA fixes', () => {
       );
     }
   });
+
+  it("C2: the chart-type switch is an icon, so a widget's title keeps the room", async () => {
+    window.history.pushState({}, '', '/dashboards/builtin%3Amy_work');
+    api({ me: fakeSession(), routes: routes() });
+    render(<App />);
+    const type = await screen.findByTestId('widget-type-open_by_priority');
+    expect(type.textContent).toBe(''); // no "Table" text beside the title
+    expect(within(type).getByRole('img', { name: 'Table' })).toBeDefined(); // named for readers
+  });
 });
