@@ -15962,10 +15962,39 @@
           "channel": {
             "$ref": "#/components/schemas/Channel"
           },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "closure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closure Code"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "custom": {
+            "additionalProperties": true,
+            "description": "Custom values by key.",
+            "title": "Custom",
+            "type": "object"
           },
           "deleted_at": {
             "anyOf": [
@@ -15979,9 +16008,33 @@
             ],
             "title": "Deleted At"
           },
+          "department_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Department Id"
+          },
           "display_id": {
             "title": "Display Id",
             "type": "string"
+          },
+          "first_responded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Responded At"
           },
           "group_id": {
             "anyOf": [
@@ -16000,6 +16053,16 @@
             "title": "Id",
             "type": "string"
           },
+          "impact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Impact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "level": {
             "anyOf": [
               {
@@ -16017,6 +16080,10 @@
           "priority_source": {
             "$ref": "#/components/schemas/PrioritySource"
           },
+          "reopen_count": {
+            "title": "Reopen Count",
+            "type": "integer"
+          },
           "requester_id": {
             "format": "uuid",
             "title": "Requester Id",
@@ -16033,6 +16100,18 @@
               }
             ],
             "title": "Resolution Due At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
           },
           "site_id": {
             "anyOf": [
@@ -16064,6 +16143,18 @@
           },
           "status_category": {
             "$ref": "#/components/schemas/StatusCategory"
+          },
+          "status_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status Changed At"
           },
           "status_reason_code": {
             "anyOf": [
@@ -16104,6 +16195,16 @@
             "title": "Updated At",
             "type": "string"
           },
+          "urgency": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Urgency"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -16131,7 +16232,16 @@
           "created_at",
           "updated_at",
           "deleted_at",
-          "version"
+          "version",
+          "impact",
+          "urgency",
+          "department_id",
+          "closure_code",
+          "reopen_count",
+          "status_changed_at",
+          "first_responded_at",
+          "resolved_at",
+          "closed_at"
         ],
         "title": "WorkItemListItem",
         "type": "object"

@@ -10454,15 +10454,30 @@ export interface components {
             /** Category Id */
             category_id: string | null;
             channel: components["schemas"]["Channel"];
+            /** Closed At */
+            closed_at: string | null;
+            /** Closure Code */
+            closure_code: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Custom
+             * @description Custom values by key.
+             */
+            custom?: {
+                [key: string]: unknown;
+            };
             /** Deleted At */
             deleted_at: string | null;
+            /** Department Id */
+            department_id: string | null;
             /** Display Id */
             display_id: string;
+            /** First Responded At */
+            first_responded_at: string | null;
             /** Group Id */
             group_id: string | null;
             /**
@@ -10470,10 +10485,13 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            impact: components["schemas"]["Impact"] | null;
             /** Level */
             level: string | null;
             priority: components["schemas"]["Priority"];
             priority_source: components["schemas"]["PrioritySource"];
+            /** Reopen Count */
+            reopen_count: number;
             /**
              * Requester Id
              * Format: uuid
@@ -10481,6 +10499,8 @@ export interface components {
             requester_id: string;
             /** Resolution Due At */
             resolution_due_at: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
             /** Site Id */
             site_id: string | null;
             /** Sla Policy Id */
@@ -10488,6 +10508,8 @@ export interface components {
             /** Status */
             status: string;
             status_category: components["schemas"]["StatusCategory"];
+            /** Status Changed At */
+            status_changed_at: string | null;
             /** Status Reason Code */
             status_reason_code: string | null;
             /** Subject */
@@ -10501,6 +10523,7 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            urgency: components["schemas"]["Urgency"] | null;
             /** Version */
             version: number;
         };

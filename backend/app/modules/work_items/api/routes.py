@@ -468,6 +468,17 @@ class WorkItemListItem(BaseModel):
     updated_at: datetime
     deleted_at: datetime | None
     version: int
+    # More columns the list can show (WP-020d, REQ-INC-104), custom fields included.
+    impact: Impact | None
+    urgency: Urgency | None
+    department_id: uuid.UUID | None
+    closure_code: str | None
+    reopen_count: int
+    status_changed_at: datetime | None
+    first_responded_at: datetime | None
+    resolved_at: datetime | None
+    closed_at: datetime | None
+    custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
 
 
 class WorkItemPage(Page[WorkItemListItem]):
