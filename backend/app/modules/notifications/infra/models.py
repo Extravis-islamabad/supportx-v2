@@ -45,10 +45,10 @@ class NotificationRule(TenantEntity):
     enabled: Mapped[bool] = mapped_column(Boolean)
     recipients: Mapped[list[str]] = mapped_column(ARRAY(String(40)))
     channels: Mapped[list[str]] = mapped_column(ARRAY(String(10)))
-    user_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid))
-    group_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid))
-    conditions: Mapped[list[dict[str, object]]] = mapped_column(JSONB)
-    notify_actor: Mapped[bool] = mapped_column(Boolean)
+    user_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid), server_default="{}")
+    group_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(Uuid), server_default="{}")
+    conditions: Mapped[list[dict[str, object]]] = mapped_column(JSONB, server_default="[]")
+    notify_actor: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class Notification(UuidPrimaryKey, TenantScoped, Timestamps, Base):
