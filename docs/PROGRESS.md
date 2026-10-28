@@ -806,8 +806,10 @@ its numbers equal the report's and each viewer sees their own scope (REQ-DSH-028
   by" marker; drill-down in a side drawer; live via the scope-partitioned list channels (at most
   one refresh a second), connection indicator, polling fallback; the home page shows the home
   dashboard.
-- Not yet: `react-grid-layout` (D-100 deferred it to WP-036; asked the product owner; the grid
-  works without it); SLA widgets and the SLA dashboard (WP-025); approvals waiting (WP-030);
+- [x] **Follow-up — free-form layout** (D-110): `react-grid-layout` 2.2.4 in edit mode only (lazy),
+  drag by the title and resize from the end corner, keyboard buttons kept, RTL mirrored
+  (x' = 12 - x - w) and checked by `dashboards-grid.spec.ts` in English and Arabic.
+- Not yet: SLA widgets and the SLA dashboard (WP-025); approvals waiting (WP-030);
   tasks and reminders widgets (their features); embedded page, text, availability, MonetX (V1).
 
 ### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-4 of 4 done 2026-10-28)

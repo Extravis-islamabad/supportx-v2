@@ -2496,6 +2496,8 @@ export const ur: LabelResource = {
   'kb_requesters.none': 'درخواست دہندگان کے ساتھ شیئر نہیں',
   'kb_requesters.all': 'تمام درخواست دہندگان',
   'kb_requesters.selected': 'منتخب درخواست دہندگان',
+  'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
+  'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
   'permission.dashboards.create.description':
     'اپنے ڈیش بورڈ بنانا اور تیار شدہ یا شیئر شدہ ڈیش بورڈ کاپی کرنا۔',
   'permission.dashboards.share.description':

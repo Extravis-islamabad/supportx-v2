@@ -2898,6 +2898,8 @@ export const en = {
   'kb_requesters.none': 'Not shared with requesters',
   'kb_requesters.all': 'All requesters',
   'kb_requesters.selected': 'Chosen requesters',
+  'errors.field.unknown_column': 'This column does not exist for these records.',
+  'errors.field.duplicate_column': 'Each column can be listed once.',
   'permission.dashboards.create.description':
     'Make your own dashboards and copy ready-made or shared ones.',
   'permission.dashboards.share.description':
