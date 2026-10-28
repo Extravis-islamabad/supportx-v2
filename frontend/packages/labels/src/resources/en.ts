@@ -3596,6 +3596,7 @@ export const en = {
   'mailbox_security.tls': 'TLS',
   'mailbox_security.starttls': 'STARTTLS',
   'mailbox_security.none': 'No encryption',
+  'event_type.integrations.mailbox.changed': 'Mailbox changed',
   'mailbox_after_fetch.mark_read': 'Mark as read',
   'mailbox_after_fetch.move': 'Move to a folder',
   'mailbox_after_fetch.delete': 'Delete from the mailbox',

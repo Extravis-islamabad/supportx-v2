@@ -253,6 +253,25 @@ async def test_fetching_marks_each_message_after_storing_it(world: World) -> Non
     assert reader.marked == [("1", "mark_read"), ("2", "mark_read"), ("3", "mark_read")]
     assert len(world.incidents.created) == 2
     assert await _state(world) == ("working", None)
+    assert await _signals(world) == 1
+    await fetch_mailbox(  # nothing new, nothing changed: no signal every 2 minutes
+        world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=reader
+    )
+    assert await _signals(world) == 1
+
+
+async def _signals(world: World) -> int:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        return int(
+            await conn.fetchval(
+                "SELECT count(*) FROM outbox_events WHERE event_type = $1 AND aggregate_id = $2",
+                "integrations.mailbox.changed",
+                str(world.mailbox),
+            )
+        )
+    finally:
+        await conn.close()
 
 
 async def test_a_mailbox_that_cannot_be_reached_says_so(world: World) -> None:

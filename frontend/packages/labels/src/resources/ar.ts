@@ -3614,6 +3614,7 @@ export const ar: LabelResource = {
   'mailbox_security.tls': 'TLS',
   'mailbox_security.starttls': 'STARTTLS',
   'mailbox_security.none': 'بدون تشفير',
+  'event_type.integrations.mailbox.changed': 'تغيّر صندوق بريد',
   'mailbox_after_fetch.mark_read': 'تعليمه كمقروء',
   'mailbox_after_fetch.move': 'نقله إلى مجلد',
   'mailbox_after_fetch.delete': 'حذفه من صندوق البريد',

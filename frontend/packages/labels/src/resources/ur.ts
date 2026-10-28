@@ -3198,6 +3198,7 @@ export const ur: LabelResource = {
   'mailbox_security.tls': 'TLS',
   'mailbox_security.starttls': 'STARTTLS',
   'mailbox_security.none': 'انکرپشن کے بغیر',
+  'event_type.integrations.mailbox.changed': 'میل باکس تبدیل ہوا',
   'mailbox_after_fetch.mark_read': 'پڑھا ہوا نشان زد کریں',
   'mailbox_after_fetch.move': 'فولڈر میں منتقل کریں',
   'mailbox_after_fetch.delete': 'میل باکس سے حذف کریں',

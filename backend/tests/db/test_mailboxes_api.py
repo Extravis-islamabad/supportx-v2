@@ -3,6 +3,7 @@
 Same world as test_incidents_api.py, with an installation key ring so passwords can be sealed.
 """
 
+import json
 import uuid
 from typing import Any
 
@@ -66,6 +67,18 @@ async def test_an_admin_adds_a_mailbox_and_its_password_never_comes_back(world: 
     listed = await world.call("GET", BASE, world.a, world.a.admin)
     assert [m["id"] for m in listed.json()] == [body["id"]]
     assert "mailbox.created" in await audit_actions(world, world.a)
+    assert await changes(world, body["id"]) == ["added"]
+
+
+async def changes(world: World, mailbox_id: str) -> list[str]:
+    """The mailbox's events in the outbox: what the mail page refetches on (no address, no mail)."""
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE aggregate_id = $1 ORDER BY id", mailbox_id
+    )
+    envelopes = [json.loads(r["envelope"]) for r in rows]
+    for envelope in envelopes:
+        assert set(envelope["payload"]) == {"mailbox_id", "change"}
+    return [e["payload"]["change"] for e in envelopes]
 
 
 async def test_only_mailbox_managers_see_or_change_mailboxes(world: World) -> None:
@@ -119,6 +132,7 @@ async def test_changes_need_the_version_read_and_reset_the_state(world: World) -
     )
     assert gone.status_code == 204
     assert (await world.call("GET", BASE, world.a, world.a.admin)).json() == []
+    assert await changes(world, created["id"]) == ["added", "changed", "removed"]
     assert problem(await world.call("POST", f"{path}/test", world.a, world.a.admin, json={})) == (
         404,
         "mailbox_not_found",

@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,11 +28,14 @@ from app.modules.integrations.domain.mailboxes import (
     UnknownSenders,
     check_security,
 )
+from app.modules.integrations.events import MailboxChanged
 from app.modules.integrations.infra.imap import ImapReader, ImapSettings, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.integrations.service.fetching import key_ring, seal_password
+from app.shared.events import record_event
 
 MANAGE = "mailboxes.manage"
+Change = Literal["added", "changed", "removed", "fetched"]
 FIELDS = (
     "address",
     "display_name",
@@ -101,6 +104,16 @@ async def _held_counts(session: AsyncSession) -> dict[uuid.UUID, int]:
     return {mailbox_id: int(count) for mailbox_id, count in rows}
 
 
+async def changed(session: AsyncSession, row: Mailbox, change: Change) -> None:
+    """The mail page refetches (outbox, same transaction)."""
+    await record_event(
+        session,
+        MailboxChanged(mailbox_id=row.id, change=change),
+        aggregate_id=row.id,
+        aggregate_version=row.version,
+    )
+
+
 def _view(row: Mailbox, held: Mapping[uuid.UUID, int]) -> MailboxView:
     return MailboxView(row, row.secret_sealed is not None, held.get(row.id, 0))
 
@@ -156,6 +169,7 @@ async def create_mailbox(
     row.secret_key_id, row.secret_sealed = seal_password(ring, tenant_id, password)
     session.add(row)
     await session.flush()
+    await changed(session, row, "added")
     return _view(row, {})
 
 
@@ -190,6 +204,7 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
     row.version += 1
     row.updated_at = datetime.now(UTC)
     await session.flush()
+    await changed(session, row, "changed")
     return await get_mailbox(session, mailbox_id)
 
 
@@ -207,6 +222,7 @@ async def remove_mailbox(
     row.deleted_at, row.updated_at, row.enabled = now, now, False
     row.version += 1
     await session.flush()
+    await changed(session, row, "removed")
 
 
 async def test_connection(settings: ImapSettings) -> str | None:
