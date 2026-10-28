@@ -23,7 +23,7 @@ import {
   useStarReport,
   type ReportFolder,
 } from '@supportx/api-client';
-import { useLabels } from '@supportx/labels';
+import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import { lengthLimit, NoAccess, useAccess, WriteButton } from '@supportx/ui';
 
@@ -175,6 +175,7 @@ export function ReportsHomePage() {
 /** Create, rename and delete shared folders (reports.manage_folders). */
 function FolderTools({ folders }: { folders: ReportFolder[] }) {
   const t = useLabels();
+  const isolate = useIsolate();
   const change = useReportFolderChange();
   const [open, setOpen] = useState<
     null | { kind: 'create' } | { kind: 'delete'; folder: ReportFolder }
@@ -245,7 +246,7 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
         open={open?.kind === 'delete'}
         title={
           open?.kind === 'delete'
-            ? t('reports.delete_folder_named', { name: open.folder.name })
+            ? t('reports.delete_folder_named', { name: isolate(open.folder.name) })
             : ''
         }
         okText={t('reports.delete')}

@@ -32,7 +32,7 @@ import {
   type ReportSchedule,
   type ReportScheduleInput,
 } from '@supportx/api-client';
-import { useLabels } from '@supportx/labels';
+import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
   describeError,
@@ -307,6 +307,7 @@ export function ScheduleButton({
 /** "Schedules": next run, last result, pause, resume, delete. Live (REQ-RPT-052 AC2, 056). */
 export function SchedulesButton() {
   const t = useLabels();
+  const isolate = useIsolate();
   const { can } = useAccess();
   const dates = useDateTime();
   const queryClient = useQueryClient();
@@ -375,7 +376,7 @@ export function SchedulesButton() {
                 ),
                 <Popconfirm
                   key="delete"
-                  title={t('reports.delete_confirm', { name: item.title })}
+                  title={t('reports.delete_confirm', { name: isolate(item.title) })}
                   okText={t('reports.delete')}
                   cancelText={t('reports.cancel')}
                   onConfirm={() => {
@@ -401,12 +402,14 @@ export function SchedulesButton() {
                 description={
                   <Space direction="vertical" size={0}>
                     {item.next_run_at && item.status === 'active' && (
-                      <span>{t('reports.next_run', { time: dates.format(item.next_run_at) })}</span>
+                      <span>
+                        {t('reports.next_run', { time: isolate(dates.format(item.next_run_at)) })}
+                      </span>
                     )}
                     {item.last_run_at && item.last_result && (
                       <span data-testid={`schedule-last-${item.id}`}>
                         {t('reports.last_run', {
-                          time: dates.format(item.last_run_at),
+                          time: isolate(dates.format(item.last_run_at)),
                           result: t(`report_schedule_result.${item.last_result}`),
                         })}
                       </span>

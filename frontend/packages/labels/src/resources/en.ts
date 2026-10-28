@@ -2769,6 +2769,10 @@ export const en = {
   'reports.filter_days': '{{field}} in the last {{days}} days',
   'reports.or': 'or',
   'reports.total': 'Total',
+  'reports.changed_from': 'Changed from {{name}}',
+  'reports.changed_from_hint':
+    'These changes are not saved. Reset to go back, or save them as your own report.',
+  'reports.reset': 'Reset',
   'reports.measure_value': '{{name}}: {{value}}',
   'reports.group_by': 'Group by',
   'reports.then_by': 'Then by',

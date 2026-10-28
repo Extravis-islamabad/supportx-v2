@@ -2362,6 +2362,10 @@ export const ur: LabelResource = {
   'reports.filter_days': '{{field}} پچھلے {{days}} دنوں میں',
   'reports.or': 'یا',
   'reports.total': 'کل',
+  'reports.changed_from': '{{name}} سے تبدیل شدہ',
+  'reports.changed_from_hint':
+    'یہ تبدیلیاں محفوظ نہیں ہیں۔ واپس جانے کے لیے ری سیٹ کریں، یا انہیں اپنی رپورٹ کے طور پر محفوظ کریں۔',
+  'reports.reset': 'ری سیٹ',
   'reports.measure_value': '{{name}}: {{value}}',
   'reports.group_by': 'گروپ بندی',
   'reports.then_by': 'پھر',

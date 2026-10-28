@@ -48,7 +48,13 @@ import {
   type FilterModel,
   type FilterValueType,
 } from '@supportx/forms';
-import { useLabels, useListFormat, type ListKind } from '@supportx/labels';
+import {
+  useIsolate,
+  useJoinParts,
+  useLabels,
+  useListFormat,
+  type ListKind,
+} from '@supportx/labels';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import {
   describeError,
@@ -145,6 +151,7 @@ function fieldType(type: string): FilterValueType {
 
 function ReportView({ base }: { base: Base }) {
   const t = useLabels();
+  const isolate = useIsolate();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = useAccess();
@@ -159,6 +166,7 @@ function ReportView({ base }: { base: Base }) {
     base.definition.chart === 'table' ? 'table' : 'chart',
   );
   const [drill, setDrill] = useState<Drill | null>(null);
+  const [copying, setCopying] = useState(false);
 
   const definition = useMemo<ReportDefinition>(
     () => ({
@@ -167,6 +175,13 @@ function ReportView({ base }: { base: Base }) {
     }),
     [draft, model, complexFilter, base.definition.filter],
   );
+  const edited = JSON.stringify(definition) !== JSON.stringify(base.definition);
+  // Back to the report as it was opened: its grouping, filter, measures and chart (BUG-08).
+  const reset = () => {
+    setDraft(base.definition);
+    setModel(fromDsl(base.definition.filter) ?? { join: 'and', rows: [] });
+    setView(base.definition.chart === 'table' ? 'table' : 'chart');
+  };
   const toRun = useDebounced(definition, RUN_DELAY_MS);
   const run = useReportRun(toRun, problems.size === 0);
   const result = run.data;
@@ -218,12 +233,39 @@ function ReportView({ base }: { base: Base }) {
     setDraft({ ...draft, group_by: groups.slice(0, index === 0 && field === undefined ? 0 : 2) });
   };
 
+  const joinParts = useJoinParts();
   const rowTitle = (row: ReportRow) =>
-    (result?.groups ?? []).map((g, i) => words.key(g, row.keys[i])).join(' · ');
+    joinParts((result?.groups ?? []).map((g, i) => words.key(g, row.keys[i])));
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
       <Header base={base} definition={definition} result={result} canRun={problems.size === 0} />
+      {base.builtin !== null && edited && (
+        // A changed built-in report says so: it is no longer the shipped one (QA WP-035 BUG-08).
+        <Alert
+          type="info"
+          showIcon
+          data-testid="report-modified"
+          message={t('reports.changed_from', { name: isolate(base.name) })}
+          description={t('reports.changed_from_hint')}
+          action={
+            <Space wrap>
+              <Button onClick={reset} data-testid="report-reset">
+                {t('reports.reset')}
+              </Button>
+              <WriteButton
+                type="primary"
+                disabled={problems.size > 0 || !can('reports.create')}
+                onClick={() => {
+                  setCopying(true);
+                }}
+              >
+                {t('reports.save_copy')}
+              </WriteButton>
+            </Space>
+          }
+        />
+      )}
       <Card size="small" title={t('reports.filters')}>
         {complexFilter ? (
           <Alert type="info" showIcon message={t('reports.filter_read_only')} />
@@ -340,9 +382,9 @@ function ReportView({ base }: { base: Base }) {
           size="small"
           title={
             <Space wrap>
-              <span>{t('reports.as_of', { time: dates.format(result.as_of) })}</span>
+              <span>{t('reports.as_of', { time: isolate(dates.format(result.as_of)) })}</span>
               <Typography.Text type="secondary">
-                {t('reports.times_in', { zone: result.time_zone })}
+                {t('reports.times_in', { zone: isolate(result.time_zone) })}
               </Typography.Text>
             </Space>
           }
@@ -372,6 +414,8 @@ function ReportView({ base }: { base: Base }) {
       )}
       <Flex gap={12} wrap align="center">
         <Actions
+          copying={copying}
+          onCopying={setCopying}
           base={base}
           definition={definition}
           canSave={problems.size === 0 && can('reports.create')}
@@ -408,13 +452,15 @@ function Header({
   canRun: boolean;
 }) {
   const t = useLabels();
+  const isolate = useIsolate();
   const words = useReportWords(result);
   const star = useStarReport();
   const library = useReportLibrary();
   const starred = library.data?.favourites.includes(base.ref) ?? false;
   const fields = useReportEntity(definition.entity).data?.fields ?? [];
   const list = useListFormat();
-  const summary = filterInWords(definition.filter, words, fields, t, list);
+  const joinParts = useJoinParts();
+  const summary = filterInWords(definition.filter, words, fields, t, list, joinParts);
   return (
     <Space direction="vertical" size={4} style={{ width: '100%' }}>
       <Flex justify="space-between" align="center" wrap gap={12}>
@@ -439,14 +485,14 @@ function Header({
         {result && (
           <Descriptions.Item label={t('reports.total')}>
             <span data-testid="report-total">
-              {result.measures
-                .map((m, i) =>
+              {joinParts(
+                result.measures.map((m, i) =>
                   t('reports.measure_value', {
-                    name: words.measure(result.entity, m.code).name,
-                    value: words.value(m, result.totals[i]),
+                    name: isolate(words.measure(result.entity, m.code).name),
+                    value: isolate(words.value(m, result.totals[i])),
                   }),
-                )
-                .join(' · ')}
+                ),
+              )}
             </span>
           </Descriptions.Item>
         )}
@@ -463,6 +509,7 @@ function filterInWords(
   fields: ReportField[],
   t: (key: string, p?: Record<string, string | number>) => string,
   list: (items: readonly string[], kind?: ListKind) => string,
+  joinParts: (parts: readonly string[]) => string,
 ): string {
   const model = fromDsl(filter);
   if (model === null) return t('reports.filter_custom');
@@ -493,7 +540,7 @@ function filterInWords(
         : list(values, row.op === 'in' ? 'disjunction' : 'unit');
     return `${field} ${op} ${named}`;
   });
-  return model.join === 'and' ? parts.join(' · ') : list(parts, 'disjunction');
+  return model.join === 'and' ? joinParts(parts) : list(parts, 'disjunction');
 }
 
 function Results({
@@ -676,12 +723,17 @@ function percentOf(value: number | null | undefined, total: number | null | unde
 }
 
 function Actions({
+  copying,
+  onCopying,
   base,
   definition,
   canSave,
   onSaved,
   onDeleted,
 }: {
+  /** The "save as my report" dialog is open (also opened from the "changed" notice). */
+  copying: boolean;
+  onCopying: (open: boolean) => void;
   base: Base;
   definition: ReportDefinition;
   canSave: boolean;
@@ -689,11 +741,11 @@ function Actions({
   onDeleted: () => void;
 }) {
   const t = useLabels();
+  const isolate = useIsolate();
   const library = useReportLibrary();
   const create = useCreateReport();
   const update = useUpdateReport(base.saved?.id ?? '');
   const remove = useDeleteReport(base.saved?.id ?? '');
-  const [open, setOpen] = useState(false);
   const [name, setName] = useState(t('reports.copy_of', { name: base.name }));
   const [folder, setFolder] = useState<string>('mine');
   const [key] = useState(() => crypto.randomUUID());
@@ -707,7 +759,7 @@ function Actions({
           type={base.saved?.canEdit ? 'default' : 'primary'}
           disabled={!canSave}
           onClick={() => {
-            setOpen(true);
+            onCopying(true);
           }}
           data-testid="report-save-copy"
         >
@@ -731,7 +783,7 @@ function Actions({
             danger
             onClick={() =>
               Modal.confirm({
-                title: t('reports.delete_confirm', { name: base.name }),
+                title: t('reports.delete_confirm', { name: isolate(base.name) }),
                 okText: t('reports.delete'),
                 okButtonProps: { danger: true },
                 cancelText: t('reports.cancel'),
@@ -753,13 +805,13 @@ function Actions({
         </Typography.Text>
       )}
       <Modal
-        open={open}
+        open={copying}
         title={t('reports.save_copy')}
         okText={t('reports.save')}
         cancelText={t('reports.cancel')}
         okButtonProps={{ disabled: name.trim() === '', loading: create.isPending }}
         onCancel={() => {
-          setOpen(false);
+          onCopying(false);
         }}
         onOk={() => {
           create.mutate(
@@ -799,7 +851,7 @@ function Actions({
               { value: 'mine', label: t('reports.my_reports_private') },
               ...(library.data?.folders ?? []).map((f) => ({
                 value: f.id,
-                label: t('reports.shared_folder_named', { name: f.name }),
+                label: t('reports.shared_folder_named', { name: isolate(f.name) }),
               })),
             ]}
             data-testid="report-save-folder"

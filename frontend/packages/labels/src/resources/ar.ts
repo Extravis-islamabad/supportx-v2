@@ -2735,6 +2735,10 @@ export const ar: LabelResource = {
   'reports.filter_days': '{{field}} في آخر {{days}} يومًا',
   'reports.or': 'أو',
   'reports.total': 'الإجمالي',
+  'reports.changed_from': 'معدّل عن {{name}}',
+  'reports.changed_from_hint':
+    'لم تُحفظ هذه التغييرات. أعد التعيين للرجوع، أو احفظها كتقرير خاص بك.',
+  'reports.reset': 'إعادة التعيين',
   'reports.measure_value': '{{name}}: {{value}}',
   'reports.group_by': 'تجميع حسب',
   'reports.then_by': 'ثم حسب',

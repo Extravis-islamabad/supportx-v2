@@ -1,10 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { ConfigProvider } from 'antd';
-import { useContext } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
-import { AppearanceProvider } from '@supportx/ui';
 
 import { App } from '../../App';
 import { consoleApi, fakeSession } from '../../test/api';
@@ -394,19 +391,17 @@ describe('Reports', () => {
       expect(chart?.getAttribute('dir')).toBe('rtl');
     });
 
-    it('BUG-07: option lists are as wide as their longest choice, everywhere', () => {
-      // One setting for the whole product (the app's ConfigProvider), not a prop per list.
-      let match: boolean | number | undefined;
-      function Probe() {
-        match = useContext(ConfigProvider.ConfigContext).popupMatchSelectWidth;
-        return null;
-      }
-      render(
-        <AppearanceProvider initialLocale="ar">
-          <Probe />
-        </AppearanceProvider>,
-      );
-      expect(match).toBe(false);
+    it('BUG-07: every option shows its whole label, in every list of the product', async () => {
+      api({ me: fakeSession(), routes: routes() });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      const chartType = screen.getByTestId('report-chart-type');
+      fireEvent.mouseDown(chartType.querySelector('.ant-select-selector') ?? chartType);
+      const option = await screen.findByTitle('Stacked bar');
+      const content = option.querySelector('.ant-select-item-option-content') ?? option;
+      // One rule for the whole product (AppearanceProvider), not a prop per list.
+      expect(getComputedStyle(content).whiteSpace).toBe('normal');
+      expect(getComputedStyle(content).textOverflow).toBe('clip');
     });
 
     it('BUG-08: a changed built-in report says so, with Reset and Save as my report', async () => {
