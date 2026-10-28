@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
+from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemTask
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -55,6 +55,8 @@ BULK_PROGRESS = "work_items.bulk_progress"
 LISTS_CHANGED = "work_items.lists_changed"
 # Correlation ID of a bulk job's events (service/bulk.py): lists refresh once per batch instead.
 BULK_PREFIX = "bulk:"
+PART_CHANGED = "work_items.part_changed"
+MY_TASKS_CHANGED = "work_items.my_tasks_changed"
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -286,6 +288,36 @@ async def _bulk_progressed(envelope: EventEnvelope, session: AsyncSession) -> Re
     return RealtimeEffects(publications=publications)
 
 
+async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A task, worklog or link changed: the record's screens, and a task owner's own list."""
+    payload = envelope.payload
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    part_id = uuid.UUID(str(payload["part_id"]))
+    publications = [
+        Publication(
+            record(envelope.tenant_id, RECORD_KIND, record_id),
+            PART_CHANGED,
+            ids=(str(part_id),),
+            fields=(str(payload["part"]),),
+            actor_id=_actor(envelope),
+        )
+    ]
+    if payload["part"] == "task":
+        owner = await session.scalar(
+            select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)
+        )
+        if owner is not None:
+            publications.append(
+                Publication(
+                    personal(envelope.tenant_id, owner),
+                    MY_TASKS_CHANGED,
+                    ids=(str(part_id),),
+                    actor_id=_actor(envelope),
+                )
+            )
+    return RealtimeEffects(publications=publications)
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -308,4 +340,5 @@ ROUTES = [
     RealtimeRoute(("work_items.view.changed",), _view_changed),
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
+    RealtimeRoute(("work_items.part.changed",), _part_changed),
 ]

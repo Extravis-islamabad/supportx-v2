@@ -7,7 +7,7 @@ from a viewer's audience as well as add it where it arrived.
 """
 
 import uuid
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -212,6 +212,22 @@ class WorkItemBulkJobProgressed(DomainEvent):
     total: int
 
 
+class WorkItemPartChanged(DomainEvent):
+    """A task, worklog or link of a record was added, changed or removed (WP-020e).
+
+    The record's screens refresh that part; IDs only, never the part's content.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    part: Literal["task", "worklog", "link"]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -228,4 +244,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemViewChanged,
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
+    WorkItemPartChanged,
 )

@@ -2052,6 +2052,11 @@ async def _follow_up(  # noqa: PLR0913 - the reply and its context, explicit
             follow = await _update(
                 session, created.record, created.record.version, {"follows_id": record.id}
             )
+            # WP-020e: the follow-up is also a `follows` link, shown on both records. Imported
+            # here because the parts service builds on this one.
+            from app.modules.work_items.service import parts  # noqa: PLC0415
+
+            await parts.add_follows(session, follow, record, source=source)
     except (ValidationFailed, PermissionDenied, Conflict):
         await record_changes(
             session,
