@@ -189,7 +189,7 @@ describe('WP-029 QA: a move limited to certain people', () => {
     fireEvent.mouseEnter(reason.firstElementChild ?? reason);
     const tip = await screen.findByRole('tooltip');
     expect(tip.textContent).toBe(
-      'Only these may do this on this record: Tenant administrator, Night shift, members of Network, the requester.',
+      'Only these may do this on this record: Tenant administrator, Night shift, members of Network, and the requester.',
     );
   });
 });

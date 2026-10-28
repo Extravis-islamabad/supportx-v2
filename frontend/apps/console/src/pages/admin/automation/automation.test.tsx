@@ -181,7 +181,7 @@ describe('Admin › Incidents › Business rules (WP-029)', () => {
     const who = await screen.findByTestId('conflict-who');
     expect(who.textContent).toContain('Bilal Admin saved it at');
     await waitFor(() => {
-      expect(who.textContent).toContain('Changed: Name, State.');
+      expect(who.textContent).toContain('Changed: Name and State.');
     });
   });
 

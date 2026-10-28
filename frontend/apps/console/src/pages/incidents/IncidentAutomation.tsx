@@ -6,6 +6,7 @@ import {
   useIncidentHistory,
   type AutomationRunOut,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { ToneTag, useDateTime, useLabel, type Tone } from '@supportx/ui';
 
 import { useFieldName } from '../admin/automation/rules';
@@ -40,6 +41,7 @@ function reasonKey(reason: string): string {
 /** A recent loop stop on this record (REQ-RUL-028 AC1): named triggers, shown above the tabs. */
 export function LoopWarning({ id }: { id: string }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const runs = useIncidentAutomation(id);
   // When the record was opened: a stop older than a day there is history, not a warning.
   const [openedAt] = useState(() => Date.now());
@@ -55,7 +57,7 @@ export function LoopWarning({ id }: { id: string }) {
       data-testid="inc-loop-warning"
       message={t('automation.loop.title')}
       description={t(`automation.loop.${stop.outcome}`, {
-        triggers: names.join(t('list.separator')),
+        triggers: listFormat(names, 'conjunction'),
       })}
     />
   );

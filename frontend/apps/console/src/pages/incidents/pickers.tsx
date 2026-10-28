@@ -8,6 +8,7 @@ import {
   useStructure,
   useUsers,
 } from '@supportx/api-client';
+import { useJoinParts } from '@supportx/labels';
 import { useAppearance, useLabel } from '@supportx/ui';
 
 import { categoryLabel, duplicateNames } from './labels';
@@ -25,11 +26,12 @@ export function PersonOption({
   email: string | null;
   extra?: string;
 }) {
+  const joinParts = useJoinParts();
   return (
     <Space direction="vertical" size={0}>
       <Typography.Text>{name}</Typography.Text>
       <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-        {[email, extra].filter((part) => part != null && part !== '').join(' · ')}
+        {joinParts([email, extra].filter((part): part is string => part != null && part !== ''))}
       </Typography.Text>
     </Space>
   );
@@ -37,10 +39,17 @@ export function PersonOption({
 
 /**
  * What a screen reader says for an option (QA C7): the name and email, never the ID that
- * Ant Design's hidden accessibility list would otherwise fall back to.
+ * Ant Design's hidden accessibility list would otherwise fall back to. Parts of one person,
+ * not a list: each isolated in right-to-left languages, paused with the language's comma.
  */
-function spoken(name: string, email: string | null, extra?: string): string {
-  return [name, email, extra].filter((part) => part != null && part !== '').join(', ');
+function useSpoken(): (name: string, email: string | null, extra?: string) => string {
+  const t = useLabel();
+  const joinParts = useJoinParts();
+  return (name, email, extra) =>
+    joinParts(
+      [name, email, extra].filter((part): part is string => part != null && part !== ''),
+      t('list.separator'),
+    );
 }
 
 interface PickerProps {
@@ -65,6 +74,7 @@ export function UserPicker({
   ariaLabel,
 }: PickerProps) {
   const t = useLabel();
+  const spoken = useSpoken();
   const [search, setSearch] = useState('');
   // Server search: half a name, a typo, Arabic or Urdu spellings, or the email (WP-027).
   const users = useUsers({ q: search, sort: 'display_name', limit: 20 });
@@ -227,6 +237,7 @@ export function TechnicianPicker({
   ariaLabel,
 }: PickerProps & { groupId: string | null }) {
   const t = useLabel();
+  const spoken = useSpoken();
   const [search, setSearch] = useState('');
   const found = useIncidentAssignees(groupId, search, disabled !== true);
   const rows = found.data ?? [];
