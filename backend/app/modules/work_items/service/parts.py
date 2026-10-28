@@ -5,7 +5,7 @@ They are parts of the record: each change is in the record's history (`child_add
 version (ADR-026), and an event names the record so every open screen refreshes the part live.
 
 Reading a part needs the record's view permission; changing one needs its edit permission. One
-exception (REQ-INC-072 AC3, D-111): when the type allows it, a task's owner may change their
+exception (REQ-INC-072 AC3, D-112): when the type allows it, a task's owner may change their
 task's status without access to the record; they see the task and the record's ID and subject,
 never its conversation or notes.
 

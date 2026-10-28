@@ -206,7 +206,7 @@ def add_parts_collection_routes(router: APIRouter, wtype: WorkItemType) -> None:
 
     @router.get("/my-tasks", summary="Open tasks you own")
     async def my_tasks(session: TenantSession, subject: SignedIn) -> list[WorkItemMyTaskOut]:
-        """With the record each belongs to; a task-only owner (D-111) starts here."""
+        """With the record each belongs to; a task-only owner (D-112) starts here."""
         found: list[tuple[WorkItemTask, WorkItem]] = await service.my_tasks(session, subject, wtype)
         return [
             WorkItemMyTaskOut(
@@ -274,7 +274,7 @@ def add_parts_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C
         request: Request,
         response: Response,
     ) -> WorkItemTaskOut:
-        """Needs If-Match. A task-only owner (D-111) changes the status only."""
+        """Needs If-Match. A task-only owner (D-112) changes the status only."""
         row = await service.update_task(
             session,
             subject,

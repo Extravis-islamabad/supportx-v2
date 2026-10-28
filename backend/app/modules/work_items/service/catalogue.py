@@ -93,7 +93,7 @@ class ClosureSettings:
     complete_open_work: bool
     auto_close_days: int | None
     reopen_window_days: int
-    task_owner_access: bool = False  # WP-020e (D-111)
+    task_owner_access: bool = False  # WP-020e (D-112)
 
 
 @dataclass(frozen=True)

@@ -119,7 +119,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     auto_close_days: Mapped[int | None] = mapped_column(Integer)
     # Days after resolution or closure in which a requester reply reopens (REQ-INC-098).
     reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
-    # REQ-INC-072 AC3 (D-111): a task's owner may work on it without access to the record.
+    # REQ-INC-072 AC3 (D-112): a task's owner may work on it without access to the record.
     task_owner_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")

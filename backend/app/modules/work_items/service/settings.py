@@ -261,7 +261,7 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         changes["open_work"] = saved
     if "complete_open_work" in values:
         changes["complete_open_work"] = bool(values["complete_open_work"])
-    if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-111)
+    if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-112)
         changes["task_owner_access"] = bool(values["task_owner_access"])
     if "auto_close_days" in values:
         days = values["auto_close_days"]

@@ -38,7 +38,7 @@ class TaskPriority(StrEnum):
 
 
 class WorklogType(StrEnum):
-    """What the time was spent on (D-111: a fixed list in MVP; admin pick lists later)."""
+    """What the time was spent on (D-112: a fixed list in MVP; admin pick lists later)."""
 
     INVESTIGATION = "investigation"
     FIX = "fix"

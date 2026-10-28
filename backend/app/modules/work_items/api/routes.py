@@ -539,7 +539,7 @@ class WorkItemClosureOut(BaseModel):
     auto_close_days: int | None = Field(description="Business days; null: off.")
     reopen_window_days: int
     task_owner_access: bool = Field(
-        description="A task's owner may work on it without access to the record (D-111)."
+        description="A task's owner may work on it without access to the record (D-112)."
     )
     requester_channels: list[str] = Field(
         description="Channels that can tell requesters; auto-close needs one."
