@@ -20,7 +20,7 @@ Take the lock by writing your lane here (and telling the other lanes); release i
 
 | Holder | Since | Purpose |
 |---|---|---|
-| (free) | | |
+| Lane A | 2026-10-29 | WP-020d QA on main f4caaa2 (~/Desktop/qa-wp020d) |
 
 The shared stack (API :8000, workers, console 5173, portal 5174) runs from `../supportx-v2-stack`,
 a clean detached worktree at origin/main, never from a lane's working branch (2026-10-28). The lock
