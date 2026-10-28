@@ -4066,4 +4066,5 @@ export const ar: LabelResource = {
   'work_item.field.task.position': 'ترتيب المهمة',
   'work_item.field.worklog': 'سجل العمل',
   'work_item.field.link': 'رابط',
+  'incidents.history.bulk': 'تغيير جماعي',
 };

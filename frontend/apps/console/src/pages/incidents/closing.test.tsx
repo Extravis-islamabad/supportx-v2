@@ -459,6 +459,30 @@ describe('History', () => {
     expect(text).not.toContain('<p>');
   });
 
+  it('REQ-INC-120 AC4: a change made by a bulk job says so', async () => {
+    rememberTab(SESSION_USER, 'history');
+    api({
+      routes: {
+        ...COMMON,
+        ...record(fakeIncident()),
+        [`GET ${PATH}/history`]: {
+          body: {
+            items: [
+              entry({
+                bulk_job_id: '01900000-0000-7000-8000-00000000b001',
+                changes: [{ field: 'status', old: 'resolved', new: 'closed' }],
+              }),
+            ],
+            next_cursor: null,
+            people: {},
+          },
+        },
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('inc-history-bulk')).textContent).toBe('Bulk change');
+  });
+
   it('REQ-INC-051/095/096: requester replies and confirmed open work read in words', async () => {
     rememberTab(SESSION_USER, 'history');
     api({

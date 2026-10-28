@@ -3605,4 +3605,5 @@ export const ur: LabelResource = {
   'work_item.field.task.position': 'کام کی ترتیب',
   'work_item.field.worklog': 'ورک لاگ',
   'work_item.field.link': 'ربط',
+  'incidents.history.bulk': 'اجتماعی تبدیلی',
 };

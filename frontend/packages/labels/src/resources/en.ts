@@ -4001,6 +4001,7 @@ export const en = {
   'work_item.field.task.position': 'Task order',
   'work_item.field.worklog': 'Worklog',
   'work_item.field.link': 'Link',
+  'incidents.history.bulk': 'Bulk change',
 } as const;
 
 export type LabelKey = keyof typeof en;
