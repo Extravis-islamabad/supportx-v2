@@ -1,6 +1,6 @@
 """Report exports and report settings (WP-035 session 3). Test names cite parity file 09.
 
-The incident world and the test-only incident provider of test_reports_api.py; object storage is
+The incident world of test_reports_api.py (the real incident source); object storage is
 an in-memory fake (nothing touches the dev stack's MinIO); the worker's subject loader is
 identity_access.subject_for, as in the consumers worker (lane B, #82).
 """
