@@ -30,13 +30,15 @@ repos:
         pass_filenames: false
       - id: eslint
         name: eslint
-        entry: pnpm --dir frontend lint
+        # Run from frontend/: Corepack picks the pnpm pinned there (`packageManager`). From the
+        # repo root it took the newest pnpm, which then refused the pinned version (2026-10-28).
+        entry: bash -c 'cd frontend && pnpm lint'
         language: system
         files: ^frontend/.*\.(ts|tsx|js)$
         pass_filenames: false
       - id: prettier
         name: prettier
-        entry: pnpm --dir frontend format:check
+        entry: bash -c 'cd frontend && pnpm format:check'
         language: system
         files: ^(frontend/|\.prettierrc\.json$|tsconfig\.base\.json$)
         pass_filenames: false
