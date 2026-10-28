@@ -802,6 +802,11 @@ the design partner's own testing come on top.
 
 - **Sessions:** 1 · **Depends on:** WP-014b, WP-039 · **Requirements:** 2 · **Lane:** B
 - **Note:** Encryption at rest and in transit, application security baseline, final checks.
+- **Also (product owner, 2026-10-28):** defence in depth for manual or bulk SQL: the existing
+  per-table actor trigger (`supportx_stamp_actor`) also stamps `updated_at` on every UPDATE that
+  leaves it unchanged, so a write outside the application still says when it happened. Today the
+  application sets it (`onupdate` on every `updated_at`, guarded by
+  `backend/tests/test_updated_at_writes.py`, WP-029-FIX).
 
 | ID | Title | File |
 |---|---|---|
