@@ -684,6 +684,20 @@ async def list_page(  # noqa: PLR0913 - the list's filters, explicit
     else:
         await config.ensure_seeded(session, wtype)
         statement = staff_rows(subject, wtype)
+    statement = await narrowed(session, subject, statement, view=view, zone=zone, tag=tag)
+    return await paginate(session, statement, query)
+
+
+async def narrowed(  # noqa: PLR0913 - the list's own narrowing, explicit
+    session: AsyncSession,
+    subject: Subject,
+    statement: Select[Any],
+    *,
+    view: str | None,
+    zone: tzinfo,
+    tag: str | None,
+) -> Select[Any]:
+    """`statement` narrowed to a built-in view and a tag, exactly as the list narrows it."""
     if view is not None:
         predicates = await views_for(session, subject, zone=zone)
         if view not in predicates:
@@ -691,7 +705,7 @@ async def list_page(  # noqa: PLR0913 - the list's filters, explicit
         statement = statement.where(predicates[view])
     if tag:
         statement = statement.where(WorkItem.tags.contains([tag]))
-    return await paginate(session, statement, query)
+    return statement
 
 
 async def view_counts(

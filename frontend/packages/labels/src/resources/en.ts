@@ -782,6 +782,7 @@ export const en = {
   'errors.category_not_found': 'This category does not exist.',
   'errors.field.invalid_tag': 'Tags may use letters, digits, spaces, dots and dashes (up to 40).',
   'errors.field.too_many_items': 'There are too many entries.',
+  'errors.field.too_many_records': 'Choose at most {{max}} records.',
   'errors.field.channel_reserved':
     'Only phone or walk-up can be chosen; other channels are set automatically.',
   'errors.field.user_not_found': 'This person does not exist in your organisation.',
@@ -1041,6 +1042,7 @@ export const en = {
   'audit.action.announcement.settings_changed': 'Changed announcement settings',
   'audit.action.incident.deleted': 'Moved an incident to the trash',
   'audit.action.incident.restored': 'Restored an incident from the trash',
+  'audit.action.incident.bulk_started': 'Started a bulk change of incidents',
   'audit.action.incident.closed_record_edited': 'Edited a closed incident',
   'audit.action.incident.due_date_changed': "Changed an incident's due date",
   'audit.action.audit.settings_changed': 'Changed audit settings',
@@ -1278,6 +1280,9 @@ export const en = {
   'errors.conversation_entry_not_found': 'This reply or note no longer exists.',
   'errors.follower_not_found': 'This person is not following it.',
   'errors.reply_template_not_found': 'This reply template no longer exists.',
+  'errors.work_item_view_not_found':
+    'This saved view no longer exists, or it is not shared with you.',
+  'errors.bulk_job_not_found': 'This bulk change was not found.',
   'errors.field.not_allowed_for_notes': 'Notes have no recipients.',
   'errors.field.too_many': 'Too many recipients.',
   'errors.field.replies_are_public':

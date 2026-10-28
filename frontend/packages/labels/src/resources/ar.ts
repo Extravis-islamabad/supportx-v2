@@ -786,6 +786,7 @@ export const ar: LabelResource = {
   'errors.category_not_found': 'هذه الفئة غير موجودة.',
   'errors.field.invalid_tag': 'يمكن أن تحتوي الوسوم على حروف وأرقام ومسافات ونقاط وشرطات (حتى 40).',
   'errors.field.too_many_items': 'عدد الإدخالات كبير جدًا.',
+  'errors.field.too_many_records': 'اختر {{max}} سجلًا على الأكثر.',
   'errors.field.channel_reserved':
     'يمكن اختيار الهاتف أو الحضور الشخصي فقط؛ تُحدَّد القنوات الأخرى تلقائيًا.',
   'errors.field.user_not_found': 'هذا الشخص غير موجود في مؤسستك.',
@@ -1060,6 +1061,7 @@ export const ar: LabelResource = {
   'audit.action.announcement.settings_changed': 'غيّر إعدادات الإعلانات',
   'audit.action.incident.deleted': 'نقل حادثة إلى سلة المحذوفات',
   'audit.action.incident.restored': 'استعاد حادثة من سلة المحذوفات',
+  'audit.action.incident.bulk_started': 'بدأ تغييرًا جماعيًا للحوادث',
   'audit.action.incident.closed_record_edited': 'عدّل حادثة مغلقة',
   'audit.action.incident.due_date_changed': 'غيّر موعد استحقاق حادثة',
   'audit.action.audit.settings_changed': 'غيّر إعدادات التدقيق',
@@ -1295,6 +1297,9 @@ export const ar: LabelResource = {
   'errors.conversation_entry_not_found': 'لم يعد هذا الرد أو الملاحظة موجودًا.',
   'errors.follower_not_found': 'هذا الشخص لا يتابعه.',
   'errors.reply_template_not_found': 'لم يعد قالب الرد هذا موجودًا.',
+  'errors.work_item_view_not_found':
+    'طريقة العرض المحفوظة هذه لم تعد موجودة، أو أنها غير مشاركة معك.',
+  'errors.bulk_job_not_found': 'لم يتم العثور على هذا التغيير الجماعي.',
   'errors.field.not_allowed_for_notes': 'الملاحظات ليس لها مستلمون.',
   'errors.field.too_many': 'عدد المستلمين كبير جدًا.',
   'errors.field.replies_are_public': 'تذهب الردود إلى أشخاص خارج الفريق، لذا فهي عامة دائمًا.',

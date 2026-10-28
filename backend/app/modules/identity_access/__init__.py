@@ -131,6 +131,11 @@ def _worker_policy() -> PolicyService:
     )
 
 
+def worker_policy() -> PolicyService:
+    """The policy service for code running outside the API (a job acting as a user)."""
+    return _worker_policy()
+
+
 async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:
     """The user's compiled subject, read from the database now (no cache), for workers and jobs.
 
@@ -301,4 +306,5 @@ __all__ = [
     "user_contacts",
     "user_names",
     "visible",
+    "worker_policy",
 ]

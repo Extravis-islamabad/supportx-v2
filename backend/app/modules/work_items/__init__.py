@@ -21,7 +21,7 @@ from app.modules.work_items.api.routes import build_router
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import TYPES
 from app.modules.work_items.events import EVENTS
-from app.modules.work_items.service import notifications, report_names, resolution
+from app.modules.work_items.service import bulk, notifications, report_names, resolution
 from app.modules.work_items.service.access import permissions
 from app.modules.work_items.service.automated import register_triggers
 from app.modules.work_items.service.automation import register_types
@@ -76,7 +76,11 @@ module = ModuleSpec(
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     # REQ-INC-096: resolved records the requester was told about close after N business days.
-    schedules=[ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule)],
+    schedules=[
+        ScheduleSpec("work_items__auto_close", 900, resolution.auto_close_schedule),
+        # Bulk jobs (WP-020d): picked up within seconds of being asked for, like people imports.
+        ScheduleSpec("work_items__bulk_jobs", 5, bulk.run_bulk_jobs),
+    ],
 )
 
 # Ports for other modules (WP-020f): open work on a record, and channels that tell requesters.

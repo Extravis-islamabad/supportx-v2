@@ -355,6 +355,7 @@ export const ur: LabelResource = {
   'errors.category_not_found': 'یہ زمرہ موجود نہیں۔',
   'errors.field.invalid_tag': 'ٹیگ میں حروف، ہندسے، خالی جگہ، نقطے اور ڈیش ہو سکتے ہیں (40 تک)۔',
   'errors.field.too_many_items': 'اندراجات بہت زیادہ ہیں۔',
+  'errors.field.too_many_records': 'زیادہ سے زیادہ {{max}} ریکارڈ منتخب کریں۔',
   'errors.field.channel_reserved':
     'صرف فون یا بالمشافہ چنا جا سکتا ہے؛ دوسرے ذرائع خود بخود طے ہوتے ہیں۔',
   'errors.field.user_not_found': 'یہ شخص آپ کی تنظیم میں موجود نہیں۔',
@@ -625,6 +626,7 @@ export const ur: LabelResource = {
   'audit.action.announcement.settings_changed': 'اعلانات کی ترتیبات تبدیل کیں',
   'audit.action.incident.deleted': 'واقعہ ردی کی ٹوکری میں ڈالا',
   'audit.action.incident.restored': 'واقعہ ردی کی ٹوکری سے بحال کیا',
+  'audit.action.incident.bulk_started': 'واقعات کی اجتماعی تبدیلی شروع کی',
   'audit.action.incident.closed_record_edited': 'بند واقعہ میں ترمیم کی',
   'audit.action.incident.due_date_changed': 'واقعہ کی مقررہ تاریخ تبدیل کی',
   'audit.action.audit.settings_changed': 'آڈٹ کی ترتیبات تبدیل کیں',
@@ -860,6 +862,8 @@ export const ur: LabelResource = {
   'errors.conversation_entry_not_found': 'یہ جواب یا نوٹ اب موجود نہیں ہے۔',
   'errors.follower_not_found': 'یہ شخص اسے فالو نہیں کر رہا۔',
   'errors.reply_template_not_found': 'جواب کا یہ سانچہ اب موجود نہیں ہے۔',
+  'errors.work_item_view_not_found': 'یہ محفوظ ویو اب موجود نہیں، یا آپ کے ساتھ شیئر نہیں کیا گیا۔',
+  'errors.bulk_job_not_found': 'یہ اجتماعی تبدیلی نہیں ملی۔',
   'errors.field.not_allowed_for_notes': 'نوٹس کے وصول کنندگان نہیں ہوتے۔',
   'errors.field.too_many': 'وصول کنندگان بہت زیادہ ہیں۔',
   'errors.field.replies_are_public':

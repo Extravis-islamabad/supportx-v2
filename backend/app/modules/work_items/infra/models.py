@@ -47,6 +47,7 @@ from app.modules.work_items.domain.lifecycle import (
     StatusCategory,
     WorkItemAction,
 )
+from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisibility
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import Channel, WorkItemTypeCode
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
@@ -689,3 +690,120 @@ class WorkItemReplyTemplate(TenantEntity):
     type: Mapped[str] = mapped_column(String(20))
     name: Mapped[str] = mapped_column(String(120))
     body: Mapped[str] = mapped_column(Text)
+
+
+class WorkItemView(TenantEntity):
+    """A saved view (REQ-INC-106): a filter in the shared DSL, columns and sort, by its owner.
+
+    `filter` and `sort` are the list API's own parameters, stored as sent (AC3). A shared view
+    is listed for everyone who may see the list; only its owner changes or removes it.
+    """
+
+    __tablename__ = "work_item_views"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint(_codes("visibility", ViewVisibility), name="visibility_code"),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 120", name="name_length"),
+        CheckConstraint("jsonb_array_length(columns) <= 40", name="columns_limit"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_wiv_owner"
+        ),
+        Index(
+            "uq_wiv_tenant_type_owner_name",
+            "tenant_id",
+            "type",
+            "owner_id",
+            text("lower(name)"),
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wiv_tenant_type_shared",
+            "tenant_id",
+            "type",
+            postgresql_where=text("deleted_at IS NULL AND visibility = 'shared'"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    owner_id: Mapped[uuid.UUID]
+    name: Mapped[str] = mapped_column(String(120))
+    visibility: Mapped[str] = mapped_column(String(10))
+    # The list API's `filter` (FilterExpression JSON) or null for "everything I may see".
+    filter: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # [{"key": "subject", "width": 240}, ...]; empty = the default columns.
+    columns: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    sort: Mapped[str | None] = mapped_column(String(200))
+
+
+class WorkItemListSetting(TenantEntity):
+    """One user's columns, sort and page size for one view (REQ-INC-104 AC1/AC3, 110).
+
+    `view_key` is a built-in view code or `custom:<view id>`; settings never cross views.
+    """
+
+    __tablename__ = "work_item_list_settings"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint("page_size IN (25, 50, 100)", name="page_size_choice"),
+        CheckConstraint("jsonb_array_length(columns) <= 40", name="columns_limit"),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"], ["users.tenant_id", "users.id"], name="fk_wils_user"
+        ),
+        Index(
+            "uq_wils_tenant_user_type_view",
+            "tenant_id",
+            "user_id",
+            "type",
+            "view_key",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    user_id: Mapped[uuid.UUID]
+    view_key: Mapped[str] = mapped_column(String(60))
+    columns: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    sort: Mapped[str | None] = mapped_column(String(200))
+    page_size: Mapped[int] = mapped_column(Integer, server_default="50")
+
+
+class WorkItemBulkJob(TenantEntity):
+    """A bulk change of up to 1,000 records (REQ-INC-119/120), run by the consumers worker.
+
+    The records are frozen when the job starts (`record_ids`); each runs as the requester
+    (`created_by`) with its own permissions, transitions and closure rules. `results` holds one
+    entry per finished record: {"id", "display_id", "outcome", "code", "params"}.
+    """
+
+    __tablename__ = "work_item_bulk_jobs"
+    __table_args__ = (
+        CheckConstraint(TYPE_CHECK, name="type_code"),
+        CheckConstraint(_codes("action", BulkAction), name="action_code"),
+        CheckConstraint(_codes("status", BulkStatus), name="status_code"),
+        CheckConstraint("cardinality(record_ids) BETWEEN 1 AND 1000", name="record_limit"),
+        CheckConstraint("processed BETWEEN 0 AND total", name="processed_range"),
+        Index("ix_wibj_tenant_creator_created", "tenant_id", "created_by", "created_at"),
+        Index(
+            "ix_wibj_tenant_pending",
+            "tenant_id",
+            "created_at",
+            postgresql_where=text("status IN ('queued', 'running') AND deleted_at IS NULL"),
+        ),
+    )
+
+    type: Mapped[str] = mapped_column(String(20))
+    action: Mapped[str] = mapped_column(String(20))
+    # Edit: only the changed fields; assign: technician and group; resolve/close: their fields.
+    changes: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default="{}")
+    source: Mapped[str] = mapped_column(String(20))  # history source of the request (ui, api)
+    record_ids: Mapped[list[uuid.UUID]] = mapped_column(ARRAY(UUID(as_uuid=True)))
+    status: Mapped[str] = mapped_column(String(20))
+    total: Mapped[int] = mapped_column(Integer)
+    processed: Mapped[int] = mapped_column(Integer, server_default="0")
+    done_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    skipped_count: Mapped[int] = mapped_column(Integer, server_default="0")
+    results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+    started_at: Mapped[datetime | None]
+    finished_at: Mapped[datetime | None]
