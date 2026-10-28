@@ -3460,6 +3460,38 @@ export const en = {
     'You now follow {{ record.display_id }}: {{ record.title }}',
   'notification_template.incident.follower_added.body':
     'Hello {{ recipient.name }},\n\nYou now follow {{ record.display_id }} "{{ record.title }}" and will hear about its updates.',
+  'nav.admin_notifications': 'Notifications',
+  'notifications.title': 'Notifications',
+  'notifications.open': 'Notifications, {{count}} unread',
+  'notifications.read_all': 'Mark all read',
+  'notifications.do_not_disturb': 'Do not disturb',
+  'notifications.empty': 'No notifications yet.',
+  'notifications.more': 'Show older',
+  'notifications.banner.title': 'E-mail notifications are waiting',
+  'notifications.banner.no_mail':
+    '{{count}} e-mails wait because outgoing mail is not set up. In-app notifications still go out; the e-mails are sent once mail works.',
+  'notifications.banner.sending': '{{count}} waiting e-mails are being sent now.',
+  'notification_rules.intro':
+    'Which events notify whom, and how. Every event starts with a sensible default; changes are recorded in the audit log.',
+  'notification_rules.saved': 'Notification rule saved.',
+  'notification_rules.col.event': 'Event',
+  'notification_rules.col.on': 'On',
+  'notification_rules.col.recipients': 'Who',
+  'notification_rules.col.channels': 'How',
+  'notification_rules.col.priority': 'Only for priority',
+  'notification_rules.any_priority': 'Any priority',
+  'notification_rules.required': 'Required for people',
+  'notification_rules.default': 'Default',
+  'notification_rules.changed': 'Changed {{when}}',
+  'notification_rules.reset': 'Back to default',
+  'notification_preferences.title': 'Notifications',
+  'notification_preferences.help':
+    'Choose what you hear about, and where. Some notifications are required by your organization.',
+  'notification_preferences.saved': 'Preferences saved.',
+  'notification_preferences.col.category': 'Kind',
+  'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
+  'notification_preferences.dnd_help':
+    'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
 } as const;
 
 export type LabelKey = keyof typeof en;

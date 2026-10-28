@@ -37,6 +37,7 @@ import {
 } from '@supportx/ui';
 
 import { AvailabilityCard } from '../AvailabilitySwitch';
+import { NotificationPreferencesCard } from '../notifications/NotificationPreferencesCard';
 
 /** Record forms one column with labels above, or compact (WP-020c); saved with the user. */
 function FormDensityCard({ userId, value }: { userId: string; value: FormDensity }) {
@@ -114,6 +115,7 @@ export function ProfilePage() {
         <Typography.Text type="secondary">{t('profile.identity')}</Typography.Text>
       </Card>
       <AccountSecurityCard />
+      <NotificationPreferencesCard />
       <FormDensityCard userId={me.id} value={me.form_density} />
       {me.user_type === 'technician' && licence.has('incident') && (
         <AvailabilityCard userId={me.id} />

@@ -3055,4 +3055,36 @@ export const ur: LabelResource = {
     'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
   'notification_template.incident.follower_added.body':
     'السلام علیکم {{ recipient.name }}،\n\nآپ اب {{ record.display_id }} "{{ record.title }}" کو فالو کرتے ہیں اور اس کی تازہ کاریوں سے باخبر رہیں گے۔',
+  'nav.admin_notifications': 'اطلاعات',
+  'notifications.title': 'اطلاعات',
+  'notifications.open': 'اطلاعات، {{count}} نہ پڑھی ہوئی',
+  'notifications.read_all': 'سب کو پڑھا ہوا نشان زد کریں',
+  'notifications.do_not_disturb': 'پریشان نہ کریں',
+  'notifications.empty': 'ابھی کوئی اطلاع نہیں۔',
+  'notifications.more': 'پرانی دکھائیں',
+  'notifications.banner.title': 'ای میل اطلاعات انتظار میں ہیں',
+  'notifications.banner.no_mail':
+    '{{count}} ای میلز انتظار میں ہیں کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میلز بھیج دی جائیں گی۔',
+  'notifications.banner.sending': 'انتظار میں موجود {{count}} ای میلز اب بھیجی جا رہی ہیں۔',
+  'notification_rules.intro':
+    'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
+  'notification_rules.saved': 'اطلاع کا قاعدہ محفوظ ہو گیا۔',
+  'notification_rules.col.event': 'واقعہ',
+  'notification_rules.col.on': 'آن',
+  'notification_rules.col.recipients': 'کون',
+  'notification_rules.col.channels': 'کیسے',
+  'notification_rules.col.priority': 'صرف اس ترجیح کے لیے',
+  'notification_rules.any_priority': 'کوئی بھی ترجیح',
+  'notification_rules.required': 'لوگوں کے لیے لازمی',
+  'notification_rules.default': 'پہلے سے طے شدہ',
+  'notification_rules.changed': '{{when}} کو تبدیل ہوا',
+  'notification_rules.reset': 'پہلے سے طے شدہ پر واپس',
+  'notification_preferences.title': 'اطلاعات',
+  'notification_preferences.help':
+    'منتخب کریں کہ آپ کو کس بارے میں اور کہاں اطلاع ملے۔ کچھ اطلاعات آپ کی تنظیم کی طرف سے لازمی ہیں۔',
+  'notification_preferences.saved': 'ترجیحات محفوظ ہو گئیں۔',
+  'notification_preferences.col.category': 'قسم',
+  'notification_preferences.locked': 'آپ کی تنظیم کی طرف سے لازمی: اسے بند نہیں کیا جا سکتا۔',
+  'notification_preferences.dnd_help':
+    'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
 };

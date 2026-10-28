@@ -158,6 +158,13 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/admin/security/SecurityPage')).SecurityPage,
             }),
           },
+          {
+            path: 'notifications',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/notifications/NotificationRulesPage'))
+                .NotificationRulesPage,
+            }),
+          },
         ],
       },
       {
