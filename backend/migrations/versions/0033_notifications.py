@@ -10,6 +10,7 @@ Created: 2026-10-28
 """
 
 from collections.abc import Sequence
+from datetime import datetime
 
 import sqlalchemy as sa
 from alembic import op
@@ -32,7 +33,7 @@ def _tenant_fk(table: str) -> sa.ForeignKeyConstraint:
     )
 
 
-def _times() -> list[sa.Column[object]]:
+def _times() -> list[sa.Column[datetime]]:
     return [
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
