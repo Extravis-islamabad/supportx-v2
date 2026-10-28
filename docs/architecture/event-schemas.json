@@ -1564,6 +1564,144 @@
         "type": "object"
       }
     },
+    "notifications.delivery.recorded": {
+      "1": {
+        "description": "A notification was sent, held back or failed for a record (the record's log, REQ-INC-134).",
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "delivery_id": {
+            "format": "uuid",
+            "title": "Delivery Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "delivery_id",
+          "record_type",
+          "record_id",
+          "channel",
+          "state"
+        ],
+        "title": "DeliveryRecorded",
+        "type": "object"
+      }
+    },
+    "notifications.notification.created": {
+      "1": {
+        "description": "A new entry in a person's notification centre (their personal channel shows it live).",
+        "properties": {
+          "notification_id": {
+            "format": "uuid",
+            "title": "Notification Id",
+            "type": "string"
+          },
+          "urgent": {
+            "title": "Urgent",
+            "type": "boolean"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "notification_id",
+          "user_id",
+          "urgent"
+        ],
+        "title": "NotificationCreated",
+        "type": "object"
+      }
+    },
+    "notifications.notification.read": {
+      "1": {
+        "description": "A person read entries (one, or all of them): their other devices update the badge.",
+        "properties": {
+          "all": {
+            "title": "All",
+            "type": "boolean"
+          },
+          "notification_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Notification Ids",
+            "type": "array"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "notification_ids",
+          "all"
+        ],
+        "title": "NotificationsRead",
+        "type": "object"
+      }
+    },
+    "notifications.preferences.changed": {
+      "1": {
+        "description": "A person changed their notification preferences (every device applies them at once).",
+        "properties": {
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id"
+        ],
+        "title": "PreferencesChanged",
+        "type": "object"
+      }
+    },
+    "notifications.rule.changed": {
+      "1": {
+        "description": "An admin changed the rule of one event (on/off, recipients, channels, conditions).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "event_code": {
+            "title": "Event Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_code",
+          "changed_fields"
+        ],
+        "title": "RuleChanged",
+        "type": "object"
+      }
+    },
     "organization.branding.changed": {
       "1": {
         "description": "The tenant's branding was saved or reset (WP-017): open screens reload the brand.",

@@ -70,7 +70,7 @@ class NotificationOut(BaseModel):
     created_at: datetime
 
 
-class CentreOut(BaseModel):
+class NotificationCentreOut(BaseModel):
     """A page of your entries, newest first, and the unread count."""
 
     items: list[NotificationOut]
@@ -101,17 +101,17 @@ async def list_notifications(
     cursor: Annotated[uuid.UUID | None, Query(description="next_cursor of the last page")] = None,
     limit: Annotated[int, Query(ge=1, le=centre.PAGE_MAX)] = 30,
     unread: Annotated[bool, Query(description="Only unread entries")] = False,
-) -> CentreOut:
+) -> NotificationCentreOut:
     """Your own entries only (whatever the request says)."""
     found = await centre.page(
         session, subject.user_id, cursor=cursor, limit=limit, unread_only=unread
     )
-    return CentreOut(
+    return NotificationCentreOut(
         items=[_out(row) for row in found.items], next_cursor=found.next_cursor, unread=found.unread
     )
 
 
-class ReadIn(BaseModel):
+class NotificationReadIn(BaseModel):
     """Entries to mark read; leave `ids` out to mark every unread entry read."""
 
     model_config = ConfigDict(extra="forbid")
@@ -119,7 +119,7 @@ class ReadIn(BaseModel):
     ids: list[uuid.UUID] | None = Field(default=None, max_length=centre.PAGE_MAX)
 
 
-class ReadOut(BaseModel):
+class NotificationReadOut(BaseModel):
     """How many changed, and the unread count after."""
 
     changed: int
@@ -127,16 +127,20 @@ class ReadOut(BaseModel):
 
 
 @router.post("/read", summary="Mark notifications read")
-async def mark_read(body: ReadIn, session: TenantSession, subject: SignedIn) -> ReadOut:
+async def mark_read(
+    body: NotificationReadIn, session: TenantSession, subject: SignedIn
+) -> NotificationReadOut:
     """Your other devices update at once (personal channel)."""
     changed = await centre.mark_read(session, subject.user_id, body.ids)
-    return ReadOut(changed=changed, unread=await centre.unread_count(session, subject.user_id))
+    return NotificationReadOut(
+        changed=changed, unread=await centre.unread_count(session, subject.user_id)
+    )
 
 
 # --- preferences -----------------------------------------------------------------------------
 
 
-class ChoiceOut(BaseModel):
+class NotificationChoiceOut(BaseModel):
     """One category on one channel."""
 
     category: NotificationCategory
@@ -145,15 +149,15 @@ class ChoiceOut(BaseModel):
     locked: bool = Field(description="Required by your organization: cannot be switched off.")
 
 
-class PreferencesOut(BaseModel):
+class NotificationPreferencesOut(BaseModel):
     """Your notification preferences."""
 
-    choices: list[ChoiceOut]
+    choices: list[NotificationChoiceOut]
     do_not_disturb: bool
     version: int
 
 
-class ChoiceIn(BaseModel):
+class NotificationChoiceIn(BaseModel):
     """A category switched off on a channel."""
 
     model_config = ConfigDict(extra="forbid")
@@ -162,19 +166,19 @@ class ChoiceIn(BaseModel):
     channel: NotificationChannel
 
 
-class PreferencesIn(BaseModel):
+class NotificationPreferencesIn(BaseModel):
     """Everything switched off (the rest is on), and do-not-disturb."""
 
     model_config = ConfigDict(extra="forbid")
 
-    off: list[ChoiceIn] = Field(default_factory=list, max_length=50)
+    off: list[NotificationChoiceIn] = Field(default_factory=list, max_length=50)
     do_not_disturb: bool = False
 
 
-def _preferences_out(view: centre.PreferenceView) -> PreferencesOut:
-    return PreferencesOut(
+def _preferences_out(view: centre.PreferenceView) -> NotificationPreferencesOut:
+    return NotificationPreferencesOut(
         choices=[
-            ChoiceOut(
+            NotificationChoiceOut(
                 category=category,
                 channel=channel,
                 on=category.value in view.locked
@@ -192,7 +196,7 @@ def _preferences_out(view: centre.PreferenceView) -> PreferencesOut:
 @router.get("/preferences", summary="Your notification preferences")
 async def get_preferences(
     session: TenantSession, subject: SignedIn, response: Response
-) -> PreferencesOut:
+) -> NotificationPreferencesOut:
     """Per category and channel; locked ones are required by your organization."""
     view = await centre.preferences(session, subject.user_id)
     set_etag(response, view.version)
@@ -201,12 +205,12 @@ async def get_preferences(
 
 @router.put("/preferences", summary="Change your notification preferences", responses=CONFLICT)
 async def put_preferences(
-    body: PreferencesIn,
+    body: NotificationPreferencesIn,
     session: TenantSession,
     subject: SignedIn,
     version: ExpectedVersion,
     response: Response,
-) -> PreferencesOut:
+) -> NotificationPreferencesOut:
     """If-Match: the version you read ("0" before the first save)."""
     view = await centre.save_preferences(
         session,
@@ -222,7 +226,7 @@ async def put_preferences(
 # --- rules (admins) --------------------------------------------------------------------------
 
 
-class ConditionModel(BaseModel):
+class NotificationCondition(BaseModel):
     """The record's `field` is (not) one of `values`."""
 
     model_config = ConfigDict(extra="forbid")
@@ -232,7 +236,7 @@ class ConditionModel(BaseModel):
     values: list[str] = Field(min_length=1, max_length=20)
 
 
-class RuleIn(BaseModel):
+class NotificationRuleIn(BaseModel):
     """An event's rule."""
 
     model_config = ConfigDict(extra="forbid")
@@ -242,11 +246,11 @@ class RuleIn(BaseModel):
     channels: list[NotificationChannel] = Field(default_factory=list, max_length=2)
     user_ids: list[uuid.UUID] = Field(default_factory=list, max_length=admin.NAMED_MAX)
     group_ids: list[uuid.UUID] = Field(default_factory=list, max_length=admin.NAMED_MAX)
-    conditions: list[ConditionModel] = Field(default_factory=list, max_length=20)
+    conditions: list[NotificationCondition] = Field(default_factory=list, max_length=20)
     notify_actor: bool = False
 
 
-class RuleOut(BaseModel):
+class NotificationRuleOut(BaseModel):
     """An event with the rule that applies to it now."""
 
     event_code: str
@@ -259,7 +263,7 @@ class RuleOut(BaseModel):
     channels: list[NotificationChannel]
     user_ids: list[uuid.UUID]
     group_ids: list[uuid.UUID]
-    conditions: list[ConditionModel]
+    conditions: list[NotificationCondition]
     notify_actor: bool
     default_enabled: bool
     default_recipients: list[str]
@@ -270,9 +274,9 @@ class RuleOut(BaseModel):
     updated_by: uuid.UUID | None
 
 
-def _rule_out(view: admin.RuleView) -> RuleOut:
+def _rule_out(view: admin.RuleView) -> NotificationRuleOut:
     rule, event, source = view.rule, view.event, view.source
-    return RuleOut(
+    return NotificationRuleOut(
         event_code=event.code,
         record_type=source.record_type,
         category=event.category,
@@ -284,7 +288,7 @@ def _rule_out(view: admin.RuleView) -> RuleOut:
         user_ids=list(rule.user_ids),
         group_ids=list(rule.group_ids),
         conditions=[
-            ConditionModel(field=c.field, operator=c.operator, values=list(c.values))
+            NotificationCondition(field=c.field, operator=c.operator, values=list(c.values))
             for c in rule.conditions
         ],
         notify_actor=rule.notify_actor,
@@ -299,7 +303,7 @@ def _rule_out(view: admin.RuleView) -> RuleOut:
 
 
 @router.get("/rules", summary="Notification rules of every event")
-async def list_rules(session: TenantSession, subject: Manage) -> list[RuleOut]:
+async def list_rules(session: TenantSession, subject: Manage) -> list[NotificationRuleOut]:
     """Every event every module registered, with the rule that applies (no set-up step)."""
     del subject
     return [_rule_out(view) for view in await admin.rules(session)]
@@ -319,12 +323,12 @@ async def list_rules(session: TenantSession, subject: Manage) -> list[RuleOut]:
 )
 async def put_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     event_code: str,
-    body: RuleIn,
+    body: NotificationRuleIn,
     session: TenantSession,
     subject: Manage,
     version: ExpectedVersion,
     response: Response,
-) -> RuleOut:
+) -> NotificationRuleOut:
     """If-Match: the version you read ("0" while the default applies)."""
     wanted = admin.parse_rule(
         enabled=body.enabled,
@@ -354,12 +358,12 @@ async def put_rule(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 )
 async def reset_rule(
     event_code: str, session: TenantSession, subject: Manage, version: ExpectedVersion
-) -> RuleOut:
+) -> NotificationRuleOut:
     """If-Match: the version of the saved rule."""
     return _rule_out(await admin.reset_rule(session, subject, event_code, expected_version=version))
 
 
-class StatusOut(BaseModel):
+class NotificationStatusOut(BaseModel):
     """For the admins' banner: e-mails waiting because outgoing mail is not set up."""
 
     mail_configured: bool
@@ -367,10 +371,12 @@ class StatusOut(BaseModel):
 
 
 @router.get("/status", summary="Notification delivery status")
-async def status(session: TenantSession, subject: Manage, settings: AppSettings) -> StatusOut:
+async def status(
+    session: TenantSession, subject: Manage, settings: AppSettings
+) -> NotificationStatusOut:
     """How many e-mails wait for outgoing mail (REQ-NTF-020 AC3)."""
     del subject
-    return StatusOut(
+    return NotificationStatusOut(
         mail_configured=mail_configured(settings), waiting=await waiting_count(session)
     )
 
@@ -378,7 +384,7 @@ async def status(session: TenantSession, subject: Manage, settings: AppSettings)
 # --- delivery log of a record ----------------------------------------------------------------
 
 
-class DeliveryOut(BaseModel):
+class NotificationDeliveryOut(BaseModel):
     """One notification of a record: to whom, how, when, and whether it went (REQ-INC-134)."""
 
     id: uuid.UUID
@@ -397,11 +403,11 @@ async def deliveries(
     subject: SignedIn,
     record_type: Annotated[str, Query(max_length=40)],
     record_id: uuid.UUID,
-) -> list[DeliveryOut]:
+) -> list[NotificationDeliveryOut]:
     """Newest first (at most 200); for people who may see the record in full."""
     entries = await admin.delivery_log(session, subject, record_type, record_id)
     return [
-        DeliveryOut(
+        NotificationDeliveryOut(
             id=e.row.id,
             event_code=e.row.event_code,
             recipient_id=e.row.user_id,

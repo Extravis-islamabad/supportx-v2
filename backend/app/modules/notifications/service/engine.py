@@ -429,9 +429,7 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
             if person is None:
                 await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.NO_ADDRESS)
                 continue
-            if access is RecordAccess.NONE or (
-                access is RecordAccess.PUBLIC and not event.public
-            ):
+            if access is RecordAccess.NONE or (access is RecordAccess.PUBLIC and not event.public):
                 await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.NO_ACCESS)
                 continue
             held = held_back(
