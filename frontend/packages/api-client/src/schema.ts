@@ -2589,6 +2589,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mailboxes
+         * @description Every mailbox with its state (the mail page, REQ-ADM-066 AC1).
+         */
+        get: operations["list_mailboxes_api_v1_integrations_mailboxes_get"];
+        put?: never;
+        /**
+         * Add a mailbox
+         * @description Send an Idempotency-Key: a retried request returns the same 201.
+         */
+        post: operations["create_mailbox_api_v1_integrations_mailboxes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a mailbox
+         * @description Stop reading it; the records it made keep their history.
+         */
+        delete: operations["remove_mailbox_api_v1_integrations_mailboxes__mailbox_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a mailbox
+         * @description If-Match: the version you read. A connection change is tested again at the next fetch.
+         */
+        patch: operations["update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a mailbox's connection
+         * @description Connects and looks for new mail; changes nothing on the server or here.
+         */
+        post: operations["test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -4053,6 +4121,12 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * AfterFetch
+         * @description What happens to a message on the mail server once it is in SupportX (REQ-ADM-067).
+         * @enum {string}
+         */
+        AfterFetch: "mark_read" | "move" | "delete";
+        /**
          * AllowedForOut
          * @description Who a transition is limited to: roles, group names, people on the record (codes).
          */
@@ -5208,6 +5282,30 @@ export interface components {
          * @enum {string}
          */
         ConditionOperator: "in" | "not_in";
+        /**
+         * ConnectionSecurity
+         * @description Transport security of an IMAP or SMTP connection.
+         * @enum {string}
+         */
+        ConnectionSecurity: "tls" | "starttls" | "none";
+        /**
+         * ConnectionTestIn
+         * @description Settings to try (a new password, or the stored one when left out).
+         */
+        ConnectionTestIn: {
+            /** Password */
+            password?: string | null;
+        };
+        /**
+         * ConnectionTestOut
+         * @description Whether the mailbox answered; `reason` is a code the UI shows as its label.
+         */
+        ConnectionTestOut: {
+            /** Ok */
+            ok: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
         /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
@@ -6662,6 +6760,150 @@ export interface components {
             /** Triggers */
             triggers: string[];
         };
+        /**
+         * MailboxCreates
+         * @description What a new (non-reply) message to the mailbox becomes.
+         * @enum {string}
+         */
+        MailboxCreates: "incident" | "nothing";
+        /**
+         * MailboxIn
+         * @description A new mailbox.
+         */
+        MailboxIn: {
+            /** Address */
+            address: string;
+            after_fetch?: components["schemas"]["AfterFetch"] | null;
+            /**
+             * Allow Plain
+             * @description Allow a connection without TLS (audited).
+             */
+            allow_plain?: boolean | null;
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            creates?: components["schemas"]["MailboxCreates"] | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Folder */
+            folder?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Host */
+            host: string;
+            /** Move To */
+            move_to?: string | null;
+            /**
+             * Password
+             * @description Stored sealed; never shown.
+             */
+            password: string;
+            /**
+             * Port
+             * @default 993
+             */
+            port: number;
+            security?: components["schemas"]["ConnectionSecurity"] | null;
+            unknown_senders?: components["schemas"]["UnknownSenders"] | null;
+            /** Username */
+            username: string;
+        };
+        /**
+         * MailboxOut
+         * @description A mailbox as the mail page shows it.
+         */
+        MailboxOut: {
+            /** Address */
+            address: string;
+            after_fetch: components["schemas"]["AfterFetch"];
+            /** Allow Plain */
+            allow_plain: boolean;
+            /** Allowed Domains */
+            allowed_domains: string[];
+            creates: components["schemas"]["MailboxCreates"];
+            /** Display Name */
+            display_name: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Folder */
+            folder: string;
+            /** Group Id */
+            group_id: string | null;
+            /** Has Password */
+            has_password: boolean;
+            /**
+             * Held
+             * @description Messages kept for an admin (refused, flooding, not matched).
+             */
+            held: number;
+            /** Host */
+            host: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Fetch At */
+            last_fetch_at: string | null;
+            /** Move To */
+            move_to: string | null;
+            /** Port */
+            port: number;
+            security: components["schemas"]["ConnectionSecurity"];
+            state: components["schemas"]["MailboxState"];
+            /**
+             * State Reason
+             * @description Code; the UI shows its label.
+             */
+            state_reason: string | null;
+            unknown_senders: components["schemas"]["UnknownSenders"];
+            /** Username */
+            username: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * MailboxPatch
+         * @description Fields to change; a password replaces the stored one.
+         */
+        MailboxPatch: {
+            after_fetch?: components["schemas"]["AfterFetch"] | null;
+            /**
+             * Allow Plain
+             * @description Allow a connection without TLS (audited).
+             */
+            allow_plain?: boolean | null;
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            creates?: components["schemas"]["MailboxCreates"] | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Folder */
+            folder?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Move To */
+            move_to?: string | null;
+            /** Password */
+            password?: string | null;
+            /** Port */
+            port?: number | null;
+            security?: components["schemas"]["ConnectionSecurity"] | null;
+            unknown_senders?: components["schemas"]["UnknownSenders"] | null;
+            /** Username */
+            username?: string | null;
+        };
+        /**
+         * MailboxState
+         * @description What the mail page shows for a mailbox (REQ-ADM-066 AC1).
+         * @enum {string}
+         */
+        MailboxState: "not_set_up" | "working" | "failing";
         /**
          * MatrixCellIn
          * @description One cell.
@@ -9205,6 +9447,12 @@ export interface components {
              */
             state: "start" | "stop";
         };
+        /**
+         * UnknownSenders
+         * @description What mail from an address SupportX does not know does (REQ-INC-027).
+         * @enum {string}
+         */
+        UnknownSenders: "create" | "create_allowed_domains" | "reject";
         /**
          * Urgency
          * @description How fast it must be fixed, lowest first.
@@ -21548,6 +21796,374 @@ export interface operations {
                 };
             };
             /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_mailboxes_api_v1_integrations_mailboxes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_mailbox_api_v1_integrations_mailboxes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailboxIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    remove_mailbox_api_v1_integrations_mailboxes__mailbox_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailboxPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
             404: {
                 headers: {
                     [name: string]: unknown;

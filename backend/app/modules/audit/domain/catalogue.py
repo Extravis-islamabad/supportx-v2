@@ -174,6 +174,9 @@ ACTIONS: dict[str, Action] = _actions(
     ("announcement.settings_changed", AuditCategory.CONFIGURATION, "announcements"),
     ("notification.rule_changed", AuditCategory.CONFIGURATION, "notifications"),
     ("notification.rule_reset", AuditCategory.CONFIGURATION, "notifications"),
+    ("mailbox.created", AuditCategory.CONFIGURATION, "integrations"),
+    ("mailbox.changed", AuditCategory.CONFIGURATION, "integrations"),
+    ("mailbox.removed", AuditCategory.CONFIGURATION, "integrations"),
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),

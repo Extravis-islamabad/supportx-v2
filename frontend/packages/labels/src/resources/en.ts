@@ -3579,6 +3579,51 @@ export const en = {
   'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
+  'permission_module.mailboxes': 'Mailboxes',
+  'permission.mailboxes.manage': 'Manage mailboxes',
+  'permission.mailboxes.manage.description':
+    'Connect support mailboxes and choose what their mail becomes.',
+  'audit.action.mailbox.created': 'Added a mailbox',
+  'audit.action.mailbox.changed': 'Changed a mailbox',
+  'audit.action.mailbox.removed': 'Removed a mailbox',
+  'errors.mailbox_not_found': 'This mailbox does not exist.',
+  'errors.mailbox_address_taken': 'Another mailbox already reads this address.',
+  'errors.mailbox_key_ring_missing':
+    "Mailbox passwords cannot be stored safely yet: the installation's key ring is not set up.",
+  'errors.field.plain_connection_refused':
+    'A connection without encryption is refused unless you allow it.',
+  'errors.field.mailbox_address_invalid': "Enter the mailbox's e-mail address.",
+  'mailbox_security.tls': 'TLS',
+  'mailbox_security.starttls': 'STARTTLS',
+  'mailbox_security.none': 'No encryption',
+  'mailbox_after_fetch.mark_read': 'Mark as read',
+  'mailbox_after_fetch.move': 'Move to a folder',
+  'mailbox_after_fetch.delete': 'Delete from the mailbox',
+  'mailbox_creates.incident': 'Incidents',
+  'mailbox_creates.nothing': 'Replies only',
+  'mailbox_unknown_senders.create': 'Add them as requesters',
+  'mailbox_unknown_senders.create_allowed_domains': 'Add them only from allowed domains',
+  'mailbox_unknown_senders.reject': 'Answer politely and create nothing',
+  'mailbox_state.not_set_up': 'Not checked yet',
+  'mailbox_state.working': 'Working',
+  'mailbox_state.failing': 'Failing',
+  'mailbox_reason.imap_login_failed': 'The mail server refused the user name or password',
+  'mailbox_reason.imap_tls_failed': 'The secure connection to the mail server failed',
+  'mailbox_reason.imap_unreachable': 'The mail server cannot be reached',
+  'mailbox_reason.imap_select_failed': 'The folder does not exist on the mail server',
+  'mailbox_reason.imap_search_failed': 'The mail server did not list new mail',
+  'mailbox_reason.imap_fetch_failed': 'The mail server did not hand over a message',
+  'mailbox_reason.imap_mark_failed': 'The mail server did not mark a message as read',
+  'mailbox_reason.imap_move_failed': 'The mail server did not move a message',
+  'mailbox_reason.mailbox_no_password': 'No password is stored for this mailbox',
+  'mailbox_reason.mailbox_secret_unreadable':
+    'The stored password cannot be read (key ring changed?)',
+  'mailbox_answer.unknown_sender.subject': 'Re: {{subject}}',
+  'mailbox_answer.unknown_sender.body':
+    'Thank you for your message. {{address}} only takes requests from people we know, so nothing was created. Please ask your IT team to add you, or write from your work address.',
+  'mailbox_answer.replies_only.subject': 'Re: {{subject}}',
+  'mailbox_answer.replies_only.body':
+    'Thank you for your message. {{address}} takes replies to existing requests only, so nothing was created. Please use the self-service portal for a new request.',
 } as const;
 
 export type LabelKey = keyof typeof en;
