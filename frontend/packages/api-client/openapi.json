@@ -3261,6 +3261,17 @@
           "entry": {
             "$ref": "#/components/schemas/ConversationEntryOut"
           },
+          "follow_up": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FollowUpOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A requester's reply after the reopen window started this record (098)."
+          },
           "not_notified": {
             "items": {
               "format": "uuid",
@@ -5333,6 +5344,26 @@
         ],
         "title": "FollowReason",
         "type": "string"
+      },
+      "FollowUpOut": {
+        "description": "The new record a late reply started; the requester is told its ID.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_id"
+        ],
+        "title": "FollowUpOut",
+        "type": "object"
       },
       "FollowerOut": {
         "description": "Someone following the record.",
@@ -10059,6 +10090,47 @@
         "title": "ReportSettingsPatch",
         "type": "object"
       },
+      "ResolutionAnswerOut": {
+        "description": "What the requester's answer did (requesters see no more of the record here).",
+        "properties": {
+          "closed": {
+            "description": "False on confirm: a technician closes it (closure rules).",
+            "title": "Closed",
+            "type": "boolean"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "display_id",
+          "status",
+          "closed"
+        ],
+        "title": "ResolutionAnswerOut",
+        "type": "object"
+      },
+      "ResolutionRejectIn": {
+        "additionalProperties": false,
+        "description": "Why it is not fixed: the requester's own words, shown as a public reply.",
+        "properties": {
+          "comment": {
+            "maxLength": 200000,
+            "title": "Comment",
+            "type": "string"
+          }
+        },
+        "required": [
+          "comment"
+        ],
+        "title": "ResolutionRejectIn",
+        "type": "object"
+      },
       "ResultOrder": {
         "description": "Order of grouped rows.",
         "enum": [
@@ -12324,6 +12396,18 @@
             ],
             "description": "{en, ar, ur}; null: shipped.",
             "title": "Labels"
+          },
+          "resume_on_requester_reply": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Paused statuses: a requester reply moves the record to in progress (051).",
+            "title": "Resume On Requester Reply"
           }
         },
         "title": "StatusPatch",
@@ -14126,6 +14210,14 @@
             "description": "Asked before the move runs, per language (en, ar, ur).",
             "title": "Confirmation"
           },
+          "missing": {
+            "description": "Resolve and close: record fields the closure rules still need (REQ-INC-094).",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
           "reason": {
             "anyOf": [
               {
@@ -14279,6 +14371,9 @@
             "title": "Auto Status On Assign",
             "type": "boolean"
           },
+          "closure": {
+            "$ref": "#/components/schemas/WorkItemClosureOut"
+          },
           "closure_codes": {
             "description": "REQ-INC-093.",
             "items": {
@@ -14399,6 +14494,7 @@
           "reasons",
           "levels",
           "closure_codes",
+          "closure",
           "next_number"
         ],
         "title": "WorkItemCatalogueOut",
@@ -14580,6 +14676,160 @@
           }
         },
         "title": "WorkItemCategoryPatch",
+        "type": "object"
+      },
+      "WorkItemClosureOut": {
+        "description": "Closing rules (WP-020f; REQ-INC-094..098).",
+        "properties": {
+          "auto_close_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Business days; null: off.",
+            "title": "Auto Close Days"
+          },
+          "close_requires": {
+            "description": "Fields required before closing.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Close Requires",
+            "type": "array"
+          },
+          "complete_open_work": {
+            "title": "Complete Open Work",
+            "type": "boolean"
+          },
+          "open_work": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Open work kind -> warn or block (defaults for kinds not listed).",
+            "title": "Open Work",
+            "type": "object"
+          },
+          "reopen_window_days": {
+            "title": "Reopen Window Days",
+            "type": "integer"
+          },
+          "requester_channels": {
+            "description": "Channels that can tell requesters; auto-close needs one.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Requester Channels",
+            "type": "array"
+          },
+          "resolve_requires": {
+            "description": "Fields required before resolving.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Resolve Requires",
+            "type": "array"
+          }
+        },
+        "required": [
+          "resolve_requires",
+          "close_requires",
+          "open_work",
+          "complete_open_work",
+          "auto_close_days",
+          "reopen_window_days",
+          "requester_channels"
+        ],
+        "title": "WorkItemClosureOut",
+        "type": "object"
+      },
+      "WorkItemClosurePatch": {
+        "additionalProperties": false,
+        "description": "Closing rules to change (only those sent). If-Match: the catalogue's `version`.",
+        "properties": {
+          "auto_close_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1 to 30 business days; null switches auto-close off.",
+            "title": "Auto Close Days"
+          },
+          "close_requires": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Close Requires"
+          },
+          "complete_open_work": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Complete Open Work"
+          },
+          "open_work": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Open Work"
+          },
+          "reopen_window_days": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reopen Window Days"
+          },
+          "resolve_requires": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 30,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolve Requires"
+          }
+        },
+        "title": "WorkItemClosurePatch",
         "type": "object"
       },
       "WorkItemFieldChangeOut": {
@@ -15322,6 +15572,18 @@
             ],
             "title": "Closed At"
           },
+          "closure_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A closure_code pick-list code (REQ-INC-093).",
+            "title": "Closure Code"
+          },
           "conversation_actions": {
             "description": "add_note, reply, manage_followers: whether you may, and why not.",
             "items": {
@@ -15430,6 +15692,19 @@
             "description": "You follow this record.",
             "title": "Following",
             "type": "boolean"
+          },
+          "follows_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earlier record a requester's late reply followed (REQ-INC-098).",
+            "title": "Follows Id"
           },
           "group_id": {
             "anyOf": [
@@ -15560,6 +15835,18 @@
             "title": "Requester Id",
             "type": "string"
           },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The fix, sanitised rich text (REQ-INC-090).",
+            "title": "Resolution"
+          },
           "resolution_due_at": {
             "anyOf": [
               {
@@ -15571,6 +15858,19 @@
               }
             ],
             "title": "Resolution Due At"
+          },
+          "resolution_notified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the requester was told of the resolution; auto-close counts from it.",
+            "title": "Resolution Notified At"
           },
           "resolved_at": {
             "anyOf": [
@@ -15757,6 +16057,10 @@
           "closed_at",
           "last_reopened_at",
           "reopen_count",
+          "resolution",
+          "closure_code",
+          "resolution_notified_at",
+          "follows_id",
           "reassignment_count",
           "paused_seconds",
           "paused_since",
@@ -16312,6 +16616,12 @@
             "description": "Admin overrides; null: shipped labels.",
             "title": "Labels"
           },
+          "resume_on_requester_reply": {
+            "default": false,
+            "description": "A requester reply moves a record in this paused status to in progress.",
+            "title": "Resume On Requester Reply",
+            "type": "boolean"
+          },
           "system": {
             "title": "System",
             "type": "boolean"
@@ -16352,6 +16662,25 @@
         "additionalProperties": false,
         "description": "The reason, when the transition asks for one.",
         "properties": {
+          "closure_code": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Close: a closure code. REQ-INC-093.",
+            "title": "Closure Code"
+          },
+          "confirm_open_work": {
+            "default": false,
+            "description": "Resolve or close although work is still open (the warning was shown).",
+            "title": "Confirm Open Work",
+            "type": "boolean"
+          },
           "group_id": {
             "anyOf": [
               {
@@ -16388,6 +16717,19 @@
               }
             ],
             "title": "Reason Text"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "maxLength": 200000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Resolve: the fix, rich text (sanitised). REQ-INC-090.",
+            "title": "Resolution"
           }
         },
         "title": "WorkItemTransitionIn",
@@ -28628,6 +28970,118 @@
         ]
       }
     },
+    "/api/v1/incidents/settings/closure": {
+      "patch": {
+        "description": "Closure rules, open work, auto-close (needs a channel that tells requesters), reopen.",
+        "operationId": "patch_closure_api_v1_incidents_settings_closure_patch",
+        "parameters": [
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkItemClosurePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change how incidents resolve and close",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
     "/api/v1/incidents/settings/lists/{list_name}/order": {
       "put": {
         "operationId": "put_list_order_api_v1_incidents_settings_lists__list_name__order_put",
@@ -31686,6 +32140,204 @@
           }
         },
         "summary": "People to mention or add as followers",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/resolution/confirm": {
+      "post": {
+        "description": "Closes it with the requester as actor (REQ-INC-096). 409 `not_resolved` otherwise.",
+        "operationId": "confirm_resolution_api_v1_incidents__record_id__resolution_confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolutionAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "The requester confirms the resolution",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/resolution/reject": {
+      "post": {
+        "description": "Reopens it to in progress; the comment is a public reply by the requester.",
+        "operationId": "reject_resolution_api_v1_incidents__record_id__resolution_reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolutionRejectIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolutionAnswerOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "The requester says it is not fixed",
         "tags": [
           "incidents"
         ]

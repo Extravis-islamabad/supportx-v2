@@ -66,6 +66,20 @@ export function levelLabel(
     : listValueLabel(t, 'level', value, locale);
 }
 
+/** A closure code as people read it (REQ-INC-093); an unknown code reads "Unknown value". */
+export function closureCodeLabel(
+  t: Translate,
+  catalogue: IncidentCatalogue | undefined,
+  code: string | null,
+  locale: string,
+): string {
+  if (code === null) return '';
+  const value = catalogue?.closure_codes.find((v) => v.code === code);
+  return value === undefined
+    ? t('incidents.unknown_value')
+    : listValueLabel(t, 'closure_code', value, locale);
+}
+
 /**
  * A reason code as people read it: the admin's labels, else the shipped label of its list.
  * A code no list has any more reads "Unknown value", never the code itself (rule d).

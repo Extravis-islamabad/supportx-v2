@@ -18,6 +18,9 @@ export type ListValue = components['schemas']['WorkItemListValueOut'];
 export type IncidentScale = components['schemas']['Scale'];
 export type ReasonMode = components['schemas']['ReasonMode'];
 export type Labels = Record<string, string>;
+/** Closing rules (WP-020f): required fields, open work, auto-close, reopen window. */
+export type ClosureSettings = components['schemas']['WorkItemClosureOut'];
+export type ClosurePatch = components['schemas']['WorkItemClosurePatch'];
 type MatrixCell = components['schemas']['MatrixCellIn'];
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
@@ -39,6 +42,7 @@ export type SettingsChange =
       body: Partial<components['schemas']['WorkItemSettingsPatch']>;
     }
   | { kind: 'status'; code: string; body: components['schemas']['StatusPatch'] }
+  | { kind: 'closure'; body: ClosurePatch }
   | { kind: 'transition'; from: string; action: string; reasonMode: ReasonMode }
   | {
       kind: 'scale';
@@ -57,6 +61,10 @@ function send(change: SettingsChange, version: number): Promise<IncidentCatalogu
     case 'settings':
       return call(
         api.PATCH('/api/v1/incidents/settings', { params: { header }, body: change.body }),
+      );
+    case 'closure':
+      return call(
+        api.PATCH('/api/v1/incidents/settings/closure', { params: { header }, body: change.body }),
       );
     case 'status':
       return call(

@@ -554,6 +554,12 @@ function Composer({
           } else {
             void message.success(t(`conversation.saved.${saved.entry.kind}`));
           }
+          // A requester's late reply started a new incident that follows this one (REQ-INC-098).
+          if (saved.follow_up != null) {
+            void message.info(
+              t('conversation.follow_up_started', { id: saved.follow_up.display_id }),
+            );
+          }
           if (saved.not_notified.length > 0) {
             void message.warning(
               t('conversation.mention_not_notified', {

@@ -101,6 +101,8 @@ FIELDS = ResourceFields(
         "site_id": FilterField(WorkItem.site_id, FieldType.UUID),
         "category_id": FilterField(WorkItem.category_id, FieldType.UUID),
         "level": FilterField(WorkItem.level, FieldType.STRING, sortable=True),
+        # REQ-INC-093: lists and reports group and filter by the closure code.
+        "closure_code": FilterField(WorkItem.closure_code, FieldType.STRING, sortable=True),
         "template_id": FilterField(WorkItem.template_id, FieldType.UUID),
         "sla_policy_id": FilterField(WorkItem.sla_policy_id, FieldType.UUID),
         "created_by": FilterField(WorkItem.created_by, FieldType.UUID),

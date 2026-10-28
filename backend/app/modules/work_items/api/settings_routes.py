@@ -53,6 +53,10 @@ class StatusPatch(BaseModel):
 
     labels: dict[str, str] | None = Field(default=None, description="{en, ar, ur}; null: shipped.")
     colour: str | None = Field(default=None, max_length=7, description="#rrggbb")
+    resume_on_requester_reply: bool | None = Field(
+        default=None,
+        description="Paused statuses: a requester reply moves the record to in progress (051).",
+    )
 
 
 class TransitionPatch(BaseModel):
