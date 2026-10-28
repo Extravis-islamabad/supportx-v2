@@ -15,7 +15,13 @@ import type { FilterChoice } from '@supportx/forms';
 import { useAppearance, useDateTime } from '@supportx/ui';
 
 import { choiceName, fieldName } from '../customFields/values';
-import { categoryPath, labelled, levelLabel, statusLabel } from '../incidents/labels';
+import {
+  categoryPath,
+  closureCodeLabel,
+  labelled,
+  levelLabel,
+  statusLabel,
+} from '../incidents/labels';
 
 // Words for everything a report shows (rule d): grouping values (codes, admin values, records
 // by name, date buckets), field names and measure values. Report results carry codes and ids;
@@ -174,6 +180,7 @@ export function useReportWords(result?: ReportResult): ReportWords {
     // Admin-defined codes: statuses, levels and custom choices carry their own labels.
     if (group.field === 'status') return statusLabel(t, catalogue.data, text, locale);
     if (group.field === 'level') return levelLabel(t, catalogue.data, text, locale);
+    if (group.field === 'closure_code') return closureCodeLabel(t, catalogue.data, text, locale);
     const customField = customFields.find((f) => `custom.${f.key}` === group.field);
     return customField ? choiceName(t, customField, text, locale) : t('reports.unknown_value');
   };

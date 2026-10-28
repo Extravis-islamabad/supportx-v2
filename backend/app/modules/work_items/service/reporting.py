@@ -32,6 +32,7 @@ DIMENSIONS: Mapping[str, Dimension] = {
     "urgency": Dimension(_D.CODE, label_prefix="urgency"),
     "status": Dimension(_D.ADMIN_CODE),
     "level": Dimension(_D.ADMIN_CODE),
+    "closure_code": Dimension(_D.ADMIN_CODE),  # REQ-INC-093: reports group by it
     "group_id": Dimension(_D.REFERENCE, reference="group"),
     "site_id": Dimension(_D.REFERENCE, reference="site"),
     "department_id": Dimension(_D.REFERENCE, reference="department"),

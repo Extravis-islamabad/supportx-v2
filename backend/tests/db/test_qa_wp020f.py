@@ -324,3 +324,33 @@ async def test_bug_04_only_the_requesters_confirmation_sets_confirmed_by_request
     )
     assert done.status_code == 200, done.text
     assert (await fresh(world, org, item))["closure_code"] == "confirmed_by_requester"
+
+
+async def test_bug_05_closure_code_and_level_are_pick_lists_in_the_list_fields(
+    world: World,
+) -> None:
+    org = world.a
+    retired = await world.call(
+        "PATCH",
+        f"{BASE}/settings/lists/closure_code/values/duplicate",
+        org,
+        org.admin,
+        json={"disabled": True},
+        headers={"If-Match": f'"{(await settings(world, org))["version"]}"'},
+    )
+    assert retired.status_code == 200, retired.text
+    found = await world.call("GET", f"{BASE}/list-fields", org, org.tech_a)
+    assert found.status_code == 200, found.text
+    fields = {f["name"]: f for f in found.json()}
+    # Retired codes too: old records still carry them and a filter must find them.
+    assert set(fields["closure_code"]["values"]) == {
+        "fixed",
+        "workaround",
+        "no_fault_found",
+        "duplicate",
+        "user_error",
+        "confirmed_by_requester",
+    }
+    assert set(fields["level"]["values"]) == {"tier_1", "tier_2", "tier_3", "tier_4"}
+    for name in ("closure_code", "level"):
+        assert fields[name]["dimension"]["kind"] == "admin_code", name
