@@ -4,13 +4,13 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-029-FIX (the WP-029 QA report: BUG-01..05, C1..C4, the availability
-  follow-up; D-105), 2026-10-28. Before it WP-029 parts 1 and 2 (rules, routing, auto-assignment,
-  triggers, loop guard, transitions; D-097, D-102, ADR-035) and WP-021-FIX (D-096), 2026-10-27;
-  before them WP-021 (people, sites, departments, groups, desks; D-092, ADR-032) and WP-026
-  (custom fields). Lane B: WP-039 sessions 1-3 (D-094, D-099, D-103, D-104).
-- **Next work package:** WP-020f (resolution and closure), then WP-020d/e and WP-025 (lane A).
-  Lanes: see docs/LANES.md. The shared dev stack runs from `../supportx-v2-stack` (main).
+- **Last completed:** WP-020f (resolution, closure, reopen and cancel; D-107), 2026-10-28.
+  Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
+  (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
+  WP-023 notifications (D-106, in review).
+- **Next work package:** WP-020f QA round, then WP-020d/e (views and bulk; tasks, worklogs and
+  links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
+  The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
   #77, export #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic;
@@ -25,6 +25,21 @@
   on the dev Mac; Docker Desktop has 12 GB (D-038).
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
+
+### Must fix before the pilot
+
+1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
+   must-fix, before the pilot; **lane B**, next after #99 and the CI follow-ups). The relay,
+   fanout and consumers workers exited when the dev PostgreSQL and NATS restarted
+   ("database system is shutting down", NATS ServiceUnavailable) and nothing brought them back:
+   the shared stack delivered no events for about two hours. Required:
+   - workers reconnect automatically with backoff when the database or the message bus goes
+     away and comes back, with no lost or duplicated effects (outbox and idempotency hold);
+   - a worker that cannot recover exits non-zero so Kubernetes restarts it, and its
+     readiness/health check reports unhealthy while disconnected;
+   - `/ready` and the admin view show event delivery as stalled, so nobody is left guessing;
+   - an automated test restarts PostgreSQL and NATS under a running worker and proves events
+     flow again.
 
 ### Open questions (awaiting product owner)
 
@@ -602,6 +617,45 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [ ] Later: "test against an existing record", drag-and-drop ordering (buttons for now),
   notification / approval / task / webhook actions with their WPs.
 
+### [x] WP-020f — Resolution, closure, reopen and cancel (D-107; built 2026-10-28)
+- **Plan:** ~/Desktop/wp-020f-plan.md (approved 2026-10-28, with the product owner's auto-close
+  rule). Migration 0034 (after WP-023's 0033).
+- [x] REQ-INC-090: resolve takes a resolution (sanitised rich text, required by default); shown
+  on the record. Deferred: knowledge search in the editor (WP-033), worklog in the same step
+  (WP-020e).
+- [x] REQ-INC-093/094: close takes a closure code (seeded list, translations, retire); closure
+  rules per type (fields required before resolve and before close, standard and custom) on the
+  one move path (record, API, automation; bulk and e-mail reuse it); 422 `closure_rules` with
+  field errors; each action says what the record still lacks; lists filter by closure code.
+- [x] REQ-INC-095: open-work port (tasks, checklists, child incidents from WP-020e; approvals
+  from WP-030 register their checks): warn with an explicit, recorded confirmation (default) or
+  block (default for approvals); "complete on close" setting.
+- [x] REQ-INC-096: the requester confirms (closes; closure code "fixed" when one is required and
+  none was set) or rejects (reopens, comment as their public reply) through
+  `/resolution/confirm|reject` (portal WP-028 and e-mail links WP-023 call them). Auto-close
+  after N business days (Monday to Friday until WP-025 calendars) counts **only from when the
+  requester was told** (`resolution_notified_at`, set by the channel that told them); off by
+  default and refused while no channel reaches requesters (product owner, 2026-10-28).
+- [x] REQ-INC-097: reopen keeps the earlier resolution, closure code and times in history; the
+  current values clear so the next resolve asks again; reopen count filterable.
+- [x] REQ-INC-051/098: a requester's public reply resumes "awaiting requester" (per-status
+  switch; third party unchanged); within the reopen window (7 days, 1–30) it reopens; after it a
+  new record follows the old one (`follows_id`) and the answer names its ID.
+- [x] REQ-INC-100: cancel with a reason and undo were built in WP-020; a canceled record takes
+  no edits (test added).
+- [ ] Wired by later packages: requester notified (`resolution_notified`, WP-023/024/028),
+  confirm/reject links (WP-023), e-mail replies (WP-024), tasks and links (WP-020e), approvals
+  (WP-030), knowledge search (WP-033), working calendars and SLA resume/restart (WP-025).
+- Tests: `tests/db/test_closing_api.py` (17, named after the criteria),
+  `work_items/tests/test_closure_domain.py` (8), Vitest `pages/incidents/closing.test.tsx` (15),
+  `pages/admin/incidents/closing.test.tsx` (7), `businessDays.test.ts` (2), e2e
+  `closing.spec.ts`.
+- Screens: one move dialog (reason, resolution, closure code, what the record still lacks,
+  open-work confirmation); resolution and closure code on the record with "closes on …" or
+  "waits until the requester is told"; history and why-lines in words; Admin › Incidents ›
+  Closing (closure rules, open work, auto-close disabled with the reason while no channel
+  reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -1042,6 +1096,17 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   - Plus 14 unit tests, probe tests and a `/ready` test.
 - Also: `GET /notifications/status` reads the app's settings, never a fresh `backend/.env`
   (found by lane A).
+
+### 2026-10-28 — WP-020f: resolution, closure, reopen and cancel (lane A)
+
+- Built to the approved plan (~/Desktop/wp-020f-plan.md) with the product owner's change:
+  auto-close counts only from when the requester was told, is off by default and cannot be
+  switched on while no channel reaches requesters. Defaults in D-107 (pending review).
+- Ports for later packages: `register_open_work` (WP-020e, WP-030), `register_requester_channel`
+  and `resolution_notified` (WP-023/024/028; lane B has the follow-up on its WP-023 list).
+- Also: ToneTag falls back to the neutral tone for an unknown tone instead of taking the page
+  down (the load-dependent "reading 'color'" Vitest failures); `docs/specs/parity/mvp-build-plan.md`
+  WP-043 gets the database-level `updated_at` stamp (product owner).
 
 ### 2026-10-28 — WP-039 QA round and WP-023 session 1 (lane B)
 - **WP-039 QA** on the shared stack (~/Desktop/qa-wp039/QA-REPORT.md):

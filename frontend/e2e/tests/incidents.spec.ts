@@ -278,8 +278,10 @@ test('incident screens are labelled and accessible in light, dark, high contrast
     requester_id: adminId,
   });
   created.push(resolved.id);
+  // Resolving needs a resolution by default (WP-020f, D1).
   const act = await call(admin.page, 'POST', `/incidents/${resolved.id}/actions/resolve`, {
     version: resolved.version,
+    body: { resolution: '<p>Fixed</p>' },
   });
   expect(act.status()).toBe(200);
   const page = admin.page;

@@ -172,7 +172,11 @@ describe('One incident', () => {
       expect(fake.find('POST', `${PATH}/actions/cancel`)).toHaveLength(1);
     });
     const [sent] = fake.find('POST', `${PATH}/actions/cancel`);
-    expect(sent?.body).toEqual({ reason_code: 'duplicate', reason_text: null });
+    expect(sent?.body).toEqual({
+      reason_code: 'duplicate',
+      reason_text: null,
+      confirm_open_work: false,
+    });
     expect(sent?.headers.get('If-Match')).toBe('"1"');
   });
 
