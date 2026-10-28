@@ -460,6 +460,7 @@ export function fakeConversationEntry(
     delivery_reason: null,
     first_response: false,
     mentioned_ids: [],
+    automatic: false,
     created_at: '2026-10-24T09:30:00Z',
     created_by: '01900000-0000-7000-8000-0000000000a1',
     version: 1,

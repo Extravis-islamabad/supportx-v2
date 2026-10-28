@@ -441,6 +441,7 @@ async def add_requester_comment(  # noqa: PLR0913 - the comment and who sent it 
             delivery_reason=reason,
             first_response=False,
             mentioned_ids=[],
+            automatic=automatic,
         )
     )
     await record_changes(

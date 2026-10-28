@@ -6404,6 +6404,11 @@ export interface components {
          */
         ConversationEntryOut: {
             /**
+             * Automatic
+             * @description An automatic reply that came in, such as out-of-office.
+             */
+            automatic: boolean;
+            /**
              * Body
              * @description Sanitised rich text (HTML).
              */

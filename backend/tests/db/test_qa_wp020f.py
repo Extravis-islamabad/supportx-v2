@@ -354,3 +354,26 @@ async def test_bug_05_closure_code_and_level_are_pick_lists_in_the_list_fields(
     assert set(fields["level"]["values"]) == {"tier_1", "tier_2", "tier_3", "tier_4"}
     for name in ("closure_code", "level"):
         assert fields[name]["dimension"]["kind"] == "admin_code", name
+
+
+async def test_wp024_bug_04_an_automatic_reply_keeps_its_flag_on_the_entry(
+    world: World, app_db: Database
+) -> None:
+    org = world.a
+    item = await world.create(org, org.admin)
+    async with app_db.tenant_session(TenantContext(org.tenant, user_id=org.requester)) as session:
+        record = await session.get(WorkItem, uuid.UUID(item["id"]))
+        assert record is not None
+        for automatic in (True, False):
+            await conversations.add_requester_reply(
+                session,
+                INCIDENT,
+                record,
+                body="<p>I am out of office.</p>" if automatic else "<p>Thanks.</p>",
+                source="email",
+                automatic=automatic,
+                subject=await subject_for(session, org.tenant, org.requester),
+                holders=world.app.state.policy,
+            )
+    flags = [e["automatic"] for e in await _replies(world, org, item)]
+    assert flags == [True, False]

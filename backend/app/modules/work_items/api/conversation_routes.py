@@ -75,6 +75,7 @@ class ConversationEntryOut(BaseModel):
     delivery_reason: DeliveryReason | None
     first_response: bool = Field(description="This entry stamped the first response.")
     mentioned_ids: list[uuid.UUID]
+    automatic: bool = Field(description="An automatic reply that came in, such as out-of-office.")
     created_at: datetime
     created_by: uuid.UUID | None
     version: int
@@ -97,6 +98,7 @@ class ConversationEntryOut(BaseModel):
             else DeliveryReason(row.delivery_reason),
             first_response=row.first_response,
             mentioned_ids=list(row.mentioned_ids),
+            automatic=row.automatic,
             created_at=row.created_at,
             created_by=row.created_by,
             version=row.version,

@@ -632,6 +632,8 @@ class WorkItemConversation(TenantEntity):
     mentioned_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), server_default="{}"
     )
+    # An automatic reply that came in (out-of-office): kept so the timeline can mark it (WP-024).
+    automatic: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemFollower(TenantEntity):

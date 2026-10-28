@@ -1,13 +1,16 @@
-"""Incoming requester replies are "received" (WP-020f QA BUG-01).
+"""Incoming requester replies are "received" (WP-020f QA BUG-01); automatic replies say so.
 
 - work_item_conversations.delivery_state takes "received": the requester's own words sent in
   from the portal or by e-mail, which nothing needs to send. They were stored as "not_sent",
   so the console showed them as replies that "reached no one";
 - existing such replies (by the requester or the person the record is for) move from
   "not_sent" to "received". The update runs once per tenant with app.tenant_id set: the table
-  forces RLS (D-113).
+  forces RLS (D-113);
+- work_item_conversations.automatic: an automatic reply that came in (out-of-office), so the
+  timeline can mark it (WP-024 QA BUG-04). False for every existing entry.
 
-Reversible: the downgrade turns them back to "not_sent" before restoring the constraint.
+Reversible: the downgrade drops the flag and turns them back to "not_sent" before restoring the
+constraint.
 
 Revision ID: 0040
 Revises: 0039
@@ -16,6 +19,7 @@ Created: 2026-10-29
 
 from collections.abc import Sequence
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0040"
@@ -71,9 +75,13 @@ def upgrade() -> None:
         "'failed')",
     )
     op.execute(RECEIVED)
+    op.add_column(
+        TABLE, sa.Column("automatic", sa.Boolean(), server_default="false", nullable=False)
+    )
 
 
 def downgrade() -> None:
+    op.drop_column(TABLE, "automatic")
     op.execute(NOT_SENT)
     op.drop_constraint(op.f(CONSTRAINT), TABLE, type_="check")
     op.create_check_constraint(

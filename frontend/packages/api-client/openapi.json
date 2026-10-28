@@ -4173,6 +4173,11 @@
       "ConversationEntryOut": {
         "description": "One reply or note.",
         "properties": {
+          "automatic": {
+            "description": "An automatic reply that came in, such as out-of-office.",
+            "title": "Automatic",
+            "type": "boolean"
+          },
           "body": {
             "description": "Sanitised rich text (HTML).",
             "title": "Body",
@@ -4276,6 +4281,7 @@
           "delivery_reason",
           "first_response",
           "mentioned_ids",
+          "automatic",
           "created_at",
           "created_by",
           "version"
