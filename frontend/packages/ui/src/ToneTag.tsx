@@ -2,7 +2,7 @@ import { Tag } from 'antd';
 import type { ReactNode } from 'react';
 
 import { useAppearance } from './appearance';
-import { TAG_TONES, type Tone } from './tones';
+import { TAG_TONES, type Tone, type ToneColours } from './tones';
 
 /** A tag in a readable tone of the current theme (QA BUG-01; palette and checks in tones.ts). */
 export function ToneTag({
@@ -17,7 +17,10 @@ export function ToneTag({
   testId?: string;
 }) {
   const { mode } = useAppearance();
-  const colours = TAG_TONES[mode][tone];
+  // A tone looked up from data (a status the map does not know yet, a partial answer) falls
+  // back to the neutral one: a tag's colour never takes the whole page down.
+  const palette: Partial<Record<string, ToneColours>> = TAG_TONES[mode];
+  const colours = palette[tone] ?? TAG_TONES[mode].default;
   return (
     <Tag
       icon={icon}
