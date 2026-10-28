@@ -3918,6 +3918,7 @@ export const en = {
   'event_type.work_items.view.changed': 'Saved view changed',
   'event_type.work_items.list_settings.changed': 'List settings changed',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
+  'incidents.history.bulk': 'Bulk change',
 } as const;
 
 export type LabelKey = keyof typeof en;

@@ -3984,4 +3984,5 @@ export const ar: LabelResource = {
   'event_type.work_items.view.changed': 'تم تغيير طريقة عرض محفوظة',
   'event_type.work_items.list_settings.changed': 'تم تغيير إعدادات القائمة',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
+  'incidents.history.bulk': 'تغيير جماعي',
 };

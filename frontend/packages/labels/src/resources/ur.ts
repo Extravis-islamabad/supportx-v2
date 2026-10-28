@@ -3522,4 +3522,5 @@ export const ur: LabelResource = {
   'event_type.work_items.view.changed': 'محفوظ ویو تبدیل ہوا',
   'event_type.work_items.list_settings.changed': 'فہرست کی ترتیبات تبدیل ہوئیں',
   'event_type.work_items.bulk_job.progressed': 'اجتماعی تبدیلی آگے بڑھی',
+  'incidents.history.bulk': 'اجتماعی تبدیلی',
 };
