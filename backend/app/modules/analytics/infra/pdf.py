@@ -20,7 +20,7 @@ from typing import Any
 from urllib.request import url2pathname
 
 from app.modules.analytics.domain.tables import CellKind, Column, PdfInput, Value
-from app.modules.analytics.infra.svgchart import chart_svg
+from app.modules.analytics.infra.svgchart import chart_html
 from app.shared.labels import label
 
 FONTS = (Path(__file__).resolve().parent / "fonts").resolve()
@@ -114,7 +114,7 @@ def _table(columns: list[Column], rows: list[list[Value]], totals: list[Value] |
     def numeric(column: Column) -> str:
         return ' class="num"' if column.kind != CellKind.TEXT else ""
 
-    head = "".join(f"<th{numeric(c)}>{escape(c.header)}</th>" for c in columns)
+    head = "".join(f"<th{numeric(c)}><bdi>{escape(c.header)}</bdi></th>" for c in columns)
     body = "".join(
         "<tr>"
         + "".join(
@@ -129,7 +129,7 @@ def _table(columns: list[Column], rows: list[list[Value]], totals: list[Value] |
         foot = (
             "<tfoot><tr>"
             + "".join(
-                f"<td{numeric(c)}>{escape(_cell(c, v))}</td>"
+                f"<td{numeric(c)}><bdi>{escape(_cell(c, v))}</bdi></td>"
                 for c, v in zip(columns, totals, strict=True)
             )
             + "</tr></tfoot>"
@@ -140,13 +140,19 @@ def _table(columns: list[Column], rows: list[list[Value]], totals: list[Value] |
 def report_html(data: PdfInput) -> str:
     """The PDF's HTML: every text escaped, the chart inline, nothing to fetch but fonts."""
     direction = "rtl" if data.rtl else "ltr"
-    lines = "".join(f"<p class='meta'>{escape(line)}</p>" for line in data.header_lines[1:])
+    # Every text block states its direction; values inside labels are isolated (FSI/PDI, filled
+    # by `label`), so dates and Latin names keep their order in Arabic (QA WP-035 BUG-04).
+    lines = "".join(
+        f"<p class='meta' dir='{direction}'>{escape(line)}</p>" for line in data.header_lines[1:]
+    )
     chart = ""
     if data.chart is not None:
-        chart = (
-            "<figure>"
-            + chart_svg(data.chart.kind, data.chart.categories, data.chart.values, rtl=data.rtl)
-            + f"<figcaption>{escape(data.chart.series_name)}</figcaption></figure>"
+        chart = chart_html(
+            data.chart.kind,
+            data.chart.categories,
+            data.chart.values,
+            rtl=data.rtl,
+            series_name=data.chart.series_name,
         )
     records = ""
     if data.records:
@@ -172,11 +178,17 @@ th {{ background: #fafafa; }}
 tfoot td {{ font-weight: bold; }}
 figure {{ margin: 8pt 0; }}
 figcaption {{ color: #595959; }}
+.cats {{ display: flex; font-size: 7.5pt; color: #434343; }}
+.cat {{ flex: 1 1 0; text-align: center; padding: 2pt 2pt 0; overflow-wrap: anywhere; }}
+.pie {{ display: flex; align-items: center; gap: 16pt; }}
+.slices {{ list-style: none; margin: 0; padding: 0; }}
+.slices li {{ margin: 0 0 3pt; }}
+.swatch {{ display: inline-block; width: 8pt; height: 8pt; margin-inline-end: 4pt; }}
 """
     return (
         f'<!doctype html><html lang="{escape(data.language)}" dir="{direction}"><head>'
         f'<meta charset="utf-8"><title>{escape(data.title)}</title><style>{css}</style></head>'
-        f"<body><h1>{escape(data.title)}</h1>{lines}{chart}"
+        f"<body><h1><bdi>{escape(data.title)}</bdi></h1>{lines}{chart}"
         f"{_table(data.columns, data.rows, data.totals)}{records}</body></html>"
     )
 
