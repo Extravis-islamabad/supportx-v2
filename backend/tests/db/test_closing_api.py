@@ -12,10 +12,13 @@ import pytest
 import pytest_asyncio
 
 from app.core.database import Database
+from app.core.errors import NotFound
 from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import INCIDENT
-from app.modules.work_items.service import closing, resolution
+from app.modules.work_items.infra.models import WorkItem
+from app.modules.work_items.service import closing, conversations, resolution
 from tests.db.test_conversation_api import say, timeline
 from tests.db.test_incidents_api import BASE, Org, World, field_codes, incidents_world, problem
 from tooling.db_testing import ThrowawayDatabase
@@ -380,3 +383,53 @@ async def test_d107_existing_tenants_get_the_requester_closure_code_once(world: 
     for _ in range(2):  # the top-up runs once; a second read changes nothing
         codes = [c["code"] for c in (await settings(world, org))["closure_codes"]]
         assert codes.count("confirmed_by_requester") == 1
+
+
+# --- the requester's reply from outside the console (e-mail WP-024, portal WP-028) ------------
+
+
+async def _reply_from_outside(
+    world: World,
+    app_db: Database,
+    org: Org,
+    item: dict[str, Any],
+    user: uuid.UUID,
+    *,
+    automatic: bool = False,
+) -> Any:  # noqa: ANN401 - the follow-up record or None
+    async with app_db.tenant_session(TenantContext(org.tenant, user_id=user)) as session:
+        subject = await subject_for(session, org.tenant, user)
+        record = await session.get(WorkItem, uuid.UUID(item["id"]))
+        assert record is not None
+        return await conversations.add_requester_reply(
+            session,
+            INCIDENT,
+            record,
+            body="<p>It jams again</p>",
+            source="email",
+            automatic=automatic,
+            subject=subject,
+            holders=world.app.state.policy,
+        )
+
+
+async def test_a_requester_reply_from_outside_reopens_and_an_auto_reply_does_nothing(
+    world: World, app_db: Database
+) -> None:
+    org = world.a
+    item = await world.create(org, org.admin)  # the requester holds no console permission
+    resolved = (await world.act(org, org.admin, item, "resolve")).json()
+    # An out-of-office: recorded, nothing moves.
+    assert (
+        await _reply_from_outside(world, app_db, org, resolved, org.requester, automatic=True)
+        is None
+    )
+    assert (await fresh(world, org, item))["status_category"] == "resolved"
+    # The requester's own words: reopened within the window (REQ-INC-098).
+    assert await _reply_from_outside(world, app_db, org, resolved, org.requester) is None
+    assert (await fresh(world, org, item))["status"] == "in_progress"
+    entries = (await timeline(world, org, org.admin, item)).json()["items"]
+    assert sum(1 for e in entries if e["kind"] == "reply") == 2
+    # Anyone else: as if the record did not exist.
+    with pytest.raises(NotFound):
+        await _reply_from_outside(world, app_db, org, resolved, org.tech_a)
