@@ -26,6 +26,9 @@ TEMPLATE_DESCRIPTION_MAX = 500
 LIST_VALUES_MAX = 100
 
 
+CONFIRMED_BY_REQUESTER = "confirmed_by_requester"
+
+
 class PickList(StrEnum):
     """Admin-managed value lists: the reason lists plus levels and closure codes."""
 
@@ -43,7 +46,16 @@ REASON_LISTS = frozenset(PickList(r.value) for r in ReasonList)
 # Appendix A has no levels or closure codes; these defaults are D-083 (WP-020c plan).
 DEFAULT_LIST_VALUES: Mapping[PickList, tuple[str, ...]] = {
     PickList.LEVEL: ("tier_1", "tier_2", "tier_3", "tier_4"),
-    PickList.CLOSURE_CODE: ("fixed", "workaround", "no_fault_found", "duplicate", "user_error"),
+    # "confirmed_by_requester": set when the requester confirms or the record auto-closes, so
+    # reports tell technician closure from customer confirmation (D-107, product owner).
+    PickList.CLOSURE_CODE: (
+        "fixed",
+        "workaround",
+        "no_fault_found",
+        "duplicate",
+        "user_error",
+        "confirmed_by_requester",
+    ),
 }
 
 # Which reason list a transition asks from when an admin turns its reason prompt on.

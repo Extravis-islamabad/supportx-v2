@@ -213,6 +213,7 @@ async def test_req_inc_007_levels_seeded_added_retired_and_kept_on_old_records(
         "no_fault_found",
         "duplicate",
         "user_error",
+        "confirmed_by_requester",  # D-107
     ]
     added = await admin_write(
         world,
@@ -617,7 +618,7 @@ async def test_tenants_seeded_before_wp020c_are_topped_up_once(world: World) -> 
     )
     cat = await catalogue(world, a)
     assert len(cat["levels"]) == 4
-    assert len(cat["closure_codes"]) == 5
+    assert len(cat["closure_codes"]) == 6  # with "confirmed by requester" (D-107)
     again = await catalogue(world, a)
     assert len(again["levels"]) == 4  # not twice
     assert [t["code"] for t in await templates(world, a)] == ["standard"]

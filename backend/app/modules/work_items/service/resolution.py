@@ -5,8 +5,9 @@ these), so the check is that the signed-in person is the record's requester or t
 for; anyone else gets 404, as for a record they cannot see.
 
 A requester cannot pick a closure code: when the closure rules ask for one and none was set,
-confirming closes with "fixed" (D-107). When the rules ask for anything else the record still
-lacks, the confirmation is recorded and the record stays resolved for a technician to close.
+confirming closes with "Confirmed by requester" (D-107), so reports tell it from a technician's
+closure. When the rules ask for anything else the record still lacks, the confirmation is
+recorded and the record stays resolved for a technician to close.
 """
 
 import uuid
@@ -25,6 +26,7 @@ from app.modules.identity_access import Subject
 from app.modules.work_items.domain.closure import CLOSURE_CODE
 from app.modules.work_items.domain.closure import auto_close_due as closure_due
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
+from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER
 from app.modules.work_items.domain.types import TYPES, WorkItemType
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import catalogue as config
@@ -35,7 +37,8 @@ from app.shared.richtext import is_blank, sanitize_html
 
 log = get_logger(__name__)
 
-DEFAULT_CLOSURE_CODE = "fixed"
+# Reports tell technician closure from customer confirmation (D-107).
+DEFAULT_CLOSURE_CODE = CONFIRMED_BY_REQUESTER
 CONFIRMED = "requester_confirmed"
 REJECTED = "requester_rejected"
 
