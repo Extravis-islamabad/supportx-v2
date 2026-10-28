@@ -9575,6 +9575,27 @@
         "title": "RecipientsOut",
         "type": "object"
       },
+      "RecordSort": {
+        "additionalProperties": false,
+        "description": "One sort key of a records export: a field, ascending unless `desc`.",
+        "properties": {
+          "desc": {
+            "default": false,
+            "title": "Desc",
+            "type": "boolean"
+          },
+          "field": {
+            "maxLength": 64,
+            "title": "Field",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field"
+        ],
+        "title": "RecordSort",
+        "type": "object"
+      },
       "Relative": {
         "description": "People relative to the record who may run a transition (REQ-WF-004).",
         "enum": [
@@ -9657,6 +9678,22 @@
             "$ref": "#/components/schemas/ChartType",
             "default": "bar"
           },
+          "columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 40,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
+          },
           "entity": {
             "maxLength": 40,
             "title": "Entity",
@@ -9723,6 +9760,14 @@
             "default": 1,
             "title": "Schema Version",
             "type": "integer"
+          },
+          "sort": {
+            "items": {
+              "$ref": "#/components/schemas/RecordSort"
+            },
+            "maxItems": 3,
+            "title": "Sort",
+            "type": "array"
           }
         },
         "required": [
@@ -9738,6 +9783,22 @@
           "chart": {
             "$ref": "#/components/schemas/ChartType",
             "default": "bar"
+          },
+          "columns": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 40,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Columns"
           },
           "entity": {
             "maxLength": 40,
@@ -9805,6 +9866,14 @@
             "default": 1,
             "title": "Schema Version",
             "type": "integer"
+          },
+          "sort": {
+            "items": {
+              "$ref": "#/components/schemas/RecordSort"
+            },
+            "maxItems": 3,
+            "title": "Sort",
+            "type": "array"
           }
         },
         "required": [
