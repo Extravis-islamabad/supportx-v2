@@ -189,10 +189,13 @@ def compose(  # noqa: PLR0913 - the event, the record, the person and their read
     language: Language,
     zone: ZoneInfo,
     origin: Callable[[RecordAccess], str],
+    offered: frozenset[str] = frozenset(),
 ) -> Message:
     """The message in the person's language, from the content they may see (REQ-NTF-010)."""
     chosen = context.variables if access is RecordAccess.FULL else context.public_variables
-    values = {name: localise(value, language, zone) for name, value in chosen.items()}
+    # Every offered variable exists, empty when this reader may not see it or it has no value.
+    values: dict[str, str | None] = dict.fromkeys(offered)
+    values.update({name: localise(value, language, zone) for name, value in chosen.items()})
     base = origin(access)
     link = base + context.link.lstrip("/") if access is RecordAccess.FULL else base
     values["record.link"] = link
@@ -237,6 +240,7 @@ async def _record(  # noqa: PLR0913 - one delivery row, explicit
         target.recipient,
     )
     delivery = NotificationDelivery(
+        tenant_id=envelope.tenant_id,
         event_id=envelope.event_id,
         event_code=code,
         record_type=source.record_type,
@@ -329,6 +333,7 @@ async def _in_app(session: AsyncSession, target: Target, message: Message) -> No
         target.recipient,
     )
     entry = Notification(
+        tenant_id=envelope.tenant_id,
         user_id=recipient.user_id,
         event_code=code,
         record_type=target.source.record_type,
@@ -424,7 +429,9 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
             if person is None:
                 await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.NO_ADDRESS)
                 continue
-            if access is RecordAccess.NONE:
+            if access is RecordAccess.NONE or (
+                access is RecordAccess.PUBLIC and not event.public
+            ):
                 await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.NO_ACCESS)
                 continue
             held = held_back(
@@ -451,6 +458,7 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
                     language=language,
                     zone=zone,
                     origin=await origin_for(language),
+                    offered=frozenset(v.name for v in (*source.variables, *event.variables)),
                 )
             if channel is NotificationChannel.IN_APP:
                 await _in_app(session, target, message)

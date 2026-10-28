@@ -101,6 +101,9 @@ class NotificationEvent:
     category: NotificationCategory
     default: EventDefault
     required: bool = False  # people cannot switch it off (approvals, assigned to me, mentions)
+    # False: only for people who see the record in full (a private note); anyone else gets
+    # nothing, not even word that it happened (REQ-NTF-010).
+    public: bool = True
     # Template variables beyond the record type's own (e.g. the conversation excerpt).
     variables: tuple[Variable, ...] = ()
 

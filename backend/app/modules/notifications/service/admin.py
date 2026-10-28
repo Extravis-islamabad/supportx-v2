@@ -188,7 +188,9 @@ async def save_rule(
     if not changed and row is not None:
         return _view(source, event, row)
     if row is None:
-        row = NotificationRule(event_code=code, created_by=subject.user_id, version=1)
+        row = NotificationRule(
+            tenant_id=subject.tenant_id, event_code=code, created_by=subject.user_id, version=1
+        )
         session.add(row)
     else:
         row.version += 1

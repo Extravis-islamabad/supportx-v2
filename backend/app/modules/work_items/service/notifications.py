@@ -114,6 +114,7 @@ EVENTS: tuple[NotificationEvent, ...] = (
         NotificationCategory.CONVERSATION,
         EventDefault(enabled=False, recipients=("assignee", "followers")),
         variables=_CONVERSATION,
+        public=False,
     ),
     NotificationEvent(
         "incident.requester_replied",
@@ -354,13 +355,25 @@ class IncidentNotifications:
     async def access(
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
-        """FULL for staff who may see the incident, PUBLIC for requesters, NONE otherwise."""
+        """FULL for staff who may see the incident, PUBLIC for requesters, NONE otherwise.
+
+        The incident's own requester (and the person it is for) always sees its public side,
+        as the portal will show it (WP-028), even without a console permission.
+        """
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         subject = await subject_for(session, tenant, user_id)
         try:
             await items.visible_record(session, subject, INCIDENT, record_id)
         except NotFound:
-            return RecordAccess.NONE
+            people = (
+                await session.execute(
+                    select(WorkItem.requester_id, WorkItem.on_behalf_of_id).where(
+                        WorkItem.id == record_id, WorkItem.deleted_at.is_(None)
+                    )
+                )
+            ).first()
+            own = people is not None and user_id in (people.requester_id, people.on_behalf_of_id)
+            return RecordAccess.PUBLIC if own else RecordAccess.NONE
         return RecordAccess.FULL if sees_private(subject, INCIDENT) else RecordAccess.PUBLIC
 
 
