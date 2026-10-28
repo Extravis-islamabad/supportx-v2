@@ -56,10 +56,9 @@ test('REQ-INC-090/093/097: resolve with a resolution, close with a code, reopen 
   await page.getByTestId('inc-action-resolve').click();
   await page.getByTestId('inc-reason-confirm').click();
   await expect(page.getByTestId('inc-resolution-error')).toBeVisible();
-  await page
-    .getByTestId('inc-resolution-editor')
-    .locator('[contenteditable="true"]')
-    .fill('Restarted the print spooler.');
+  // The editor's test ID is on the editable area itself (as for the description).
+  await page.getByTestId('inc-resolution-editor').click();
+  await page.keyboard.type('Restarted the print spooler.');
   await expectAccessible(page, 'resolve dialog');
   await page.getByTestId('inc-reason-confirm').click();
   await expect(page.getByTestId('inc-resolution')).toContainText('Restarted the print spooler.');
