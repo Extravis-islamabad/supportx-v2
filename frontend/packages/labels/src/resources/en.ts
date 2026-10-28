@@ -2953,6 +2953,7 @@ export const en = {
   'dashboards.new': 'New dashboard',
   'dashboards.no_match': 'No dashboard matches your search.',
   'dashboards.not_filtered_by': 'Not filtered by {{filters}}',
+  'dashboards.filtered_by': 'Filtered by {{filters}}',
   'dashboards.open_as_report': 'Open as a report',
   'dashboards.other_dashboards': 'Other dashboards',
   'dashboards.percent': 'Show shares (percent)',

@@ -2549,6 +2549,7 @@ export const ur: LabelResource = {
   'dashboards.new': 'نیا ڈیش بورڈ',
   'dashboards.no_match': 'کوئی ڈیش بورڈ آپ کی تلاش سے میل نہیں کھاتا۔',
   'dashboards.not_filtered_by': '{{filters}} کے لحاظ سے فلٹر نہیں',
+  'dashboards.filtered_by': '{{filters}} کے لحاظ سے فلٹر شدہ',
   'dashboards.open_as_report': 'رپورٹ کے طور پر کھولیں',
   'dashboards.other_dashboards': 'دوسرے ڈیش بورڈ',
   'dashboards.percent': 'حصے دکھائیں (فیصد)',

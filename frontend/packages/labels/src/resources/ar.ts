@@ -2966,6 +2966,7 @@ export const ar: LabelResource = {
   'dashboards.new': 'لوحة معلومات جديدة',
   'dashboards.no_match': 'لا توجد لوحة معلومات تطابق بحثك.',
   'dashboards.not_filtered_by': 'غير مصفّاة حسب {{filters}}',
+  'dashboards.filtered_by': 'مصفّاة حسب {{filters}}',
   'dashboards.open_as_report': 'فتح كتقرير',
   'dashboards.other_dashboards': 'لوحات معلومات أخرى',
   'dashboards.percent': 'عرض النسب (مئوية)',

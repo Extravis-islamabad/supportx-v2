@@ -40,7 +40,7 @@ import { useRealtimeStatus } from '@supportx/realtime';
 import { DrillDrawer, type Drill } from '../reports/DrillDrawer';
 import { useLiveReportRefresh } from '../reports/liveRefresh';
 import { AddWidget } from './AddWidget';
-import { unusableFilters, widgetDefinition } from './widgetDefinition';
+import { appliedFilters, unusableFilters, widgetDefinition } from './widgetDefinition';
 import {
   adjust,
   COLUMNS,
@@ -126,6 +126,7 @@ export function DashboardView({
       widget={widget}
       definition={definitions.get(widget.id) ?? null}
       unfiltered={unusableFilters(filters, fields)}
+      filtered={appliedFilters(filters, fields)}
       onDrill={setDrill}
       toolbar={editing ? toolbar(widget) : undefined}
       dragHandle={handle}

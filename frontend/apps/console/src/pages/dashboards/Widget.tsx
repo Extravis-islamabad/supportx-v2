@@ -48,6 +48,8 @@ export interface WidgetProps {
   definition: ReportDefinition | null;
   /** Filters of the bar this widget cannot use ("not filtered by site", REQ-DSH-022 AC2). */
   unfiltered: string[];
+  /** Filters of the bar this widget does use ("filtered by site"): it always says which. */
+  filtered?: string[];
   onDrill: (drill: Drill) => void;
   /** Edit mode: the controls to move, resize and remove (REQ-DSH-019). */
   toolbar?: ReactNode;
@@ -60,6 +62,7 @@ export function Widget({
   widget,
   definition,
   unfiltered,
+  filtered = [],
   onDrill,
   toolbar,
   dragHandle = false,
@@ -188,6 +191,13 @@ export function Widget({
         )
       }
     >
+      {filtered.length > 0 && (
+        <Tag data-testid={`widget-filtered-${widget.id}`}>
+          {t('dashboards.filtered_by', {
+            filters: filtered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
+          })}
+        </Tag>
+      )}
       {unfiltered.length > 0 && (
         <Tag data-testid={`widget-unfiltered-${widget.id}`}>
           {t('dashboards.not_filtered_by', {

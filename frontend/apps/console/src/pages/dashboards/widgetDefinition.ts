@@ -91,3 +91,17 @@ export function widgetDefinition(
       : { and: extra };
   return { ...own, filter: filter as ReportDefinition['filter'] };
 }
+
+/**
+ * The filters of the bar a widget does use (never silent: the widget names them beside those it
+ * cannot use, coordinator and QA WP-036 Q1).
+ */
+export function appliedFilters(
+  filters: DashboardFilters,
+  fields: ReportField[] | undefined,
+): DashboardFilterKey[] {
+  const unusable = new Set(unusableFilters(filters, fields));
+  return (Object.keys(FILTER_FIELDS) as DashboardFilterKey[]).filter(
+    (key) => filters[key] != null && !unusable.has(key),
+  );
+}

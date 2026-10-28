@@ -315,4 +315,20 @@ describe('WP-036 QA fixes', () => {
     expect(quick?.title ?? null).toBeNull();
     expect(quick?.title_key).toMatch(/\.priority$/);
   });
+
+  it('Never silent (coordinator, QA WP-036 Q1): every widget says which dashboard filters apply to it', async () => {
+    window.history.pushState({}, '', '/dashboards/builtin%3Amy_work');
+    api({ me: fakeSession(), routes: routes() });
+    render(<App />);
+    await screen.findByTestId('widget-title-my_open');
+    expect(screen.queryByTestId('widget-filtered-my_open')).toBeNull(); // no filter, nothing to say
+    const site = screen.getByTestId('dashboard-filter-site');
+    fireEvent.mouseDown(site.querySelector('.ant-select-selector') ?? site);
+    fireEvent.click(await screen.findByTitle('Riyadh'));
+    for (const id of ['my_open', 'open_by_priority']) {
+      expect((await screen.findByTestId(`widget-filtered-${id}`)).textContent).toBe(
+        'Filtered by Site',
+      );
+    }
+  });
 });
