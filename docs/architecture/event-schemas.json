@@ -2139,6 +2139,11 @@
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",
         "properties": {
+          "automatic": {
+            "default": false,
+            "title": "Automatic",
+            "type": "boolean"
+          },
           "delivery_state": {
             "anyOf": [
               {
