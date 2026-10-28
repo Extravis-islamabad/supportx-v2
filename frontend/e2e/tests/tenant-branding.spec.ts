@@ -74,11 +74,16 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
 }) => {
   test.setTimeout(180_000);
   // Tenant addresses are configured when the address's sign-in asks for its organization.
-  // An address nobody answers (no tenant addresses on this stack) counts as not configured.
+  // On the cluster an address nobody answers means tenant addresses are not set up there; on the
+  // dev stack the probe must answer, so a failure there fails the test (lane B review, #125).
+  const onCluster = process.env.SUPPORTX_E2E_KEYCLOAK_URL !== undefined;
   const asked = await page.request
     .get(`${DEMO}/api/v1/auth/login`, { maxRedirects: 0 })
     .then((probe) => probe.headers().location ?? '')
-    .catch(() => '');
+    .catch((error: unknown) => {
+      if (onCluster) return '';
+      throw error;
+    });
   test.skip(
     !asked.includes('organization%3Ademo'),
     'tenant addresses are not configured on this stack (SUPPORTX_TENANT_BASE_DOMAIN)',
