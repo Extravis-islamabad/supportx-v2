@@ -57,6 +57,7 @@ ALLOWED_TAGS = frozenset(
         "col",
         "span",  # text colour, mentions
         "mark",  # highlight
+        "div",  # knowledge callouts only: data-callout from CALLOUTS, nothing else (D-108 (9))
     }
 )
 # Removed together with everything inside them (not just the tag).
@@ -76,6 +77,8 @@ TEXT_COLOURS = frozenset({"brand", "red", "orange", "green", "blue", "grey"})
 HIGHLIGHTS = frozenset({"yellow", "green", "blue", "pink"})
 ALIGNMENTS = frozenset({"start", "center", "end", "justify"})
 INDENT_LEVELS = frozenset({"1", "2", "3", "4", "5", "6"})
+# Knowledge article callouts (D-108 (9)): any other value is stripped.
+CALLOUTS = frozenset({"info", "warning", "tip", "note"})
 BLOCK_FORMAT_TAGS = ("p", "h2", "h3", "h4")
 _UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 # Right-to-left text: block elements may say which direction they read in.
@@ -104,6 +107,8 @@ def sanitize_html(value: str) -> str:
         "a": {"target": {"_blank"}},
         "span": {"data-color": set(TEXT_COLOURS), "data-type": {"mention"}},
         "mark": {"data-color": set(HIGHLIGHTS)},
+        # Restricted by value only (nh3: listing it in `attributes` would allow any value).
+        "div": {"data-callout": set(CALLOUTS)},
     }
     cleaned = nh3.clean(
         value,
