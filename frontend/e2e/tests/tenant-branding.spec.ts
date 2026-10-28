@@ -79,7 +79,11 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
   const onCluster = process.env.SUPPORTX_E2E_KEYCLOAK_URL !== undefined;
   const asked = await page.request
     .get(`${DEMO}/api/v1/auth/login`, { maxRedirects: 0 })
-    .then((probe) => probe.headers().location ?? '')
+    .then((probe) => {
+      // Off the cluster the sign-in always redirects: an error page (5xx) must fail, not skip.
+      if (!onCluster) expect(probe.status(), 'the sign-in redirects').toBe(302);
+      return probe.headers().location ?? '';
+    })
     .catch((error: unknown) => {
       if (onCluster) return '';
       throw error;
