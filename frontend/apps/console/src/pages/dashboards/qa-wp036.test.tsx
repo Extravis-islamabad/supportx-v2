@@ -331,4 +331,20 @@ describe('WP-036 QA fixes', () => {
       );
     }
   });
+
+  it('BUG-04: every control of Add widget is named by its label (screen readers)', async () => {
+    window.history.pushState({}, '', `/dashboards/${MINE.ref}`);
+    api({ me: fakeSession(), routes: routes() });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('dashboard-edit'));
+    fireEvent.click(screen.getByTestId('dashboard-add-widget'));
+    fireEvent.click(within(screen.getByTestId('dashboard-add-source')).getByText('Quick chart'));
+    const dialog = screen.getByRole('dialog');
+    for (const name of ['Group by', 'Measures', 'Chart', 'Title']) {
+      expect(within(dialog).getByLabelText(name)).toBeDefined();
+    }
+    expect(within(dialog).getByRole('switch', { name: 'Show shares (percent)' })).toBeDefined();
+    fireEvent.click(within(screen.getByTestId('dashboard-add-source')).getByText('From a report'));
+    expect(within(dialog).getByLabelText('Report')).toBeDefined();
+  });
 });
