@@ -53,6 +53,7 @@ CLIENT_HEADER = "X-SupportX-Client"
 _UI_CLIENTS = frozenset({"console", "portal", "mobile"})
 MAX_PAGE = 100
 CHANGE_IDS_KEY = "supportx.change_ids"
+BATCH_KEY = "supportx.batch_id"
 
 JsonValue = Any  # JSON-serialisable field value (str, number, bool, None, list, dict)
 
@@ -103,6 +104,9 @@ class FieldChange(UuidPrimaryKey, TenantScoped, Base):
     # What automation made the change, when one did (ADR-026): {"kind": "matrix"} or
     # {"kind": "rule", "id": ..., "name": ...}. NULL for people's own changes.
     automation_ref: Mapped[JsonValue | None] = mapped_column(JSONB(none_as_null=True))
+    # The background job that made a person's change on their behalf (a bulk change, WP-020d),
+    # so each record's history names it (REQ-INC-120 AC4). NULL for direct changes.
+    batch_id: Mapped[uuid.UUID | None]
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,7 @@ class HistoryEntry:
     reason: str | None
     changes: list[Change] = field(default_factory=list)
     automation_ref: JsonValue | None = None
+    batch_id: uuid.UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -152,6 +157,14 @@ def _actor(session: AsyncSession) -> tuple[str, str | None]:
     return "system", None
 
 
+def in_batch(session: AsyncSession, batch_id: uuid.UUID | None) -> None:
+    """Mark the session's next history rows as made by background job `batch_id` (None: stop)."""
+    if batch_id is None:
+        session.info.pop(BATCH_KEY, None)
+    else:
+        session.info[BATCH_KEY] = batch_id
+
+
 async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     session: AsyncSession,
     *,
@@ -169,6 +182,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
     `automation_ref` names the automation that made the change, if any (ADR-026).
     """
     change_id = new_id()
+    batch_id = session.info.get(BATCH_KEY)
     actor_type, actor_id = _actor(session)
     now = system_clock.now()
     request_id = current_request_id()
@@ -189,6 +203,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
             request_id=request_id,
             occurred_at=now,
             automation_ref=automation_ref,
+            batch_id=batch_id,
         )
         for change in changes
     ]
@@ -210,6 +225,7 @@ async def record_changes(  # noqa: PLR0913 - every part of a change, explicit
                 request_id=request_id,
                 occurred_at=now,
                 automation_ref=automation_ref,
+                batch_id=batch_id,
             )
         ]
     context = session.info.get(SESSION_TENANT_KEY)
@@ -421,6 +437,7 @@ async def history_entries(  # noqa: PLR0913 - keyword-only paging and filter opt
                 source=row.source,  # type: ignore[arg-type]  # stored from Source
                 reason=row.reason,
                 automation_ref=row.automation_ref,
+                batch_id=row.batch_id,
             )
         if row.field:
             entry.changes.append(Change(row.field, row.old_value, row.new_value))
