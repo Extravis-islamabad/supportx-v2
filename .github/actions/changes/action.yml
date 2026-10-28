@@ -1,0 +1,70 @@
+name: Changes
+description: >-
+  Whether this run needs a job's heavy work. Workflows with required checks trigger on every PR
+  (a required check that never reports blocks the merge forever); this first step decides, from
+  the PR's changed files, whether to do the work or finish at once with a stated reason.
+  Not a pull request (nightly, push, manual): always run.
+inputs:
+  light:
+    description: Paths that never need the heavy work (ERE on each changed file's path).
+    default: '^(docs/|.*\.(md|mdx)$)'
+  needs:
+    description: Paths that need it (ERE); empty means any path that is not light.
+    default: ""
+  skipped:
+    description: The reason shown when the heavy work is not needed.
+    default: "skipped: docs-only change"
+outputs:
+  run:
+    description: '"true" when the heavy work is needed, else "false".'
+    value: ${{ steps.decide.outputs.run }}
+runs:
+  using: composite
+  steps:
+    - id: decide
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        EVENT: ${{ github.event_name }}
+        PR: ${{ github.event.pull_request.number }}
+        REPO: ${{ github.repository }}
+        LIGHT: ${{ inputs.light }}
+        NEEDS: ${{ inputs.needs }}
+        SKIPPED: ${{ inputs.skipped }}
+      run: |
+        set -euo pipefail
+        if [ "$EVENT" != "pull_request" ]; then
+          echo "run=true" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        # Both names of a renamed file count. The API lists at most 3000 files: a PR that big runs.
+        files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" \
+          --jq '.[] | .filename, (.previous_filename // empty)')
+        count=$(printf '%s\n' "$files" | grep -c . || true)
+        run=false
+        reason="$SKIPPED"
+        if [ "$count" -ge 3000 ]; then
+          run=true
+          reason="over 3000 changed files"
+        else
+          while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            [[ "$file" =~ $LIGHT ]] && continue
+            if [ -z "$NEEDS" ] || [[ "$file" =~ $NEEDS ]]; then
+              run=true
+              reason="$file"
+              break
+            fi
+          done <<< "$files"
+        fi
+        echo "run=$run" >> "$GITHUB_OUTPUT"
+        if [ "$run" = "true" ]; then
+          echo "Heavy work needed ($count changed files; first that needs it: $reason)"
+        else
+          echo "::notice title=${GITHUB_JOB}::$SKIPPED"
+          {
+            echo "### $SKIPPED"
+            echo
+            echo "None of the $count changed files needs this job's work, so it finished at once."
+          } >> "$GITHUB_STEP_SUMMARY"
+        fi
