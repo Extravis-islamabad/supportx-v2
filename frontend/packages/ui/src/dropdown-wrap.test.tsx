@@ -5,6 +5,7 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { AppearanceProvider } from './AppearanceProvider';
+import { fittedMinWidth, LIST_MAX_WIDTH } from './dropdownFit';
 
 // Dropdown options wrap only between words (product owner, 2026-10-28: "tab / le / sta / ck" in
 // narrow lists). The layout itself is measured by e2e/tests/dropdown-wrap.spec.ts; these checks
@@ -37,11 +38,19 @@ describe('dropdown options never break inside a word', () => {
     expect(rule).toMatch(/text-overflow:\s*ellipsis/); // a single word too long: ellipsis
   });
 
-  it('popups may grow past their field, up to 360 px and never past the screen', () => {
-    const css = pageCss();
-    const popup = /\.ant-select-dropdown\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
-    expect(popup).toMatch(/width:\s*max-content\s*!important/);
-    expect(popup).toMatch(/max-width:\s*min\(360px,\s*calc\(100vw - 16px\)\)/);
+  it('lists never pass the screen, and CSS never sizes them by content (virtual lists)', () => {
+    const popup = /\.ant-select-dropdown\s*\{([^}]*)\}/.exec(pageCss())?.[1] ?? '';
+    expect(popup).toMatch(/max-width:\s*calc\(100vw - 16px\)/);
+    // max-content measures nothing in a virtual list and collapsed lists to a few pixels.
+    expect(popup).not.toMatch(/max-content/);
+  });
+
+  it('lists grow to the widest option shown, up to 360 px and the screen, never below 0', () => {
+    expect(fittedMinWidth([80, 120], 24, 1280)).toBe(120 + 24 + 18);
+    expect(fittedMinWidth([900], 24, 1280)).toBe(LIST_MAX_WIDTH);
+    expect(fittedMinWidth([900], 24, 390)).toBe(360);
+    expect(fittedMinWidth([900], 24, 320)).toBe(304);
+    expect(fittedMinWidth([], 24, 1280)).toBe(0); // nothing shown: Ant Design's width stays
   });
 
   it('no dropdown or menu rule in the apps or packages breaks words anywhere', () => {

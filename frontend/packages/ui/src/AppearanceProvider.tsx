@@ -16,6 +16,7 @@ import {
   type BrandingSource,
   type Direction,
 } from './appearance';
+import { useDropdownFit } from './dropdownFit';
 import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
 
 const ANT_LOCALES: Record<Locale, AntLocale> = { en: enUS, ar: arEG, ur: urPK };
@@ -77,11 +78,9 @@ function useFavicon(brand: Branding): void {
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
-  // Dropdown lists (product owner, 2026-10-28, after QA WP-035 BUG-07): at least as wide as
-  // their field (Ant Design's own min-width), growing to the longest option up to 360 px and
-  // never past the screen; lists stay virtual (fast, every option keeps its accessible name).
-  '.ant-select-dropdown { width: max-content !important; ' +
-  'max-width: min(360px, calc(100vw - 16px)); } ' +
+  // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
+  // virtual, so CSS cannot size them by content); they never pass the screen.
+  '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
   // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
   // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
@@ -124,6 +123,7 @@ export function AppearanceProvider({
   }, []);
 
   useFavicon(brand);
+  useDropdownFit();
   const appearance = useMemo<Appearance>(
     () => ({
       mode,
