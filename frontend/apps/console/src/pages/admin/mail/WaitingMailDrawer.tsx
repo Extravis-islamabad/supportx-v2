@@ -8,7 +8,7 @@ import {
   type Mailbox,
   type WaitingMail,
 } from '@supportx/api-client';
-import { en, useListFormat } from '@supportx/labels';
+import { en, useIsolate, useListFormat } from '@supportx/labels';
 import { markHandled, reportError, useDateTime, useLabel, WriteButton } from '@supportx/ui';
 
 // Reasons this module gives; any other is the record owner's refusal, an error code.
@@ -48,6 +48,8 @@ export function WaitingMailDrawer({ mailbox, onClose }: { mailbox: Mailbox; onCl
   const release = useReleaseMail();
   const discard = useDiscardMail();
   const reasonText = useWaitingReason();
+  // Latin addresses and dates inside right-to-left sentences keep their own order (QA WP-024 BUG-02).
+  const isolate = useIsolate();
 
   // Someone else handled it first: say so, the list refreshes.
   const failed = (error: unknown) => {
@@ -84,7 +86,7 @@ export function WaitingMailDrawer({ mailbox, onClose }: { mailbox: Mailbox; onCl
     <Drawer
       open
       width={640}
-      title={t('mail.waiting.title', { address: mailbox.address })}
+      title={t('mail.waiting.title', { address: isolate(mailbox.address) })}
       onClose={onClose}
       destroyOnHidden
       data-testid="mail-waiting"
@@ -146,10 +148,10 @@ export function WaitingMailDrawer({ mailbox, onClose }: { mailbox: Mailbox; onCl
                 title={<Typography.Text strong>{item.subject}</Typography.Text>}
                 description={
                   <Flex vertical gap={2}>
-                    <Typography.Text type="secondary">
+                    <Typography.Text type="secondary" data-testid="mail-waiting-from">
                       {t('mail.waiting.from', {
-                        sender: item.sender,
-                        when: dates.format(item.received_at),
+                        sender: isolate(item.sender),
+                        when: isolate(dates.format(item.received_at)),
                       })}
                     </Typography.Text>
                     <Typography.Text data-testid="mail-waiting-reason">
