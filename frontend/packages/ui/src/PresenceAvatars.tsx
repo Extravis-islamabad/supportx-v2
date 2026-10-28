@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { Avatar, Flex, Tooltip, Typography, theme } from 'antd';
 
 import type { PresenceMember } from '@supportx/realtime';
@@ -24,6 +25,7 @@ function initials(name: string): string {
 /** "Also viewing": one avatar per person (several windows of one person count once). */
 export function PresenceAvatars({ viewers, selfUserId }: PresenceAvatarsProps) {
   const t = useLabel();
+  const list = useListFormat();
   const { token } = theme.useToken();
   // Shown name (tooltip, summary) and the person's own name (avatar initials): your other
   // window says "You (another window)" but shows your initials, not "Y(" (QA BUG-13).
@@ -34,7 +36,7 @@ export function PresenceAvatars({ viewers, selfUserId }: PresenceAvatarsProps) {
   }
   if (people.size === 0) return null;
   const names = [...people.values()];
-  const summary = t('presence.viewing', { names: names.map((n) => n.shown).join(', ') });
+  const summary = t('presence.viewing', { names: list(names.map((n) => n.shown)) });
   return (
     <Flex align="center" gap={8} role="status" aria-label={summary} data-testid="presence">
       <Typography.Text type="secondary" aria-hidden>
