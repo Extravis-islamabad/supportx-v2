@@ -152,7 +152,7 @@ def upgrade() -> None:
         ["tenant_id", "sender", "created_at"],
     )
     enable_tenant_rls("mail_fetched")
-    grant_app("mail_fetched", ("SELECT", "INSERT"))
+    grant_app("mail_fetched", ("SELECT", "INSERT", "UPDATE"))  # the outcome, once decided
 
 
 def downgrade() -> None:
