@@ -13,6 +13,10 @@ export function mirrorForRtl(option: EChartsCoreOption, rtl: boolean): EChartsCo
     ...option,
     xAxis: flip(option.xAxis, 'inverse', true),
     yAxis: flip(option.yAxis, 'position', 'right'),
-    legend: { ...(option.legend as Axis | undefined), right: 'auto', left: 0 },
+    // Only a legend that exists moves: adding one here drew a default legend over the axis for a
+    // single measure in Arabic (QA WP-035 BUG-03).
+    ...(option.legend === undefined
+      ? {}
+      : { legend: { ...(option.legend as Axis), right: 'auto', left: 0 } }),
   };
 }

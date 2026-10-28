@@ -291,6 +291,13 @@ Run `make dev-logs s=<service>` to see why. Keycloak and OpenSearch can take a m
 start. ClamAV's first start downloads signatures (~300 MB) and can take several minutes;
 `make dev-up-full` waits up to 15 minutes.
 
+**PDF report exports fail with "PDF export is not available on this server"**
+PDFs are made by WeasyPrint, which is only in the worker image (D-100 D8), so `make
+worker-consumers` cannot make them. Install Pango once (`brew install pango`), stop the consumers
+and run `make worker-consumers-pdf` instead: the same worker, with the `pdf` dependency group and
+the library path WeasyPrint needs. CSV and XLSX work with either. `make backend-test-pdf` runs
+the PDF tests the same way.
+
 **Apple Silicon: "no matching manifest for linux/arm64"**
 All images in `docker-compose.yml` support arm64. If you add or upgrade one, check first:
 `docker buildx imagetools inspect <image>:<tag>` must list `linux/arm64`. Don't use

@@ -3,7 +3,7 @@
 .PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
-	worker-relay worker-consumers worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
+	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
 	frontend-install-check keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
@@ -91,6 +91,13 @@ worker-relay: ## Run the outbox relay (outbox table -> NATS JetStream) until Ctr
 worker-consumers: ## Run every module consumer (dev profile: logs every event) until Ctrl+C
 	$(BACKEND) uv run python -m workers.consumers
 
+# WeasyPrint loads Pango and glib by name; Homebrew keeps glib outside /opt/homebrew/lib. The
+# venv's python is called directly: macOS drops DYLD_* variables through `uv run` (SIP).
+PDF_LIBS := /opt/homebrew/lib:/opt/homebrew/opt/glib/lib
+
+worker-consumers-pdf: ## The consumers with PDF report exports (D-100 D8; macOS: brew install pango)
+	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=$(PDF_LIBS) .venv/bin/python -m workers.consumers
+
 worker-indexes: ## Run the custom field index worker (builds requested indexes, D-088) until Ctrl+C
 	$(BACKEND) uv run python -m workers.custom_field_indexes
 
@@ -112,7 +119,7 @@ dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | 
 		$(if $(consumer),--consumer $(consumer))
 
 backend-test-pdf: ## PDF export tests (D-100 D8): needs `uv sync --group pdf` and Pango (macOS: brew install pango)
-	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=/opt/homebrew/lib SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
+	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=$(PDF_LIBS) SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
 
 labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034)
 	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json

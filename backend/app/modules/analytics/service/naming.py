@@ -17,39 +17,16 @@ from app.modules.identity_access import user_contacts
 from app.shared.labels import has_label, label
 from app.shared.reporting import Dimension, DimensionKind, names_resolver
 
-_SHIPPED_FIELDS = frozenset(
-    {
-        "requester_id",
-        "channel",
-        "site_id",
-        "group_id",
-        "technician_id",
-        "category_id",
-        "impact",
-        "urgency",
-        "priority",
-        "priority_source",
-        "status",
-        "resolved_at",
-        "closed_at",
-        "reopen_count",
-        "reassignment_count",
-        "first_responded_at",
-        "level",
-        "template_id",
-        "department_id",
-    }
-)
-
 
 def field_label(name: str, language: str, custom_names: Mapping[str, str]) -> str:
     """A field's name as the console shows it."""
     if name.startswith("custom."):
         return custom_names.get(name) or label("reports.unknown_value", language)
-    if name in _SHIPPED_FIELDS:
-        return label(f"work_item.field.{name}", language)
-    key = f"report_field.{name}"
-    return label(key, language) if has_label(key) else label("reports.unknown_value", language)
+    # The record's own field name where it has one, otherwise the report's (QA WP-035 BUG-01).
+    for key in (f"work_item.field.{name}", f"report_field.{name}"):
+        if has_label(key):
+            return label(key, language)
+    return label("reports.unknown_value", language)
 
 
 def _bucket_text(bucket: DateBucket, value: Any, language: str) -> str:  # noqa: ANN401 - a database value
@@ -81,6 +58,11 @@ class Namer:
         self.entity = entity
         self.language = language
         self._cache: dict[tuple[str, str], dict[str, str]] = {}
+
+    async def custom_field_names(self) -> Mapping[str, str]:
+        """Names of the entity's custom fields ("custom.<key>"), in the reader's language."""
+        resolver = names_resolver(f"{self.entity}.custom_field")
+        return await resolver(self.session, (), self.language, "") if resolver else {}
 
     def _kind(self, field: str, dimension: Dimension) -> str | None:
         if dimension.kind == DimensionKind.REFERENCE:
