@@ -36,7 +36,12 @@ export function PresenceAvatars({ viewers, selfUserId }: PresenceAvatarsProps) {
   }
   if (people.size === 0) return null;
   const names = [...people.values()];
-  const summary = t('presence.viewing', { names: list(names.map((n) => n.shown)) });
+  const summary = t('presence.viewing', {
+    names: list(
+      names.map((n) => n.shown),
+      'conjunction',
+    ),
+  });
   return (
     <Flex align="center" gap={8} role="status" aria-label={summary} data-testid="presence">
       <Typography.Text type="secondary" aria-hidden>

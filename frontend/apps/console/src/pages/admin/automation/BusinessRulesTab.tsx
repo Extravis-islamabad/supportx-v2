@@ -26,6 +26,7 @@ import {
   type RuleFieldOut,
   type RuleOut,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   FormProblem,
   ConflictDialog,
@@ -58,6 +59,7 @@ const LANGUAGES = ['en', 'ar', 'ur'] as const;
  */
 export function BusinessRulesTab() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { can } = useAccess();
   const editable = can('automation.manage');
   const rules = useBusinessRules(RECORD_TYPE, can('automation.view'));
@@ -160,8 +162,7 @@ export function BusinessRulesTab() {
           {
             key: 'events',
             title: t('automation.col.events'),
-            render: (_, rule) =>
-              rule.events.map((e) => t(`rule_event.${e}`)).join(t('list.separator')),
+            render: (_, rule) => listFormat(rule.events.map((e) => t(`rule_event.${e}`))),
           },
           {
             key: 'state',

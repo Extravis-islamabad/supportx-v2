@@ -25,6 +25,7 @@ import {
   type TriggerActionIO,
   type TriggerOut,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   FormProblem,
   ConflictDialog,
@@ -66,6 +67,7 @@ const STATE_TONE: Record<TriggerOut['state'], Tone> = {
  */
 export function TriggersTab() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { can } = useAccess();
   const editable = can('automation.manage');
   const triggers = useTriggers(RECORD_TYPE, can('automation.view'));
@@ -159,8 +161,7 @@ export function TriggersTab() {
           {
             key: 'events',
             title: t('automation.col.events'),
-            render: (_, trigger) =>
-              trigger.events.map((e) => t(`trigger_event.${e}`)).join(t('list.separator')),
+            render: (_, trigger) => listFormat(trigger.events.map((e) => t(`trigger_event.${e}`))),
           },
           {
             key: 'state',

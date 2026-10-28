@@ -1,4 +1,5 @@
 import type { CustomField, IncidentPerson } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 // Custom field names and values as text (WP-026): shared by forms, records, lists, history.
@@ -46,6 +47,7 @@ export function safeUrl(value: string): string | null {
 /** The value as text (history lines, list cells, conflict dialogs). */
 export function useCustomValueText() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
   return (
@@ -60,7 +62,7 @@ export function useCustomValueText() {
       case 'choice':
         return choiceName(t, field, String(value), locale);
       case 'multi_choice':
-        return (value as string[]).map((c) => choiceName(t, field, c, locale)).join(', ');
+        return listFormat((value as string[]).map((c) => choiceName(t, field, c, locale)));
       case 'date':
         return dates.formatDay(String(value));
       case 'datetime':
