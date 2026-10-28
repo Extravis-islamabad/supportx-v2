@@ -9,7 +9,7 @@ import type { ThemeMode } from './theme';
 export const TONES = ['default', 'info', 'success', 'warning', 'error', 'purple'] as const;
 export type Tone = (typeof TONES)[number];
 
-interface ToneColours {
+export interface ToneColours {
   color: string;
   background: string;
   border: string;
