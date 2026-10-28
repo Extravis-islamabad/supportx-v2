@@ -45,10 +45,14 @@ class BulkOutcome(StrEnum):
 
 
 class ViewVisibility(StrEnum):
-    """Who sees a saved view in their list of views."""
+    """Who sees a saved view in their list of views (D-111 as approved: like dashboards)."""
 
     PRIVATE = "private"
-    SHARED = "shared"  # with everyone who may see the list (REQ-INC-106)
+    GROUPS = "groups"  # members of the chosen support groups
+    EVERYONE = "everyone"  # everyone who may see the list (REQ-INC-106)
+
+
+MAX_VIEW_GROUPS = 50
 
 
 def view_key_valid(key: str, builtin: tuple[str, ...]) -> bool:

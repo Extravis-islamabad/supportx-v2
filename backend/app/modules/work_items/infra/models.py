@@ -695,8 +695,9 @@ class WorkItemReplyTemplate(TenantEntity):
 class WorkItemView(TenantEntity):
     """A saved view (REQ-INC-106): a filter in the shared DSL, columns and sort, by its owner.
 
-    `filter` and `sort` are the list API's own parameters, stored as sent (AC3). A shared view
-    is listed for everyone who may see the list; only its owner changes or removes it.
+    `filter` and `sort` are the list API's own parameters, stored as sent (AC3). A view is
+    private, shared with chosen support groups, or shared with everyone who may see the list;
+    only its owner changes or removes it (D-111).
     """
 
     __tablename__ = "work_item_views"
@@ -717,11 +718,16 @@ class WorkItemView(TenantEntity):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        CheckConstraint(
+            "(visibility = 'groups') = (cardinality(group_ids) > 0) "
+            "AND cardinality(group_ids) <= 50",
+            name="groups_when_shared_with_groups",
+        ),
         Index(
             "ix_wiv_tenant_type_shared",
             "tenant_id",
             "type",
-            postgresql_where=text("deleted_at IS NULL AND visibility = 'shared'"),
+            postgresql_where=text("deleted_at IS NULL AND visibility <> 'private'"),
         ),
     )
 
@@ -729,6 +735,10 @@ class WorkItemView(TenantEntity):
     owner_id: Mapped[uuid.UUID]
     name: Mapped[str] = mapped_column(String(120))
     visibility: Mapped[str] = mapped_column(String(10))
+    # visibility "groups": the support groups whose members see the view.
+    group_ids: Mapped[list[uuid.UUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), server_default="{}"
+    )
     # The list API's `filter` (FilterExpression JSON) or null for "everything I may see".
     filter: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # [{"key": "subject", "width": 240}, ...]; empty = the default columns.

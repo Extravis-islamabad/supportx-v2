@@ -232,11 +232,17 @@ async def _settings_changed(envelope: EventEnvelope, session: AsyncSession) -> R
 
 
 async def _view_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """A saved view changed: everyone's view menu for a shared one, else its owner's."""
+    """A saved view changed: everyone's view menu for a shared one, else its owner's.
+
+    A view shared with groups also goes to the tenant channel: the payload holds IDs only and
+    each menu refetches through the API, which lists only the views its reader may use.
+    """
     del session
     payload = envelope.payload
     owner = uuid.UUID(str(payload["owner_id"]))
-    shared = payload.get("visibility") == "shared"
+    shared = (
+        payload.get("visibility") != "private"
+    )  # groups or everyone: menus refetch, the API filters
     channel = broadcast(envelope.tenant_id) if shared else personal(envelope.tenant_id, owner)
     return RealtimeEffects(
         publications=[

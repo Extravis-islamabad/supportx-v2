@@ -84,6 +84,9 @@ class SavedViewIn(BaseModel):
 
     name: str = Field(max_length=200)
     visibility: ViewVisibility = ViewVisibility.PRIVATE
+    group_ids: list[uuid.UUID] = Field(
+        default_factory=list, max_length=100, description="For visibility `groups`."
+    )
     filter: dict[str, Any] | None = Field(
         default=None, description="FilterExpression (the list's `filter`), or none for all."
     )
@@ -96,6 +99,7 @@ class SavedViewPatch(BaseModel):
 
     name: str | None = Field(default=None, max_length=200)
     visibility: ViewVisibility | None = None
+    group_ids: list[uuid.UUID] | None = Field(default=None, max_length=100)
     filter: dict[str, Any] | None = None
     columns: list[ListColumn] | None = Field(default=None, max_length=MAX_COLUMNS)
     sort: str | None = Field(default=None, max_length=200)
@@ -107,6 +111,7 @@ class SavedViewOut(BaseModel):
     id: uuid.UUID
     name: str
     visibility: ViewVisibility
+    group_ids: list[uuid.UUID]
     owner_id: uuid.UUID
     mine: bool
     filter: dict[str, Any] | None
@@ -122,6 +127,7 @@ class SavedViewOut(BaseModel):
             id=row.id,
             name=row.name,
             visibility=ViewVisibility(row.visibility),
+            group_ids=list(row.group_ids),
             owner_id=row.owner_id,
             mine=row.owner_id == subject.user_id,
             filter=row.filter,

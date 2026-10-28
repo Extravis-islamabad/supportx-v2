@@ -3914,11 +3914,15 @@ export const en = {
   'bulk_status.done': 'Finished',
   'bulk_status.failed': 'Stopped',
   'view_visibility.private': 'Only me',
-  'view_visibility.shared': 'Everyone who sees incidents',
   'event_type.work_items.view.changed': 'Saved view changed',
   'event_type.work_items.list_settings.changed': 'List settings changed',
   'event_type.work_items.bulk_job.progressed': 'Bulk change progressed',
   'incidents.history.bulk': 'Bulk change',
+  'incidents.views.groups': 'Chosen groups',
+  'incidents.views.which_groups': 'Which groups see it',
+  'incidents.views.groups_needed': 'Choose at least one group, or another option.',
+  'view_visibility.groups': 'Chosen groups',
+  'view_visibility.everyone': 'Everyone who sees incidents',
 } as const;
 
 export type LabelKey = keyof typeof en;

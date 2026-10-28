@@ -12194,6 +12194,16 @@
             "description": "FilterExpression (the list's `filter`), or none for all.",
             "title": "Filter"
           },
+          "group_ids": {
+            "description": "For visibility `groups`.",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Group Ids",
+            "type": "array"
+          },
           "name": {
             "maxLength": 200,
             "title": "Name",
@@ -12245,6 +12255,14 @@
             ],
             "title": "Filter"
           },
+          "group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -12291,6 +12309,7 @@
           "id",
           "name",
           "visibility",
+          "group_ids",
           "owner_id",
           "mine",
           "filter",
@@ -12331,6 +12350,22 @@
               }
             ],
             "title": "Filter"
+          },
+          "group_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Ids"
           },
           "name": {
             "anyOf": [
@@ -15257,10 +15292,11 @@
         "type": "object"
       },
       "ViewVisibility": {
-        "description": "Who sees a saved view in their list of views.",
+        "description": "Who sees a saved view in their list of views (D-111 as approved: like dashboards).",
         "enum": [
           "private",
-          "shared"
+          "groups",
+          "everyone"
         ],
         "title": "ViewVisibility",
         "type": "string"
