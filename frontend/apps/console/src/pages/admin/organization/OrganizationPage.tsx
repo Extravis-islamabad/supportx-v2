@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { PlusOutlined } from '@ant-design/icons';
 import {
   Alert,
@@ -144,6 +145,7 @@ function unitName(row: Row, t: ReturnType<typeof useLabel>, language: string): s
 
 function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }) {
   const t = useLabel();
+  const list = useListFormat();
   const { message } = App.useApp();
   const rows = useStructure(kind);
   const { remove } = useStructureChange(kind);
@@ -172,9 +174,11 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
         onError: (error) => {
           if (error instanceof ApiError && error.code.endsWith('_in_use')) {
             // Say what still uses it, so the admin knows to make it inactive instead.
-            const uses = Object.entries(error.params)
-              .map(([what, count]) => t(`organization.uses.${what}`, { count: Number(count) }))
-              .join(', ');
+            const uses = list(
+              Object.entries(error.params).map(([what, count]) =>
+                t(`organization.uses.${what}`, { count: Number(count) }),
+              ),
+            );
             markHandled(error); // said here, with what still uses it
             void message.warning(t('organization.in_use', { uses }));
             return;
