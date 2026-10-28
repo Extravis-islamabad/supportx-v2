@@ -2789,6 +2789,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Articles
+         * @description Published articles you may read, or the drafts you may work on; searchable.
+         */
+        get: operations["list_articles_api_v1_knowledge_articles_get"];
+        put?: never;
+        /**
+         * Write an article
+         * @description Needs `knowledge.create`. Creates the article and its first draft.
+         */
+        post: operations["create_article_api_v1_knowledge_articles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an article
+         * @description Published versions for its audience; drafts for its author, owners and approvers.
+         */
+        get: operations["get_article_api_v1_knowledge_articles__article_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an article
+         * @description Topic, type, owner, its own audience and dates. Needs If-Match.
+         */
+        patch: operations["update_article_api_v1_knowledge_articles__article_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}/drafts/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a draft
+         * @description A new version from the published one, or a translation (same ID, topic and audience).
+         */
+        post: operations["new_draft_api_v1_knowledge_articles__article_id__drafts__language__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save a draft
+         * @description Autosave (REQ-KB-013). If-Match carries the draft's own version.
+         */
+        patch: operations["save_draft_api_v1_knowledge_articles__article_id__drafts__language__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The topic tree
+         * @description Topics you may see, parents first, in their order.
+         */
+        get: operations["list_topics_api_v1_knowledge_topics_get"];
+        put?: never;
+        /**
+         * Create a topic
+         * @description Needs `knowledge.manage_topics`. At the top, or under `parent_id` (≤ 6 levels).
+         */
+        post: operations["create_topic_api_v1_knowledge_topics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a topic
+         * @description To the trash with its subtopics; their articles move to `move_to` first.
+         */
+        delete: operations["delete_topic_api_v1_knowledge_topics__topic_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a topic
+         * @description Rename, reorder, move (with its subtopics) or change its audience. Needs If-Match.
+         */
+        patch: operations["update_topic_api_v1_knowledge_topics__topic_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Article types
+         * @description The organisation's article types (file 08 Appendix A defaults on first use).
+         */
+        get: operations["list_types_api_v1_knowledge_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications": {
         parameters: {
             query?: never;
@@ -4535,6 +4675,209 @@ export interface components {
          */
         AnnouncementVisibility: "hidden" | "scheduled" | "live" | "ended";
         /**
+         * ArticleIn
+         * @description A new article and its first draft (REQ-KB-001, 012).
+         */
+        ArticleIn: {
+            /**
+             * Body Html
+             * @description Rich text, sanitised.
+             * @default
+             */
+            body_html: string;
+            /** Expires On */
+            expires_on?: string | null;
+            /** Internal Note */
+            internal_note?: string | null;
+            /** Keywords */
+            keywords?: string[];
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "ar";
+            /**
+             * Own Audience
+             * @default false
+             */
+            own_audience: boolean;
+            /** Req Departments */
+            req_departments?: string[];
+            /** Req Groups */
+            req_groups?: string[];
+            /** Req Sites */
+            req_sites?: string[];
+            /**
+             * Requesters
+             * @default none
+             * @enum {string}
+             */
+            requesters: "none" | "all" | "selected";
+            /** Review On */
+            review_on?: string | null;
+            /**
+             * Tech All
+             * @default true
+             */
+            tech_all: boolean;
+            /** Tech Groups */
+            tech_groups?: string[];
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+        };
+        /**
+         * ArticleOut
+         * @description An article as you see it: its published versions, and its drafts if you may see them.
+         */
+        ArticleOut: {
+            /** Audience */
+            audience: {
+                [key: string]: unknown;
+            };
+            /** Can Edit */
+            can_edit: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Default Language */
+            default_language: string;
+            /** Display Id */
+            display_id: string;
+            /** Drafts */
+            drafts: {
+                [key: string]: components["schemas"]["VersionOut"];
+            };
+            /** Expired */
+            expired: boolean;
+            /** Expires On */
+            expires_on: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Published */
+            published: {
+                [key: string]: components["schemas"]["VersionOut"];
+            };
+            /** Review Due */
+            review_due: boolean;
+            /** Review On */
+            review_on: string | null;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** Withdrawn */
+            withdrawn: boolean;
+        };
+        /**
+         * ArticlePatch
+         * @description What to change on the article itself (the fields sent).
+         */
+        ArticlePatch: {
+            /** Expires On */
+            expires_on?: string | null;
+            /** Own Audience */
+            own_audience?: boolean | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Req Departments */
+            req_departments?: string[] | null;
+            /** Req Groups */
+            req_groups?: string[] | null;
+            /** Req Sites */
+            req_sites?: string[] | null;
+            /** Requesters */
+            requesters?: ("none" | "all" | "selected") | null;
+            /** Review On */
+            review_on?: string | null;
+            /** Tech All */
+            tech_all?: boolean | null;
+            /** Tech Groups */
+            tech_groups?: string[] | null;
+            /** Topic Id */
+            topic_id?: string | null;
+            /** Type Code */
+            type_code?: string | null;
+        };
+        /**
+         * ArticleRowOut
+         * @description One line of the knowledge list.
+         */
+        ArticleRowOut: {
+            /** Display Id */
+            display_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Language */
+            language: string;
+            /** Review On */
+            review_on: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ArticleTypeOut
+         * @description An article type (built-in ones are named by `kb_type.<code>`).
+         */
+        ArticleTypeOut: {
+            /** Builtin */
+            builtin: boolean;
+            /** Code */
+            code: string;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Retired */
+            retired: boolean;
+            /** Review Months */
+            review_months: number;
+        };
+        /**
          * AssignMethod
          * @description How a group spreads its new work (REQ-ASG-002..004).
          * @enum {string}
@@ -6026,6 +6369,22 @@ export interface components {
             point_to: string;
             /** Subdomain */
             subdomain: string | null;
+        };
+        /**
+         * DraftPatch
+         * @description Autosave of a draft (REQ-KB-013): the fields sent.
+         */
+        DraftPatch: {
+            /** Body Html */
+            body_html?: string | null;
+            /** Change Note */
+            change_note?: string | null;
+            /** Internal Note */
+            internal_note?: string | null;
+            /** Keywords */
+            keywords?: string[] | null;
+            /** Title */
+            title?: string | null;
         };
         /**
          * Edition
@@ -9431,6 +9790,116 @@ export interface components {
          */
         TlsStatus: "waiting" | "pending" | "issued" | "failed" | "not_managed";
         /**
+         * TopicIn
+         * @description A new topic: a name per language, optionally under a parent (REQ-KB-003).
+         */
+        TopicIn: {
+            /** Description */
+            description?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Req Departments */
+            req_departments?: string[];
+            /** Req Groups */
+            req_groups?: string[];
+            /** Req Sites */
+            req_sites?: string[];
+            /**
+             * Requesters
+             * @default none
+             * @enum {string}
+             */
+            requesters: "none" | "all" | "selected";
+            /**
+             * Tech All
+             * @default true
+             */
+            tech_all: boolean;
+            /** Tech Groups */
+            tech_groups?: string[];
+        };
+        /**
+         * TopicOut
+         * @description A topic of the tree (names per language; the UI falls back to English).
+         */
+        TopicOut: {
+            /** Depth */
+            depth: number;
+            /** Description */
+            description: string | null;
+            /** Icon */
+            icon: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Owner Id */
+            owner_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Req Departments */
+            req_departments: string[];
+            /** Req Groups */
+            req_groups: string[];
+            /** Req Sites */
+            req_sites: string[];
+            /** Requesters */
+            requesters: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Tech All */
+            tech_all: boolean;
+            /** Tech Groups */
+            tech_groups: string[];
+            /** Version */
+            version: number;
+        };
+        /**
+         * TopicPatch
+         * @description The fields to change (a move sends `parent_id`, null for the top).
+         */
+        TopicPatch: {
+            /** Description */
+            description?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Names */
+            names?: {
+                [key: string]: string;
+            } | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Req Departments */
+            req_departments?: string[] | null;
+            /** Req Groups */
+            req_groups?: string[] | null;
+            /** Req Sites */
+            req_sites?: string[] | null;
+            /** Requesters */
+            requesters?: ("none" | "all" | "selected") | null;
+            /** Sort Order */
+            sort_order?: number | null;
+            /** Tech All */
+            tech_all?: boolean | null;
+            /** Tech Groups */
+            tech_groups?: string[] | null;
+        };
+        /**
          * TransitionIn
          * @description Optional reason (unpublish and archive), kept in the history.
          */
@@ -9884,6 +10353,44 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * VersionOut
+         * @description One version of one language. `internal_note` only for those who may edit (KB-001 AC2).
+         */
+        VersionOut: {
+            /** Body Html */
+            body_html: string;
+            /** Change Note */
+            change_note: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Internal Note */
+            internal_note: string | null;
+            /** Keywords */
+            keywords: string[];
+            /** Language */
+            language: string;
+            /** Number */
+            number: number;
+            /** Published At */
+            published_at: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
         };
         /**
          * Visibility
@@ -23114,6 +23621,808 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_articles_api_v1_knowledge_articles_get: {
+        parameters: {
+            query?: {
+                view?: "published" | "my_drafts";
+                language?: "en" | "ar";
+                topic_id?: string | null;
+                /** @description Search words. */
+                q?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleRowOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_article_api_v1_knowledge_articles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_article_api_v1_knowledge_articles__article_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_article_api_v1_knowledge_articles__article_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticlePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    new_draft_api_v1_knowledge_articles__article_id__drafts__language__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+                language: "en" | "ar";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description kb_draft_exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    save_draft_api_v1_knowledge_articles__article_id__drafts__language__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                article_id: string;
+                language: "en" | "ar";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_topics_api_v1_knowledge_topics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_topic_api_v1_knowledge_topics_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_topic_api_v1_knowledge_topics__topic_id__delete: {
+        parameters: {
+            query?: {
+                /** @description Where its articles go. */
+                move_to?: string | null;
+            };
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_topic_api_v1_knowledge_topics__topic_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_types_api_v1_knowledge_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleTypeOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
