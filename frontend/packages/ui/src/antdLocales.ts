@@ -1,7 +1,10 @@
 import type { Locale as AntLocale } from 'antd/es/locale';
-import arEG from 'antd/locale/ar_EG';
-import enUS from 'antd/locale/en_US';
-import urPK from 'antd/locale/ur_PK';
+// The ES build: Vite pre-bundles `antd/locale/*` from the CommonJS build, whose default import in
+// the browser is `{ __esModule, default: locale }`, so Ant Design fell back to English for all its
+// own texts in ar and ur (QA WP-023; vitest resolved it fine, so only the browser showed it).
+import arEG from 'antd/es/locale/ar_EG';
+import enUS from 'antd/es/locale/en_US';
+import urPK from 'antd/es/locale/ur_PK';
 
 import { label, type LabelInput, type Locale } from '@supportx/labels';
 
@@ -47,8 +50,19 @@ export const ANTD_GAPS: Readonly<Record<string, LabelInput>> = {
   'Transfer.selectInvert': 'antd.transfer.select_invert',
 };
 
+/**
+ * The locale object itself, also when a bundler hands over a CommonJS module wrapper
+ * (`{ __esModule, default: locale }`): a wrapper silently turns every Ant Design text English.
+ */
+export function antLocaleOf(module: unknown): AntLocale {
+  const value = module as { locale?: unknown; default?: unknown } | null;
+  if (typeof value?.locale === 'string') return value as AntLocale;
+  if (value?.default) return antLocaleOf(value.default);
+  throw new Error('not an Ant Design locale');
+}
+
 function completed(base: AntLocale, locale: Locale): AntLocale {
-  const result = structuredClone(base) as unknown as Record<string, unknown>;
+  const result = structuredClone(antLocaleOf(base)) as unknown as Record<string, unknown>;
   for (const [path, key] of Object.entries(ANTD_GAPS)) {
     const parts = path.split('.');
     const last = parts.at(-1) ?? path;
@@ -64,7 +78,7 @@ function completed(base: AntLocale, locale: Locale): AntLocale {
 
 /** Ant Design's locale per UI language, completed from our labels where Ant Design has gaps. */
 export const ANT_LOCALES: Readonly<Record<Locale, AntLocale>> = {
-  en: enUS,
+  en: antLocaleOf(enUS),
   ar: completed(arEG, 'ar'),
   ur: completed(urPK, 'ur'),
 };
