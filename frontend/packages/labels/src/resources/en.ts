@@ -3968,6 +3968,17 @@ export const en = {
   'mailbox_answer.follow_up.body':
     'Thank you for your reply. {{previous}} was closed too long ago to reopen, so your message started a new incident: {{id}}. Reply to this e-mail to add to it.',
   'incidents.mail_no_subject': 'E-mail without a subject',
+  'failure_reason.disconnected': 'Cannot reach the database or the message bus',
+  'failure_reason.backlog': 'Events are waiting too long',
+  'readiness_check.outbox_relay': 'Event relay',
+  'readiness_check.event_consumers': 'Event processing',
+  'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.nats': 'Message bus',
+  'event_delivery.stalled.title': 'Event delivery is stalled',
+  'event_delivery.stalled.body':
+    'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
+  'event_delivery_state.ok': 'Delivering',
+  'event_delivery_state.stalled': 'Stalled',
 } as const;
 
 export type LabelKey = keyof typeof en;

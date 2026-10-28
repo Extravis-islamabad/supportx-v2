@@ -3421,6 +3421,17 @@ export const ur: LabelResource = {
   'mailbox_answer.replies_only.subject': 'جواب: {{subject}}',
   'mailbox_answer.replies_only.body':
     'آپ کے پیغام کا شکریہ۔ {{address}} صرف موجودہ درخواستوں کے جوابات لیتا ہے، اس لیے کچھ نہیں بنایا گیا۔ نئی درخواست کے لیے براہ کرم سیلف سروس پورٹل استعمال کریں۔',
+  'failure_reason.disconnected': 'ڈیٹا بیس یا میسج بس تک رسائی نہیں',
+  'failure_reason.backlog': 'واقعات بہت دیر سے انتظار میں ہیں',
+  'readiness_check.outbox_relay': 'واقعات ریلے',
+  'readiness_check.event_consumers': 'واقعات کی پروسیسنگ',
+  'readiness_check.realtime_fanout': 'براہ راست اپ ڈیٹس',
+  'readiness_check.nats': 'میسج بس',
+  'event_delivery.stalled.title': 'واقعات کی ترسیل رکی ہوئی ہے',
+  'event_delivery.stalled.body':
+    'اطلاعات، براہ راست اپ ڈیٹس اور ایکسپورٹس میں تاخیر ہے۔ کچھ ضائع نہیں ہوگا: سروس بحال ہوتے ہی یہ بھیج دیے جائیں گے۔',
+  'event_delivery_state.ok': 'ترسیل جاری',
+  'event_delivery_state.stalled': 'رکی ہوئی',
   // WP-020f: resolving and closing, open work, the requester's answer.
   'conversation.follow_up_started':
     'یہ جواب دوبارہ کھولنے کی مدت کے بعد آیا، اس لیے ایک نیا واقعہ شروع ہوا: {{id}}۔',

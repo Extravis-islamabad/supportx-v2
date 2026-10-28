@@ -49,8 +49,38 @@ describe('conflict dialog', () => {
     );
     const who = screen.getByTestId('conflict-who').textContent;
     expect(who).toContain('Aisha Tech saved it at');
-    expect(who).toContain('Changed: Title, Severity.');
+    expect(who).toContain('Changed: Title and Severity.');
     expect(who).not.toContain('title,severity');
+  });
+
+  it('lists the changed fields with the Arabic conjunction, each isolated (list format rule)', () => {
+    const conflict = new ApiError(
+      409,
+      problem(409, 'version_conflict', {
+        params: {
+          expected_version: 1,
+          current_version: 2,
+          changed_by: 'Aisha Tech',
+          changed_fields: 'title,severity,body',
+        },
+      }),
+      null,
+    );
+    const names: Record<string, string> = { title: 'Title', severity: 'الخطورة', body: 'النص' };
+    renderUi(
+      <ConflictDialog
+        open
+        error={conflict}
+        fieldLabel={(field) => names[field] ?? ''}
+        onReload={() => undefined}
+        onKeepMine={() => undefined}
+      />,
+      { locale: 'ar' },
+    );
+    const who = screen.getByTestId('conflict-who').textContent;
+    // "A وB وC": the Arabic "and", never a hand-joined "A، B، C"; the Latin name isolated.
+    expect(who).toContain('\u2068Title\u2069 و\u2068الخطورة\u2069 و\u2068النص\u2069');
+    expect(who).not.toContain('Title، ');
   });
 
   it('without details (an older record) it still explains the conflict', () => {

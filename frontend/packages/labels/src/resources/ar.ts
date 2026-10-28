@@ -3990,4 +3990,15 @@ export const ar: LabelResource = {
   'mailbox_answer.follow_up.body':
     'شكرًا لردك. أُغلقت {{previous}} منذ مدة طويلة لا تسمح بإعادة فتحها، لذلك بدأت رسالتك حادثة جديدة: {{id}}. رُد على هذه الرسالة للإضافة إليها.',
   'incidents.mail_no_subject': 'بريد إلكتروني بلا موضوع',
+  'failure_reason.disconnected': 'لا يمكن الوصول إلى قاعدة البيانات أو ناقل الرسائل',
+  'failure_reason.backlog': 'الأحداث تنتظر لمدة طويلة جدًا',
+  'readiness_check.outbox_relay': 'مُرحّل الأحداث',
+  'readiness_check.event_consumers': 'معالجة الأحداث',
+  'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.nats': 'ناقل الرسائل',
+  'event_delivery.stalled.title': 'توقف تسليم الأحداث',
+  'event_delivery.stalled.body':
+    'الإشعارات والتحديثات المباشرة والتصديرات متأخرة. لن يضيع شيء: ستُرسل فور تعافي الخدمة.',
+  'event_delivery_state.ok': 'يجري التسليم',
+  'event_delivery_state.stalled': 'متوقف',
 };

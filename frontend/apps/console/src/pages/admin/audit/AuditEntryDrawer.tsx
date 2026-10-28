@@ -2,6 +2,7 @@ import { Collapse, Descriptions, Drawer, Empty, List, Spin, Typography } from 'a
 import { Link } from 'react-router';
 
 import { useAuditEntry, useRoles, type AuditEntryDetail } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useDateTime, useLabel } from '@supportx/ui';
 
 import { actorLabel, grantLabel, objectLabel, OUTCOME_COLOURS } from './present';
@@ -165,6 +166,7 @@ function Change({
   person: (id: string | null | undefined) => string | null;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const rows: { key: string; text: string }[] = [];
   const details = e.details as Record<string, unknown>;
   const list = (value: unknown) => (Array.isArray(value) ? value.map(String) : []);
@@ -193,7 +195,7 @@ function Change({
   for (const [field, change] of Object.entries(changes ?? {})) {
     const show = (value: unknown) =>
       Array.isArray(value)
-        ? value.map((v) => t(`audit_read_category.${String(v)}`)).join(', ')
+        ? listFormat(value.map((v) => t(`audit_read_category.${String(v)}`)))
         : String(value);
     rows.push({
       key: field,

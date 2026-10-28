@@ -18,7 +18,7 @@ import {
   Tooltip,
   Typography,
 } from 'antd';
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 
 import {
   ApiError,
@@ -1118,17 +1118,21 @@ function ChoicesEditor({
           </Modal>
         )}
         {value.length > 0 && (
-          // Each name isolated, joined with the UI language's separator (QA C4).
+          // Each name isolated (QA C4), joined the way the UI language lists things: the
+          // list's own parts, so every name keeps its own <bdi> (never a hand-joined ", ").
           <Typography.Text type="secondary" data-testid="cf-choices-offered">
             {t('custom_fields.choices_offered')}{' '}
-            {value
-              .filter((c) => !c.retired)
-              .map((c, i) => (
-                <span key={c.code ?? `new-${String(i)}`}>
-                  {i > 0 && t('list.separator')}
-                  <bdi>{localized(c.labels, locale)}</bdi>
-                </span>
-              ))}
+            {new Intl.ListFormat(locale, { type: 'unit' })
+              .formatToParts(
+                value.filter((c) => !c.retired).map((c) => localized(c.labels, locale)),
+              )
+              .map((part, i) =>
+                part.type === 'element' ? (
+                  <bdi key={i}>{part.value}</bdi>
+                ) : (
+                  <Fragment key={i}>{part.value}</Fragment>
+                ),
+              )}
           </Typography.Text>
         )}
       </Flex>
