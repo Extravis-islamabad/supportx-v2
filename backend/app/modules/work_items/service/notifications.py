@@ -240,7 +240,9 @@ class IncidentNotifications:
         if kind in _TYPED and payload.get("type") != INCIDENT.code.value:
             return ()
         if kind == WorkItemCreated.event_type:
-            return ("incident.created", "incident.created_in_group")
+            # Created already assigned: the technician hears it like any assignment.
+            assigned = ("incident.assigned",) if payload.get("technician_id") else ()
+            return ("incident.created", "incident.created_in_group", *assigned)
         if kind == WorkItemAssigned.event_type:
             return ("incident.assigned",) if payload.get("technician_id") else ()
         if kind == WorkItemStatusChanged.event_type:
@@ -286,6 +288,10 @@ class IncidentNotifications:
             )
         )
         relatives["followers"] = frozenset(followers)
+        if envelope.event_type == WorkItemCreated.event_type and event_code == "incident.assigned":
+            # The technician of the creation, even if someone else holds it by now (their own
+            # assignment event tells them).
+            relatives["assignee"] = frozenset({uuid.UUID(str(payload["technician_id"]))})
         if envelope.event_type == WorkItemAssigned.event_type:
             before = _uuid((payload.get("audience_before") or {}).get("technician_id"))
             if before is not None and before != record.technician_id:

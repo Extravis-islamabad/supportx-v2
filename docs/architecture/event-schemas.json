@@ -2389,6 +2389,19 @@
             "title": "Status Category",
             "type": "string"
           },
+          "technician_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Technician Id"
+          },
           "type": {
             "title": "Type",
             "type": "string"

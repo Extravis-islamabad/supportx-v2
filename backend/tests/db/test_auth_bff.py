@@ -465,10 +465,10 @@ async def test_multi_organization_user_switches_tenant_with_a_new_session(bff: B
     assert switched.json()["csrf_token"] != token
     assert bff.cookie() not in (None, before)
     assert (await bff.client.get("/api/v1/organization/tenant")).json()["id"] == str(b)
-    # As text: the IDs come back as uuid.UUID and were made with uuid-utils, whose ordering
-    # differs, so comparing sorted lists failed now and then (#96, 2-worker run).
+    # Only this test's tenants: the seeded demo tenants (made by other tests sharing the
+    # database) have a person with this address too, so the whole table varies by worker.
     rows = await user_rows(bff.db, "multi@demo.test")
-    assert {str(r["tenant_id"]) for r in rows} == {str(a), str(b)}
+    assert {str(r["tenant_id"]) for r in rows} & {str(a), str(b)} == {str(a), str(b)}
 
 
 async def test_writes_are_attributed_to_the_session_user(bff: Bff) -> None:

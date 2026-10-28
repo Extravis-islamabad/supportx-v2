@@ -457,3 +457,15 @@ async def test_rls_keeps_notification_rows_in_their_tenant(world: World) -> None
                 )
     finally:
         await database.dispose()
+
+
+async def test_an_incident_created_already_assigned_tells_its_technician(world: World) -> None:
+    """Created with a technician, the incident emits no separate assignment: CI's e2e found it."""
+    org = world.a
+    item = await world.create(org, org.lead, group_id=str(org.ga), technician_id=str(org.tech_a))
+    await run_engine(world, org)
+    rows = [r for r in await deliveries(world, org, item) if r["event_code"] == "incident.assigned"]
+    assert {(r["user_id"], r["channel"], r["state"]) for r in rows} == {
+        (org.tech_a, "in_app", "sent"),
+        (org.tech_a, "email", "waiting"),
+    }
