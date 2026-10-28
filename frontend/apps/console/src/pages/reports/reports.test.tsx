@@ -1,10 +1,22 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi, fakeSession } from '../../test/api';
+import { consoleApi, fakeSession, problem } from '../../test/api';
+
+// jsdom has no canvas: charts get a stand-in instance (their options are unit-tested in charts).
+// The path is the chart package's own ECharts (the console does not depend on it directly).
+vi.mock('../../../../../packages/charts/node_modules/echarts/core', async (original) => ({
+  ...(await original<Record<string, unknown>>()),
+  init: () => ({
+    on: () => undefined,
+    setOption: () => undefined,
+    resize: () => undefined,
+    dispose: () => undefined,
+  }),
+}));
 
 let restore: () => void = () => undefined;
 function api(...args: Parameters<typeof consoleApi>) {
@@ -288,6 +300,224 @@ describe('Reports', () => {
       expect(screen.getByTestId('report-save-copy').hasAttribute('disabled')).toBe(true);
       await new Promise((resolve) => setTimeout(resolve, 600));
       expect(fake.find('POST', '/api/v1/reports/run').length).toBe(before);
+    });
+  });
+
+  // --- QA WP-035 (~/Desktop/qa-wp035/QA-REPORT.md): one test per finding ------------------------
+  describe('QA WP-035', () => {
+    const GROUP_A = '01900000-0000-7000-8000-0000000000a1';
+    const GROUP_B = '01900000-0000-7000-8000-0000000000b2';
+    const ARABIC = fakeSession({ locale: 'ar' });
+    const withFilter = (filter: unknown, chart = 'table') =>
+      routes({
+        'GET /api/v1/reports/library': {
+          body: {
+            builtin: [{ ...BUILTIN, definition: { ...BUILTIN.definition, filter, chart } }],
+            folders: [],
+            reports: [],
+            favourites: [],
+          },
+        },
+        'GET /api/v1/organization/groups': {
+          body: [
+            { id: GROUP_A, name: 'Network', version: 1 },
+            { id: GROUP_B, name: 'Desktop', version: 1 },
+          ],
+        },
+        'GET /api/v1/reports/entities/incident': {
+          body: {
+            ...ENTITY,
+            fields: [
+              ...ENTITY.fields,
+              {
+                name: 'group_id',
+                type: 'uuid',
+                values: [],
+                multiple: false,
+                dimension: {
+                  ...PRIORITY_GROUP,
+                  field: 'group_id',
+                  kind: 'reference',
+                  label_prefix: null,
+                  reference: 'group',
+                },
+              },
+            ],
+          },
+        },
+      });
+
+    beforeEach(() => {
+      window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');
+    });
+
+    it("BUG-05: lists in the filter words use the language's own joining words, and names, never ids", async () => {
+      api({
+        me: ARABIC,
+        routes: withFilter({
+          and: [OPEN, { field: 'group_id', op: 'in', value: [GROUP_A, GROUP_B] }],
+        }),
+      });
+      render(<App />);
+      const words = await screen.findByTestId('report-filter-words');
+      await waitFor(() => {
+        expect(words.textContent).toContain('Network');
+      });
+      const text = words.textContent;
+      expect(text).not.toContain(', ');
+      expect(text).toContain(' أو '); // "is one of": A or B
+      expect(text).toContain('Desktop');
+      expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}/);
+    });
+
+    it('BUG-04: values inside Arabic text are isolated, so numbers keep their place', async () => {
+      api({ me: ARABIC, routes: routes() });
+      render(<App />);
+      const total = await screen.findByTestId('report-total');
+      await waitFor(() => {
+        expect(total.textContent).toContain('\u206810\u2069');
+      });
+    });
+
+    it('BUG-02: the chart states its text direction explicitly', async () => {
+      api({ me: ARABIC, routes: withFilter(OPEN, 'bar') });
+      render(<App />);
+      await screen.findByTestId('report-result');
+      const chart = await waitFor(() => {
+        const found = document.querySelector('[data-testid="report-result"] [role="img"]');
+        expect(found).not.toBeNull();
+        return found;
+      });
+      expect(chart?.getAttribute('dir')).toBe('rtl');
+    });
+
+    it('BUG-07: every option shows its whole label, in every list of the product', async () => {
+      api({ me: fakeSession(), routes: routes() });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      const chartType = screen.getByTestId('report-chart-type');
+      fireEvent.mouseDown(chartType.querySelector('.ant-select-selector') ?? chartType);
+      const option = await screen.findByTitle('Stacked bar');
+      const content = option.querySelector('.ant-select-item-option-content') ?? option;
+      // One rule for the whole product (AppearanceProvider), not a prop per list.
+      expect(getComputedStyle(content).whiteSpace).toBe('normal');
+      expect(getComputedStyle(content).textOverflow).toBe('clip');
+    });
+
+    it('BUG-08: a changed built-in report says so, with Reset and Save as my report', async () => {
+      api({ me: fakeSession(), routes: routes() });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      expect(screen.queryByTestId('report-modified')).toBeNull();
+      const grouping = screen.getByTestId('report-group');
+      fireEvent.mouseDown(grouping.querySelector('.ant-select-selector') ?? grouping);
+      const options = await screen.findAllByTitle('State');
+      fireEvent.click(options[options.length - 1] ?? grouping);
+      const notice = await screen.findByTestId('report-modified');
+      expect(notice.textContent).toContain('Changed from Open incidents by priority');
+      expect(within(notice).getByRole('button', { name: 'Save as my report' })).toBeDefined();
+      fireEvent.click(within(notice).getByRole('button', { name: 'Reset' }));
+      await waitFor(() => {
+        expect(screen.queryByTestId('report-modified')).toBeNull();
+      });
+    });
+  });
+
+  // --- D-105 (WP-029-FIX rules) on report forms: refusals at the form, failures as a toast ----
+  describe('D-105 on report forms', () => {
+    const toasts = () =>
+      [...document.querySelectorAll('.ant-notification-notice')].map((n) => n.textContent);
+
+    beforeEach(() => {
+      window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');
+    });
+
+    async function exportWith(status: number, body: unknown): Promise<void> {
+      api({
+        me: fakeSession(),
+        routes: routes({ 'POST /api/v1/reports/exports': { status, body } }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Export' }));
+    }
+
+    it('a refused export shows once, in its dialog, with no toast', async () => {
+      await exportWith(429, problem(429, 'report_queue_full', { params: { seconds: 30 } }));
+      const shown = await screen.findByTestId('form-problem');
+      expect(within(screen.getByRole('dialog')).getByTestId('form-problem')).toBe(shown);
+      expect(shown.textContent).not.toMatch(/\{\{|report_queue_full/);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(toasts()).toEqual([]);
+    });
+
+    it('a failed export (500) is an error toast with its reference', async () => {
+      await exportWith(500, problem(500, 'internal_error'));
+      await waitFor(() => {
+        expect(toasts()).toHaveLength(1);
+      });
+      expect(toasts()[0]).toContain('Copy reference');
+      expect(screen.queryByTestId('form-problem')).toBeNull();
+    });
+
+    it('a report that cannot run (500) is an error toast; a refused one (time limit) stays on the page', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/run': { status: 500, body: problem(500, 'internal_error') },
+        }),
+      });
+      render(<App />);
+      await waitFor(() => {
+        expect(toasts()).toHaveLength(1);
+      });
+      expect(toasts()[0]).toContain('Copy reference');
+      expect(screen.queryByTestId('report-error')).toBeNull();
+    });
+
+    it('a refused run (time limit) is a notice on the page, never a toast', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/run': {
+            status: 422,
+            body: problem(422, 'report_timeout', { params: { seconds: 30 } }),
+          },
+        }),
+      });
+      render(<App />);
+      const shown = await screen.findByTestId('report-error');
+      expect(shown.textContent).not.toMatch(/\{\{|report_timeout/);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(toasts()).toEqual([]);
+    });
+
+    it('a refused "save as my report" shows at its dialog', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports': {
+            status: 422,
+            body: problem(422, 'validation_failed', {
+              errors: [
+                {
+                  field: 'body.name',
+                  code: 'too_long',
+                  message_key: 'errors.field.too_long',
+                  params: { max: 200 },
+                },
+              ],
+            }),
+          },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-save-copy'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+      expect(await within(screen.getByRole('dialog')).findByTestId('form-problem')).toBeDefined();
+      expect(toasts()).toEqual([]);
     });
   });
 });

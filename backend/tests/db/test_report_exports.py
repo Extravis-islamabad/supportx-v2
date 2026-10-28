@@ -27,7 +27,9 @@ from app.modules.analytics.service.exports import (
     fail_stalled_exports,
 )
 from app.modules.identity_access import subject_for
+from app.shared.labels import label
 from tests.db import test_reports_api
+from tests.db.test_custom_fields_api import add_field, choices
 from tests.db.test_incidents_api import CONSOLE, Org, World
 from tooling.db_testing import ThrowawayDatabase
 
@@ -384,3 +386,43 @@ async def test_req_rpt_056_an_export_lost_by_its_worker_is_failed_by_the_sweep(
         lost["id"],
     )
     assert finished  # the person sees it fail live
+
+
+@pytest.mark.parametrize("language", ["en", "ar"])
+async def test_bug_01_no_export_header_reads_unknown_value(
+    exporting: tuple[World, MemoryStorage], migrated_db: ThrowawayDatabase, language: str
+) -> None:
+    """Records exports and a grouping by a custom field name every column (QA WP-035 BUG-01)."""
+    world, storage = exporting
+    a = world.a
+    await add_field(
+        world,
+        a,
+        field_type="choice",
+        labels={"en": "Floor", "ar": "الطابق"},
+        choices=choices("Ground", "First"),
+    )
+    await world.create(a, a.admin, custom={"floor": "first"})
+    requested = await _request(
+        world,
+        a,
+        a.admin,
+        format="xlsx",
+        content="records",
+        language=language,
+        definition={"entity": "incident", "group_by": [{"field": "custom.floor"}]},
+    )
+    assert requested.status_code == 202, requested.text
+    await _build(migrated_db, storage, a, requested.json()["id"])
+    data = (
+        await world.call("GET", f"/reports/exports/{requested.json()['id']}/file", a, a.admin)
+    ).content
+    unknown = label("reports.unknown_value", language)
+    for sheet in load_workbook(io.BytesIO(data)).worksheets:
+        cells = {c.value for row in sheet.iter_rows() for c in row}
+        assert unknown not in cells, sheet.title
+    summary, records = load_workbook(io.BytesIO(data)).worksheets
+    floor = "الطابق" if language == "ar" else "Floor"
+    assert floor in {c.value for row in summary.iter_rows() for c in row}
+    header = next([c.value for c in row] for row in records.iter_rows() if row[0].value == floor)
+    assert header[1:3] == (["المعرّف", "الموضوع"] if language == "ar" else ["ID", "Subject"])

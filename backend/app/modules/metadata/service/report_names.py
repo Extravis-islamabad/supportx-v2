@@ -1,4 +1,4 @@
-"""Names of custom field choices for report files (WP-035).
+"""Names of custom fields and their choices for report files (WP-035).
 
 Registered with the reporting port when this module is imported. `field` is "custom.<key>";
 retired choices read "<name> (retired)" as on screen (custom_fields.retired_value).
@@ -8,7 +8,7 @@ from collections.abc import Mapping, Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.metadata.service.custom_fields import definitions
+from app.modules.metadata.service.custom_fields import definitions, list_fields
 from app.shared.labels import label
 from app.shared.reporting import register_names
 
@@ -34,6 +34,20 @@ async def incident_choice_names(
     return out
 
 
+async def incident_field_names(
+    session: AsyncSession, _values: Sequence[str], language: str, _field: str
+) -> Mapping[str, str]:
+    """Every incident custom field's name ("custom.<key>"), removed ones too (old reports)."""
+    rows = await list_fields(session, "incident", removed=True)
+    out: dict[str, str] = {}
+    for row in rows:
+        name = row.labels.get(language) or row.labels.get("en")
+        if name:
+            out[f"custom.{row.key}"] = name
+    return out
+
+
 def register() -> None:
     """Make these names available to report files (idempotent)."""
     register_names("incident.custom", incident_choice_names)
+    register_names("incident.custom_field", incident_field_names)

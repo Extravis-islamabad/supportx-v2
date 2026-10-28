@@ -10,7 +10,7 @@ import {
   type ReportMeasure,
   type ReportResult,
 } from '@supportx/api-client';
-import { useLabels } from '@supportx/labels';
+import { i18n, useLabels } from '@supportx/labels';
 import type { FilterChoice } from '@supportx/forms';
 import { useAppearance, useDateTime } from '@supportx/ui';
 
@@ -21,28 +21,14 @@ import { categoryPath, labelled, levelLabel, statusLabel } from '../incidents/la
 // by name, date buckets), field names and measure values. Report results carry codes and ids;
 // the names come from the lists the console already has, so no code ever reaches the screen.
 
-const SHIPPED_FIELD_LABELS = new Set([
-  'requester_id',
-  'channel',
-  'site_id',
-  'group_id',
-  'technician_id',
-  'category_id',
-  'impact',
-  'urgency',
-  'priority',
-  'priority_source',
-  'status',
-  'resolved_at',
-  'closed_at',
-  'reopen_count',
-  'reassignment_count',
-  'first_responded_at',
-  'level',
-  'template_id',
-  'department_id',
-]);
-
+/**
+ * The label of a shipped field: the record's own field name where it has one, otherwise the
+ * report's (QA WP-035 BUG-01). Same rule as the server's `field_label` (exports, emails).
+ */
+export function fieldLabelKey(name: string): string {
+  const own = `work_item.field.${name}`;
+  return i18n.exists(own, { lng: 'en' }) ? own : `report_field.${name}`;
+}
 /** Fields a report on incidents offers in its filter and grouping, in this order. */
 export const INCIDENT_REPORT_FIELDS = [
   'status_category',
@@ -197,9 +183,7 @@ export function useReportWords(result?: ReportResult): ReportWords {
       const customField = customFields.find((f) => `custom.${f.key}` === name);
       return customField ? fieldName(customField, locale) : t('reports.unknown_value');
     }
-    return SHIPPED_FIELD_LABELS.has(name)
-      ? t(`work_item.field.${name}`)
-      : t(`report_field.${name}`);
+    return t(fieldLabelKey(name));
   };
 
   const duration = (seconds: number): string => {

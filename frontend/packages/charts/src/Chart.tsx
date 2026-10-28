@@ -107,6 +107,9 @@ export function Chart({ option, ariaLabel, height = 320, onSelect }: ChartProps)
       ref={ref}
       role="img"
       aria-label={ariaLabel}
+      // Canvas text and tooltips take their direction from here, stated, not inherited by
+      // chance (QA WP-035 BUG-02).
+      dir={direction === 'rtl' ? 'rtl' : 'ltr'}
       style={{ width: '100%', height, cursor: onSelect ? 'pointer' : undefined }}
     />
   );

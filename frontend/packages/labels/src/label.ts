@@ -41,6 +41,10 @@ function missing(key: string): string {
  * Plurals follow CLDR rules per locale (Arabic has six forms: `_zero`, `_one`, `_two`, `_few`,
  * `_many`, `_other`).
  */
+/** Unicode first-strong isolate and pop directional isolate. */
+export const FSI = '\u2068';
+export const PDI = '\u2069';
+
 export function createI18n(locale: Locale = 'en'): I18n {
   const instance = i18next.createInstance();
   void instance.init({
