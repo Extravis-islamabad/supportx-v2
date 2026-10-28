@@ -6,6 +6,7 @@ import { fakeIncidentCatalogue } from '@supportx/api-client/testing';
 import { App } from '../../App';
 import { consoleApi, fakeSession, problem } from '../../test/api';
 import { kpiPeriod, previousPeriod, sparkline, trend } from './kpi';
+import { layoutOf, mirrored, placesOf } from './gridMirror';
 import { adjust, readingOrder } from './layout';
 import { unusableFilters, widgetDefinition, withViewer } from './widgetDefinition';
 
@@ -187,6 +188,22 @@ describe('dashboards: rules without a screen', () => {
       { ...chart, id: 'a', place: { x: 0, y: 0, w: 6, h: 2 } },
     ] as never);
     expect(order.map((w: { id: string }) => w.id)).toEqual(['a', 'b', 'c']);
+  });
+});
+
+describe('free-form grid (D-110)', () => {
+  it('mirrors columns in right to left on the way in and back on the way out', () => {
+    const place = { x: 0, y: 1, w: 3, h: 2 };
+    expect(mirrored(place, true)).toEqual({ x: 9, y: 1, w: 3, h: 2 }); // first column on the right
+    expect(mirrored(place, false)).toEqual(place);
+    const widgets = [{ ...chart, id: 'a', place }] as never;
+    for (const rtl of [true, false]) {
+      expect(placesOf(layoutOf(widgets, rtl), rtl).get('a')).toEqual(place); // a round trip
+    }
+    // In Arabic, dragging one column to the visual right moves one column towards the start.
+    const middle = [{ ...chart, id: 'm', place: { x: 3, y: 0, w: 3, h: 2 } }] as never;
+    const dragged = layoutOf(middle, true).map((item) => ({ ...item, x: item.x + 1 }));
+    expect(placesOf(dragged, true).get('m')?.x).toBe(2);
   });
 });
 
