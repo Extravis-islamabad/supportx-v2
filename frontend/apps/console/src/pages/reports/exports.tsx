@@ -18,7 +18,6 @@ import {
 import { useState } from 'react';
 
 import {
-  ApiError,
   exportFileUrl,
   queryKeys,
   useMyExports,
@@ -34,11 +33,12 @@ import { useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
-  describeError,
+  FormProblem,
   ToneTag,
   useAccess,
   useAppearance,
   useConflict,
+  useFormProblem,
   useDateTime,
   WriteButton,
   type Tone,
@@ -71,6 +71,8 @@ export function ExportButton({
   const { locale } = useAppearance();
   const { message } = AntApp.useApp();
   const request = useRequestExport();
+  // Refusals (queue full, too many rows) at the dialog; failures as the app's toast (D-105).
+  const problem = useFormProblem();
   const [open, setOpen] = useState(false);
   const [format, setFormat] = useState<Format>('xlsx');
   const [content, setContent] = useState<Content>('summary');
@@ -100,8 +102,10 @@ export function ExportButton({
         okButtonProps={{ loading: request.isPending }}
         onCancel={() => {
           setOpen(false);
+          problem.clear();
         }}
         onOk={() => {
+          problem.clear();
           request.mutate(
             { key, body: { title, definition, format, content, language } },
             {
@@ -109,6 +113,9 @@ export function ExportButton({
                 setOpen(false);
                 setKey(crypto.randomUUID());
                 void message.info(t('reports.export_started'));
+              },
+              onError: (error) => {
+                problem.show(error);
               },
             },
           );
@@ -135,11 +142,7 @@ export function ExportButton({
               data-testid="report-export-content"
             />
           </Form.Item>
-          {request.error && (
-            <Typography.Text type="danger" role="alert">
-              {describeError(request.error, t).title}
-            </Typography.Text>
-          )}
+          <FormProblem problem={problem} />
         </Form>
       </Modal>
     </>
@@ -268,6 +271,7 @@ export function ReportSettingsButton() {
   const [base, setBase] = useState<ReportSettings | null>(null);
   const [dirty, setDirty] = useState(false);
   const conflict = useConflict();
+  const problem = useFormProblem();
   const [sent, setSent] = useState<SettingsChanges>();
   const latest = settings.data;
   if (latest !== undefined && latest.version !== base?.version && (base === null || !dirty)) {
@@ -285,6 +289,7 @@ export function ReportSettingsButton() {
         },
         onError: (error) => {
           if (conflict.take(error)) setSent(changes);
+          else problem.show(error);
         },
       },
     );
@@ -347,11 +352,7 @@ export function ReportSettingsButton() {
             <Form.Item name="max_export_rows" label={t('reports.max_rows')}>
               <InputNumber min={1000} max={1_000_000} step={1000} />
             </Form.Item>
-            {update.error && !(update.error instanceof ApiError && update.error.isConflict) && (
-              <Typography.Paragraph type="danger" role="alert">
-                {describeError(update.error, t).title}
-              </Typography.Paragraph>
-            )}
+            <FormProblem problem={problem} />
             <WriteButton
               type="primary"
               htmlType="submit"

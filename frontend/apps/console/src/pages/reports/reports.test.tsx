@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
 
 import { App } from '../../App';
-import { consoleApi, fakeSession } from '../../test/api';
+import { consoleApi, fakeSession, problem } from '../../test/api';
 
 // jsdom has no canvas: charts get a stand-in instance (their options are unit-tested in charts).
 // The path is the chart package's own ECharts (the console does not depend on it directly).
@@ -420,6 +420,104 @@ describe('Reports', () => {
       await waitFor(() => {
         expect(screen.queryByTestId('report-modified')).toBeNull();
       });
+    });
+  });
+
+  // --- D-105 (WP-029-FIX rules) on report forms: refusals at the form, failures as a toast ----
+  describe('D-105 on report forms', () => {
+    const toasts = () =>
+      [...document.querySelectorAll('.ant-notification-notice')].map((n) => n.textContent);
+
+    beforeEach(() => {
+      window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');
+    });
+
+    async function exportWith(status: number, body: unknown): Promise<void> {
+      api({
+        me: fakeSession(),
+        routes: routes({ 'POST /api/v1/reports/exports': { status, body } }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-export'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Export' }));
+    }
+
+    it('a refused export shows once, in its dialog, with no toast', async () => {
+      await exportWith(429, problem(429, 'report_queue_full', { params: { seconds: 30 } }));
+      const shown = await screen.findByTestId('form-problem');
+      expect(within(screen.getByRole('dialog')).getByTestId('form-problem')).toBe(shown);
+      expect(shown.textContent).not.toMatch(/\{\{|report_queue_full/);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(toasts()).toEqual([]);
+    });
+
+    it('a failed export (500) is an error toast with its reference', async () => {
+      await exportWith(500, problem(500, 'internal_error'));
+      await waitFor(() => {
+        expect(toasts()).toHaveLength(1);
+      });
+      expect(toasts()[0]).toContain('Copy reference');
+      expect(screen.queryByTestId('form-problem')).toBeNull();
+    });
+
+    it('a report that cannot run (500) is an error toast; a refused one (time limit) stays on the page', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/run': { status: 500, body: problem(500, 'internal_error') },
+        }),
+      });
+      render(<App />);
+      await waitFor(() => {
+        expect(toasts()).toHaveLength(1);
+      });
+      expect(toasts()[0]).toContain('Copy reference');
+      expect(screen.queryByTestId('report-error')).toBeNull();
+    });
+
+    it('a refused run (time limit) is a notice on the page, never a toast', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports/run': {
+            status: 422,
+            body: problem(422, 'report_timeout', { params: { seconds: 30 } }),
+          },
+        }),
+      });
+      render(<App />);
+      const shown = await screen.findByTestId('report-error');
+      expect(shown.textContent).not.toMatch(/\{\{|report_timeout/);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(toasts()).toEqual([]);
+    });
+
+    it('a refused "save as my report" shows at its dialog', async () => {
+      api({
+        me: fakeSession(),
+        routes: routes({
+          'POST /api/v1/reports': {
+            status: 422,
+            body: problem(422, 'validation_failed', {
+              errors: [
+                {
+                  field: 'body.name',
+                  code: 'too_long',
+                  message_key: 'errors.field.too_long',
+                  params: { max: 200 },
+                },
+              ],
+            }),
+          },
+        }),
+      });
+      render(<App />);
+      await screen.findByTestId('report-table');
+      fireEvent.click(screen.getByTestId('report-save-copy'));
+      fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
+      expect(await within(screen.getByRole('dialog')).findByTestId('form-problem')).toBeDefined();
+      expect(toasts()).toEqual([]);
     });
   });
 });

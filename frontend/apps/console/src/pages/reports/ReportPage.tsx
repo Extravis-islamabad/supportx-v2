@@ -60,12 +60,15 @@ import {
 import { refreshList, useListChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
+  reportError,
+  FormProblem,
   describeError,
   lengthLimit,
   NoAccess,
   useAccess,
   useConflict,
   useConflictRetry,
+  useFormProblem,
   useDateTime,
   WriteButton,
 } from '@supportx/ui';
@@ -212,6 +215,12 @@ function ReportView({ latest }: { latest: Base }) {
   const run = useReportRun(toRun, problems.size === 0);
   const result = run.data;
   const words = useReportWords(result);
+  // A run the server refused (time limit, queue full) is a notice here; a failure (an outage, a
+  // server error) is the app's error toast with its reference, once (D-105).
+  const refused = run.error instanceof ApiError && run.error.isRefusal;
+  useEffect(() => {
+    if (run.error && !refused) reportError(run.error);
+  }, [run.error, refused]);
 
   // Live (rule c): the numbers follow the list they count (REQ-RPT-008 AC2).
   const last = useRef(0);
@@ -395,11 +404,12 @@ function ReportView({ latest }: { latest: Base }) {
           />
         )}
       </Flex>
-      {run.error && (
+      {refused && run.error && (
         <Alert
-          type="error"
+          type="warning"
           showIcon
           message={describeError(run.error, t).title}
+          description={describeError(run.error, t).detail}
           data-testid="report-error"
         />
       )}
@@ -788,12 +798,15 @@ function Actions({
   // A save someone else beat (409): who, when and what, in the shared dialog (BUG-05).
   const conflict = useConflict();
   const removeConflict = useConflictRetry();
+  // Refusals at the page or dialog that saved; failures as the app's toast (D-105).
+  const problem = useFormProblem();
+  const copyProblem = useFormProblem();
   const removeIt = (version: number): Promise<void> =>
     remove
       .mutateAsync(version)
       .then(onDeleted)
       .catch((error: unknown) => {
-        if (!removeConflict.take(error, (at) => void removeIt(at))) throw error;
+        if (!removeConflict.take(error, (at) => void removeIt(at))) problem.show(error);
       });
   const saveChanges = (version: number) => {
     update.mutate(
@@ -803,7 +816,7 @@ function Actions({
           onLoad(savedBase(report));
         },
         onError: (error) => {
-          conflict.take(error);
+          if (!conflict.take(error)) problem.show(error);
         },
       },
     );
@@ -857,11 +870,9 @@ function Actions({
       {base.saved !== null && !base.saved.canEdit && (
         <Typography.Text type="secondary">{t('reports.not_editable_hint')}</Typography.Text>
       )}
-      {update.error && !(update.error instanceof ApiError && update.error.isConflict) && (
-        <Typography.Text type="danger" role="alert">
-          {describeError(update.error, t).title}
-        </Typography.Text>
-      )}
+      <div style={{ flexBasis: '100%' }}>
+        <FormProblem problem={problem} />
+      </div>
       <ConflictDialog
         {...removeConflict.dialog}
         fieldLabel={(field) => t(DEFINITION_PARTS[field] ?? 'reports.layout')}
@@ -891,8 +902,10 @@ function Actions({
         okButtonProps={{ disabled: name.trim() === '', loading: create.isPending }}
         onCancel={() => {
           onCopying(false);
+          copyProblem.clear();
         }}
         onOk={() => {
+          copyProblem.clear();
           create.mutate(
             {
               key,
@@ -906,6 +919,9 @@ function Actions({
             {
               onSuccess: (report) => {
                 onSaved(report.id);
+              },
+              onError: (error) => {
+                copyProblem.show(error);
               },
             },
           );
@@ -938,11 +954,7 @@ function Actions({
           {folder !== 'mine' && (
             <Alert type="info" showIcon message={t('reports.shared_save_hint')} />
           )}
-          {create.error && (
-            <Typography.Text type="danger" role="alert">
-              {describeError(create.error, t).title}
-            </Typography.Text>
-          )}
+          <FormProblem problem={copyProblem} />
         </Space>
       </Modal>
     </Flex>

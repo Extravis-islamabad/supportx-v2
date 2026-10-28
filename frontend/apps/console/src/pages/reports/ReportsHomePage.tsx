@@ -27,10 +27,12 @@ import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
+  FormProblem,
   lengthLimit,
   NoAccess,
   useAccess,
   useConflict,
+  useFormProblem,
   WriteButton,
 } from '@supportx/ui';
 
@@ -191,12 +193,15 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
   const [moveTo, setMoveTo] = useState('owners');
   const [key] = useState(() => crypto.randomUUID());
   const close = () => {
+    problem.clear();
     setOpen(null);
     setName('');
     setMoveTo('owners');
   };
   // A folder someone changed first (409): the shared dialog; "Keep my changes" deletes it anyway.
   const conflict = useConflict();
+  // Why a create or delete was refused (a taken name, a permission), at its dialog (D-105).
+  const problem = useFormProblem();
   const deleting = open?.kind === 'delete' ? open.folder : undefined;
   const live = folders.find((f) => f.id === deleting?.id);
   const remove = (folder: ReportFolder, version = folder.version) => {
@@ -205,7 +210,7 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
       {
         onSuccess: close,
         onError: (error) => {
-          conflict.take(error);
+          if (!conflict.take(error)) problem.show(error);
         },
       },
     );
@@ -242,7 +247,16 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
         okButtonProps={{ disabled: name.trim() === '', loading: change.isPending }}
         onCancel={close}
         onOk={() => {
-          change.mutate({ kind: 'create', name: name.trim(), key }, { onSuccess: close });
+          problem.clear();
+          change.mutate(
+            { kind: 'create', name: name.trim(), key },
+            {
+              onSuccess: close,
+              onError: (error) => {
+                problem.show(error);
+              },
+            },
+          );
         }}
       >
         <Typography.Paragraph type="secondary">
@@ -258,11 +272,7 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
           }}
           data-testid="reports-folder-name"
         />
-        {change.error && (
-          <Typography.Text type="danger" role="alert">
-            {t('errors.field.duplicate_name')}
-          </Typography.Text>
-        )}
+        <FormProblem problem={problem} />
       </Modal>
       <Modal
         open={open?.kind === 'delete'}
@@ -293,6 +303,7 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
           ]}
           data-testid="reports-move-to"
         />
+        <FormProblem problem={problem} />
       </Modal>
       <ConflictDialog
         open={conflict.open}

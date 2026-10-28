@@ -24,7 +24,6 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 
 import {
-  ApiError,
   queryKeys,
   useReportSchedules,
   useScheduleChange,
@@ -37,12 +36,13 @@ import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
-  describeError,
+  FormProblem,
   lengthLimit,
   ToneTag,
   type Tone,
   useAccess,
   useConflict,
+  useFormProblem,
   useDateTime,
   useTimeZone,
   WriteButton,
@@ -120,6 +120,8 @@ export function ScheduleButton({
   const zone = useTimeZone();
   const schedules = useReportSchedules(can('reports.schedule'));
   const change = useScheduleChange();
+  // Refusals (no recipient, a day missing) at the form; failures as the app's toast (D-105).
+  const problem = useFormProblem();
   const [open, setOpen] = useState(false);
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [frequency, setFrequency] = useState<Frequency>('weekly');
@@ -141,6 +143,7 @@ export function ScheduleButton({
       : undefined;
 
   const submit = () => {
+    problem.clear();
     change.mutate(
       {
         kind: 'create',
@@ -167,6 +170,9 @@ export function ScheduleButton({
           setOpen(false);
           setKey(crypto.randomUUID());
           void message.success(t('reports.save'));
+        },
+        onError: (error) => {
+          problem.show(error);
         },
       },
     );
@@ -197,6 +203,7 @@ export function ScheduleButton({
         }}
         onCancel={() => {
           setOpen(false);
+          problem.clear();
         }}
         onOk={submit}
         width={560}
@@ -296,11 +303,7 @@ export function ScheduleButton({
               autoSize={{ minRows: 2, maxRows: 5 }}
             />
           </Form.Item>
-          {change.error && (
-            <Typography.Text type="danger" role="alert">
-              {describeError(change.error, t).title}
-            </Typography.Text>
-          )}
+          <FormProblem problem={problem} />
         </Form>
       </Modal>
     </>
@@ -350,6 +353,7 @@ export function SchedulesButton() {
   const items = useMemo(() => schedules.data?.items ?? [], [schedules.data]);
   // A schedule someone changed first (409): the shared dialog; "Keep my changes" acts again.
   const conflict = useConflict();
+  const problem = useFormProblem();
   const [tried, setTried] = useState<{ item: ReportSchedule; kind: ScheduleAction }>();
   const live = items.find((item) => item.id === tried?.item.id);
   const act = (item: ReportSchedule, kind: ScheduleAction, version = item.version) => {
@@ -358,6 +362,7 @@ export function SchedulesButton() {
       {
         onError: (error) => {
           if (conflict.take(error)) setTried({ item, kind });
+          else problem.show(error);
         },
       },
     );
@@ -467,11 +472,7 @@ export function SchedulesButton() {
             </List.Item>
           )}
         />
-        {change.error && !(change.error instanceof ApiError && change.error.isConflict) && (
-          <Typography.Text type="danger" role="alert">
-            {describeError(change.error, t).title}
-          </Typography.Text>
-        )}
+        <FormProblem problem={problem} />
         <ConflictDialog
           open={conflict.open}
           error={conflict.error}
