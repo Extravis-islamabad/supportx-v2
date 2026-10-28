@@ -17,6 +17,12 @@ Values follow the record's field rules when read (a hidden field's history is hi
 field can be recorded as `redacted` (that it changed, not the values) by the writing module.
 """
 
+from app.shared.history.conflicts import (
+    people_names,
+    register_people_names,
+    stale_version,
+    with_last_save,
+)
 from app.shared.history.history import (
     CLIENT_HEADER,
     Actors,
@@ -54,7 +60,11 @@ __all__ = [
     "explain_conflict",
     "history_entries",
     "history_page",
+    "people_names",
     "record_changes",
     "recorded_change_ids",
+    "register_people_names",
     "source_of",
+    "stale_version",
+    "with_last_save",
 ]

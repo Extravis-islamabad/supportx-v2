@@ -40,6 +40,7 @@ from app.modules.identity_access.service.identity_settings import get_identity_s
 from app.modules.identity_access.service.sso import organization_of
 from app.modules.organization import email_branding, get_current_tenant
 from app.shared.events import record_event
+from app.shared.history import stale_version
 from app.shared.ids import new_id
 
 Status = Literal["pending", "accepted", "expired", "revoked"]
@@ -197,10 +198,7 @@ async def _row(
     if row is None:
         raise NotFound(code="invitation_not_found")
     if row.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": row.version},
-        )
+        raise await stale_version(session, row, expected_version=expected_version)
     return row
 
 

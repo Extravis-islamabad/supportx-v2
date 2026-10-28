@@ -29,6 +29,7 @@ from app.modules.automation.service.registry import record_type as registered
 from app.modules.organization import active_unit_ids
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
+from app.shared.history import stale_version
 
 MAX_ROUTING_RULES = 200
 
@@ -206,10 +207,7 @@ async def save_routing_settings(
         raise _invalid([("record_type", "unknown_record_type", {})])
     settings = await routing_settings(session, record_type)
     if settings.version != expected_version:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected_version, "current_version": settings.version},
-        )
+        raise await stale_version(session, settings, expected_version=expected_version)
     fallback = values.get("fallback_group_id", settings.fallback_group_id)
     if fallback is not None and not await active_unit_ids(session, "group", [fallback]):
         raise _invalid([("fallback_group_id", "group_not_found", {})])

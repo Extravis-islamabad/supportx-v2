@@ -39,6 +39,7 @@ from app.modules.organization.infra import brand_images
 from app.modules.organization.infra.models import BrandingAsset, TenantBranding
 from app.shared.events import record_event
 from app.shared.files.service import access
+from app.shared.history import stale_version
 
 if TYPE_CHECKING:
     import uuid
@@ -336,7 +337,9 @@ async def save_branding(  # noqa: PLR0913 - who, with which files, what, and the
     row = await _row(session)
     current = row.version if row is not None else 0
     if current != expected_version:
-        raise Conflict(code="version_conflict", params={"current_version": current})
+        if row is None:
+            raise Conflict(code="version_conflict", params={"current_version": current})
+        raise await stale_version(session, row, expected_version=expected_version)
 
     images = (changes.logo_file_id, changes.logo_dark_file_id, changes.icon_file_id)
     same_images = row is not None and images == (

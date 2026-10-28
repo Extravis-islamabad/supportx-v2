@@ -47,6 +47,7 @@ from app.modules.identity_access.infra.keycloak_admin import (
 from app.modules.identity_access.infra.models import SsoProvider
 from app.modules.organization import get_current_tenant
 from app.shared.events import record_event
+from app.shared.history import stale_version
 from app.shared.ids import new_id
 
 # Settings that decide how SupportX connects: a change sends the set-up back to draft.
@@ -193,12 +194,9 @@ async def _row(session: AsyncSession, provider_id: uuid.UUID) -> SsoProvider:
     return row
 
 
-def _check_version(row: SsoProvider, expected: int) -> None:
+async def _check_version(session: AsyncSession, row: SsoProvider, expected: int) -> None:
     if row.version != expected:
-        raise Conflict(
-            code="version_conflict",
-            params={"expected_version": expected, "current_version": row.version},
-        )
+        raise await stale_version(session, row, expected_version=expected)
 
 
 def _validate(values: SsoInput, *, creating: bool) -> tuple[list[str], list[sso.Problem]]:
@@ -506,7 +504,7 @@ async def update_provider(  # noqa: PLR0913 - the record, its input and version,
     """Change a set-up; a connection change sends it back to draft (switch it off first)."""
     keycloak = _require(admin)
     row = await _row(session, provider_id)
-    _check_version(row, expected_version)
+    await _check_version(session, row, expected_version)
     if values.protocol != row.protocol:
         raise _invalid([sso.Problem("preset", "sso_protocol_fixed")])
     domains, problems = _validate(values, creating=False)
@@ -605,7 +603,7 @@ async def switch_provider(
     """On (needs a passed test since the last connection change) or off."""
     keycloak = _require(admin)
     row = await _row(session, provider_id)
-    _check_version(row, expected_version)
+    await _check_version(session, row, expected_version)
     if on and row.tested_at is None:
         raise Conflict(code="sso_not_tested")
     stored = await keycloak.provider(row.alias)
@@ -642,7 +640,7 @@ async def remove_provider(
     """Delete the Keycloak provider, give back the domains only it claimed, keep the row."""
     keycloak = _require(admin)
     row = await _row(session, provider_id)
-    _check_version(row, expected_version)
+    await _check_version(session, row, expected_version)
     organization = await organization_of(session, keycloak)
     ours = set(row.settings.get("added_domains") or [])
     await keycloak.delete_provider(row.alias)

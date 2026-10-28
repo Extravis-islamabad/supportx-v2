@@ -16,7 +16,7 @@ from app.modules.audit.domain.catalogue import ALWAYS_LOGGED_READS, DEFAULT_READ
 from app.modules.audit.events import AuditSettingsChanged
 from app.modules.audit.infra.models import AuditSettings
 from app.shared.events import record_event
-from app.shared.history import Change, Source, record_changes
+from app.shared.history import Change, Source, record_changes, stale_version
 
 SETTINGS_RECORD_TYPE = "audit_settings"
 
@@ -135,6 +135,8 @@ async def update_settings(
     row = await session.scalar(select(AuditSettings).with_for_update())
     before = _view(row)
     if before.version != expected_version:
+        if row is not None:
+            raise await stale_version(session, row, expected_version=expected_version)
         raise Conflict(
             code="version_conflict",
             params={"expected_version": expected_version, "current_version": before.version},
