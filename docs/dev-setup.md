@@ -336,3 +336,12 @@ queue tests it on top of `main` and the pull requests ahead of it, with the same
 when they pass. A failing entry leaves the queue and the ones behind it are tested again without
 it. Two pull requests that each pass alone but break together (two migrations with the same
 number, for example) fail in the queue, not on `main`.
+
+## Tool versions
+
+Every tool has an exact version, so an upstream release never changes a build: Node in `.nvmrc`,
+Python in `backend/.python-version`, pnpm in `package.json` and `frontend/package.json`
+(`packageManager`, which Corepack reads from anywhere in the repo), uv in the backend setup action
+and image, actions and pre-commit hooks by commit SHA, container images by exact tag.
+`backend/tests/test_tool_pins.py` fails when one floats or two places disagree. Upgrades come as
+deliberate PRs (Dependabot proposes them weekly).
