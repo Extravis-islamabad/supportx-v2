@@ -13,7 +13,8 @@ using pytest-xdist inside (product owner, 2026-10-27: the backend CI job under 1
   xdist group, so with `--dist loadgroup` one worker per shard starts one Keycloak (about 1 GB
   and 20 seconds), never one per worker.
 - `SUPPORTX_TEST_TIMINGS=<path>` writes how long each file took (call phases plus fixtures) as
-  JSON, to refresh the weights: `make backend-test-timings`.
+  JSON. CI keeps each shard's as an artifact; `make backend-shard-weights` refreshes the weights
+  from a CI run (CI's runners, not a laptop, are what the shards must balance on).
 
 Registered with `-p tooling.pytest_shards` (pyproject addopts); does nothing without the
 variables. Never imported by the app.
