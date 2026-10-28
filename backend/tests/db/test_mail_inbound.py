@@ -16,9 +16,12 @@ from sqlalchemy import select, text
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
-from app.modules.integrations.domain.mailboxes import PER_SENDER_LIMIT, Outcome
+from app.modules.integrations.domain.mailboxes import PER_SENDER_LIMIT, AfterFetch, Outcome
+from app.modules.integrations.infra.imap import FetchedMessage, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
+from app.modules.integrations.service.fetching import fetch_mailbox
 from app.modules.integrations.service.inbound import process
+from app.shared.files.keyring import KeyRing
 from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
@@ -207,3 +210,56 @@ async def test_the_ledger_stays_in_its_tenant(world: World) -> None:
     async with world.database.tenant_session(TenantContext(other)) as session:
         assert (await session.scalar(text("SELECT count(*) FROM mail_fetched"))) == 0
         assert (await session.scalar(text("SELECT count(*) FROM mailboxes"))) == 0
+
+
+@dataclass
+class FakeReader:
+    """A mailbox on a mail server, in memory."""
+
+    messages: list[tuple[str, bytes]]
+    marked: list[tuple[str, str]] = field(default_factory=list)
+    fail: str | None = None
+
+    async def new_messages(self, limit: int = 50) -> list[FetchedMessage]:
+        if self.fail:
+            raise MailboxUnavailableError(self.fail)
+        seen = {uid for uid, _ in self.marked}
+        return [FetchedMessage(uid, raw) for uid, raw in self.messages if uid not in seen][:limit]
+
+    async def done(self, uid: str, after: AfterFetch, folder: str | None = None) -> None:
+        del folder
+        self.marked.append((uid, after.value))
+
+    async def close(self) -> None:
+        return None
+
+
+async def _state(world: World) -> tuple[str, str | None]:
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        mailbox = await session.get(Mailbox, world.mailbox)
+        assert mailbox is not None
+        return mailbox.state, mailbox.state_reason
+
+
+async def test_fetching_marks_each_message_after_storing_it(world: World) -> None:
+    """REQ-INC-023 AC3, REQ-ADM-067: marked read (not deleted), and once only."""
+    ring = KeyRing.parse(KeyRing.generate())
+    same = _mail()
+    reader = FakeReader([("1", same), ("2", _mail()), ("3", same)])
+    handled = await fetch_mailbox(
+        world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=reader
+    )
+    assert handled == 2  # the third is the first again (same Message-ID)
+    assert reader.marked == [("1", "mark_read"), ("2", "mark_read"), ("3", "mark_read")]
+    assert len(world.incidents.created) == 2
+    assert await _state(world) == ("working", None)
+
+
+async def test_a_mailbox_that_cannot_be_reached_says_so(world: World) -> None:
+    """REQ-INC-023 AC4: shown in the product, not only in logs."""
+    ring = KeyRing.parse(KeyRing.generate())
+    reader = FakeReader([], fail="imap_login_failed")
+    await fetch_mailbox(
+        world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=reader
+    )
+    assert await _state(world) == ("failing", "imap_login_failed")
