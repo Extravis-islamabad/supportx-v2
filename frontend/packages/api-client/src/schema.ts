@@ -1340,6 +1340,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboards/widgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The widget catalogue
+         * @description Every widget you may add, by module and section (D-114).
+         *
+         *     Only widgets over entities you may report on (permission and licence); each still shows only
+         *     the records you may see.
+         */
+        get: operations["widget_catalogue_api_v1_dashboards_widgets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/dashboards/{ref}": {
         parameters: {
             query?: never;
@@ -6690,6 +6713,31 @@ export interface components {
          */
         FirstResponseAction: "reply" | "public_note" | "private_note";
         /**
+         * FlowSpec
+         * @description A flow report (D-114): created, resolved and backlog per day, week or month.
+         *
+         *     Per bucket: the records created, the records resolved and the backlog (still open) at the
+         *     bucket's end. Replaces `group_by`; measures are the flow measures (`flow_created`,
+         *     `flow_resolved`, `flow_backlog`).
+         *
+         *     The backlog is "created by then and not yet resolved, closed or cancelled by then", read from
+         *     each record's own timestamps as they stand now (a cancellation counts from its last status
+         *     change), not from a history replay.
+         */
+        FlowSpec: {
+            /**
+             * Bucket
+             * @default day
+             * @enum {string}
+             */
+            bucket: "day" | "week" | "month";
+            /**
+             * Days
+             * @default 30
+             */
+            days: number;
+        };
+        /**
          * FollowReason
          * @description How someone came to follow a record (shown in the followers list).
          * @enum {string}
@@ -8147,6 +8195,54 @@ export interface components {
             field: string;
         };
         /**
+         * DashboardRecords
+         * @description A short list of records (D-114), read through the entity's own list in the viewer's scope.
+         *
+         *     Its filter may say `@me` (the console puts the viewer in); `@my_groups` is for report
+         *     widgets, which the server resolves.
+         */
+        "RecordsSpec-Input": {
+            /** Entity */
+            entity: string;
+            /** Filter */
+            filter?: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Input"] | components["schemas"]["FilterOr-Input"] | null;
+            /**
+             * Limit
+             * @default 8
+             */
+            limit: number;
+            /**
+             * Sort
+             * @default updated
+             * @enum {string}
+             */
+            sort: "updated" | "created" | "due" | "priority";
+        };
+        /**
+         * DashboardRecords
+         * @description A short list of records (D-114), read through the entity's own list in the viewer's scope.
+         *
+         *     Its filter may say `@me` (the console puts the viewer in); `@my_groups` is for report
+         *     widgets, which the server resolves.
+         */
+        "RecordsSpec-Output": {
+            /** Entity */
+            entity: string;
+            /** Filter */
+            filter?: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Output"] | components["schemas"]["FilterOr-Output"] | null;
+            /**
+             * Limit
+             * @default 8
+             */
+            limit: number;
+            /**
+             * Sort
+             * @default updated
+             * @enum {string}
+             */
+            sort: "updated" | "created" | "due" | "priority";
+        };
+        /**
          * Relative
          * @description People relative to the record who may run a transition (REQ-WF-004).
          * @enum {string}
@@ -8198,6 +8294,7 @@ export interface components {
             entity: string;
             /** Filter */
             filter?: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Input"] | components["schemas"]["FilterOr-Input"] | null;
+            flow?: components["schemas"]["FlowSpec"] | null;
             /** Group By */
             group_by?: components["schemas"]["ReportGroupBy"][];
             /** Limit */
@@ -8233,6 +8330,7 @@ export interface components {
             entity: string;
             /** Filter */
             filter?: components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Output"] | components["schemas"]["FilterOr-Output"] | null;
+            flow?: components["schemas"]["FlowSpec"] | null;
             /** Group By */
             group_by?: components["schemas"]["ReportGroupBy"][];
             /** Limit */
@@ -10406,6 +10504,7 @@ export interface components {
             /** Id */
             id: string;
             place: components["schemas"]["Placement"];
+            records?: components["schemas"]["RecordsSpec-Input"] | null;
             report?: components["schemas"]["ReportDefinition-Input"] | null;
             /** Report Ref */
             report_ref?: string | null;
@@ -10422,6 +10521,7 @@ export interface components {
             /** Id */
             id: string;
             place: components["schemas"]["Placement"];
+            records?: components["schemas"]["RecordsSpec-Output"] | null;
             report?: components["schemas"]["ReportDefinition-Output"] | null;
             /** Report Ref */
             report_ref?: string | null;
@@ -10429,6 +10529,43 @@ export interface components {
             title?: string | null;
             /** Title Key */
             title_key?: string | null;
+        };
+        /**
+         * WidgetCatalogueEntryOut
+         * @description One widget you may add (D-114); its description label is `<title_key>.description`.
+         */
+        WidgetCatalogueEntryOut: {
+            /** Code */
+            code: string;
+            /**
+             * Coming With
+             * @description Not available yet: arrives with this package (`widget_coming.<code>`).
+             */
+            coming_with: string | null;
+            /**
+             * Module
+             * @description Report folder code: `report_folder.<module>`.
+             */
+            module: string;
+            /**
+             * Section
+             * @description Section code: `widget_section.<section>`.
+             */
+            section: string;
+            /** Title Key */
+            title_key: string;
+            /** @description The widget to add, at x 0 / y 0 in its default size. */
+            widget: components["schemas"]["Widget-Output"];
+        };
+        /**
+         * WidgetCatalogueOut
+         * @description The "Add widget" catalogue: sections in their order, and the entries.
+         */
+        WidgetCatalogueOut: {
+            /** Entries */
+            entries: components["schemas"]["WidgetCatalogueEntryOut"][];
+            /** Sections */
+            sections: string[];
         };
         /**
          * WorkItemAction
@@ -17183,6 +17320,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    widget_catalogue_api_v1_dashboards_widgets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WidgetCatalogueOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

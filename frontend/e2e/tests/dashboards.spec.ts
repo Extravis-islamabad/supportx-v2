@@ -97,6 +97,8 @@ test('a technician lands on "My work"; a shared dashboard reaches their picker (
     await expect(admin.page.getByTestId('dashboard-title')).toHaveText(NAME);
     // Edit mode opens for a new dashboard: add a quick chart and save.
     await admin.page.getByTestId('dashboard-add-widget').click();
+    // The catalogue opens first (D-114); this journey builds a quick chart.
+    await admin.page.getByTestId('dashboard-add-source').getByText('Quick chart').click();
     await admin.page.getByTestId('dashboard-add-title').fill('Open by priority');
     await expect(admin.page.getByTestId('dashboard-add-preview')).toBeVisible();
     await admin.page.getByTestId('dashboard-add-confirm').click();
@@ -145,5 +147,46 @@ test('dashboards in Arabic: right to left, labels only, accessible (REQ-DSH-045,
   } finally {
     await resetLanguage(page);
     await context.close();
+  }
+});
+
+test('the widget library: lists and trends on the service desk; the catalogue adds a widget (D-114)', async ({
+  browser,
+}) => {
+  test.setTimeout(150_000);
+  const admin = await open(browser, 'admin', '/dashboards/builtin%3Aservice_desk');
+  try {
+    await deleteE2eDashboards(admin.page);
+    const page = admin.page;
+    // Ready-made: key numbers, created vs resolved, backlog, and lists of records.
+    for (const id of ['overdue', 'due_today', 'created_vs_resolved', 'backlog_trend']) {
+      await expect(page.getByTestId(`widget-title-${id}`)).toBeVisible();
+    }
+    await expect(page.getByTestId('widget-overdue_list')).toBeVisible();
+    await expect(page.getByTestId('widget-type-created_vs_resolved')).toBeVisible(); // a chart
+    await expectAccessible(page, 'service desk with the widget library');
+
+    // A new dashboard of the suite's own, with one widget from the searchable catalogue.
+    await page.goto('/dashboards');
+    await page.getByTestId('dashboards-new').click();
+    await page.getByTestId('dashboards-new-name').fill(`${NAME} library`);
+    await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByTestId('dashboard-title')).toHaveText(`${NAME} library`);
+    await page.getByTestId('dashboard-add-widget').click();
+    await page.getByTestId('dashboard-catalogue-search').fill('recently');
+    await page.getByRole('radio', { name: /Recently updated/ }).check();
+    await expect(page.getByTestId('dashboard-add-preview')).toBeVisible();
+    await expect(page.getByRole('radio', { name: /SLA breached/ })).toHaveCount(0); // filtered out
+    await page.getByTestId('dashboard-catalogue-search').fill('');
+    await expect(page.getByRole('radio', { name: /SLA breached/ })).toBeDisabled();
+    await expectAccessible(page, 'widget catalogue');
+    await page.getByTestId('dashboard-catalogue-search').fill('recently');
+    await page.getByRole('radio', { name: /Recently updated/ }).check();
+    await page.getByTestId('dashboard-add-confirm').click();
+    await page.getByTestId('dashboard-done').click();
+    await expect(page.getByText('Recently updated').last()).toBeVisible();
+  } finally {
+    await deleteE2eDashboards(admin.page);
+    await admin.context.close();
   }
 });

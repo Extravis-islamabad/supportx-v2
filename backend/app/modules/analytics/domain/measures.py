@@ -78,6 +78,35 @@ INCIDENT_MEASURES: tuple[MeasureSpec, ...] = (
             ]
         },
     ),
+    # D-114 key numbers for dashboards (open records only, like the queue they describe).
+    MeasureSpec(
+        "overdue_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"and": [_OPEN, {"field": "resolution_due_at", "op": "before_now"}]},
+    ),
+    MeasureSpec(
+        "due_today_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"and": [_OPEN, {"field": "resolution_due_at", "op": "today"}]},
+    ),
+    MeasureSpec(
+        "awaiting_response_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"and": [_OPEN, {"field": "first_responded_at", "op": "is_null"}]},
+    ),
+    MeasureSpec(
+        "reopened_count",
+        MeasureKind.COUNT_WHERE,
+        Unit.COUNT,
+        Better.DOWN,
+        where={"field": "reopen_count", "op": "gt", "value": 0},
+    ),
     MeasureSpec(
         "resolved_count",
         MeasureKind.COUNT_WHERE,
@@ -133,6 +162,14 @@ INCIDENT_MEASURES: tuple[MeasureSpec, ...] = (
         field="reassignment_count",
     ),
 )
+
+# Flow measures (D-114): only in a flow report, which counts per bucket over three timestamps.
+FLOW_MEASURES: tuple[MeasureSpec, ...] = (
+    MeasureSpec("flow_created", MeasureKind.COUNT, Unit.COUNT),
+    MeasureSpec("flow_resolved", MeasureKind.COUNT, Unit.COUNT, Better.UP),
+    MeasureSpec("flow_backlog", MeasureKind.COUNT, Unit.COUNT, Better.DOWN),
+)
+FLOW: Mapping[str, MeasureSpec] = MappingProxyType({m.code: m for m in FLOW_MEASURES})
 
 MEASURES: Mapping[str, Mapping[str, MeasureSpec]] = MappingProxyType(
     {"incident": MappingProxyType({m.code: m for m in INCIDENT_MEASURES})}

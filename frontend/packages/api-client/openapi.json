@@ -6322,6 +6322,31 @@
         "title": "FirstResponseAction",
         "type": "string"
       },
+      "FlowSpec": {
+        "additionalProperties": false,
+        "description": "A flow report (D-114): created, resolved and backlog per day, week or month.\n\nPer bucket: the records created, the records resolved and the backlog (still open) at the\nbucket's end. Replaces `group_by`; measures are the flow measures (`flow_created`,\n`flow_resolved`, `flow_backlog`).\n\nThe backlog is \"created by then and not yet resolved, closed or cancelled by then\", read from\neach record's own timestamps as they stand now (a cancellation counts from its last status\nchange), not from a history replay.",
+        "properties": {
+          "bucket": {
+            "default": "day",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "days": {
+            "default": 30,
+            "maximum": 366.0,
+            "minimum": 7.0,
+            "title": "Days",
+            "type": "integer"
+          }
+        },
+        "title": "FlowSpec",
+        "type": "object"
+      },
       "FollowReason": {
         "description": "How someone came to follow a record (shown in the followers list).",
         "enum": [
@@ -9791,6 +9816,108 @@
         "title": "RecordSort",
         "type": "object"
       },
+      "RecordsSpec-Input": {
+        "additionalProperties": false,
+        "description": "A short list of records (D-114), read through the entity's own list in the viewer's scope.\n\nIts filter may say `@me` (the console puts the viewer in); `@my_groups` is for report\nwidgets, which the server resolves.",
+        "properties": {
+          "entity": {
+            "maxLength": 40,
+            "title": "Entity",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterCondition"
+              },
+              {
+                "$ref": "#/components/schemas/FilterAnd-Input"
+              },
+              {
+                "$ref": "#/components/schemas/FilterOr-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "limit": {
+            "default": 8,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "sort": {
+            "default": "updated",
+            "enum": [
+              "updated",
+              "created",
+              "due",
+              "priority"
+            ],
+            "title": "Sort",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity"
+        ],
+        "title": "DashboardRecords",
+        "type": "object"
+      },
+      "RecordsSpec-Output": {
+        "additionalProperties": false,
+        "description": "A short list of records (D-114), read through the entity's own list in the viewer's scope.\n\nIts filter may say `@me` (the console puts the viewer in); `@my_groups` is for report\nwidgets, which the server resolves.",
+        "properties": {
+          "entity": {
+            "maxLength": 40,
+            "title": "Entity",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterCondition"
+              },
+              {
+                "$ref": "#/components/schemas/FilterAnd-Output"
+              },
+              {
+                "$ref": "#/components/schemas/FilterOr-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "limit": {
+            "default": 8,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "sort": {
+            "default": "updated",
+            "enum": [
+              "updated",
+              "created",
+              "due",
+              "priority"
+            ],
+            "title": "Sort",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity"
+        ],
+        "title": "DashboardRecords",
+        "type": "object"
+      },
       "Relative": {
         "description": "People relative to the record who may run a transition (REQ-WF-004).",
         "enum": [
@@ -9911,6 +10038,16 @@
             ],
             "title": "Filter"
           },
+          "flow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlowSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "group_by": {
             "items": {
               "$ref": "#/components/schemas/ReportGroupBy"
@@ -10016,6 +10153,16 @@
               }
             ],
             "title": "Filter"
+          },
+          "flow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlowSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "group_by": {
             "items": {
@@ -15868,6 +16015,16 @@
           "place": {
             "$ref": "#/components/schemas/Placement"
           },
+          "records": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordsSpec-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "report": {
             "anyOf": [
               {
@@ -15935,6 +16092,16 @@
           "place": {
             "$ref": "#/components/schemas/Placement"
           },
+          "records": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordsSpec-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "report": {
             "anyOf": [
               {
@@ -15988,6 +16155,80 @@
           "place"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "WidgetCatalogueEntryOut": {
+        "description": "One widget you may add (D-114); its description label is `<title_key>.description`.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "coming_with": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Not available yet: arrives with this package (`widget_coming.<code>`).",
+            "title": "Coming With"
+          },
+          "module": {
+            "description": "Report folder code: `report_folder.<module>`.",
+            "title": "Module",
+            "type": "string"
+          },
+          "section": {
+            "description": "Section code: `widget_section.<section>`.",
+            "title": "Section",
+            "type": "string"
+          },
+          "title_key": {
+            "title": "Title Key",
+            "type": "string"
+          },
+          "widget": {
+            "$ref": "#/components/schemas/Widget-Output",
+            "description": "The widget to add, at x 0 / y 0 in its default size."
+          }
+        },
+        "required": [
+          "code",
+          "module",
+          "section",
+          "title_key",
+          "widget",
+          "coming_with"
+        ],
+        "title": "WidgetCatalogueEntryOut",
+        "type": "object"
+      },
+      "WidgetCatalogueOut": {
+        "description": "The \"Add widget\" catalogue: sections in their order, and the entries.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/WidgetCatalogueEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "entries"
+        ],
+        "title": "WidgetCatalogueOut",
         "type": "object"
       },
       "WorkItemAction": {
@@ -26562,6 +26803,68 @@
           }
         },
         "summary": "Set a role's home dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/widgets": {
+      "get": {
+        "description": "Every widget you may add, by module and section (D-114).\n\nOnly widgets over entities you may report on (permission and licence); each still shows only\nthe records you may see.",
+        "operationId": "widget_catalogue_api_v1_dashboards_widgets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "The widget catalogue",
         "tags": [
           "dashboards"
         ]

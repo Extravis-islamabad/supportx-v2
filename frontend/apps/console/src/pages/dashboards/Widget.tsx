@@ -78,7 +78,9 @@ export function Widget({
   const result = run.data;
   const words = useReportWords(result);
   const title = widgetTitle(widget, t);
-  const kpi = shown?.chart === 'kpi' || (shown !== null && shown.group_by?.length === 0);
+  // No groupings means one number, except a created-vs-resolved report (its own buckets).
+  const kpi =
+    shown?.chart === 'kpi' || (shown !== null && shown.group_by?.length === 0 && !shown.flow);
   const ref = widget.report_ref;
   const report = ref?.startsWith('builtin:')
     ? `/reports/builtin/${ref.slice('builtin:'.length)}`

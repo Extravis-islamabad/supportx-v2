@@ -14,9 +14,14 @@ export type DashboardFilters = components['schemas']['DashboardFilters'];
 export type DashboardInput = components['schemas']['DashboardIn'];
 export type DashboardPatch = components['schemas']['DashboardPatch'];
 export type DashboardHome = components['schemas']['HomeOut'];
+export type DashboardRecords = components['schemas']['RecordsSpec-Input'];
+export type WidgetCatalogue = components['schemas']['WidgetCatalogueOut'];
+export type WidgetCatalogueEntry = components['schemas']['WidgetCatalogueEntryOut'];
 
 /** In a widget filter value: the viewer (replace with their id before running). */
 export const DASHBOARD_ME = '@me';
+/** In a report widget's filter: the viewer's groups (the server puts them in, D-114). */
+export const DASHBOARD_MY_GROUPS = '@my_groups';
 
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
@@ -26,6 +31,16 @@ export function useDashboards(enabled = true) {
     queryKey: queryKeys.dashboards.list,
     queryFn: () => call(api.GET('/api/v1/dashboards')),
     enabled,
+  });
+}
+
+/** The "Add widget" catalogue (D-114): widgets you may add, by module and section. */
+export function useWidgetCatalogue(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.dashboards.catalogue,
+    queryFn: () => call(api.GET('/api/v1/dashboards/widgets')),
+    enabled,
+    staleTime: 5 * 60_000,
   });
 }
 

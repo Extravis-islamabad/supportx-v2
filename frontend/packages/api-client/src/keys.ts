@@ -71,6 +71,7 @@ export const queryKeys = {
     list: ['dashboards', 'list'] as const,
     detail: (ref: string) => ['dashboards', 'detail', ref] as const,
     roleHomes: ['dashboards', 'role-homes'] as const,
+    catalogue: ['dashboards', 'catalogue'] as const,
   },
   incidents: {
     all: ['incidents'] as const,
