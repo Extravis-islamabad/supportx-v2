@@ -643,6 +643,12 @@ New `automation` module (migration 0025); incidents register their rule fields (
   new record follows the old one (`follows_id`) and the answer names its ID.
 - [x] REQ-INC-100: cancel with a reason and undo were built in WP-020; a canceled record takes
   no edits (test added).
+- [x] Port for e-mail and the portal: `work_items.add_requester_reply` saves a requester's reply
+  from outside the console (requester or on-behalf-of only) and runs the reactions above; an
+  automatic reply (out-of-office) is recorded and moves nothing (`automatic` on the event).
+- [ ] Follow-up (lane C's #103): lane A's hand-joined visible lists move to `useListFormat` /
+  `useJoinParts` (customFields/values.ts, IncidentPage tags, pickers.tsx, IncidentConversation
+  recipients, AuditEntryDrawer, actionReason.ts, ConflictDialog fields), before WP-020d/e.
 - [ ] Wired by later packages: requester notified (`resolution_notified`, WP-023/024/028),
   confirm/reject links (WP-023), e-mail replies (WP-024), tasks and links (WP-020e), approvals
   (WP-030), knowledge search (WP-033), working calendars and SLA resume/restart (WP-025).
