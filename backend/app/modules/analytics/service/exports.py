@@ -47,7 +47,7 @@ from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access import Subject
 from app.shared.events import record_event
 from app.shared.ids import new_id
-from app.shared.labels import label
+from app.shared.labels import RTL_LANGUAGES, label
 from app.shared.reporting import DimensionKind, ReportingSource
 from app.shared.storage import ObjectStorage, StorageNotConfigured, StorageUnavailable
 
@@ -55,7 +55,6 @@ log = get_logger(__name__)
 EXPORT = "reports.export"
 FORMATS = ("csv", "xlsx", "pdf")
 CONTENTS = ("summary", "records")
-RTL_LANGUAGES = frozenset({"ar", "ur"})
 PDF_RECORDS = 1000  # a PDF is for reading: larger record lists are an Excel or CSV export
 BATCH = 2000
 CONTENT_TYPES = {
