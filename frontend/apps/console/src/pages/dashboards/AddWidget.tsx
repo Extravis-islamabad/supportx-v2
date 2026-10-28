@@ -133,6 +133,8 @@ export function AddWidget({
         open={open}
         title={t('dashboards.add_widget')}
         width="min(900px, 96vw)"
+        // A closed dialog leaves nothing behind: no stale preview beside the added widget.
+        destroyOnHidden
         okText={t('dashboards.add')}
         cancelText={t('reports.cancel')}
         okButtonProps={{ disabled: widget === null, 'data-testid': 'dashboard-add-confirm' }}
