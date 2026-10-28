@@ -42,6 +42,14 @@ class ReadinessResponse(BaseModel):
     degraded: list[str] = Field(
         default_factory=list, description="Informational checks that are not OK."
     )
+    event_delivery: Literal["ok", "stalled"] = Field(
+        default="ok",
+        description=(
+            "stalled: an event worker is down, disconnected from PostgreSQL or NATS, or events "
+            "wait too long to be published. Notifications, live updates and exports are "
+            "delayed until it recovers; nothing is lost."
+        ),
+    )
 
 
 def get_readiness_service(request: Request) -> ReadinessService:
@@ -97,4 +105,5 @@ def _to_response(report: ReadinessReport) -> ReadinessResponse:
         },
         failed=report.failed,
         degraded=report.degraded,
+        event_delivery=("stalled" if report.degraded or "nats" in report.failed else "ok"),
     )
