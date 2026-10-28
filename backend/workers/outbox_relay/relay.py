@@ -339,7 +339,11 @@ class OutboxRelay:
         try:
             async with self.pool.acquire() as conn:
                 age = await conn.fetchval(OLDEST_UNPUBLISHED_AGE)
-        except (*_RECOVERABLE, RuntimeError):
+        except Exception as exc:
+            # Any outage (also "the database system is shutting down", which is no connection
+            # error): keep the last age; the relay loop marks the database down and waits.
+            if unavailable(exc) is None and not isinstance(exc, (*_RECOVERABLE, RuntimeError)):
+                raise
             return self.metrics.oldest_unpublished_age_seconds
         self.metrics.oldest_unpublished_age_seconds = float(age or 0.0)
         return self.metrics.oldest_unpublished_age_seconds

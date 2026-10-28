@@ -199,6 +199,34 @@ async def test_the_relay_rides_out_a_database_that_is_shutting_down() -> None:
     assert connectivity.snapshot()["unavailable"] == ["database"]
 
 
+class _ShuttingDownPool:
+    def acquire(self) -> "_ShuttingDownPool":
+        return self
+
+    async def __aenter__(self) -> None:
+        raise asyncpg.exceptions.CannotConnectNowError(SHUTTING_DOWN)
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+
+async def test_the_backlog_reading_rides_out_a_database_that_is_shutting_down() -> None:
+    """CI run 40690884110: the heartbeat's backlog read took the relay down with the database."""
+    relay = OutboxRelay(
+        dsn="postgresql://unused",
+        js=None,  # type: ignore[arg-type]
+        names=BusNames(""),
+        batch_size=10,
+        poll_interval=1,
+        publish_timeout=1,
+        retention=timedelta(hours=1),
+        purge_interval=60,
+    )
+    relay.metrics.oldest_unpublished_age_seconds = 4.0
+    relay._pool = _ShuttingDownPool()  # type: ignore[assignment]  # noqa: SLF001
+    assert await relay.refresh_backlog_age() == 4.0  # the last age, no crash
+
+
 def test_a_worker_that_gives_up_exits_with_code_1() -> None:
     async def gives_up(stop: asyncio.Event) -> None:
         del stop
