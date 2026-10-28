@@ -177,15 +177,21 @@ class WorkerHeartbeatProbe:
             raise ProbeFailedError(FailureReason.BACKLOG)
 
     async def _newest_heartbeat(self, client: NatsClient) -> tuple[datetime, dict[str, Any]] | None:
+        js = client.jetstream()
         try:
-            bucket = await client.jetstream().key_value(self._bucket)
-            keys = await bucket.keys()
-        except (nats.js.errors.BucketNotFoundError, nats.js.errors.NoKeysError):
+            bucket = await js.key_value(self._bucket)
+            # The keys from the stream's own subject list, not `bucket.keys()`: its watcher can
+            # report "no keys" when it reads the consumer before the first message is counted
+            # (nats-py), which made a running worker look stopped (CI, 2026-10-28).
+            info = await js.stream_info(
+                f"KV_{self._bucket}", subjects_filter=f"$KV.{self._bucket}.{self._prefix}>"
+            )
+        except nats.js.errors.NotFoundError:  # no bucket yet (BucketNotFoundError) or no stream
             return None
+        subjects = (info.state.subjects or {}) if info.state else {}
+        keys = [subject.removeprefix(f"$KV.{self._bucket}.") for subject in subjects]
         newest: tuple[datetime, dict[str, Any]] | None = None
         for key in keys:
-            if not key.startswith(self._prefix):
-                continue
             try:
                 entry = await bucket.get(key)
             except nats.js.errors.KeyNotFoundError:
