@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -87,7 +88,14 @@ export function useAutomationChange() {
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.automation.all });
   };
-  const options = { meta: { silent: true }, onSuccess: refresh };
+  const options = {
+    meta: { silent: true },
+    onSuccess: refresh,
+    // A stale save: fetch the saved version, so the conflict dialog can compare (QA WP-029 BUG-05).
+    onError: (error: unknown) => {
+      if (error instanceof ApiError && error.isConflict) refresh();
+    },
+  };
   return {
     createRule: useMutation({
       ...options,
@@ -291,7 +299,21 @@ export function useAvailability(userIds: string[], enabled = true) {
   });
 }
 
-/** Set yourself (or, with users.manage, someone else) Available or Away. */
+/** Who set someone Available or Away, and when: newest first (QA WP-029 follow-up). */
+export function useAvailabilityHistory(userId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.automation.availability([]), 'history', userId] as const,
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/automation/availability/{user_id}/history', {
+          params: { path: { user_id: userId } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** Set yourself, a member of a group you lead, or (with users.manage) anyone Available or Away. */
 export function useSetAvailability() {
   const queryClient = useQueryClient();
   return useMutation({

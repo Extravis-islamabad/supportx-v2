@@ -40,10 +40,14 @@ import {
 } from '@supportx/api-client';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
+  useConflictRetry,
   ConflictDialog,
   describeError,
+  FormProblem,
+  markHandled,
   PresenceAvatars,
   reportError,
+  useFormProblem,
   RichTextField,
   RichTextView,
   inlineImageIds,
@@ -57,6 +61,7 @@ import {
 import { CustomFieldControl, CustomFieldValue } from '../customFields/fields';
 import { fieldName } from '../customFields/values';
 import { AssignDialog, TakeButton } from './assign';
+import { useIncidentFieldName } from './conflict';
 import { OperationButton } from './operations';
 import { IncidentConversation, type Typing } from './IncidentConversation';
 import { IncidentFiles } from './IncidentFiles';
@@ -217,6 +222,20 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
     others.current = viewers;
   }, [viewers]);
   const remove = useDeleteIncident(item.id);
+  // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
+  const removeConflict = useConflictRetry();
+  const incidentField = useIncidentFieldName();
+  const removeIt = (version: number) => {
+    remove.mutate(version, {
+      onSuccess: () => {
+        void message.success(t('incidents.deleted'));
+        void navigate('/incidents');
+      },
+      onError: (error) => {
+        if (!removeConflict.take(error, removeIt)) reportError(error);
+      },
+    });
+  };
   const op = (name: string): IncidentActionState | undefined =>
     item.operations.find((o) => o.action === name);
   const deleteOp = op('delete');
@@ -318,13 +337,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             okButtonProps={{ danger: true }}
             cancelText={t('actions.cancel')}
             onConfirm={() => {
-              remove.mutate(item.version, {
-                onSuccess: () => {
-                  void message.success(t('incidents.deleted'));
-                  void navigate('/incidents');
-                },
-                onError: reportError,
-              });
+              removeIt(item.version);
             }}
           >
             <WriteButton
@@ -338,6 +351,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
           </Popconfirm>
         )}
       </Flex>
+      <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
       <AssignDialog
         item={item}
         open={assigning}
@@ -686,10 +700,13 @@ function InlineEdit({
   const [value, setValue] = useState<unknown>(spec.value);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  // A refusal with no field to point at (a rule, a limit), shown here (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [conflict, setConflict] = useState<unknown>(null);
   const close = () => {
     setOpen(false);
     setError(null);
+    problem.clear();
     onEditing(-1);
   };
   const save = (version = item.version) => {
@@ -701,6 +718,7 @@ function InlineEdit({
         : spec.kind === 'custom'
           ? { custom: { [spec.field.key]: value } }
           : { [field]: value };
+    problem.clear();
     update.mutate(
       { changes: changes, version },
       {
@@ -718,10 +736,11 @@ function InlineEdit({
             return;
           }
           if (failure instanceof ApiError && failure.fieldErrors.length > 0) {
+            markHandled(failure);
             setError(failure.fieldErrors.map((e) => t(e.message_key, e.params)).join(' '));
             return;
           }
-          reportError(failure);
+          problem.show(failure);
         },
       },
     );
@@ -912,6 +931,7 @@ function InlineEdit({
           {error}
         </Typography.Text>
       )}
+      <FormProblem problem={problem} />
       <Space>
         <WriteButton
           size="small"
@@ -974,7 +994,9 @@ function Description({
   const [editing, setEditing] = useState(false);
   const [html, setHtml] = useState(item.description ?? '');
   const [conflict, setConflict] = useState<unknown>(null);
+  const problem = useFormProblem();
   const save = (version: number) => {
+    problem.clear();
     update.mutate(
       { changes: { description: html }, version },
       {
@@ -988,7 +1010,7 @@ function Description({
         onError: (failure) => {
           if (failure instanceof ApiError && failure.code === 'version_conflict')
             setConflict(failure);
-          else reportError(failure);
+          else problem.show(failure);
         },
       },
     );
@@ -1020,6 +1042,7 @@ function Description({
   }
   const done = () => {
     setEditing(false);
+    problem.clear();
     onEditing(-1);
   };
   return (
@@ -1031,6 +1054,7 @@ function Description({
         testId="inc-description-editor"
         imageOwnerId={me ?? undefined}
       />
+      <FormProblem problem={problem} />
       <Space>
         <WriteButton
           type="primary"

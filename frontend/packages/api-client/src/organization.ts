@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -142,6 +143,10 @@ export function useStructureChange<K extends StructureKind>(kind: K) {
       }
     },
     onSuccess: refresh,
+    // A stale change: fetch the saved unit, so the conflict dialog can compare (BUG-05).
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) refresh();
+    },
   });
   const remove = useMutation({
     meta: { silent: true },
@@ -169,6 +174,10 @@ export function useStructureChange<K extends StructureKind>(kind: K) {
       }
     },
     onSuccess: refresh,
+    // A stale change: fetch the saved unit, so the conflict dialog can compare (BUG-05).
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) refresh();
+    },
   });
   return { create, update, remove };
 }

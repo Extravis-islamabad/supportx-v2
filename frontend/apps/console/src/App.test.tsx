@@ -145,7 +145,8 @@ describe('console shell', () => {
     expect(
       await screen.findByText(/All technician seats in your organisation’s plan are in use/),
     ).toBeDefined();
-    expect(screen.getByRole('button', { name: /Copy reference/ })).toBeDefined();
+    // An expected refusal is a neutral notice, without the support reference (QA WP-029 BUG-02).
+    expect(screen.queryByRole('button', { name: /Copy reference/ })).toBeNull();
   });
 
   it('sends an anonymous visitor to the BFF login, coming back to the same page', async () => {

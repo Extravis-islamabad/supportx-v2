@@ -15,7 +15,6 @@ import {
 import { useState } from 'react';
 
 import {
-  ApiError,
   useIncidentTemplateChange,
   useIncidentTemplates,
   type IncidentTemplate,
@@ -23,13 +22,22 @@ import {
   type TemplateChange,
 } from '@supportx/api-client';
 import { useLabelsIn } from '@supportx/labels';
-import { EmptyText, reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  EmptyText,
+  markHandled,
+  reportError,
+  useAppearance,
+  useConflict,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 import { templateLabel } from '../../incidents/labels';
 import { TemplateEditor } from './TemplateEditor';
-import { cleanLabels } from './helpers';
+import { cleanLabels, refusalMessages } from './helpers';
 import { LabelsFields, Problems } from './shared';
-import { templateProblems } from './helpers';
+import { templateProblems, templateView, useTemplatePartName } from './helpers';
 
 /**
  * Incident templates (REQ-INC-035): searchable and grouped, with the default first; copy (a
@@ -55,19 +63,28 @@ export function TemplatesTab() {
     const q = search.trim().toLocaleLowerCase();
     return q === '' || `${name(x)} ${x.group_name ?? ''}`.toLocaleLowerCase().includes(q);
   });
+  // A list action on a template someone changed first (409): the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const partName = useTemplatePartName();
+  const [tried, setTried] = useState<{ next: TemplateChange; template: IncidentTemplate }>();
   const run = (next: TemplateChange) => {
     change.mutate(next, {
       onSuccess: () => {
         void message.success(t('settings.saved'));
       },
       onError: (error) => {
-        if (error instanceof ApiError && error.isConflict) {
-          void message.warning(t('settings.changed_elsewhere'));
+        if (conflict.take(error)) {
+          const template = next.kind === 'update' ? byId.get(next.id) : undefined;
+          if (template !== undefined) setTried({ next, template });
           return;
         }
+        // A list action has no form: its field problems are a neutral notice, not an error
+        // toast (QA WP-029 BUG-02); any other refusal is the reporter's neutral notice.
         const problems = templateProblems(t, error);
-        if (problems.length > 0) void message.error(problems.join(' '));
-        else reportError(error);
+        if (problems.length > 0) {
+          markHandled(error);
+          void message.warning(problems.join(' '));
+        } else reportError(error);
       },
     });
   };
@@ -245,9 +262,29 @@ export function TemplatesTab() {
           },
         ]}
       />
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={partName}
+        opened={templateView(tried?.template)}
+        latest={templateView(tried === undefined ? undefined : byId.get(tried.template.id))}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          const latest = tried === undefined ? undefined : byId.get(tried.template.id);
+          if (tried?.next.kind === 'update' && latest !== undefined) {
+            run({ ...tried.next, version: conflict.latestVersion ?? latest.version });
+          }
+          setTried(undefined);
+        }}
+      />
       {editing !== null && (
         <TemplateEditor
           template={editing === 'new' ? null : editing}
+          latest={editing === 'new' ? undefined : byId.get(editing.id)}
           onClose={() => {
             setEditing(null);
           }}
@@ -272,7 +309,8 @@ export function TemplatesTab() {
                 setCopying(null);
               },
               onError: (error) => {
-                const problems = templateProblems(t, error);
+                // Shown in this dialog, once (QA WP-029 BUG-02).
+                const problems = refusalMessages(t, error, templateProblems(t, error));
                 if (problems.length > 0) setCopyProblems(problems);
                 else reportError(error);
               },

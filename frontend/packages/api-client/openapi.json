@@ -160,6 +160,39 @@
         "title": "ActionStateOut",
         "type": "object"
       },
+      "AllowedForOut": {
+        "description": "Who a transition is limited to: roles, group names, people on the record (codes).",
+        "properties": {
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "relatives": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relatives",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleNameOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "groups",
+          "relatives"
+        ],
+        "title": "AllowedForOut",
+        "type": "object"
+      },
       "AnnouncementAction": {
         "description": "AnnouncementStatus actions, in the order the UI shows them.",
         "enum": [
@@ -2561,6 +2594,44 @@
         "title": "Availability",
         "type": "string"
       },
+      "AvailabilityChangeOut": {
+        "description": "One availability change: the state set, by whom, when.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "state": {
+            "$ref": "#/components/schemas/Availability"
+          }
+        },
+        "required": [
+          "state",
+          "changed_at",
+          "changed_by"
+        ],
+        "title": "AvailabilityChangeOut",
+        "type": "object"
+      },
       "AvailabilityIn": {
         "additionalProperties": false,
         "description": "Set Available or Away.",
@@ -2576,8 +2647,32 @@
         "type": "object"
       },
       "AvailabilityOut": {
-        "description": "A technician's own state (REQ-ASG-006): Away is never auto-assigned.",
+        "description": "Someone's state (REQ-ASG-006): Away is never auto-assigned. Who set it, and when.",
         "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name of who set it.",
+            "title": "Changed By"
+          },
           "state": {
             "$ref": "#/components/schemas/Availability"
           },
@@ -9465,6 +9560,30 @@
         "title": "RoleDetailOut",
         "type": "object"
       },
+      "RoleNameOut": {
+        "description": "A role: system roles are labelled by key, other roles shown by name.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "system"
+        ],
+        "title": "RoleNameOut",
+        "type": "object"
+      },
       "RolePatch": {
         "description": "Changes to a custom role; `permissions` replaces the whole matrix when given.",
         "properties": {
@@ -13375,6 +13494,17 @@
           "allowed": {
             "title": "Allowed",
             "type": "boolean"
+          },
+          "allowed_for": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllowedForOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Refused as not_for_you: who may run it (QA WP-029 C2)."
           },
           "confirmation": {
             "anyOf": [
@@ -19630,7 +19760,7 @@
     },
     "/api/v1/automation/availability/{user_id}": {
       "put": {
-        "description": "Yourself always; someone else only with `users.manage`.",
+        "description": "Yourself always; a member of your group as its lead; anyone with `users.manage`.",
         "operationId": "put_availability_api_v1_automation_availability__user_id__put",
         "parameters": [
           {
@@ -19727,6 +19857,104 @@
           }
         },
         "summary": "Set a technician Available or Away",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/availability/{user_id}/history": {
+      "get": {
+        "description": "Newest first: who set them Available or Away, and when (yourself, leads, admins).",
+        "operationId": "get_availability_history_api_v1_automation_availability__user_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AvailabilityChangeOut"
+                  },
+                  "title": "Response Get Availability History Api V1 Automation Availability  User Id  History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Availability changes of one person",
         "tags": [
           "automation"
         ]

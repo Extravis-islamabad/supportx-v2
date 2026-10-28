@@ -14,7 +14,7 @@ import {
 } from 'antd';
 
 import type { IncidentCatalogue } from '@supportx/api-client';
-import { useAppearance, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
+import { ConflictDialog, useAppearance, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
 
 import { scaleLabel } from '../../incidents/labels';
 import { useDraft, useSettingsSave } from './helpers';
@@ -70,7 +70,7 @@ function FieldHelp({ problem, help, testId }: { problem?: string; help: string; 
 /** Prefix and next number (REQ-WI-002 AC4, REQ-ADM-045): one all-or-nothing save (QA BUG-01). */
 function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
-  const { save, pending, byField, clear } = useSettingsSave();
+  const { save, conflictDialog, pending, problems, byField, clear } = useSettingsSave();
   const source: { prefix: string; next: number | null } = {
     prefix: catalogue.prefix,
     next: catalogue.next_number,
@@ -155,6 +155,8 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
             id: `${draft.prefix.trim().toUpperCase()}-${String(draft.next ?? '')}`,
           })}
         </Typography.Paragraph>
+        {/* A refusal with no field to point at (QA WP-029 BUG-02); field ones show in place. */}
+        {Object.keys(byField).length === 0 && <Problems problems={problems} />}
         <Space>
           <WriteButton
             type="primary"
@@ -170,6 +172,7 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           </Button>
         </Space>
       </Form>
+      <ConflictDialog {...conflictDialog} />
     </Card>
   );
 }
@@ -178,7 +181,7 @@ function NumberingCard({ catalogue }: { catalogue: IncidentCatalogue }) {
 function DefaultsCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
   const { locale } = useAppearance();
-  const { save, pending, problems } = useSettingsSave();
+  const { save, conflictDialog, pending, problems } = useSettingsSave();
   const source = {
     impact: catalogue.default_impact ?? NONE,
     urgency: catalogue.default_urgency ?? NONE,
@@ -270,6 +273,7 @@ function DefaultsCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           </Button>
         </Space>
       </Form>
+      <ConflictDialog {...conflictDialog} />
     </Card>
   );
 }
@@ -277,7 +281,7 @@ function DefaultsCard({ catalogue }: { catalogue: IncidentCatalogue }) {
 /** Automatic status move, keep following after a hand-over (D-068), first response (D-079). */
 function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
   const t = useLabel();
-  const { save, pending, problems } = useSettingsSave();
+  const { save, conflictDialog, pending, problems } = useSettingsSave();
   const source = {
     auto: catalogue.auto_status_on_assign,
     follow: catalogue.keep_following_on_handover,
@@ -368,6 +372,7 @@ function AutomationCard({ catalogue }: { catalogue: IncidentCatalogue }) {
           </Button>
         </Space>
       </Flex>
+      <ConflictDialog {...conflictDialog} />
     </Card>
   );
 }

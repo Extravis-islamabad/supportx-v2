@@ -191,7 +191,10 @@ describe('Admin › Audit log', () => {
     const sent = fake.find('PUT', '/api/v1/audit/settings')[0];
     expect(sent?.headers.get('If-Match')).toBe('"0"');
     expect((sent?.body as { retention_days: number }).retention_days).toBe(730);
-    expect(await screen.findByTestId('audit-problem')).toBeDefined();
+    // A save someone else beat opens the shared conflict dialog (QA WP-029 BUG-05).
+    expect(await screen.findByText('Someone else changed this')).toBeDefined();
+    expect(screen.queryByTestId('audit-problem')).toBeNull();
+    fireEvent.click(screen.getByTestId('conflict-reload'));
     // The audit log itself is always logged: its box cannot be cleared.
     const box = screen.getByTestId('audit-read-audit_log');
     const input = box.tagName === 'INPUT' ? box : box.querySelector('input');

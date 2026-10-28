@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import {
   ApiError,
+  type IdentitySettings,
   useIdentitySettings,
   useInvitationAction,
   useInvitations,
@@ -10,15 +11,21 @@ import {
   type Invitation,
 } from '@supportx/api-client';
 import {
+  ConflictDialog,
   EmptyText,
+  FormProblem,
+  markHandled,
   reportError,
   ToneTag,
+  useConflict,
   useDateTime,
+  useFormProblem,
   useLabel,
   WriteButton,
   type Tone,
 } from '@supportx/ui';
 
+import { editable, invitationView, useInvitationFieldName, useSettingName } from './conflict';
 import { FieldNote } from './FieldNote';
 
 const MIN_DAYS = 1;
@@ -39,64 +46,96 @@ function ValidDays() {
   const save = useSaveIdentitySettings();
   const [edited, setEdited] = useState<number | null | undefined>(undefined);
   const [refused, setRefused] = useState<string | null>(null);
+  // A refused save with no field to point at is shown here, not as a toast (QA WP-029 BUG-02).
+  const formProblem = useFormProblem();
+  // A save another admin made first (409): who, when and what, in the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const settingName = useSettingName();
+  // The settings when the edit began: the dialog compares them with the live ones.
+  const [base, setBase] = useState<IdentitySettings>();
   if (settings.data === undefined) return null;
+  const current = settings.data;
   const { version, invitation_valid_days: savedDays } = settings.data;
   const days = edited === undefined ? savedDays : edited;
   const bad = days === null || !Number.isInteger(days) || days < MIN_DAYS || days > MAX_DAYS;
   const problem = bad
     ? t('errors.field.invitation_days_out_of_range', { min: MIN_DAYS, max: MAX_DAYS })
     : refused;
+  const submit = (at: number) => {
+    formProblem.clear();
+    save.mutate(
+      { body: { invitation_valid_days: days ?? 0 }, version: at },
+      {
+        onSuccess: () => {
+          setEdited(undefined);
+          void message.success(t('security.invitations.saved'));
+        },
+        onError: (error) => {
+          const field = error instanceof ApiError ? error.fieldErrors[0] : undefined;
+          if (field !== undefined) {
+            markHandled(error);
+            setRefused(t(field.message_key, field.params ?? {}));
+            return;
+          }
+          if (conflict.take(error)) {
+            // Another admin saved first: fetch their version; the dialog asks (D-103 (4)).
+            void settings.refetch();
+            return;
+          }
+          formProblem.show(error);
+        },
+      },
+    );
+  };
   return (
-    <Space wrap align="end" size={12}>
-      <FieldNote id="security-invitation-days" message={problem}>
-        <label htmlFor="security-invitation-days">{t('security.invitations.valid_days')}</label>
-        <InputNumber
-          id="security-invitation-days"
-          value={days}
-          onChange={(value) => {
-            setEdited(value);
-            setRefused(null);
+    <div>
+      <FormProblem problem={formProblem} />
+      <Space wrap align="end" size={12}>
+        <FieldNote id="security-invitation-days" message={problem}>
+          <label htmlFor="security-invitation-days">{t('security.invitations.valid_days')}</label>
+          <InputNumber
+            id="security-invitation-days"
+            value={days}
+            onChange={(value) => {
+              if (edited === undefined) setBase(current);
+              setEdited(value);
+              setRefused(null);
+            }}
+            suffix={t('security.password.days')}
+            style={{ width: 168 }}
+            status={problem === null ? undefined : 'error'}
+            aria-describedby="security-invitation-days-problem"
+            data-testid="security-invitation-days"
+          />
+        </FieldNote>
+        <WriteButton
+          loading={save.isPending}
+          disabled={bad || edited === undefined || days === savedDays}
+          onClick={() => {
+            submit(version);
           }}
-          suffix={t('security.password.days')}
-          style={{ width: 168 }}
-          status={problem === null ? undefined : 'error'}
-          aria-describedby="security-invitation-days-problem"
-          data-testid="security-invitation-days"
-        />
-      </FieldNote>
-      <WriteButton
-        loading={save.isPending}
-        disabled={bad || edited === undefined || days === savedDays}
-        onClick={() => {
-          save.mutate(
-            { body: { invitation_valid_days: days ?? 0 }, version },
-            {
-              onSuccess: () => {
-                setEdited(undefined);
-                void message.success(t('security.invitations.saved'));
-              },
-              onError: (error) => {
-                const field = error instanceof ApiError ? error.fieldErrors[0] : undefined;
-                if (field !== undefined) {
-                  setRefused(t(field.message_key, field.params ?? {}));
-                  return;
-                }
-                if (error instanceof ApiError && error.isConflict) {
-                  // Another admin saved first: keep what was typed, take their version (D-103 (4)).
-                  void settings.refetch();
-                  void message.warning(t('security.changed_elsewhere'));
-                  return;
-                }
-                reportError(error);
-              },
-            },
-          );
+          data-testid="security-invitation-days-save"
+        >
+          {t('actions.save')}
+        </WriteButton>
+      </Space>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={settingName}
+        opened={editable(base)}
+        latest={editable(current)}
+        onReload={() => {
+          conflict.clear();
+          setEdited(undefined);
         }}
-        data-testid="security-invitation-days-save"
-      >
-        {t('actions.save')}
-      </WriteButton>
-    </Space>
+        onKeepMine={() => {
+          conflict.clear();
+          setBase(current);
+          submit(conflict.latestVersion ?? version);
+        }}
+      />
+    </div>
   );
 }
 
@@ -110,9 +149,14 @@ export function InvitationsCard() {
   const dates = useDateTime();
   const invitations = useInvitations();
   const act = useInvitationAction();
-  const run = (row: Invitation, action: 'resend' | 'revoke') => {
+  // An invitation another admin changed first (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const invitationField = useInvitationFieldName();
+  const [tried, setTried] = useState<{ row: Invitation; action: 'resend' | 'revoke' }>();
+  const live = invitations.data?.items.find((row) => row.id === tried?.row.id);
+  const run = (row: Invitation, action: 'resend' | 'revoke', version = row.version) => {
     act.mutate(
-      { id: row.id, version: row.version, action },
+      { id: row.id, version, action },
       {
         onSuccess: () => {
           void message.success(
@@ -120,7 +164,11 @@ export function InvitationsCard() {
           );
         },
         onError: (error) => {
-          if (error instanceof ApiError && error.isConflict) void invitations.refetch();
+          if (conflict.take(error)) {
+            setTried({ row, action });
+            void invitations.refetch();
+            return;
+          }
           reportError(error);
         },
       },
@@ -201,6 +249,24 @@ export function InvitationsCard() {
           ]}
         />
       </Flex>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={invitationField}
+        opened={invitationView(tried?.row)}
+        latest={invitationView(live)}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) {
+            run(tried.row, tried.action, conflict.latestVersion ?? live?.version);
+          }
+          setTried(undefined);
+        }}
+      />
     </Card>
   );
 }

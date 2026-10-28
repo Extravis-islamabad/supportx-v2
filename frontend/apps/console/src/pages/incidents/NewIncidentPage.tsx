@@ -40,8 +40,10 @@ import {
 } from '@supportx/api-client';
 import { applyServerErrors, FormField, useForm, useKeptDraft, zodResolver } from '@supportx/forms';
 import {
+  FormProblem,
   NoAccess,
   reportError,
+  useFormProblem,
   RichTextField,
   useAccess,
   useAppearance,
@@ -174,6 +176,7 @@ export function NewIncidentPage() {
   const customFields = useCustomFields('incident');
   const groups = useUnits('groups');
   const form = useForm<Values>({ resolver: zodResolver(schema), defaultValues: EMPTY });
+  const problem = useFormProblem();
   // What was typed survives a session timeout in this tab (REQ-INC-019, REQ-SEC-029 AC2).
   const draft = useKeptDraft(form, 'incident-new');
   const departments = useStructure('departments', true, true);
@@ -357,6 +360,7 @@ export function NewIncidentPage() {
       keep_following: keepFollowing ?? null,
     };
     const variant = keepFollowing === undefined ? '' : `-${String(keepFollowing)}`;
+    problem.clear();
     create.mutate(
       { body, key: confirm ? `${key}-confirmed${variant}` : key },
       {
@@ -395,7 +399,8 @@ export function NewIncidentPage() {
           const unseen =
             error instanceof ApiError &&
             error.fieldErrors.some((e) => !rendered.has(e.field.replace(/^body\./, '')));
-          if (unseen || !applyServerErrors(error, form.setError, visible)) reportError(error);
+          // A refusal is shown once, at the form (a rule's message) or at its fields.
+          if (unseen || !applyServerErrors(error, form.setError, visible)) problem.show(error);
         },
       },
     );
@@ -957,6 +962,7 @@ export function NewIncidentPage() {
               </Col>
             ))}
           </Row>
+          <FormProblem problem={problem} />
           <Space wrap>
             <WriteButton
               type="primary"
@@ -1020,7 +1026,7 @@ export function NewIncidentPage() {
       </Modal>
       <HandOverWarning
         open={handover !== null}
-        displayId={t('incidents.this_incident')}
+        displayId={null}
         group={groupName}
         pending={create.isPending}
         onCancel={() => {

@@ -20,7 +20,6 @@ import {
 import { useMemo, useState } from 'react';
 
 import {
-  ApiError,
   usePermissionCatalogue,
   useRole,
   useRoleMutations,
@@ -31,12 +30,31 @@ import {
   type RoleSummary,
   type Scope,
 } from '@supportx/api-client';
-import { reportError, useAccess, useLabel, WriteButton, lengthLimit } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  useAccess,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+  lengthLimit,
+} from '@supportx/ui';
 
 import { roleName } from './roleName';
 
 type Matrix = Record<string, RoleGrant | undefined>;
 const NONE = 'none';
+// What a person edits of a role, by the names the editor gives them (QA WP-029 BUG-05).
+const ROLE_PARTS: Record<string, string> = {
+  name: 'roles.name',
+  description: 'roles.description',
+  permissions: 'roles.permissions',
+};
+const roleView = (role: RoleDetail | null | undefined) =>
+  role == null
+    ? undefined
+    : { name: role.name, description: role.description, permissions: role.permissions };
 
 export interface RoleEditorProps {
   /** undefined = closed; null = new custom role; otherwise the role to edit or view. */
@@ -105,33 +123,37 @@ function RoleForm({
     Object.fromEntries((initial?.permissions ?? []).map((g) => [g.permission, g])),
   );
   const [deleting, setDeleting] = useState(false);
+  // A refused save (a rule, a limit) is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   // The version this form was filled from: the save sends it, so a role saved elsewhere meanwhile
   // is refused, never overwritten (QA WP-026 BUG-01); the change is announced at once.
-  const [base] = useState(initial?.version ?? 0);
+  const [base, setBase] = useState(initial?.version ?? 0);
+  // The role as this form was filled from it, and a save another admin beat (409): the shared
+  // dialog names who, when and what (QA WP-029 BUG-05).
+  const [opened, setOpened] = useState(initial);
+  const conflict = useConflict();
   const stale = initial !== null && initial.version !== base;
   const readOnly = role?.is_system === true || !can('roles.manage');
   const modules = useMemo(() => groupByModule(catalogue), [catalogue]);
 
-  const save = () => {
+  const save = (version = base) => {
     const permissions = Object.values(matrix).filter((g): g is RoleGrant => g !== undefined);
     const body = { name, description: description === '' ? null : description, permissions };
     const done = () => {
       void message.success(t('roles.saved'));
       onClose();
     };
+    problem.clear();
     if (initial === null) {
-      create.mutate(body, { onSuccess: done, onError: reportError });
+      create.mutate(body, { onSuccess: done, onError: problem.show });
     } else {
       update.mutate(
-        { id: initial.id, version: base, body },
+        { id: initial.id, version, body },
         {
           onSuccess: done,
           onError: (error) => {
-            if (error instanceof ApiError && error.code === 'version_conflict') {
-              void message.warning(t('settings.changed_elsewhere'));
-              return;
-            }
-            reportError(error);
+            if (conflict.take(error)) return;
+            problem.show(error);
           },
         },
       );
@@ -198,6 +220,7 @@ function RoleForm({
           ),
         }))}
       />
+      <FormProblem problem={problem} />
       {!readOnly && (
         <Flex justify="end" gap={8}>
           {role !== null && (
@@ -216,12 +239,37 @@ function RoleForm({
             data-testid="save-role"
             loading={create.isPending || update.isPending}
             disabled={name.trim() === ''}
-            onClick={save}
+            onClick={() => {
+              save();
+            }}
           >
             {t('actions.save')}
           </WriteButton>
         </Flex>
       )}
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(ROLE_PARTS[field] ?? 'roles.permissions')}
+        opened={roleView(opened)}
+        latest={roleView(initial)}
+        onReload={() => {
+          conflict.clear();
+          if (initial === null) return;
+          setName(initial.name);
+          setDescription(initial.description ?? '');
+          setMatrix(Object.fromEntries(initial.permissions.map((g) => [g.permission, g])));
+          setBase(initial.version);
+          setOpened(initial);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          const latest = conflict.latestVersion ?? initial?.version ?? base;
+          setBase(latest);
+          setOpened(initial);
+          save(latest);
+        }}
+      />
       {role !== null && initial !== null && (
         <DeleteRoleDialog
           open={deleting}
@@ -347,6 +395,8 @@ function DeleteRoleDialog({
   const t = useLabel();
   const roles = useRoles(open);
   const [target, setTarget] = useState<string>();
+  // A refused delete is shown in this dialog (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const inUse = role.user_count > 0;
   return (
     <Modal
@@ -359,15 +409,20 @@ function DeleteRoleDialog({
         loading: remove.isPending,
       }}
       cancelText={t('actions.cancel')}
-      onCancel={onCancel}
+      onCancel={() => {
+        problem.clear();
+        onCancel();
+      }}
       onOk={() => {
+        problem.clear();
         remove.mutate(
           { id: role.id, version, reassignTo: target },
-          { onSuccess: onDeleted, onError: reportError },
+          { onSuccess: onDeleted, onError: problem.show },
         );
       }}
       destroyOnHidden
     >
+      <FormProblem problem={problem} />
       {inUse ? (
         <Space direction="vertical" style={{ width: '100%' }}>
           <Typography.Paragraph>

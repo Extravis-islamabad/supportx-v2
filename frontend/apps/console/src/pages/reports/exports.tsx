@@ -18,6 +18,7 @@ import {
 import { useState } from 'react';
 
 import {
+  ApiError,
   exportFileUrl,
   queryKeys,
   useMyExports,
@@ -27,14 +28,17 @@ import {
   type ReportDefinition,
   type ReportExport,
   type ReportExportInput,
+  type ReportSettings,
 } from '@supportx/api-client';
 import { useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
   describeError,
   ToneTag,
   useAccess,
   useAppearance,
+  useConflict,
   useDateTime,
   WriteButton,
   type Tone,
@@ -230,6 +234,28 @@ export function MyExportsButton() {
   );
 }
 
+type SettingsChanges = Pick<
+  ReportSettings,
+  'week_start' | 'interactive_timeout_seconds' | 'export_link_days' | 'max_export_rows'
+>;
+// The report settings by the names this drawer gives them (QA WP-029 BUG-05).
+const SETTING_NAMES: Record<string, string> = {
+  week_start: 'reports.week_start',
+  interactive_timeout_seconds: 'reports.timeout_seconds',
+  export_link_days: 'reports.link_days',
+  max_export_rows: 'reports.max_rows',
+};
+
+const settingsView = (settings: ReportSettings | null | undefined): SettingsChanges | undefined =>
+  settings == null
+    ? undefined
+    : {
+        week_start: settings.week_start,
+        interactive_timeout_seconds: settings.interactive_timeout_seconds,
+        export_link_days: settings.export_link_days,
+        max_export_rows: settings.max_export_rows,
+      };
+
 /** Report settings for admins (D-041): week start, time limit, link lifetime, rows per file. */
 export function ReportSettingsButton() {
   const t = useLabels();
@@ -237,8 +263,32 @@ export function ReportSettingsButton() {
   const [open, setOpen] = useState(false);
   const settings = useReportSettings(open);
   const update = useUpdateReportSettings();
+  // The saved settings the form was filled from (their version goes with the save): live changes
+  // refill an untouched form; with edits, a save meets them in the conflict dialog (BUG-05).
+  const [base, setBase] = useState<ReportSettings | null>(null);
+  const [dirty, setDirty] = useState(false);
+  const conflict = useConflict();
+  const [sent, setSent] = useState<SettingsChanges>();
+  const latest = settings.data;
+  if (latest !== undefined && latest.version !== base?.version && (base === null || !dirty)) {
+    setBase(latest);
+  }
   if (!can('settings.manage')) return null;
-  const data = settings.data;
+  const data = base;
+  const submit = (changes: SettingsChanges, version: number) => {
+    update.mutate(
+      { version, changes },
+      {
+        onSuccess: (saved) => {
+          setBase(saved);
+          setDirty(false);
+        },
+        onError: (error) => {
+          if (conflict.take(error)) setSent(changes);
+        },
+      },
+    );
+  };
 
   return (
     <>
@@ -264,16 +314,19 @@ export function ReportSettingsButton() {
             layout="vertical"
             key={data.version}
             initialValues={data}
+            onValuesChange={() => {
+              setDirty(true);
+            }}
             onFinish={(values: typeof data) => {
-              update.mutate({
-                version: data.version,
-                changes: {
+              submit(
+                {
                   week_start: values.week_start,
                   interactive_timeout_seconds: values.interactive_timeout_seconds,
                   export_link_days: values.export_link_days,
                   max_export_rows: values.max_export_rows,
                 },
-              });
+                data.version,
+              );
             }}
           >
             <Form.Item name="week_start" label={t('reports.week_start')}>
@@ -294,7 +347,7 @@ export function ReportSettingsButton() {
             <Form.Item name="max_export_rows" label={t('reports.max_rows')}>
               <InputNumber min={1000} max={1_000_000} step={1000} />
             </Form.Item>
-            {update.error && (
+            {update.error && !(update.error instanceof ApiError && update.error.isConflict) && (
               <Typography.Paragraph type="danger" role="alert">
                 {describeError(update.error, t).title}
               </Typography.Paragraph>
@@ -309,6 +362,24 @@ export function ReportSettingsButton() {
             </WriteButton>
           </Form>
         )}
+        <ConflictDialog
+          open={conflict.open}
+          error={conflict.error}
+          fieldLabel={(field) => t(SETTING_NAMES[field] ?? 'reports.settings')}
+          opened={settingsView(base)}
+          latest={settingsView(latest)}
+          onReload={() => {
+            conflict.clear();
+            update.reset();
+            if (latest !== undefined) setBase(latest);
+            setDirty(false);
+          }}
+          onKeepMine={() => {
+            conflict.clear();
+            update.reset();
+            if (sent !== undefined) submit(sent, conflict.latestVersion ?? latest?.version ?? 0);
+          }}
+        />
       </Drawer>
     </>
   );

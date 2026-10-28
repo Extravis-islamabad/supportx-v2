@@ -14,25 +14,44 @@ import {
 import { useMemo, useState } from 'react';
 
 import {
-  ApiError,
   useIncidentCategories,
   useIncidentCategoryChange,
   useUnits,
+  type CategoryChange,
   type IncidentCategory,
   type Labels,
 } from '@supportx/api-client';
-import { EmptyText, reportError, useAppearance, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  EmptyText,
+  reportError,
+  useAppearance,
+  useConflict,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 import { App } from 'antd';
 
 import { categoryLabel } from '../../incidents/labels';
 import { GroupPicker } from '../../incidents/pickers';
-import { cleanLabels, fieldMessages } from './helpers';
+import { cleanLabels, fieldMessages, refusalMessages } from './helpers';
 import { LabelsFields, Problems } from './shared';
 
 type Editing =
   { kind: 'create'; parent: IncidentCategory | null } | { kind: 'update'; node: IncidentCategory };
 
 const LEVEL_NAMES = ['category', 'subcategory', 'item'] as const;
+
+type CategoryPatch = Extract<CategoryChange, { kind: 'update' }>['body'];
+// A category's parts by the names this screen gives them (QA WP-029 BUG-05).
+const CATEGORY_PARTS: Record<string, string> = {
+  labels: 'settings.name',
+  default_group_id: 'settings.default_group',
+  disabled: 'settings.retired',
+  disabled_at: 'settings.retired',
+};
+const categoryView = (node: IncidentCategory | undefined) =>
+  node && { labels: node.labels, default_group_id: node.default_group_id, disabled: node.disabled };
 
 /**
  * The category › subcategory › item tree (REQ-INC-006): add at any level up to three, rename
@@ -62,19 +81,31 @@ export function CategoriesTab() {
     void message.success(t('settings.saved'));
     setEditing(null);
   };
+  // A change to a node someone changed first (409): the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{ node: IncidentCategory; body: CategoryPatch }>();
+  const live = nodes.find((n) => n.id === tried?.node.id);
   const failed = (error: unknown) => {
-    const found = fieldMessages(t, error);
+    // In the dialog, a refusal is shown there, once (QA WP-029 BUG-02); a switch in the list
+    // has no form, so its refusal is the app's neutral notice.
+    const found = editing === null ? [] : refusalMessages(t, error, fieldMessages(t, error));
     if (found.length > 0) setProblems(found);
-    else if (error instanceof ApiError && error.isConflict) {
-      void message.warning(t('settings.changed_elsewhere'));
-      setEditing(null);
-    } else reportError(error);
+    else reportError(error);
+  };
+  const update = (node: IncidentCategory, body: CategoryPatch, version = node.version) => {
+    change.mutate(
+      { kind: 'update', id: node.id, version, body },
+      {
+        onSuccess: done,
+        onError: (error) => {
+          if (conflict.take(error)) setTried({ node, body });
+          else failed(error);
+        },
+      },
+    );
   };
   const setDisabled = (node: IncidentCategory, disabled: boolean) => {
-    change.mutate(
-      { kind: 'update', id: node.id, version: node.version, body: { disabled } },
-      { onSuccess: done, onError: failed },
-    );
+    update(node, { disabled });
   };
 
   const tree = useMemo(() => {
@@ -233,18 +264,10 @@ export function CategoriesTab() {
               { onSuccess: done, onError: failed },
             );
           } else {
-            change.mutate(
-              {
-                kind: 'update',
-                id: editing.node.id,
-                version: editing.node.version,
-                body: {
-                  labels: labels ?? (editing.node.code === null ? {} : null),
-                  default_group_id: group,
-                },
-              },
-              { onSuccess: done, onError: failed },
-            );
+            update(editing.node, {
+              labels: labels ?? (editing.node.code === null ? {} : null),
+              default_group_id: group,
+            });
           }
         }}
         destroyOnHidden
@@ -273,6 +296,28 @@ export function CategoriesTab() {
           </Form.Item>
         </Form>
       </Modal>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => t(CATEGORY_PARTS[field] ?? 'settings.name')}
+        opened={categoryView(tried?.node)}
+        latest={categoryView(live)}
+        onReload={() => {
+          conflict.clear();
+          // An open dialog shows their version, my edits dropped.
+          if (editing?.kind === 'update' && live !== undefined)
+            start({ kind: 'update', node: live });
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined && live !== undefined) {
+            if (editing?.kind === 'update') setEditing({ kind: 'update', node: live });
+            update(live, tried.body, conflict.latestVersion ?? live.version);
+          }
+          setTried(undefined);
+        }}
+      />
     </Card>
   );
 }

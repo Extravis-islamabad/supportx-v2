@@ -25,13 +25,23 @@ import {
   type TransitionOut,
   type TriggerActionIO,
 } from '@supportx/api-client';
-import { ConflictDialog, lengthLimit, reportError, useAccess, useLabel } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  lengthLimit,
+  markHandled,
+  useAccess,
+  useFormProblem,
+  useLabel,
+} from '@supportx/ui';
 
 import { roleName } from '../roleName';
 
 import { AfterActions } from './AfterActions';
 import { ConditionBuilder } from './fields';
-import { fromTree, problemsOf, stateOp, toTree, type Conditions } from './rules';
+import { fromTree, stateOp, toTree, type Conditions } from './rules';
+import { conditionAt, isAt, useEditorProblems, whereOf } from './problems';
+import { ProblemList } from './ProblemList';
 
 const RECORD_TYPE = 'incident';
 // The person-run life-cycle actions, in the record page's order (REQ-INC-046).
@@ -182,29 +192,37 @@ function TransitionEditor({
   const [draft, setDraft] = useState<Draft>(() => draftOf(setting));
   const [opened, setOpened] = useState<string | undefined>(action);
   const [version, setVersion] = useState(setting?.version ?? 0);
-  const [problems, setProblems] = useState<string[]>([]);
+  // The settings as opened: the conflict dialog compares them with the live ones (BUG-05).
+  const [base, setBase] = useState(setting);
+  const issues = useEditorProblems();
+  const { problems } = issues;
+  // A refusal with no problem list (a rule, a limit) is shown here (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [conflict, setConflict] = useState<unknown>();
   if (open && opened !== action) {
     setOpened(action);
     setDraft(draftOf(setting));
     setVersion(setting?.version ?? 0);
-    setProblems([]);
+    setBase(setting);
+    issues.clear();
+    problem.clear();
   }
   const stale = (setting?.version ?? 0) !== version;
   const edit = (next: Partial<Draft>) => {
     setDraft({ ...draft, ...next });
-    setProblems([]);
+    issues.clear();
   };
   const failed = (error: unknown) => {
     if (error instanceof ApiError && error.isConflict) {
       setConflict(error);
       return;
     }
-    const found = problemsOf(t, error);
-    if (found.length > 0) setProblems(found);
-    else reportError(error);
+    // Each problem at its field, named and marked (QA WP-029 BUG-03).
+    if (issues.take(error)) markHandled(error);
+    else problem.show(error);
   };
   const save = (at = version) => {
+    problem.clear();
     if (action === undefined) return;
     const confirmation = Object.fromEntries(
       Object.entries(draft.confirmation).filter(([, text]) => text.trim() !== ''),
@@ -247,27 +265,17 @@ function TransitionEditor({
     >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {stale && <Alert type="warning" showIcon message={t('organization.changed_elsewhere')} />}
-        {problems.length > 0 && (
-          <Alert
-            type="error"
-            showIcon
-            data-testid="transition-problems"
-            message={t('automation.problems')}
-            description={
-              <ul style={{ margin: 0 }}>
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            }
-          />
-        )}
+        <FormProblem problem={problem} />
+        <ProblemList problems={problems} testId="transition-problems" />
         <Form layout="vertical">
           <Typography.Title level={5}>{t('automation.transitions.who')}</Typography.Title>
           <Typography.Paragraph type="secondary">
             {t('automation.transitions.who_help')}
           </Typography.Paragraph>
-          <Form.Item label={t('automation.transitions.roles')}>
+          <Form.Item
+            label={t('automation.transitions.roles')}
+            validateStatus={issues.status('roles')}
+          >
             <Select
               mode="multiple"
               value={draft.roles}
@@ -283,7 +291,10 @@ function TransitionEditor({
               data-testid="transition-roles"
             />
           </Form.Item>
-          <Form.Item label={t('automation.transitions.groups')}>
+          <Form.Item
+            label={t('automation.transitions.groups')}
+            validateStatus={issues.status('group_ids')}
+          >
             <Select
               mode="multiple"
               value={draft.group_ids}
@@ -298,7 +309,10 @@ function TransitionEditor({
               data-testid="transition-groups"
             />
           </Form.Item>
-          <Form.Item label={t('automation.transitions.relatives')}>
+          <Form.Item
+            label={t('automation.transitions.relatives')}
+            validateStatus={issues.status('relatives')}
+          >
             <Checkbox.Group
               value={draft.relatives}
               onChange={(next) => {
@@ -310,9 +324,11 @@ function TransitionEditor({
           </Form.Item>
           <Form.Item
             label={t('automation.transitions.when')}
+            validateStatus={issues.status('conditions')}
             extra={t('automation.transitions.when_help')}
           >
             <ConditionBuilder
+              invalid={(index) => conditionAt(problems, index)}
               fields={fields.data ?? []}
               value={draft.conditions}
               onChange={(conditions) => {
@@ -323,6 +339,7 @@ function TransitionEditor({
           </Form.Item>
           <Form.Item
             label={t('automation.transitions.confirmation')}
+            validateStatus={issues.status('confirmation')}
             extra={t('automation.transitions.confirmation_help')}
           >
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -350,9 +367,11 @@ function TransitionEditor({
           </Form.Item>
           <Form.Item
             label={t('automation.transitions.after')}
+            validateStatus={issues.status('after_actions')}
             extra={t('automation.transitions.after_help')}
           >
             <AfterActions
+              invalid={(index) => isAt(problems, `after_actions.${String(index)}`)}
               fields={fields.data ?? []}
               actions={draft.after_actions}
               onChange={(after_actions) => {
@@ -401,7 +420,9 @@ function TransitionEditor({
       <ConflictDialog
         open={conflict !== undefined}
         error={conflict}
-        fieldLabel={(field) => t(`automation.transitions.${field}`)}
+        fieldLabel={(field) => whereOf(t, field)}
+        opened={base}
+        latest={setting}
         onReload={() => {
           setConflict(undefined);
           onClose();
@@ -410,6 +431,7 @@ function TransitionEditor({
           setConflict(undefined);
           const latest = setting?.version ?? 0;
           setVersion(latest);
+          setBase(setting);
           save(latest);
         }}
       />
