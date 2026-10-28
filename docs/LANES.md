@@ -7,9 +7,9 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 
 | Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
 |---|---|---|---|---|---|---|
-| A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-020f merged (#100, #105); D-107 changes (#107), entry points for WP-024 (#110), list format (this PR); next WP-020d/e (plan ~/Desktop/wp-020de-plan.md) | `fix/list-format` | main folder (`supportx-v2`), also `../supportx-v2-entry` | 0034 (merged) | D-105, D-107; ADR-035 |
+| A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-020f merged (#100, #105); D-107 changes (#107), entry points for WP-024 (#110), list format (this PR), migration 0034 fix (#116); WP-020d in progress (#114, draft), then WP-020e | `feat/wp-020d` | main folder (`supportx-v2`), also `../supportx-v2-entry`, `../supportx-v2-review` | 0034 (merged); 0036 (WP-020d) | D-105, D-107; ADR-035 |
 | B | Identity, mail, notifications | Worker resilience #102 and WP-039-FIX #104 (CI, then merge); WP-024 email channel session 1 in progress (mailboxes, IMAP fetch, mail page, threading; waits on lane A's #105 for the incident side) | `fix/worker-resilience`, `fix/wp-039-qa`, `feat/wp-024-email` | `../supportx-v2-resil`, `../supportx-v2-w39fix`, `../supportx-v2-mail` | 0024, 0026, 0032, 0033 (merged); WP-024 next free after lane C's 0035 | D-098, D-099, D-103, D-104, D-106 |
-| C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-035 merged (sessions 1-4, #73, #77, #84, #88); WP-035-FIX (QA bugs, branch `fix/wp-035-qa`); then WP-036 dashboards, then WP-033 knowledge sessions 1-4 | `fix/wp-035-qa` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031 (merged) | D-100, D-101, D-108; ADR-033, ADR-034 |
+| C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-035-FIX merged (#103); WP-036 dashboards (sessions 1-2, PR open); next WP-033 knowledge sessions 1-4 | `feat/wp-036-dashboards` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031 (merged), 0035 dashboards | D-100, D-101, D-108; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
 
