@@ -124,6 +124,9 @@ class WorkItemConversationAdded(_ConversationEvent):
     delivery_state: str | None = None
     first_response: bool = False
     mentioned_ids: list[uuid.UUID] = Field(default_factory=list)
+    # An automatic reply (an out-of-office): recorded, it moves nothing and notifies nobody
+    # (REQ-INC-024 AC2; WP-024). Additive: older events read as False.
+    automatic: bool = False
 
 
 class WorkItemConversationVisibilityChanged(_ConversationEvent):
