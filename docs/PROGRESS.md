@@ -12,11 +12,12 @@
   links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
-- **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
-  #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic; the 1M-row
-  volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA round done
-  (~/Desktop/qa-wp035, 8 bugs listed). WP-033 plan written (~/Desktop/wp-033-plan.md), awaiting the
-  product owner. Lanes and claimed numbers: docs/LANES.md.
+- **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
+  #77, export #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic;
+  the 1M-row volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA
+  round done (~/Desktop/qa-wp035, 8 bugs). Order (D-108): WP-035-FIX (in progress), WP-036
+  dashboards, then WP-033 knowledge sessions 1-4 (plan approved as D-108; knowledge moved from
+  lane B). Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
