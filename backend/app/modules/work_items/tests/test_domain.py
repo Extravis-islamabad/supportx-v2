@@ -276,8 +276,9 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
             continue
         text = source.read_text(encoding="utf-8")
         found |= set(pair.findall(text)) | set(keyword.findall(text))
-    # Pairs that are not field problems: unit kinds, role scopes, field-name tuples.
-    found -= {"site", "group", "all", "own", "on_behalf_of_id", "technician_id"}
+    # Pairs that are not field problems: unit kinds, role scopes, field-name tuples, notification
+    # recipient kinds (service/notifications.py).
+    found -= {"site", "group", "all", "own", "on_behalf_of_id", "technician_id", "followers"}
     assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
 
 
