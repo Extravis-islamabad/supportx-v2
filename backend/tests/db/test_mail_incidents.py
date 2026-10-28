@@ -17,7 +17,8 @@ from app.core.tenancy import TenantContext
 from app.modules.integrations.domain.mailboxes import Outcome
 from app.modules.integrations.infra.models import Mailbox
 from app.modules.integrations.service.inbound import process
-from app.modules.work_items.service.inbound_mail import FIELDS_NEEDED, _refusals
+from app.modules.work_items.domain.types import SUBJECT_MAX
+from app.modules.work_items.service.inbound_mail import FIELDS_NEEDED, _refusals, fit_subject
 from app.shared.mail.ports import InboundRefused
 from conftest import make_settings
 from tests.db.test_incidents_api import World, world
@@ -128,6 +129,34 @@ async def test_mail_becomes_an_incident_and_the_requesters_replies_land_on_it(
         assert [r["reason"] for r in rows] == ["not_requester"]
     finally:
         await database.dispose()
+
+
+async def test_long_and_empty_subjects_still_create_the_incident(world: World) -> None:
+    """Lane A review (#109): an incident subject holds 250; a longer one is cut, not held."""
+    database = Database(create_engine(world.db.app_url, application_name="test"))
+    try:
+        requester = await _email(world, world.a.requester)
+        long_subject = ("printer " * 40).strip()  # 319 characters
+        assert await _process(world, database, _mail(requester, long_subject)) is Outcome.CREATED
+        assert await _process(world, database, _mail(requester, "", body="")) is Outcome.CREATED
+        rows = await world.sql(
+            "SELECT subject FROM work_items WHERE tenant_id = $1 AND channel = 'email'"
+            " ORDER BY created_at",
+            world.a.tenant,
+        )
+        cut, empty = (r["subject"] for r in rows)
+        assert len(cut) <= SUBJECT_MAX
+        assert cut.endswith("printer…")  # on a word boundary
+        assert empty == "E-mail without a subject"
+    finally:
+        await database.dispose()
+
+
+def test_fit_subject_keeps_short_ones_and_cuts_long_ones_on_a_word() -> None:
+    assert fit_subject("  Printer\n jams  ") == "Printer jams"
+    assert fit_subject("") == ""
+    word = "x" * 300  # no boundary: the long word is cut
+    assert fit_subject(word) == "x" * (SUBJECT_MAX - 1) + "…"
 
 
 async def test_a_refused_create_names_the_fields_it_needs() -> None:

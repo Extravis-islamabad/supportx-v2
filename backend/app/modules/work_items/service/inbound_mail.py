@@ -23,12 +23,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import AppError, ValidationFailed
 from app.core.tenancy import TenantContext
-from app.modules.identity_access import subject_for, worker_policy
-from app.modules.work_items.domain.types import INCIDENT, Channel, parse_display_id
+from app.modules.identity_access import mail_recipients, subject_for, worker_policy
+from app.modules.work_items.domain.types import INCIDENT, SUBJECT_MAX, Channel, parse_display_id
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service import catalogue
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.conversations import add_requester_reply
+from app.shared.labels import label
 from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
@@ -67,6 +68,22 @@ async def _refusals() -> AsyncIterator[None]:
         if refused.status >= 500:  # noqa: PLR2004 - an outage is retried, never held
             raise
         raise InboundRefused(refused.instance_code, _text(refused.params)) from refused
+
+
+def fit_subject(text: str) -> str:
+    """A mail subject as an incident subject: one line, at most SUBJECT_MAX characters.
+
+    Longer ones are cut on a word boundary with an ellipsis (lane A review, #109): a long subject
+    must create the incident, not be held for it. "" when there is nothing to keep.
+    """
+    one_line = " ".join(text.split())
+    if len(one_line) <= SUBJECT_MAX:
+        return one_line
+    cut = one_line[: SUBJECT_MAX - 1]
+    space = cut.rfind(" ")
+    if space > SUBJECT_MAX // 2:  # a word boundary not too far back; else cut the long word
+        cut = cut[:space]
+    return cut.rstrip() + "…"
 
 
 def _text(params: Mapping[str, object]) -> dict[str, str]:
@@ -139,12 +156,17 @@ class IncidentsFromMail:
         """
         del message_id  # the ledger keeps it
         requester = await subject_for(session, _tenant(session), requester_id)
+        title = fit_subject(subject)
+        if not title:  # neither a subject nor any text: a stored name, in the requester's language
+            known = await mail_recipients(session, [requester_id])
+            language = known[requester_id].language if requester_id in known else "en"
+            title = label("incidents.mail_no_subject", language)
         async with _refusals():
             made = await items.create(
                 session,
                 requester,
                 INCIDENT,
-                {"subject": subject, "description": body_html, "requester_id": requester_id},
+                {"subject": title, "description": body_html, "requester_id": requester_id},
                 source="email",
                 holders=worker_policy(),
                 channel=Channel.EMAIL,

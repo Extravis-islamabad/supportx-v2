@@ -3967,6 +3967,7 @@ export const en = {
   'mailbox_answer.follow_up.subject': '[{{id}}] {{subject}}',
   'mailbox_answer.follow_up.body':
     'Thank you for your reply. {{previous}} was closed too long ago to reopen, so your message started a new incident: {{id}}. Reply to this e-mail to add to it.',
+  'incidents.mail_no_subject': 'E-mail without a subject',
 } as const;
 
 export type LabelKey = keyof typeof en;

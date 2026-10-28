@@ -3989,4 +3989,5 @@ export const ar: LabelResource = {
   'mailbox_answer.follow_up.subject': '[{{id}}] {{subject}}',
   'mailbox_answer.follow_up.body':
     'شكرًا لردك. أُغلقت {{previous}} منذ مدة طويلة لا تسمح بإعادة فتحها، لذلك بدأت رسالتك حادثة جديدة: {{id}}. رُد على هذه الرسالة للإضافة إليها.',
+  'incidents.mail_no_subject': 'بريد إلكتروني بلا موضوع',
 };

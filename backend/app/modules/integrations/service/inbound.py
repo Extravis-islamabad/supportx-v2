@@ -14,7 +14,6 @@
 The caller marks the message on the mail server only after this transaction commits.
 """
 
-import html
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -61,6 +60,11 @@ def body_html(text: str) -> str:
             for p in paragraphs
         )
     )
+
+
+def _first_line(text: str) -> str:
+    """The first line with words, for a mail without a subject (the incident side fits it)."""
+    return next((line.strip() for line in text.splitlines() if line.strip()), "")
 
 
 def _rules(mailbox: Mailbox) -> MailboxRules:
@@ -226,7 +230,7 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
     created = await ctx.target.create_from_mail(
         ctx.session,
         requester_id=requester,
-        subject=ctx.message.subject or html.unescape(ctx.message.text[:80]),
+        subject=ctx.message.subject or _first_line(ctx.message.text),
         body_html=body_html(ctx.message.text),
         group_id=ctx.mailbox.group_id,
         message_id=ctx.message.message_id,
