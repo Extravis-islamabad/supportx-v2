@@ -334,3 +334,12 @@ heavy jobs (the dev stack with end-to-end tests, the cluster images) start with 
 (`.github/actions/changes`) and finish at once with "skipped: docs-only change". A new push to a
 pull request cancels that pull request's older runs; runs on `main` and nightly runs are never
 cancelled.
+
+## Tool versions
+
+Every tool has an exact version, so an upstream release never changes a build: Node in `.nvmrc`,
+Python in `backend/.python-version`, pnpm in `package.json` and `frontend/package.json`
+(`packageManager`, which Corepack reads from anywhere in the repo), uv in the backend setup action
+and image, actions and pre-commit hooks by commit SHA, container images by exact tag.
+`backend/tests/test_tool_pins.py` fails when one floats or two places disagree. Upgrades come as
+deliberate PRs (Dependabot proposes them weekly).
