@@ -1259,6 +1259,7 @@ export const ur: LabelResource = {
   'closure_code.no_fault_found': 'کوئی خرابی نہیں ملی',
   'closure_code.duplicate': 'دہرایا ہوا',
   'closure_code.user_error': 'صارف کی غلطی',
+  'closure_code.confirmed_by_requester': 'درخواست گزار نے تصدیق کی',
   'settings.matrix': 'ترجیحی میٹرکس',
   'settings.matrix_help':
     'ترجیح اثر اور فوریت سے نکالی جاتی ہے۔ تبدیلیاں نئے حساب پر فوراً لاگو ہوتی ہیں؛ موجودہ واقعات اپنی ترجیح رکھتے ہیں جب تک ان کا اثر یا فوریت نہ بدلے۔',
@@ -3210,6 +3211,8 @@ export const ur: LabelResource = {
     'صرف تب آگے بڑھیں جب یہ کام اب اہم نہ ہو۔ آپ کی تصدیق تاریخچے میں محفوظ رہتی ہے۔',
   'incidents.closing.resolution_placeholder':
     'کس چیز سے مسئلہ حل ہوا، تاکہ درخواست گزار اور ساتھی سمجھ سکیں۔',
+  'incidents.closing.previous_resolution': 'دوبارہ کھولنے سے پہلے کا حل',
+  'incidents.closing.reuse': 'دوبارہ استعمال کریں',
   'incidents.closing.closure_code_shown': 'بندش کا کوڈ: {{code}}',
   'incidents.closing.auto_close_on':
     'اگر درخواست گزار جواب نہ دے تو {{date}} کو خودکار طور پر بند ہو جائے گا۔',

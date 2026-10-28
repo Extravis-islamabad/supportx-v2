@@ -1669,6 +1669,7 @@ export const en = {
   'closure_code.no_fault_found': 'No fault found',
   'closure_code.duplicate': 'Duplicate',
   'closure_code.user_error': 'User error',
+  'closure_code.confirmed_by_requester': 'Confirmed by requester',
   'settings.matrix': 'Priority matrix',
   'settings.matrix_help':
     'Priority is worked out from impact and urgency. Changes apply to new calculations at once; existing incidents keep their priority until their impact or urgency changes.',
@@ -3419,6 +3420,8 @@ export const en = {
     'Go ahead only if this work no longer matters. Your confirmation is kept in the history.',
   'incidents.closing.resolution_placeholder':
     'What fixed it, so the requester and colleagues can follow it.',
+  'incidents.closing.previous_resolution': 'Resolution before it was reopened',
+  'incidents.closing.reuse': 'Reuse',
   'incidents.closing.closure_code_shown': 'Closure code: {{code}}',
   'incidents.closing.auto_close_on':
     'Closes automatically on {{date}} unless the requester answers.',
