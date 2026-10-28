@@ -1,6 +1,7 @@
 import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
 
 import { ApiError } from '@supportx/api-client';
+import { markHandled } from '@supportx/ui';
 
 /** `body.signature` → `signature`; `query.filter.and[0]` stays as is (not a form field). */
 export function formFieldOf(apiField: string): string {
@@ -29,6 +30,8 @@ export function applyServerErrors<T extends FieldValues>(
       applied = true;
     }
   }
+  // Shown at its fields: the app-wide reporter does not repeat it as a toast (QA WP-029 BUG-02).
+  if (applied) markHandled(error);
   return applied;
 }
 
