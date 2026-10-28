@@ -76,6 +76,9 @@ function useFavicon(brand: Branding): void {
 // A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
+  // Text for screen readers only (a name where the screen shows initials or an icon).
+  '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
+  'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
   // Every option shows its whole label, wrapping when the list is narrow, never cut to
   // "Stacked ..." (QA WP-035 BUG-07). Lists keep the box's width, so long lists stay virtual

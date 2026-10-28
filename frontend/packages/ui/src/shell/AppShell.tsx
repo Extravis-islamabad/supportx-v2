@@ -90,7 +90,9 @@ export function AppShell({
           aria-label={t('nav.main')}
           data-testid="nav-top"
           data-items={itemKeys}
-          style={{ flex: 1, minWidth: 0, marginInlineStart: 16 }}
+          // The menu's own "More" stays inside the nav, never drawn under the search button at
+          // phone width (QA WP-036 BUG-06); its submenu opens in a popup, outside this box.
+          style={{ flex: 1, minWidth: 0, marginInlineStart: 16, overflow: 'hidden' }}
         >
           <Menu
             mode="horizontal"

@@ -137,6 +137,13 @@ test('where you are: breadcrumbs and the tab title, never "Technician Console", 
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       );
       expect(sideways, `no sideways scroll at ${String(width)} px`).toBeLessThanOrEqual(0);
+      // The top menu never reaches under the search button (QA WP-036 BUG-06).
+      const nav = await page.getByTestId('nav-top').boundingBox();
+      const search = await page.getByTestId('open-palette').boundingBox();
+      if (nav !== null && search !== null) {
+        const apart = nav.x + nav.width <= search.x + 1 || search.x + search.width <= nav.x + 1;
+        expect(apart, `menu and search apart at ${String(width)} px`).toBe(true);
+      }
     }
     await expectAccessible(page, 'report page with breadcrumbs (Arabic)');
   } finally {

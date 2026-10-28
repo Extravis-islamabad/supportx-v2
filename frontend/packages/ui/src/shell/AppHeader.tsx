@@ -270,13 +270,17 @@ export function AppHeader({
         <Button
           type="text"
           data-testid="user-menu"
-          aria-label={narrow ? `${t('shell.menu')}: ${session.user.display_name}` : undefined}
           style={{ height: 'auto', paddingBlock: 4, paddingInline: narrow ? 4 : undefined }}
         >
           <Flex align="center" gap={8}>
             <Avatar aria-hidden style={{ background: token.colorPrimary }}>
               {initials(session.user.display_name)}
             </Avatar>
+            {narrow && (
+              // Named by its content, not an aria-label that differs from the initials it shows
+              // (QA WP-036 BUG-07, axe label-content-name-mismatch).
+              <span className="sx-visually-hidden">{`${t('shell.menu')}: ${session.user.display_name}`}</span>
+            )}
             {!narrow && (
               <Typography.Text data-testid="user-name">{session.user.display_name}</Typography.Text>
             )}
