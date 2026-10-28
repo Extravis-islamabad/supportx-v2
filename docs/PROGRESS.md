@@ -627,7 +627,8 @@ WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-
   header/footer; REQ-NTF-011/012/013), throttling and storm protection (REQ-NTF-022), digests
   (REQ-NTF-017), signed action links (REQ-NTF-024; incident confirm/reject with WP-020f), group
   subscriptions and "unpicked for N minutes" (REQ-NTF-026, REQ-INC-130), resend (REQ-NTF-020 AC2),
-  retention 90/180 days, the portal bell (WP-028).
+  retention 90/180 days, the portal bell (WP-028); call WP-020f's `resolution_notified` when
+  `incident.resolved` really reaches the requester (e-mail sent; in-app once the portal exists).
 
 ### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
 - **Goal:** Each tenant gets its own address and look without a redesign.
