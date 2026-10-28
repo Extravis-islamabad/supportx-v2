@@ -4,8 +4,9 @@ import { expectAccessible, resetLanguage, signInAs } from './helpers';
 
 /**
  * WP-035 journeys (parity file 09): the reports home and a built-in report in English and
- * Arabic (RTL, labels only, axe); a scheduled report that appears, pauses and is deleted live
- * (REQ-RPT-052, 056). Suite-owned data only: the schedule is deleted at the end.
+ * Arabic (RTL, labels only, axe); a CSV export that turns ready in "My exports" with no reload
+ * (REQ-RPT-058); a scheduled report that appears, pauses and is deleted live (REQ-RPT-052, 056).
+ * Suite-owned data only: the export file expires on its own, the schedule is deleted at the end.
  */
 
 const BUILTIN = '/reports/builtin/incidents_open_by_priority';
@@ -73,13 +74,61 @@ test('reports home and a built-in report (English)', async ({ browser }) => {
     await expectNoRawCodes(page);
     await expectAccessible(page, 'built-in report');
 
-    // The export dialog (the file itself: the export journey, after the worker fix).
+    // The export dialog (the file itself: the CSV export journey below).
     await page.getByTestId('report-export').click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
     await expectAccessible(page, 'export dialog');
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toBeHidden();
+  } finally {
+    await context.close();
+  }
+});
+
+test('a CSV export turns ready in "My exports" with no reload (REQ-RPT-058)', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page } = await open(browser, BUILTIN);
+  try {
+    await expect(page.getByTestId('report-result')).toBeVisible();
+    const before = (await (await call(page, 'GET', '/reports/exports')).json()) as {
+      id: string;
+    }[];
+    await page.getByTestId('report-export').click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expectAccessible(page, 'export dialog');
+    await dialog.getByText('CSV', { exact: true }).click();
+    await dialog.getByRole('button', { name: 'Export' }).click();
+    await expect(dialog).toBeHidden();
+
+    await page.getByTestId('report-my-exports').click();
+    const drawer = page.getByTestId('report-exports-drawer');
+    await expect(drawer).toBeVisible();
+    let id = '';
+    await expect
+      .poll(async () => {
+        const now = (await (await call(page, 'GET', '/reports/exports')).json()) as {
+          id: string;
+        }[];
+        id = now.find((e) => !before.some((b) => b.id === e.id))?.id ?? '';
+        return id;
+      })
+      .not.toBe('');
+    // Live (no reload): the status tag in the open drawer turns "Ready".
+    await expect(page.getByTestId(`report-export-status-${id}`)).toHaveText('Ready', {
+      timeout: 30_000,
+    });
+    const link = page.getByTestId(`report-export-download-${id}`);
+    await expect(link).toBeVisible();
+    const file = await page.request.get((await link.getAttribute('href')) ?? '');
+    expect(file.status()).toBe(200);
+    const csv = await file.text();
+    expect(csv).toContain('Priority');
+    expect(csv).not.toMatch(/\bp[1-4]\b|status_category/);
+    await expectAccessible(page, 'my exports');
   } finally {
     await context.close();
   }
