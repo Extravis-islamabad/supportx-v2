@@ -347,4 +347,18 @@ describe('WP-036 QA fixes', () => {
     fireEvent.click(within(screen.getByTestId('dashboard-add-source')).getByText('From a report'));
     expect(within(dialog).getByLabelText('Report')).toBeDefined();
   });
+
+  it('BUG-05: a widget whose content scrolls can be reached and scrolled by keyboard', async () => {
+    window.history.pushState({}, '', '/dashboards/builtin%3Amy_work');
+    api({ me: fakeSession(), routes: routes() });
+    render(<App />);
+    await screen.findByTestId('widget-title-my_open');
+    for (const id of ['my_open', 'open_by_priority']) {
+      const region = within(screen.getByTestId(`widget-${id}`)).getByRole('region');
+      expect(region.getAttribute('tabindex')).toBe('0');
+      expect(region.getAttribute('aria-label')).toBe(
+        screen.getByTestId(`widget-title-${id}`).textContent,
+      );
+    }
+  });
 });

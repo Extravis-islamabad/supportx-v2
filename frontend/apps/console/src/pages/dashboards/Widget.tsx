@@ -140,7 +140,7 @@ export function Widget({
         </span>
       }
       style={{ height: '100%', overflow: 'hidden' }}
-      styles={{ body: { overflow: 'auto', height: 'calc(100% - 40px)' } }}
+      styles={{ body: { overflow: 'hidden', height: 'calc(100% - 40px)', padding: 0 } }}
       data-testid={`widget-${widget.id}`}
       extra={
         toolbar ?? (
@@ -191,21 +191,30 @@ export function Widget({
         )
       }
     >
-      {filtered.length > 0 && (
-        <Tag data-testid={`widget-filtered-${widget.id}`}>
-          {t('dashboards.filtered_by', {
-            filters: filtered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
-          })}
-        </Tag>
-      )}
-      {unfiltered.length > 0 && (
-        <Tag data-testid={`widget-unfiltered-${widget.id}`}>
-          {t('dashboards.not_filtered_by', {
-            filters: unfiltered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
-          })}
-        </Tag>
-      )}
-      {body}
+      {/* The content scrolls in a region named by the widget, so a keyboard can reach and
+          scroll it (QA WP-036 BUG-05, axe scrollable-region-focusable). */}
+      <div
+        role="region"
+        aria-label={title}
+        tabIndex={0}
+        style={{ height: '100%', overflow: 'auto', padding: 12 }}
+      >
+        {filtered.length > 0 && (
+          <Tag data-testid={`widget-filtered-${widget.id}`}>
+            {t('dashboards.filtered_by', {
+              filters: filtered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
+            })}
+          </Tag>
+        )}
+        {unfiltered.length > 0 && (
+          <Tag data-testid={`widget-unfiltered-${widget.id}`}>
+            {t('dashboards.not_filtered_by', {
+              filters: unfiltered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
+            })}
+          </Tag>
+        )}
+        {body}
+      </div>
       <Modal
         open={expanded}
         title={title}
