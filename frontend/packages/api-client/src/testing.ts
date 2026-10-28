@@ -532,9 +532,21 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       colour: null,
       disabled: false,
     })),
-    closure_codes: ['fixed', 'workaround', 'no_fault_found', 'duplicate', 'user_error'].map(
-      (code, sort_order) => ({ code, labels: null, sort_order, colour: null, disabled: false }),
-    ),
+    // D-083 plus D-107's "confirmed_by_requester", as the server seeds them.
+    closure_codes: [
+      'fixed',
+      'workaround',
+      'no_fault_found',
+      'duplicate',
+      'user_error',
+      'confirmed_by_requester',
+    ].map((code, sort_order) => ({
+      code,
+      labels: null,
+      sort_order,
+      colour: null,
+      disabled: false,
+    })),
     // WP-020f defaults (D1, D2, D5): auto-close off until a channel tells requesters.
     closure: {
       resolve_requires: ['resolution'],

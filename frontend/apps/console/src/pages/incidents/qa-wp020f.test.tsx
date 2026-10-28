@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { Incident } from '@supportx/api-client';
@@ -134,5 +134,35 @@ describe('BUG-01: the requester’s own words are received, not unsent', () => {
     render(<App />);
     expect((await screen.findByTestId('conv-received')).textContent).toBe('Received');
     expect(screen.queryByTestId('conv-not-sent')).toBeNull();
+  });
+});
+
+describe('BUG-04: technicians cannot choose "Confirmed by requester"', () => {
+  it('BUG-04: the Close dialog shows the code as unavailable and says why', async () => {
+    const base = fakeIncident({ status: 'resolved', status_category: 'resolved', version: 5 });
+    api({
+      routes: {
+        ...COMMON,
+        ...record({
+          ...base,
+          actions: base.actions.map((a) =>
+            a.action === 'close' ? { ...a, allowed: true, reason: null, missing: [] } : a,
+          ),
+        }),
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('inc-action-close'));
+    const select = await screen.findByTestId('inc-closure-code');
+    const selector = select.querySelector('.ant-select-selector');
+    if (selector === null) throw new Error('not an Ant Design Select');
+    fireEvent.mouseDown(selector);
+    const option = await screen.findByTitle(
+      'Confirmed by requester: set only when the requester confirms the fix',
+    );
+    expect(option.classList.contains('ant-select-item-option-disabled')).toBe(true);
+    expect(screen.getByTitle('Fixed').classList.contains('ant-select-item-option-disabled')).toBe(
+      false,
+    );
   });
 });

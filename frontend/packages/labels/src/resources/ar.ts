@@ -2366,6 +2366,8 @@ export const ar: LabelResource = {
   'errors.open_work_blocked': 'لا يمكن تنفيذ هذا ما دام هذا العمل مفتوحًا: {{items}}.',
   'errors.open_work_unconfirmed': 'لا يزال هناك عمل مفتوح: {{items}}. أكّد للمتابعة على أي حال.',
   'errors.field.required_to_resolve': 'مطلوب قبل الحل.',
+  'errors.field.requester_only': 'لا يعيّن هذا الرمز إلا تأكيد مقدم الطلب.',
+  'incidents.closure_code_requester_only': '{{name}}: يُعيَّن فقط عندما يؤكد مقدم الطلب الإصلاح',
   'errors.field.required_to_close': 'مطلوب قبل الإغلاق.',
   'errors.field.auto_close_needs_notifications':
     'يحتاج الإغلاق التلقائي إلى إشعارات مقدّمي الطلبات: لا توجد بعد قناة تُبلغ مقدّمي الطلبات بالحل.',

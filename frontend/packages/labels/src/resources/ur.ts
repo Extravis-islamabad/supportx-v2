@@ -1952,6 +1952,9 @@ export const ur: LabelResource = {
   'errors.open_work_unconfirmed':
     'کام ابھی کھلا ہے: {{items}}۔ پھر بھی آگے بڑھنے کے لیے تصدیق کریں۔',
   'errors.field.required_to_resolve': 'حل کرنے سے پہلے درکار ہے۔',
+  'errors.field.requester_only': 'یہ کوڈ صرف درخواست گزار کی تصدیق سے لگتا ہے۔',
+  'incidents.closure_code_requester_only':
+    '{{name}}: صرف تب لگتا ہے جب درخواست گزار حل کی تصدیق کرے',
   'errors.field.required_to_close': 'بند کرنے سے پہلے درکار ہے۔',
   'errors.field.auto_close_needs_notifications':
     'خودکار بندش کے لیے درخواست گزاروں کو اطلاعات درکار ہیں: ابھی کوئی ذریعہ درخواست گزاروں کو حل کی اطلاع نہیں دے سکتا۔',

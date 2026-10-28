@@ -37,7 +37,7 @@ from app.modules.work_items.domain.closure import (
     open_work_modes,
 )
 from app.modules.work_items.domain.lifecycle import StatusCategory, WorkItemAction
-from app.modules.work_items.domain.templates import PickList
+from app.modules.work_items.domain.templates import CONFIRMED_BY_REQUESTER, PickList
 from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.history import Change
@@ -106,6 +106,9 @@ class MoveInput:
     resolution: str | None = None
     closure_code: str | None = None
     confirm_open_work: bool = False
+    # The requester's confirmation, or auto-close standing in for it: the only moves that may set
+    # "confirmed_by_requester", so reports tell it from a technician's closure (D-107, QA BUG-04).
+    requester_confirmation: bool = False
 
 
 @dataclass
@@ -171,7 +174,9 @@ def _check_rules(  # noqa: PLR0913 - the move and its context, explicit
         if action == RESOLVE:
             step.changes["resolution_notified_at"] = None
         values[RESOLUTION] = text
-    if given.closure_code:
+    if given.closure_code == CONFIRMED_BY_REQUESTER and not given.requester_confirmation:
+        problems.append((CLOSURE_CODE, "requester_only", {}))
+    elif given.closure_code:
         if given.closure_code in cat.reason_codes(PickList.CLOSURE_CODE):
             step.changes[CLOSURE_CODE] = given.closure_code
             values[CLOSURE_CODE] = given.closure_code

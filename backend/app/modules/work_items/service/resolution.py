@@ -92,7 +92,7 @@ async def confirm(
                 WorkItemAction.CLOSE,
                 source=source,
                 rule=CONFIRMED,
-                given=closing.MoveInput(closure_code=code),
+                given=closing.MoveInput(closure_code=code, requester_confirmation=True),
             )
     except (ValidationFailed, Conflict):
         # The closure rules need more than the requester can give: a technician closes it.
@@ -178,7 +178,7 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
                     WorkItemAction.CLOSE,
                     source="system",
                     rule=AUTO_CLOSED,
-                    given=closing.MoveInput(closure_code=code),
+                    given=closing.MoveInput(closure_code=code, requester_confirmation=True),
                     by_requester=False,
                 )
         except (ValidationFailed, Conflict):

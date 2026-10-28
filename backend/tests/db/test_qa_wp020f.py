@@ -298,3 +298,29 @@ async def test_bug_03_an_e_mail_reply_that_resumes_is_the_requesters_act(
     assert {"field": "requester_action", "old": None, "new": "requester_reply_resumed"} in entry[
         "changes"
     ]
+
+
+async def test_bug_04_only_the_requesters_confirmation_sets_confirmed_by_requester(
+    world: World,
+) -> None:
+    org = world.a
+    item = await world.create(org, org.admin)
+    # Not at resolve, not at close: a technician choosing it would hide their own closure.
+    for action in ("resolve", "close"):
+        if action == "close":
+            item = (await world.act(org, org.admin, item, "resolve")).json()
+        refused = await world.act(
+            org, org.admin, item, action, closure_code="confirmed_by_requester"
+        )
+        assert refused.status_code == 422, action
+        assert field_codes(refused) == {"closure_code": "requester_only"}, action
+    # The requester's confirmation still sets it where the rules ask for a code (D-107).
+    done = await world.call(
+        "POST",
+        f"{BASE}/{item['id']}/resolution/confirm",
+        org,
+        org.requester,
+        headers={"X-SupportX-Client": "portal"},
+    )
+    assert done.status_code == 200, done.text
+    assert (await fresh(world, org, item))["closure_code"] == "confirmed_by_requester"
