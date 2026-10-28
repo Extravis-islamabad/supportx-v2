@@ -784,8 +784,9 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   visibly ("report_failed"), schedule runs record the failure, and a minute sweep fails exports
   lost by a crashed worker. Found for lane B: `subject_for` needed the entitlement service the
   consumers worker never installed (lane B #91).
-- Still to do: the CSV export journey in `reports.spec.ts` (after lane B #91); the 1M-row
-  performance harness (timing tests, #86 rules).
+- CSV export journey added after lane B's #91 (2026-10-28): the file turns ready live and
+  downloads with labels; `reports.spec.ts` 4/4 on the shared stack.
+- Still to do: the 1M-row performance harness (timing tests, #86 rules).
 
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
