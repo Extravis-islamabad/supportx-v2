@@ -39,6 +39,7 @@ import {
   type TemplateField,
 } from '@supportx/api-client';
 import { applyServerErrors, FormField, useForm, useKeptDraft, zodResolver } from '@supportx/forms';
+import { useListFormat } from '@supportx/labels';
 import {
   FormProblem,
   NoAccess,
@@ -161,6 +162,7 @@ function startOf(
  */
 export function NewIncidentPage() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const navigate = useNavigate();
   const { message } = App.useApp();
@@ -568,7 +570,7 @@ export function NewIncidentPage() {
               role="status"
               style={{ marginBottom: 16 }}
               message={t('templates.hidden_fields', {
-                fields: hidden.map(fieldLabel).join(t('list.separator')),
+                fields: listFormat(hidden.map(fieldLabel), 'conjunction'),
               })}
               data-testid="inc-hidden-fields"
             />
@@ -580,7 +582,7 @@ export function NewIncidentPage() {
               role="status"
               style={{ marginBottom: 16 }}
               message={t('templates.default_retired', {
-                fields: dropped.map(fieldLabel).join(t('list.separator')),
+                fields: listFormat(dropped.map(fieldLabel), 'conjunction'),
               })}
               data-testid="inc-dropped-defaults"
             />
@@ -1020,7 +1022,7 @@ export function NewIncidentPage() {
       >
         <Typography.Paragraph>
           {t('templates.switch_body', {
-            fields: (switching?.lost ?? []).map(fieldLabel).join(t('list.separator')),
+            fields: listFormat((switching?.lost ?? []).map(fieldLabel), 'conjunction'),
           })}
         </Typography.Paragraph>
       </Modal>

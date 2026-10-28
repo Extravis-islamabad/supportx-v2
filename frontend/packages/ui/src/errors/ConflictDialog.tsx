@@ -1,5 +1,7 @@
 import { Modal, Typography } from 'antd';
 
+import { useListFormat } from '@supportx/labels';
+
 import { useAppearance, useLabel } from '../appearance';
 import { explain } from './conflictDetails';
 
@@ -33,6 +35,7 @@ export function ConflictDialog({
   latest,
 }: ConflictDialogProps) {
   const t = useLabel();
+  const list = useListFormat();
   const { locale } = useAppearance();
   const found = explain(error, opened, latest);
   const name = fieldLabel ?? ((field: string) => t(`field.${field}`));
@@ -65,7 +68,7 @@ export function ConflictDialog({
               {' '}
               {t('conflict.changed_fields', {
                 // Several codes can share a name (a status's name and colour): each name once.
-                fields: [...new Set(found.fields.map(name))].join(t('list.separator')),
+                fields: list([...new Set(found.fields.map(name))], 'conjunction'),
               })}
             </>
           )}
