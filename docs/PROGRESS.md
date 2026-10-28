@@ -13,8 +13,10 @@
   (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
-  #84, scheduled reports); next: lane A's incident provider in the DB tests, English/Arabic e2e
-  under the QA lock, the 1M-row performance harness. Lanes and claimed numbers: docs/LANES.md.
+  #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic; the 1M-row
+  volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA round done
+  (~/Desktop/qa-wp035, 8 bugs listed). WP-033 plan written (~/Desktop/wp-033-plan.md), awaiting the
+  product owner. Lanes and claimed numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -747,7 +749,10 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   - Tests: 9 writers, 5 PDF (local with Pango and in the worker image), 5 database (scope-limited
     CSV with names and neutralised formulas, Arabic XLSX, permission and storage, PDF without the
     worker image fails visibly, settings and Sunday weeks), 1 console.
-  - Not yet: the 1M-row performance harness and its indexes (with lane A's indexes in #74).
+  - Volume (D-100 D5): `tests/db/test_reports_scale.py`, every built-in report and the widget
+    totals at 1M incidents as an admin and a group-scoped technician, median ≤ 2 s, in the
+    opt-in workflow `report-scale.yml` (nightly and on demand; never on a laptop, product owner
+    2026-10-28). Results in the session log.
 - [x] **Session 4 — scheduled reports** (2026-10-28, branch `feat/wp-035-schedules`; D-100 D3).
   - Schedules (REQ-RPT-052): daily (optionally on chosen weekdays), weekly, monthly (day 1-28),
     at a wall-clock time in the schedule's own time zone, from a start date to an optional end;
@@ -786,7 +791,7 @@ port alone, so lane A can write the incident provider) and `feat/wp-035-reportin
   consumers worker never installed (lane B #91).
 - CSV export journey added after lane B's #91 (2026-10-28): the file turns ready live and
   downloads with labels; `reports.spec.ts` 4/4 on the shared stack.
-- Still to do: the 1M-row performance harness (timing tests, #86 rules).
+- 1M-row volume test: GitHub workflow `report-scale.yml` (see Session 3).
 
 ### [x] WP-027 — Search and record pickers (lane B; D-085; ADR-029; done 2026-10-26, 1 session)
 Branch `feat/wp-027-search`. REQ-INC-085.
@@ -981,6 +986,25 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   virtual list); in `sign-in-security.spec.ts` one card waits for the previous card's save.
 - Outside scope, recorded: the record page's in-place edits and the composer keep no draft yet
   (lane A, WP-020d/e); REQ-SEC-030 (active sessions list) and REQ-SEC-027 (step-up) are V1.
+
+### 2026-10-28 — WP-035: reports at 1 million incidents (lane C)
+- `report-scale.yml` (nightly 03:41 UTC and manual, rows as input) runs
+  `tests/db/test_reports_scale.py`: 1M incidents generated inside PostgreSQL, every built-in
+  report plus widget totals, admin and group-scoped technician, strict 2 s target; the
+  technician never sees another group's numbers. Timings in the job summary and a 90-day artifact.
+- First run (40644943080, 1,000,000 incidents, strict 2 s): all 49 timed queries pass. Slowest
+  median 0.73 s (admin, received per month), "open by" reports 0.33-0.37 s, widget totals 0.23 s,
+  30-day reports 0.02-0.07 s, drill-down list page 0.008 s; load 118 s.
+
+### 2026-10-28 — WP-035 QA round (lane C)
+- Under the QA lock, Playwright (admin plus a group-scoped technician) and Chrome; report
+  ~/Desktop/qa-wp035/QA-REPORT.md. Permissions hold everywhere (reports, drill-down, exports,
+  scheduled mails, live totals). 8 bugs listed, not fixed: BUG-01 records exports head the ID and
+  subject columns "Unknown value"; BUG-02 Arabic PDF chart labels drawn in reversed letter order;
+  BUG-03..08 low (Arabic legend overlap, PDF header date order, Latin comma in Arabic filter
+  words, PDF label cut-off, "Stacked ..." cut, built-in title kept after changes). The dev stack
+  cannot make PDFs (worker without the `pdf` group; checked with the renderer instead).
+  Dashboards are WP-036.
 
 ### 2026-10-28 — WP-035: reports e2e in English and Arabic (lane C)
 - QA lock from lane B/A; `reports.spec.ts` on the shared stack. Fixed: status tag contrast,
