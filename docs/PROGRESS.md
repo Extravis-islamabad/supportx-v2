@@ -62,7 +62,10 @@ decisions D1-D13 (D-038).
    Free plan. Upgrade to Pro (or move to an Extravis org on Team) to keep it, or accept
    unprotected `main`.
 3. **Dependabot PR #3 (jsdom 27 → 30, test helper)** awaits review; majors for TypeScript, Ant
-   Design and React are ignored per D-014, ADR-002 and CLAUDE.md §3 (PRs #2, #4, #5, #6 closed).
+. **`sr-only` is not defined** (lane C, 2026-10-29): screen-reader-only column titles in Admin
+   › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
+   class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
+   lane C's header branch lands; check with axe and a screenshot.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
