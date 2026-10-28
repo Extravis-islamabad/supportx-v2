@@ -160,6 +160,16 @@
         "title": "ActionStateOut",
         "type": "object"
       },
+      "AfterFetch": {
+        "description": "What happens to a message on the mail server once it is in SupportX (REQ-ADM-067).",
+        "enum": [
+          "mark_read",
+          "move",
+          "delete"
+        ],
+        "title": "AfterFetch",
+        "type": "string"
+      },
       "AllowedForOut": {
         "description": "Who a transition is limited to: roles, group names, people on the record (codes).",
         "properties": {
@@ -3797,6 +3807,61 @@
         ],
         "title": "ConditionOperator",
         "type": "string"
+      },
+      "ConnectionSecurity": {
+        "description": "Transport security of an IMAP or SMTP connection.",
+        "enum": [
+          "tls",
+          "starttls",
+          "none"
+        ],
+        "title": "ConnectionSecurity",
+        "type": "string"
+      },
+      "ConnectionTestIn": {
+        "additionalProperties": false,
+        "description": "Settings to try (a new password, or the stored one when left out).",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          }
+        },
+        "title": "ConnectionTestIn",
+        "type": "object"
+      },
+      "ConnectionTestOut": {
+        "description": "Whether the mailbox answered; `reason` is a code the UI shows as its label.",
+        "properties": {
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "ok"
+        ],
+        "title": "ConnectionTestOut",
+        "type": "object"
       },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
@@ -7962,6 +8027,542 @@
         "title": "LoopStopOut",
         "type": "object"
       },
+      "MailboxCreates": {
+        "description": "What a new (non-reply) message to the mailbox becomes.",
+        "enum": [
+          "incident",
+          "nothing"
+        ],
+        "title": "MailboxCreates",
+        "type": "string"
+      },
+      "MailboxIn": {
+        "additionalProperties": false,
+        "description": "A new mailbox.",
+        "properties": {
+          "address": {
+            "maxLength": 320,
+            "minLength": 3,
+            "title": "Address",
+            "type": "string"
+          },
+          "after_fetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AfterFetch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allow_plain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allow a connection without TLS (audited).",
+            "title": "Allow Plain"
+          },
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "creates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailboxCreates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "host": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "move_to": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To"
+          },
+          "password": {
+            "description": "Stored sealed; never shown.",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "port": {
+            "default": 993,
+            "maximum": 65535.0,
+            "minimum": 1.0,
+            "title": "Port",
+            "type": "integer"
+          },
+          "security": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionSecurity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown_senders": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownSenders"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "username": {
+            "maxLength": 320,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "username",
+          "address",
+          "password"
+        ],
+        "title": "MailboxIn",
+        "type": "object"
+      },
+      "MailboxOut": {
+        "description": "A mailbox as the mail page shows it.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "after_fetch": {
+            "$ref": "#/components/schemas/AfterFetch"
+          },
+          "allow_plain": {
+            "title": "Allow Plain",
+            "type": "boolean"
+          },
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "creates": {
+            "$ref": "#/components/schemas/MailboxCreates"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "folder": {
+            "title": "Folder",
+            "type": "string"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "has_password": {
+            "title": "Has Password",
+            "type": "boolean"
+          },
+          "held": {
+            "description": "Messages kept for an admin (refused, flooding, not matched).",
+            "title": "Held",
+            "type": "integer"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_fetch_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Fetch At"
+          },
+          "move_to": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To"
+          },
+          "port": {
+            "title": "Port",
+            "type": "integer"
+          },
+          "security": {
+            "$ref": "#/components/schemas/ConnectionSecurity"
+          },
+          "state": {
+            "$ref": "#/components/schemas/MailboxState"
+          },
+          "state_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code; the UI shows its label.",
+            "title": "State Reason"
+          },
+          "unknown_senders": {
+            "$ref": "#/components/schemas/UnknownSenders"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "address",
+          "display_name",
+          "host",
+          "port",
+          "security",
+          "allow_plain",
+          "username",
+          "has_password",
+          "folder",
+          "after_fetch",
+          "move_to",
+          "creates",
+          "group_id",
+          "unknown_senders",
+          "allowed_domains",
+          "enabled",
+          "state",
+          "state_reason",
+          "last_fetch_at",
+          "held",
+          "version"
+        ],
+        "title": "MailboxOut",
+        "type": "object"
+      },
+      "MailboxPatch": {
+        "additionalProperties": false,
+        "description": "Fields to change; a password replaces the stored one.",
+        "properties": {
+          "after_fetch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AfterFetch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allow_plain": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Allow a connection without TLS (audited).",
+            "title": "Allow Plain"
+          },
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 50,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "creates": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MailboxCreates"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "folder": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Folder"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "move_to": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Move To"
+          },
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "security": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ConnectionSecurity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unknown_senders": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UnknownSenders"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "username": {
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "title": "MailboxPatch",
+        "type": "object"
+      },
+      "MailboxState": {
+        "description": "What the mail page shows for a mailbox (REQ-ADM-066 AC1).",
+        "enum": [
+          "not_set_up",
+          "working",
+          "failing"
+        ],
+        "title": "MailboxState",
+        "type": "string"
+      },
       "MatrixCellIn": {
         "description": "One cell.",
         "properties": {
@@ -9814,6 +10415,40 @@
         ],
         "title": "Relative",
         "type": "string"
+      },
+      "ReleasedOut": {
+        "description": "What a released message became; `reason` when it waits again.",
+        "properties": {
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reason_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reason Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "outcome",
+          "reason",
+          "reason_params"
+        ],
+        "title": "ReleasedOut",
+        "type": "object"
       },
       "ReplyMode": {
         "description": "Which composer a reply came from (REQ-INC-058).",
@@ -15117,6 +15752,16 @@
         "title": "TypingIn",
         "type": "object"
       },
+      "UnknownSenders": {
+        "description": "What mail from an address SupportX does not know does (REQ-INC-027).",
+        "enum": [
+          "create",
+          "create_allowed_domains",
+          "reject"
+        ],
+        "title": "UnknownSenders",
+        "type": "string"
+      },
       "Urgency": {
         "description": "How fast it must be fixed, lowest first.",
         "enum": [
@@ -15866,6 +16511,89 @@
           "visibility"
         ],
         "title": "VisibilityIn",
+        "type": "object"
+      },
+      "WaitingIn": {
+        "additionalProperties": false,
+        "description": "Which waiting message (by its Message-ID).",
+        "properties": {
+          "message_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Message Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id"
+        ],
+        "title": "WaitingIn",
+        "type": "object"
+      },
+      "WaitingOut": {
+        "description": "A message in the review queue (held, or too large to take in).",
+        "properties": {
+          "message_id": {
+            "title": "Message Id",
+            "type": "string"
+          },
+          "outcome": {
+            "enum": [
+              "held",
+              "too_large"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code; the UI shows its label.",
+            "title": "Reason"
+          },
+          "reason_params": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Reason Params",
+            "type": "object"
+          },
+          "received_at": {
+            "format": "date-time",
+            "title": "Received At",
+            "type": "string"
+          },
+          "releasable": {
+            "description": "Whether handing it in again can help.",
+            "title": "Releasable",
+            "type": "boolean"
+          },
+          "sender": {
+            "title": "Sender",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message_id",
+          "sender",
+          "subject",
+          "outcome",
+          "reason",
+          "reason_params",
+          "received_at",
+          "releasable"
+        ],
+        "title": "WaitingOut",
         "type": "object"
       },
       "Widget-Input": {
@@ -35425,6 +36153,790 @@
         "summary": "Show others you are writing",
         "tags": [
           "incidents"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes": {
+      "get": {
+        "description": "Every mailbox with its state (the mail page, REQ-ADM-066 AC1).",
+        "operationId": "list_mailboxes_api_v1_integrations_mailboxes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MailboxOut"
+                  },
+                  "title": "Response List Mailboxes Api V1 Integrations Mailboxes Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Mailboxes",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "post": {
+        "description": "Send an Idempotency-Key: a retried request returns the same 201.",
+        "operationId": "create_mailbox_api_v1_integrations_mailboxes_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailboxIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}": {
+      "delete": {
+        "description": "Stop reading it; the records it made keep their history.",
+        "operationId": "remove_mailbox_api_v1_integrations_mailboxes__mailbox_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "patch": {
+        "description": "If-Match: the version you read. A connection change is tested again at the next fetch.",
+        "operationId": "update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MailboxPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
+      "post": {
+        "description": "Connects and looks for new mail; changes nothing on the server or here.",
+        "operationId": "test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectionTestIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionTestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Test a mailbox's connection",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting": {
+      "get": {
+        "description": "The review queue: held mail is never invisible (D-109 (9)).",
+        "operationId": "waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WaitingOut"
+                  },
+                  "title": "Response Waiting Mail Api V1 Integrations Mailboxes  Mailbox Id  Waiting Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Mail waiting for an admin",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard": {
+      "post": {
+        "description": "It stays in the ledger as discarded, without its copy.",
+        "operationId": "discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not waiting any more (mail_not_waiting)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Discard a waiting message",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release": {
+      "post": {
+        "description": "Without the flood check; held again, with the new reason, if it still cannot be taken in.",
+        "operationId": "release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaitingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleasedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not waiting any more (mail_not_waiting)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Hand a held message in again",
+        "tags": [
+          "integrations"
         ]
       }
     },
