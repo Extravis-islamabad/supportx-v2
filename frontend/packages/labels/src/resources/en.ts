@@ -4158,6 +4158,9 @@ export const en = {
   'antd.transfer.select_all': 'Select all data',
   'antd.transfer.select_current': 'Select current page',
   'antd.transfer.select_invert': 'Invert current page',
+  'role.knowledge_manager': 'Knowledge manager',
+  'role.knowledge_manager.description':
+    'Writes, reviews and publishes knowledge articles for the whole organisation.',
 } as const;
 
 export type LabelKey = keyof typeof en;

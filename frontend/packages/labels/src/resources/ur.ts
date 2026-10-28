@@ -3762,4 +3762,7 @@ export const ur: LabelResource = {
   'antd.transfer.select_all': 'تمام ڈیٹا منتخب کریں',
   'antd.transfer.select_current': 'موجودہ صفحہ منتخب کریں',
   'antd.transfer.select_invert': 'موجودہ صفحے کا انتخاب الٹ دیں',
+  'role.knowledge_manager': 'نالج مینیجر',
+  'role.knowledge_manager.description':
+    'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
 };

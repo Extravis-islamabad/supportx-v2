@@ -4224,4 +4224,6 @@ export const ar: LabelResource = {
   'antd.transfer.select_all': 'تحديد كل البيانات',
   'antd.transfer.select_current': 'تحديد الصفحة الحالية',
   'antd.transfer.select_invert': 'عكس تحديد الصفحة الحالية',
+  'role.knowledge_manager': 'مدير المعرفة',
+  'role.knowledge_manager.description': 'يكتب مقالات المعرفة ويراجعها وينشرها للمؤسسة بأكملها.',
 };
