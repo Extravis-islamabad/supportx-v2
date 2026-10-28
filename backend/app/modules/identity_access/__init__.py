@@ -132,6 +132,14 @@ def _worker_policy() -> PolicyService:
     )
 
 
+def worker_policy() -> PolicyService:
+    """The policy service for code without the app (workers, jobs), as the API decides.
+
+    For example the `holders` of an incident made from mail (WP-024).
+    """
+    return _worker_policy()
+
+
 async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:
     """The user's compiled subject, read from the database now (no cache), for workers and jobs.
 
@@ -303,4 +311,5 @@ __all__ = [
     "user_contacts",
     "user_names",
     "visible",
+    "worker_policy",
 ]
