@@ -253,4 +253,66 @@ describe('WP-036 QA fixes', () => {
     expect(overlap).toBe(false);
     expect(two).toMatchObject({ x: 3, y: 2 }); // pushed below, as the free grid does
   });
+
+  it("BUG-03: a widget from a built-in report or a quick chart is named by its label, never by the adder's words", async () => {
+    window.history.pushState({}, '', `/dashboards/${MINE.ref}`);
+    const builtin = {
+      code: 'incidents_received_per_day',
+      folder: 'incidents',
+      definition: { ...chart.report, chart: 'line' },
+    };
+    const fake = api({
+      me: fakeSession(),
+      routes: routes({
+        'GET /api/v1/reports/library': {
+          body: { builtin: [builtin], folders: [], reports: [], favourites: [] },
+        },
+        'GET /api/v1/reports/entities/incident': {
+          body: {
+            ...ENTITY,
+            fields: [
+              ...ENTITY.fields,
+              {
+                name: 'priority',
+                type: 'enum',
+                values: [],
+                multiple: false,
+                dimension: { kind: 'code' },
+              },
+            ],
+            measures: [{ code: 'count', unit: 'count', better: 'neutral' }],
+          },
+        },
+        [`PATCH /api/v1/dashboards/${MINE.ref}`]: { body: { ...MINE, version: 4 } },
+      }),
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('dashboard-edit'));
+    // From a built-in report.
+    fireEvent.click(screen.getByTestId('dashboard-add-widget'));
+    fireEvent.click(within(screen.getByTestId('dashboard-add-source')).getByText('From a report'));
+    const pick = screen.getByTestId('dashboard-add-report');
+    fireEvent.mouseDown(pick.querySelector('.ant-select-selector') ?? pick);
+    fireEvent.click(await screen.findByTitle('Incidents received per day'));
+    fireEvent.click(screen.getByTestId('dashboard-add-confirm'));
+    // A quick chart grouped by priority, its title left as suggested.
+    fireEvent.click(screen.getByTestId('dashboard-add-widget'));
+    fireEvent.click(within(screen.getByTestId('dashboard-add-source')).getByText('Quick chart'));
+    const group = screen.getByTestId('dashboard-add-group');
+    fireEvent.mouseDown(group.querySelector('.ant-select-selector') ?? group);
+    fireEvent.click(await screen.findByTitle('Priority'));
+    fireEvent.click(screen.getByTestId('dashboard-add-confirm'));
+    fireEvent.click(screen.getByTestId('dashboard-done'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/dashboards/${MINE.ref}`)).toHaveLength(1);
+    });
+    const sent = fake.find('PATCH', `/api/v1/dashboards/${MINE.ref}`)[0]?.body as {
+      body: { widgets: { title?: string | null; title_key?: string | null }[] };
+    };
+    const [fromReport, quick] = sent.body.widgets.slice(-2);
+    expect(fromReport).toMatchObject({ title_key: 'report.incidents_received_per_day' });
+    expect(fromReport?.title ?? null).toBeNull();
+    expect(quick?.title ?? null).toBeNull();
+    expect(quick?.title_key).toMatch(/\.priority$/);
+  });
 });

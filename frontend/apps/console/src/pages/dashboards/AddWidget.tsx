@@ -13,7 +13,7 @@ import {
 import { useLabels } from '@supportx/labels';
 import { lengthLimit } from '@supportx/ui';
 
-import { INCIDENT_REPORT_FIELDS, useReportWords } from '../reports/names';
+import { fieldLabelKey, INCIDENT_REPORT_FIELDS, useReportWords } from '../reports/names';
 import { widgetDefinition } from './widgetDefinition';
 import { Widget } from './Widget';
 
@@ -72,10 +72,19 @@ export function AddWidget({
   const kpi = source === 'quick' && (chart === 'kpi' || group === undefined);
   const widget: DashboardWidget | null = useMemo(() => {
     const place = kpi ? { x: 0, y: below, w: 3, h: 2 } : { x: 0, y: below, w: 6, h: 4 };
+    // A title typed by the user is theirs; otherwise a shipped name is kept as its label key, so
+    // every viewer reads it in their own language (QA WP-036 BUG-03).
+    const typed = title.trim();
     if (source === 'report') {
       if (!reportRef) return null;
+      if (typed) return { id, title: typed, report_ref: reportRef, place };
+      if (reportRef.startsWith('builtin:')) {
+        const code = reportRef.slice('builtin:'.length);
+        return { id, title_key: `report.${code}`, report_ref: reportRef, place };
+      }
+      // A saved report's name is its owner's own words.
       const name = reports.find((r) => r.value === reportRef)?.label ?? '';
-      return { id, title: title.trim() || name, report_ref: reportRef, place };
+      return { id, title: name, report_ref: reportRef, place };
     }
     const report: ReportDefinition = {
       schema_version: 1,
@@ -86,9 +95,12 @@ export function AddWidget({
       chart: kpi ? 'kpi' : chart,
       percent,
     };
+    if (typed) return { id, title: typed, report, place };
+    // A custom field's name is the admin's own words; shipped fields and measures have labels.
+    if (group?.startsWith('custom.')) return { id, title: words.field(group), report, place };
     return {
       id,
-      title: title.trim() || (group ? words.field(group) : words.measure('incident', measure).name),
+      title_key: group ? fieldLabelKey(group) : `measure.incident.${measure}`,
       report,
       place,
     };
