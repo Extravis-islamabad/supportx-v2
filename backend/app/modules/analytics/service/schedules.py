@@ -19,7 +19,7 @@ worker builds and mails the files.
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from datetime import time as time_type
 from html import escape
 from typing import Any
@@ -29,7 +29,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import Database
-from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.errors import (
+    AppError,
+    Conflict,
+    FieldError,
+    NotFound,
+    PermissionDenied,
+    ValidationFailed,
+)
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules import organization
@@ -39,7 +46,12 @@ from app.modules.analytics.domain.schedule import FAILURES_BEFORE_PAUSE, Frequen
 from app.modules.analytics.events import ReportScheduleDue, ReportScheduleRan, ReportScheduleSaved
 from app.modules.analytics.infra.models import ReportSchedule
 from app.modules.analytics.service import library
-from app.modules.analytics.service.exports import CONTENT_TYPES, Worker, render_file
+from app.modules.analytics.service.exports import (
+    CONTENT_TYPES,
+    Worker,
+    fail_stalled_exports,
+    render_file,
+)
 from app.modules.identity_access import Subject, mail_recipients
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -371,14 +383,18 @@ async def delete_schedule(
 
 
 async def due_sweep(database: Database, settings: Settings) -> None:
-    """Housekeeping, every minute: hand each due schedule to the worker and plan its next run."""
-    del settings
+    """Every minute: hand each due schedule to the worker, plan its next run, fail lost exports."""
+    # An export running longer than every allowed attempt could take was lost (worker crash).
+    stalled = datetime.now(UTC) - timedelta(
+        seconds=settings.report_background_timeout_seconds * settings.consumer_max_attempts + 60
+    )
     async with database.platform_session() as platform:
         # Every tenant: the platform function other modules' schedules use too (audit, mail).
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
     for tenant in tenants:
         async with database.tenant_session(TenantContext(tenant)) as session:
             await enqueue_due(session, datetime.now(UTC))
+            await fail_stalled_exports(session, stalled)
 
 
 async def enqueue_due(session: AsyncSession, now: datetime) -> int:
@@ -455,6 +471,20 @@ def _mail(  # noqa: PLR0913 - the message's parts, keyword-only
     )
 
 
+async def _owner(session: AsyncSession, row: ReportSchedule, worker: Worker) -> Subject | str:
+    """The owner's permissions now, or the problem that stops the run."""
+    if worker.load_subject is None:
+        return "owner_not_allowed"
+    try:
+        owner = await worker.load_subject(session, row.tenant_id, row.owner_id)
+    except AppError as error:
+        # Retrying will not bring a missing service back; record the run as failed instead of
+        # letting it dead-letter unseen, so failures count towards pausing (REQ-RPT-056).
+        log.error("report_subject_unavailable", code=error.code)  # noqa: TRY400 - code only
+        return "report_failed"
+    return owner if owner.holds(SCHEDULE) else "owner_not_allowed"
+
+
 async def run_schedule(  # noqa: C901 - one run, every outcome explicit
     session: AsyncSession, schedule_id: uuid.UUID, worker: Worker, settings: Settings
 ) -> ReportSchedule | None:
@@ -464,13 +494,9 @@ async def run_schedule(  # noqa: C901 - one run, every outcome explicit
         return row
     outcome = _Outcome()
     problem: str | None = None
-    owner = (
-        await worker.load_subject(session, row.tenant_id, row.owner_id)
-        if worker.load_subject
-        else None
-    )
-    if owner is None or not owner.holds(SCHEDULE):
-        return await _ran(session, row, outcome, "owner_not_allowed", pause=True)
+    owner = await _owner(session, row, worker)
+    if isinstance(owner, str):
+        return await _ran(session, row, outcome, owner, pause=owner == "owner_not_allowed")
     if not mail_configured(settings):
         return await _ran(session, row, outcome, "mail_not_configured")
     report = await definition_of(session, owner, row.report_ref)
