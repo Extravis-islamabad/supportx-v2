@@ -32,7 +32,7 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
-from app.modules.identity_access.events import UserCreated, UserStatusChanged, UserUpdated
+from app.modules.identity_access.events import UserCreatedV2, UserStatusChanged, UserUpdated
 from app.modules.identity_access.infra.models import Role, User, UserRole
 from app.modules.identity_access.service.directory import (
     USER_RECORD_TYPE,
@@ -245,7 +245,7 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     )
     await record_event(
         session,
-        UserCreated(user_id=person.id, user_type=user_type.value, source=source),
+        UserCreatedV2(user_id=person.id, user_type=user_type.value, source=source),
         aggregate_id=person.id,
         aggregate_version=person.version,
     )

@@ -5,6 +5,8 @@ removed at the end. Its TLS certificate is self-signed, so the TLS test also pro
 verifies certificates: it refuses with `imap_tls_failed` rather than trusting any server.
 """
 
+import contextlib
+import imaplib
 import secrets
 import shutil
 import smtplib
@@ -40,12 +42,21 @@ def _free_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def _answers(port: int) -> bool:
+def _ready(port: int) -> bool:
+    """The configured user can log in: GreenMail opens IMAP before it has created its users
+    (seen in CI), so the greeting alone is not enough."""
     try:
-        with socket.create_connection(("127.0.0.1", port), timeout=1) as conn:
-            return conn.recv(4).startswith(b"* OK")
-    except OSError:
+        client = imaplib.IMAP4("127.0.0.1", port, timeout=2)
+    except (OSError, imaplib.IMAP4.error):  # not listening yet, or closed before the greeting
         return False
+    try:
+        client.login(USER, PASSWORD)
+    except imaplib.IMAP4.error:
+        return False
+    finally:
+        with contextlib.suppress(imaplib.IMAP4.error, OSError):
+            client.logout()
+    return True
 
 
 @pytest.fixture(scope="module")
@@ -77,7 +88,7 @@ def server() -> Iterator[MailServer]:
     )  # fmt: skip
     try:
         deadline = time.monotonic() + READY_SECONDS
-        while not _answers(found.imap):
+        while not _ready(found.imap):
             if time.monotonic() > deadline:
                 pytest.fail("GreenMail did not start")
             time.sleep(0.5)

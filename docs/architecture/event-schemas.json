@@ -1392,6 +1392,39 @@
           "source": {
             "enum": [
               "admin",
+              "import"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreated",
+        "type": "object"
+      },
+      "2": {
+        "description": "As UserCreated, with `email` as a source: a mail sender made a requester (WP-024).\n\nA new allowed value retypes a field, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 stays registered for anything that still reads it. Published from WP-024 on.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
               "import",
               "email"
             ],
@@ -1417,7 +1450,7 @@
           "user_type",
           "source"
         ],
-        "title": "UserCreated",
+        "title": "UserCreatedV2",
         "type": "object"
       }
     },
