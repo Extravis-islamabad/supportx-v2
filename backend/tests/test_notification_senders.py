@@ -18,6 +18,8 @@ ALLOWED = {
     "modules/notifications": "the notification engine",
     "modules/identity_access": "account security mail (MFA reset): never switched off, D-104",
     "modules/analytics": "scheduled reports: the report file is the message, D-100",
+    "modules/integrations": "the answer to mail that created nothing: a reply to the sender's own "
+    "message, never to automatic mail (WP-024)",
 }
 
 
