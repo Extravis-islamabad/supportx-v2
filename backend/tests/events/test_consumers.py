@@ -87,6 +87,28 @@ async def test_handler_runs_in_the_events_tenant_with_an_idempotency_record(
     assert await probe_titles(app_db, a) == [str(event_a.event_id)]
 
 
+async def test_an_event_the_consumer_does_not_accept_is_acknowledged_without_a_claim(
+    app_db: Database,
+    make_runner: RunnerFactory,
+    tenant_pair: tuple[uuid.UUID, uuid.UUID],
+) -> None:
+    """A broad subscription (the notification engine's ">") reads only what it accepts (WP-023)."""
+    a, _ = tenant_pair
+    (event,) = await emit(app_db, a)
+    seen: list[str] = []
+    spec = recording_spec("probe__picky", seen)
+    picky = ConsumerSpec(
+        name=spec.name,
+        event_types=(">",),
+        handler=spec.handler,
+        accepts=lambda envelope: envelope.event_type != "probe.item.happened",
+    )
+    runner = make_runner(picky)
+    assert await runner.process(event) is True  # acknowledged
+    assert seen == []
+    assert await processed_rows(app_db, a, runner.name) == 0  # no claim row written
+
+
 async def test_crash_mid_handler_is_redelivered_and_applied_once(
     app_db: Database, make_relay: RelayFactory, make_runner: RunnerFactory, tenant: uuid.UUID
 ) -> None:
