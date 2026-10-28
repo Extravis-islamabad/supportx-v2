@@ -12,7 +12,13 @@ from app.shared.mail.domain.message import (
     MailRefused,
     OutgoingMail,
 )
-from app.shared.mail.service.outgoing import MailNotConfigured, mail_configured, queue_mail
+from app.shared.mail.service.outgoing import (
+    MailNotConfigured,
+    MailState,
+    mail_configured,
+    mail_states,
+    queue_mail,
+)
 
 __all__ = [
     "MAX_ATTACHMENT_BYTES",
@@ -21,8 +27,10 @@ __all__ = [
     "MailBrand",
     "MailNotConfigured",
     "MailRefused",
+    "MailState",
     "OutgoingMail",
     "mail_configured",
+    "mail_states",
     "queue_mail",
     "wrap_html",
 ]

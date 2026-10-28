@@ -15,6 +15,8 @@ Bodies and attachments are cleared `mail_content_retention_days` after the messa
 """
 
 import uuid
+from collections.abc import Collection
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from urllib.parse import urlsplit
 
@@ -166,6 +168,34 @@ async def deliver(
     row.next_attempt_at = None
     row.purge_after = now + timedelta(days=settings.mail_content_retention_days)
     return row.state
+
+
+@dataclass(frozen=True)
+class MailState:
+    """Where one queued message stands (for logs such as the notification log, REQ-NTF-020)."""
+
+    state: str  # queued | sent | failed
+    attempts: int
+    failure: str | None  # reason code of the last failure
+    sent_at: datetime | None
+
+
+async def mail_states(
+    session: AsyncSession, mail_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, MailState]:
+    """The state of each message (of the session's tenant); unknown IDs are left out."""
+    if not mail_ids:
+        return {}
+    rows = await session.execute(
+        select(
+            MailMessage.id,
+            MailMessage.state,
+            MailMessage.attempts,
+            MailMessage.failure,
+            MailMessage.sent_at,
+        ).where(MailMessage.id.in_(list(mail_ids)))
+    )
+    return {row.id: MailState(row.state, row.attempts, row.failure, row.sent_at) for row in rows}
 
 
 def retry_delay(attempts: int) -> timedelta:

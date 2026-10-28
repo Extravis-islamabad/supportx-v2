@@ -202,6 +202,8 @@ class ConsumerRunner:
 
     async def process(self, envelope: EventEnvelope) -> bool:
         """Run the handler once in effect. False when the event was already processed."""
+        if self.spec.accepts is not None and not self.spec.accepts(envelope):
+            return True
         if not self.spec.transactional or self.database is None:
             await self.spec.handler(envelope, None)
             return True

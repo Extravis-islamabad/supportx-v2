@@ -3308,6 +3308,158 @@ export const en = {
   'session.idle.sign_out': 'Sign out now',
   'forms.start_empty': 'Start empty',
   'forms.draft_restored': 'Your unsaved input was restored.',
+  // WP-023 notifications
+  'event_type.notifications.notification.created': 'Notification created',
+  'event_type.notifications.notification.read': 'Notifications read',
+  'event_type.notifications.delivery.recorded': 'Notification delivery recorded',
+  'event_type.notifications.rule.changed': 'Notification rule changed',
+  'event_type.notifications.preferences.changed': 'Notification preferences changed',
+  'audit.action.notification.rule_changed': 'Changed a notification rule',
+  'audit.action.notification.rule_reset': 'Reset a notification rule to the default',
+  'permission_module.notifications': 'Notifications',
+  'permission.notifications.manage': 'Manage notification rules',
+  'permission.notifications.manage.description':
+    'Choose which events notify whom, on which channels.',
+  'errors.notification_not_found': 'This notification does not exist or is not yours.',
+  'errors.notification_event_not_found': 'This notification event does not exist.',
+  'errors.notification_record_not_found': 'This record does not exist or is not available to you.',
+  'notification_category.created': 'New records',
+  'notification_category.assignment': 'Assignments',
+  'notification_category.conversation': 'Replies and notes',
+  'notification_category.status': 'Status changes',
+  'notification_category.mention': 'Mentions',
+  'notification_category.following': 'Following',
+  'notification_channel.in_app': 'In the app',
+  'notification_channel.email': 'E-mail',
+  'notification_condition_operator.in': 'is one of',
+  'notification_condition_operator.not_in': 'is not one of',
+  'notification_state.queued': 'Sending',
+  'notification_state.waiting': 'Waiting for mail set-up',
+  'notification_state.sent': 'Sent',
+  'notification_state.failed': 'Failed',
+  'notification_state.suppressed': 'Not sent',
+  'notification_reason.no_access': 'They can no longer see the record',
+  'notification_reason.preference': 'Switched off in their preferences',
+  'notification_reason.do_not_disturb': 'Do not disturb was on',
+  'notification_reason.no_address': 'Inactive, or no e-mail address',
+  'notification_reason.mail_refused': 'The mail server refused the message',
+  'notification_reason.gave_up': 'Delivery gave up after several tries',
+  'notification_recipient.requester': 'Requester',
+  'notification_recipient.on_behalf_of': 'Person it is for',
+  'notification_recipient.assignee': 'Assigned technician',
+  'notification_recipient.previous_assignee': 'Previous technician',
+  'notification_recipient.group': 'Group members',
+  'notification_recipient.group_head': 'Group lead and department head',
+  'notification_recipient.followers': 'Followers',
+  'notification_recipient.mentioned': 'People mentioned',
+  'notification_recipient.new_follower': 'The new follower',
+  'notification_event.incident.created': 'New incident: acknowledgement',
+  'notification_event.incident.created_in_group': 'New incident in a group',
+  'notification_event.incident.assigned': 'Incident assigned',
+  'notification_event.incident.public_reply': 'Public reply',
+  'notification_event.incident.public_note': 'Public note',
+  'notification_event.incident.private_note': 'Private note',
+  'notification_event.incident.requester_replied': 'Requester replied',
+  'notification_event.incident.mentioned': 'Mentioned',
+  'notification_event.incident.status_changed': 'Status changed',
+  'notification_event.incident.resolved': 'Incident resolved',
+  'notification_event.incident.closed': 'Incident closed',
+  'notification_event.incident.reopened': 'Incident reopened',
+  'notification_event.incident.canceled': 'Incident canceled',
+  'notification_event.incident.follower_added': 'Added as a follower',
+  'notification_variable.record.display_id': 'Record › ID',
+  'notification_variable.record.title': 'Record › Subject',
+  'notification_variable.record.priority': 'Record › Priority',
+  'notification_variable.record.status': 'Record › Status',
+  'notification_variable.record.link': 'Record › Link',
+  'notification_variable.requester.name': 'Requester › Name',
+  'notification_variable.assignee.name': 'Technician › Name',
+  'notification_variable.actor.name': 'Changed by › Name',
+  'notification_variable.recipient.name': 'Recipient › Name',
+  'notification_variable.conversation.author': 'Reply or note › Author',
+  'notification_variable.conversation.excerpt': 'Reply or note › Text',
+  'notification_variable.change.from_status': 'Change › Previous status',
+  'notification.open_record': 'Open {{id}}',
+  'notification_template.incident.created.in_app':
+    'We received {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created.subject':
+    'We received your request {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created.body':
+    'Hello {{ recipient.name }},\n\nWe received your request "{{ record.title }}" and logged it as {{ record.display_id }}. We will keep you updated.',
+  'notification_template.incident.created_in_group.in_app':
+    'New in your group: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.created_in_group.subject':
+    'New incident {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created_in_group.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" arrived in your group.\n\nPriority: {{ record.priority }}\nRequester: {{ requester.name }}',
+  'notification_template.incident.assigned.in_app':
+    '{{ record.display_id }} is assigned to {{ assignee.name }}: {{ record.title }}',
+  'notification_template.incident.assigned.subject':
+    'Assigned to {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assigned.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now assigned to {{ assignee.name }}.\n\nPriority: {{ record.priority }}\nStatus: {{ record.status }}\nRequester: {{ requester.name }}',
+  'notification_template.incident.public_reply.in_app':
+    '{{ conversation.author }} replied on {{ record.display_id }}',
+  'notification_template.incident.public_reply.subject':
+    'New reply on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.public_reply.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} replied on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.public_note.in_app':
+    '{{ conversation.author }} added a note on {{ record.display_id }}',
+  'notification_template.incident.public_note.subject':
+    'New note on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.public_note.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} added a note on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.private_note.in_app':
+    '{{ conversation.author }} added a private note on {{ record.display_id }}',
+  'notification_template.incident.private_note.subject':
+    'Private note on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.private_note.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} added a private note on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.requester_replied.in_app':
+    '{{ conversation.author }} (requester) replied on {{ record.display_id }}',
+  'notification_template.incident.requester_replied.subject':
+    'The requester replied on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.requester_replied.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} replied on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.mentioned.in_app':
+    '{{ conversation.author }} mentioned you on {{ record.display_id }}',
+  'notification_template.incident.mentioned.subject':
+    'You were mentioned on {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.mentioned.body':
+    'Hello {{ recipient.name }},\n\n{{ conversation.author }} mentioned you on {{ record.display_id }} "{{ record.title }}":\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.status_changed.in_app':
+    '{{ record.display_id }} is now {{ record.status }}',
+  'notification_template.incident.status_changed.subject':
+    '{{ record.display_id }} is now {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.status_changed.body':
+    'Hello {{ recipient.name }},\n\nThe status of {{ record.display_id }} "{{ record.title }}" changed from {{ change.from_status }} to {{ record.status }}.',
+  'notification_template.incident.resolved.in_app': '{{ record.display_id }} was resolved',
+  'notification_template.incident.resolved.subject':
+    'Resolved: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.resolved.body':
+    'Hello {{ recipient.name }},\n\nWe have resolved {{ record.display_id }} "{{ record.title }}". If the problem is still there, reply to let us know.',
+  'notification_template.incident.closed.in_app': '{{ record.display_id }} was closed',
+  'notification_template.incident.closed.subject':
+    'Closed: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.closed.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" is now closed.',
+  'notification_template.incident.reopened.in_app': '{{ record.display_id }} was reopened',
+  'notification_template.incident.reopened.subject':
+    'Reopened: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.reopened.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was reopened and needs attention again.\n\nStatus: {{ record.status }}',
+  'notification_template.incident.canceled.in_app': '{{ record.display_id }} was canceled',
+  'notification_template.incident.canceled.subject':
+    'Canceled: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.canceled.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was canceled.',
+  'notification_template.incident.follower_added.in_app':
+    'You now follow {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.follower_added.subject':
+    'You now follow {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.follower_added.body':
+    'Hello {{ recipient.name }},\n\nYou now follow {{ record.display_id }} "{{ record.title }}" and will hear about its updates.',
 } as const;
 
 export type LabelKey = keyof typeof en;

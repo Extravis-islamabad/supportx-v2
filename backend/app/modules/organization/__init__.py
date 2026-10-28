@@ -39,6 +39,7 @@ from app.modules.organization.service.file_access import FILE_ACCESS
 from app.modules.organization.service.hosts import HostTenant, tenant_for_host
 from app.modules.organization.service.realtime import ROUTES
 from app.modules.organization.service.structure import (
+    SiteDefaults,
     active_unit_ids,
     count_desks,
     default_desk_id,
@@ -48,6 +49,7 @@ from app.modules.organization.service.structure import (
     find_department,
     find_site,
     leave_groups,
+    site_defaults,
     unit_heads,
 )
 from app.modules.organization.service.tenants import get_current_tenant
@@ -115,6 +117,7 @@ __all__ = [
     "EmailBranding",
     "HostTenant",
     "Memberships",
+    "SiteDefaults",
     "TenantStatus",
     "TenantView",
     "active_unit_ids",
@@ -133,6 +136,7 @@ __all__ = [
     "memberships",
     "module",
     "register_usage",
+    "site_defaults",
     "tenant_for_host",
     "unit_heads",
     "users_in_groups",

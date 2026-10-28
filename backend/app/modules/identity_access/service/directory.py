@@ -378,3 +378,39 @@ async def mail_recipients(
             language=_mail_language(row.ui_locale or row.locale),
         )
     return found
+
+
+@dataclass(frozen=True)
+class NotifiablePerson:
+    """Who gets a notification, in which language and zone (WP-023, REQ-INC-133)."""
+
+    name: str
+    email: str | None  # in-app notifications need no address
+    language: Language | None  # None: they chose none; the site's default applies
+    time_zone: str | None  # None: the site's or the tenant's zone
+
+
+async def notifiable_people(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, NotifiablePerson]:
+    """Active users of the session's tenant, in one query; inactive and unknown are left out."""
+    if not user_ids:
+        return {}
+    rows = await session.execute(
+        select(
+            User.id, User.display_name, User.email, User.ui_locale, User.locale, User.time_zone
+        ).where(
+            User.id.in_(list(user_ids)),
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
+    )
+    return {
+        row.id: NotifiablePerson(
+            name=row.display_name,
+            email=row.email or None,
+            language=_mail_language(code) if (code := row.ui_locale or row.locale) else None,
+            time_zone=row.time_zone,
+        )
+        for row in rows
+    }

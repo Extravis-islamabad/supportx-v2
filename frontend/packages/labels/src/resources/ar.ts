@@ -3255,4 +3255,156 @@ export const ar: LabelResource = {
   'session.idle.sign_out': 'تسجيل الخروج الآن',
   'forms.start_empty': 'البدء من جديد',
   'forms.draft_restored': 'استُعيد ما أدخلته ولم يُحفظ.',
+  // WP-023 notifications
+  'event_type.notifications.notification.created': 'أُنشئ إشعار',
+  'event_type.notifications.notification.read': 'قُرئت الإشعارات',
+  'event_type.notifications.delivery.recorded': 'سُجّل إرسال إشعار',
+  'event_type.notifications.rule.changed': 'تغيّرت قاعدة إشعار',
+  'event_type.notifications.preferences.changed': 'تغيّرت تفضيلات الإشعارات',
+  'audit.action.notification.rule_changed': 'غيّر قاعدة إشعار',
+  'audit.action.notification.rule_reset': 'أعاد قاعدة إشعار إلى الافتراضي',
+  'permission_module.notifications': 'الإشعارات',
+  'permission.notifications.manage': 'إدارة قواعد الإشعارات',
+  'permission.notifications.manage.description':
+    'اختيار الأحداث التي تُرسل إشعارات ولمن وعبر أي قنوات.',
+  'errors.notification_not_found': 'هذا الإشعار غير موجود أو ليس لك.',
+  'errors.notification_event_not_found': 'حدث الإشعار هذا غير موجود.',
+  'errors.notification_record_not_found': 'هذا السجل غير موجود أو غير متاح لك.',
+  'notification_category.created': 'السجلات الجديدة',
+  'notification_category.assignment': 'الإسنادات',
+  'notification_category.conversation': 'الردود والملاحظات',
+  'notification_category.status': 'تغييرات الحالة',
+  'notification_category.mention': 'الإشارات',
+  'notification_category.following': 'المتابعة',
+  'notification_channel.in_app': 'داخل التطبيق',
+  'notification_channel.email': 'البريد الإلكتروني',
+  'notification_condition_operator.in': 'أحد',
+  'notification_condition_operator.not_in': 'ليس أحد',
+  'notification_state.queued': 'قيد الإرسال',
+  'notification_state.waiting': 'بانتظار إعداد البريد',
+  'notification_state.sent': 'أُرسل',
+  'notification_state.failed': 'فشل',
+  'notification_state.suppressed': 'لم يُرسل',
+  'notification_reason.no_access': 'لم يعد بإمكانه رؤية السجل',
+  'notification_reason.preference': 'أُوقف في تفضيلاته',
+  'notification_reason.do_not_disturb': 'كان وضع عدم الإزعاج مفعّلًا',
+  'notification_reason.no_address': 'غير نشط أو بلا بريد إلكتروني',
+  'notification_reason.mail_refused': 'رفض خادم البريد الرسالة',
+  'notification_reason.gave_up': 'توقف الإرسال بعد عدة محاولات',
+  'notification_recipient.requester': 'مقدّم الطلب',
+  'notification_recipient.on_behalf_of': 'الشخص المعني',
+  'notification_recipient.assignee': 'الفني المُسند',
+  'notification_recipient.previous_assignee': 'الفني السابق',
+  'notification_recipient.group': 'أعضاء المجموعة',
+  'notification_recipient.group_head': 'قائد المجموعة ورئيس القسم',
+  'notification_recipient.followers': 'المتابعون',
+  'notification_recipient.mentioned': 'الأشخاص المُشار إليهم',
+  'notification_recipient.new_follower': 'المتابع الجديد',
+  'notification_event.incident.created': 'حادث جديد: إشعار بالاستلام',
+  'notification_event.incident.created_in_group': 'حادث جديد في مجموعة',
+  'notification_event.incident.assigned': 'أُسند حادث',
+  'notification_event.incident.public_reply': 'رد عام',
+  'notification_event.incident.public_note': 'ملاحظة عامة',
+  'notification_event.incident.private_note': 'ملاحظة خاصة',
+  'notification_event.incident.requester_replied': 'ردّ مقدّم الطلب',
+  'notification_event.incident.mentioned': 'إشارة',
+  'notification_event.incident.status_changed': 'تغيّرت الحالة',
+  'notification_event.incident.resolved': 'حُلّ الحادث',
+  'notification_event.incident.closed': 'أُغلق الحادث',
+  'notification_event.incident.reopened': 'أُعيد فتح الحادث',
+  'notification_event.incident.canceled': 'أُلغي الحادث',
+  'notification_event.incident.follower_added': 'أُضيف كمتابع',
+  'notification_variable.record.display_id': 'السجل › المعرّف',
+  'notification_variable.record.title': 'السجل › الموضوع',
+  'notification_variable.record.priority': 'السجل › الأولوية',
+  'notification_variable.record.status': 'السجل › الحالة',
+  'notification_variable.record.link': 'السجل › الرابط',
+  'notification_variable.requester.name': 'مقدّم الطلب › الاسم',
+  'notification_variable.assignee.name': 'الفني › الاسم',
+  'notification_variable.actor.name': 'غيّره › الاسم',
+  'notification_variable.recipient.name': 'المستلم › الاسم',
+  'notification_variable.conversation.author': 'الرد أو الملاحظة › الكاتب',
+  'notification_variable.conversation.excerpt': 'الرد أو الملاحظة › النص',
+  'notification_variable.change.from_status': 'التغيير › الحالة السابقة',
+  'notification.open_record': 'فتح {{id}}',
+  'notification_template.incident.created.in_app':
+    'استلمنا {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created.subject':
+    'استلمنا طلبك {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created.body':
+    'مرحبًا {{ recipient.name }}،\n\nاستلمنا طلبك «{{ record.title }}» وسجّلناه برقم {{ record.display_id }}. سنبقيك على اطلاع.',
+  'notification_template.incident.created_in_group.in_app':
+    'جديد في مجموعتك: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.created_in_group.subject':
+    'حادث جديد {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created_in_group.body':
+    'مرحبًا {{ recipient.name }}،\n\nوصل {{ record.display_id }} «{{ record.title }}» إلى مجموعتك.\n\nالأولوية: {{ record.priority }}\nمقدّم الطلب: {{ requester.name }}',
+  'notification_template.incident.assigned.in_app':
+    'أُسند {{ record.display_id }} إلى {{ assignee.name }}: {{ record.title }}',
+  'notification_template.incident.assigned.subject':
+    'أُسند إلى {{ assignee.name }}: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assigned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبح {{ record.display_id }} «{{ record.title }}» مُسندًا إلى {{ assignee.name }}.\n\nالأولوية: {{ record.priority }}\nالحالة: {{ record.status }}\nمقدّم الطلب: {{ requester.name }}',
+  'notification_template.incident.public_reply.in_app':
+    'ردّ {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.incident.public_reply.subject':
+    'رد جديد على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.public_reply.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.public_note.in_app':
+    'أضاف {{ conversation.author }} ملاحظة على {{ record.display_id }}',
+  'notification_template.incident.public_note.subject':
+    'ملاحظة جديدة على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.public_note.body':
+    'مرحبًا {{ recipient.name }}،\n\nأضاف {{ conversation.author }} ملاحظة على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.private_note.in_app':
+    'أضاف {{ conversation.author }} ملاحظة خاصة على {{ record.display_id }}',
+  'notification_template.incident.private_note.subject':
+    'ملاحظة خاصة على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.private_note.body':
+    'مرحبًا {{ recipient.name }}،\n\nأضاف {{ conversation.author }} ملاحظة خاصة على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.requester_replied.in_app':
+    'ردّ مقدّم الطلب {{ conversation.author }} على {{ record.display_id }}',
+  'notification_template.incident.requester_replied.subject':
+    'ردّ مقدّم الطلب على {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.requester_replied.body':
+    'مرحبًا {{ recipient.name }}،\n\nردّ {{ conversation.author }} على {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.mentioned.in_app':
+    'أشار إليك {{ conversation.author }} في {{ record.display_id }}',
+  'notification_template.incident.mentioned.subject':
+    'أُشير إليك في {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.mentioned.body':
+    'مرحبًا {{ recipient.name }}،\n\nأشار إليك {{ conversation.author }} في {{ record.display_id }} «{{ record.title }}»:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.status_changed.in_app':
+    'أصبح {{ record.display_id }} الآن {{ record.status }}',
+  'notification_template.incident.status_changed.subject':
+    'أصبح {{ record.display_id }} الآن {{ record.status }}: {{ record.title }}',
+  'notification_template.incident.status_changed.body':
+    'مرحبًا {{ recipient.name }}،\n\nتغيّرت حالة {{ record.display_id }} «{{ record.title }}» من {{ change.from_status }} إلى {{ record.status }}.',
+  'notification_template.incident.resolved.in_app': 'حُلّ {{ record.display_id }}',
+  'notification_template.incident.resolved.subject':
+    'تم الحل: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.resolved.body':
+    'مرحبًا {{ recipient.name }}،\n\nحللنا {{ record.display_id }} «{{ record.title }}». إذا استمرت المشكلة، ردّ لإعلامنا.',
+  'notification_template.incident.closed.in_app': 'أُغلق {{ record.display_id }}',
+  'notification_template.incident.closed.subject':
+    'أُغلق: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.closed.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبح {{ record.display_id }} «{{ record.title }}» مغلقًا الآن.',
+  'notification_template.incident.reopened.in_app': 'أُعيد فتح {{ record.display_id }}',
+  'notification_template.incident.reopened.subject':
+    'أُعيد فتحه: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.reopened.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُعيد فتح {{ record.display_id }} «{{ record.title }}» ويحتاج إلى متابعة مجددًا.\n\nالحالة: {{ record.status }}',
+  'notification_template.incident.canceled.in_app': 'أُلغي {{ record.display_id }}',
+  'notification_template.incident.canceled.subject':
+    'أُلغي: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.canceled.body':
+    'مرحبًا {{ recipient.name }}،\n\nأُلغي {{ record.display_id }} «{{ record.title }}».',
+  'notification_template.incident.follower_added.in_app':
+    'أصبحت تتابع {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.follower_added.subject':
+    'أصبحت تتابع {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.follower_added.body':
+    'مرحبًا {{ recipient.name }}،\n\nأصبحت تتابع {{ record.display_id }} «{{ record.title }}» وستصلك تحديثاته.',
 };
