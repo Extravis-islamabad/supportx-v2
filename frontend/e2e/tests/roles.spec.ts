@@ -70,10 +70,11 @@ async function journey(admin: Page, user: Page, roleName: string): Promise<void>
   await expect(drawer.getByLabel(roleName)).toBeChecked();
   await expectAccessible(admin, 'user access drawer');
 
-  // The user's next request: exactly the role's sections are added.
+  // The user's next request: exactly the role's sections are added (reports.view also opens
+  // dashboards: a dashboard is made of reports, WP-036).
   await expect
     .poll(async () => menu(user), LIVE)
-    .toEqual(['home', 'requests', 'problems', 'knowledge', 'reports']);
+    .toEqual(['home', 'requests', 'problems', 'knowledge', 'dashboards', 'reports']);
 
   // Removing the role takes effect on the next request too.
   await drawer.getByLabel(roleName).click();
