@@ -3,12 +3,13 @@ import { resolve } from 'node:path';
 
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { passwordOf, REPO, SEEDED, USERS } from '../stack';
+import { CONSOLE_URL, passwordOf, REPO, SEEDED, USERS } from '../stack';
 import { expectAccessible } from './helpers';
 
 /**
  * WP-017 end to end (REQ-ADM-055, REQ-PRT-016, REQ-SEC-003, REQ-SEC-004), on two tenant addresses:
- * demo.localhost (Demo Company) and other.localhost (Other Company), both served by the console's
+ * demo.<console host> (Demo Company) and other.<console host> (Other Company), e.g.
+ * demo.localhost:5173 on the dev stack, both served by the console's
  * dev server. An admin brands Demo Company through the API (a logo and a colour); then:
  * - its address goes straight to its own, branded sign-in page, accessible in English and Arabic;
  * - signed in, the console shows the logo and favicon; a second save reaches an open console live;
@@ -16,8 +17,14 @@ import { expectAccessible } from './helpers';
  *
  * Demo Company's branding is put back to the default at the end (the suite's own change).
  */
-const DEMO = 'http://demo.localhost:5173';
-const OTHER = 'http://other.localhost:5173';
+/** A tenant's own address beside the console's: demo.localhost:5173 on the dev stack. */
+function tenantAddress(slug: string): string {
+  const url = new URL(CONSOLE_URL);
+  url.hostname = `${slug}.${url.hostname}`;
+  return url.origin;
+}
+const DEMO = tenantAddress('demo');
+const OTHER = tenantAddress('other');
 const BRAND = '#0b5394'; // white text 7.6:1
 const LOGO = resolve(REPO, 'docs/brand/supportx-icon.png');
 
@@ -67,15 +74,19 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
 }) => {
   test.setTimeout(180_000);
   // Tenant addresses are configured when the address's sign-in asks for its organization.
-  const probe = await page.request.get(`${DEMO}/api/v1/auth/login`, { maxRedirects: 0 });
+  // An address nobody answers (no tenant addresses on this stack) counts as not configured.
+  const asked = await page.request
+    .get(`${DEMO}/api/v1/auth/login`, { maxRedirects: 0 })
+    .then((probe) => probe.headers().location ?? '')
+    .catch(() => '');
   test.skip(
-    !(probe.headers().location ?? '').includes('organization%3Ademo'),
+    !asked.includes('organization%3Ademo'),
     'tenant addresses are not configured on this stack (SUPPORTX_TENANT_BASE_DOMAIN)',
   );
 
   await signInOn(page, DEMO, USERS.admin.email, passwordOf('admin'));
   await expect(page.getByTestId('user-menu')).toBeVisible();
-  expect(new URL(page.url()).host).toBe('demo.localhost:5173'); // the session stays on the address
+  expect(new URL(page.url()).host).toBe(new URL(DEMO).host); // the session stays on the address
   try {
     // A brand-manager upload, scanned, then saved with a colour and a product name.
     const uploaded = await page.request.post(
@@ -179,7 +190,9 @@ test('two tenants on two addresses: own sign-in page, own brand live everywhere,
       const { context, page: across } = await freshContext(browser);
       try {
         await signInOn(across, OTHER, USERS.admin.email, passwordOf('admin'));
-        await expect(across).toHaveURL(/other\.localhost:5173\/\?auth_error=no_organization/);
+        await expect(across).toHaveURL((url) =>
+          url.href.startsWith(`${OTHER}/?auth_error=no_organization`),
+        );
         const me = await across.request.get(`${OTHER}/api/v1/auth/me`);
         expect(me.status()).toBe(401);
       } finally {

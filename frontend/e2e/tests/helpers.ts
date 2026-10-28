@@ -32,6 +32,16 @@ export async function signInAs(page: Page, user: E2eUser, path = '/'): Promise<v
   }
 }
 
+/** The suite user's UI language as the server stores it (null: the identity provider's). */
+export async function storedLanguage(page: Page): Promise<string | null> {
+  const request = page.context().request;
+  const me = (await (await request.get('/api/v1/auth/me')).json()) as { user: { id: string } };
+  const user = (await (await request.get(`/api/v1/users/${me.user.id}`)).json()) as {
+    ui_locale: string | null;
+  };
+  return user.ui_locale;
+}
+
 /** Clear the suite user's stored UI language; true when there was one. */
 export async function resetLanguage(page: Page): Promise<boolean> {
   const request = page.context().request;

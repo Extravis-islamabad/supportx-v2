@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
+import { mailUnavailable } from '../mail';
 import { expectAccessible, resetLanguage, signInAs } from './helpers';
 
 /**
@@ -135,6 +136,9 @@ test('a CSV export turns ready in "My exports" with no reload (REQ-RPT-058)', as
 });
 
 test('a scheduled report appears, pauses and is deleted live', async ({ browser }) => {
+  // Scheduling refuses (mail_not_configured) where no mail sender is set up.
+  const noMail = mailUnavailable();
+  test.skip(noMail !== null, noMail ?? '');
   test.setTimeout(120_000);
   const { context, page } = await open(browser, '/reports');
   try {
