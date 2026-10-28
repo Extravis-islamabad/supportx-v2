@@ -8,8 +8,9 @@
   WP-021-FIX (D-096), 2026-10-27. Before them WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
   2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
   Lane B: WP-017-FIX (D-093, ADR-031 accepted, merged); WP-039 session 1 of 3 (D-094, ADR-036).
-- **Next work package:** WP-029 QA (~/Desktop/qa-wp029/, parts 1 and 2), then WP-020f,
-  WP-020d/e and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** WP-029-FIX (the WP-029 QA report, ~/Desktop/qa-wp029/QA-REPORT.md:
+  BUG-01..05, C1..C4, plus the availability follow-up), then WP-020f, WP-020d/e and WP-025
+  (lane A). Lanes: see docs/LANES.md.
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
   #84, scheduled reports); next: lane A's incident provider in the DB tests, English/Arabic e2e
@@ -562,9 +563,16 @@ New `automation` module (migration 0025); incidents register their rule fields (
   `transition_not_allowed`). Tests: `tests/db/test_automation_triggers_api.py` (12),
   `automation/tests/test_triggers_domain.py` (9), Vitest `automation-part2.test.tsx` (9), e2e
   `automation.spec.ts`.
-- [ ] Owed to lane C (WP-035 session 3): name resolvers for report exports (group, site,
-  department, desk; category, template, incident status and level; custom choices). Lane C
-  writes them in lane A's modules for lane A's review, registered at import.
+- [x] Name resolvers for report exports (group, site, department, desk; category path, template,
+  incident status and level; custom choices): written by lane C in lane A's modules, reviewed by
+  lane A, merged with #84 (2026-10-28).
+- [ ] Kept drafts (REQ-INC-019, REQ-SEC-029 AC2): the new-incident form keeps its input through a
+  timeout (lane B, #87). The record page's in-place edits and the reply/note composer follow in
+  WP-020d/e (lane A).
+- [x] QA round on main (2026-10-28, ~/Desktop/qa-wp029/QA-REPORT.md): 14 e2e journeys pass;
+  5 bugs (refusal message shows `{{message}}` and twice; editor problems don't name the field;
+  Arabic plural forms fall back to English; automation conflict dialog doesn't say who/what)
+  and 4 cosmetic notes, for WP-029-FIX.
 - [ ] Later: "test against an existing record", drag-and-drop ordering (buttons for now),
   notification / approval / task / webhook actions with their WPs.
 
@@ -952,6 +960,16 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - QA lock from lane B/A; `reports.spec.ts` on the shared stack. Fixed: status tag contrast,
   exports and schedule runs failing visibly when the worker lacks a service, a stalled-export
   sweep. Reported to lane B: the consumers worker had no entitlement service (#91).
+
+### 2026-10-28 — WP-029 merged and QA'd (lane A)
+
+- Merged #71 (WP-021-FIX), #75 (private Keycloak for tests), #74 and #78 (WP-029 parts 1 and 2);
+  #81 (layout tests wait for fonts) landed through #78. Migration chain …0029 → 0031 → 0025 → 0028.
+- The automation e2e journey found and fixed: unlabelled editor inputs, banner links, faint empty
+  tables, field lists sorted by internal name; test data leaking between journeys.
+- QA round on main with the lock: shared DB got lane C's skipped 0029/0031 (additive, db-guard
+  PASS); backend/.env regenerated (old copy kept as backend/.env.before-wp029-qa); Keycloak
+  recreated from the main folder. Report: ~/Desktop/qa-wp029/QA-REPORT.md.
 
 ### 2026-10-28 — WP-035: report tests on the real incident source (lane C)
 - Lane A's #74 merged: the report, export and schedule DB tests now run through
