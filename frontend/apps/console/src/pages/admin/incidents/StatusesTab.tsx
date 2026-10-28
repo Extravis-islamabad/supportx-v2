@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Flex, Select, Table, Tag, Typography } from 'antd';
+import { Badge, Button, Card, Flex, Select, Switch, Table, Tag, Typography } from 'antd';
 import { useState } from 'react';
 
 import type { IncidentCatalogue, ReasonMode } from '@supportx/api-client';
@@ -22,6 +22,8 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
   const { locale } = useAppearance();
   const { save, conflictDialog, pending, problems, clear } = useSettingsSave();
   const [editing, setEditing] = useState<Status | null>(null);
+  // Which card's save a refusal belongs to: shown there, not in both (QA WP-029 BUG-02).
+  const [origin, setOrigin] = useState<'statuses' | 'prompts'>('prompts');
   const opened = useOpenedVersion(editing !== null, catalogue.version);
   const close = () => {
     clear();
@@ -34,6 +36,11 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     <Flex vertical gap={16}>
       <Card title={t('settings.statuses')} data-testid="settings-statuses">
         <Typography.Paragraph type="secondary">{t('settings.statuses_help')}</Typography.Paragraph>
+        {editing === null && origin === 'statuses' && problems.length > 0 && (
+          <Typography.Text type="danger" role="alert" data-testid="settings-statuses-problems">
+            {problems.join(' ')}
+          </Typography.Text>
+        )}
         <Table
           size="small"
           rowKey="code"
@@ -60,6 +67,30 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
               ),
             },
             {
+              // Paused statuses only: a requester's reply moves the record on (REQ-INC-051).
+              key: 'resume',
+              title: t('settings.resume_on_requester_reply'),
+              render: (_: unknown, status: Status) =>
+                status.category === 'paused' ? (
+                  <Switch
+                    checked={status.resume_on_requester_reply}
+                    disabled={pending}
+                    aria-label={t('settings.resume_on_requester_reply_for', {
+                      status: name(status.code),
+                    })}
+                    onChange={(checked) => {
+                      setOrigin('statuses');
+                      save({
+                        kind: 'status',
+                        code: status.code,
+                        body: { resume_on_requester_reply: checked },
+                      });
+                    }}
+                    data-testid={`status-resume-${status.code}`}
+                  />
+                ) : null,
+            },
+            {
               key: 'actions',
               title: t('settings.actions'),
               width: 160,
@@ -84,7 +115,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
         <Typography.Paragraph type="secondary">
           {t('settings.reason_prompts_help')}
         </Typography.Paragraph>
-        {editing === null && problems.length > 0 && (
+        {editing === null && origin === 'prompts' && problems.length > 0 && (
           <Typography.Text type="danger" role="alert">
             {problems.join(' ')}
           </Typography.Text>
@@ -126,6 +157,7 @@ export function StatusesTab({ catalogue }: { catalogue: IncidentCatalogue }) {
                   disabled={pending}
                   style={{ width: '100%' }}
                   onChange={(mode) => {
+                    setOrigin('prompts');
                     save({
                       kind: 'transition',
                       from: row.from_status,

@@ -2,7 +2,7 @@ import { screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { ToneTag } from './ToneTag';
-import { contrastRatio, TAG_TONES, TONES } from './tones';
+import { contrastRatio, TAG_TONES, TONES, type Tone } from './tones';
 import { renderUi } from './test/render';
 import type { ThemeMode } from './theme';
 
@@ -40,5 +40,15 @@ describe('BUG-01: tag colours', () => {
     const tag = screen.getByTestId('tag');
     expect(tag.getAttribute('data-tone')).toBe('warning');
     expect(tag.style.color).toBe('rgb(135, 77, 0)');
+  });
+
+  it('an unknown tone (a status the map does not know) falls back to the neutral one', () => {
+    const fromData: Record<string, string> = {};
+    renderUi(
+      <ToneTag tone={fromData.new_status as Tone} testId="tag">
+        New status
+      </ToneTag>,
+    );
+    expect(screen.getByTestId('tag').style.color).toBe('rgb(38, 38, 38)');
   });
 });

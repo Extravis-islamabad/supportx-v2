@@ -170,6 +170,12 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 FIELD_PROBLEMS = frozenset(
     {
         "required",
+        # WP-020f: closure rules and closing settings.
+        "required_to_resolve",
+        "required_to_close",
+        "auto_close_needs_notifications",
+        "not_for_this_status",
+        "out_of_range",
         "invalid_value",
         "value_too_long",
         "invalid_choice",

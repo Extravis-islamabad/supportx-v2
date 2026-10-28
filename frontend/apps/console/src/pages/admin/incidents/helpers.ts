@@ -65,6 +65,13 @@ const SETTING_NAMES: Record<string, string> = {
   reasons: 'settings.section.reasons',
   levels: 'pick_list.level',
   closure_codes: 'pick_list.closure_code',
+  closure: 'settings.closing.title',
+  resolve_requires: 'settings.closing.resolve_requires',
+  close_requires: 'settings.closing.close_requires',
+  open_work: 'settings.closing.open_work',
+  complete_open_work: 'settings.closing.complete_open_work',
+  auto_close_days: 'settings.closing.auto_close_days',
+  reopen_window_days: 'settings.closing.reopen_window_days',
 };
 const SCALES = new Set<string>(['impact', 'urgency', 'priority']);
 

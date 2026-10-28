@@ -196,6 +196,10 @@ test('rules, triggers, the loop guard and who may run a move, from admin screens
 
     // 4. Resolve: the trigger adds its note after the commit, shown with its outcome.
     await tech.page.getByTestId('inc-action-resolve').click();
+    // Resolving asks for the resolution (WP-020f, REQ-INC-090).
+    await tech.page.getByTestId('inc-resolution-editor').click();
+    await tech.page.keyboard.type('Restarted the service');
+    await tech.page.getByTestId('inc-reason-confirm').click();
     await tech.page.getByRole('tab', { name: 'Automation' }).click();
     await expect(tech.page.getByTestId('inc-automation')).toContainText(
       `E2E resolved ${tag}`,

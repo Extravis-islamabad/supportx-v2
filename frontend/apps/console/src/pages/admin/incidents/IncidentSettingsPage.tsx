@@ -5,6 +5,7 @@ import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
 import { NoAccess, useAccess, useLabel } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
+import { ClosingTab } from './ClosingTab';
 import { CustomFieldsTab } from './CustomFieldsTab';
 import { GeneralTab } from './GeneralTab';
 import { PickListEditor } from './PickListEditor';
@@ -23,6 +24,7 @@ const SECTIONS = [
   'categories',
   'levels',
   'closure-codes',
+  'closing',
   'reply-templates',
 ] as const;
 type Section = (typeof SECTIONS)[number];
@@ -111,6 +113,8 @@ export function IncidentSettingsPage() {
             values={cat.closure_codes}
           />
         );
+      case 'closing':
+        return <ClosingTab catalogue={cat} />;
       default:
         return null;
     }

@@ -18,7 +18,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
@@ -69,11 +69,13 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
 import { CategoryCascade } from './CategoryCascade';
 import {
   categoryPath,
+  closureCodeLabel,
   levelLabel,
   listValueLabel,
   personName,
@@ -411,6 +413,21 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   );
 }
 
+/** The incident this one follows: its display ID, a link to it (REQ-INC-098). */
+function FollowsLink({ id }: { id: string }) {
+  const t = useLabel();
+  const other = useIncident(id);
+  return (
+    <Link to={`/incidents/${id}`} data-testid="inc-follows">
+      {other.data === undefined ? (
+        t('incidents.closing.follows_earlier')
+      ) : (
+        <bdi dir="ltr">{other.data.display_id}</bdi>
+      )}
+    </Link>
+  );
+}
+
 /** Properties edited in place (REQ-INC-123) and the description (rich text). */
 function Details({
   item,
@@ -602,13 +619,43 @@ function Details({
       label: t('work_item.field.reopen_count'),
       view: String(item.reopen_count),
     },
+    // A requester's late reply started this record (REQ-INC-098, D7).
+    ...(item.follows_id === null
+      ? []
+      : [
+          {
+            key: 'follows_id',
+            label: t('work_item.field.follows_id'),
+            view: <FollowsLink id={item.follows_id} />,
+          },
+        ]),
   ];
   return (
     <Flex gap={16} wrap align="start">
-      <Card style={{ flex: '2 1 420px', minWidth: 0 }} title={t('work_item.field.description')}>
-        <Description item={item} canEdit={canEdit} reload={reload} onEditing={onEditing} />
-        <IncidentFiles item={item} canEdit={canEdit} />
-      </Card>
+      {/* The description, and below it the resolution once there is one (REQ-INC-090). */}
+      <Flex vertical gap={16} style={{ flex: '2 1 420px', minWidth: 0 }}>
+        <Card title={t('work_item.field.description')}>
+          <Description item={item} canEdit={canEdit} reload={reload} onEditing={onEditing} />
+          <IncidentFiles item={item} canEdit={canEdit} />
+        </Card>
+        {(item.resolution !== null || item.closure_code !== null) && (
+          <Card title={t('work_item.field.resolution')} data-testid="inc-resolution-card">
+            <Space direction="vertical" style={{ width: '100%' }}>
+              {item.resolution !== null && (
+                <RichTextView html={item.resolution} testId="inc-resolution" />
+              )}
+              {item.closure_code !== null && (
+                <Typography.Text data-testid="inc-closure-code-view">
+                  {t('incidents.closing.closure_code_shown', {
+                    code: closureCodeLabel(t, catalogue.data, item.closure_code, locale),
+                  })}
+                </Typography.Text>
+              )}
+              <AutoCloseNote item={item} catalogue={catalogue.data} />
+            </Space>
+          </Card>
+        )}
+      </Flex>
       {/* Properties and followers share one column beside the description. */}
       <Flex vertical gap={16} style={{ flex: '1 1 340px', minWidth: 0 }}>
         <Card title={t('incidents.properties')}>

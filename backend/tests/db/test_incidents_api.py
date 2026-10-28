@@ -109,12 +109,19 @@ class World:
         action: str,
         reason_code: str | None = None,
         reason_text: str | None = None,
+        **extra: Any,  # noqa: ANN401 - more of the move's body (resolution, closure code ...)
     ) -> httpx.Response:
         body: dict[str, Any] = {}
         if reason_code is not None:
             body["reason_code"] = reason_code
         if reason_text is not None:
             body["reason_text"] = reason_text
+        # The default closure rules (WP-020f): resolve asks for a resolution, close for a code.
+        if action == "resolve":
+            body.setdefault("resolution", "<p>Fixed.</p>")
+        if action == "close":
+            body.setdefault("closure_code", "fixed")
+        body.update(extra)
         return await self.call(
             "POST",
             f"{BASE}/{item['id']}/actions/{action}",
