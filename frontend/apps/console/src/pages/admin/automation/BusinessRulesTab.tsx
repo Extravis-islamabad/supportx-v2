@@ -27,17 +27,22 @@ import {
   type RuleOut,
 } from '@supportx/api-client';
 import {
+  FormProblem,
   ConflictDialog,
   ToneTag,
   lengthLimit,
+  markHandled,
   reportError,
+  useFormProblem,
   useAccess,
   useLabel,
   type Tone,
 } from '@supportx/ui';
 
 import { ConditionBuilder, ValueInput } from './fields';
-import { fieldOptions, fromTree, problemsOf, toTree, useFieldName, type Conditions } from './rules';
+import { fieldOptions, fromTree, toTree, useFieldName, type Conditions } from './rules';
+import { conditionAt, isAt, useEditorProblems, whereOf } from './problems';
+import { ProblemList } from './ProblemList';
 
 const RECORD_TYPE = 'incident';
 const STATE_TONE: Record<RuleOut['state'], Tone> = {
@@ -270,18 +275,22 @@ function RuleEditor({
   const [draft, setDraft] = useState<Draft>(() => draftOf(rule));
   const [opened, setOpened] = useState<string | undefined>(rule?.id);
   const [version, setVersion] = useState(rule?.version);
-  const [problems, setProblems] = useState<string[]>([]);
+  const issues = useEditorProblems();
+  const { problems } = issues;
+  // A refusal with no problem list (a rule, a limit) is shown here (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [conflict, setConflict] = useState<unknown>();
   if (open && opened !== (rule?.id ?? 'new')) {
     setOpened(rule?.id ?? 'new');
     setDraft(draftOf(rule));
     setVersion(rule?.version);
-    setProblems([]);
+    issues.clear();
+    problem.clear();
   }
   const stale = latest !== undefined && version !== undefined && latest.version !== version;
   const edit = (next: Partial<Draft>) => {
     setDraft({ ...draft, ...next });
-    setProblems([]);
+    issues.clear();
   };
   const body = () => ({
     name: draft.name,
@@ -297,11 +306,12 @@ function RuleEditor({
       setConflict(error);
       return;
     }
-    const found = problemsOf(t, error);
-    if (found.length > 0) setProblems(found);
-    else reportError(error);
+    // Each problem at its field, named and marked (QA WP-029 BUG-03).
+    if (issues.take(error)) markHandled(error);
+    else problem.show(error);
   };
   const save = (at = version) => {
+    problem.clear();
     const done = () => {
       void message.success(t('common.saved'));
       onClose();
@@ -331,23 +341,15 @@ function RuleEditor({
     >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {stale && <Alert type="warning" showIcon message={t('organization.changed_elsewhere')} />}
-        {problems.length > 0 && (
-          <Alert
-            type="error"
-            showIcon
-            data-testid="rule-problems"
-            message={t('automation.problems')}
-            description={
-              <ul style={{ margin: 0 }}>
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            }
-          />
-        )}
+        <FormProblem problem={problem} />
+        <ProblemList problems={problems} testId="rule-problems" />
         <Form layout="vertical">
-          <Form.Item label={t('automation.field_name')} htmlFor="rule-name" required>
+          <Form.Item
+            label={t('automation.field_name')}
+            validateStatus={issues.status('name')}
+            htmlFor="rule-name"
+            required
+          >
             <Input
               id="rule-name"
               value={draft.name}
@@ -358,7 +360,11 @@ function RuleEditor({
               data-testid="rule-name"
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_description')} htmlFor="rule-description">
+          <Form.Item
+            label={t('automation.field_description')}
+            validateStatus={issues.status('description')}
+            htmlFor="rule-description"
+          >
             <Input.TextArea
               id="rule-description"
               rows={2}
@@ -369,7 +375,11 @@ function RuleEditor({
               count={lengthLimit(2000)}
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_events')} required>
+          <Form.Item
+            label={t('automation.field_events')}
+            validateStatus={issues.status('events')}
+            required
+          >
             <Checkbox.Group
               value={draft.events}
               onChange={(next) => {
@@ -382,8 +392,12 @@ function RuleEditor({
               data-testid="rule-events"
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_conditions')}>
+          <Form.Item
+            label={t('automation.field_conditions')}
+            validateStatus={issues.status('conditions')}
+          >
             <ConditionBuilder
+              invalid={(index) => conditionAt(problems, index)}
               fields={all}
               value={draft.conditions}
               onChange={(conditions) => {
@@ -391,8 +405,13 @@ function RuleEditor({
               }}
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_actions')} required>
+          <Form.Item
+            label={t('automation.field_actions')}
+            validateStatus={issues.status('actions')}
+            required
+          >
             <ActionsEditor
+              invalid={(index) => isAt(problems, `actions.${String(index)}`)}
               fields={settable}
               actions={draft.actions}
               onChange={(actions) => {
@@ -414,7 +433,11 @@ function RuleEditor({
                 data-testid="rule-stop-after"
               />
             </Form.Item>
-            <Form.Item label={t('automation.field_state')} extra={t('automation.field_state.help')}>
+            <Form.Item
+              label={t('automation.field_state')}
+              validateStatus={issues.status('state')}
+              extra={t('automation.field_state.help')}
+            >
               <Select
                 value={draft.state}
                 onChange={(state: RuleOut['state']) => {
@@ -445,7 +468,9 @@ function RuleEditor({
       <ConflictDialog
         open={conflict !== undefined}
         error={conflict}
-        fieldLabel={(field) => t(`automation.field_${field}`)}
+        fieldLabel={(field) => whereOf(t, field)}
+        opened={rule}
+        latest={latest}
         onReload={() => {
           setConflict(undefined);
           onClose();
@@ -466,10 +491,13 @@ function ActionsEditor({
   fields,
   actions,
   onChange,
+  invalid,
 }: {
   fields: RuleFieldOut[];
   actions: RuleActionIO[];
   onChange: (next: RuleActionIO[]) => void;
+  /** Whether action `index` has a problem from the server (QA WP-029 BUG-03). */
+  invalid: (index: number) => boolean;
 }) {
   const t = useLabel();
   const name = useFieldName();
@@ -481,11 +509,20 @@ function ActionsEditor({
     <Space direction="vertical" style={{ width: '100%' }} data-testid="rule-actions">
       {actions.map((action, index) => {
         const field = action.field != null ? byName.get(action.field) : undefined;
+        const status = invalid(index) ? 'error' : undefined;
         return (
           // Actions have no ID: they are edited in place.
-          <Flex key={index} gap={8} wrap align="center" data-testid={`action-${String(index)}`}>
+          <Flex
+            key={index}
+            gap={8}
+            wrap
+            align="center"
+            data-testid={`action-${String(index)}`}
+            data-invalid={status}
+          >
             <Select
               aria-label={t('automation.action_kind')}
+              status={status}
               value={action.kind}
               onChange={(kind: RuleActionIO['kind']) => {
                 update(
@@ -515,6 +552,7 @@ function ActionsEditor({
                   }}
                   options={fieldOptions(fields, name)}
                   style={{ minWidth: 200 }}
+                  status={status}
                   data-testid={`action-${String(index)}-field`}
                 />
                 {field !== undefined && (

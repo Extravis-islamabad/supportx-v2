@@ -72,6 +72,15 @@ export class ApiError extends Error {
     return ENTITLEMENT_CODES.has(this.code);
   }
 
+  /**
+   * An expected answer, not a failure: the server understood the request and refused it with a
+   * reason the user can act on (a rule, a validation, a permission, a limit). Shown where the
+   * user acted, never as an error with a support reference (QA WP-029 BUG-02).
+   */
+  get isRefusal(): boolean {
+    return this.kind === 'client' && this.problem !== null;
+  }
+
   /** The service is (temporarily) unreachable: no answer, or a gateway/availability error. */
   get isOutage(): boolean {
     return this.kind === 'network' || [502, 503, 504].includes(this.status);

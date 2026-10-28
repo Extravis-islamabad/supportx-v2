@@ -89,6 +89,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['reports.manage_folders', 'all'],
   ['reports.schedule', 'all'],
   ['identity.manage', 'all'],
+  ['notifications.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
@@ -700,6 +701,53 @@ export function fakeFileStatus(
     failed: 0,
     not_scanned: 0,
     warnings: [],
+    ...overrides,
+  };
+}
+
+/** A notification centre entry (GET /notifications): unread unless overridden. */
+export function fakeNotification(
+  overrides: Partial<components['schemas']['NotificationOut']> = {},
+): components['schemas']['NotificationOut'] {
+  return {
+    id: '01900000-0000-7000-8000-00000000a001',
+    event_code: 'incident.assigned',
+    record_type: 'incident',
+    record_id: '01900000-0000-7000-8000-0000000001c1',
+    display_id: 'INC-12',
+    title: 'INC-12 is assigned to Tariq Technician: Mail is down',
+    link: '/incidents/01900000-0000-7000-8000-0000000001c1',
+    urgent: false,
+    read: false,
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+/** An event's rule as the rules screen gets it (the shipped default unless overridden). */
+export function fakeNotificationRule(
+  overrides: Partial<components['schemas']['NotificationRuleOut']> = {},
+): components['schemas']['NotificationRuleOut'] {
+  return {
+    event_code: 'incident.created',
+    record_type: 'incident',
+    category: 'created',
+    required: false,
+    is_default: true,
+    enabled: true,
+    recipients: ['requester'],
+    channels: ['in_app', 'email'],
+    user_ids: [],
+    group_ids: [],
+    conditions: [],
+    notify_actor: false,
+    default_enabled: true,
+    default_recipients: ['requester'],
+    recipient_kinds: ['requester', 'assignee', 'followers'],
+    condition_fields: ['priority'],
+    version: 0,
+    updated_at: null,
+    updated_by: null,
     ...overrides,
   };
 }

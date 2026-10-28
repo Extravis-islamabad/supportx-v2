@@ -11,8 +11,20 @@ import {
   type Incident,
   type IncidentActionState,
 } from '@supportx/api-client';
-import { reportError, useAppearance, useLabel, lengthLimit } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  markHandled,
+  reportError,
+  useAppearance,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  lengthLimit,
+  type FormProblemState,
+} from '@supportx/ui';
 
+import { incidentView, useIncidentFieldName } from './conflict';
 import { OperationButton } from './operations';
 import { labelled } from './labels';
 import { GroupPicker, TechnicianPicker } from './pickers';
@@ -71,8 +83,16 @@ function AssignBody({
   const [reasonCode, setReasonCode] = useState<string>();
   const [reasonText, setReasonText] = useState('');
   const [handover, setHandover] = useState(false);
+  // A refusal (a rule, a limit) is shown in the open dialog, once (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   // The version the user's first change was made on; until then, the latest one.
   const basedOn = useRef<number | null>(null);
+  // The incident as it was at the user's first change, and a save someone else beat (409):
+  // the shared dialog says who, when and what (QA WP-029 BUG-05).
+  const [opened, setOpened] = useState<Incident>();
+  const conflict = useConflict();
+  const fieldName = useIncidentFieldName();
+  const [tried, setTried] = useState<{ confirmLoseAccess: boolean; keepFollowing?: boolean }>();
   const reread = useRef(refresh);
   useEffect(() => {
     void reread.current();
@@ -85,6 +105,7 @@ function AssignBody({
       : item.technician_id;
   const touch = () => {
     basedOn.current ??= item.version;
+    setOpened((was) => was ?? item);
   };
   const movingGroups = item.group_id !== null && group !== item.group_id;
   const reasons = (catalogue.data?.reasons ?? [])
@@ -111,6 +132,7 @@ function AssignBody({
     onClose();
   };
   const send = (confirmLoseAccess: boolean, keepFollowing?: boolean) => {
+    problem.clear();
     assign.mutate(
       {
         version: basedOn.current ?? item.version,
@@ -139,12 +161,21 @@ function AssignBody({
           }
         },
         onError: (error) => {
+          if (conflict.take(error)) {
+            setOpened((was) => was ?? item);
+            setTried({ confirmLoseAccess, keepFollowing });
+            return;
+          }
           if (error instanceof ApiError && error.code === 'would_lose_access') {
+            markHandled(error); // the hand-over warning asks
             setHandover(true);
             return;
           }
-          if (error instanceof ApiError && error.status === 422) return; // shown in the dialog
-          reportError(error);
+          if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+            markHandled(error); // shown in the dialog
+            return;
+          }
+          problem.show(error);
         },
       },
     );
@@ -165,6 +196,7 @@ function AssignBody({
         destroyOnHidden
       >
         <Space direction="vertical" style={{ width: '100%' }}>
+          <FormProblem problem={problem} />
           <label htmlFor="inc-assign-group">
             <Typography.Text>{t('work_item.field.group_id')}</Typography.Text>
           </label>
@@ -233,12 +265,41 @@ function AssignBody({
         displayId={item.display_id}
         group={groupName}
         pending={assign.isPending}
+        problem={problem}
         onCancel={() => {
           setHandover(false);
+          problem.clear();
           assign.reset();
         }}
         onConfirm={(keepFollowing) => {
           send(true, keepFollowing);
+        }}
+      />
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={fieldName}
+        opened={incidentView(opened)}
+        latest={incidentView(item)}
+        onReload={() => {
+          // My choices dropped: the dialog shows the assignment as it is now.
+          conflict.clear();
+          assign.reset();
+          basedOn.current = null;
+          setOpened(undefined);
+          setTried(undefined);
+          setGroupChoice({ touched: false, value: null });
+          setTechChoice({ touched: false, value: null });
+          setReasonCode(undefined);
+          setReasonText('');
+          setHandover(false);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          basedOn.current = conflict.latestVersion ?? item.version;
+          setOpened(item);
+          if (tried !== undefined) send(tried.confirmLoseAccess, tried.keepFollowing);
+          setTried(undefined);
         }}
       />
     </>
@@ -255,13 +316,17 @@ export function HandOverWarning({
   displayId,
   group,
   pending,
+  problem,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
-  displayId: string;
+  /** The incident's ID; null for one not saved yet ("this incident", QA WP-029 C1). */
+  displayId: string | null;
   group: string;
   pending: boolean;
+  /** Why the hand-over was refused, shown in this dialog. */
+  problem?: FormProblemState;
   onCancel: () => void;
   onConfirm: (keepFollowing: boolean) => void;
 }) {
@@ -270,10 +335,12 @@ export function HandOverWarning({
   const fallback = catalogue.data?.keep_following_on_handover ?? true;
   const [keep, setKeep] = useState<boolean | null>(null);
   const following = keep ?? fallback;
+  // A record not saved yet has no ID: the `_new` labels say "this incident" in the sentence.
+  const context = displayId === null ? 'new' : undefined;
   return (
     <Modal
       open={open}
-      title={t('incidents.handover_title', { id: displayId })}
+      title={t('incidents.handover_title', { id: displayId, context })}
       okText={t(following ? 'incidents.handover_confirm_following' : 'incidents.handover_confirm')}
       okButtonProps={{
         danger: !following,
@@ -292,8 +359,9 @@ export function HandOverWarning({
       destroyOnHidden
     >
       <Space direction="vertical" data-testid="inc-handover-warning">
+        {problem !== undefined && <FormProblem problem={problem} />}
         <Typography.Paragraph style={{ marginBottom: 0 }}>
-          {t('incidents.handover_moves', { id: displayId, group })}
+          {t('incidents.handover_moves', { id: displayId, group, context })}
         </Typography.Paragraph>
         <Checkbox
           checked={following}
@@ -311,6 +379,7 @@ export function HandOverWarning({
           message={t(following ? 'incidents.handover_following_text' : 'incidents.handover_text', {
             id: displayId,
             group,
+            context,
           })}
         />
       </Space>
@@ -331,24 +400,45 @@ export function TakeButton({
   const take = useTakeIncident(item.id);
   const [choosing, setChoosing] = useState(false);
   const [group, setGroup] = useState<string | null>(null);
-  const run = (groupId?: string) => {
+  const problem = useFormProblem();
+  // Changed by someone after it was shown (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const fieldName = useIncidentFieldName();
+  const [tried, setTried] = useState<{ groupId?: string; opened: Incident }>();
+  const run = (groupId?: string, version = item.version) => {
+    problem.clear();
     take.mutate(
-      { version: item.version, groupId },
+      { version, groupId },
       {
         onSuccess: () => {
           setChoosing(false);
           void message.success(t('incidents.taken'));
         },
         onError: (error) => {
+          if (conflict.take(error)) {
+            setTried({ groupId, opened: item });
+            return;
+          }
           if (
             error instanceof ApiError &&
             error.fieldErrors.some((e) => e.code === 'group_required')
           ) {
+            markHandled(error); // the dialog asks which group
             setChoosing(true);
             return;
           }
-          if (choosing && error instanceof ApiError && error.status === 422) return;
-          reportError(error);
+          if (
+            choosing &&
+            error instanceof ApiError &&
+            error.status === 422 &&
+            error.fieldErrors.length > 0
+          ) {
+            markHandled(error); // shown in the dialog
+            return;
+          }
+          // The one-click take has no form: its refusal is the app's neutral notice.
+          if (choosing) problem.show(error);
+          else reportError(error);
         },
       },
     );
@@ -378,6 +468,7 @@ export function TakeButton({
         confirmLoading={take.isPending}
         onCancel={() => {
           setChoosing(false);
+          problem.clear();
           take.reset();
         }}
         onOk={() => {
@@ -386,6 +477,7 @@ export function TakeButton({
         okButtonProps={{ 'data-testid': 'inc-take-confirm' }}
         destroyOnHidden
       >
+        <FormProblem problem={problem} />
         <GroupPicker
           value={group}
           onChange={setGroup}
@@ -398,6 +490,24 @@ export function TakeButton({
           </Typography.Text>
         )}
       </Modal>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={fieldName}
+        opened={incidentView(tried?.opened)}
+        latest={incidentView(item)}
+        onReload={() => {
+          conflict.clear();
+          take.reset();
+          setTried(undefined);
+          setChoosing(false);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) run(tried.groupId, conflict.latestVersion ?? item.version);
+          setTried(undefined);
+        }}
+      />
     </>
   );
 }

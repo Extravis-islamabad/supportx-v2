@@ -17,14 +17,20 @@ import {
 import { useState } from 'react';
 
 import {
-  ApiError,
   queryKeys,
   usePeopleImports,
   useStartPeopleImport,
   type PeopleImport,
 } from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
-import { ToneTag, reportError, useAppearance, useLabel, type Tone } from '@supportx/ui';
+import {
+  FormProblem,
+  ToneTag,
+  useAppearance,
+  useFormProblem,
+  useLabel,
+  type Tone,
+} from '@supportx/ui';
 
 import { personFieldKey } from './fields';
 
@@ -47,6 +53,8 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
   const start = useStartPeopleImport();
   const [matchOn, setMatchOn] = useState<'email' | 'employee_id'>('email');
   const [problem, setProblem] = useState<string>();
+  // The server's refusal (a bad file, a limit) is shown here, once (QA WP-029 BUG-02).
+  const refused = useFormProblem();
   const queryClient = useQueryClient();
   useListChannel(open ? 'people_imports' : null, () => {
     refreshList(queryClient, queryKeys.people.imports);
@@ -54,6 +62,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
 
   const upload = (file: File) => {
     setProblem(undefined);
+    refused.clear();
     if (file.size > MAX_BYTES) {
       setProblem(t('errors.people_import_file_too_large'));
       return;
@@ -65,11 +74,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
           void message.success(t('people.import.queued', { name: file.name }));
         },
         onError: (error) => {
-          if (error instanceof ApiError && error.status === 422) {
-            setProblem(t(`errors.${error.code}`));
-            return;
-          }
-          reportError(error);
+          refused.show(error);
         },
       },
     );
@@ -121,6 +126,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
         {problem !== undefined && (
           <Alert type="error" showIcon message={problem} data-testid="people-import-problem" />
         )}
+        <FormProblem problem={refused} />
         <Typography.Title level={4}>{t('people.import.recent')}</Typography.Title>
         <List
           dataSource={imports.data ?? []}

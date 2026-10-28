@@ -2,6 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useRef } from 'react';
 
 import { api, call, rememberEtag } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 import type { FilterExpression } from './users';
@@ -225,6 +226,19 @@ function useSaved() {
   };
 }
 
+/**
+ * A stale change (409): fetch the saved incident, so the conflict dialog compares the version
+ * shown with the one saved now (QA WP-029 BUG-05).
+ */
+function useRefreshOnConflict(id: string) {
+  const queryClient = useQueryClient();
+  return (error: unknown) => {
+    if (error instanceof ApiError && error.isConflict) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.detail(id) });
+    }
+  };
+}
+
 export function useCreateIncident() {
   const saved = useSaved();
   return useMutation({
@@ -260,6 +274,7 @@ export interface ActionRun {
 
 export function useIncidentAction(id: string) {
   const saved = useSaved();
+  const refresh = useRefreshOnConflict(id);
   const once = useSingleFlight(
     ({ action, version, reasonCode, reasonText, groupId }: ActionRun) => {
       const text = reasonText?.trim() ?? '';
@@ -279,7 +294,12 @@ export function useIncidentAction(id: string) {
       );
     },
   );
-  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refresh,
+  });
 }
 
 export interface AssignChange {
@@ -295,6 +315,7 @@ export interface AssignChange {
 
 export function useAssignIncident(id: string) {
   const saved = useSaved();
+  const refresh = useRefreshOnConflict(id);
   const once = useSingleFlight((change: AssignChange) =>
     call(
       api.POST('/api/v1/incidents/{record_id}/assign', {
@@ -310,11 +331,17 @@ export function useAssignIncident(id: string) {
       }),
     ),
   );
-  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refresh,
+  });
 }
 
 export function useTakeIncident(id: string) {
   const saved = useSaved();
+  const refresh = useRefreshOnConflict(id);
   const once = useSingleFlight(({ version, groupId }: { version: number; groupId?: string }) =>
     call(
       api.POST('/api/v1/incidents/{record_id}/take', {
@@ -323,7 +350,12 @@ export function useTakeIncident(id: string) {
       }),
     ),
   );
-  return useMutation({ meta: { silent: true }, mutationFn: once, onSuccess: saved });
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refresh,
+  });
 }
 
 export function useDeleteIncident(id: string) {

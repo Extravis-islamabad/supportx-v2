@@ -29,19 +29,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
 from app.modules import metadata
 from app.modules.automation import (
+    TRANSITION_NOT_FOR_YOU as NOT_FOR_YOU,
+)
+from app.modules.automation import (
     People,
     Relative,
     RuleEvent,
     log_trace,
     record_runs,
+    transition_audience,
     transition_refusal,
     transition_settings,
 )
 from app.modules.identity_access import (
+    RoleName,
     Subject,
     authorize_stored,
     display_names,
     person_placement,
+    role_names,
     scope_filter,
     user_contacts,
     user_names,
@@ -121,6 +127,7 @@ from app.shared.history import (
     record_changes,
 )
 from app.shared.ids import new_id
+from app.shared.reporting.names import names_resolver
 from app.shared.richtext import is_blank, sanitize_html
 
 RECORD_TYPE = followers.RECORD_TYPE
@@ -196,6 +203,17 @@ class ActionState:
     reason_list: str | None = None
     # Asked before the move runs, per language (REQ-WF-003 "during").
     confirmation: Mapping[str, str] | None = None
+    # Refused as "not for you": who may run it (QA WP-029 C2).
+    allowed_for: "AllowedFor | None" = None
+
+
+@dataclass(frozen=True)
+class AllowedFor:
+    """Who may run a transition: roles, group names, people on the record (codes, labelled)."""
+
+    roles: list[RoleName]
+    groups: list[str]
+    relatives: list[str]
 
 
 @dataclass(frozen=True)
@@ -323,6 +341,24 @@ class _Transitions:
         }
         return transition_refusal(row, self._person, facts)
 
+    async def allowed_for(self, action: str) -> AllowedFor | None:
+        """Who the action is limited to, named (QA WP-029 C2)."""
+        row = await self._row(action)
+        if row is None:
+            return None
+        limited = transition_audience(row)
+        resolver = names_resolver("group")
+        groups = (
+            await resolver(self.session, limited.group_ids, "en", "group_id")
+            if resolver is not None and limited.group_ids
+            else {}
+        )
+        return AllowedFor(
+            roles=await role_names(self.session, limited.roles),
+            groups=[groups[g] for g in limited.group_ids if g in groups],
+            relatives=limited.relatives,
+        )
+
 
 async def _view(  # noqa: C901 - one state per action and operation, flat
     session: AsyncSession, subject: Subject, wtype: WorkItemType, record: WorkItem
@@ -368,6 +404,9 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                 reason_mode=mode,
                 reason_list=reason_list,
                 confirmation=await transitions.confirmation(action.value),
+                allowed_for=(
+                    await transitions.allowed_for(action.value) if refused == NOT_FOR_YOU else None
+                ),
             )
         )
     operations: list[ActionState] = []
@@ -1467,6 +1506,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
             display_id=record.display_id,
             status=record.status,
             status_category=record.status_category,
+            technician_id=record.technician_id,
         ),
         aggregate_id=record.id,
         aggregate_version=record.version,

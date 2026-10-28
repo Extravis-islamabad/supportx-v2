@@ -34,9 +34,11 @@ import {
   ConflictDialog,
   EmptyText,
   lengthLimit,
+  markHandled,
   reportError,
   ToneTag,
   useAppearance,
+  useConflict,
   useDateTime,
   useLabel,
   WriteButton,
@@ -45,7 +47,7 @@ import {
 
 import { CustomFieldControl } from '../../customFields/fields';
 import { fieldName, filled, localized } from '../../customFields/values';
-import { cleanLabels } from './helpers';
+import { cleanLabels, refusalMessages } from './helpers';
 import { LabelsFields, Problems } from './shared';
 
 const TYPES: CustomFieldType[] = [
@@ -87,6 +89,12 @@ export function CustomFieldsTab() {
   // Problems of the last save, each with the field it belongs to (shown there: QA BUG-08).
   const [errors, setErrors] = useState<FieldProblem[]>([]);
   const all = fields.data ?? [];
+  // A list action (remove, index) on a field someone changed first (409): the shared dialog
+  // (QA WP-029 BUG-05); "Keep my changes" runs it again on the saved version.
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{ next: CustomFieldChange; opened?: CustomField }>();
+  const triedId = tried !== undefined && 'id' in tried.next ? tried.next.id : undefined;
+  const live = all.find((f) => f.id === triedId);
   const run = (
     next: CustomFieldChange,
     onDone?: () => void,
@@ -100,17 +108,28 @@ export function CustomFieldsTab() {
       },
       onError: (error) => {
         if (error instanceof ApiError && error.code === 'version_conflict') {
-          if (onConflict !== undefined) onConflict(error);
-          else void message.warning(t('settings.changed_elsewhere'));
+          if (onConflict !== undefined) {
+            onConflict(error);
+          } else if (conflict.take(error)) {
+            const id = 'id' in next ? next.id : undefined;
+            setTried({ next, opened: all.find((f) => f.id === id) });
+          }
           return;
         }
         if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+          markHandled(error);
           setErrors(
             error.fieldErrors.map((f) => ({
               field: f.field.replace(/^body\./, ''),
               text: t(f.message_key, f.params ?? {}),
             })),
           );
+          return;
+        }
+        // Any other refusal (a rule, a limit) is shown with them, once (QA WP-029 BUG-02).
+        const refused = refusalMessages(t, error, []);
+        if (refused.length > 0) {
+          setErrors(refused.map((text) => ({ field: '', text })));
           return;
         }
         reportError(error);
@@ -370,8 +389,45 @@ export function CustomFieldsTab() {
       >
         <Typography.Paragraph>{t('custom_fields.remove_in_use')}</Typography.Paragraph>
       </Modal>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(name) => t(`custom_fields.part.${name}`)}
+        opened={fieldView(tried?.opened)}
+        latest={fieldView(live)}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          const next = tried?.next;
+          const version = conflict.latestVersion ?? live?.version;
+          if (next !== undefined && 'version' in next && version !== undefined) {
+            run({ ...next, version });
+          }
+          setTried(undefined);
+        }}
+      />
     </Card>
   );
+}
+
+/** A field's parts as the editor names them, for the conflict dialog (QA WP-029 BUG-05). */
+function fieldView(field: CustomField | null | undefined): object | undefined {
+  if (field == null) return undefined;
+  return {
+    field_type: field.field_type,
+    labels: field.labels,
+    help: field.help,
+    choices: field.choices,
+    display: field.display,
+    validation: field.validation,
+    default_value: field.default,
+    currency: field.currency,
+    retired_at: field.retired,
+    sort_order: field.sort_order,
+  };
 }
 
 interface Draft {
@@ -871,6 +927,8 @@ function CustomFieldEditor({
         open={conflict !== null}
         error={conflict}
         fieldLabel={(name) => t(`custom_fields.part.${name}`)}
+        opened={fieldView(base)}
+        latest={fieldView(field)}
         onReload={() => {
           // Theirs: start again from the field as it is saved now.
           setConflict(null);

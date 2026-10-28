@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 import type { FilterExpression } from './users';
@@ -124,6 +125,12 @@ export function useUpdateAuditSettings() {
       ),
     onSuccess: (saved) => {
       queryClient.setQueryData(queryKeys.audit.settings, saved);
+    },
+    onError: (error) => {
+      // A stale save: fetch the saved settings, so the conflict dialog can compare (QA WP-029 BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.audit.settings });
+      }
     },
   });
 }

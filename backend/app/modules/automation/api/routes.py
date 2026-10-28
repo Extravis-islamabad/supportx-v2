@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Path, Query, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
@@ -38,6 +38,7 @@ from app.modules.identity_access import Subject
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
+from app.shared.history import source_of
 
 RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ProblemDetail, "description": "Not signed in."},
@@ -559,10 +560,20 @@ async def put_assignment(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 
 
 class AvailabilityOut(BaseModel):
-    """A technician's own state (REQ-ASG-006): Away is never auto-assigned."""
+    """Someone's state (REQ-ASG-006): Away is never auto-assigned. Who set it, and when."""
 
     user_id: uuid.UUID
     state: Availability
+    changed_at: datetime | None = None
+    changed_by: str | None = Field(default=None, description="Display name of who set it.")
+
+
+class AvailabilityChangeOut(BaseModel):
+    """One availability change: the state set, by whom, when."""
+
+    state: Availability
+    changed_at: datetime | None
+    changed_by: str | None
 
 
 class AvailabilityIn(BaseModel):
@@ -576,6 +587,15 @@ class AvailabilityIn(BaseModel):
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 
 
+def _availability_out(user_id: uuid.UUID, found: assignment.AvailabilityState) -> AvailabilityOut:
+    return AvailabilityOut(
+        user_id=user_id,
+        state=found.state,
+        changed_at=found.changed_at,
+        changed_by=found.changed_by,
+    )
+
+
 @router.get("/availability", summary="Availability of technicians")
 async def get_availability(
     session: TenantSession,
@@ -584,8 +604,8 @@ async def get_availability(
 ) -> list[AvailabilityOut]:
     """Anyone signed in may see who is available (the assign picker shows it)."""
     del subject
-    found = await assignment.availability(session, user_ids)
-    return [AvailabilityOut(user_id=u, state=s) for u, s in found.items()]
+    found = await assignment.availability_states(session, user_ids)
+    return [_availability_out(u, s) for u, s in found.items()]
 
 
 @router.put(
@@ -596,13 +616,32 @@ async def get_availability(
     ],
 )
 async def put_availability(
-    user_id: uuid.UUID, body: AvailabilityIn, session: TenantSession, subject: SignedIn
+    user_id: uuid.UUID,
+    body: AvailabilityIn,
+    request: Request,
+    session: TenantSession,
+    subject: SignedIn,
 ) -> AvailabilityOut:
-    """Yourself always; someone else only with `users.manage`."""
-    if user_id != subject.user_id and not subject.holds("users.manage"):
+    """Yourself always; a member of your group as its lead; anyone with `users.manage`."""
+    if not await assignment.may_set_availability(
+        session, subject.user_id, user_id, manages_people=subject.holds("users.manage")
+    ):
         raise PermissionDenied(params={"permission": "users.manage"})
-    state = await assignment.set_availability(session, user_id, body.state)
-    return AvailabilityOut(user_id=user_id, state=state)
+    await assignment.set_availability(session, user_id, body.state, source_of(request))
+    found = await assignment.availability_states(session, [user_id])
+    return _availability_out(user_id, found[user_id])
+
+
+@router.get("/availability/{user_id}/history", summary="Availability changes of one person")
+async def get_availability_history(
+    user_id: uuid.UUID, session: TenantSession, subject: SignedIn
+) -> list[AvailabilityChangeOut]:
+    """Newest first: who set them Available or Away, and when (yourself, leads, admins)."""
+    del subject
+    return [
+        AvailabilityChangeOut(state=c.state, changed_at=c.changed_at, changed_by=c.changed_by)
+        for c in await assignment.availability_history(session, user_id)
+    ]
 
 
 # --- the run log --------------------------------------------------------------------------------

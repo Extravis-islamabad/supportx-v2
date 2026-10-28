@@ -20,7 +20,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantEntity, TenantKeyed
+from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
 
 
 class Announcement(TenantEntity):
@@ -126,5 +126,5 @@ class AnnouncementSettings(TenantKeyed, Base):
     # Four-eyes: the owner or author of an announcement may not publish it themselves.
     require_second_publisher: Mapped[bool] = mapped_column(Boolean, server_default="false")
     version: Mapped[int] = mapped_column(default=1, server_default="1")
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]

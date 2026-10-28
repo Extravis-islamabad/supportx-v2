@@ -40,7 +40,13 @@ from app.shared.api.filters import FieldType, FilterField, ResourceFields
 from app.shared.api.listing import ListQuery, PageResult, paginate
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
-from app.shared.history import Change, Source, explain_conflict, record_changes
+from app.shared.history import (
+    Change,
+    Source,
+    explain_conflict,
+    record_changes,
+    register_people_names,
+)
 from app.shared.mail import Language
 from app.shared.search import ENGINE
 
@@ -336,6 +342,10 @@ async def display_names(session: AsyncSession, user_ids: Sequence[str]) -> list[
     return [names[str(user_id)] for user_id in user_ids if str(user_id) in names]
 
 
+# Every module's 409 names who saved the record since (QA WP-029 BUG-05).
+register_people_names(display_names)
+
+
 @dataclass(frozen=True)
 class MailRecipient:
     """Who gets a system e-mail and in which language (WP-035 scheduled reports)."""
@@ -378,3 +388,39 @@ async def mail_recipients(
             language=_mail_language(row.ui_locale or row.locale),
         )
     return found
+
+
+@dataclass(frozen=True)
+class NotifiablePerson:
+    """Who gets a notification, in which language and zone (WP-023, REQ-INC-133)."""
+
+    name: str
+    email: str | None  # in-app notifications need no address
+    language: Language | None  # None: they chose none; the site's default applies
+    time_zone: str | None  # None: the site's or the tenant's zone
+
+
+async def notifiable_people(
+    session: AsyncSession, user_ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, NotifiablePerson]:
+    """Active users of the session's tenant, in one query; inactive and unknown are left out."""
+    if not user_ids:
+        return {}
+    rows = await session.execute(
+        select(
+            User.id, User.display_name, User.email, User.ui_locale, User.locale, User.time_zone
+        ).where(
+            User.id.in_(list(user_ids)),
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
+    )
+    return {
+        row.id: NotifiablePerson(
+            name=row.display_name,
+            email=row.email or None,
+            language=_mail_language(code) if (code := row.ui_locale or row.locale) else None,
+            time_zone=row.time_zone,
+        )
+        for row in rows
+    }

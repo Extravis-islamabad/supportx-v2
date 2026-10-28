@@ -754,9 +754,29 @@ export interface paths {
         get?: never;
         /**
          * Set a technician Available or Away
-         * @description Yourself always; someone else only with `users.manage`.
+         * @description Yourself always; a member of your group as its lead; anyone with `users.manage`.
          */
         put: operations["put_availability_api_v1_automation_availability__user_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/automation/availability/{user_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Availability changes of one person
+         * @description Newest first: who set them Available or Away, and when (yourself, leads, admins).
+         */
+        get: operations["get_availability_history_api_v1_automation_availability__user_id__history_get"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2569,6 +2589,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your notifications
+         * @description Your own entries only (whatever the request says).
+         */
+        get: operations["list_notifications_api_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notifications of a record
+         * @description Newest first (at most 200); for people who may see the record in full.
+         */
+        get: operations["deliveries_api_v1_notifications_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your notification preferences
+         * @description Per category and channel; locked ones are required by your organization.
+         */
+        get: operations["get_preferences_api_v1_notifications_preferences_get"];
+        /**
+         * Change your notification preferences
+         * @description If-Match: the version you read ("0" before the first save).
+         */
+        put: operations["put_preferences_api_v1_notifications_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark notifications read
+         * @description Your other devices update at once (personal channel).
+         */
+        post: operations["mark_read_api_v1_notifications_read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification rules of every event
+         * @description Every event every module registered, with the rule that applies (no set-up step).
+         */
+        get: operations["list_rules_api_v1_notifications_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/rules/{event_code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an event's rule
+         * @description If-Match: the version you read ("0" while the default applies).
+         */
+        put: operations["put_rule_api_v1_notifications_rules__event_code__put"];
+        post?: never;
+        /**
+         * Reset an event's rule to the shipped default
+         * @description If-Match: the version of the saved rule.
+         */
+        delete: operations["reset_rule_api_v1_notifications_rules__event_code__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification delivery status
+         * @description How many e-mails wait for outgoing mail (REQ-NTF-020 AC3).
+         */
+        get: operations["status_api_v1_notifications_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/organization/branding": {
         parameters: {
             query?: never;
@@ -3885,6 +4053,18 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * AllowedForOut
+         * @description Who a transition is limited to: roles, group names, people on the record (codes).
+         */
+        AllowedForOut: {
+            /** Groups */
+            groups: string[];
+            /** Relatives */
+            relatives: string[];
+            /** Roles */
+            roles: components["schemas"]["RoleNameOut"][];
+        };
+        /**
          * AnnouncementAction
          * @description AnnouncementStatus actions, in the order the UI shows them.
          * @enum {string}
@@ -4780,6 +4960,17 @@ export interface components {
          */
         Availability: "available" | "away";
         /**
+         * AvailabilityChangeOut
+         * @description One availability change: the state set, by whom, when.
+         */
+        AvailabilityChangeOut: {
+            /** Changed At */
+            changed_at: string | null;
+            /** Changed By */
+            changed_by: string | null;
+            state: components["schemas"]["Availability"];
+        };
+        /**
          * AvailabilityIn
          * @description Set Available or Away.
          */
@@ -4788,9 +4979,16 @@ export interface components {
         };
         /**
          * AvailabilityOut
-         * @description A technician's own state (REQ-ASG-006): Away is never auto-assigned.
+         * @description Someone's state (REQ-ASG-006): Away is never auto-assigned. Who set it, and when.
          */
         AvailabilityOut: {
+            /** Changed At */
+            changed_at?: string | null;
+            /**
+             * Changed By
+             * @description Display name of who set it.
+             */
+            changed_by?: string | null;
             state: components["schemas"]["Availability"];
             /**
              * User Id
@@ -5004,6 +5202,12 @@ export interface components {
             /** Primary Colour */
             primary_colour?: string | null;
         };
+        /**
+         * ConditionOperator
+         * @description How a rule condition tests a record value.
+         * @enum {string}
+         */
+        ConditionOperator: "in" | "not_in";
         /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
@@ -6590,6 +6794,263 @@ export interface components {
          */
         NavLayout: "top" | "side" | "side_compact";
         /**
+         * NotificationCategory
+         * @description Groups events for personal preferences (REQ-NTF-016).
+         * @enum {string}
+         */
+        NotificationCategory: "created" | "assignment" | "conversation" | "status" | "mention" | "following";
+        /**
+         * NotificationCentreOut
+         * @description A page of your entries, newest first, and the unread count.
+         */
+        NotificationCentreOut: {
+            /** Items */
+            items: components["schemas"]["NotificationOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
+            /** Unread */
+            unread: number;
+        };
+        /**
+         * NotificationChannel
+         * @description How a notification reaches a person.
+         * @enum {string}
+         */
+        NotificationChannel: "in_app" | "email";
+        /**
+         * NotificationChoiceIn
+         * @description A category switched off on a channel.
+         */
+        NotificationChoiceIn: {
+            category: components["schemas"]["NotificationCategory"];
+            channel: components["schemas"]["NotificationChannel"];
+        };
+        /**
+         * NotificationChoiceOut
+         * @description One category on one channel.
+         */
+        NotificationChoiceOut: {
+            category: components["schemas"]["NotificationCategory"];
+            channel: components["schemas"]["NotificationChannel"];
+            /**
+             * Locked
+             * @description Required by your organization: cannot be switched off.
+             */
+            locked: boolean;
+            /** On */
+            on: boolean;
+        };
+        /**
+         * NotificationCondition
+         * @description The record's `field` is (not) one of `values`.
+         */
+        NotificationCondition: {
+            /** Field */
+            field: string;
+            operator: components["schemas"]["ConditionOperator"];
+            /** Values */
+            values: string[];
+        };
+        /**
+         * NotificationDeliveryOut
+         * @description One notification of a record: to whom, how, when, and whether it went (REQ-INC-134).
+         */
+        NotificationDeliveryOut: {
+            channel: components["schemas"]["NotificationChannel"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Event Code */
+            event_code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Reason
+             * @description Code; the UI shows its label.
+             */
+            reason: string | null;
+            /** Recipient Id */
+            recipient_id: string | null;
+            /** Recipient Name */
+            recipient_name: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "queued" | "waiting" | "sent" | "failed" | "suppressed";
+        };
+        /**
+         * NotificationOut
+         * @description One entry of your notification centre, in your language.
+         */
+        NotificationOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Display Id */
+            display_id: string;
+            /** Event Code */
+            event_code: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Link
+             * @description Path in the console, e.g. /incidents/<id>.
+             */
+            link: string;
+            /** Read */
+            read: boolean;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
+            /** Title */
+            title: string;
+            /** Urgent */
+            urgent: boolean;
+        };
+        /**
+         * NotificationPreferencesIn
+         * @description Everything switched off (the rest is on), and do-not-disturb.
+         */
+        NotificationPreferencesIn: {
+            /**
+             * Do Not Disturb
+             * @default false
+             */
+            do_not_disturb: boolean;
+            /** Off */
+            off?: components["schemas"]["NotificationChoiceIn"][];
+        };
+        /**
+         * NotificationPreferencesOut
+         * @description Your notification preferences.
+         */
+        NotificationPreferencesOut: {
+            /** Choices */
+            choices: components["schemas"]["NotificationChoiceOut"][];
+            /** Do Not Disturb */
+            do_not_disturb: boolean;
+            /** Version */
+            version: number;
+        };
+        /**
+         * NotificationReadIn
+         * @description Entries to mark read; leave `ids` out to mark every unread entry read.
+         */
+        NotificationReadIn: {
+            /** Ids */
+            ids?: string[] | null;
+        };
+        /**
+         * NotificationReadOut
+         * @description How many changed, and the unread count after.
+         */
+        NotificationReadOut: {
+            /** Changed */
+            changed: number;
+            /** Unread */
+            unread: number;
+        };
+        /**
+         * NotificationRuleIn
+         * @description An event's rule.
+         */
+        NotificationRuleIn: {
+            /** Channels */
+            channels?: components["schemas"]["NotificationChannel"][];
+            /** Conditions */
+            conditions?: components["schemas"]["NotificationCondition"][];
+            /** Enabled */
+            enabled: boolean;
+            /** Group Ids */
+            group_ids?: string[];
+            /**
+             * Notify Actor
+             * @default false
+             */
+            notify_actor: boolean;
+            /** Recipients */
+            recipients?: string[];
+            /** User Ids */
+            user_ids?: string[];
+        };
+        /**
+         * NotificationRuleOut
+         * @description An event with the rule that applies to it now.
+         */
+        NotificationRuleOut: {
+            category: components["schemas"]["NotificationCategory"];
+            /** Channels */
+            channels: components["schemas"]["NotificationChannel"][];
+            /** Condition Fields */
+            condition_fields: string[];
+            /** Conditions */
+            conditions: components["schemas"]["NotificationCondition"][];
+            /** Default Enabled */
+            default_enabled: boolean;
+            /** Default Recipients */
+            default_recipients: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Event Code */
+            event_code: string;
+            /** Group Ids */
+            group_ids: string[];
+            /**
+             * Is Default
+             * @description True while the shipped default applies.
+             */
+            is_default: boolean;
+            /** Notify Actor */
+            notify_actor: boolean;
+            /**
+             * Recipient Kinds
+             * @description Relative recipients the record type offers.
+             */
+            recipient_kinds: string[];
+            /** Recipients */
+            recipients: string[];
+            /** Record Type */
+            record_type: string;
+            /**
+             * Required
+             * @description People cannot switch it off in their preferences.
+             */
+            required: boolean;
+            /** Updated At */
+            updated_at: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** User Ids */
+            user_ids: string[];
+            /** Version */
+            version: number;
+        };
+        /**
+         * NotificationStatusOut
+         * @description For the admins' banner: e-mails waiting because outgoing mail is not set up.
+         */
+        NotificationStatusOut: {
+            /** Mail Configured */
+            mail_configured: boolean;
+            /** Waiting */
+            waiting: number;
+        };
+        /**
          * NumberingIn
          * @description The number the next record gets (never one already used).
          */
@@ -7508,6 +7969,18 @@ export interface components {
             user_count: number;
             /** Version */
             version: number;
+        };
+        /**
+         * RoleNameOut
+         * @description A role: system roles are labelled by key, other roles shown by name.
+         */
+        RoleNameOut: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** System */
+            system: boolean;
         };
         /**
          * RolePatch
@@ -9003,6 +9476,8 @@ export interface components {
             action: string;
             /** Allowed */
             allowed: boolean;
+            /** @description Refused as not_for_you: who may run it (QA WP-029 C2). */
+            allowed_for?: components["schemas"]["AllowedForOut"] | null;
             /**
              * Confirmation
              * @description Asked before the move runs, per language (en, ar, ur).
@@ -12627,6 +13102,82 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such rule, group or record. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or the order is out of date. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Problems by field (checked when saved). */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_availability_history_api_v1_automation_availability__user_id__history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityChangeOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -21012,6 +21563,571 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_notifications_api_v1_notifications_get: {
+        parameters: {
+            query?: {
+                /** @description next_cursor of the last page */
+                cursor?: string | null;
+                limit?: number;
+                /** @description Only unread entries */
+                unread?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationCentreOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    deliveries_api_v1_notifications_deliveries_get: {
+        parameters: {
+            query: {
+                record_type: string;
+                record_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationDeliveryOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found or not yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_preferences_api_v1_notifications_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferencesOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_preferences_api_v1_notifications_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationPreferencesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferencesOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mark_read_api_v1_notifications_read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationReadIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationReadOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_rules_api_v1_notifications_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRuleOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_rule_api_v1_notifications_rules__event_code__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                event_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationRuleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRuleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found or not yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reset_rule_api_v1_notifications_rules__event_code__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                event_code: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationRuleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not found or not yours. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    status_api_v1_notifications_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationStatusOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

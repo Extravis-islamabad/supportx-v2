@@ -2,7 +2,7 @@ import { App, Card, Flex, InputNumber, Segmented, Space, Table, Typography } fro
 import { useState } from 'react';
 
 import {
-  ApiError,
+  type IdentitySettings,
   useIdentitySettings,
   useMfaPolicy,
   useSaveIdentitySettings,
@@ -10,8 +10,17 @@ import {
   type MfaMode,
   type MfaRole,
 } from '@supportx/api-client';
-import { reportError, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  reportError,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
+import { editable, useSettingName } from './conflict';
 import { FieldNote } from './FieldNote';
 
 const MODES: MfaMode[] = ['off', 'optional', 'required'];
@@ -24,59 +33,91 @@ function GraceDays() {
   const settings = useIdentitySettings();
   const save = useSaveIdentitySettings();
   const [edited, setEdited] = useState<number | null | undefined>(undefined);
+  // A refused save is shown here, not as a toast (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // A save another admin made first (409): who, when and what, in the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const settingName = useSettingName();
+  // The settings when the edit began: the dialog compares them with the live ones.
+  const [base, setBase] = useState<IdentitySettings>();
   if (settings.data === undefined) return null;
+  const current = settings.data;
   const { version, mfa_grace_days: saved } = settings.data;
   const days = edited === undefined ? saved : edited;
   const bad = days === null || !Number.isInteger(days) || days < 0 || days > MAX_GRACE_DAYS;
+  const submit = (at: number) => {
+    problem.clear();
+    save.mutate(
+      { body: { mfa_grace_days: days ?? 0 }, version: at },
+      {
+        onSuccess: () => {
+          setEdited(undefined);
+          void message.success(t('security.invitations.saved'));
+        },
+        onError: (error) => {
+          if (conflict.take(error)) {
+            // Another admin saved first: fetch their version; the dialog asks (D-103 (4)).
+            void settings.refetch();
+            return;
+          }
+          problem.show(error);
+        },
+      },
+    );
+  };
   return (
-    <Space wrap align="end" size={12}>
-      <FieldNote
-        id="security-mfa-grace"
-        message={
-          bad ? t('errors.field.mfa_grace_out_of_range', { min: 0, max: MAX_GRACE_DAYS }) : null
-        }
-      >
-        <label htmlFor="security-mfa-grace">{t('security.mfa.grace')}</label>
-        <InputNumber
+    <div>
+      <FormProblem problem={problem} />
+      <Space wrap align="end" size={12}>
+        <FieldNote
           id="security-mfa-grace"
-          value={days}
-          onChange={(value) => {
-            setEdited(value);
+          message={
+            bad ? t('errors.field.mfa_grace_out_of_range', { min: 0, max: MAX_GRACE_DAYS }) : null
+          }
+        >
+          <label htmlFor="security-mfa-grace">{t('security.mfa.grace')}</label>
+          <InputNumber
+            id="security-mfa-grace"
+            value={days}
+            onChange={(value) => {
+              if (edited === undefined) setBase(current);
+              setEdited(value);
+            }}
+            suffix={t('security.password.days')}
+            style={{ width: 168 }}
+            status={bad ? 'error' : undefined}
+            aria-describedby="security-mfa-grace-problem"
+            data-testid="security-mfa-grace"
+          />
+        </FieldNote>
+        <WriteButton
+          loading={save.isPending}
+          disabled={bad || edited === undefined || days === saved}
+          onClick={() => {
+            submit(version);
           }}
-          suffix={t('security.password.days')}
-          style={{ width: 168 }}
-          status={bad ? 'error' : undefined}
-          aria-describedby="security-mfa-grace-problem"
-          data-testid="security-mfa-grace"
-        />
-      </FieldNote>
-      <WriteButton
-        loading={save.isPending}
-        disabled={bad || edited === undefined || days === saved}
-        onClick={() => {
-          save.mutate(
-            { body: { mfa_grace_days: days ?? 0 }, version },
-            {
-              onSuccess: () => {
-                setEdited(undefined);
-                void message.success(t('security.invitations.saved'));
-              },
-              onError: (error) => {
-                if (error instanceof ApiError && error.isConflict) {
-                  void settings.refetch();
-                  void message.warning(t('security.changed_elsewhere'));
-                  return;
-                }
-                reportError(error);
-              },
-            },
-          );
+          data-testid="security-mfa-grace-save"
+        >
+          {t('actions.save')}
+        </WriteButton>
+      </Space>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={settingName}
+        opened={editable(base)}
+        latest={editable(current)}
+        onReload={() => {
+          conflict.clear();
+          setEdited(undefined);
         }}
-        data-testid="security-mfa-grace-save"
-      >
-        {t('actions.save')}
-      </WriteButton>
-    </Space>
+        onKeepMine={() => {
+          conflict.clear();
+          setBase(current);
+          submit(conflict.latestVersion ?? version);
+        }}
+      />
+    </div>
   );
 }
 
@@ -91,6 +132,28 @@ export function MfaPolicyCard() {
   const policy = useMfaPolicy();
   const setMode = useSetMfaMode();
   const roleName = (role: MfaRole) => (role.key === null ? role.name : t(`role.${role.key}`));
+  // A role's mode another admin changed first (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{ role: MfaRole; mode: MfaMode }>();
+  const live = policy.data?.roles.find((r) => r.role_id === tried?.role.role_id);
+  const change = (role: MfaRole, mode: MfaMode, version = role.version) => {
+    setMode.mutate(
+      { roleId: role.role_id, mode, version },
+      {
+        onSuccess: () => {
+          void message.success(t('security.mfa.saved', { role: roleName(role) }));
+        },
+        onError: (error) => {
+          if (conflict.take(error)) {
+            setTried({ role, mode });
+            void policy.refetch();
+            return;
+          }
+          reportError(error);
+        },
+      },
+    );
+  };
   return (
     <Card title={t('security.mfa.title')} data-testid="security-mfa">
       <Flex vertical gap={16}>
@@ -120,22 +183,7 @@ export function MfaPolicyCard() {
                   data-testid={`security-mfa-mode-${role.key ?? role.role_id}`}
                   options={MODES.map((value) => ({ value, label: t(`mfa_mode.${value}`) }))}
                   onChange={(mode) => {
-                    setMode.mutate(
-                      { roleId: role.role_id, mode, version: role.version },
-                      {
-                        onSuccess: () => {
-                          void message.success(t('security.mfa.saved', { role: roleName(role) }));
-                        },
-                        onError: (error) => {
-                          if (error instanceof ApiError && error.isConflict) {
-                            void policy.refetch();
-                            void message.warning(t('security.changed_elsewhere'));
-                            return;
-                          }
-                          reportError(error);
-                        },
-                      },
-                    );
+                    change(role, mode);
                   }}
                 />
               ),
@@ -152,6 +200,25 @@ export function MfaPolicyCard() {
           ]}
         />
       </Flex>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={() => t('security.mfa.mode_for', { role: tried ? roleName(tried.role) : '' })}
+        // Only the mode is changed here (not the enrolment counts).
+        opened={tried && { mode: tried.role.mode }}
+        latest={live && { mode: live.mode }}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) {
+            change(tried.role, tried.mode, conflict.latestVersion ?? live?.version);
+          }
+          setTried(undefined);
+        }}
+      />
     </Card>
   );
 }

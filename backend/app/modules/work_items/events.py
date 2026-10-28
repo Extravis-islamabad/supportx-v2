@@ -39,6 +39,10 @@ class WorkItemCreated(_WorkItemEvent):
     event_type: ClassVar[str] = "work_items.work_item.created"
     schema_version: ClassVar[int] = 1
 
+    # Who it was assigned to on creation (notifications tell them; WP-023). Additive: older
+    # events have none.
+    technician_id: uuid.UUID | None = None
+
 
 class WorkItemUpdated(_WorkItemEvent):
     """Fields changed (names only)."""

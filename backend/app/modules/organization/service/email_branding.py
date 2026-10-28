@@ -39,6 +39,7 @@ class EmailBranding:
     gradient: tuple[str, str]
     logo_url: str | None  # None: the product name is written instead
     portal_url: str
+    console_url: str = ""  # the console on the tenant's address, ending in "/" (WP-023 links)
 
 
 def tenant_origin(settings: Settings, slug: str) -> str:
@@ -67,6 +68,7 @@ async def email_branding(
         gradient=view.colours.gradient,
         logo_url=logo,
         portal_url=f"{origin}{portal_path}/",
+        console_url=f"{origin}{urlsplit(settings.console_url).path.rstrip('/')}/",
     )
 
 

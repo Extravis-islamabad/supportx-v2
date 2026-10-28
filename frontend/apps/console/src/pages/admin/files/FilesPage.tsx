@@ -14,7 +14,6 @@ import {
 import { useState } from 'react';
 
 import {
-  ApiError,
   useFileRules,
   useFileStatus,
   useFileUsage,
@@ -23,10 +22,13 @@ import {
   type FileRulesInput,
 } from '@supportx/api-client';
 import {
+  ConflictDialog,
   formatSize,
-  reportError,
+  FormProblem,
   useAppearance,
+  useConflict,
   useDateTime,
+  useFormProblem,
   useLabel,
   WriteButton,
 } from '@supportx/ui';
@@ -53,6 +55,11 @@ export function FilesPage() {
   // untouched form; while the admin is editing they are announced instead.
   const [base, setBase] = useState<FileRules | null>(null);
   const [dirty, setDirty] = useState(false);
+  // A refused save (a limit, a rule) is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // Rules another admin saved first (409): the shared dialog; "Keep my changes" saves these.
+  const conflict = useConflict();
+  const [sent, setSent] = useState<FileRulesInput>();
   const latest = rules.data;
   if (latest !== undefined && latest.version !== base?.version && (base === null || !dirty)) {
     setBase(latest);
@@ -68,6 +75,43 @@ export function FilesPage() {
       },
     },
   ];
+
+  const submit = (values: FileRulesInput, version: number) => {
+    problem.clear();
+    save.mutate(
+      { body: values, version },
+      {
+        onSuccess: (saved) => {
+          setBase(saved);
+          setDirty(false);
+          void message.success(t('files.admin.saved'));
+        },
+        onError: (error) => {
+          if (conflict.take(error)) {
+            setSent(values);
+            return;
+          }
+          problem.show(error);
+        },
+      },
+    );
+  };
+  const ruleName = (field: string) =>
+    t(
+      field === 'max_batch'
+        ? 'files.admin.max_batch'
+        : field === 'blocked_extensions'
+          ? 'files.admin.blocked'
+          : 'files.admin.max_file_mb',
+    );
+  const rulesView = (r: FileRules | null | undefined) =>
+    r == null
+      ? undefined
+      : {
+          max_file_mb: r.max_file_mb,
+          max_batch: r.max_batch,
+          blocked_extensions: r.blocked_extensions,
+        };
 
   const used = usage.data?.bytes_used ?? 0;
   const limit = usage.data?.limit_bytes ?? null;
@@ -116,23 +160,7 @@ export function FilesPage() {
             setDirty(true);
           }}
           onFinish={(values) => {
-            save.mutate(
-              { body: values, version: base?.version ?? latest?.version ?? 0 },
-              {
-                onSuccess: (saved) => {
-                  setBase(saved);
-                  setDirty(false);
-                  void message.success(t('files.admin.saved'));
-                },
-                onError: (error) => {
-                  if (error instanceof ApiError && error.code === 'version_conflict') {
-                    void message.warning(t('settings.changed_elsewhere'));
-                    return;
-                  }
-                  reportError(error);
-                },
-              },
-            );
+            submit(values, base?.version ?? latest?.version ?? 0);
           }}
         >
           <Form.Item name="max_file_mb" label={t('files.admin.max_file_mb')} rules={limits(1, 100)}>
@@ -155,6 +183,7 @@ export function FilesPage() {
               data-testid="files-blocked"
             />
           </Form.Item>
+          <FormProblem problem={problem} />
           <WriteButton
             type="primary"
             htmlType="submit"
@@ -164,6 +193,22 @@ export function FilesPage() {
             {t('files.admin.save')}
           </WriteButton>
         </Form>
+        <ConflictDialog
+          open={conflict.open}
+          error={conflict.error}
+          fieldLabel={ruleName}
+          opened={rulesView(base)}
+          latest={rulesView(latest)}
+          onReload={() => {
+            conflict.clear();
+            if (latest !== undefined) setBase(latest);
+            setDirty(false);
+          }}
+          onKeepMine={() => {
+            conflict.clear();
+            if (sent !== undefined) submit(sent, conflict.latestVersion ?? latest?.version ?? 0);
+          }}
+        />
       </Card>
       <Card title={t('files.admin.usage')} data-testid="files-usage">
         {usage.data !== undefined && (

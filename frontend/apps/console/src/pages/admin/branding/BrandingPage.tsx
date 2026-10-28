@@ -28,10 +28,15 @@ import {
 } from '@supportx/api-client';
 import type { Locale } from '@supportx/labels';
 import {
+  ConflictDialog,
+  FormProblem,
   lengthLimit,
+  markHandled,
   reportError,
   SUPPORTX_LOGOS,
   ToneTag,
+  useConflict,
+  useFormProblem,
   useLabel,
   WriteButton,
   type Branding,
@@ -98,6 +103,21 @@ function draftFrom(settings: BrandingSettings): Draft {
   };
 }
 
+/** The branding as a person sees it, flat, for the conflict dialog (QA WP-029 BUG-05). */
+function brandingView(settings: BrandingSettings | undefined): object | undefined {
+  if (settings === undefined) return undefined;
+  const { primary, gradient, texts, images } = draftFrom(settings);
+  return { primary, gradient, ...texts, ...images };
+}
+
+/** A branding setting in words. */
+function brandingPart(t: ReturnType<typeof useLabel>, field: string): string {
+  if (field === 'primary') return t('branding.primary');
+  if (field === 'gradient') return t('branding.own_gradient');
+  if ((TEXT_FIELDS as readonly string[]).includes(field)) return t(`branding.text.${field}`);
+  return t(`branding.image.${field}`);
+}
+
 /** Server problems each edit makes obsolete (field paths of the last save's refusal). */
 const PROBLEM_FIELDS: Record<keyof Draft, (path: string) => boolean> = {
   primary: (path) => path === 'primary_colour',
@@ -154,6 +174,13 @@ export function BrandingPage() {
   // Refusals: of the last save, by field path (server), and of chosen images (on selection).
   const [problems, setProblems] = useState<Problems>({});
   const [imageProblems, setImageProblems] = useState<Partial<Record<ImageField, string>>>({});
+  // A refusal with no field to point at (a rule, a limit) is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // A save another admin beat (409): the shared dialog says who, when and what (BUG-05); the
+  // branding as it was when the edit began, and the save it stopped (to send again).
+  const conflict = useConflict();
+  const [opened, setOpened] = useState<BrandingSettings>();
+  const [stopped, setStopped] = useState<{ body: BrandingInput; after: string }>();
 
   // A typed colour that is not one is said at once and never sent to the check (QA BUG-03).
   const primaryInvalid = draft?.primary != null && normaliseHex(draft.primary) === null;
@@ -201,6 +228,7 @@ export function BrandingPage() {
   }
   const version = settings.data.version;
   const update = (change: Partial<Draft>) => {
+    if (edited === null) setOpened(settings.data);
     setDraft({ ...draft, ...change });
     const changed = Object.keys(change) as (keyof Draft)[];
     setProblems((current) =>
@@ -264,9 +292,11 @@ export function BrandingPage() {
     update({ images: { ...draft.images, ...Object.fromEntries(gone.map((key) => [key, null])) } });
   };
 
-  const submit = (body: BrandingInput, after: string) => {
+  const submit = (body: BrandingInput, after: string, at = version) => {
+    problem.clear();
+    const shown = settings.data;
     save.mutate(
-      { body, version },
+      { body, version: at },
       {
         onSuccess: (saved) => {
           setDraft(draftFrom(saved));
@@ -276,8 +306,15 @@ export function BrandingPage() {
         },
         // A refusal says why at its fields (QA BUG-03); anything else is reported.
         onError: (error) => {
+          if (conflict.take(error)) {
+            // A save with no edits (reset) compares with the branding shown when it was made.
+            setOpened((was) => was ?? shown);
+            setStopped({ body, after });
+            return;
+          }
           const found = fieldProblems(error);
-          if (Object.keys(found).length === 0) reportError(error);
+          if (Object.keys(found).length === 0) problem.show(error);
+          else markHandled(error);
           setProblems(found);
         },
       },
@@ -641,6 +678,7 @@ export function BrandingPage() {
                 }))}
               />
             </Card>
+            <FormProblem problem={problem} />
             <Flex gap={8} wrap>
               <WriteButton
                 type="primary"
@@ -695,6 +733,29 @@ export function BrandingPage() {
         </Col>
       </Row>
       <DomainsCard />
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={(field) => brandingPart(t, field)}
+        opened={brandingView(opened)}
+        latest={brandingView(settings.data)}
+        onReload={() => {
+          conflict.clear();
+          setDraft(null);
+          setPicked({});
+          setProblems({});
+          setOpened(undefined);
+          setStopped(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          setOpened(settings.data);
+          if (stopped !== undefined) {
+            submit(stopped.body, stopped.after, conflict.latestVersion ?? version);
+          }
+          setStopped(undefined);
+        }}
+      />
     </Flex>
   );
 }

@@ -28,7 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantEntity, TenantKeyed, TenantScoped
+from app.shared.db.models import Base, TenantEntity, TenantKeyed, TenantScoped, utc_now
 
 
 class ReportFolder(TenantEntity):
@@ -136,7 +136,7 @@ class ReportSettings(TenantKeyed, Base):
     export_link_days: Mapped[int] = mapped_column(Integer, server_default="7")
     max_export_rows: Mapped[int] = mapped_column(Integer, server_default="1000000")
     version: Mapped[int] = mapped_column(Integer, server_default="1")
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
 
 

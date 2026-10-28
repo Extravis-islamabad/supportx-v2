@@ -9,7 +9,8 @@ import { describeError } from './describe';
 import { setErrorReporter } from './reporter';
 
 /**
- * Shows reported errors as translated notifications with a "Copy reference" action. Network
+ * Shows reported errors as translated notifications: real failures with a "Copy reference"
+ * action, expected refusals (4xx with a reason) as a plain notice. Network
  * outages are reported once per outage (the reconnecting banner takes over from there).
  */
 export function ErrorReporterProvider({ children }: { children: ReactNode }) {
@@ -25,6 +26,17 @@ export function ErrorReporterProvider({ children }: { children: ReactNode }) {
         setTimeout(() => (outageShown = false), 30_000);
       }
       const { title, detail, reference } = describeError(error, t);
+      // An expected refusal the screen did not show itself: a plain notice in the user's
+      // language, not an error with a support reference (QA WP-029 BUG-02).
+      if (error instanceof ApiError && error.isRefusal) {
+        notification.warning({
+          message: title,
+          description: detail,
+          placement: 'topRight',
+          role: 'status',
+        });
+        return;
+      }
       notification.error({
         message: title,
         description:

@@ -423,9 +423,13 @@ export const ur: LabelResource = {
   'incidents.sort.priority': 'ترجیح، سب سے زیادہ پہلے',
   'incidents.sort.display_number': 'شناخت، پرانے پہلے',
   'incidents.sort.subject': 'موضوع حروفِ تہجی سے',
-  'incidents.view_notice': 'منظر «{{view}}»: {{count}} دکھائے گئے۔',
-  'incidents.filter_notice': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
-  'incidents.hidden_notice_capped':
+  'incidents.view_notice_one': 'منظر «{{view}}»: {{count}} دکھایا گیا۔',
+  'incidents.view_notice_other': 'منظر «{{view}}»: {{count}} دکھائے گئے۔',
+  'incidents.filter_notice_one': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
+  'incidents.filter_notice_other': 'آپ کی تلاش اور فلٹر اسے {{count}} تک محدود کرتے ہیں۔',
+  'incidents.hidden_notice_capped_one':
+    'آپ جو دیکھ سکتے ہیں ان میں سے {{count}} سے زیادہ دوسرے واقعات اس منظر میں نہیں۔',
+  'incidents.hidden_notice_capped_other':
     'آپ جو دیکھ سکتے ہیں ان میں سے {{count}} سے زیادہ دوسرے واقعات اس منظر میں نہیں۔',
   'incidents.show_all': 'سب دکھائیں',
   'incidents.no_sla': 'کوئی SLA لاگو نہیں',
@@ -454,7 +458,6 @@ export const ur: LabelResource = {
   'incidents.assigned': 'تفویض محفوظ ہو گئی۔',
   'incidents.handed_over': '{{id}} {{group}} کے حوالے کر دیا گیا۔',
   'incidents.handover_confirm': 'حوالے کریں',
-  'incidents.this_incident': 'یہ واقعہ',
   'incidents.taken': 'اب یہ آپ کا ہے۔',
   'incidents.take_choose_group': 'آپ کا کون سا گروپ اسے لے گا؟',
   'auth.switch_to': '{{tenant}} پر جائیں',
@@ -480,7 +483,8 @@ export const ur: LabelResource = {
   'incidents.no_site': 'کوئی مقام نہیں',
   'incidents.no_technician': 'کوئی ٹیکنیشن نہیں',
   'incidents.no_category': 'کوئی زمرہ نہیں',
-  'incidents.open_load': '{{count}} کھلے',
+  'incidents.open_load_one': '{{count}} کھلا',
+  'incidents.open_load_other': '{{count}} کھلے',
   'incidents.site_help': 'درخواست گزار کا مقام استعمال کرنے کے لیے خالی چھوڑیں۔',
   'incidents.history.all': 'سب',
   'incidents.history.people': 'لوگ',
@@ -904,6 +908,7 @@ export const ur: LabelResource = {
   'live.someone': 'کوئی',
   'incidents.tab.conversation': 'گفتگو ({{count}})',
   'incidents.handover_title': '{{id}} حوالے کریں؟',
+  'incidents.handover_title_new': 'یہ واقعہ حوالے کریں؟',
   'incidents.handover_keep_following': 'اس واقعے کو فالو کرتے رہیں',
   'incidents.handover_confirm_following': 'حوالے کریں اور فالو جاری رکھیں',
   'richtext.undo': 'واپس کریں',
@@ -1103,13 +1108,17 @@ export const ur: LabelResource = {
   'files.admin.usage': 'اسٹوریج',
   'files.admin.used_of': '{{limit}} میں سے {{used}} استعمال',
   'files.admin.used_unlimited': '{{used}} استعمال (کوئی حد نہیں)',
-  'files.admin.files_count': '{{count}} فائلیں',
+  'files.admin.files_count_one': '{{count}} فائل',
+  'files.admin.files_count_other': '{{count}} فائلیں',
   'files.admin.scanning': 'میلویئر اسکیننگ',
   'files.admin.scanning_ok': 'ہر نئی فائل کھولے جانے سے پہلے میلویئر کے لیے جانچی جاتی ہے۔',
   'files.admin.signature_date': 'میلویئر سگنیچرز بتاریخ {{date}}',
-  'files.admin.waiting': '{{count}} جانچ کے منتظر',
-  'files.admin.failed': '{{count}} کی جانچ نہیں ہو سکی',
-  'files.admin.not_scanned': '{{count}} اسکین نہیں ہوئیں',
+  'files.admin.waiting_one': '{{count}} جانچ کی منتظر',
+  'files.admin.waiting_other': '{{count}} جانچ کے منتظر',
+  'files.admin.failed_one': '{{count}} کی جانچ نہیں ہو سکی',
+  'files.admin.failed_other': '{{count}} کی جانچ نہیں ہو سکی',
+  'files.admin.not_scanned_one': '{{count}} اسکین نہیں ہوئی',
+  'files.admin.not_scanned_other': '{{count}} اسکین نہیں ہوئیں',
   'files.banner.title': 'فائل اسکیننگ پر توجہ درکار ہے',
   'files.banner.open': 'فائل کی ترتیبات کھولیں',
   'richtext.image_uploading': 'تصویر اپ لوڈ ہو رہی ہے…',
@@ -1133,10 +1142,14 @@ export const ur: LabelResource = {
   'followers.remove_ok': 'ہٹائیں',
   'incidents.handover_moves':
     '{{id}} {{group}} کو منتقل ہو جائے گا، ان واقعات سے باہر جن پر آپ کام کرتے ہیں۔',
+  'incidents.handover_moves_new':
+    'یہ واقعہ {{group}} کو منتقل ہو جائے گا، ان واقعات سے باہر جن پر آپ کام کرتے ہیں۔',
   'incidents.handover_following_text':
     'آپ اسے فالو کرتے رہیں گے: آپ اب بھی اسے کھول سکتے ہیں، اس کی تازہ کاریاں براہ راست دیکھ سکتے ہیں اور نجی نوٹس شامل کر سکتے ہیں، لیکن اسے تبدیل نہیں کر سکتے۔ آپ کسی بھی وقت فالو کرنا بند کر سکتے ہیں۔',
   'incidents.handover_text':
     'اس کے بعد آپ {{id}} نہیں دیکھ سکیں گے اور نہ ہی آپ کو اس کے بارے میں بتایا جائے گا۔ تاریخ میں حوالگی درج ہوتی ہے۔',
+  'incidents.handover_text_new':
+    'اس کے بعد آپ یہ واقعہ نہیں دیکھ سکیں گے اور نہ ہی آپ کو اس کے بارے میں بتایا جائے گا۔ تاریخ میں حوالگی درج ہوتی ہے۔',
   'incidents.handed_over_following':
     '{{id}} {{group}} کے حوالے کر دیا گیا۔ آپ اسے فالو کرتے رہیں گے۔',
   // WP-020c: incident settings, templates, levels, closure codes, form density
@@ -1660,6 +1673,8 @@ export const ur: LabelResource = {
     'خودکار سرٹیفکیٹ کے بغیر ایک سرور والی انسٹالیشن کے لیے۔ سرٹیفکیٹ چین (پہلے اس ڈومین کا سرٹیفکیٹ) اور اس کی نجی کلید، دونوں PEM فارمیٹ میں چسپاں کریں۔ کلید خفیہ شکل میں محفوظ ہوتی ہے۔',
   'domains.certificate': 'سرٹیفکیٹ (PEM)',
   'domains.private_key': 'نجی کلید (PEM)',
+  'domains.status': 'حالت',
+  'domains.tls': 'سرٹیفکیٹ',
   'domains.certificate_save': 'یہ سرٹیفکیٹ استعمال کریں',
   'domains.certificate_saved': 'سرٹیفکیٹ محفوظ ہو گیا۔',
   'domains.remove': 'ہٹائیں',
@@ -1944,6 +1959,14 @@ export const ur: LabelResource = {
   'assign_method.load_balancing': 'بوجھ کی تقسیم',
   'availability.available': 'دستیاب',
   'availability.away': 'غیر حاضر',
+  'availability.member_label': 'دستیابی',
+  'availability.set_away_by': '{{name}} نے {{time}} پر غیر حاضر کیا',
+  'availability.set_available_by': '{{name}} نے {{time}} پر دستیاب کیا',
+  'availability.no_members': 'اس گروپ میں کوئی ٹیکنیشن نہیں۔',
+  'availability.group_members': 'اراکین اور دستیابی',
+  'availability.led_groups': 'آپ کی قیادت والے گروپ',
+  'availability.led_groups_help':
+    'جب کوئی رکن کام نہ لے سکے تو اسے غیر حاضر کریں: اسے کوئی نیا کام خودکار طور پر تفویض نہیں ہوگا۔',
   'automation.why.rule': 'کاروباری قاعدے «{{name}}» کے ذریعے۔',
   'automation.why.routing_rule': 'قاعدے «{{name}}» نے روٹ کیا۔',
   'automation.why.routing_category': 'زمرے کے گروپ کی طرف روٹ کیا۔',
@@ -1954,6 +1977,13 @@ export const ur: LabelResource = {
   'automation.why.matrix': 'ترجیحی میٹرکس سے (اثر اور فوریت)۔',
   'automation.someone': 'کوئی',
   'action_reason.not_for_you': 'اس ریکارڈ پر یہ صرف مخصوص لوگ کر سکتے ہیں۔',
+  'action_reason.not_for_you_who': 'اس ریکارڈ پر یہ صرف یہ کر سکتے ہیں: {{who}}۔',
+  'action_reason.group_members': '{{group}} کے اراکین',
+  'action_reason.relative.requester': 'درخواست گزار',
+  'action_reason.relative.assignee': 'تفویض شدہ ٹیکنیشن',
+  'action_reason.relative.group_head': 'گروپ کا سربراہ',
+  'action_reason.relative.requester_manager': 'درخواست گزار کا مینیجر',
+  'action_reason.relative.department_head': 'شعبے کا سربراہ',
   'action_reason.not_offered': 'اس ریکارڈ کے لیے دستیاب نہیں: اس کی شرائط پوری نہیں ہوتیں۔',
   'errors.transition_not_allowed': 'حالت کی یہ تبدیلی اس ریکارڈ پر آپ کے لیے دستیاب نہیں۔',
   'errors.field.too_many_values': 'زیادہ سے زیادہ {{max}} منتخب کریں۔',
@@ -1962,7 +1992,11 @@ export const ur: LabelResource = {
   'settings.section.transitions': 'حالت کی تبدیلیاں',
   'automation.after_move': '“{{action}}” کے بعد',
   'automation.note_text': 'نوٹ کا متن',
-  'automation.panel.none': 'اس ریکارڈ پر کسی ٹرگر نے کام نہیں کیا۔',
+  'automation.panel.none': 'آٹومیشن نے اس ریکارڈ پر کچھ نہیں کیا۔',
+  'automation.panel.steps': 'قواعد، روٹنگ اور تفویض',
+  'automation.panel.triggers': 'ٹرگرز',
+  'automation.panel.history_hint':
+    'ہر تبدیلی، اور اسے کس نے یا کس چیز نے کیا، تاریخ میں بھی موجود ہے۔',
   'automation.panel.note': 'نجی نوٹ شامل کریں',
   'automation.panel.set': '{{field}} سیٹ کریں',
   'automation.reason.has_value': 'اس میں پہلے سے قدر تھی',
@@ -2109,6 +2143,28 @@ export const ur: LabelResource = {
   'automation.move_down': '“{{name}}” نیچے کریں',
   'automation.move_up': '“{{name}}” اوپر کریں',
   'automation.problems': 'یہ ابھی محفوظ نہیں ہو سکتا:',
+  'automation.problem.at': '{{where}}: {{message}}',
+  'automation.problem.actions': 'عمل {{n}}',
+  'automation.problem.after_actions': 'منتقلی کے بعد عمل {{n}}',
+  'automation.problem.group_ids': 'گروپ {{n}}',
+  'automation.problem.condition': 'شرط {{n}}',
+  'automation.problem_field.group_id': 'گروپ',
+  'automation.problem_field.site_id': 'مقام',
+  'automation.problem_field.overwrite': 'منتخب گروپ بدلیں',
+  'automation.problem_field.roles': 'کردار',
+  'automation.problem_field.group_ids': 'گروپس',
+  'automation.problem_field.relatives': 'ریکارڈ پر موجود افراد',
+  'automation.problem_field.confirmation': 'تصدیق',
+  'automation.problem_field.after_actions': 'منتقلی کے بعد اعمال',
+  'automation.problem_field.method': 'طریقہ',
+  'automation.problem_field.load_cap': 'ہر ایک کے زیادہ سے زیادہ کھلے ریکارڈ',
+  'automation.problem_field.record_type': 'ریکارڈ کی قسم',
+  'automation.problem_field.stop_after': 'اس قاعدے کے بعد رک جائیں',
+  'automation.problem_field.fallback_group_id': 'متبادل گروپ',
+  'automation.problem_field.use_category_group': 'زمرے کا گروپ',
+  'automation.problem_field.owner_id': 'مالک',
+  'automation.problem_field.position': 'ترتیب',
+  'automation.problem_field.fire_on_own_change': 'اپنی تبدیلیوں پر چلتا ہے',
   'automation.refusal_message': 'محفوظ کرنے سے انکار پر دکھایا جانے والا پیغام ({{language}})',
   'automation.remove': 'ہٹائیں',
   'automation.remove.confirm': '“{{name}}” ہٹائیں؟ ریکارڈ پہلے کی گئی تبدیلیاں رکھیں گے۔',
@@ -2205,6 +2261,7 @@ export const ur: LabelResource = {
   'reports.schedule': 'شیڈول',
   'reports.schedule_title': 'یہ رپورٹ شیڈول کے مطابق بھیجیں',
   'reports.schedule_frequency': 'کتنی بار',
+  'reports.schedule_status': 'حالت',
   'reports.schedule_days': 'ان دنوں',
   'reports.schedule_day_of_month': 'مہینے کا دن',
   'reports.schedule_time': 'وقت',
@@ -2281,7 +2338,8 @@ export const ur: LabelResource = {
   'reports.my_exports': 'میری ایکسپورٹس',
   'reports.download': 'ڈاؤن لوڈ',
   'reports.no_exports': 'ابھی کوئی ایکسپورٹ نہیں۔',
-  'reports.export_rows': '{{count}} قطاریں',
+  'reports.export_rows_one': '{{count}} قطار',
+  'reports.export_rows_other': '{{count}} قطاریں',
   'reports.cannot_export':
     'آپ کو رپورٹس ایکسپورٹ کرنے کی اجازت درکار ہے، اور ہر شرط کی قدر ہونی چاہیے۔',
   'reports.settings': 'رپورٹ کی ترتیبات',
@@ -2373,6 +2431,7 @@ export const ur: LabelResource = {
   'reports.bucket': 'تاریخ کی گروپ بندی',
   'reports.measures': 'پیمانے',
   'reports.chart': 'چارٹ',
+  'reports.layout': 'ترتیب اور ڈسپلے',
   'reports.view': 'بطور دکھائیں',
   'reports.view_chart': 'چارٹ',
   'reports.view_table': 'جدول',
@@ -2381,7 +2440,9 @@ export const ur: LabelResource = {
   'reports.scope_note':
     'اعداد صرف ان ریکارڈز کو گنتے ہیں جو آپ دیکھ سکتے ہیں، اس لیے یہ کسی ساتھی سے مختلف ہو سکتے ہیں۔',
   'reports.data_table': 'اعداد کو جدول کی صورت میں دکھائیں',
-  'reports.chart_summary':
+  'reports.chart_summary_one':
+    '{{field}} کے مطابق {{count}} گروپ کا چارٹ؛ نیچے جدول میں وہی اعداد ہیں۔',
+  'reports.chart_summary_other':
     '{{field}} کے مطابق {{count}} گروپس کا چارٹ؛ نیچے جدول میں وہی اعداد ہیں۔',
   'reports.all_records': 'اس رپورٹ کے تمام ریکارڈز',
   'reports.drill_count': 'ریکارڈز: {{count}}',
@@ -2629,6 +2690,10 @@ export const ur: LabelResource = {
   'security.sessions.portal': 'پورٹل (درخواست دہندگان)',
   'security.sessions.idle': 'غیرفعالی کے بعد سائن آؤٹ',
   'security.sessions.absolute': 'طویل ترین سیشن',
+  'security.field.console_idle': 'کنسول: غیرفعالی کے بعد سائن آؤٹ',
+  'security.field.console_absolute': 'کنسول: طویل ترین سیشن',
+  'security.field.portal_idle': 'پورٹل: غیرفعالی کے بعد سائن آؤٹ',
+  'security.field.portal_absolute': 'پورٹل: طویل ترین سیشن',
   'security.sessions.minutes': 'منٹ',
   'security.sessions.hours': 'گھنٹے',
   'security.sessions.saved': 'سائن اِن کی ترتیبات محفوظ ہو گئیں۔',
@@ -2645,6 +2710,8 @@ export const ur: LabelResource = {
   'security.sso.add_title': 'سنگل سائن آن شامل کریں',
   'security.sso.edit_title': 'سنگل سائن آن بدلیں',
   'security.sso.display_name': 'سائن اِن بٹن پر نام',
+  'security.sso.preset': 'فراہم کنندہ',
+  'security.sso.state': 'حالت',
   'security.sso.domains': 'ای میل ڈومین',
   'security.sso.domains_hint':
     'جن کا ای میل ان میں سے کسی ڈومین میں ہو، وہ اس فراہم کنندہ سے سائن اِن کر سکتے ہیں، جیسے example.com۔',
@@ -2919,4 +2986,199 @@ export const ur: LabelResource = {
   'session.idle.sign_out': 'ابھی سائن آؤٹ کریں',
   'forms.start_empty': 'خالی سے شروع کریں',
   'forms.draft_restored': 'آپ کا غیر محفوظ اندراج بحال کر دیا گیا۔',
+  // WP-023 notifications
+  'event_type.notifications.notification.created': 'اطلاع بنائی گئی',
+  'event_type.notifications.notification.read': 'اطلاعات پڑھ لی گئیں',
+  'event_type.notifications.delivery.recorded': 'اطلاع کی ترسیل درج ہوئی',
+  'event_type.notifications.rule.changed': 'اطلاع کا قاعدہ بدلا گیا',
+  'event_type.notifications.preferences.changed': 'اطلاعات کی ترجیحات بدلی گئیں',
+  'audit.action.notification.rule_changed': 'اطلاع کا قاعدہ تبدیل کیا',
+  'audit.action.notification.rule_reset': 'اطلاع کا قاعدہ پہلے سے طے شدہ پر واپس کیا',
+  'permission_module.notifications': 'اطلاعات',
+  'permission.notifications.manage': 'اطلاعات کے قواعد کا انتظام کریں',
+  'permission.notifications.manage.description':
+    'منتخب کریں کہ کون سے واقعات کسے اور کن ذرائع سے اطلاع دیں۔',
+  'errors.notification_not_found': 'یہ اطلاع موجود نہیں یا آپ کی نہیں۔',
+  'errors.notification_event_not_found': 'اطلاع کا یہ واقعہ موجود نہیں۔',
+  'errors.notification_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے لیے دستیاب نہیں۔',
+  'errors.field.too_many_conditions': 'شرائط بہت زیادہ ہیں۔',
+  'notification_category.created': 'نئے ریکارڈ',
+  'notification_category.assignment': 'تفویض',
+  'notification_category.conversation': 'جوابات اور نوٹس',
+  'notification_category.status': 'حالت کی تبدیلیاں',
+  'notification_category.mention': 'تذکرے',
+  'notification_category.following': 'فالو کرنا',
+  'notification_channel.in_app': 'ایپ میں',
+  'notification_channel.email': 'ای میل',
+  'notification_condition_operator.in': 'ان میں سے ایک ہے',
+  'notification_condition_operator.not_in': 'ان میں سے کوئی نہیں',
+  'notification_state.queued': 'بھیجی جا رہی ہے',
+  'notification_state.waiting': 'میل سیٹ اپ کا انتظار',
+  'notification_state.sent': 'بھیج دی گئی',
+  'notification_state.failed': 'ناکام',
+  'notification_state.suppressed': 'نہیں بھیجی گئی',
+  'notification_reason.no_access': 'وہ اب ریکارڈ نہیں دیکھ سکتے',
+  'notification_reason.preference': 'ان کی ترجیحات میں بند ہے',
+  'notification_reason.do_not_disturb': 'پریشان نہ کریں آن تھا',
+  'notification_reason.no_address': 'غیر فعال، یا ای میل پتہ نہیں',
+  'notification_reason.mail_refused': 'میل سرور نے پیغام مسترد کر دیا',
+  'notification_reason.gave_up': 'کئی کوششوں کے بعد ترسیل روک دی گئی',
+  'notification_recipient.requester': 'درخواست گزار',
+  'notification_recipient.on_behalf_of': 'جس کے لیے ہے',
+  'notification_recipient.assignee': 'تفویض شدہ تکنیکی ماہر',
+  'notification_recipient.previous_assignee': 'سابقہ تکنیکی ماہر',
+  'notification_recipient.group': 'گروپ کے اراکین',
+  'notification_recipient.group_head': 'گروپ لیڈ اور شعبے کا سربراہ',
+  'notification_recipient.followers': 'فالوورز',
+  'notification_recipient.mentioned': 'جن کا ذکر ہوا',
+  'notification_recipient.new_follower': 'نیا فالوور',
+  'notification_event.incident.created': 'نیا واقعہ: وصولی کی تصدیق',
+  'notification_event.incident.created_in_group': 'گروپ میں نیا واقعہ',
+  'notification_event.incident.assigned': 'واقعہ تفویض ہوا',
+  'notification_event.incident.public_reply': 'عوامی جواب',
+  'notification_event.incident.public_note': 'عوامی نوٹ',
+  'notification_event.incident.private_note': 'نجی نوٹ',
+  'notification_event.incident.requester_replied': 'درخواست گزار نے جواب دیا',
+  'notification_event.incident.mentioned': 'ذکر',
+  'notification_event.incident.status_changed': 'حالت بدلی',
+  'notification_event.incident.resolved': 'واقعہ حل ہوا',
+  'notification_event.incident.closed': 'واقعہ بند ہوا',
+  'notification_event.incident.reopened': 'واقعہ دوبارہ کھلا',
+  'notification_event.incident.canceled': 'واقعہ منسوخ ہوا',
+  'notification_event.incident.follower_added': 'فالوور کے طور پر شامل',
+  'notification_variable.record.display_id': 'ریکارڈ › شناخت',
+  'notification_variable.record.title': 'ریکارڈ › موضوع',
+  'notification_variable.record.priority': 'ریکارڈ › ترجیح',
+  'notification_variable.record.status': 'ریکارڈ › حالت',
+  'notification_variable.record.link': 'ریکارڈ › لنک',
+  'notification_variable.requester.name': 'درخواست گزار › نام',
+  'notification_variable.assignee.name': 'تکنیکی ماہر › نام',
+  'notification_variable.actor.name': 'تبدیل کنندہ › نام',
+  'notification_variable.recipient.name': 'وصول کنندہ › نام',
+  'notification_variable.conversation.author': 'جواب یا نوٹ › مصنف',
+  'notification_variable.conversation.excerpt': 'جواب یا نوٹ › متن',
+  'notification_variable.change.from_status': 'تبدیلی › سابقہ حالت',
+  'notification.open_record': '{{id}} کھولیں',
+  'notification_template.incident.created.in_app':
+    'ہمیں {{ record.display_id }} موصول ہوا: {{ record.title }}',
+  'notification_template.incident.created.subject':
+    'آپ کی درخواست {{ record.display_id }} موصول ہوئی: {{ record.title }}',
+  'notification_template.incident.created.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہمیں آپ کی درخواست "{{ record.title }}" موصول ہوئی اور اسے {{ record.display_id }} کے طور پر درج کر لیا گیا ہے۔ ہم آپ کو باخبر رکھیں گے۔',
+  'notification_template.incident.created_in_group.in_app':
+    'آپ کے گروپ میں نیا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.created_in_group.subject':
+    'نیا واقعہ {{ record.display_id }}: {{ record.title }}',
+  'notification_template.incident.created_in_group.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" آپ کے گروپ میں آیا ہے۔\n\nترجیح: {{ record.priority }}\nدرخواست گزار: {{ requester.name }}',
+  'notification_template.incident.assigned.in_app':
+    '{{ record.display_id }} {{ assignee.name }} کو تفویض ہوا: {{ record.title }}',
+  'notification_template.incident.assigned.subject':
+    '{{ assignee.name }} کو تفویض: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.assigned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب {{ assignee.name }} کو تفویض ہے۔\n\nترجیح: {{ record.priority }}\nحالت: {{ record.status }}\nدرخواست گزار: {{ requester.name }}',
+  'notification_template.incident.public_reply.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.incident.public_reply.subject':
+    '{{ record.display_id }} پر نیا جواب: {{ record.title }}',
+  'notification_template.incident.public_reply.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.public_note.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر نوٹ شامل کیا',
+  'notification_template.incident.public_note.subject':
+    '{{ record.display_id }} پر نیا نوٹ: {{ record.title }}',
+  'notification_template.incident.public_note.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر نوٹ شامل کیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.private_note.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر نجی نوٹ شامل کیا',
+  'notification_template.incident.private_note.subject':
+    '{{ record.display_id }} پر نجی نوٹ: {{ record.title }}',
+  'notification_template.incident.private_note.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر نجی نوٹ شامل کیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.requester_replied.in_app':
+    'درخواست گزار {{ conversation.author }} نے {{ record.display_id }} پر جواب دیا',
+  'notification_template.incident.requester_replied.subject':
+    'درخواست گزار نے {{ record.display_id }} پر جواب دیا: {{ record.title }}',
+  'notification_template.incident.requester_replied.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر جواب دیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.mentioned.in_app':
+    '{{ conversation.author }} نے {{ record.display_id }} پر آپ کا ذکر کیا',
+  'notification_template.incident.mentioned.subject':
+    '{{ record.display_id }} پر آپ کا ذکر ہوا: {{ record.title }}',
+  'notification_template.incident.mentioned.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ conversation.author }} نے {{ record.display_id }} "{{ record.title }}" پر آپ کا ذکر کیا:\n\n{{ conversation.excerpt }}',
+  'notification_template.incident.status_changed.in_app':
+    '{{ record.display_id }} اب {{ record.status }} ہے',
+  'notification_template.incident.status_changed.subject':
+    '{{ record.display_id }} اب {{ record.status }} ہے: {{ record.title }}',
+  'notification_template.incident.status_changed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" کی حالت {{ change.from_status }} سے {{ record.status }} ہو گئی۔',
+  'notification_template.incident.resolved.in_app': '{{ record.display_id }} حل ہو گیا',
+  'notification_template.incident.resolved.subject':
+    'حل ہو گیا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.resolved.body':
+    'السلام علیکم {{ recipient.name }}،\n\nہم نے {{ record.display_id }} "{{ record.title }}" حل کر دیا ہے۔ اگر مسئلہ اب بھی موجود ہے تو جواب دے کر ہمیں بتائیں۔',
+  'notification_template.incident.closed.in_app': '{{ record.display_id }} بند ہو گیا',
+  'notification_template.incident.closed.subject':
+    'بند: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.closed.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اب بند ہے۔',
+  'notification_template.incident.reopened.in_app': '{{ record.display_id }} دوبارہ کھل گیا',
+  'notification_template.incident.reopened.subject':
+    'دوبارہ کھلا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.reopened.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" دوبارہ کھل گیا ہے اور پھر توجہ چاہتا ہے۔\n\nحالت: {{ record.status }}',
+  'notification_template.incident.canceled.in_app': '{{ record.display_id }} منسوخ ہو گیا',
+  'notification_template.incident.canceled.subject':
+    'منسوخ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.canceled.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" منسوخ کر دیا گیا۔',
+  'notification_template.incident.follower_added.in_app':
+    'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
+  'notification_template.incident.follower_added.subject':
+    'آپ اب {{ record.display_id }} کو فالو کرتے ہیں: {{ record.title }}',
+  'notification_template.incident.follower_added.body':
+    'السلام علیکم {{ recipient.name }}،\n\nآپ اب {{ record.display_id }} "{{ record.title }}" کو فالو کرتے ہیں اور اس کی تازہ کاریوں سے باخبر رہیں گے۔',
+  'nav.admin_notifications': 'اطلاعات',
+  'notifications.title': 'اطلاعات',
+  'notifications.open_one': 'اطلاعات، {{count}} نہ پڑھی ہوئی',
+  'notifications.open_other': 'اطلاعات، {{count}} نہ پڑھی ہوئی',
+  'notifications.read_all': 'سب کو پڑھا ہوا نشان زد کریں',
+  'notifications.do_not_disturb': 'پریشان نہ کریں',
+  'notifications.empty': 'ابھی کوئی اطلاع نہیں۔',
+  'notifications.more': 'پرانی دکھائیں',
+  'notifications.banner.title': 'ای میل اطلاعات انتظار میں ہیں',
+  'notifications.banner.no_mail_one':
+    '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',
+  'notifications.banner.no_mail_other':
+    '{{count}} ای میلز انتظار میں ہیں کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میلز بھیج دی جائیں گی۔',
+  'notifications.banner.sending_one': 'انتظار میں موجود {{count}} ای میل اب بھیجی جا رہی ہے۔',
+  'notifications.banner.sending_other': 'انتظار میں موجود {{count}} ای میلز اب بھیجی جا رہی ہیں۔',
+  'notification_rules.intro':
+    'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
+  'notification_rules.saved': 'اطلاع کا قاعدہ محفوظ ہو گیا۔',
+  'notification_rules.col.event': 'واقعہ',
+  'notification_rules.col.on': 'آن',
+  'notification_rules.col.recipients': 'کون',
+  'notification_rules.col.channels': 'کیسے',
+  'notification_rules.col.priority': 'صرف اس ترجیح کے لیے',
+  'notification_rules.any_priority': 'کوئی بھی ترجیح',
+  'notification_rules.required': 'لوگوں کے لیے لازمی',
+  'notification_rules.default': 'پہلے سے طے شدہ',
+  'notification_rules.changed': '{{when}} کو تبدیل ہوا',
+  'notification_rules.reset': 'پہلے سے طے شدہ پر واپس',
+  'notification_preferences.title': 'اطلاعات',
+  'notification_preferences.help':
+    'منتخب کریں کہ آپ کو کس بارے میں اور کہاں اطلاع ملے۔ کچھ اطلاعات آپ کی تنظیم کی طرف سے لازمی ہیں۔',
+  'notification_preferences.saved': 'ترجیحات محفوظ ہو گئیں۔',
+  'notification_preferences.col.category': 'قسم',
+  'notification_preferences.locked': 'آپ کی تنظیم کی طرف سے لازمی: اسے بند نہیں کیا جا سکتا۔',
+  'notification_preferences.dnd_help':
+    'کوئی پاپ اپ نہیں اور فوری و لازمی کے سوا کوئی ای میل نہیں؛ سب کچھ آپ کی اطلاعات میں پھر بھی آتا ہے۔',
+  'roles.delete_in_use_one':
+    '{{count}} صارف کے پاس یہ کردار ہے۔ وہ کردار منتخب کریں جس میں انہیں منتقل کیا جائے؛ کوئی بھی خاموشی سے رسائی نہیں کھوتا۔',
+  'roles.delete_in_use_other':
+    '{{count}} صارفین کے پاس یہ کردار ہے۔ وہ کردار منتخب کریں جس میں انہیں منتقل کیا جائے؛ کوئی بھی خاموشی سے رسائی نہیں کھوتا۔',
+  'users.total_one': '{{count}} صارف',
+  'users.total_other': '{{count}} صارفین',
 };

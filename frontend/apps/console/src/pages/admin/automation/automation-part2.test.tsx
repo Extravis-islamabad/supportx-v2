@@ -220,6 +220,40 @@ describe('The record (WP-029 part 2)', () => {
     );
   });
 
+  it('C3: rules and routing in the save show on the Automation tab, not only in History', async () => {
+    const step = (kind: string, extra: Record<string, unknown>) => ({
+      change_id: `c-${kind}`,
+      version: 1,
+      kind: 'created',
+      occurred_at: new Date().toISOString(),
+      actor_id: null,
+      actor_name: null,
+      actor_type: 'system',
+      source: 'rule',
+      reason: null,
+      changes: [],
+      automation: { kind, ...extra },
+    });
+    routes({
+      [`GET ${PATH}/history`]: {
+        body: {
+          items: [
+            step('business_rule', { rule: 'Email is P2' }),
+            step('routing', { reason: 'rule', rule: 'Network calls' }),
+          ],
+          next_cursor: null,
+          people: {},
+        },
+      },
+    });
+    open(`/incidents/${ITEM.id}`);
+    const steps = await screen.findByTestId('inc-automation-steps');
+    expect(steps.textContent).toContain('Email is P2');
+    expect(steps.textContent).toContain('Network calls');
+    expect(screen.queryByTestId('inc-automation-empty')).toBeNull();
+    expect(screen.getByTestId('inc-automation-history-hint')).toBeDefined();
+  });
+
   it('REQ-RUL-028 AC1: a stopped loop warns on the record, naming the triggers', async () => {
     routes({
       [`GET ${PATH}/automation`]: {

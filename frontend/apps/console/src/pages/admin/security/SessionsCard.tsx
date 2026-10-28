@@ -8,8 +8,17 @@ import {
   type IdentitySettings,
   type IdentitySettingsInput,
 } from '@supportx/api-client';
-import { reportError, useLabel, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  markHandled,
+  useConflict,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
+import { editable, useSettingName } from './conflict';
 import { FieldNote } from './FieldNote';
 
 type AppName = 'console' | 'portal';
@@ -82,11 +91,20 @@ export function SessionsCard() {
   const save = useSaveIdentitySettings();
   const [edited, setDraft] = useState<Draft | null>(null);
   const [refused, setRefused] = useState<Record<string, string>>({});
+  // A refusal with no field to point at is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // A save another admin made first (409): who, when and what, in the shared dialog (BUG-05).
+  const conflict = useConflict();
+  const settingName = useSettingName();
+  // The settings when the edit began: the dialog compares them with the live ones.
+  const [base, setBase] = useState<IdentitySettings>();
   if (settings.data === undefined) return <Card loading data-testid="security-sessions" />;
+  const saved = settings.data;
   const draft = edited ?? draftFrom(settings.data);
   const typed = problems(t, draft);
   const shown = { ...refused, ...typed };
   const update = (change: Partial<Draft>, field: string) => {
+    if (edited === null) setBase(saved);
     setDraft({ ...draft, ...change });
     setRefused((current) =>
       Object.fromEntries(Object.entries(current).filter(([f]) => f !== field)),
@@ -100,6 +118,36 @@ export function SessionsCard() {
     create_people_on_sign_in: draft.createPeople,
   });
 
+  const submit = (version: number) => {
+    problem.clear();
+    save.mutate(
+      { body: body(), version },
+      {
+        onSuccess: (saved) => {
+          setDraft(draftFrom(saved));
+          setRefused({});
+          void message.success(t('security.sessions.saved'));
+        },
+        onError: (error) => {
+          if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+            markHandled(error);
+            setRefused(
+              Object.fromEntries(
+                error.fieldErrors.map((f) => [f.field, t(f.message_key, f.params ?? {})]),
+              ),
+            );
+            return;
+          }
+          if (conflict.take(error)) {
+            // Another admin saved first: fetch their version; the dialog asks (D-103 (4)).
+            void settings.refetch();
+            return;
+          }
+          problem.show(error);
+        },
+      },
+    );
+  };
   return (
     <Card title={t('security.sessions.title')} data-testid="security-sessions">
       <Flex vertical gap={16}>
@@ -170,38 +218,13 @@ export function SessionsCard() {
           </Typography.Text>
         </Flex>
         <div>
+          <FormProblem problem={problem} />
           <WriteButton
             type="primary"
             loading={save.isPending}
             disabled={Object.keys(typed).length > 0 || edited === null}
             onClick={() => {
-              save.mutate(
-                { body: body(), version: settings.data.version },
-                {
-                  onSuccess: (saved) => {
-                    setDraft(draftFrom(saved));
-                    setRefused({});
-                    void message.success(t('security.sessions.saved'));
-                  },
-                  onError: (error) => {
-                    if (error instanceof ApiError && error.status === 422) {
-                      setRefused(
-                        Object.fromEntries(
-                          error.fieldErrors.map((f) => [f.field, t(f.message_key, f.params ?? {})]),
-                        ),
-                      );
-                      return;
-                    }
-                    if (error instanceof ApiError && error.isConflict) {
-                      // Another admin saved first: keep what was typed, take their version (D-103 (4)).
-                      void settings.refetch();
-                      void message.warning(t('security.changed_elsewhere'));
-                      return;
-                    }
-                    reportError(error);
-                  },
-                },
-              );
+              submit(saved.version);
             }}
             data-testid="security-sessions-save"
           >
@@ -209,6 +232,23 @@ export function SessionsCard() {
           </WriteButton>
         </div>
       </Flex>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={settingName}
+        opened={editable(base)}
+        latest={editable(saved)}
+        onReload={() => {
+          conflict.clear();
+          setDraft(null);
+          setRefused({});
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          setBase(saved);
+          submit(conflict.latestVersion ?? saved.version);
+        }}
+      />
     </Card>
   );
 }

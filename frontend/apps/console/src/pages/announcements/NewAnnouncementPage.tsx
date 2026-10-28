@@ -4,7 +4,14 @@ import { useNavigate } from 'react-router';
 
 import { useCreateAnnouncement, useSession } from '@supportx/api-client';
 import { applyServerErrors, useForm, zodResolver } from '@supportx/forms';
-import { NoAccess, reportError, useAccess, useLabel, WriteButton } from '@supportx/ui';
+import {
+  FormProblem,
+  NoAccess,
+  useAccess,
+  useFormProblem,
+  useLabel,
+  WriteButton,
+} from '@supportx/ui';
 
 import { AnnouncementFields } from './AnnouncementForm';
 import { bodyOf, EMPTY, FIELDS, schema, type Values } from './form';
@@ -24,9 +31,12 @@ export function NewAnnouncementPage() {
   });
   // One key per form: a retried save (timeout, double click) creates one announcement, not two.
   const [key, setKey] = useState(() => crypto.randomUUID());
+  // A refusal with no field to point at is shown above Save (QA WP-029 BUG-02).
+  const problem = useFormProblem();
 
   if (!can('announcements.manage')) return <NoAccess titleKey="nav.announcements" />;
   const save = form.handleSubmit((values) => {
+    problem.clear();
     create.mutate(
       // bodyOf leaves out an empty owner; the API then makes the author the owner.
       { body: { ...EMPTY, owner_id: undefined, ...bodyOf(values) }, key },
@@ -38,7 +48,7 @@ export function NewAnnouncementPage() {
         onError: (error) => {
           // Corrected input is a different request: it needs its own key.
           setKey(crypto.randomUUID());
-          if (!applyServerErrors(error, form.setError, FIELDS)) reportError(error);
+          if (!applyServerErrors(error, form.setError, FIELDS)) problem.show(error);
         },
       },
     );
@@ -50,17 +60,22 @@ export function NewAnnouncementPage() {
         <AnnouncementFields
           form={form}
           footer={
-            <Space>
-              <WriteButton
-                type="primary"
-                loading={create.isPending}
-                onClick={() => void save()}
-                data-testid="ann-save"
-              >
-                {t('announcements.save_draft')}
-              </WriteButton>
-              <Button onClick={() => void navigate('/announcements')}>{t('actions.cancel')}</Button>
-            </Space>
+            <>
+              <FormProblem problem={problem} />
+              <Space>
+                <WriteButton
+                  type="primary"
+                  loading={create.isPending}
+                  onClick={() => void save()}
+                  data-testid="ann-save"
+                >
+                  {t('announcements.save_draft')}
+                </WriteButton>
+                <Button onClick={() => void navigate('/announcements')}>
+                  {t('actions.cancel')}
+                </Button>
+              </Space>
+            </>
           }
         />
       </Card>

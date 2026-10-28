@@ -20,6 +20,7 @@ from app.core.errors import Conflict
 from app.modules.identity_access.events import AccessSettingsChanged
 from app.modules.identity_access.infra.models import AccessSettings
 from app.shared.events import record_event
+from app.shared.history import stale_version
 
 TechnicianScope = Literal["group", "all"]
 DEFAULT_SCOPE: TechnicianScope = "group"
@@ -56,6 +57,9 @@ async def save_access_settings(
     """Answer (or change the answer to) the question. If-Match: version 0 for the first answer."""
     current = await get_access_settings(session)
     if current.version != expected_version:
+        saved = await session.scalar(select(AccessSettings))
+        if saved is not None:
+            raise await stale_version(session, saved, expected_version=expected_version)
         raise Conflict(
             code="version_conflict",
             params={"expected_version": expected_version, "current_version": current.version},

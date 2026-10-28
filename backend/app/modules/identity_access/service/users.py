@@ -169,7 +169,8 @@ async def _create_person(
         )
         .on_conflict_do_update(
             index_elements=[User.tenant_id, User.external_subject],
-            set_={"last_login_at": now},
+            # The row changed: updated_at moves with it, as an ORM update would (QA WP-029).
+            set_={"last_login_at": now, "updated_at": now},
         )
         .returning(User.id, User.version, literal_column("xmax = 0", Boolean))
     )

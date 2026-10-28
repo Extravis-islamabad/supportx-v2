@@ -4,13 +4,13 @@
 
 - **Stage:** 0 — Foundation (architecture.md §17). In progress: 14 of 16 work packages done
   (WP-014 = part 1 of 4; 014b-d are planned below).
-- **Last completed:** WP-029 part 1 (rules, routing, auto-assignment; D-097, ADR-035) and
-  WP-021-FIX (D-096), 2026-10-27. Before them WP-021 (people, sites, departments, groups, desks; D-092, ADR-032),
-  2026-10-27; before it WP-026-FIX (D-091) and WP-026 (custom fields, D-087, D-088, ADR-030).
-  Lane B: WP-017-FIX (D-093, ADR-031 accepted, merged); WP-039 session 1 of 3 (D-094, ADR-036).
-- **Next work package:** WP-029-FIX (the WP-029 QA report, ~/Desktop/qa-wp029/QA-REPORT.md:
-  BUG-01..05, C1..C4, plus the availability follow-up), then WP-020f, WP-020d/e and WP-025
-  (lane A). Lanes: see docs/LANES.md.
+- **Last completed:** WP-029-FIX (the WP-029 QA report: BUG-01..05, C1..C4, the availability
+  follow-up; D-105), 2026-10-28. Before it WP-029 parts 1 and 2 (rules, routing, auto-assignment,
+  triggers, loop guard, transitions; D-097, D-102, ADR-035) and WP-021-FIX (D-096), 2026-10-27;
+  before them WP-021 (people, sites, departments, groups, desks; D-092, ADR-032) and WP-026
+  (custom fields). Lane B: WP-039 sessions 1-3 (D-094, D-099, D-103, D-104).
+- **Next work package:** WP-020f (resolution and closure), then WP-020d/e and WP-025 (lane A).
+  Lanes: see docs/LANES.md. The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports and dashboards):** WP-035 sessions 1-4 done (engine #73, viewer #77, export
   #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic; the 1M-row
@@ -552,7 +552,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Screens: Admin › Automation (own section: Business rules, Routing and assignment); header
   Available/Away switch for technicians; all live through `automation.changed`.
 - [x] Available / Away: in the header from 1200 px, in the user menu below it, and on My profile.
-- [ ] Follow-up for the WP-029 QA-fix round (product owner, 2026-10-28): group leads and admins
+- [x] Follow-up for the WP-029 QA-fix round (product owner, 2026-10-28; done in WP-029-FIX): group leads and admins
   set a member's availability from the person's page or the group's member list, recorded in
   history ("set Away by <name>"), so a sick technician stops receiving auto-assigned work.
 - [x] Reporting provider for lane C (WP-035 port): every work item type registers its list query.
@@ -575,6 +575,29 @@ New `automation` module (migration 0025); incidents register their rule fields (
   5 bugs (refusal message shows `{{message}}` and twice; editor problems don't name the field;
   Arabic plural forms fall back to English; automation conflict dialog doesn't say who/what)
   and 4 cosmetic notes, for WP-029-FIX.
+- [x] **WP-029-FIX** (2026-10-28, D-105; branch `fix/wp-029-qa`). One test per finding, named
+  after its ID:
+  - BUG-01 rule refusal showed `{{message}}`: the error describer passes params for every code.
+    Tests: `packages/ui/src/qa-wp029.test.tsx` (every `errors.*` placeholder filled, en/ar/ur),
+    `backend/tests/test_error_label_params.py` (every raise site sends its labels' params, CI),
+    e2e `qa-wp029.spec.ts` (a real rule refuses a save on screen, nothing mocked).
+  - BUG-02 refusal twice as error toasts: refusals at the form (`FormProblem`) in every editor,
+    neutral notice for one-click actions, each error shown once. Tests: `qa-wp029.test.tsx`
+    (incidents), `qa-wp029-refusals.test.tsx`, ui `qa-wp029.test.tsx`, the e2e above.
+  - BUG-03 editor problems name and mark their field (automation editors). Test:
+    `automation.test.tsx` "BUG-03".
+  - BUG-04 Arabic plural forms: CI check `packages/labels/src/plurals.test.ts`; all 20 counted
+    labels fixed across the app.
+  - BUG-05 conflicts name who, when and which fields: `app/shared/history/conflicts.py`
+    (`stale_version`) for every version check; every editor opens the shared dialog. Tests:
+    `tests/db/test_conflict_details_api.py`, `automation.test.tsx` "BUG-05",
+    `qa-wp029-conflicts.test.tsx`.
+  - C1 "Hand over this incident?": `qa-wp029.test.tsx` "C1". C2 who may run a move:
+    `test_automation_triggers_api.py` "c2", `qa-wp029.test.tsx` "C2". C3 rule, routing and
+    assignment steps on the Automation tab: `automation-part2.test.tsx` "C3". C4 leftover QA
+    custom fields retired in the dev data (see the session log).
+  - Availability follow-up: `test_automation_api.py` "follow_up", `automation.test.tsx`
+    "follow-up" (lead's card on My profile; also the person page and the group editor).
 - [ ] Later: "test against an existing record", drag-and-drop ordering (buttons for now),
   notification / approval / task / webhook actions with their WPs.
 
@@ -585,6 +608,27 @@ and departments · WP-022 files (aioboto3, D-054) · WP-023 notifications · WP-
 WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom fields · WP-027 search ·
 WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-run setup must offer
 "technicians see all incidents" vs the group default.
+
+### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
+- **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
+- [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
+  consumer reads every event, `ConsumerSpec.accepts` skips the rest without a claim); incidents
+  register from `work_items/service/notifications.py` (lane A reviews); rules per event with
+  defaults, conditions, If-Match, audit, reset (REQ-NTF-008); recipients relative to the record, one
+  message per person, never the actor (REQ-NTF-009); access at send time, requesters public side
+  only, private notes never (REQ-NTF-010); default templates en/ar/ur as labels (REQ-NTF-013 part,
+  -014); delivery rows with state and reason, mail-waiting banner and hand-over when mail works
+  (REQ-NTF-020 part); centre with live badge, day groups, read one/all, do-not-disturb (REQ-INC-131);
+  personal preferences with required events locked (REQ-NTF-016); recipient's language and zone
+  (REQ-INC-133); delivery log API for the incident History tab (REQ-INC-134, lane A places it).
+  Migration 0033. Tests: `tests/db/test_notifications_api.py` (9), domain (8), console Vitest (6),
+  e2e `notifications.spec.ts`.
+- [ ] Session 2: template editor (versions, compare, restore, preview, test send, shared
+  header/footer; REQ-NTF-011/012/013), throttling and storm protection (REQ-NTF-022), digests
+  (REQ-NTF-017), signed action links (REQ-NTF-024; incident confirm/reject with WP-020f), group
+  subscriptions and "unpicked for N minutes" (REQ-NTF-026, REQ-INC-130), resend (REQ-NTF-020 AC2),
+  retention 90/180 days, the portal bell (WP-028); call WP-020f's `resolution_notified` when
+  `incident.resolved` really reaches the requester (e-mail sent; in-app once the portal exists).
 
 ### [x] WP-017 — Tenant branding and domains (lane B; D-027, D-090; ADR-031; built 2026-10-27, 1 session)
 - **Goal:** Each tenant gets its own address and look without a redesign.
@@ -973,6 +1017,40 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-039 QA round and WP-023 session 1 (lane B)
+- **WP-039 QA** on the shared stack (~/Desktop/qa-wp039/QA-REPORT.md):
+  - the e2e journeys pass 10/10;
+  - the lock-out message is identical for a wrong password, an unknown address and a locked
+    account in en, ar and ur;
+  - deactivation ends sessions at once.
+  - **5 bugs for WP-039-FIX:** an old invitation link still works after a resend; a withdrawn
+    link shows the lock-out text; **at the idle limit the screen does not sign out**
+    (`IdleWatcher`); Urdu Keycloak pages are mostly English; the Arabic update-password
+    title says "Password updated".
+- **WP-023 session 1:** see the WP entry. D-106 is pending review.
+- **CI follow-ups (#96, merged):**
+  - the shard weights now come from CI's own timings, and the shards are even;
+  - 2 workers per shard were 10–25% slower than 4, so CI keeps 4.
+### 2026-10-28 — WP-029-FIX: the WP-029 QA findings, fixed at their cause (lane A)
+
+- Every finding of ~/Desktop/qa-wp029/QA-REPORT.md fixed with a test named after its ID (see
+  WP-029-FIX above), plus the availability follow-up; systemic rules in D-105: refusals at the
+  form and never as error toasts, error labels always get their params (two CI checks), every
+  counted label has its plural forms (CI check), one shared conflict dialog naming who, when and
+  what in every editor, availability set by leads and admins with history, refused moves name
+  who may run them.
+- Small additive edits in lane B and C modules (409 details via `stale_version`; identity's
+  `role_names` and people-name resolver); both lanes told.
+- The shared dev stack now runs from `../supportx-v2-stack` (detached origin/main), never from a
+  lane's working branch (LANES.md), after the stack picked up this branch mid-QA.
+- C4: the 12 leftover QA custom fields of 2026-10-27 in Demo Company (11 "QA …" fields and
+  "!!!") retired through the API under the QA lock (reversible; nothing deleted).
+- `make check`: lint, typecheck, import contracts green; backend 1552 passed after fixing three
+  tests (two expected the old 409 params; the files settings test read a developer's
+  backend/.env, now `Settings.load(env_file=None)`); frontend all suites green.
+- Noted by lane B's WP-039 QA: Urdu is about 380 label keys short (e.g. the portal header);
+  Urdu becomes mandatory from Stage 2 (D-006), recorded here as a Stage 2 item.
 
 ### 2026-10-28 — CI follow-ups: shard weights from CI, 2 vs 4 workers (lane B, #96)
 - Each backend shard now keeps its file timings as an artifact; `make backend-shard-weights`

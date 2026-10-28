@@ -16,7 +16,7 @@ import {
 } from '@supportx/api-client';
 import { en } from '@supportx/labels';
 import { useListChannel } from '@supportx/realtime';
-import { useDateTime, useLabel, lengthLimit } from '@supportx/ui';
+import { FormProblem, useDateTime, useFormProblem, useLabel, lengthLimit } from '@supportx/ui';
 
 import { AuditEntryDrawer } from './AuditEntryDrawer';
 import { actorLabel, objectLabel, OUTCOME_COLOURS } from './present';
@@ -364,6 +364,8 @@ function SavedSearches({
   const { save, remove } = useAuditSavedSearchMutations();
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState('');
+  // A refused save is shown in the naming dialog; it was not shown at all (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const items = saved.data ?? [];
   return (
     <>
@@ -409,18 +411,22 @@ function SavedSearches({
         okButtonProps={{ disabled: name.trim() === '', loading: save.isPending }}
         onCancel={() => {
           setNaming(false);
+          problem.clear();
         }}
         onOk={() => {
+          problem.clear();
           save.mutate(
             { name: name.trim(), query: current },
             {
               onSuccess: () => {
                 setNaming(false);
               },
+              onError: problem.show,
             },
           );
         }}
       >
+        <FormProblem problem={problem} />
         <Input
           aria-label={t('audit.ui.saved.name')}
           placeholder={t('audit.ui.saved.name')}

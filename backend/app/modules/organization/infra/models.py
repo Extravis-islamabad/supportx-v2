@@ -29,7 +29,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modules.organization.domain.tenant import SLUG_PATTERN
-from app.shared.db.models import Base, TenantEntity, TenantKeyed, UuidPrimaryKey
+from app.shared.db.models import Base, TenantEntity, TenantKeyed, UuidPrimaryKey, utc_now
 
 
 class Tenant(UuidPrimaryKey, Base):
@@ -46,7 +46,7 @@ class Tenant(UuidPrimaryKey, Base):
     slug: Mapped[str] = mapped_column(unique=True)
     status: Mapped[str] = mapped_column(server_default="active")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
 
 
 class Desk(TenantEntity):

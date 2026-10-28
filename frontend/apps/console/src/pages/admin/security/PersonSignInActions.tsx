@@ -3,7 +3,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import {
-  ApiError,
   queryKeys,
   useInvitationAction,
   useInvitations,
@@ -11,10 +10,21 @@ import {
   useRequireNewPassword,
   useResetMfa,
   useSession,
+  type Invitation,
   type UserDetail,
 } from '@supportx/api-client';
 import { useListChannel } from '@supportx/realtime';
-import { reportError, useAccess, useDateTime, useLabel } from '@supportx/ui';
+import {
+  ConflictDialog,
+  FormProblem,
+  useAccess,
+  useConflict,
+  useDateTime,
+  useFormProblem,
+  useLabel,
+} from '@supportx/ui';
+
+import { invitationView, useInvitationFieldName } from './conflict';
 
 /**
  * Sign-in actions on a person's record (WP-039 session 2, lane B; shown in WP-021's person
@@ -35,19 +45,25 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
   const self = useSession().data?.user.id === user.id;
   const [key, setKey] = useState(() => crypto.randomUUID());
   const queryClient = useQueryClient();
+  // A refused action (no email, a rule) is shown here in the person's record (QA WP-029 BUG-02).
+  const problem = useFormProblem();
+  // The invitation changed by another admin first (409): the shared dialog (QA WP-029 BUG-05).
+  const conflict = useConflict();
+  const invitationField = useInvitationFieldName();
+  const [tried, setTried] = useState<Invitation>();
   useListChannel(notSignedIn ? 'invitations' : null, () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.identity.invitations });
   });
   if (user.status !== 'active' || !user.can_sign_in) return null;
   const onError = (error: unknown) => {
-    if (error instanceof ApiError && error.isConflict) void invitations.refetch();
-    reportError(error);
+    problem.show(error);
   };
 
   if (!notSignedIn) {
     return (
       <Flex vertical gap={8} data-testid="person-sign-in-actions">
         <Typography.Text strong>{t('people.sign_in')}</Typography.Text>
+        <FormProblem problem={problem} />
         <div>
           <Popconfirm
             title={t('people.require_password_confirm', { name: user.display_name })}
@@ -55,6 +71,7 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
             okText={t('people.require_password')}
             cancelText={t('actions.cancel')}
             onConfirm={() => {
+              problem.clear();
               requireNew.mutate(user.id, {
                 onSuccess: () => {
                   void message.success(
@@ -78,6 +95,7 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
               okText={t('people.reset_mfa')}
               cancelText={t('actions.cancel')}
               onConfirm={() => {
+                problem.clear();
                 resetMfa.mutate(user.id, {
                   onSuccess: () => {
                     void message.success(t('people.reset_mfa_done', { name: user.display_name }));
@@ -99,9 +117,30 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
   const waiting = invitations.data?.items.find(
     (row) => row.status === 'pending' || row.status === 'expired',
   );
+  const live = invitations.data?.items.find((row) => row.id === tried?.id);
+  const resend = (row: Invitation, version = row.version) => {
+    problem.clear();
+    act.mutate(
+      { id: row.id, version, action: 'resend' },
+      {
+        onSuccess: () => {
+          void message.success(t('security.invitations.resent'));
+        },
+        onError: (error) => {
+          if (conflict.take(error)) {
+            setTried(row);
+            void invitations.refetch();
+            return;
+          }
+          onError(error);
+        },
+      },
+    );
+  };
   return (
     <Flex vertical gap={8} data-testid="person-sign-in-actions">
       <Typography.Text strong>{t('people.sign_in')}</Typography.Text>
+      <FormProblem problem={problem} />
       {waiting !== undefined && (
         <Typography.Text type={waiting.status === 'expired' ? 'warning' : 'secondary'}>
           {waiting.status === 'expired'
@@ -116,6 +155,7 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
             loading={invite.isPending}
             disabled={invitations.isLoading}
             onClick={() => {
+              problem.clear();
               invite.mutate(
                 { userId: user.id, key },
                 {
@@ -142,15 +182,7 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
           <Button
             loading={act.isPending}
             onClick={() => {
-              act.mutate(
-                { id: waiting.id, version: waiting.version, action: 'resend' },
-                {
-                  onSuccess: () => {
-                    void message.success(t('security.invitations.resent'));
-                  },
-                  onError,
-                },
-              );
+              resend(waiting);
             }}
             data-testid="person-invite-again"
           >
@@ -158,6 +190,22 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
           </Button>
         )}
       </div>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={invitationField}
+        opened={invitationView(tried)}
+        latest={invitationView(live)}
+        onReload={() => {
+          conflict.clear();
+          setTried(undefined);
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          if (tried !== undefined) resend(tried, conflict.latestVersion ?? live?.version);
+          setTried(undefined);
+        }}
+      />
     </Flex>
   );
 }

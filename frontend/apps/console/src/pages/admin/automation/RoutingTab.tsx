@@ -31,17 +31,22 @@ import {
   type RoutingOut,
 } from '@supportx/api-client';
 import {
+  FormProblem,
   ConflictDialog,
   ToneTag,
   lengthLimit,
+  markHandled,
   reportError,
+  useFormProblem,
   useAccess,
   useLabel,
   type Tone,
 } from '@supportx/ui';
 
 import { ConditionBuilder } from './fields';
-import { fromTree, problemsOf, toTree, type Conditions } from './rules';
+import { fromTree, toTree, type Conditions } from './rules';
+import { conditionAt, useEditorProblems, whereOf } from './problems';
+import { ProblemList } from './ProblemList';
 
 const RECORD_TYPE = 'incident';
 const STATE_TONE: Record<RoutingOut['state'], Tone> = {
@@ -363,30 +368,35 @@ function RoutingEditor({
   const [draft, setDraft] = useState<RoutingDraft>(() => routingDraftOf(rule));
   const [opened, setOpened] = useState<string | undefined>(rule?.id);
   const [version, setVersion] = useState(rule?.version);
-  const [problems, setProblems] = useState<string[]>([]);
+  const issues = useEditorProblems();
+  const { problems } = issues;
+  // A refusal with no problem list (a rule, a limit) is shown here (QA WP-029 BUG-02).
+  const problem = useFormProblem();
   const [conflict, setConflict] = useState<unknown>();
   const groups = useGroupOptions(draft.group_id);
   if (open && opened !== (rule?.id ?? 'new')) {
     setOpened(rule?.id ?? 'new');
     setDraft(routingDraftOf(rule));
     setVersion(rule?.version);
-    setProblems([]);
+    issues.clear();
+    problem.clear();
   }
   const stale = latest !== undefined && version !== undefined && latest.version !== version;
   const edit = (next: Partial<RoutingDraft>) => {
     setDraft({ ...draft, ...next });
-    setProblems([]);
+    issues.clear();
   };
   const failed = (error: unknown) => {
     if (error instanceof ApiError && error.isConflict) {
       setConflict(error);
       return;
     }
-    const found = problemsOf(t, error);
-    if (found.length > 0) setProblems(found);
-    else reportError(error);
+    // Each problem at its field, named and marked (QA WP-029 BUG-03).
+    if (issues.take(error)) markHandled(error);
+    else problem.show(error);
   };
   const save = (at = version) => {
+    problem.clear();
     const done = () => {
       void message.success(t('common.saved'));
       onClose();
@@ -421,23 +431,15 @@ function RoutingEditor({
     >
       <Space direction="vertical" size="large" style={{ width: '100%' }}>
         {stale && <Alert type="warning" showIcon message={t('organization.changed_elsewhere')} />}
-        {problems.length > 0 && (
-          <Alert
-            type="error"
-            showIcon
-            data-testid="routing-problems"
-            message={t('automation.problems')}
-            description={
-              <ul style={{ margin: 0 }}>
-                {problems.map((p) => (
-                  <li key={p}>{p}</li>
-                ))}
-              </ul>
-            }
-          />
-        )}
+        <FormProblem problem={problem} />
+        <ProblemList problems={problems} testId="routing-problems" />
         <Form layout="vertical">
-          <Form.Item label={t('automation.field_name')} htmlFor="routing-name" required>
+          <Form.Item
+            label={t('automation.field_name')}
+            validateStatus={issues.status('name')}
+            htmlFor="routing-name"
+            required
+          >
             <Input
               id="routing-name"
               value={draft.name}
@@ -448,8 +450,12 @@ function RoutingEditor({
               data-testid="routing-name"
             />
           </Form.Item>
-          <Form.Item label={t('automation.field_conditions')}>
+          <Form.Item
+            label={t('automation.field_conditions')}
+            validateStatus={issues.status('conditions')}
+          >
             <ConditionBuilder
+              invalid={(index) => conditionAt(problems, index)}
               fields={fields.data ?? []}
               value={draft.conditions}
               onChange={(conditions) => {
@@ -459,6 +465,7 @@ function RoutingEditor({
           </Form.Item>
           <Form.Item
             label={t('automation.routing.field_site')}
+            validateStatus={issues.status('site_id')}
             extra={t('automation.routing.field_site.help')}
           >
             <Select
@@ -478,7 +485,11 @@ function RoutingEditor({
               data-testid="routing-site"
             />
           </Form.Item>
-          <Form.Item label={t('automation.routing.field_group')} required>
+          <Form.Item
+            label={t('automation.routing.field_group')}
+            validateStatus={issues.status('group_id')}
+            required
+          >
             <Select
               showSearch
               optionFilterProp="label"
@@ -495,6 +506,7 @@ function RoutingEditor({
           <Flex gap={32} wrap>
             <Form.Item
               label={t('automation.routing.field_overwrite')}
+              validateStatus={issues.status('overwrite')}
               extra={t('automation.routing.field_overwrite.help')}
             >
               <Switch
@@ -506,7 +518,11 @@ function RoutingEditor({
                 data-testid="routing-overwrite"
               />
             </Form.Item>
-            <Form.Item label={t('automation.field_state')} extra={t('automation.field_state.help')}>
+            <Form.Item
+              label={t('automation.field_state')}
+              validateStatus={issues.status('state')}
+              extra={t('automation.field_state.help')}
+            >
               <Select
                 value={draft.state}
                 onChange={(state: RoutingOut['state']) => {
@@ -537,7 +553,9 @@ function RoutingEditor({
       <ConflictDialog
         open={conflict !== undefined}
         error={conflict}
-        fieldLabel={(field) => t(`automation.field_${field}`)}
+        fieldLabel={(field) => whereOf(t, field)}
+        opened={rule}
+        latest={latest}
         onReload={() => {
           setConflict(undefined);
           onClose();
@@ -593,6 +611,7 @@ function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
   const editable = can('automation.manage');
   const save = useSaveGroupAssignment();
   const [draft, setDraft] = useState(settings);
+  const problem = useFormProblem(); // a refused save, shown above Save (QA WP-029 BUG-02)
   const disabled = !editable || save.isPending;
   return (
     <Form layout="vertical" data-testid="assign-form">
@@ -656,17 +675,19 @@ function AssignmentForm({ settings }: { settings: AssignmentSettingsOut }) {
           </Form.Item>
         ))}
       </Flex>
+      <FormProblem problem={problem} />
       {editable && (
         <Button
           type="primary"
           loading={save.isPending}
           onClick={() => {
             const { group_id: groupId, version, ...body } = draft;
+            problem.clear();
             save.mutate(
               { groupId, version, body },
               {
                 onSuccess: () => void message.success(t('common.saved')),
-                onError: reportError,
+                onError: problem.show,
               },
             );
           }}

@@ -226,7 +226,10 @@ describe('WP-026 QA findings', () => {
     expect(fake.find('PUT', '/api/v1/files/settings/rules')[0]?.headers.get('If-Match')).toBe(
       '"1"',
     );
-    expect(await screen.findByText(/Someone else changed these settings/)).toBeDefined();
+    // The shared conflict dialog names who changed which rule (QA WP-029 BUG-05).
+    const who = await screen.findByTestId('conflict-who');
+    expect(who.textContent).toContain('Basim Admin');
+    expect(who.textContent).toContain('Changed: Largest file (MB).');
     expect(size.value).toBe('40'); // what was typed stays
   });
 

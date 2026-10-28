@@ -410,6 +410,7 @@ export {
 export {
   useAutomationChange,
   useAvailability,
+  useAvailabilityHistory,
   useBusinessRules,
   useGroupAssignment,
   useIncidentAutomation,
@@ -442,3 +443,25 @@ export {
   type TriggerOut,
   type TriggerPatch,
 } from './automation';
+export {
+  useMarkNotificationsRead,
+  useNotificationPreferences,
+  useNotificationRules,
+  useNotifications,
+  useNotificationStatus,
+  useRecordDeliveries,
+  useResetNotificationRule,
+  useSaveNotificationPreferences,
+  useSaveNotificationRule,
+  type NotificationCategory,
+  type NotificationCentre,
+  type NotificationChannel,
+  type NotificationChoice,
+  type NotificationCondition,
+  type NotificationDelivery,
+  type NotificationEntry,
+  type NotificationPreferences,
+  type NotificationRule,
+  type NotificationRuleInput,
+  type NotificationStatus,
+} from './notifications';

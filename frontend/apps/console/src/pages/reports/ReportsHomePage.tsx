@@ -25,7 +25,14 @@ import {
 } from '@supportx/api-client';
 import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel, useTenantChannel } from '@supportx/realtime';
-import { lengthLimit, NoAccess, useAccess, WriteButton } from '@supportx/ui';
+import {
+  ConflictDialog,
+  lengthLimit,
+  NoAccess,
+  useAccess,
+  useConflict,
+  WriteButton,
+} from '@supportx/ui';
 
 import { MyExportsButton, ReportSettingsButton } from './exports';
 import { SchedulesButton } from './schedules';
@@ -188,6 +195,21 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
     setName('');
     setMoveTo('owners');
   };
+  // A folder someone changed first (409): the shared dialog; "Keep my changes" deletes it anyway.
+  const conflict = useConflict();
+  const deleting = open?.kind === 'delete' ? open.folder : undefined;
+  const live = folders.find((f) => f.id === deleting?.id);
+  const remove = (folder: ReportFolder, version = folder.version) => {
+    change.mutate(
+      { kind: 'delete', id: folder.id, version, moveTo },
+      {
+        onSuccess: close,
+        onError: (error) => {
+          conflict.take(error);
+        },
+      },
+    );
+  };
 
   return (
     <Space wrap>
@@ -254,10 +276,7 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
         onCancel={close}
         onOk={() => {
           if (open?.kind !== 'delete') return;
-          change.mutate(
-            { kind: 'delete', id: open.folder.id, version: open.folder.version, moveTo },
-            { onSuccess: close },
-          );
+          remove(open.folder);
         }}
       >
         <Typography.Paragraph>{t('reports.move_reports_to')}</Typography.Paragraph>
@@ -275,6 +294,23 @@ function FolderTools({ folders }: { folders: ReportFolder[] }) {
           data-testid="reports-move-to"
         />
       </Modal>
+      <ConflictDialog
+        open={conflict.open}
+        error={conflict.error}
+        fieldLabel={() => t('reports.folder_name')}
+        opened={deleting && { name: deleting.name }}
+        latest={live && { name: live.name }}
+        onReload={() => {
+          conflict.clear();
+          change.reset();
+          close();
+        }}
+        onKeepMine={() => {
+          conflict.clear();
+          change.reset();
+          if (live !== undefined) remove(live, conflict.latestVersion ?? live.version);
+        }}
+      />
     </Space>
   );
 }

@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { api, call } from './client';
+import { ApiError } from './errors';
 import { queryKeys } from './keys';
 import type { components } from './schema';
 
@@ -116,6 +117,12 @@ export function useUpdateReport(id: string) {
       queryClient.setQueryData(queryKeys.reports.detail(id), saved);
       changed();
     },
+    onError: (error) => {
+      // A stale save: fetch the saved report, so the conflict dialog can compare (QA WP-029 BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.reports.detail(id) });
+      }
+    },
   });
 }
 
@@ -190,6 +197,10 @@ export function useReportFolderChange() {
       }
     },
     onSuccess: changed,
+    onError: (error) => {
+      // A stale change: fetch the saved folders, so the conflict dialog can compare (BUG-05).
+      if (error instanceof ApiError && error.isConflict) changed();
+    },
   });
 }
 
@@ -255,6 +266,12 @@ export function useUpdateReportSettings() {
       queryClient.setQueryData(queryKeys.reports.settings, saved);
       void queryClient.invalidateQueries({ queryKey: queryKeys.reports.runs });
     },
+    onError: (error) => {
+      // A stale save: fetch the saved settings, so the conflict dialog can compare (BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.reports.settings });
+      }
+    },
   });
 }
 
@@ -317,6 +334,12 @@ export function useScheduleChange() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.reports.schedules });
+    },
+    onError: (error) => {
+      // A stale change: fetch the saved schedules, so the conflict dialog can compare (BUG-05).
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.reports.schedules });
+      }
     },
   });
 }

@@ -160,6 +160,39 @@
         "title": "ActionStateOut",
         "type": "object"
       },
+      "AllowedForOut": {
+        "description": "Who a transition is limited to: roles, group names, people on the record (codes).",
+        "properties": {
+          "groups": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Groups",
+            "type": "array"
+          },
+          "relatives": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Relatives",
+            "type": "array"
+          },
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/RoleNameOut"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "roles",
+          "groups",
+          "relatives"
+        ],
+        "title": "AllowedForOut",
+        "type": "object"
+      },
       "AnnouncementAction": {
         "description": "AnnouncementStatus actions, in the order the UI shows them.",
         "enum": [
@@ -2561,6 +2594,44 @@
         "title": "Availability",
         "type": "string"
       },
+      "AvailabilityChangeOut": {
+        "description": "One availability change: the state set, by whom, when.",
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "state": {
+            "$ref": "#/components/schemas/Availability"
+          }
+        },
+        "required": [
+          "state",
+          "changed_at",
+          "changed_by"
+        ],
+        "title": "AvailabilityChangeOut",
+        "type": "object"
+      },
       "AvailabilityIn": {
         "additionalProperties": false,
         "description": "Set Available or Away.",
@@ -2576,8 +2647,32 @@
         "type": "object"
       },
       "AvailabilityOut": {
-        "description": "A technician's own state (REQ-ASG-006): Away is never auto-assigned.",
+        "description": "Someone's state (REQ-ASG-006): Away is never auto-assigned. Who set it, and when.",
         "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Display name of who set it.",
+            "title": "Changed By"
+          },
           "state": {
             "$ref": "#/components/schemas/Availability"
           },
@@ -3150,6 +3245,15 @@
         },
         "title": "ColoursIn",
         "type": "object"
+      },
+      "ConditionOperator": {
+        "description": "How a rule condition tests a record value.",
+        "enum": [
+          "in",
+          "not_in"
+        ],
+        "title": "ConditionOperator",
+        "type": "string"
       },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
@@ -7044,6 +7148,602 @@
         "title": "NavLayout",
         "type": "string"
       },
+      "NotificationCategory": {
+        "description": "Groups events for personal preferences (REQ-NTF-016).",
+        "enum": [
+          "created",
+          "assignment",
+          "conversation",
+          "status",
+          "mention",
+          "following"
+        ],
+        "title": "NotificationCategory",
+        "type": "string"
+      },
+      "NotificationCentreOut": {
+        "description": "A page of your entries, newest first, and the unread count.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "unread"
+        ],
+        "title": "NotificationCentreOut",
+        "type": "object"
+      },
+      "NotificationChannel": {
+        "description": "How a notification reaches a person.",
+        "enum": [
+          "in_app",
+          "email"
+        ],
+        "title": "NotificationChannel",
+        "type": "string"
+      },
+      "NotificationChoiceIn": {
+        "additionalProperties": false,
+        "description": "A category switched off on a channel.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/NotificationCategory"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/NotificationChannel"
+          }
+        },
+        "required": [
+          "category",
+          "channel"
+        ],
+        "title": "NotificationChoiceIn",
+        "type": "object"
+      },
+      "NotificationChoiceOut": {
+        "description": "One category on one channel.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/NotificationCategory"
+          },
+          "channel": {
+            "$ref": "#/components/schemas/NotificationChannel"
+          },
+          "locked": {
+            "description": "Required by your organization: cannot be switched off.",
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "on": {
+            "title": "On",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "category",
+          "channel",
+          "on",
+          "locked"
+        ],
+        "title": "NotificationChoiceOut",
+        "type": "object"
+      },
+      "NotificationCondition": {
+        "additionalProperties": false,
+        "description": "The record's `field` is (not) one of `values`.",
+        "properties": {
+          "field": {
+            "maxLength": 40,
+            "title": "Field",
+            "type": "string"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/ConditionOperator"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "field",
+          "operator",
+          "values"
+        ],
+        "title": "NotificationCondition",
+        "type": "object"
+      },
+      "NotificationDeliveryOut": {
+        "description": "One notification of a record: to whom, how, when, and whether it went (REQ-INC-134).",
+        "properties": {
+          "channel": {
+            "$ref": "#/components/schemas/NotificationChannel"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_code": {
+            "title": "Event Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code; the UI shows its label.",
+            "title": "Reason"
+          },
+          "recipient_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Id"
+          },
+          "recipient_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Name"
+          },
+          "state": {
+            "enum": [
+              "queued",
+              "waiting",
+              "sent",
+              "failed",
+              "suppressed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "event_code",
+          "recipient_id",
+          "recipient_name",
+          "channel",
+          "state",
+          "reason",
+          "created_at"
+        ],
+        "title": "NotificationDeliveryOut",
+        "type": "object"
+      },
+      "NotificationOut": {
+        "description": "One entry of your notification centre, in your language.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "event_code": {
+            "title": "Event Code",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "link": {
+            "description": "Path in the console, e.g. /incidents/<id>.",
+            "title": "Link",
+            "type": "string"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "urgent": {
+            "title": "Urgent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "event_code",
+          "record_type",
+          "record_id",
+          "display_id",
+          "title",
+          "link",
+          "urgent",
+          "read",
+          "created_at"
+        ],
+        "title": "NotificationOut",
+        "type": "object"
+      },
+      "NotificationPreferencesIn": {
+        "additionalProperties": false,
+        "description": "Everything switched off (the rest is on), and do-not-disturb.",
+        "properties": {
+          "do_not_disturb": {
+            "default": false,
+            "title": "Do Not Disturb",
+            "type": "boolean"
+          },
+          "off": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationChoiceIn"
+            },
+            "maxItems": 50,
+            "title": "Off",
+            "type": "array"
+          }
+        },
+        "title": "NotificationPreferencesIn",
+        "type": "object"
+      },
+      "NotificationPreferencesOut": {
+        "description": "Your notification preferences.",
+        "properties": {
+          "choices": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationChoiceOut"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "do_not_disturb": {
+            "title": "Do Not Disturb",
+            "type": "boolean"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "choices",
+          "do_not_disturb",
+          "version"
+        ],
+        "title": "NotificationPreferencesOut",
+        "type": "object"
+      },
+      "NotificationReadIn": {
+        "additionalProperties": false,
+        "description": "Entries to mark read; leave `ids` out to mark every unread entry read.",
+        "properties": {
+          "ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 100,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ids"
+          }
+        },
+        "title": "NotificationReadIn",
+        "type": "object"
+      },
+      "NotificationReadOut": {
+        "description": "How many changed, and the unread count after.",
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "integer"
+          },
+          "unread": {
+            "title": "Unread",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "changed",
+          "unread"
+        ],
+        "title": "NotificationReadOut",
+        "type": "object"
+      },
+      "NotificationRuleIn": {
+        "additionalProperties": false,
+        "description": "An event's rule.",
+        "properties": {
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannel"
+            },
+            "maxItems": 2,
+            "title": "Channels",
+            "type": "array"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationCondition"
+            },
+            "maxItems": 20,
+            "title": "Conditions",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "notify_actor": {
+            "default": false,
+            "title": "Notify Actor",
+            "type": "boolean"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10,
+            "title": "Recipients",
+            "type": "array"
+          },
+          "user_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 50,
+            "title": "User Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "NotificationRuleIn",
+        "type": "object"
+      },
+      "NotificationRuleOut": {
+        "description": "An event with the rule that applies to it now.",
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/NotificationCategory"
+          },
+          "channels": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationChannel"
+            },
+            "title": "Channels",
+            "type": "array"
+          },
+          "condition_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Condition Fields",
+            "type": "array"
+          },
+          "conditions": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationCondition"
+            },
+            "title": "Conditions",
+            "type": "array"
+          },
+          "default_enabled": {
+            "title": "Default Enabled",
+            "type": "boolean"
+          },
+          "default_recipients": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Default Recipients",
+            "type": "array"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "event_code": {
+            "title": "Event Code",
+            "type": "string"
+          },
+          "group_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Group Ids",
+            "type": "array"
+          },
+          "is_default": {
+            "description": "True while the shipped default applies.",
+            "title": "Is Default",
+            "type": "boolean"
+          },
+          "notify_actor": {
+            "title": "Notify Actor",
+            "type": "boolean"
+          },
+          "recipient_kinds": {
+            "description": "Relative recipients the record type offers.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Recipient Kinds",
+            "type": "array"
+          },
+          "recipients": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recipients",
+            "type": "array"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "required": {
+            "description": "People cannot switch it off in their preferences.",
+            "title": "Required",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          },
+          "user_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "User Ids",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "event_code",
+          "record_type",
+          "category",
+          "required",
+          "is_default",
+          "enabled",
+          "recipients",
+          "channels",
+          "user_ids",
+          "group_ids",
+          "conditions",
+          "notify_actor",
+          "default_enabled",
+          "default_recipients",
+          "recipient_kinds",
+          "condition_fields",
+          "version",
+          "updated_at",
+          "updated_by"
+        ],
+        "title": "NotificationRuleOut",
+        "type": "object"
+      },
+      "NotificationStatusOut": {
+        "description": "For the admins' banner: e-mails waiting because outgoing mail is not set up.",
+        "properties": {
+          "mail_configured": {
+            "title": "Mail Configured",
+            "type": "boolean"
+          },
+          "waiting": {
+            "title": "Waiting",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "mail_configured",
+          "waiting"
+        ],
+        "title": "NotificationStatusOut",
+        "type": "object"
+      },
       "NumberingIn": {
         "additionalProperties": false,
         "description": "The number the next record gets (never one already used).",
@@ -9463,6 +10163,30 @@
           "permissions"
         ],
         "title": "RoleDetailOut",
+        "type": "object"
+      },
+      "RoleNameOut": {
+        "description": "A role: system roles are labelled by key, other roles shown by name.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "system": {
+            "title": "System",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "key",
+          "name",
+          "system"
+        ],
+        "title": "RoleNameOut",
         "type": "object"
       },
       "RolePatch": {
@@ -13375,6 +14099,17 @@
           "allowed": {
             "title": "Allowed",
             "type": "boolean"
+          },
+          "allowed_for": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AllowedForOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Refused as not_for_you: who may run it (QA WP-029 C2)."
           },
           "confirmation": {
             "anyOf": [
@@ -19630,7 +20365,7 @@
     },
     "/api/v1/automation/availability/{user_id}": {
       "put": {
-        "description": "Yourself always; someone else only with `users.manage`.",
+        "description": "Yourself always; a member of your group as its lead; anyone with `users.manage`.",
         "operationId": "put_availability_api_v1_automation_availability__user_id__put",
         "parameters": [
           {
@@ -19727,6 +20462,104 @@
           }
         },
         "summary": "Set a technician Available or Away",
+        "tags": [
+          "automation"
+        ]
+      }
+    },
+    "/api/v1/automation/availability/{user_id}/history": {
+      "get": {
+        "description": "Newest first: who set them Available or Away, and when (yourself, leads, admins).",
+        "operationId": "get_availability_history_api_v1_automation_availability__user_id__history_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AvailabilityChangeOut"
+                  },
+                  "title": "Response Get Availability History Api V1 Automation Availability  User Id  History Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such rule, group or record."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or the order is out of date."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Problems by field (checked when saved)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Availability changes of one person",
         "tags": [
           "automation"
         ]
@@ -31183,6 +32016,773 @@
         "summary": "Show others you are writing",
         "tags": [
           "incidents"
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "description": "Your own entries only (whatever the request says).",
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "parameters": [
+          {
+            "description": "next_cursor of the last page",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor of the last page",
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only unread entries",
+            "in": "query",
+            "name": "unread",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only unread entries",
+              "title": "Unread",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationCentreOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your notifications",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/deliveries": {
+      "get": {
+        "description": "Newest first (at most 200); for people who may see the record in full.",
+        "operationId": "deliveries_api_v1_notifications_deliveries_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationDeliveryOut"
+                  },
+                  "title": "Response Deliveries Api V1 Notifications Deliveries Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not found or not yours."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Notifications of a record",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/preferences": {
+      "get": {
+        "description": "Per category and channel; locked ones are required by your organization.",
+        "operationId": "get_preferences_api_v1_notifications_preferences_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your notification preferences",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "put": {
+        "description": "If-Match: the version you read (\"0\" before the first save).",
+        "operationId": "put_preferences_api_v1_notifications_preferences_put",
+        "parameters": [
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationPreferencesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationPreferencesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change your notification preferences",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/read": {
+      "post": {
+        "description": "Your other devices update at once (personal channel).",
+        "operationId": "mark_read_api_v1_notifications_read_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationReadIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationReadOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Mark notifications read",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/rules": {
+      "get": {
+        "description": "Every event every module registered, with the rule that applies (no set-up step).",
+        "operationId": "list_rules_api_v1_notifications_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NotificationRuleOut"
+                  },
+                  "title": "Response List Rules Api V1 Notifications Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Notification rules of every event",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/rules/{event_code}": {
+      "delete": {
+        "description": "If-Match: the version of the saved rule.",
+        "operationId": "reset_rule_api_v1_notifications_rules__event_code__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_code",
+            "required": true,
+            "schema": {
+              "title": "Event Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not found or not yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reset an event's rule to the shipped default",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "put": {
+        "description": "If-Match: the version you read (\"0\" while the default applies).",
+        "operationId": "put_rule_api_v1_notifications_rules__event_code__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_code",
+            "required": true,
+            "schema": {
+              "title": "Event Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationRuleIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationRuleOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not found or not yours."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change an event's rule",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/status": {
+      "get": {
+        "description": "How many e-mails wait for outgoing mail (REQ-NTF-020 AC3).",
+        "operationId": "status_api_v1_notifications_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Notification delivery status",
+        "tags": [
+          "notifications"
         ]
       }
     },

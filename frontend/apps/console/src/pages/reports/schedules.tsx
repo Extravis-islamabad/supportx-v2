@@ -24,6 +24,7 @@ import dayjs, { type Dayjs } from 'dayjs';
 import { useMemo, useState } from 'react';
 
 import {
+  ApiError,
   queryKeys,
   useReportSchedules,
   useScheduleChange,
@@ -35,11 +36,13 @@ import {
 import { useIsolate, useLabels } from '@supportx/labels';
 import { refreshList, usePersonalChannel } from '@supportx/realtime';
 import {
+  ConflictDialog,
   describeError,
   lengthLimit,
   ToneTag,
   type Tone,
   useAccess,
+  useConflict,
   useDateTime,
   useTimeZone,
   WriteButton,
@@ -304,6 +307,31 @@ export function ScheduleButton({
   );
 }
 
+type ScheduleAction = 'pause' | 'resume' | 'delete';
+// A schedule's settings by the names the schedule form gives them (QA WP-029 BUG-05).
+const SCHEDULE_PARTS: Record<string, string> = {
+  title: 'reports.name',
+  status: 'reports.schedule_status',
+  frequency: 'reports.schedule_frequency',
+  weekdays: 'reports.schedule_days',
+  day_of_month: 'reports.schedule_day_of_month',
+  at_time: 'reports.schedule_time',
+  time_zone: 'reports.schedule_zone',
+  start_date: 'reports.schedule_start',
+  end_date: 'reports.schedule_end',
+  recipient_users: 'reports.schedule_people',
+  recipient_groups: 'reports.schedule_groups',
+  message: 'reports.schedule_message',
+  format: 'reports.export_format',
+  content: 'reports.export_content',
+};
+/** What a person sets of a schedule (not its run history), for the conflict dialog. */
+const scheduleView = (item: ReportSchedule | undefined) =>
+  item &&
+  Object.fromEntries(
+    Object.keys(SCHEDULE_PARTS).map((part) => [part, (item as Record<string, unknown>)[part]]),
+  );
+
 /** "Schedules": next run, last result, pause, resume, delete. Live (REQ-RPT-052 AC2, 056). */
 export function SchedulesButton() {
   const t = useLabels();
@@ -320,6 +348,20 @@ export function SchedulesButton() {
     }
   });
   const items = useMemo(() => schedules.data?.items ?? [], [schedules.data]);
+  // A schedule someone changed first (409): the shared dialog; "Keep my changes" acts again.
+  const conflict = useConflict();
+  const [tried, setTried] = useState<{ item: ReportSchedule; kind: ScheduleAction }>();
+  const live = items.find((item) => item.id === tried?.item.id);
+  const act = (item: ReportSchedule, kind: ScheduleAction, version = item.version) => {
+    change.mutate(
+      { kind, id: item.id, version },
+      {
+        onError: (error) => {
+          if (conflict.take(error)) setTried({ item, kind });
+        },
+      },
+    );
+  };
   if (!can('reports.schedule')) return null;
 
   return (
@@ -356,7 +398,7 @@ export function SchedulesButton() {
                     key="pause"
                     size="small"
                     onClick={() => {
-                      change.mutate({ kind: 'pause', id: item.id, version: item.version });
+                      act(item, 'pause');
                     }}
                     data-testid={`schedule-pause-${item.id}`}
                   >
@@ -367,7 +409,7 @@ export function SchedulesButton() {
                     key="resume"
                     size="small"
                     onClick={() => {
-                      change.mutate({ kind: 'resume', id: item.id, version: item.version });
+                      act(item, 'resume');
                     }}
                     data-testid={`schedule-resume-${item.id}`}
                   >
@@ -380,7 +422,7 @@ export function SchedulesButton() {
                   okText={t('reports.delete')}
                   cancelText={t('reports.cancel')}
                   onConfirm={() => {
-                    change.mutate({ kind: 'delete', id: item.id, version: item.version });
+                    act(item, 'delete');
                   }}
                 >
                   <WriteButton size="small" danger data-testid={`schedule-delete-${item.id}`}>
@@ -425,11 +467,31 @@ export function SchedulesButton() {
             </List.Item>
           )}
         />
-        {change.error && (
+        {change.error && !(change.error instanceof ApiError && change.error.isConflict) && (
           <Typography.Text type="danger" role="alert">
             {describeError(change.error, t).title}
           </Typography.Text>
         )}
+        <ConflictDialog
+          open={conflict.open}
+          error={conflict.error}
+          fieldLabel={(field) => t(SCHEDULE_PARTS[field] ?? 'reports.schedules')}
+          opened={scheduleView(tried?.item)}
+          latest={scheduleView(live)}
+          onReload={() => {
+            conflict.clear();
+            change.reset();
+            setTried(undefined);
+          }}
+          onKeepMine={() => {
+            conflict.clear();
+            change.reset();
+            if (tried !== undefined && live !== undefined) {
+              act(live, tried.kind, conflict.latestVersion ?? live.version);
+            }
+            setTried(undefined);
+          }}
+        />
       </Drawer>
     </>
   );
