@@ -25,6 +25,21 @@
 - **Repository:** https://github.com/devhat-pm/supportx-v2, **temporarily PUBLIC** (D-018) until
   the account billing problem is fixed; then set back to private (D-015).
 
+### Must fix before the pilot
+
+1. **Workers do not survive a PostgreSQL or NATS restart** (found 2026-10-28; product owner:
+   must-fix, before the pilot; **lane B**, next after #99 and the CI follow-ups). The relay,
+   fanout and consumers workers exited when the dev PostgreSQL and NATS restarted
+   ("database system is shutting down", NATS ServiceUnavailable) and nothing brought them back:
+   the shared stack delivered no events for about two hours. Required:
+   - workers reconnect automatically with backoff when the database or the message bus goes
+     away and comes back, with no lost or duplicated effects (outbox and idempotency hold);
+   - a worker that cannot recover exits non-zero so Kubernetes restarts it, and its
+     readiness/health check reports unhealthy while disconnected;
+   - `/ready` and the admin view show event delivery as stalled, so nobody is left guessing;
+   - an automated test restarts PostgreSQL and NATS under a running worker and proves events
+     flow again.
+
 ### Open questions (awaiting product owner)
 
 None.
