@@ -136,6 +136,17 @@ class ConversationAddedOut(BaseModel):
     entry: ConversationEntryOut
     not_notified: list[uuid.UUID]
     people: dict[str, PersonOut]
+    follow_up: "FollowUpOut | None" = Field(
+        default=None,
+        description="A requester's reply after the reopen window started this record (098).",
+    )
+
+
+class FollowUpOut(BaseModel):
+    """The new record a late reply started; the requester is told its ID."""
+
+    id: uuid.UUID
+    display_id: str
 
 
 class VisibilityIn(BaseModel):
@@ -393,6 +404,9 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
                     entry=ConversationEntryOut.of(added.entry),
                     not_notified=added.not_notified,
                     people=_people(added.names),
+                    follow_up=None
+                    if added.follow_up is None
+                    else FollowUpOut(id=added.follow_up.id, display_id=added.follow_up.display_id),
                 )
             )
 

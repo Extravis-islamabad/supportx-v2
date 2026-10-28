@@ -42,8 +42,35 @@ export function useAutomationWhy(): (
       }
       case 'matrix':
         return t('automation.why.matrix');
+      case 'auto_move':
+        return autoMove(t, text(automation.rule), text(automation.action));
       default:
         return '';
     }
   };
+}
+
+/**
+ * A status move the system made (WP-020f): the requester replied, confirmed or rejected the fix,
+ * nobody answered (auto-close), or the incident was assigned (REQ-INC-051, 096, 098).
+ */
+function autoMove(t: ReturnType<typeof useLabel>, rule: string, action: string): string {
+  switch (rule) {
+    case 'requester_reply':
+      return t(
+        action === 'reopen'
+          ? 'automation.why.requester_reply_reopened'
+          : 'automation.why.requester_reply_resumed',
+      );
+    case 'requester_confirmed':
+      return t('automation.why.requester_confirmed');
+    case 'requester_rejected':
+      return t('automation.why.requester_rejected');
+    case 'auto_close':
+      return t('automation.why.auto_closed');
+    case 'assignment':
+      return t('automation.why.assignment_move');
+    default:
+      return '';
+  }
 }

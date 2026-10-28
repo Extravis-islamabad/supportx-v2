@@ -81,6 +81,11 @@ class WorkItemTypeSettings(TenantKeyed, Base):
             + "]::varchar[]",
             name="first_response_on_codes",
         ),
+        CheckConstraint(
+            "auto_close_days IS NULL OR auto_close_days BETWEEN 1 AND 30",
+            name="auto_close_days_range",
+        ),
+        CheckConstraint("reopen_window_days BETWEEN 1 AND 30", name="reopen_window_days_range"),
     )
 
     type: Mapped[str] = mapped_column(String(20), primary_key=True)
@@ -96,6 +101,22 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     first_response_on: Mapped[list[str]] = mapped_column(
         ARRAY(String(20)), server_default="{reply,public_note}"
     )
+    # Closure rules (REQ-INC-094): fields required before resolving and before closing.
+    resolve_requires: Mapped[list[str]] = mapped_column(
+        ARRAY(String(60)), server_default="{resolution}"
+    )
+    close_requires: Mapped[list[str]] = mapped_column(
+        ARRAY(String(60)), server_default="{closure_code}"
+    )
+    # Open work at resolve or close (REQ-INC-095): kind -> "warn" or "block"; missing kinds take
+    # the defaults (domain/closure.py). "Complete it on close" is off by default.
+    open_work: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
+    complete_open_work: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    # Business days a resolved record waits for the requester (REQ-INC-096); NULL: off, the
+    # default until a channel can tell requesters (product owner, 2026-10-28).
+    auto_close_days: Mapped[int | None] = mapped_column(Integer)
+    # Days after resolution or closure in which a requester reply reopens (REQ-INC-098).
+    reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
@@ -123,6 +144,8 @@ class WorkItemStatus(TenantKeyed, Base):
     sort_order: Mapped[int] = mapped_column(Integer)
     system: Mapped[bool] = mapped_column(Boolean, server_default="false")
     disabled_at: Mapped[datetime | None]
+    # A requester reply moves a record in this (paused) status back to in progress (REQ-INC-051).
+    resume_on_requester_reply: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 
 class WorkItemTransition(TenantKeyed, Base):
@@ -479,6 +502,15 @@ class WorkItem(TenantEntity):
             postgresql_using="gin",
             postgresql_ops={"custom": "jsonb_path_ops"},
         ),
+        # Auto-close (REQ-INC-096): resolved records whose requester was told.
+        Index(
+            "ix_wi_resolution_notified",
+            "tenant_id",
+            "resolution_notified_at",
+            postgresql_where=text(
+                "status_category = 'resolved' AND resolution_notified_at IS NOT NULL"
+            ),
+        ),
     )
 
     type: Mapped[str] = mapped_column(String(20))
@@ -516,6 +548,14 @@ class WorkItem(TenantEntity):
     status_reason_code: Mapped[str | None] = mapped_column(String(40))
     status_reason_text: Mapped[str | None] = mapped_column(Text)
     status_before_cancel: Mapped[str | None] = mapped_column(String(40))
+    # The fix (REQ-INC-090), sanitised rich text; cleared on reopen (history keeps it).
+    resolution: Mapped[str | None] = mapped_column(Text)
+    # A code of the closure_code pick list (REQ-INC-093); cleared on reopen (history keeps it).
+    closure_code: Mapped[str | None] = mapped_column(String(40))
+    # When the requester was told of the resolution: auto-close counts from here, never without.
+    resolution_notified_at: Mapped[datetime | None]
+    # A requester reply after the reopen window starts a new record following this one (098).
+    follows_id: Mapped[uuid.UUID | None]
     status_changed_at: Mapped[datetime] = mapped_column(server_default=func.now())
     tags: Mapped[list[str]] = mapped_column(ARRAY(String(40)), server_default="{}")
     first_assigned_at: Mapped[datetime | None]

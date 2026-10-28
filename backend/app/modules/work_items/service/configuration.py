@@ -32,6 +32,7 @@ from app.modules.work_items.domain.lifecycle import (
     OTHER_REASON,
     SYSTEM_ACTIONS,
     ReasonMode,
+    StatusCategory,
     WorkItemAction,
 )
 from app.modules.work_items.domain.templates import (
@@ -158,6 +159,11 @@ async def update_status(  # noqa: PLR0913 - the change and its context, explicit
         if colour is None:
             raise invalid(field="colour", field_code="required")
         changes["colour"] = colour
+    if values.get("resume_on_requester_reply") is not None:
+        # Only a paused status waits on the requester (REQ-INC-051).
+        if row.category != StatusCategory.PAUSED.value:
+            raise invalid(field="resume_on_requester_reply", field_code="not_for_this_status")
+        changes["resume_on_requester_reply"] = bool(values["resume_on_requester_reply"])
     changes = {k: v for k, v in changes.items() if getattr(row, k) != v}
     history = [Change(f"status.{code}.{k}", getattr(row, k), v) for k, v in changes.items()]
     if changes:
