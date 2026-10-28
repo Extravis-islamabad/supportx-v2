@@ -44,7 +44,10 @@ def test_python_is_exact_everywhere() -> None:
         r"ARG PYTHON_IMAGE=python:([\d.]+)-", _read("deploy/images/backend.Dockerfile")
     )
     assert image is not None
-    assert image.group(1) == python, "backend.Dockerfile's Python must agree"
+    # Same minor version: the image follows the official Python images, CI the newest patch
+    # the pinned uv can install (3.12.14 with uv 0.12.19); both are exact, neither floats.
+    assert EXACT.match(image.group(1))
+    assert image.group(1).rsplit(".", 1)[0] == python.rsplit(".", 1)[0]
     requires = tomllib.loads(_read("backend/pyproject.toml"))["project"]["requires-python"]
     assert requires == ">=3.12,<3.13"
     assert python.startswith("3.12.")

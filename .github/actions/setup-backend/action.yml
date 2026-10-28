@@ -10,8 +10,9 @@ runs:
       with:
         version: "0.12.19"
         # Exact and equal to backend/.python-version (backend/tests/test_tool_pins.py): never
-        # the runner's system Python, which changes with the runner image.
-        python-version: "3.12.15"
+        # the runner's system Python, which changes with the runner image. The newest 3.12 the
+        # pinned uv can install; the image's Python (3.12.15) lines up when uv is next bumped.
+        python-version: "3.12.14"
         enable-cache: true
         cache-dependency-glob: backend/uv.lock
     - name: Install backend dependencies (lockfile only)
