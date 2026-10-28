@@ -1228,6 +1228,146 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/dashboards": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Dashboards you may see
+         * @description Built-in first, then shared and your own; with your favourites and your home.
+         */
+        get: operations["list_dashboards_api_v1_dashboards_get"];
+        put?: never;
+        /**
+         * Create or copy a dashboard
+         * @description Needs `dashboards.create`. A copy names its original in `copied_from` (REQ-DSH-021).
+         */
+        post: operations["create_dashboard_api_v1_dashboards_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboards/favourites/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Star a dashboard
+         * @description Moves it to your favourites at once (REQ-DSH-005 AC1).
+         */
+        put: operations["star_api_v1_dashboards_favourites__ref__put"];
+        post?: never;
+        /**
+         * Unstar a dashboard
+         * @description Idempotent.
+         */
+        delete: operations["unstar_api_v1_dashboards_favourites__ref__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboards/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your home dashboard
+         * @description Your choice, else your role's, else the built-in home of your role.
+         */
+        get: operations["get_home_api_v1_dashboards_home_get"];
+        /**
+         * Choose your home dashboard
+         * @description A dashboard you can see, or null to go back to your role's home.
+         */
+        put: operations["put_home_api_v1_dashboards_home_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboards/role-homes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Home dashboards set per role
+         * @description Needs `dashboards.manage_defaults`. Role key → dashboard reference.
+         */
+        get: operations["get_role_homes_api_v1_dashboards_role_homes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboards/role-homes/{role_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a role's home dashboard
+         * @description Needs `dashboards.manage_defaults`; a built-in or shared dashboard, or null.
+         */
+        put: operations["put_role_home_api_v1_dashboards_role_homes__role_key__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/dashboards/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a dashboard
+         * @description A built-in one, a shared one, or your own; 404 otherwise.
+         */
+        get: operations["get_dashboard_api_v1_dashboards__ref__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a dashboard
+         * @description Needs If-Match.
+         */
+        delete: operations["delete_dashboard_api_v1_dashboards__ref__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a dashboard
+         * @description The fields you send, with If-Match. Built-in dashboards are never changed (copy them).
+         */
+        patch: operations["update_dashboard_api_v1_dashboards__ref__patch"];
+        trace?: never;
+    };
     "/api/v1/entitlements": {
         parameters: {
             query?: never;
@@ -5820,6 +5960,132 @@ export interface components {
             required: boolean;
         };
         /**
+         * DashboardBody
+         * @description What a dashboard holds: its widgets and its filter defaults.
+         */
+        "DashboardBody-Input": {
+            filters?: components["schemas"]["DashboardFilters"];
+            /** Widgets */
+            widgets?: components["schemas"]["Widget-Input"][];
+        };
+        /**
+         * DashboardBody
+         * @description What a dashboard holds: its widgets and its filter defaults.
+         */
+        "DashboardBody-Output": {
+            filters?: components["schemas"]["DashboardFilters"];
+            /** Widgets */
+            widgets?: components["schemas"]["Widget-Output"][];
+        };
+        /**
+         * DashboardFilters
+         * @description The filter bar's defaults (REQ-DSH-022): site, group and a time range in days.
+         */
+        DashboardFilters: {
+            /** Days */
+            days?: number | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Site Id */
+            site_id?: string | null;
+        };
+        /**
+         * DashboardIn
+         * @description A new dashboard (private unless `shared`, which needs `dashboards.share`).
+         */
+        DashboardIn: {
+            body?: components["schemas"]["DashboardBody-Input"];
+            /** Copied From */
+            copied_from?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name: string;
+            /** Names */
+            names?: {
+                [key: string]: string;
+            };
+            /**
+             * Shared
+             * @default false
+             */
+            shared: boolean;
+        };
+        /**
+         * DashboardListOut
+         * @description The dashboard picker (REQ-DSH-005): every dashboard you may see, your favourites, home.
+         */
+        DashboardListOut: {
+            /** Favourites */
+            favourites: string[];
+            /** Home */
+            home: string;
+            /**
+             * Home Chosen
+             * @description True: your own choice; False: your role's home.
+             */
+            home_chosen: boolean;
+            /** Items */
+            items: components["schemas"]["DashboardOut"][];
+        };
+        /**
+         * DashboardOut
+         * @description A dashboard as you see it: built-in (`builtin` set) or user-made.
+         */
+        DashboardOut: {
+            body: components["schemas"]["DashboardBody-Output"];
+            /**
+             * Builtin
+             * @description The built-in code (named by `dashboard.<code>`).
+             */
+            builtin: string | null;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Copied From */
+            copied_from: string | null;
+            /** Description */
+            description: string | null;
+            /**
+             * Name
+             * @description A user-made dashboard's name; None for built-ins.
+             */
+            name: string | null;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Owner Id */
+            owner_id: string | null;
+            /**
+             * Ref
+             * @description "builtin:<code>" or the dashboard id.
+             */
+            ref: string;
+            /** Shared */
+            shared: boolean;
+            /** Updated At */
+            updated_at: string | null;
+            /** Version */
+            version: number;
+        };
+        /**
+         * DashboardPatch
+         * @description The fields to change.
+         */
+        DashboardPatch: {
+            body?: components["schemas"]["DashboardBody-Input"] | null;
+            /** Description */
+            description?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Names */
+            names?: {
+                [key: string]: string;
+            } | null;
+            /** Shared */
+            shared?: boolean | null;
+        };
+        /**
          * DateBucket
          * @description How a date grouping is cut, in the viewer's time zone (REQ-DSH-044).
          * @enum {string}
@@ -6575,6 +6841,24 @@ export interface components {
             items: components["schemas"]["HistoryEntryOut"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /**
+         * HomeIn
+         * @description Your home dashboard; None goes back to your role's (REQ-DSH-002 AC2).
+         */
+        HomeIn: {
+            /** Dashboard Ref */
+            dashboard_ref?: string | null;
+        };
+        /**
+         * HomeOut
+         * @description Which dashboard your home page shows.
+         */
+        HomeOut: {
+            /** Chosen */
+            chosen: boolean;
+            /** Dashboard Ref */
+            dashboard_ref: string;
         };
         /**
          * IdentitySettingsBody
@@ -7671,6 +7955,20 @@ export interface components {
          */
         PickList: "pause" | "third_party" | "cancel" | "reopen" | "reassign" | "level" | "closure_code";
         /**
+         * Placement
+         * @description Where a widget sits on the 12-column grid (REQ-DSH-019).
+         */
+        Placement: {
+            /** H */
+            h: number;
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
+        /**
          * Priority
          * @description P1 is the highest.
          * @enum {string}
@@ -8416,6 +8714,14 @@ export interface components {
             user_count: number;
             /** Version */
             version: number;
+        };
+        /**
+         * RoleHomeIn
+         * @description A role's home dashboard: built-in or shared; None clears it.
+         */
+        RoleHomeIn: {
+            /** Dashboard Ref */
+            dashboard_ref?: string | null;
         };
         /**
          * RoleNameOut
@@ -10015,6 +10321,38 @@ export interface components {
          */
         VisibilityIn: {
             visibility: components["schemas"]["Visibility"];
+        };
+        /**
+         * Widget
+         * @description One widget: a report definition (or a report reference) shown on the dashboard.
+         */
+        "Widget-Input": {
+            /** Id */
+            id: string;
+            place: components["schemas"]["Placement"];
+            report?: components["schemas"]["ReportDefinition-Input"] | null;
+            /** Report Ref */
+            report_ref?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Title Key */
+            title_key?: string | null;
+        };
+        /**
+         * Widget
+         * @description One widget: a report definition (or a report reference) shown on the dashboard.
+         */
+        "Widget-Output": {
+            /** Id */
+            id: string;
+            place: components["schemas"]["Placement"];
+            report?: components["schemas"]["ReportDefinition-Output"] | null;
+            /** Report Ref */
+            report_ref?: string | null;
+            /** Title */
+            title?: string | null;
+            /** Title Key */
+            title_key?: string | null;
         };
         /**
          * WorkItemAction
@@ -16272,6 +16610,743 @@ export interface operations {
                 };
             };
             /** @description version_conflict, or custom_field_in_use (retire it instead). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_dashboards_api_v1_dashboards_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardListOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_dashboard_api_v1_dashboards_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    star_api_v1_dashboards_favourites__ref__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    unstar_api_v1_dashboards_favourites__ref__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_home_api_v1_dashboards_home_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_home_api_v1_dashboards_home_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HomeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HomeOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_role_homes_api_v1_dashboards_role_homes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    put_role_home_api_v1_dashboards_role_homes__role_key__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                role_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleHomeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_dashboard_api_v1_dashboards__ref__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_dashboard_api_v1_dashboards__ref__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_dashboard_api_v1_dashboards__ref__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DashboardPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DashboardOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such dashboard. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match: version_conflict. */
             409: {
                 headers: {
                     [name: string]: unknown;

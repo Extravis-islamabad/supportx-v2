@@ -4193,6 +4193,380 @@
         "title": "CustomFieldValidationIO",
         "type": "object"
       },
+      "DashboardBody-Input": {
+        "additionalProperties": false,
+        "description": "What a dashboard holds: its widgets and its filter defaults.",
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/DashboardFilters"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/Widget-Input"
+            },
+            "maxItems": 24,
+            "title": "Widgets",
+            "type": "array"
+          }
+        },
+        "title": "DashboardBody",
+        "type": "object"
+      },
+      "DashboardBody-Output": {
+        "additionalProperties": false,
+        "description": "What a dashboard holds: its widgets and its filter defaults.",
+        "properties": {
+          "filters": {
+            "$ref": "#/components/schemas/DashboardFilters"
+          },
+          "widgets": {
+            "items": {
+              "$ref": "#/components/schemas/Widget-Output"
+            },
+            "maxItems": 24,
+            "title": "Widgets",
+            "type": "array"
+          }
+        },
+        "title": "DashboardBody",
+        "type": "object"
+      },
+      "DashboardFilters": {
+        "additionalProperties": false,
+        "description": "The filter bar's defaults (REQ-DSH-022): site, group and a time range in days.",
+        "properties": {
+          "days": {
+            "anyOf": [
+              {
+                "maximum": 366.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days"
+          },
+          "group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Id"
+          },
+          "site_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Site Id"
+          }
+        },
+        "title": "DashboardFilters",
+        "type": "object"
+      },
+      "DashboardIn": {
+        "additionalProperties": false,
+        "description": "A new dashboard (private unless `shared`, which needs `dashboards.share`).",
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/DashboardBody-Input"
+          },
+          "copied_from": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copied From"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "enum": [
+                "en",
+                "ar",
+                "ur"
+              ]
+            },
+            "title": "Names",
+            "type": "object"
+          },
+          "shared": {
+            "default": false,
+            "title": "Shared",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "DashboardIn",
+        "type": "object"
+      },
+      "DashboardListOut": {
+        "description": "The dashboard picker (REQ-DSH-005): every dashboard you may see, your favourites, home.",
+        "properties": {
+          "favourites": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Favourites",
+            "type": "array"
+          },
+          "home": {
+            "title": "Home",
+            "type": "string"
+          },
+          "home_chosen": {
+            "description": "True: your own choice; False: your role's home.",
+            "title": "Home Chosen",
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardOut"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items",
+          "favourites",
+          "home",
+          "home_chosen"
+        ],
+        "title": "DashboardListOut",
+        "type": "object"
+      },
+      "DashboardOut": {
+        "description": "A dashboard as you see it: built-in (`builtin` set) or user-made.",
+        "properties": {
+          "body": {
+            "$ref": "#/components/schemas/DashboardBody-Output"
+          },
+          "builtin": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The built-in code (named by `dashboard.<code>`).",
+            "title": "Builtin"
+          },
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "copied_from": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Copied From"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A user-made dashboard's name; None for built-ins.",
+            "title": "Name"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "object"
+          },
+          "owner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Id"
+          },
+          "ref": {
+            "description": "\"builtin:<code>\" or the dashboard id.",
+            "title": "Ref",
+            "type": "string"
+          },
+          "shared": {
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ref",
+          "builtin",
+          "name",
+          "names",
+          "description",
+          "owner_id",
+          "shared",
+          "copied_from",
+          "body",
+          "version",
+          "updated_at",
+          "can_edit"
+        ],
+        "title": "DashboardOut",
+        "type": "object"
+      },
+      "DashboardPatch": {
+        "additionalProperties": false,
+        "description": "The fields to change.",
+        "properties": {
+          "body": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardBody-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "names": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "propertyNames": {
+                  "enum": [
+                    "en",
+                    "ar",
+                    "ur"
+                  ]
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Names"
+          },
+          "shared": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shared"
+          }
+        },
+        "title": "DashboardPatch",
+        "type": "object"
+      },
       "DateBucket": {
         "description": "How a date grouping is cut, in the viewer's time zone (REQ-DSH-044).",
         "enum": [
@@ -6148,6 +6522,45 @@
           "next_cursor"
         ],
         "title": "HistoryOut",
+        "type": "object"
+      },
+      "HomeIn": {
+        "additionalProperties": false,
+        "description": "Your home dashboard; None goes back to your role's (REQ-DSH-002 AC2).",
+        "properties": {
+          "dashboard_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dashboard Ref"
+          }
+        },
+        "title": "HomeIn",
+        "type": "object"
+      },
+      "HomeOut": {
+        "description": "Which dashboard your home page shows.",
+        "properties": {
+          "chosen": {
+            "title": "Chosen",
+            "type": "boolean"
+          },
+          "dashboard_ref": {
+            "title": "Dashboard Ref",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dashboard_ref",
+          "chosen"
+        ],
+        "title": "HomeOut",
         "type": "object"
       },
       "IdentitySettingsBody": {
@@ -8802,6 +9215,44 @@
         "title": "PickList",
         "type": "string"
       },
+      "Placement": {
+        "additionalProperties": false,
+        "description": "Where a widget sits on the 12-column grid (REQ-DSH-019).",
+        "properties": {
+          "h": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "H",
+            "type": "integer"
+          },
+          "w": {
+            "maximum": 12.0,
+            "minimum": 1.0,
+            "title": "W",
+            "type": "integer"
+          },
+          "x": {
+            "maximum": 11.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "integer"
+          },
+          "y": {
+            "maximum": 500.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
+        "title": "Placement",
+        "type": "object"
+      },
       "Priority": {
         "description": "P1 is the highest.",
         "enum": [
@@ -10654,6 +11105,26 @@
           "permissions"
         ],
         "title": "RoleDetailOut",
+        "type": "object"
+      },
+      "RoleHomeIn": {
+        "additionalProperties": false,
+        "description": "A role's home dashboard: built-in or shared; None clears it.",
+        "properties": {
+          "dashboard_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dashboard Ref"
+          }
+        },
+        "title": "RoleHomeIn",
         "type": "object"
       },
       "RoleNameOut": {
@@ -14815,6 +15286,140 @@
           "visibility"
         ],
         "title": "VisibilityIn",
+        "type": "object"
+      },
+      "Widget-Input": {
+        "additionalProperties": false,
+        "description": "One widget: a report definition (or a report reference) shown on the dashboard.",
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "place": {
+            "$ref": "#/components/schemas/Placement"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportDefinition-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "report_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ref"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_key": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Key"
+          }
+        },
+        "required": [
+          "id",
+          "place"
+        ],
+        "title": "Widget",
+        "type": "object"
+      },
+      "Widget-Output": {
+        "additionalProperties": false,
+        "description": "One widget: a report definition (or a report reference) shown on the dashboard.",
+        "properties": {
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,39}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "place": {
+            "$ref": "#/components/schemas/Placement"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportDefinition-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "report_ref": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Report Ref"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 120,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "title_key": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title Key"
+          }
+        },
+        "required": [
+          "id",
+          "place"
+        ],
+        "title": "Widget",
         "type": "object"
       },
       "WorkItemAction": {
@@ -24908,6 +25513,916 @@
         "summary": "Ask for an index on a custom field",
         "tags": [
           "custom-fields"
+        ]
+      }
+    },
+    "/api/v1/dashboards": {
+      "get": {
+        "description": "Built-in first, then shared and your own; with your favourites and your home.",
+        "operationId": "list_dashboards_api_v1_dashboards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Dashboards you may see",
+        "tags": [
+          "dashboards"
+        ]
+      },
+      "post": {
+        "description": "Needs `dashboards.create`. A copy names its original in `copied_from` (REQ-DSH-021).",
+        "operationId": "create_dashboard_api_v1_dashboards_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Create or copy a dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/favourites/{ref}": {
+      "delete": {
+        "description": "Idempotent.",
+        "operationId": "unstar_api_v1_dashboards_favourites__ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Unstar a dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      },
+      "put": {
+        "description": "Moves it to your favourites at once (REQ-DSH-005 AC1).",
+        "operationId": "star_api_v1_dashboards_favourites__ref__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Star a dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/home": {
+      "get": {
+        "description": "Your choice, else your role's, else the built-in home of your role.",
+        "operationId": "get_home_api_v1_dashboards_home_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Your home dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      },
+      "put": {
+        "description": "A dashboard you can see, or null to go back to your role's home.",
+        "operationId": "put_home_api_v1_dashboards_home_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HomeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HomeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Choose your home dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/role-homes": {
+      "get": {
+        "description": "Needs `dashboards.manage_defaults`. Role key → dashboard reference.",
+        "operationId": "get_role_homes_api_v1_dashboards_role_homes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Get Role Homes Api V1 Dashboards Role Homes Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Home dashboards set per role",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/role-homes/{role_key}": {
+      "put": {
+        "description": "Needs `dashboards.manage_defaults`; a built-in or shared dashboard, or null.",
+        "operationId": "put_role_home_api_v1_dashboards_role_homes__role_key__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role_key",
+            "required": true,
+            "schema": {
+              "title": "Role Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RoleHomeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Set a role's home dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/{ref}": {
+      "delete": {
+        "description": "Needs If-Match.",
+        "operationId": "delete_dashboard_api_v1_dashboards__ref__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Delete a dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      },
+      "get": {
+        "description": "A built-in one, a shared one, or your own; 404 otherwise.",
+        "operationId": "get_dashboard_api_v1_dashboards__ref__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Get a dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      },
+      "patch": {
+        "description": "The fields you send, with If-Match. Built-in dashboards are never changed (copy them).",
+        "operationId": "update_dashboard_api_v1_dashboards__ref__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "ref",
+            "required": true,
+            "schema": {
+              "title": "Ref",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DashboardPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match: version_conflict."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a dashboard",
+        "tags": [
+          "dashboards"
         ]
       }
     },
