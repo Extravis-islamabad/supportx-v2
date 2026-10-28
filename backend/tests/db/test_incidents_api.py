@@ -877,6 +877,54 @@ async def test_req_inc_105_builtin_views_and_counts(world: World) -> None:
     assert (await world.call("GET", f"{BASE}?view=nope", a, a.admin)).status_code == 422
 
 
+async def test_req_inc_105_ac1_wp020d_views_match_their_definitions(world: World) -> None:
+    """Overdue, due today, followed by me, shared with me and from my direct reports (WP-020d)."""
+    a = world.a
+    late = await world.create(a, a.admin, group_id=str(a.ga))
+    today = await world.create(a, a.admin, group_id=str(a.ga))
+    later = await world.create(a, a.admin, group_id=str(a.ga))
+    done_late = await world.create(a, a.admin, group_id=str(a.ga))
+    await world.act(a, a.admin, done_late, "resolve")
+    for item, due in (
+        (late, "now() - interval '1 hour'"),
+        (today, "now() + interval '1 minute'"),
+        (later, "now() + interval '3 days'"),
+        (done_late, "now() - interval '1 hour'"),  # resolved: not overdue any more
+    ):
+        await world.sql(
+            f"UPDATE work_items SET resolution_due_at = {due} WHERE id = $1",  # noqa: S608 - fixed SQL
+            uuid.UUID(item["id"]),
+        )
+    for item in (later, today):
+        followed = await world.call("PUT", f"{BASE}/{item['id']}/followers/{a.tech_a}", a, a.tech_a)
+        assert followed.status_code in {200, 204}, followed.text
+    await world.sql(
+        "UPDATE work_item_followers SET grants_access = true WHERE work_item_id = $1",
+        uuid.UUID(later["id"]),
+    )
+    await world.sql("UPDATE users SET manager_id = $1 WHERE id = $2", a.tech_a, a.requester2)
+    reported = await world.create(a, a.admin, group_id=str(a.ga), requester_id=str(a.requester2))
+    expectations = {
+        "overdue": {late["id"]},
+        # the users' zone is UTC: a minute-away due time is today unless run at midnight
+        "due_today": {today["id"]}
+        if (await world.sql("SELECT (now() AT TIME ZONE 'UTC')::time < '23:58'"))[0][0]
+        else set(),
+        "followed_by_me": {later["id"], today["id"]},
+        "shared_with_me": {later["id"]},
+        "from_my_reports": {reported["id"]},
+    }
+    for view, expected in expectations.items():
+        assert await ids(world, a, a.tech_a, f"?view={view}") == expected, view
+    assert await ids(world, a, a.tech_b, "?view=from_my_reports") == set()  # not their reports
+    counts = {
+        c["view"]: c["count"]
+        for c in (await world.call("GET", f"{BASE}/views", a, a.tech_a)).json()
+    }
+    assert counts["overdue"] == 1
+    assert counts["from_my_reports"] == 1
+
+
 async def test_req_inc_104_ac2_and_110_sort_and_stable_paging(world: World) -> None:
     a = world.a
     made = [await world.create(a, a.admin, subject=f"Item {i:02d}") for i in range(7)]

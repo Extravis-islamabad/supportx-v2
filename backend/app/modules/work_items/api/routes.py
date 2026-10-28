@@ -16,13 +16,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
 from app.core.errors import BadRequest, ProblemDetail
-from app.modules import metadata
 from app.modules.audit import AuditNote, audited, entries_for_changes
 from app.modules.identity_access import PolicyService, Subject, get_policy, user_contacts
 from app.modules.work_items.api.conversation_routes import (
     add_collection_routes,
     add_record_routes,
 )
+from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
@@ -55,12 +55,11 @@ from app.modules.work_items.service import resolution
 from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
-from app.modules.work_items.service.access import FIELDS
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
 from app.modules.work_items.service.closing import MoveInput, requester_channels
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
-from app.shared.api.listing import ListQuery, Page, PageResult, list_query, request_zone
+from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
 
@@ -469,6 +468,17 @@ class WorkItemListItem(BaseModel):
     updated_at: datetime
     deleted_at: datetime | None
     version: int
+    # More columns the list can show (WP-020d, REQ-INC-104), custom fields included.
+    impact: Impact | None
+    urgency: Urgency | None
+    department_id: uuid.UUID | None
+    closure_code: str | None
+    reopen_count: int
+    status_changed_at: datetime | None
+    first_responded_at: datetime | None
+    resolved_at: datetime | None
+    closed_at: datetime | None
+    custom: dict[str, Any] = Field(default_factory=dict, description="Custom values by key.")
 
 
 class WorkItemPage(Page[WorkItemListItem]):
@@ -807,6 +817,9 @@ class WorkItemHistoryEntryOut(BaseModel):
     automation: dict[str, Any] | None = Field(
         description="Set when automation made the change, e.g. {kind: matrix}."
     )
+    bulk_job_id: uuid.UUID | None = Field(
+        default=None, description="The bulk job that made this change for its actor (WP-020d)."
+    )
     changes: list[WorkItemFieldChangeOut]
     audit_entry_id: uuid.UUID | None = Field(
         default=None,
@@ -832,6 +845,7 @@ class WorkItemHistoryEntryOut(BaseModel):
             source=entry.source,
             reason=entry.reason,
             automation=entry.automation_ref if isinstance(entry.automation_ref, dict) else None,
+            bulk_job_id=entry.batch_id,
             changes=[
                 WorkItemFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes
             ],
@@ -904,19 +918,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
     # The record's own requester (no console permission): the service checks it is theirs.
     SignedIn = Annotated[Subject, Depends(require_signed_in())]  # noqa: N806 - type alias
-    Query_ = Annotated[  # noqa: N806 - type alias
-        ListQuery,
-        Depends(
-            list_query(
-                FIELDS,
-                extra_parameters=frozenset({"view", "tag"}),
-                # Custom fields filter as `custom.<key>` (WP-026), typed per tenant.
-                fields_for=lambda session: metadata.filter_fields(
-                    session, wtype.code.value, "work_items"
-                ),
-            )
-        ),
-    ]
+    Query_ = Annotated[ListQuery, Depends(list_dependency(wtype))]  # noqa: N806 - type alias
     location = f"/api/v1/{wtype.path}"
     name = wtype.code.replace("_", " ")
 
@@ -1171,6 +1173,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
         return WorkItemCategoryOut.of(node)
 
+    add_list_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
