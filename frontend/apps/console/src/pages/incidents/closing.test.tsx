@@ -156,6 +156,53 @@ describe('Resolving', () => {
     });
   });
 
+  it('D-107: re-resolving a reopened incident offers the earlier resolution to reuse', async () => {
+    const reopened = inProgress([], { reopen_count: 1, resolution: null });
+    const fake = api({
+      routes: {
+        ...COMMON,
+        ...record(reopened),
+        [`GET ${PATH}/history`]: {
+          body: {
+            items: [
+              {
+                change_id: 'c-reopen',
+                version: 6,
+                kind: 'status',
+                occurred_at: new Date().toISOString(),
+                actor_id: null,
+                actor_name: 'Amal Admin',
+                actor_type: 'user',
+                source: 'ui',
+                reason: 'Still jams',
+                automation: null,
+                changes: [{ field: 'resolution', old: '<p>Rebooted the printer</p>', new: null }],
+              },
+            ],
+            next_cursor: null,
+            people: {},
+          },
+        },
+        [`POST ${PATH}/actions/resolve`]: { body: resolvedItem() },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('inc-action-resolve'));
+    const earlier = await screen.findByTestId('inc-previous-resolution');
+    expect(earlier.textContent).toContain('Rebooted the printer');
+    fireEvent.click(screen.getByTestId('inc-previous-resolution-reuse'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('inc-previous-resolution')).toBeNull();
+    });
+    fireEvent.click(screen.getByTestId('inc-reason-confirm'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/actions/resolve`)).toHaveLength(1);
+    });
+    expect(fake.find('POST', `${PATH}/actions/resolve`)[0]?.body).toMatchObject({
+      resolution: '<p>Rebooted the printer</p>',
+    });
+  });
+
   it('REQ-INC-094: the dialog names the fields to fill on the record first, in words', async () => {
     api({
       routes: { ...COMMON, ...record(inProgress(['category_id', 'site_id', 'custom.cost'])) },
@@ -165,7 +212,7 @@ describe('Resolving', () => {
     const missing = await screen.findByTestId('inc-closing-missing');
     await waitFor(() => {
       expect(missing.textContent).toBe(
-        'Fill these on the record first: Category, Site, Repair cost.',
+        'Fill these on the record first: Category, Site, and Repair cost.',
       );
     });
     expect(missing.textContent).not.toContain('category_id');
@@ -516,7 +563,8 @@ describe('Arabic', () => {
     render(<App />);
     fireEvent.click(await screen.findByTestId('inc-action-resolve'));
     const missing = await screen.findByTestId('inc-closing-missing');
-    expect(missing.textContent).toBe('املأ هذه في السجل أولًا: الفئة.');
+    // One field, isolated (FSI/PDI) like every list item in right-to-left text.
+    expect(missing.textContent).toBe('املأ هذه في السجل أولًا: \u2068الفئة\u2069.');
     const dialog = screen.getByRole('dialog');
     expect(dialog.textContent).toContain('الحل');
     await waitFor(() => {

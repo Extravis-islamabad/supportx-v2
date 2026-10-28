@@ -1,4 +1,5 @@
 import type { Incident } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useLabel } from '@supportx/ui';
 
 type ActionState = Incident['actions'][number];
@@ -9,6 +10,7 @@ type ActionState = Incident['actions'][number];
  */
 export function useActionReason(): (state: Pick<ActionState, 'reason' | 'allowed_for'>) => string {
   const t = useLabel();
+  const listFormat = useListFormat();
   return (state) => {
     const who = state.allowed_for;
     if (state.reason !== 'not_for_you' || who == null)
@@ -19,6 +21,6 @@ export function useActionReason(): (state: Pick<ActionState, 'reason' | 'allowed
       ...who.relatives.map((relative) => t(`action_reason.relative.${relative}`)),
     ];
     if (names.length === 0) return t('action_reason.not_for_you');
-    return t('action_reason.not_for_you_who', { who: names.join(t('list.separator')) });
+    return t('action_reason.not_for_you_who', { who: listFormat(names, 'conjunction') });
   };
 }

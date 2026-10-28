@@ -25,6 +25,7 @@ import {
   type TransitionOut,
   type TriggerActionIO,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   ConflictDialog,
   FormProblem,
@@ -78,6 +79,7 @@ interface Row {
  */
 export function TransitionsTab() {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { can } = useAccess();
   const settings = useTransitionSettings(RECORD_TYPE, can('automation.view'));
   const [editing, setEditing] = useState<string>();
@@ -95,7 +97,7 @@ export function TransitionsTab() {
     if (setting.after_actions.length > 0) {
       parts.push(t('automation.transitions.has_after', { count: setting.after_actions.length }));
     }
-    return parts.join(t('list.separator'));
+    return listFormat(parts);
   };
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>

@@ -1699,6 +1699,7 @@ export const ar: LabelResource = {
   'closure_code.no_fault_found': 'لم يُعثر على خلل',
   'closure_code.duplicate': 'مكرر',
   'closure_code.user_error': 'خطأ من المستخدم',
+  'closure_code.confirmed_by_requester': 'أكّده مقدّم الطلب',
   'settings.matrix': 'مصفوفة الأولوية',
   'settings.matrix_help':
     'تُحسب الأولوية من التأثير والإلحاح. تُطبّق التغييرات على الحسابات الجديدة فورًا؛ وتحتفظ الحوادث الحالية بأولويتها حتى يتغير تأثيرها أو إلحاحها.',
@@ -2395,6 +2396,7 @@ export const ar: LabelResource = {
   'automation.why.routing_rule': 'وُجّه بالقاعدة «{{name}}».',
   'automation.why.routing_category': 'وُجّه إلى مجموعة الفئة.',
   'automation.why.routing_fallback': 'وُجّه إلى المجموعة الاحتياطية (لم تطابق أي قاعدة).',
+  'automation.why.routing_entry': 'وُجّه إلى مجموعة القناة التي وصل منها (صندوق بريد أو البوابة).',
   'automation.why.assigned': 'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة.',
   'automation.why.assigned_loads':
     'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة؛ الأحمال المقارنة: {{loads}}.',
@@ -3605,6 +3607,8 @@ export const ar: LabelResource = {
     'تابع فقط إذا لم يعد هذا العمل مهمًا. يُحفظ تأكيدك في السجل.',
   'incidents.closing.resolution_placeholder':
     'ما الذي أصلح المشكلة، ليتمكّن مقدّم الطلب والزملاء من فهمه.',
+  'incidents.closing.previous_resolution': 'الحل قبل إعادة فتحها',
+  'incidents.closing.reuse': 'إعادة الاستخدام',
   'incidents.closing.closure_code_shown': 'رمز الإغلاق: {{code}}',
   'incidents.closing.auto_close_on': 'يُغلق تلقائيًا في {{date}} ما لم يرد مقدّم الطلب.',
   'incidents.closing.auto_close_waits': 'لا يُغلق تلقائيًا إلا بعد إبلاغ مقدّم الطلب بالحل.',
