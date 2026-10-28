@@ -3124,15 +3124,19 @@ export const ur: LabelResource = {
     'السلام علیکم {{ recipient.name }}،\n\nآپ اب {{ record.display_id }} "{{ record.title }}" کو فالو کرتے ہیں اور اس کی تازہ کاریوں سے باخبر رہیں گے۔',
   'nav.admin_notifications': 'اطلاعات',
   'notifications.title': 'اطلاعات',
-  'notifications.open': 'اطلاعات، {{count}} نہ پڑھی ہوئی',
+  'notifications.open_one': 'اطلاعات، {{count}} نہ پڑھی ہوئی',
+  'notifications.open_other': 'اطلاعات، {{count}} نہ پڑھی ہوئی',
   'notifications.read_all': 'سب کو پڑھا ہوا نشان زد کریں',
   'notifications.do_not_disturb': 'پریشان نہ کریں',
   'notifications.empty': 'ابھی کوئی اطلاع نہیں۔',
   'notifications.more': 'پرانی دکھائیں',
   'notifications.banner.title': 'ای میل اطلاعات انتظار میں ہیں',
-  'notifications.banner.no_mail':
+  'notifications.banner.no_mail_one':
+    '{{count}} ای میل انتظار میں ہے کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میل بھیج دی جائے گی۔',
+  'notifications.banner.no_mail_other':
     '{{count}} ای میلز انتظار میں ہیں کیونکہ باہر جانے والی میل سیٹ نہیں ہے۔ ایپ میں اطلاعات جاری ہیں؛ میل چلنے پر ای میلز بھیج دی جائیں گی۔',
-  'notifications.banner.sending': 'انتظار میں موجود {{count}} ای میلز اب بھیجی جا رہی ہیں۔',
+  'notifications.banner.sending_one': 'انتظار میں موجود {{count}} ای میل اب بھیجی جا رہی ہے۔',
+  'notifications.banner.sending_other': 'انتظار میں موجود {{count}} ای میلز اب بھیجی جا رہی ہیں۔',
   'notification_rules.intro':
     'کون سے واقعات کسے اور کیسے اطلاع دیتے ہیں۔ ہر واقعہ ایک مناسب پہلے سے طے شدہ ترتیب سے شروع ہوتا ہے؛ تبدیلیاں آڈٹ لاگ میں درج ہوتی ہیں۔',
   'notification_rules.saved': 'اطلاع کا قاعدہ محفوظ ہو گیا۔',

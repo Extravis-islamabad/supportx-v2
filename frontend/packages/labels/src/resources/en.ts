@@ -3528,15 +3528,19 @@ export const en = {
     'Hello {{ recipient.name }},\n\nYou now follow {{ record.display_id }} "{{ record.title }}" and will hear about its updates.',
   'nav.admin_notifications': 'Notifications',
   'notifications.title': 'Notifications',
-  'notifications.open': 'Notifications, {{count}} unread',
+  'notifications.open_one': 'Notifications, {{count}} unread',
+  'notifications.open_other': 'Notifications, {{count}} unread',
   'notifications.read_all': 'Mark all read',
   'notifications.do_not_disturb': 'Do not disturb',
   'notifications.empty': 'No notifications yet.',
   'notifications.more': 'Show older',
   'notifications.banner.title': 'E-mail notifications are waiting',
-  'notifications.banner.no_mail':
+  'notifications.banner.no_mail_one':
+    '{{count}} e-mail waits because outgoing mail is not set up. In-app notifications still go out; the e-mail is sent once mail works.',
+  'notifications.banner.no_mail_other':
     '{{count}} e-mails wait because outgoing mail is not set up. In-app notifications still go out; the e-mails are sent once mail works.',
-  'notifications.banner.sending': '{{count}} waiting e-mails are being sent now.',
+  'notifications.banner.sending_one': '{{count}} waiting e-mail is being sent now.',
+  'notifications.banner.sending_other': '{{count}} waiting e-mails are being sent now.',
   'notification_rules.intro':
     'Which events notify whom, and how. Every event starts with a sensible default; changes are recorded in the audit log.',
   'notification_rules.saved': 'Notification rule saved.',

@@ -3534,15 +3534,34 @@ export const ar: LabelResource = {
     'مرحبًا {{ recipient.name }}،\n\nأصبحت تتابع {{ record.display_id }} «{{ record.title }}» وستصلك تحديثاته.',
   'nav.admin_notifications': 'الإشعارات',
   'notifications.title': 'الإشعارات',
-  'notifications.open': 'الإشعارات، {{count}} غير مقروءة',
+  'notifications.open_zero': 'الإشعارات، لا توجد إشعارات غير مقروءة',
+  'notifications.open_one': 'الإشعارات، إشعار واحد غير مقروء',
+  'notifications.open_two': 'الإشعارات، إشعاران غير مقروءين',
+  'notifications.open_few': 'الإشعارات، {{count}} إشعارات غير مقروءة',
+  'notifications.open_many': 'الإشعارات، {{count}} إشعارًا غير مقروء',
+  'notifications.open_other': 'الإشعارات، {{count}} إشعار غير مقروء',
   'notifications.read_all': 'تعليم الكل كمقروء',
   'notifications.do_not_disturb': 'عدم الإزعاج',
   'notifications.empty': 'لا توجد إشعارات بعد.',
   'notifications.more': 'عرض الأقدم',
   'notifications.banner.title': 'إشعارات البريد الإلكتروني بانتظار الإرسال',
-  'notifications.banner.no_mail':
+  'notifications.banner.no_mail_zero': 'لا توجد رسائل بانتظار إعداد البريد الصادر.',
+  'notifications.banner.no_mail_one':
+    'تنتظر رسالة واحدة لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسالة عند تشغيل البريد.',
+  'notifications.banner.no_mail_two':
+    'تنتظر رسالتان لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسلان عند تشغيل البريد.',
+  'notifications.banner.no_mail_few':
+    'تنتظر {{count}} رسائل لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',
+  'notifications.banner.no_mail_many':
     'تنتظر {{count}} رسالة لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',
-  'notifications.banner.sending': 'يجري الآن إرسال {{count}} رسالة كانت بالانتظار.',
+  'notifications.banner.no_mail_other':
+    'تنتظر {{count}} رسالة لأن البريد الصادر غير مُعدّ. لا تزال الإشعارات داخل التطبيق تُرسل، وستُرسل الرسائل عند تشغيل البريد.',
+  'notifications.banner.sending_zero': 'لا توجد رسائل بالانتظار.',
+  'notifications.banner.sending_one': 'يجري الآن إرسال رسالة واحدة كانت بالانتظار.',
+  'notifications.banner.sending_two': 'يجري الآن إرسال رسالتين كانتا بالانتظار.',
+  'notifications.banner.sending_few': 'يجري الآن إرسال {{count}} رسائل كانت بالانتظار.',
+  'notifications.banner.sending_many': 'يجري الآن إرسال {{count}} رسالة كانت بالانتظار.',
+  'notifications.banner.sending_other': 'يجري الآن إرسال {{count}} رسالة كانت بالانتظار.',
   'notification_rules.intro':
     'الأحداث التي تُرسل إشعارات ولمن وكيف. يبدأ كل حدث بإعداد افتراضي مناسب، وتُسجَّل التغييرات في سجل التدقيق.',
   'notification_rules.saved': 'حُفظت قاعدة الإشعار.',
