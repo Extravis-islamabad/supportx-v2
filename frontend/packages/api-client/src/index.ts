@@ -177,6 +177,8 @@ export {
   type IncidentTemplate,
   type IncidentTemplateInput,
   type IncidentTemplatePatch,
+  type ClosurePatch,
+  type ClosureSettings,
   type Labels,
   type ListValue,
   type PickList,

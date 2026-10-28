@@ -3383,6 +3383,74 @@ export const en = {
   'session.idle.sign_out': 'Sign out now',
   'forms.start_empty': 'Start empty',
   'forms.draft_restored': 'Your unsaved input was restored.',
+  // WP-020f: resolving and closing, open work, the requester's answer.
+  'conversation.follow_up_started':
+    'This reply came after the reopen window, so it started a new incident: {{id}}.',
+  'work_item.field.resolution': 'Resolution',
+  'work_item.field.closure_code': 'Closure code',
+  'work_item.field.follows_id': 'Follows',
+  'work_item.field.resolution_notified_at': 'Requester told of the resolution',
+  'work_item.field.open_work_confirmed': 'Open work confirmed',
+  'work_item.field.followed_by': 'Follow-up incident',
+  'work_item.field.follow_up_not_created': 'Follow-up incident could not be created',
+  'work_item.field.requester_confirmed': 'Requester confirmed the fix',
+  'incidents.closing.resolution_required': 'Describe how it was resolved.',
+  'incidents.closing.closure_code_required': 'Choose a closure code.',
+  'incidents.closing.confirm_open_work': 'Confirm and continue',
+  'incidents.closing.missing': 'Fill these on the record first: {{fields}}.',
+  'incidents.closing.open_work_confirm':
+    'Go ahead only if this work no longer matters. Your confirmation is kept in the history.',
+  'incidents.closing.resolution_placeholder':
+    'What fixed it, so the requester and colleagues can follow it.',
+  'incidents.closing.closure_code_shown': 'Closure code: {{code}}',
+  'incidents.closing.auto_close_on':
+    'Closes automatically on {{date}} unless the requester answers.',
+  'incidents.closing.auto_close_waits':
+    'Closes automatically only once the requester has been told of the resolution.',
+  'incidents.closing.follows_earlier': 'An earlier incident',
+  'automation.why.requester_reply_resumed': 'The requester replied, so work resumed.',
+  'automation.why.requester_reply_reopened':
+    'The requester replied within the reopen window, so it was reopened.',
+  'automation.why.requester_confirmed': 'The requester confirmed the fix, so it was closed.',
+  'automation.why.requester_rejected': 'The requester said it is not fixed, so it was reopened.',
+  'automation.why.auto_closed':
+    'Closed automatically: the requester was told of the resolution and did not answer in time.',
+  'automation.why.assignment_move': 'Moved automatically when it was assigned.',
+  'settings.section.closing': 'Closing',
+  'settings.closing.title': 'Resolving and closing',
+  'settings.closing.help':
+    'What resolving and closing an incident need, what happens to open work, and how long a requester can reopen it with a reply.',
+  'settings.closing.resolve_requires': 'Needed before resolving',
+  'settings.closing.resolve_requires_help':
+    'Fields that must be filled before an incident can be resolved.',
+  'settings.closing.close_requires': 'Needed before closing',
+  'settings.closing.close_requires_help':
+    'Fields that must be filled before an incident can be closed.',
+  'settings.closing.open_work': 'Open work',
+  'settings.closing.open_work_help':
+    'What happens when an incident is resolved or closed while work on it is still open. These checks start working when tasks, checklists, linked incidents and approvals arrive.',
+  'open_work_kind.tasks': 'Tasks',
+  'open_work_kind.checklists': 'Checklists',
+  'open_work_kind.child_incidents': 'Child incidents',
+  'open_work_kind.approvals': 'Approvals',
+  'open_work_mode.warn': 'Warn and ask to confirm',
+  'open_work_mode.block': 'Do not allow',
+  'settings.closing.complete_open_work': 'Complete open work on close',
+  'settings.closing.complete_open_work_help': 'Closing an incident marks its open work as done.',
+  'settings.closing.auto_close': 'Close resolved incidents automatically',
+  'settings.closing.auto_close_help':
+    'Only when the requester was told of the resolution and did not answer within the business days below.',
+  'settings.closing.auto_close_needs_notifications':
+    'Requires requester notifications: auto-close stays off until a channel (e-mail or the portal) can tell requesters of a resolution. An incident is never closed for a requester who was never told.',
+  'settings.closing.auto_close_days': 'Business days before auto-close',
+  'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
+  'settings.closing.reopen_window_days': 'Reopen window (days)',
+  'settings.closing.reopen_window_help':
+    'A requester reply within this many days of resolving reopens the incident; a later reply starts a new one. From 1 to 30.',
+  'settings.resume_on_requester_reply': 'A requester reply resumes it',
+  'settings.resume_on_requester_reply_for': 'A requester reply resumes “{{status}}”',
+  'incidents.closing.open_work_title_one': '{{count}} item of work is still open',
+  'incidents.closing.open_work_title_other': '{{count}} items of work are still open',
 } as const;
 
 export type LabelKey = keyof typeof en;

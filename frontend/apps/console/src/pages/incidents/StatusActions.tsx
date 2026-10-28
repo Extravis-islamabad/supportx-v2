@@ -1,8 +1,9 @@
-import { App, Flex, Input, Modal, Select, Space, Tooltip, Typography } from 'antd';
+import { App, Flex, Modal, Tooltip } from 'antd';
 import { useState } from 'react';
 
 import {
   ApiError,
+  attachDrafts,
   useIncidentAction,
   type Incident,
   type IncidentAction,
@@ -12,6 +13,7 @@ import {
 import {
   ConflictDialog,
   FormProblem,
+  inlineImageIds,
   markHandled,
   reportError,
   useAppearance,
@@ -19,21 +21,23 @@ import {
   useFormProblem,
   useLabel,
   WriteButton,
-  lengthLimit,
-  type FormProblemState,
 } from '@supportx/ui';
 
 import { useActionReason } from './actionReason';
 import { incidentView, useIncidentFieldName } from './conflict';
-import { labelled } from './labels';
+import { MoveDialog, type OpenWork } from './MoveDialog';
 import { GroupPicker } from './pickers';
 
-const REASON_MAX = 500;
+// Resolve asks for the resolution, close for the closure code (WP-020f): always a dialog.
+const CLOSING = new Set<string>(['resolve', 'close']);
 
 interface Pending {
   action: IncidentAction;
   reasonCode?: string;
   reasonText?: string;
+  resolution?: string;
+  closureCode?: string;
+  confirmOpenWork?: boolean;
 }
 
 /**
@@ -58,6 +62,11 @@ export function StatusActions({
   // The action waiting for "which of your groups" (start work on an unassigned incident).
   const [choosing, setChoosing] = useState<Pending | null>(null);
   const [group, setGroup] = useState<string | null>(null);
+  // Work still open that the user is asked to confirm before resolving or closing (REQ-INC-095).
+  const [openWork, setOpenWork] = useState<OpenWork | null>(null);
+  // The record's own, live state of the move being asked for (its missing fields change live).
+  const askingNow =
+    asking === null ? null : (item.actions.find((a) => a.action === asking.action) ?? asking);
   // A refused move with a dialog open is shown in that dialog (QA WP-029 BUG-02).
   const problem = useFormProblem();
   // Changed by someone after it was shown (409): the shared dialog says who, when and what
@@ -73,6 +82,13 @@ export function StatusActions({
         onSuccess: () => {
           setAsking(null);
           setChoosing(null);
+          setOpenWork(null);
+          // Images pasted into the resolution were the author's drafts: attach them (WP-022).
+          if (pending.resolution !== undefined) {
+            attachDrafts('work_item', item.id, inlineImageIds(pending.resolution)).catch(
+              reportError,
+            );
+          }
           void message.success(t(`incidents.done.${pending.action}`));
         },
         onError: (error) => {
@@ -87,6 +103,16 @@ export function StatusActions({
             markHandled(error); // the dialog asks which group
             setAsking(null);
             setChoosing(pending);
+            return;
+          }
+          if (
+            asking !== null &&
+            error instanceof ApiError &&
+            error.code === 'open_work_unconfirmed'
+          ) {
+            markHandled(error); // the dialog lists the open work and asks to confirm
+            const count = Number(error.params.count ?? 0);
+            setOpenWork({ count, items: String(error.params.items ?? '') });
             return;
           }
           if (asking !== null && error instanceof ApiError && error.fieldErrors.length > 0) {
@@ -115,8 +141,11 @@ export function StatusActions({
             data-testid={`inc-action-${action}`}
             onClick={() => {
               const go = () => {
-                if (state.reason_mode === 'none') run({ action });
-                else setAsking(state);
+                if (state.reason_mode === 'none' && !CLOSING.has(action)) run({ action });
+                else {
+                  setOpenWork(null);
+                  setAsking(state);
+                }
               };
               // The admin's confirmation for this move, in the reader's language (REQ-WF-003).
               const text = state.confirmation?.[locale] ?? state.confirmation?.en;
@@ -146,20 +175,31 @@ export function StatusActions({
           </Tooltip>
         );
       })}
-      {asking !== null && (
-        <ReasonDialog
-          state={asking}
+      {askingNow !== null && (
+        <MoveDialog
+          state={askingNow}
+          current={{ resolution: item.resolution, closure_code: item.closure_code }}
           catalogue={catalogue}
           pending={act.isPending}
           error={act.error}
           problem={problem}
+          openWork={openWork}
           onCancel={() => {
             setAsking(null);
+            setOpenWork(null);
             problem.clear();
             act.reset();
           }}
-          onConfirm={(code, text) => {
-            run({ action: asking.action as IncidentAction, reasonCode: code, reasonText: text });
+          onConfirm={(input) => {
+            run({
+              action: askingNow.action as IncidentAction,
+              reasonCode: input.reasonCode,
+              reasonText: input.reasonText,
+              resolution: input.resolution,
+              closureCode: input.closureCode,
+              // Shown the open work and confirmed it (REQ-INC-095).
+              confirmOpenWork: openWork !== null,
+            });
           }}
         />
       )}
@@ -199,6 +239,7 @@ export function StatusActions({
           setTried(undefined);
           setAsking(null);
           setChoosing(null);
+          setOpenWork(null);
           act.reset();
         }}
         onKeepMine={() => {
@@ -210,137 +251,5 @@ export function StatusActions({
         }}
       />
     </Flex>
-  );
-}
-
-/** Title and buttons of the reason dialog; cancelling an incident needs its own words (BUG-06). */
-function dialogWords(t: (key: string) => string, action: string) {
-  if (action === 'cancel') {
-    return {
-      title: t('incidents.cancel_title'),
-      ok: t('incidents.cancel_confirm'),
-      dismiss: t('incidents.cancel_keep'),
-    };
-  }
-  const name = t(`work_item_action.${action}`);
-  return { title: name, ok: name, dismiss: t('actions.cancel') };
-}
-
-function ReasonDialog({
-  state,
-  catalogue,
-  pending,
-  error,
-  problem,
-  onCancel,
-  onConfirm,
-}: {
-  state: IncidentActionState;
-  catalogue: IncidentCatalogue | undefined;
-  pending: boolean;
-  error: unknown;
-  problem: FormProblemState;
-  onCancel: () => void;
-  onConfirm: (code: string | undefined, text: string) => void;
-}) {
-  const t = useLabel();
-  const { locale } = useAppearance();
-  const [code, setCode] = useState<string>();
-  const [text, setText] = useState('');
-  const [touched, setTouched] = useState(false);
-  const list = state.reason_list;
-  // Retired reasons label old records but are not offered (REQ-ADM-043).
-  const options = (catalogue?.reasons ?? [])
-    .filter((r) => r.list === list && !r.disabled)
-    .map((r) => {
-      const label = labelled(r.labels, locale, () => t(`reason.${r.list}.${r.code}`));
-      return { value: r.code, label, 'aria-label': label };
-    });
-  const required = state.reason_mode === 'required';
-  // The same rules the server applies; the server's field errors are shown too.
-  const missingCode = required && list !== null && code === undefined;
-  const missingText =
-    (required && list === null && text.trim() === '') || (code === 'other' && text.trim() === '');
-  const server =
-    error instanceof ApiError ? error.fieldErrors.map((e) => t(e.message_key, e.params)) : [];
-  const words = dialogWords(t, state.action);
-  // "Other" is only mentioned where there is a list to pick it from (QA C6).
-  const detailsLabel =
-    list !== null
-      ? t('incidents.reason_text')
-      : required
-        ? `${t('incidents.details')} *`
-        : t('incidents.reason_text_optional');
-  return (
-    <Modal
-      open
-      title={words.title}
-      okText={words.ok}
-      cancelText={words.dismiss}
-      confirmLoading={pending}
-      onCancel={onCancel}
-      onOk={() => {
-        setTouched(true);
-        if (missingCode || missingText) return;
-        onConfirm(code, text);
-      }}
-      okButtonProps={{ 'data-testid': 'inc-reason-confirm' }}
-      destroyOnHidden
-    >
-      <Space direction="vertical" style={{ width: '100%' }}>
-        <FormProblem problem={problem} />
-        {list !== null && (
-          <>
-            <label htmlFor="inc-reason-code">
-              <Typography.Text>
-                {t('incidents.reason')}
-                {required ? ' *' : ''}
-              </Typography.Text>
-            </label>
-            <Select
-              id="inc-reason-code"
-              value={code}
-              onChange={setCode}
-              options={options}
-              style={{ width: '100%' }}
-              status={touched && missingCode ? 'error' : undefined}
-              data-testid="inc-reason-code"
-            />
-            {touched && missingCode && (
-              <Typography.Text type="danger" role="alert" data-testid="inc-reason-code-error">
-                {t('incidents.reason_required')}
-              </Typography.Text>
-            )}
-          </>
-        )}
-        <label htmlFor="inc-reason-text">
-          <Typography.Text>{detailsLabel}</Typography.Text>
-        </label>
-        <Input.TextArea
-          id="inc-reason-text"
-          dir="auto"
-          rows={3}
-          count={lengthLimit(REASON_MAX, true)}
-          value={text}
-          status={touched && missingText ? 'error' : undefined}
-          onChange={(event) => {
-            setText(event.target.value);
-          }}
-          // The counter sits under the box; keep it clear of the buttons (QA C1).
-          style={{ marginBottom: 20 }}
-          data-testid="inc-reason-text"
-        />
-        {touched && missingText && (
-          <Typography.Text type="danger" role="alert" data-testid="inc-reason-error">
-            {t('incidents.reason_text_required')}
-          </Typography.Text>
-        )}
-        {server.length > 0 && (
-          <Typography.Text type="danger" role="alert" data-testid="inc-reason-server-error">
-            {server.join(' ')}
-          </Typography.Text>
-        )}
-      </Space>
-    </Modal>
   );
 }

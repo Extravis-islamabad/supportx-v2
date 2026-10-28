@@ -18,6 +18,7 @@ import { fieldName, useCustomValueText } from '../customFields/values';
 import { useAutomationWhy } from './automationWhy';
 import {
   categoryPath,
+  closureCodeLabel,
   levelLabel,
   reasonValueLabel,
   scaleLabel,
@@ -34,7 +35,15 @@ const CODED: Record<string, string> = {
   conversation_entry: 'conversation_entry',
   note_visibility: 'visibility',
 };
-const TIMES = new Set(['resolved_at', 'closed_at', 'last_reopened_at', 'first_responded_at']);
+const TIMES = new Set([
+  'resolved_at',
+  'closed_at',
+  'last_reopened_at',
+  'first_responded_at',
+  'resolution_notified_at',
+]);
+// Rich text and references with no words of their own: "changed", never the HTML or an ID.
+const CHANGED_ONLY = new Set(['description', 'resolution', 'follows_id']);
 const PEOPLE = new Set([
   'requester_id',
   'on_behalf_of_id',
@@ -115,6 +124,9 @@ export function IncidentHistory({ id }: { id: string }) {
     if (change.field === 'level' && typeof value === 'string') {
       return levelLabel(t, catalogue.data, value, locale);
     }
+    if (change.field === 'closure_code' && typeof value === 'string') {
+      return closureCodeLabel(t, catalogue.data, value, locale);
+    }
     if (change.field === 'template_id' && typeof value === 'string') {
       const found = templates.data?.find((x) => x.id === value);
       return found === undefined ? t('history.changed') : templateLabel(t, found, locale);
@@ -143,7 +155,7 @@ export function IncidentHistory({ id }: { id: string }) {
     if (PEOPLE.has(change.field) && typeof value === 'string') {
       return people[value]?.display_name ?? t('history.changed');
     }
-    if (change.field === 'description') return t('history.changed');
+    if (CHANGED_ONLY.has(change.field)) return t('history.changed');
     if (typeof value === 'boolean') return t(value ? 'history.yes' : 'history.no');
     if (Array.isArray(value))
       return value.length === 0 ? t('history.empty') : value.join(t('list.separator'));

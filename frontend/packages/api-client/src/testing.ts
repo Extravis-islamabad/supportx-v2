@@ -392,6 +392,10 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
     last_reopened_at: null,
     reopen_count: 0,
     reassignment_count: 0,
+    resolution: null,
+    closure_code: null,
+    resolution_notified_at: null,
+    follows_id: null,
     paused_seconds: 0,
     paused_since: null,
     sla_policy_id: null,
@@ -408,6 +412,8 @@ export function fakeIncident(overrides: Partial<Incident> = {}): Incident {
       reason: FROM_NEW.has(action) ? null : 'not_from_status',
       reason_mode: action === 'cancel' ? 'required' : 'none',
       reason_list: action === 'cancel' ? 'cancel' : null,
+      // Resolve and close: record fields the closure rules still need (WP-020f).
+      ...(action === 'resolve' || action === 'close' ? { missing: [] } : {}),
     })),
     operations: ['edit', 'assign', 'take', 'change_priority', 'delete'].map((action) => ({
       action,
@@ -488,6 +494,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       labels: null,
       system: false,
       disabled: false,
+      resume_on_requester_reply: code === 'awaiting_requester',
     })),
     actions: [...INCIDENT_ACTIONS],
     transitions: [],
@@ -521,6 +528,16 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
     closure_codes: ['fixed', 'workaround', 'no_fault_found', 'duplicate', 'user_error'].map(
       (code, sort_order) => ({ code, labels: null, sort_order, colour: null, disabled: false }),
     ),
+    // WP-020f defaults (D1, D2, D5): auto-close off until a channel tells requesters.
+    closure: {
+      resolve_requires: ['resolution'],
+      close_requires: ['closure_code'],
+      open_work: { tasks: 'warn', checklists: 'warn', child_incidents: 'warn', approvals: 'block' },
+      complete_open_work: false,
+      auto_close_days: null,
+      reopen_window_days: 7,
+      requester_channels: [],
+    },
     next_number: 8,
   };
 }

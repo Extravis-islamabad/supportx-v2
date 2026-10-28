@@ -270,22 +270,46 @@ export interface ActionRun {
   reasonText?: string;
   /** Start work on an unassigned incident: which of your groups (QA BUG-05). */
   groupId?: string;
+  /** Resolve: the fix, rich text (REQ-INC-090). */
+  resolution?: string;
+  /** Close: a closure code (REQ-INC-093). */
+  closureCode?: string;
+  /** Resolve or close although work is still open: the warning was shown (REQ-INC-095). */
+  confirmOpenWork?: boolean;
 }
 
 export function useIncidentAction(id: string) {
   const saved = useSaved();
   const refresh = useRefreshOnConflict(id);
   const once = useSingleFlight(
-    ({ action, version, reasonCode, reasonText, groupId }: ActionRun) => {
+    ({
+      action,
+      version,
+      reasonCode,
+      reasonText,
+      groupId,
+      resolution,
+      closureCode,
+      confirmOpenWork,
+    }: ActionRun) => {
       const text = reasonText?.trim() ?? '';
-      const body =
-        reasonCode === undefined && text === '' && groupId === undefined
-          ? undefined
-          : {
-              reason_code: reasonCode ?? null,
-              reason_text: text === '' ? null : text,
-              ...(groupId === undefined ? {} : { group_id: groupId }),
-            };
+      const plain =
+        reasonCode === undefined &&
+        text === '' &&
+        groupId === undefined &&
+        resolution === undefined &&
+        closureCode === undefined &&
+        confirmOpenWork !== true;
+      const body = plain
+        ? undefined
+        : {
+            reason_code: reasonCode ?? null,
+            reason_text: text === '' ? null : text,
+            confirm_open_work: confirmOpenWork === true,
+            ...(groupId === undefined ? {} : { group_id: groupId }),
+            ...(resolution === undefined ? {} : { resolution }),
+            ...(closureCode === undefined ? {} : { closure_code: closureCode }),
+          };
       return call(
         api.POST('/api/v1/incidents/{record_id}/actions/{action}', {
           params: { path: { record_id: id, action }, header: ifMatch(version) },

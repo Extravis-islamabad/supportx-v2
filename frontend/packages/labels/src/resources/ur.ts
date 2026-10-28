@@ -2985,4 +2985,73 @@ export const ur: LabelResource = {
     '{{count}} صارفین کے پاس یہ کردار ہے۔ وہ کردار منتخب کریں جس میں انہیں منتقل کیا جائے؛ کوئی بھی خاموشی سے رسائی نہیں کھوتا۔',
   'users.total_one': '{{count}} صارف',
   'users.total_other': '{{count}} صارفین',
+  // WP-020f: resolving and closing, open work, the requester's answer.
+  'conversation.follow_up_started':
+    'یہ جواب دوبارہ کھولنے کی مدت کے بعد آیا، اس لیے ایک نیا واقعہ شروع ہوا: {{id}}۔',
+  'work_item.field.resolution': 'حل',
+  'work_item.field.closure_code': 'بندش کا کوڈ',
+  'work_item.field.follows_id': 'اس کے بعد',
+  'work_item.field.resolution_notified_at': 'درخواست گزار کو حل کی اطلاع',
+  'work_item.field.open_work_confirmed': 'کھلے کام کی تصدیق',
+  'work_item.field.followed_by': 'فالو اپ واقعہ',
+  'work_item.field.follow_up_not_created': 'فالو اپ واقعہ نہیں بن سکا',
+  'work_item.field.requester_confirmed': 'درخواست گزار نے حل کی تصدیق کی',
+  'incidents.closing.resolution_required': 'بتائیں کہ یہ کیسے حل ہوا۔',
+  'incidents.closing.closure_code_required': 'بندش کا کوڈ منتخب کریں۔',
+  'incidents.closing.confirm_open_work': 'تصدیق کریں اور جاری رکھیں',
+  'incidents.closing.missing': 'پہلے ریکارڈ میں یہ بھریں: {{fields}}۔',
+  'incidents.closing.open_work_confirm':
+    'صرف تب آگے بڑھیں جب یہ کام اب اہم نہ ہو۔ آپ کی تصدیق تاریخچے میں محفوظ رہتی ہے۔',
+  'incidents.closing.resolution_placeholder':
+    'کس چیز سے مسئلہ حل ہوا، تاکہ درخواست گزار اور ساتھی سمجھ سکیں۔',
+  'incidents.closing.closure_code_shown': 'بندش کا کوڈ: {{code}}',
+  'incidents.closing.auto_close_on':
+    'اگر درخواست گزار جواب نہ دے تو {{date}} کو خودکار طور پر بند ہو جائے گا۔',
+  'incidents.closing.auto_close_waits':
+    'درخواست گزار کو حل کی اطلاع ملنے کے بعد ہی خودکار طور پر بند ہوگا۔',
+  'incidents.closing.follows_earlier': 'ایک پچھلا واقعہ',
+  'automation.why.requester_reply_resumed': 'درخواست گزار نے جواب دیا، اس لیے کام دوبارہ شروع ہوا۔',
+  'automation.why.requester_reply_reopened':
+    'درخواست گزار نے دوبارہ کھولنے کی مدت میں جواب دیا، اس لیے یہ دوبارہ کھولا گیا۔',
+  'automation.why.requester_confirmed': 'درخواست گزار نے حل کی تصدیق کی، اس لیے یہ بند کیا گیا۔',
+  'automation.why.requester_rejected':
+    'درخواست گزار نے کہا کہ مسئلہ حل نہیں ہوا، اس لیے یہ دوبارہ کھولا گیا۔',
+  'automation.why.auto_closed':
+    'خودکار طور پر بند: درخواست گزار کو حل کی اطلاع دی گئی اور اس نے وقت پر جواب نہیں دیا۔',
+  'automation.why.assignment_move': 'تفویض ہونے پر خودکار طور پر منتقل ہوا۔',
+  'settings.section.closing': 'بندش',
+  'settings.closing.title': 'حل اور بندش',
+  'settings.closing.help':
+    'واقعہ حل اور بند کرنے کے لیے کیا درکار ہے، کھلے کام کا کیا ہوتا ہے، اور درخواست گزار جواب دے کر کتنی دیر تک اسے دوبارہ کھول سکتا ہے۔',
+  'settings.closing.resolve_requires': 'حل سے پہلے درکار',
+  'settings.closing.resolve_requires_help': 'وہ فیلڈز جو واقعہ حل کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.close_requires': 'بندش سے پہلے درکار',
+  'settings.closing.close_requires_help': 'وہ فیلڈز جو واقعہ بند کرنے سے پہلے بھرنا ضروری ہیں۔',
+  'settings.closing.open_work': 'کھلا کام',
+  'settings.closing.open_work_help':
+    'جب واقعہ حل یا بند کیا جائے اور اس پر کام ابھی کھلا ہو تو کیا ہوتا ہے۔ یہ جانچ ٹاسکس، چیک لسٹس، منسلک واقعات اور منظوریاں آنے پر کام شروع کریں گی۔',
+  'open_work_kind.tasks': 'ٹاسکس',
+  'open_work_kind.checklists': 'چیک لسٹس',
+  'open_work_kind.child_incidents': 'ذیلی واقعات',
+  'open_work_kind.approvals': 'منظوریاں',
+  'open_work_mode.warn': 'خبردار کریں اور تصدیق مانگیں',
+  'open_work_mode.block': 'اجازت نہ دیں',
+  'settings.closing.complete_open_work': 'بندش پر کھلا کام مکمل کریں',
+  'settings.closing.complete_open_work_help':
+    'واقعہ بند کرنے سے اس کا کھلا کام مکمل نشان زد ہو جاتا ہے۔',
+  'settings.closing.auto_close': 'حل شدہ واقعات خودکار طور پر بند کریں',
+  'settings.closing.auto_close_help':
+    'صرف تب جب درخواست گزار کو حل کی اطلاع دی گئی ہو اور اس نے نیچے دیے گئے کاروباری دنوں میں جواب نہ دیا ہو۔',
+  'settings.closing.auto_close_needs_notifications':
+    'درخواست گزاروں کی اطلاعات درکار ہیں: خودکار بندش اس وقت تک بند رہتی ہے جب تک کوئی چینل (ای میل یا پورٹل) درخواست گزاروں کو حل کی اطلاع نہ دے سکے۔ کسی ایسے درخواست گزار کا واقعہ کبھی بند نہیں ہوتا جسے اطلاع نہ دی گئی ہو۔',
+  'settings.closing.auto_close_days': 'خودکار بندش سے پہلے کاروباری دن',
+  'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
+  'settings.closing.reopen_window_days': 'دوبارہ کھولنے کی مدت (دن)',
+  'settings.closing.reopen_window_help':
+    'حل کے بعد اتنے دنوں میں درخواست گزار کا جواب واقعہ دوبارہ کھولتا ہے؛ بعد کا جواب نیا واقعہ شروع کرتا ہے۔ 1 سے 30 تک۔',
+  'settings.resume_on_requester_reply': 'درخواست گزار کا جواب اسے دوبارہ شروع کرتا ہے',
+  'settings.resume_on_requester_reply_for':
+    'درخواست گزار کا جواب “{{status}}” کو دوبارہ شروع کرتا ہے',
+  'incidents.closing.open_work_title_one': 'کام کا {{count}} حصہ ابھی کھلا ہے',
+  'incidents.closing.open_work_title_other': 'کام کے {{count}} حصے ابھی کھلے ہیں',
 };
