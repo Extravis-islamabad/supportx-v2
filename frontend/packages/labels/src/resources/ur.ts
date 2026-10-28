@@ -2430,6 +2430,8 @@ export const ur: LabelResource = {
   'reports.filter_days': '{{field}} پچھلے {{days}} دنوں میں',
   'reports.or': 'یا',
   'reports.total': 'کل',
+  'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
+  'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
   'reports.changed_from': '{{name}} سے تبدیل شدہ',
   'reports.changed_from_hint':
     'یہ تبدیلیاں محفوظ نہیں ہیں۔ واپس جانے کے لیے ری سیٹ کریں، یا انہیں اپنی رپورٹ کے طور پر محفوظ کریں۔',

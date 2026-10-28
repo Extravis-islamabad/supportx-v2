@@ -2835,6 +2835,8 @@ export const en = {
   'reports.filter_days': '{{field}} in the last {{days}} days',
   'reports.or': 'or',
   'reports.total': 'Total',
+  'errors.field.unknown_column': 'This column does not exist for these records.',
+  'errors.field.duplicate_column': 'Each column can be listed once.',
   'reports.changed_from': 'Changed from {{name}}',
   'reports.changed_from_hint':
     'These changes are not saved. Reset to go back, or save them as your own report.',
