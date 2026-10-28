@@ -467,3 +467,14 @@ export {
   type NotificationRuleInput,
   type NotificationStatus,
 } from './notifications';
+export {
+  useCreateMailbox,
+  useMailboxes,
+  useRemoveMailbox,
+  useTestMailbox,
+  useUpdateMailbox,
+  type Mailbox,
+  type MailboxChange,
+  type MailboxInput,
+  type MailboxTest,
+} from './mailboxes';

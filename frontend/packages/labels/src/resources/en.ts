@@ -3702,6 +3702,49 @@ export const en = {
   'mailbox_answer.replies_only.subject': 'Re: {{subject}}',
   'mailbox_answer.replies_only.body':
     'Thank you for your message. {{address}} takes replies to existing requests only, so nothing was created. Please use the self-service portal for a new request.',
+  'nav.admin_mail': 'Mail',
+  'mail.intro':
+    'Support mailboxes SupportX reads. Mail from a known person becomes an incident; a reply lands on the incident it answers. Messages that need a person wait here.',
+  'mail.add': 'Add a mailbox',
+  'mail.none': 'No mailbox yet. Add one to turn support mail into incidents.',
+  'mail.test': 'Test',
+  'mail.test_passed': 'The mailbox answered.',
+  'mail.test_failed': 'The mailbox did not answer: {{reason}}.',
+  'mail.remove_title': 'Stop reading {{address}}?',
+  'mail.remove_body':
+    'New mail to this address will no longer become incidents. Incidents it made keep their history.',
+  'mail.paused': 'Paused',
+  'mail.held_one': '{{count}} message waiting for an admin',
+  'mail.held_other': '{{count}} messages waiting for an admin',
+  'mail.summary': 'Creates: {{creates}} · Unknown senders: {{strangers}}',
+  'mail.never_fetched': 'Not read yet',
+  'mail.last_fetch': 'Last read {{when}}',
+  'mail.add_title': 'Add a mailbox',
+  'mail.edit_title': 'Change mailbox',
+  'mail.section.connection': 'Connection',
+  'mail.section.mail': 'What mail becomes',
+  'mail.field.address': 'E-mail address',
+  'mail.field.display_name': 'Name (optional)',
+  'mail.field.host': 'Mail server (IMAP)',
+  'mail.field.port': 'Port',
+  'mail.field.security': 'Encryption',
+  'mail.field.allow_plain': 'Allow a connection without encryption',
+  'mail.field.allow_plain_hint':
+    'The password and the mail travel readable on the network. This choice is recorded in the audit log.',
+  'mail.field.username': 'User name',
+  'mail.field.password': 'Password',
+  'mail.field.password_keep': 'Leave empty to keep the stored password.',
+  'mail.field.folder': 'Folder',
+  'mail.field.after_fetch': 'After reading a message',
+  'mail.field.after_fetch_hint':
+    'A message is changed on the mail server only after SupportX has stored it.',
+  'mail.field.move_to': 'Move to folder',
+  'mail.field.creates': 'New mail creates',
+  'mail.field.unknown_senders': 'Mail from people SupportX does not know',
+  'mail.field.allowed_domains': 'Allowed domains',
+  'mail.field.allowed_domains_hint':
+    'For example acme.com. Senders from these domains are added as requesters who cannot sign in.',
+  'mail.field.enabled': 'Read this mailbox',
 } as const;
 
 export type LabelKey = keyof typeof en;
