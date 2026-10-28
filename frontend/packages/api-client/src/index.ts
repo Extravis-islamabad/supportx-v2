@@ -342,6 +342,26 @@ export {
   type SavedReport,
 } from './reports';
 export {
+  DASHBOARD_ME,
+  useCreateDashboard,
+  useDashboard,
+  useDashboards,
+  useDeleteDashboard,
+  useRoleHomes,
+  useSetHome,
+  useSetRoleHome,
+  useStarDashboard,
+  useUpdateDashboard,
+  type Dashboard,
+  type DashboardBody,
+  type DashboardFilters,
+  type DashboardHome,
+  type DashboardInput,
+  type DashboardList,
+  type DashboardPatch,
+  type DashboardWidget,
+} from './dashboards';
+export {
   fetchConnectionToken,
   fetchListChannels,
   fetchSubscriptionToken,

@@ -242,7 +242,8 @@ describe('menus follow permissions', () => {
         within(nav)
           .getAllByRole('menuitem')
           .map((item) => item.textContent),
-      ).toEqual(['Home', 'Service requests', 'Knowledge', 'Reports']);
+        // reports.view opens dashboards too: a dashboard is made of reports (WP-036).
+      ).toEqual(['Home', 'Service requests', 'Knowledge', 'Dashboards', 'Reports']);
     });
   });
 });

@@ -132,6 +132,47 @@ class ReportScheduleRan(DomainEvent):
     paused: bool
 
 
+class DashboardSaved(DomainEvent):
+    """A dashboard was created or changed (`changed_fields` empty on create).
+
+    `was_shared`: it was shared before this change, so its former viewers must hear of it
+    (un-sharing closes it on their screens, REQ-DSH-028 AC2).
+    """
+
+    event_type: ClassVar[str] = "analytics.dashboard.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "dashboard"
+
+    dashboard_id: uuid.UUID
+    owner_id: uuid.UUID
+    shared: bool
+    was_shared: bool
+    created: bool
+    changed_fields: list[str]
+
+
+class DashboardDeleted(DomainEvent):
+    """A dashboard was deleted (soft)."""
+
+    event_type: ClassVar[str] = "analytics.dashboard.deleted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "dashboard"
+
+    dashboard_id: uuid.UUID
+    owner_id: uuid.UUID
+    shared: bool
+
+
+class DashboardHomeChanged(DomainEvent):
+    """A role's default home dashboard changed (its holders' home pages follow)."""
+
+    event_type: ClassVar[str] = "analytics.dashboard_home.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "role"
+
+    role_key: str
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     ReportSaved,
     ReportDeleted,
@@ -143,4 +184,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     ReportScheduleSaved,
     ReportScheduleDue,
     ReportScheduleRan,
+    DashboardSaved,
+    DashboardDeleted,
+    DashboardHomeChanged,
 )

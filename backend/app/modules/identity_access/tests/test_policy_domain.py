@@ -67,8 +67,7 @@ MATRIX = {
     "requests.assign": (True, True, False),
     "changes.approve": (True, False, False),
     "problems.manage": (True, True, False),
-    "knowledge.view": (True, True, True),
-    "knowledge.manage": (True, True, False),
+    # knowledge.* moved to the knowledge module with its own defaults (D-108 (7), WP-033)
 }
 
 

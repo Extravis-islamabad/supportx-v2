@@ -140,6 +140,96 @@
     "type": "object"
   },
   "events": {
+    "analytics.dashboard.deleted": {
+      "1": {
+        "description": "A dashboard was deleted (soft).",
+        "properties": {
+          "dashboard_id": {
+            "format": "uuid",
+            "title": "Dashboard Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "shared": {
+            "title": "Shared",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dashboard_id",
+          "owner_id",
+          "shared"
+        ],
+        "title": "DashboardDeleted",
+        "type": "object"
+      }
+    },
+    "analytics.dashboard.saved": {
+      "1": {
+        "description": "A dashboard was created or changed (`changed_fields` empty on create).\n\n`was_shared`: it was shared before this change, so its former viewers must hear of it\n(un-sharing closes it on their screens, REQ-DSH-028 AC2).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "dashboard_id": {
+            "format": "uuid",
+            "title": "Dashboard Id",
+            "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "shared": {
+            "title": "Shared",
+            "type": "boolean"
+          },
+          "was_shared": {
+            "title": "Was Shared",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "dashboard_id",
+          "owner_id",
+          "shared",
+          "was_shared",
+          "created",
+          "changed_fields"
+        ],
+        "title": "DashboardSaved",
+        "type": "object"
+      }
+    },
+    "analytics.dashboard_home.changed": {
+      "1": {
+        "description": "A role's default home dashboard changed (its holders' home pages follow).",
+        "properties": {
+          "role_key": {
+            "title": "Role Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role_key"
+        ],
+        "title": "DashboardHomeChanged",
+        "type": "object"
+      }
+    },
     "analytics.report.deleted": {
       "1": {
         "description": "A saved report was deleted (soft).",
@@ -1522,6 +1612,120 @@
           "change"
         ],
         "title": "MailboxChanged",
+        "type": "object"
+      }
+    },
+    "knowledge.article.saved": {
+      "1": {
+        "description": "An article or one of its drafts was created or changed (`language`: the draft's).",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "article_id",
+          "topic_id",
+          "owner_id",
+          "language",
+          "created",
+          "changed_fields"
+        ],
+        "title": "KbArticleSaved",
+        "type": "object"
+      }
+    },
+    "knowledge.topic.deleted": {
+      "1": {
+        "description": "A topic went to the trash; its articles moved to `moved_to` (REQ-KB-004 AC2).",
+        "properties": {
+          "moved_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved To"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic_id",
+          "moved_to"
+        ],
+        "title": "KbTopicDeleted",
+        "type": "object"
+      }
+    },
+    "knowledge.topic.saved": {
+      "1": {
+        "description": "A topic was created or changed (moved, renamed, its audience).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic_id",
+          "created",
+          "changed_fields"
+        ],
+        "title": "KbTopicSaved",
         "type": "object"
       }
     },

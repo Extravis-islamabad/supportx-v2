@@ -23,6 +23,7 @@ export function useAutomationWhy(): (
         if (automation.reason === 'rule') {
           return t('automation.why.routing_rule', { name: text(automation.rule) });
         }
+        if (automation.reason === 'entry') return t('automation.why.routing_entry');
         return t(
           automation.reason === 'category'
             ? 'automation.why.routing_category'

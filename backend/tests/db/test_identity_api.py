@@ -80,8 +80,9 @@ class FakeAdmin:
 
     async def create_user(self, *, email: str, first_name: str, last_name: str, locale: str) -> str:
         del first_name, last_name
+        # Fresh IDs like Keycloak's: an account made again after a delete is a new one.
         account = KeycloakUser(
-            id=f"kc-{len(self.accounts) + 1}", email=email.lower(), enabled=True, has_password=False
+            id=f"kc-{uuid.uuid4().hex[:8]}", email=email.lower(), enabled=True, has_password=False
         )
         self.accounts[account.id] = account
         self.account_attributes[account.id] = {"locale": locale}
@@ -855,6 +856,27 @@ async def test_revoking_stops_the_link_at_once_and_resending_renews_it(world: Wo
         headers={"If-Match": f'"{revoked.json()["version"]}"'},
     )
     assert (twice.status_code, twice.json()["code"]) == (409, "invitation_not_pending")
+
+
+async def test_bug_01_sending_again_stops_the_earlier_link(world: World) -> None:
+    """QA WP-039 BUG-01: after "Send again" the first e-mail's link must not set a password.
+
+    Keycloak cannot withdraw one link, so an account the invitation made and nobody used is made
+    afresh: the earlier link names an account that no longer exists.
+    """
+    invitation = await _invite(world, await _person(world))
+    first_account = world.admin.emails[-1][0]
+    resent = await world.call(
+        "POST",
+        f"/identity/invitations/{invitation['id']}/resend",
+        world.a,
+        headers={"If-Match": f'"{invitation["version"]}"'},
+    )
+    assert resent.status_code == 200, resent.text
+    second_account = world.admin.emails[-1][0]
+    assert second_account != first_account
+    assert first_account not in world.admin.accounts  # the first link's account is gone
+    assert second_account in world.admin.accounts
 
 
 async def test_expired_and_accepted_invitations(world: World) -> None:

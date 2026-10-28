@@ -208,6 +208,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("report.settings_changed", AuditCategory.CONFIGURATION, "analytics"),
     ("report.exported", AuditCategory.DATA, "analytics"),
     ("report.export_downloaded", AuditCategory.DATA, "analytics"),
+    # dashboards (WP-036): a role's home dashboard (what every holder of the role lands on)
+    ("dashboard.role_home_set", AuditCategory.CONFIGURATION, "analytics"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category
