@@ -16,6 +16,9 @@ from sqlalchemy.exc import ProgrammingError
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.domain.types import INCIDENT, Channel
+from app.modules.work_items.service import work_items as work_items_service
 from tests.db.test_incidents_api import BASE, Org, World, incidents_world, problem
 from tooling.db_testing import ThrowawayDatabase
 
@@ -614,3 +617,27 @@ async def test_follow_up_a_group_lead_sets_a_member_away_and_it_is_recorded(
         ("available", "Alpha Admin"),
         ("away", "Alpha Tech C"),
     ]
+
+
+async def test_wp024_an_entry_point_sets_the_channel_and_its_group_for_a_requester(
+    world: World, app_db: Database
+) -> None:
+    """E-mail creates as the requester (no assign right): the channel and the mailbox's group
+    come from the entry point, never from the client; history says why the group was chosen."""
+    org = world.a
+    async with app_db.tenant_session(TenantContext(org.tenant, user_id=org.requester)) as session:
+        subject = await subject_for(session, org.tenant, org.requester)
+        view = await work_items_service.create(
+            session,
+            subject,
+            INCIDENT,
+            {"subject": "Printer jams", "requester_id": org.requester},
+            source="email",
+            holders=world.app.state.policy,
+            channel=Channel.EMAIL,
+            entry_group_id=org.gb,
+        )
+    item = (await world.call("GET", f"{BASE}/{view.record.id}", org, org.admin)).json()
+    assert (item["channel"], item["group_id"]) == ("email", str(org.gb))
+    history = automated(await world.history(org, item))
+    assert [h["automation"].get("reason") for h in history] == ["entry"]

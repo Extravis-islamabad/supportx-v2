@@ -54,3 +54,35 @@ async def test_docs_are_served_in_dev_and_hidden_in_production(
     async with run_app(create_app(production)) as client:
         assert (await client.get("/api/v1/docs")).status_code == 404
         assert (await client.get("/api/v1/openapi.json")).status_code == 404
+
+
+async def test_ready_says_event_delivery_is_stalled_when_a_worker_is_cut_off(
+    settings_factory: Callable[..., Settings], run_app: Callable[[FastAPI], Any]
+) -> None:
+    """Must-fix before the pilot: a worker that lost PostgreSQL or NATS shows, never silently."""
+    from app.modules.system.domain.readiness import FailureReason, ProbeFailedError  # noqa: PLC0415
+    from app.modules.system.service.readiness import ReadinessService  # noqa: PLC0415
+    from app.modules.system.tests.test_readiness_service import FakeProbe  # noqa: PLC0415
+
+    app = create_app(settings_factory())
+    async with run_app(app) as client:
+        app.state.readiness = ReadinessService(
+            [FakeProbe("postgres"), FakeProbe("nats")],
+            informational=[
+                FakeProbe("outbox_relay", ProbeFailedError(FailureReason.DISCONNECTED)),
+                FakeProbe("event_consumers"),
+            ],
+            timeout=1.0,
+        )
+        stalled = await client.get("/api/v1/ready")
+        app.state.readiness = ReadinessService(
+            [FakeProbe("postgres"), FakeProbe("nats")],
+            informational=[FakeProbe("outbox_relay"), FakeProbe("event_consumers")],
+            timeout=1.0,
+        )
+        fine = await client.get("/api/v1/ready")
+
+    assert stalled.status_code == 200  # informational: the API stays in service
+    assert stalled.json()["event_delivery"] == "stalled"
+    assert stalled.json()["checks"]["outbox_relay"]["reason"] == "disconnected"
+    assert fine.json()["event_delivery"] == "ok"

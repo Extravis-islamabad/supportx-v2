@@ -2396,6 +2396,7 @@ export const ar: LabelResource = {
   'automation.why.routing_rule': 'وُجّه بالقاعدة «{{name}}».',
   'automation.why.routing_category': 'وُجّه إلى مجموعة الفئة.',
   'automation.why.routing_fallback': 'وُجّه إلى المجموعة الاحتياطية (لم تطابق أي قاعدة).',
+  'automation.why.routing_entry': 'وُجّه إلى مجموعة القناة التي وصل منها (صندوق بريد أو البوابة).',
   'automation.why.assigned': 'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة.',
   'automation.why.assigned_loads':
     'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة؛ الأحمال المقارنة: {{loads}}.',
@@ -3858,4 +3859,15 @@ export const ar: LabelResource = {
   'notification_preferences.locked': 'تُلزمك به مؤسستك: لا يمكن إيقافه.',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
+  'failure_reason.disconnected': 'لا يمكن الوصول إلى قاعدة البيانات أو ناقل الرسائل',
+  'failure_reason.backlog': 'الأحداث تنتظر لمدة طويلة جدًا',
+  'readiness_check.outbox_relay': 'مُرحّل الأحداث',
+  'readiness_check.event_consumers': 'معالجة الأحداث',
+  'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.nats': 'ناقل الرسائل',
+  'event_delivery.stalled.title': 'توقف تسليم الأحداث',
+  'event_delivery.stalled.body':
+    'الإشعارات والتحديثات المباشرة والتصديرات متأخرة. لن يضيع شيء: ستُرسل فور تعافي الخدمة.',
+  'event_delivery_state.ok': 'يجري التسليم',
+  'event_delivery_state.stalled': 'متوقف',
 };
