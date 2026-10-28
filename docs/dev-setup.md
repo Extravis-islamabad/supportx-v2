@@ -335,3 +335,11 @@ Python in `backend/.python-version`, pnpm in `package.json` and `frontend/packag
 and image, actions and pre-commit hooks by commit SHA, container images by exact tag.
 `backend/tests/test_tool_pins.py` fails when one floats or two places disagree. Upgrades come as
 deliberate PRs (Dependabot proposes them weekly).
+
+## Repository
+
+The repository lives at https://github.com/Extravis-islamabad/supportx-v2 (moved from
+`devhat-pm` on 2026-10-29; GitHub redirects the old address). Point an existing clone at it once:
+`git remote set-url origin https://github.com/Extravis-islamabad/supportx-v2.git`. Container
+images, when pushed to a registry, are named `ghcr.io/extravis-islamabad/supportx-<backend|worker|web>`
+(GHCR names are lowercase).
