@@ -19,7 +19,7 @@ records.
 
 import tempfile
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -226,6 +226,8 @@ class _Job:
     namer: Namer
     header: list[str]
     max_rows: int
+    # Custom field names in the reader's language: headers never read "Unknown value" (BUG-01).
+    custom_names: Mapping[str, str]
 
     @property
     def language(self) -> str:
@@ -240,7 +242,9 @@ class _Job:
         for index, group in enumerate(groups):
             await self.namer.prepare(group.field, group.dimension, [r[index] for r in records])
         entity = self.source.entity
-        columns = [Column(field_label(g.field, self.language, {})) for g in groups] + [
+        columns = [
+            Column(field_label(g.field, self.language, self.custom_names)) for g in groups
+        ] + [
             Column(_measure_header(entity, m, self.language), _measure_kind(m))
             for m in self.compiled.measures
         ]
@@ -267,7 +271,7 @@ class _Job:
     def record_columns(self) -> list[Column]:
         """Their headers and kinds."""
         return [
-            Column(field_label(n, self.language, {}), _record_kind(self.source, n))
+            Column(field_label(n, self.language, self.custom_names), _record_kind(self.source, n))
             for n in self.record_names()
         ]
 
@@ -432,7 +436,10 @@ async def _job(session: AsyncSession, row: FileSpec, worker: Worker) -> "_Job | 
     namer = Namer(session, source.entity, row.language, zone)
     header = _header_lines(row, now, zone)
     # The reporting transaction is opened by build_export; rs is set there.
-    return _Job(row, session, compiled, definition, source, namer, header, worker.max_rows)
+    custom_names = await namer.custom_field_names()
+    return _Job(
+        row, session, compiled, definition, source, namer, header, worker.max_rows, custom_names
+    )
 
 
 async def render_file(
