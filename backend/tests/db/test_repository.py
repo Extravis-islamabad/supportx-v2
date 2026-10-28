@@ -84,7 +84,10 @@ async def test_stale_version_raises_conflict_with_current_version(
                 item.id, expected_version=1, changes={"title": "second"}
             )
     assert raised.value.instance_code == "version_conflict"
-    assert raised.value.params == {"expected_version": 1, "current_version": 2}
+    params = raised.value.params
+    assert (params["expected_version"], params["current_version"]) == (1, 2)
+    # Who saved it since, and when (QA WP-029 BUG-05).
+    assert params["changed_at"] is not None
     async with app_db.tenant_session(TenantContext(tenant)) as session:
         assert (await ProbeRepository(session).get(item.id)).title == "first"
 

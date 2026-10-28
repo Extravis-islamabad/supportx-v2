@@ -186,7 +186,12 @@ async def test_stale_update_returns_409_problem_details(
     body = second.json()
     assert body["code"] == "version_conflict"
     assert body["message_key"] == "errors.version_conflict"
-    assert body["params"] == {"expected_version": 1, "current_version": 2}
+    # Who saved it since, and when (QA WP-029 BUG-05); no field history here.
+    assert {k: body["params"][k] for k in ("expected_version", "current_version")} == {
+        "expected_version": 1,
+        "current_version": 2,
+    }
+    assert {"changed_by", "changed_at", "changed_fields"} <= set(body["params"])
 
 
 async def test_tenant_endpoints_need_a_database(
