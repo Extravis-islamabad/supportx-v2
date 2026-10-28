@@ -27,6 +27,8 @@ export interface ColumnContext {
   people: Record<string, IncidentPerson>;
   groupNames: Map<string, string>;
   locale: string;
+  /** The language's list format ("a, b and c"; useListFormat). */
+  list: (items: readonly string[]) => string;
 }
 
 export interface ColumnSpec {
@@ -175,7 +177,7 @@ function fieldCell(spec: IncidentListField, value: unknown, c: ColumnContext): R
         ? String(item)
         : ''
       : c.words.key({ ...spec.dimension, bucket: null }, item);
-  return Array.isArray(value) ? value.map(one).join(', ') : one(value);
+  return Array.isArray(value) ? c.list(value.map(one)) : one(value);
 }
 
 /** Every column the list can show, by key: its own, then more fields, then custom fields. */

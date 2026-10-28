@@ -3992,6 +3992,18 @@ export const en = {
   'incidents.views.groups_needed': 'Choose at least one group, or another option.',
   'view_visibility.groups': 'Chosen groups',
   'view_visibility.everyone': 'Everyone who sees incidents',
+  'failure_reason.disconnected': 'Cannot reach the database or the message bus',
+  'failure_reason.backlog': 'Events are waiting too long',
+  'readiness_check.outbox_relay': 'Event relay',
+  'readiness_check.event_consumers': 'Event processing',
+  'readiness_check.realtime_fanout': 'Live updates',
+  'readiness_check.nats': 'Message bus',
+  'event_delivery.stalled.title': 'Event delivery is stalled',
+  'event_delivery.stalled.body':
+    'Notifications, live updates and exports are delayed. Nothing is lost: they go out as soon as the service recovers.',
+  'event_delivery_state.ok': 'Delivering',
+  'event_delivery_state.stalled': 'Stalled',
+  'incidents.bulk.select_page': 'Select every incident on this page',
 } as const;
 
 export type LabelKey = keyof typeof en;

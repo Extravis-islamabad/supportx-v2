@@ -1,6 +1,7 @@
 import { ArrowDownOutlined, ArrowUpOutlined, CloseOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Drawer, Empty, Flex, Input, List, Typography } from 'antd';
+import { Button, Checkbox, Drawer, Empty, Flex, Input, List, Typography } from 'antd';
 import {
+  useEffect,
   useRef,
   useState,
   type KeyboardEvent,
@@ -241,5 +242,47 @@ export function ResizableHeader({ width, onResize, resizeLabel, children, ...res
         }}
       />
     </th>
+  );
+}
+
+/**
+ * The "select all on this page" box of the list. Ant Design copies column titles into a hidden
+ * measuring row (`aria-hidden`); a copy found there is made unfocusable, so no focusable control
+ * hides from screen readers (axe aria-hidden-focus).
+ */
+export function SelectPageBox({
+  checked,
+  indeterminate,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  indeterminate: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) {
+  const box = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const root = box.current;
+    if (root?.closest('.ant-table-measure-row') == null) return;
+    // The hidden copy: out of the tab order, not operable, not found by tests.
+    for (const input of root.querySelectorAll('input')) {
+      input.tabIndex = -1;
+      input.disabled = true;
+    }
+    root.querySelector('[data-testid]')?.removeAttribute('data-testid');
+  }, []);
+  return (
+    <span ref={box}>
+      <Checkbox
+        checked={checked}
+        indeterminate={indeterminate}
+        aria-label={label}
+        onChange={(event) => {
+          onChange(event.target.checked);
+        }}
+        data-testid="inc-select-page"
+      />
+    </span>
   );
 }

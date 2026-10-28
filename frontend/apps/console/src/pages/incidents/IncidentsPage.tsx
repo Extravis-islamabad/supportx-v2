@@ -3,6 +3,8 @@ import { Alert, App, Button, Flex, Segmented, Select, Space, Table, Typography }
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
+import { useListFormat } from '@supportx/labels';
+
 import {
   allOf,
   queryKeys,
@@ -52,7 +54,7 @@ import { scaleLabel } from './labels';
 import { COUNTERS } from './counters';
 import { PersonalCounters } from './PersonalCounters';
 import { BulkBar, BulkDialog, BulkJobsButton, BulkProgress } from './list/bulk';
-import { ColumnChooser, ResizableHeader } from './list/ColumnChooser';
+import { ColumnChooser, ResizableHeader, SelectPageBox } from './list/ColumnChooser';
 import { chosenColumns, columnCatalogue, sortOf, type ColumnContext } from './list/columns';
 import { ListExport } from './list/ListExport';
 import {
@@ -139,6 +141,7 @@ export function IncidentsPage() {
   const viewFilters = useIncidentViewFilters(allowed && !trash);
   const words = useReportWords();
   const { locale } = useAppearance();
+  const listFormat = useListFormat();
   const zone = dates.zone;
   const filterable = (customFields.data ?? []).filter(
     (f) =>
@@ -259,6 +262,7 @@ export function IncidentsPage() {
     people,
     groupNames,
     locale,
+    list: listFormat,
   };
   const current = sortOf(sort);
   const mine = (savedViews.data ?? []).filter((v) => v.mine);
@@ -569,6 +573,22 @@ export function IncidentsPage() {
             ? undefined
             : {
                 selectedRowKeys: selection.all ? rows.map((r) => r.id) : selection.ids,
+                columnTitle: (
+                  <SelectPageBox
+                    checked={
+                      rows.length > 0 && (selection.all || selection.ids.length === rows.length)
+                    }
+                    indeterminate={
+                      !selection.all &&
+                      selection.ids.length > 0 &&
+                      selection.ids.length < rows.length
+                    }
+                    onChange={(checked) => {
+                      setSelection({ ids: checked ? rows.map((r) => r.id) : [], all: false });
+                    }}
+                    label={t('incidents.bulk.select_page')}
+                  />
+                ),
                 onChange: (keys) => {
                   setSelection({ ids: keys.map(String), all: false });
                 },

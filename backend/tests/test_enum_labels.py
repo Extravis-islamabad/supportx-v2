@@ -83,6 +83,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "FormDensity": "form_density",
     "Op": "filter_op",
     "ReadinessResponse.status": "readiness_status",
+    "ReadinessResponse.event_delivery": "event_delivery_state",
     "StateReason": "entitlement_reason",
     "TenantStatus": "tenant_status",
     "UserDetail.locale": "locale",

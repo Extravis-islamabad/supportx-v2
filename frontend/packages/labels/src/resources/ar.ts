@@ -4054,4 +4054,16 @@ export const ar: LabelResource = {
   'incidents.views.groups_needed': 'اختر مجموعة واحدة على الأقل، أو خيارًا آخر.',
   'view_visibility.groups': 'مجموعات محددة',
   'view_visibility.everyone': 'كل من يرى الحوادث',
+  'failure_reason.disconnected': 'لا يمكن الوصول إلى قاعدة البيانات أو ناقل الرسائل',
+  'failure_reason.backlog': 'الأحداث تنتظر لمدة طويلة جدًا',
+  'readiness_check.outbox_relay': 'مُرحّل الأحداث',
+  'readiness_check.event_consumers': 'معالجة الأحداث',
+  'readiness_check.realtime_fanout': 'التحديثات المباشرة',
+  'readiness_check.nats': 'ناقل الرسائل',
+  'event_delivery.stalled.title': 'توقف تسليم الأحداث',
+  'event_delivery.stalled.body':
+    'الإشعارات والتحديثات المباشرة والتصديرات متأخرة. لن يضيع شيء: ستُرسل فور تعافي الخدمة.',
+  'event_delivery_state.ok': 'يجري التسليم',
+  'event_delivery_state.stalled': 'متوقف',
+  'incidents.bulk.select_page': 'تحديد كل الحوادث في هذه الصفحة',
 };
