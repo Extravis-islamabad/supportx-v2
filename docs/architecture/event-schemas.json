@@ -1586,6 +1586,120 @@
         "type": "object"
       }
     },
+    "knowledge.article.saved": {
+      "1": {
+        "description": "An article or one of its drafts was created or changed (`language`: the draft's).",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "article_id",
+          "topic_id",
+          "owner_id",
+          "language",
+          "created",
+          "changed_fields"
+        ],
+        "title": "KbArticleSaved",
+        "type": "object"
+      }
+    },
+    "knowledge.topic.deleted": {
+      "1": {
+        "description": "A topic went to the trash; its articles moved to `moved_to` (REQ-KB-004 AC2).",
+        "properties": {
+          "moved_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Moved To"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic_id",
+          "moved_to"
+        ],
+        "title": "KbTopicDeleted",
+        "type": "object"
+      }
+    },
+    "knowledge.topic.saved": {
+      "1": {
+        "description": "A topic was created or changed (moved, renamed, its audience).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic_id",
+          "created",
+          "changed_fields"
+        ],
+        "title": "KbTopicSaved",
+        "type": "object"
+      }
+    },
     "licensing.entitlement.changed": {
       "1": {
         "description": "The tenant's entitlement changed (plan, add-ons, limits, term or status).\n\nConsumers: the entitlement cache invalidation (this module); later the realtime fan-out\n(WP-011) so open consoles re-read GET /api/v1/entitlements and show or hide menus live.",

@@ -31,6 +31,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
+    # Knowledge (WP-033)
+    "ArticleIn.language": "locale",
+    "ArticleIn.requesters": "kb_requesters",
+    "ArticlePatch.requesters": "kb_requesters",
+    "TopicIn.requesters": "kb_requesters",
+    "TopicPatch.requesters": "kb_requesters",
     # Reports (WP-035)
     "ChartType": "report_chart",
     "DateBucket": "report_bucket",

@@ -31,6 +31,22 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 
+RESUME_ON_REPLY = """
+DO $$
+DECLARE
+    t uuid;
+BEGIN
+    FOR t IN SELECT id FROM tenants LOOP
+        PERFORM set_config('app.tenant_id', t::text, true);
+        UPDATE work_item_statuses SET resume_on_requester_reply = true
+        WHERE tenant_id = t AND code = 'awaiting_requester';
+    END LOOP;
+    PERFORM set_config('app.tenant_id', '', true);
+END
+$$;
+"""
+
+
 def upgrade() -> None:
     op.add_column("work_items", sa.Column("resolution", sa.Text(), nullable=True))
     op.add_column("work_items", sa.Column("closure_code", sa.String(length=40), nullable=True))
@@ -108,11 +124,10 @@ def upgrade() -> None:
             nullable=False,
         ),
     )
-    # Appendix A: awaiting requester -> in progress on a requester reply (on by default).
-    op.execute(
-        "UPDATE work_item_statuses SET resume_on_requester_reply = true"
-        " WHERE code = 'awaiting_requester'"
-    )
+    # Appendix A: awaiting requester -> in progress on a requester reply (on by default). The
+    # table forces RLS, so the update runs once per tenant with its tenant set; a plain UPDATE
+    # here would change nothing (lane C's finding, tests/db/test_closure_migration.py).
+    op.execute(RESUME_ON_REPLY)
 
 
 def downgrade() -> None:
