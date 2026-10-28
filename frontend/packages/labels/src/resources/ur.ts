@@ -2431,6 +2431,8 @@ export const ur: LabelResource = {
   'reports.filter_days': '{{field}} پچھلے {{days}} دنوں میں',
   'reports.or': 'یا',
   'reports.total': 'کل',
+  'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
+  'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
   'permission.dashboards.create.description':
     'اپنے ڈیش بورڈ بنانا اور تیار شدہ یا شیئر شدہ ڈیش بورڈ کاپی کرنا۔',
   'permission.dashboards.share.description':

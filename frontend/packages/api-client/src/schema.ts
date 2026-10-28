@@ -7782,6 +7782,19 @@ export interface components {
             to: string[];
         };
         /**
+         * RecordSort
+         * @description One sort key of a records export: a field, ascending unless `desc`.
+         */
+        RecordSort: {
+            /**
+             * Desc
+             * @default false
+             */
+            desc: boolean;
+            /** Field */
+            field: string;
+        };
+        /**
          * Relative
          * @description People relative to the record who may run a transition (REQ-WF-004).
          * @enum {string}
@@ -7827,6 +7840,8 @@ export interface components {
         "ReportDefinition-Input": {
             /** @default bar */
             chart: components["schemas"]["ChartType"];
+            /** Columns */
+            columns?: string[] | null;
             /** Entity */
             entity: string;
             /** Filter */
@@ -7850,6 +7865,8 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Sort */
+            sort?: components["schemas"]["RecordSort"][];
         };
         /**
          * ReportDefinition
@@ -7858,6 +7875,8 @@ export interface components {
         "ReportDefinition-Output": {
             /** @default bar */
             chart: components["schemas"]["ChartType"];
+            /** Columns */
+            columns?: string[] | null;
             /** Entity */
             entity: string;
             /** Filter */
@@ -7881,6 +7900,8 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Sort */
+            sort?: components["schemas"]["RecordSort"][];
         };
         /**
          * ReportEntityOut
