@@ -37,6 +37,12 @@
       "decision": "D-095",
       "date": "2026-10-27",
       "why": "D-092: a contact may have no email address (null)."
+    },
+    {
+      "break": "GET /api/v1/ready 200: response.checks changed type",
+      "decision": "D-095",
+      "date": "2026-10-28",
+      "why": "Worker resilience (must-fix before the pilot): a check's reason gains disconnected and backlog; the map of checks is otherwise unchanged."
     }
   ]
 }
