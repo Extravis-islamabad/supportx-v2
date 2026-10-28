@@ -110,6 +110,35 @@ The relay connects straight to PostgreSQL, not through PgBouncer: `LISTEN` needs
   pods with skewed clocks, have no guaranteed order. Use `aggregate_version` to detect and ignore
   stale events instead of assuming order.
 
+## When PostgreSQL or NATS restarts
+
+The relay, the consumers and the realtime fan-out stay up through a restart of either
+(`workers/resilience.py`; must-fix before the pilot, 2026-10-28):
+
+- **Outages are told apart from failures once.** "The database system is shutting down",
+  admin shutdowns, broken connections and NATS "service unavailable" are outages. An ambiguous
+  `OSError` or `TimeoutError` counts only if the database does not answer `SELECT 1` right
+  then, so a handler's own timeout to another system is still an ordinary failure.
+- **An outage is never an attempt.**
+  - A consumer holding a message keeps it, sending "in progress" so JetStream does not
+    redeliver it, and retries the same delivery after backoff (0.5 s doubling to 15 s, with
+    jitter).
+  - So an outage never moves an event towards the dead-letter stream.
+  - The relay leaves rows unpublished and publishes them in order once both answer.
+- **Nothing lost, nothing twice:** the outbox, JetStream's de-duplication window and the
+  consumers' claims hold as before.
+- **Visible while it lasts.**
+  - The worker's `/readyz` answers 503 and its heartbeat says `connected: false`.
+  - `/ready` reports the worker as `disconnected` (or the relay as `backlog` when its oldest
+    unpublished event is older than `SUPPORTX_EVENT_BACKLOG_STALLED_SECONDS`, 120) and sets
+    `event_delivery: stalled`.
+  - Administrators see a banner naming the worker and why.
+- **Gives up in time.** An outage longer than `SUPPORTX_WORKER_GIVE_UP_SECONDS` (300) ends the
+  process with exit code 1, so the orchestrator restarts it.
+
+`tests/resilience` restarts real PostgreSQL and NATS containers under running workers (CI job
+"worker resilience"); `tests/test_worker_resilience.py` pins the decisions without containers.
+
 ## Adding a new event
 
 1. In your module's `events.py`:

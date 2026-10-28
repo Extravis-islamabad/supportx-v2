@@ -79,6 +79,28 @@ jobs:
       - name: Migrate to head, then check tenant isolation (RLS guard)
         run: make db-migrate db-current db-guard
 
+  worker-resilience:
+    # Must-fix before the pilot (2026-10-28): PostgreSQL and NATS restart under running workers
+    # (relay, consumers) and every event is published and applied once afterwards; a worker
+    # whose database stays away exits non-zero. The test runs its own containers.
+    name: worker resilience
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-backend
+      - name: Restart PostgreSQL and NATS under running workers
+        working-directory: backend
+        env:
+          SUPPORTX_RESILIENCE_TESTS: "1"
+          SUPPORTX_RESILIENCE_LOGS: ${{ runner.temp }}
+        run: uv run pytest tests/resilience --no-cov -p no:cacheprovider -v
+      - name: Worker logs on failure
+        if: ${{ failure() }}
+        run: tail -n 200 "$RUNNER_TEMP"/resilience-*.log || true
+
   backend-tests:
     name: backend tests ${{ matrix.shard }}/3
     runs-on: ubuntu-24.04
