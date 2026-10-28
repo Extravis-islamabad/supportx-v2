@@ -21,6 +21,11 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
+    # Notifications (WP-023)
+    "NotificationCategory": "notification_category",
+    "NotificationChannel": "notification_channel",
+    "ConditionOperator": "notification_condition_operator",
+    "NotificationDeliveryOut.state": "notification_state",
     # Reports (WP-035)
     "ChartType": "report_chart",
     "DateBucket": "report_bucket",

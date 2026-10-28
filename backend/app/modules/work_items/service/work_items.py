@@ -1518,6 +1518,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
             display_id=record.display_id,
             status=record.status,
             status_category=record.status_category,
+            technician_id=record.technician_id,
         ),
         aggregate_id=record.id,
         aggregate_version=record.version,

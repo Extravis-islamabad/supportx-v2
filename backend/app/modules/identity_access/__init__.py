@@ -56,8 +56,10 @@ from app.modules.identity_access.service.auth import AuthService
 from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATION
 from app.modules.identity_access.service.directory import (
     MailRecipient,
+    NotifiablePerson,
     display_names,
     mail_recipients,
+    notifiable_people,
     people_matching,
     user_contacts,
     user_names,
@@ -272,6 +274,7 @@ register_people_usage()
 __all__ = [
     "FieldRule",
     "MailRecipient",
+    "NotifiablePerson",
     "Placement",
     "PolicyService",
     "RecordFacts",
@@ -286,6 +289,7 @@ __all__ = [
     "get_policy",
     "mail_recipients",
     "module",
+    "notifiable_people",
     "people_matching",
     "person_placement",
     "require",

@@ -67,6 +67,10 @@ class ConsumerSpec:
     enabled: Callable[[Settings], bool] = _always
     max_attempts: int | None = None  # None = SUPPORTX_CONSUMER_MAX_ATTEMPTS
     ack_wait_seconds: float | None = None  # None = SUPPORTX_CONSUMER_ACK_WAIT_SECONDS
+    # Checked before the claim: False acknowledges the event with no session and no claim row
+    # (a broad subscription such as ">" whose handler wants only some events, e.g. the
+    # notification engine, which learns the event types from modules at run time).
+    accepts: Callable[[EventEnvelope], bool] | None = None
 
 
 def validate_consumer(spec: ConsumerSpec, *, module: str | None, registry: EventRegistry) -> None:

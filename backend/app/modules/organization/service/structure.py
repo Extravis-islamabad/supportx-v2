@@ -732,3 +732,23 @@ async def _get(session: AsyncSession, model: Any, unit_id: uuid.UUID, missing: s
     if row is None:
         raise NotFound(code=missing)
     return row
+
+
+@dataclass(frozen=True)
+class SiteDefaults:
+    """The default site's language and zone: for people who set neither (REQ-INC-133 AC2)."""
+
+    language: str | None
+    time_zone: str | None
+
+
+async def site_defaults(session: AsyncSession) -> SiteDefaults:
+    """The session tenant's default site's language and time zone (None when unset)."""
+    row = (
+        await session.execute(
+            select(Site.default_language, Site.time_zone).where(
+                Site.is_default.is_(True), Site.deleted_at.is_(None)
+            )
+        )
+    ).first()
+    return SiteDefaults(row.default_language, row.time_zone) if row else SiteDefaults(None, None)
