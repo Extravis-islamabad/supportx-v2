@@ -107,6 +107,66 @@ describe('Admin › Mail', () => {
     });
   });
 
+  it('lists held mail with its reason and hands it in again', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const box = fakeMailbox({ held: 2 });
+    const waiting = `${BASE}/${box.id}/waiting`;
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [box] },
+        [`GET ${waiting}`]: {
+          body: [
+            {
+              message_id: 'flood@acme.test',
+              sender: 'sara@acme.test',
+              subject: 'Printer jams',
+              outcome: 'held',
+              reason: 'sender_rate',
+              reason_params: {},
+              received_at: '2026-10-28T09:00:00Z',
+              releasable: true,
+            },
+            {
+              message_id: 'other@acme.test',
+              sender: 'tech@acme.test',
+              subject: 'Re: [INC-7] x',
+              outcome: 'held',
+              reason: 'not_requester',
+              reason_params: {},
+              received_at: '2026-10-28T09:05:00Z',
+              releasable: false,
+            },
+          ],
+        },
+        [`POST ${waiting}/release`]: {
+          body: { outcome: 'created', reason: null, reason_params: {} },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-review'));
+    const drawer = await screen.findByTestId('mail-waiting');
+    const items = await within(drawer).findAllByTestId('mail-waiting-item');
+    expect(items).toHaveLength(2);
+    const [flood, other] = items as [HTMLElement, HTMLElement];
+    expect(within(flood).getByTestId('mail-waiting-reason').textContent).toContain(
+      'Many messages from this sender in an hour',
+    );
+    expect(within(other).queryByTestId('mail-waiting-release')).toBeNull(); // discard only
+    expect(within(other).getByTestId('mail-waiting-reason').textContent).toContain(
+      'Staff reply in the console.',
+    );
+    fireEvent.click(within(flood).getByTestId('mail-waiting-release'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${waiting}/release`)).toHaveLength(1);
+    });
+    expect(fake.find('POST', `${waiting}/release`)[0]?.body).toEqual({
+      message_id: 'flood@acme.test',
+    });
+    expect(await screen.findByText('Handed in again: Incident created')).toBeTruthy();
+  });
+
   it('technicians do not see the tab', async () => {
     window.history.pushState({}, '', '/admin/users');
     api({ routes: {} });

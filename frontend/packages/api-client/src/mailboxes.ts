@@ -15,6 +15,8 @@ export type Mailbox = components['schemas']['MailboxOut'];
 export type MailboxInput = components['schemas']['MailboxIn'];
 export type MailboxChange = components['schemas']['MailboxPatch'];
 export type MailboxTest = components['schemas']['ConnectionTestOut'];
+export type WaitingMail = components['schemas']['WaitingOut'];
+export type ReleasedMail = components['schemas']['ReleasedOut'];
 
 /** Every mailbox with its state and held messages. */
 export function useMailboxes(enabled = true) {
@@ -97,5 +99,51 @@ export function useTestMailbox() {
           body: password === undefined ? {} : { password },
         }),
       ),
+  });
+}
+
+/** The mailbox's review queue: held mail is never invisible (D-109). */
+export function useWaitingMail(mailboxId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.mailboxes.waiting(mailboxId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/integrations/mailboxes/{mailbox_id}/waiting', {
+          params: { path: { mailbox_id: mailboxId ?? '' } },
+        }),
+      ),
+    enabled: mailboxId !== null,
+  });
+}
+
+/** Hand a held message in again; the answer says what it became (or why it waits again). */
+export function useReleaseMail() {
+  const changed = useMailboxesChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ mailboxId, messageId }: { mailboxId: string; messageId: string }) =>
+      call(
+        api.POST('/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release', {
+          params: { path: { mailbox_id: mailboxId } },
+          body: { message_id: messageId },
+        }),
+      ),
+    onSettled: changed,
+  });
+}
+
+/** Discard a waiting message. */
+export function useDiscardMail() {
+  const changed = useMailboxesChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ mailboxId, messageId }: { mailboxId: string; messageId: string }) =>
+      call(
+        api.POST('/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard', {
+          params: { path: { mailbox_id: mailboxId } },
+          body: { message_id: messageId },
+        }),
+      ),
+    onSettled: changed,
   });
 }

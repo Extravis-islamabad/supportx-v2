@@ -469,12 +469,17 @@ export {
 } from './notifications';
 export {
   useCreateMailbox,
+  useDiscardMail,
   useMailboxes,
+  useReleaseMail,
   useRemoveMailbox,
   useTestMailbox,
   useUpdateMailbox,
+  useWaitingMail,
   type Mailbox,
   type MailboxChange,
   type MailboxInput,
   type MailboxTest,
+  type ReleasedMail,
+  type WaitingMail,
 } from './mailboxes';

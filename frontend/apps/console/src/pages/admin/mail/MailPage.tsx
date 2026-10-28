@@ -22,6 +22,7 @@ import {
 } from '@supportx/ui';
 
 import { MailboxEditor } from './MailboxEditor';
+import { WaitingMailDrawer } from './WaitingMailDrawer';
 import { mailboxView, useMailboxFieldName } from './conflict';
 
 const STATE_TONE: Record<Mailbox['state'], Tone> = {
@@ -48,6 +49,7 @@ export function MailPage() {
   const fieldName = useMailboxFieldName();
   const [editing, setEditing] = useState<Mailbox | 'new' | null>(null);
   const [removing, setRemoving] = useState<Mailbox>();
+  const [reviewing, setReviewing] = useState<string | null>(null);
   useTenantChannel((event) => {
     if (event.type === 'integrations.mailboxes_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.mailboxes.all });
@@ -105,6 +107,21 @@ export function MailPage() {
           <List.Item
             data-testid={`mailbox-${mailbox.address}`}
             actions={[
+              ...(mailbox.held > 0
+                ? [
+                    <WriteButton
+                      key="review"
+                      size="small"
+                      type="primary"
+                      onClick={() => {
+                        setReviewing(mailbox.id);
+                      }}
+                      data-testid="mailbox-review"
+                    >
+                      {t('mail.waiting.open')}
+                    </WriteButton>,
+                  ]
+                : []),
               <WriteButton
                 key="test"
                 size="small"
@@ -196,6 +213,14 @@ export function MailPage() {
           latest={editing === 'new' ? undefined : live(editing.id)}
           onClose={() => {
             setEditing(null);
+          }}
+        />
+      )}
+      {reviewing !== null && live(reviewing) !== undefined && (
+        <WaitingMailDrawer
+          mailbox={live(reviewing) as Mailbox}
+          onClose={() => {
+            setReviewing(null);
           }}
         />
       )}
