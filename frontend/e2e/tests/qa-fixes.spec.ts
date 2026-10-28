@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-import { resetLanguage, settledBox, settledLayout, signInAs } from './helpers';
+import { resetLanguage, settledBox, settledLayout, signInAs, storedLanguage } from './helpers';
 
 /**
  * WP-020-FIX: the findings of the WP-020 QA report that only a real browser can show (layout,
@@ -149,6 +149,9 @@ test('BUG-04: the language picked survives a reload and follows the user to anot
     await expect(page.locator('html')).toHaveAttribute('lang', 'ar');
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByTestId('inc-table')).toBeVisible();
+    // Another session reads the choice from the server, so it can only follow once the delayed
+    // save has arrived there (the nightly cluster run opened it before: a race in the test).
+    await expect.poll(() => storedLanguage(page), { timeout: 15_000 }).toBe('ar');
     const second = await browser.newContext();
     const other = await second.newPage();
     // Sign in without the helper's language reset: the stored choice must arrive as it is.

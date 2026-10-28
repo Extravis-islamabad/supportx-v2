@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from '@playwright/test';
 
-import { mailTo } from '../mail';
+import { mailTo, mailUnavailable } from '../mail';
 import { USERS } from '../stack';
 import { expectAccessible, signInAs } from './helpers';
 
@@ -38,6 +38,8 @@ async function userId(page: Page, email: string): Promise<string> {
 test('an assignment reaches the technician live, in the centre and by e-mail', async ({
   browser,
 }) => {
+  const noMail = mailUnavailable();
+  test.skip(noMail !== null, noMail ?? '');
   test.setTimeout(120_000);
   const tech = await open(browser, 'tech', '/');
   const admin = await open(browser, 'admin', '/');

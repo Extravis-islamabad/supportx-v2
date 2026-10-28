@@ -5,7 +5,23 @@ import { stackEnv } from './stack';
 // The Compose stack's mail catcher (Mailpit) and Keycloak's set-password pages (WP-039).
 
 function mailpit(): string {
-  return `http://localhost:${stackEnv().MAILPIT_WEB_PORT ?? '28025'}`;
+  return (
+    process.env.SUPPORTX_E2E_MAIL_URL ??
+    `http://localhost:${stackEnv().MAILPIT_WEB_PORT ?? '28025'}`
+  );
+}
+
+/**
+ * Why tests that need e-mail cannot run on this stack, or null when they can. The k3d cluster
+ * has no mail sender or catcher yet: lane B adds a dev-profile-only Mailpit right after WP-024,
+ * and its e2e script then sets SUPPORTX_E2E_MAIL_URL, which turns these tests back on.
+ */
+export function mailUnavailable(): string | null {
+  const onCluster = process.env.SUPPORTX_E2E_KEYCLOAK_URL !== undefined;
+  if (onCluster && process.env.SUPPORTX_E2E_MAIL_URL === undefined) {
+    return 'expected skip: the k3d cluster has no mail sender or catcher yet (dev-profile Mailpit follows WP-024)';
+  }
+  return null;
 }
 
 export interface MailSummary {
