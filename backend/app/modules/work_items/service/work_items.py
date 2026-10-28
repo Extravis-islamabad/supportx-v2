@@ -583,6 +583,90 @@ def view_predicates(
     }
 
 
+# The filter DSL equivalent of each view (WP-020d), for what takes a filter and not a view: the
+# list's export through reports. NOT_EXPRESSIBLE: the view needs something the DSL cannot say.
+NOT_EXPRESSIBLE = "not_expressible"
+_LIST_MAX = 100  # the DSL's longest `in` list
+
+
+def _cond(field: str, op: str, value: Any = None) -> dict[str, Any]:  # noqa: ANN401 - JSON value
+    return (
+        {"field": field, "op": op} if value is None else {"field": field, "op": op, "value": value}
+    )
+
+
+def _all(*nodes: dict[str, Any]) -> dict[str, Any]:
+    return {"and": list(nodes)}
+
+
+async def view_filters(
+    session: AsyncSession, subject: Subject
+) -> dict[str, dict[str, Any] | str | None]:
+    """Code → the view as a DSL filter (None: no condition), or NOT_EXPRESSIBLE.
+
+    Each equivalent returns exactly the view's rows; a test holds them together. Relative dates
+    ("today", "before now") are computed in the requester's time zone, as the views are.
+    """
+    me = str(subject.user_id)
+    open_ = _cond("status_category", "in", [c.value for c in OPEN_CATEGORIES])
+    nothing = _cond("id", "is_null")
+    mine = _cond("technician_id", "eq", me)
+    groups = sorted(str(g) for g in subject.group_ids)
+    in_groups: dict[str, Any] | str = (
+        _cond("group_id", "in", groups) if len(groups) <= _LIST_MAX else NOT_EXPRESSIBLE
+    )
+
+    def listed(values: Sequence[uuid.UUID], field: str = "id") -> dict[str, Any] | str:
+        if not values:
+            return nothing
+        if len(values) > _LIST_MAX:
+            return NOT_EXPRESSIBLE
+        return _cond(field, "in", sorted(str(v) for v in values))
+
+    def both(left: dict[str, Any], right: dict[str, Any] | str) -> dict[str, Any] | str:
+        return right if isinstance(right, str) else _all(left, right)
+
+    following = select(WorkItemFollower.work_item_id).where(
+        WorkItemFollower.user_id == subject.user_id, WorkItemFollower.deleted_at.is_(None)
+    )
+    followed = list(await session.scalars(following.limit(_LIST_MAX + 1)))
+    shared = list(
+        await session.scalars(
+            following.where(WorkItemFollower.grants_access.is_(True)).limit(_LIST_MAX + 1)
+        )
+    )
+    reports = await direct_reports(session, subject.user_id)
+    due_today = _all(
+        open_, _cond("resolution_due_at", "after_now"), _cond("resolution_due_at", "today")
+    )
+    return {
+        "open": open_,
+        "my_open": _all(open_, mine),
+        "unassigned": _all(open_, _cond("technician_id", "is_null")),
+        "my_groups_open": both(open_, in_groups) if groups else nothing,
+        "overdue": _all(open_, _cond("resolution_due_at", "before_now")),
+        "due_today": due_today,
+        "waiting": _cond("status_category", "eq", StatusCategory.PAUSED.value),
+        "resolved": _cond("status_category", "eq", StatusCategory.RESOLVED.value),
+        "created_today": _cond("created_at", "today"),
+        "updated_by_me": _cond("updated_by", "eq", me),
+        "followed_by_me": listed(followed),
+        "shared_with_me": listed(shared),
+        "from_my_reports": both(open_, listed(reports, "requester_id")) if reports else nothing,
+        "without_sla": _all(open_, _cond("sla_policy_id", "is_null")),
+        "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
+        "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
+        "all": None,
+        "my_overdue": _all(mine, open_, _cond("resolution_due_at", "before_now")),
+        "my_due_today": _all(mine, due_today),
+        "waiting_on_me": _all(mine, _cond("status_category", "eq", StatusCategory.OPEN.value)),
+        "updated_by_others": NOT_EXPRESSIBLE,  # "changed or written by someone else" needs SQL
+        "unassigned_in_my_groups": both(_all(open_, _cond("technician_id", "is_null")), in_groups)
+        if groups
+        else nothing,
+    }
+
+
 # Personal counters (REQ-INC-128): each is also a view of the same code (not listed in /views).
 COUNTERS = (
     "my_overdue",

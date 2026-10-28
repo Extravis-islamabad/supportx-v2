@@ -14,7 +14,7 @@ field that was removed later is dropped by the screen, not refused here.
 import re
 import uuid
 from collections.abc import Sequence
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -37,11 +37,13 @@ from app.modules.work_items.events import WorkItemListSettingsChanged, WorkItemV
 from app.modules.work_items.infra.models import WorkItemListSetting, WorkItemView
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS
-from app.shared.api.filters import ResourceFields, compile_filter
+from app.modules.work_items.service.reporting import DIMENSIONS
+from app.shared.api.filters import FieldType, ResourceFields, compile_filter
 from app.shared.api.listing import parse_sort
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
+from app.shared.reporting import Dimension, DimensionKind
 
 VIEW_NAME_MAX = 120
 _COLUMN_KEY = re.compile(r"^[a-z][a-z0-9_.]{0,79}$")
@@ -102,6 +104,51 @@ def _sort(sort: str | None, allowed: ResourceFields) -> str | None:
     clean = ",".join(t.strip() for t in sort.split(",") if t.strip())
     parse_sort(clean, allowed)
     return clean
+
+
+# --- the list's fields (REQ-INC-104, 106) --------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ListField:
+    """One field of the list as a filter, sort or column offers it.
+
+    `dimension` says how its values are named (the report source's, so the console names them
+    like a report does); `sortable` whether the list sorts by it across pages (REQ-INC-104 AC2).
+    """
+
+    name: str
+    type: str
+    values: list[str]
+    multiple: bool
+    sortable: bool
+    dimension: Dimension | None
+
+
+async def list_fields(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType
+) -> list[ListField]:
+    """Every field the list filters, sorts or shows, with the tenant's custom fields."""
+    _require_view(subject, wtype)
+    allowed = await allowed_fields(session, wtype)
+    found: list[ListField] = []
+    for name, spec in allowed.fields.items():
+        if not spec.filterable:
+            continue
+        dimension = DIMENSIONS.get(name)
+        if dimension is None and name.startswith("custom.") and spec.type == FieldType.ENUM:
+            dimension = Dimension(DimensionKind.ADMIN_CODE)
+        found.append(
+            ListField(
+                name=name,
+                type=str(spec.type.value),
+                values=sorted(spec.values),
+                multiple=spec.array,
+                sortable=spec.sortable,
+                dimension=dimension,
+            )
+        )
+    return found
 
 
 # --- saved views (REQ-INC-106) --------------------------------------------------------------------

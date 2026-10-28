@@ -31,6 +31,7 @@ from app.modules.work_items.infra.models import (
 )
 from app.modules.work_items.service import bulk as bulk_service
 from app.modules.work_items.service import lists as service
+from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS
 from app.shared.api.concurrency import ExpectedVersion, etag_for, parse_etag, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -40,6 +41,35 @@ from app.shared.history import source_of
 CONFLICT_409: dict[int | str, dict[str, object]] = {
     409: {"description": "The version is stale; the problem names what changed."}
 }
+
+
+class ListFieldNamingOut(BaseModel):
+    """How the field's values are named (as in reports): a code prefix or a kind of record."""
+
+    field: str
+    kind: str
+    label_prefix: str | None
+    reference: str | None
+    bucket: str | None = None
+
+
+class ListFieldOut(BaseModel):
+    """A field the list filters by, sorts by (`sortable`) or shows as a column."""
+
+    name: str
+    type: str
+    values: list[str]
+    multiple: bool
+    sortable: bool
+    dimension: ListFieldNamingOut | None
+
+
+class ViewFilterOut(BaseModel):
+    """A built-in view as a filter, for what takes a filter and not a view (the export)."""
+
+    view: str
+    expressible: bool = Field(description="False: the view needs more than the filter DSL.")
+    filter: dict[str, Any] | None = Field(description="None with `expressible`: no condition.")
 
 
 class ListColumn(BaseModel):
@@ -210,6 +240,41 @@ def add_list_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: C9
     View = Annotated[Subject, Depends(require_permission(perm("view")))]  # noqa: N806 - type alias
     Query_ = Annotated[ListQuery, Depends(list_dependency(wtype))]  # noqa: N806 - type alias
     name = wtype.code.replace("_", " ")
+
+    @router.get("/list-fields", summary="Fields of the list (filter, sort, columns)")
+    async def list_fields(session: TenantSession, subject: View) -> list[ListFieldOut]:
+        """Built-in and custom fields (`custom.<key>`), as the list's filter and sort take them."""
+        return [
+            ListFieldOut(
+                name=f.name,
+                type=f.type,
+                values=f.values,
+                multiple=f.multiple,
+                sortable=f.sortable,
+                dimension=None
+                if f.dimension is None
+                else ListFieldNamingOut(
+                    field=f.name,
+                    kind=f.dimension.kind.value,
+                    label_prefix=f.dimension.label_prefix,
+                    reference=f.dimension.reference,
+                ),
+            )
+            for f in await service.list_fields(session, subject, wtype)
+        ]
+
+    @router.get("/view-filters", summary="Built-in views as filters")
+    async def view_filters(session: TenantSession, subject: View) -> list[ViewFilterOut]:
+        """Each built-in view and personal counter as the filter DSL, where the DSL can say it."""
+        found = await items.view_filters(session, subject)
+        return [
+            ViewFilterOut(
+                view=code,
+                expressible=tree != items.NOT_EXPRESSIBLE,
+                filter=tree if isinstance(tree, dict) else None,
+            )
+            for code, tree in found.items()
+        ]
 
     # --- saved views ------------------------------------------------------------------------------
 

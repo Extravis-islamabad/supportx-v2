@@ -2015,6 +2015,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/list-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fields of the list (filter, sort, columns)
+         * @description Built-in and custom fields (`custom.<key>`), as the list's filter and sort take them.
+         */
+        get: operations["list_fields_api_v1_incidents_list_fields_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/list-settings/{view_key}": {
         parameters: {
             query?: never;
@@ -2433,6 +2453,26 @@ export interface paths {
          * @description Deleted records you may restore (needs the delete permission).
          */
         get: operations["trash_api_v1_incidents_trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/view-filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Built-in views as filters
+         * @description Each built-in view and personal counter as the filter DSL, where the DSL can say it.
+         */
+        get: operations["view_filters_api_v1_incidents_view_filters_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6886,6 +6926,39 @@ export interface components {
             width?: number | null;
         };
         /**
+         * ListFieldNamingOut
+         * @description How the field's values are named (as in reports): a code prefix or a kind of record.
+         */
+        ListFieldNamingOut: {
+            /** Bucket */
+            bucket?: string | null;
+            /** Field */
+            field: string;
+            /** Kind */
+            kind: string;
+            /** Label Prefix */
+            label_prefix: string | null;
+            /** Reference */
+            reference: string | null;
+        };
+        /**
+         * ListFieldOut
+         * @description A field the list filters by, sorts by (`sortable`) or shows as a column.
+         */
+        ListFieldOut: {
+            dimension: components["schemas"]["ListFieldNamingOut"] | null;
+            /** Multiple */
+            multiple: boolean;
+            /** Name */
+            name: string;
+            /** Sortable */
+            sortable: boolean;
+            /** Type */
+            type: string;
+            /** Values */
+            values: string[];
+        };
+        /**
          * ListOrderIn
          * @description Every code of the list, in the new order.
          */
@@ -9903,6 +9976,26 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * ViewFilterOut
+         * @description A built-in view as a filter, for what takes a filter and not a view (the export).
+         */
+        ViewFilterOut: {
+            /**
+             * Expressible
+             * @description False: the view needs more than the filter DSL.
+             */
+            expressible: boolean;
+            /**
+             * Filter
+             * @description None with `expressible`: no condition.
+             */
+            filter: {
+                [key: string]: unknown;
+            } | null;
+            /** View */
+            view: string;
         };
         /**
          * ViewVisibility
@@ -19463,6 +19556,62 @@ export interface operations {
             };
         };
     };
+    list_fields_api_v1_incidents_list_fields_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFieldOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_setting_api_v1_incidents_list_settings__view_key__get: {
         parameters: {
             query?: never;
@@ -21539,6 +21688,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    view_filters_api_v1_incidents_view_filters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewFilterOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

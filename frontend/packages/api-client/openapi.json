@@ -6903,6 +6903,108 @@
         "title": "ListColumn",
         "type": "object"
       },
+      "ListFieldNamingOut": {
+        "description": "How the field's values are named (as in reports): a code prefix or a kind of record.",
+        "properties": {
+          "bucket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bucket"
+          },
+          "field": {
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label_prefix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Prefix"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          }
+        },
+        "required": [
+          "field",
+          "kind",
+          "label_prefix",
+          "reference"
+        ],
+        "title": "ListFieldNamingOut",
+        "type": "object"
+      },
+      "ListFieldOut": {
+        "description": "A field the list filters by, sorts by (`sortable`) or shows as a column.",
+        "properties": {
+          "dimension": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ListFieldNamingOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sortable": {
+            "title": "Sortable",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "values",
+          "multiple",
+          "sortable",
+          "dimension"
+        ],
+        "title": "ListFieldOut",
+        "type": "object"
+      },
       "ListOrderIn": {
         "additionalProperties": false,
         "description": "Every code of the list, in the new order.",
@@ -14647,6 +14749,40 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "ViewFilterOut": {
+        "description": "A built-in view as a filter, for what takes a filter and not a view (the export).",
+        "properties": {
+          "expressible": {
+            "description": "False: the view needs more than the filter DSL.",
+            "title": "Expressible",
+            "type": "boolean"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None with `expressible`: no condition.",
+            "title": "Filter"
+          },
+          "view": {
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view",
+          "expressible",
+          "filter"
+        ],
+        "title": "ViewFilterOut",
         "type": "object"
       },
       "ViewVisibility": {
@@ -29111,6 +29247,72 @@
         ]
       }
     },
+    "/api/v1/incidents/list-fields": {
+      "get": {
+        "description": "Built-in and custom fields (`custom.<key>`), as the list's filter and sort take them.",
+        "operationId": "list_fields_api_v1_incidents_list_fields_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ListFieldOut"
+                  },
+                  "title": "Response List Fields Api V1 Incidents List Fields Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Fields of the list (filter, sort, columns)",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
     "/api/v1/incidents/list-settings/{view_key}": {
       "get": {
         "description": "For one view: a built-in view code, `all`, or `custom:<saved view id>`.",
@@ -32048,6 +32250,72 @@
           }
         },
         "summary": "Incidents in the trash",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/view-filters": {
+      "get": {
+        "description": "Each built-in view and personal counter as the filter DSL, where the DSL can say it.",
+        "operationId": "view_filters_api_v1_incidents_view_filters_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ViewFilterOut"
+                  },
+                  "title": "Response View Filters Api V1 Incidents View Filters Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Built-in views as filters",
         "tags": [
           "incidents"
         ]

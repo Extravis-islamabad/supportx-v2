@@ -343,3 +343,42 @@ async def test_new_tables_are_isolated_by_rls(world: World) -> None:
             a.tenant,
         )
         assert rows[0]["n"] == 1, table
+
+
+async def test_list_fields_name_every_field_the_list_takes(world: World) -> None:
+    a = world.a
+    found = await world.call("GET", f"{BASE}/list-fields", a, a.tech_a)
+    assert found.status_code == 200, found.text
+    fields = {f["name"]: f for f in found.json()}
+    assert fields["resolution_due_at"]["sortable"] is True  # REQ-INC-104 AC2
+    assert fields["priority"]["dimension"]["label_prefix"] == "priority"
+    assert fields["group_id"]["dimension"]["reference"] == "group"
+
+
+async def test_every_built_in_view_has_an_equivalent_filter_with_the_same_rows(
+    world: World,
+) -> None:
+    """The export sends a view as a filter: each equivalent returns exactly the view's rows."""
+    a = world.a
+    mine = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    await world.create(a, a.admin)
+    await world.create(a, a.admin, group_id=str(a.gb))
+    resolved = await world.create(a, a.admin, group_id=str(a.ga))
+    await world.act(a, a.admin, resolved, "resolve", resolution="<p>Done</p>")
+    late = await world.create(a, a.admin, group_id=str(a.ga), technician_id=str(a.tech_a))
+    await world.sql(
+        "UPDATE work_items SET resolution_due_at = now() - interval '1 hour' WHERE id = $1",
+        uuid.UUID(late["id"]),
+    )
+    await world.call("PUT", f"{BASE}/{mine['id']}/followers/{a.tech_a}", a, a.tech_a)
+    await world.sql("UPDATE users SET manager_id = $1 WHERE id = $2", a.tech_a, a.requester)
+    found = await world.call("GET", f"{BASE}/view-filters", a, a.tech_a)
+    assert found.status_code == 200, found.text
+    views = {v["view"]: v for v in found.json()}
+    assert views["updated_by_others"]["expressible"] is False
+    for code, view in views.items():
+        if not view["expressible"]:
+            continue
+        query = "" if view["filter"] is None else "?filter=" + json.dumps(view["filter"])
+        as_view = await ids(world, a, a.tech_a, f"?view={code}")
+        assert await ids(world, a, a.tech_a, query) == as_view, code
