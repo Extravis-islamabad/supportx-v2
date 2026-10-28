@@ -62,6 +62,19 @@ def _invalid(field: str, code: str) -> NoReturn:
     )
 
 
+def _check_records(definition: ReportDefinition, source: ReportingSource) -> None:
+    """Chosen record columns and sort keys must be fields of the entity, each once."""
+    fields = source.fields.fields
+    for index, name in enumerate(definition.columns or []):
+        if name not in fields:
+            _invalid(f"columns[{index}]", "unknown_column")
+    if definition.columns is not None and len(set(definition.columns)) != len(definition.columns):
+        _invalid("columns", "duplicate_column")
+    for index, key in enumerate(definition.sort):
+        if key.field not in fields:
+            _invalid(f"sort[{index}].field", "unknown_column")
+
+
 def _filter_fields(tree: Any) -> list[str]:  # noqa: ANN401 - filter DSL JSON tree
     if isinstance(tree, dict):
         if "field" in tree:
@@ -184,6 +197,7 @@ def compile_report(
     if len(set(definition.measures)) != len(definition.measures):
         _invalid("measures", "duplicate_measure")
     groups = _groups(definition, source)
+    _check_records(definition, source)
 
     where = (
         compile_filter(definition.filter_json(), source.fields, now=now)

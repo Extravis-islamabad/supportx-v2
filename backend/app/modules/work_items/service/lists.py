@@ -18,15 +18,17 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import ColumnElement, and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFound, PermissionDenied, PreconditionRequired
 from app.modules import metadata
 from app.modules.identity_access import Subject
+from app.modules.organization import existing_unit_ids
 from app.modules.work_items.domain.lists import (
     CUSTOM_VIEW,
     MAX_COLUMNS,
+    MAX_VIEW_GROUPS,
     PAGE_SIZES,
     ViewVisibility,
     view_key_valid,
@@ -154,18 +156,32 @@ async def list_fields(
 # --- saved views (REQ-INC-106) --------------------------------------------------------------------
 
 
+def _seen_by(subject: Subject) -> ColumnElement[bool]:
+    """The subject's own views, views shared with everyone, and those of their groups."""
+    seen = [
+        WorkItemView.owner_id == subject.user_id,
+        WorkItemView.visibility == ViewVisibility.EVERYONE,
+    ]
+    groups = sorted(subject.group_ids)
+    if groups:
+        seen.append(
+            and_(
+                WorkItemView.visibility == ViewVisibility.GROUPS,
+                WorkItemView.group_ids.overlap(groups),
+            )
+        )
+    return or_(*seen)
+
+
 async def views(session: AsyncSession, subject: Subject, wtype: WorkItemType) -> list[WorkItemView]:
-    """The subject's own views and the views shared with everyone, by name."""
+    """The subject's own views and those shared with them, by name."""
     _require_view(subject, wtype)
     rows = await session.scalars(
         select(WorkItemView)
         .where(
             WorkItemView.type == wtype.code,
             WorkItemView.deleted_at.is_(None),
-            or_(
-                WorkItemView.owner_id == subject.user_id,
-                WorkItemView.visibility == ViewVisibility.SHARED,
-            ),
+            _seen_by(subject),
         )
         .order_by(func.lower(WorkItemView.name), WorkItemView.id)
     )
@@ -182,15 +198,31 @@ async def view(
             WorkItemView.id == view_id,
             WorkItemView.type == wtype.code,
             WorkItemView.deleted_at.is_(None),
-            or_(
-                WorkItemView.owner_id == subject.user_id,
-                WorkItemView.visibility == ViewVisibility.SHARED,
-            ),
+            _seen_by(subject),
         )
     )
     if row is None:
         raise NotFound(code="work_item_view_not_found")
     return row
+
+
+async def _audience(
+    session: AsyncSession,
+    visibility: ViewVisibility,
+    given: list[Any],
+    problems: list[tuple[str, str]],
+) -> list[uuid.UUID]:
+    """The groups a view is shared with: named for `groups`, none for the other visibilities."""
+    if visibility != ViewVisibility.GROUPS:
+        return []
+    group_ids = [uuid.UUID(str(g)) for g in dict.fromkeys(given)]
+    if not group_ids:
+        problems.append(("group_ids", "required"))
+    elif len(group_ids) > MAX_VIEW_GROUPS:
+        problems.append(("group_ids", "too_many_items"))
+    elif len(await existing_unit_ids(session, "group", group_ids)) != len(group_ids):
+        problems.append(("group_ids", "group_not_found"))
+    return group_ids
 
 
 async def _check_view(
@@ -219,6 +251,8 @@ async def _check_view(
         if await session.scalar(same) is not None:
             problems.append(("name", "duplicate_name"))
     columns = _columns(values.get("columns") or [], problems)
+    visibility = ViewVisibility(values.get("visibility") or ViewVisibility.PRIVATE)
+    group_ids = await _audience(session, visibility, values.get("group_ids") or [], problems)
     if problems:
         raise items.field_errors(problems)
     allowed = await allowed_fields(session, wtype)
@@ -227,7 +261,8 @@ async def _check_view(
         compile_filter(tree, allowed, now=datetime.now(UTC))
     return {
         "name": name,
-        "visibility": ViewVisibility(values.get("visibility") or ViewVisibility.PRIVATE).value,
+        "visibility": visibility.value,
+        "group_ids": group_ids,
         "filter": tree,
         "columns": columns,
         "sort": _sort(values.get("sort"), allowed),
@@ -274,11 +309,18 @@ async def create_view(
     return row
 
 
+def _plain(value: object) -> object:
+    """A value as history stores it (JSON): group IDs as text."""
+    if isinstance(value, list):
+        return [str(v) if isinstance(v, uuid.UUID) else v for v in value]
+    return value
+
+
 async def _own(
     session: AsyncSession, subject: Subject, wtype: WorkItemType, view_id: uuid.UUID
 ) -> WorkItemView:
     row = await view(session, subject, wtype, view_id)
-    if row.owner_id != subject.user_id:  # shared views are changed by their owner only
+    if row.owner_id != subject.user_id:  # a shared view is changed by its owner only
         raise PermissionDenied(params={"reason": "not_view_owner"})
     return row
 
@@ -298,6 +340,7 @@ async def update_view(  # noqa: PLR0913 - the view, its version and the change, 
     merged = {
         "name": row.name,
         "visibility": row.visibility,
+        "group_ids": row.group_ids,
         "filter": row.filter,
         "columns": row.columns,
         "sort": row.sort,
@@ -305,7 +348,7 @@ async def update_view(  # noqa: PLR0913 - the view, its version and the change, 
     }
     clean = await _check_view(session, subject, wtype, merged, except_id=row.id)
     changes = [
-        Change(field, getattr(row, field), value)
+        Change(field, _plain(getattr(row, field)), _plain(value))
         for field, value in clean.items()
         if getattr(row, field) != value
     ]

@@ -7,6 +7,7 @@ import {
   Input,
   Popconfirm,
   Radio,
+  Select,
   Space,
   Typography,
 } from 'antd';
@@ -14,6 +15,7 @@ import { useState } from 'react';
 
 import {
   useSavedViewChange,
+  useUnits,
   type FilterExpression,
   type IncidentListField,
   type ListColumn,
@@ -96,15 +98,18 @@ function EditorBody({
   const t = useLabel();
   const { message } = App.useApp();
   const change = useSavedViewChange();
+  const groups = useUnits('groups');
   const [draft, setDraft] = useState(initial);
   const problems = rowProblems(draft.filter);
   const nameMissing = draft.name.trim() === '';
+  const groupsMissing = draft.visibility === 'groups' && draft.groupIds.length === 0;
   const filter = toDsl(draft.filter) as FilterExpression | undefined;
   const editing = draft.id !== undefined && draft.version !== undefined;
   const save = () => {
     const view = {
       name: draft.name.trim(),
-      visibility: draft.shared ? ('shared' as const) : ('private' as const),
+      visibility: draft.visibility,
+      group_ids: draft.visibility === 'groups' ? draft.groupIds : [],
       filter: (filter ?? null) as Record<string, unknown> | null,
       columns,
       sort,
@@ -141,16 +146,32 @@ function EditorBody({
         />
       </label>
       <Radio.Group
-        value={draft.shared}
+        value={draft.visibility}
         onChange={(event) => {
-          setDraft({ ...draft, shared: event.target.value as boolean });
+          setDraft({ ...draft, visibility: event.target.value as ViewDraft['visibility'] });
         }}
         aria-label={t('incidents.views.who')}
         data-testid="inc-view-visibility"
       >
-        <Radio value={false}>{t('incidents.views.private')}</Radio>
-        <Radio value={true}>{t('incidents.views.shared')}</Radio>
+        <Radio value="private">{t('incidents.views.private')}</Radio>
+        <Radio value="groups">{t('incidents.views.groups')}</Radio>
+        <Radio value="everyone">{t('incidents.views.shared')}</Radio>
       </Radio.Group>
+      {draft.visibility === 'groups' && (
+        <Select<string[]>
+          mode="multiple"
+          aria-label={t('incidents.views.which_groups')}
+          placeholder={t('incidents.views.which_groups')}
+          value={draft.groupIds}
+          onChange={(groupIds) => {
+            setDraft({ ...draft, groupIds });
+          }}
+          options={(groups.data ?? []).map((g) => ({ value: g.id, label: g.name }))}
+          optionFilterProp="label"
+          status={groupsMissing ? 'warning' : undefined}
+          data-testid="inc-view-groups"
+        />
+      )}
       <FilterBuilder
         fields={builderFields(fields, words)}
         value={draft.filter}
@@ -177,8 +198,14 @@ function EditorBody({
           <WriteButton
             type="primary"
             loading={change.isPending}
-            disabled={problems.size > 0 || nameMissing}
-            title={nameMissing ? t('incidents.views.name_needed') : undefined}
+            disabled={problems.size > 0 || nameMissing || groupsMissing}
+            title={
+              nameMissing
+                ? t('incidents.views.name_needed')
+                : groupsMissing
+                  ? t('incidents.views.groups_needed')
+                  : undefined
+            }
             onClick={save}
             data-testid="inc-view-save"
           >

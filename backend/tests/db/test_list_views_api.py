@@ -110,7 +110,7 @@ async def test_req_inc_106_ac4_a_view_cannot_hold_a_filter_the_list_refuses(worl
 async def test_private_and_shared_views_and_only_the_owner_changes_them(world: World) -> None:
     a = world.a
     mine = (await save_view(world, a, a.tech_a, name="Mine")).json()
-    shared = (await save_view(world, a, a.tech_a, name="Team", visibility="shared")).json()
+    shared = (await save_view(world, a, a.tech_a, name="Team", visibility="everyone")).json()
     seen = {
         v["name"]: v for v in (await world.call("GET", f"{BASE}/saved-views", a, a.tech_b)).json()
     }
@@ -155,6 +155,51 @@ async def test_private_and_shared_views_and_only_the_owner_changes_them(world: W
     assert removed.status_code == 204, removed.text
     duplicate = await save_view(world, a, a.tech_a, name="team")
     assert field_codes(duplicate) == {"name": "duplicate_name"}
+
+
+async def test_d111_a_view_shared_with_groups_reaches_their_members_only(world: World) -> None:
+    """D-111 as approved: private, chosen groups or everyone; only the owner edits."""
+    a = world.a
+    # tech_a is in GA only, tech_b in GB only, tech_c in both.
+    made = await save_view(
+        world, a, a.admin, name="Group A queue", visibility="groups", group_ids=[str(a.ga)]
+    )
+    assert made.status_code == 201, made.text
+    assert made.json()["group_ids"] == [str(a.ga)]
+
+    async def names(user: uuid.UUID) -> set[str]:
+        found = await world.call("GET", f"{BASE}/saved-views", a, user)
+        return {v["name"] for v in found.json()}
+
+    assert "Group A queue" in await names(a.tech_a)
+    assert "Group A queue" in await names(a.tech_c)
+    assert "Group A queue" not in await names(a.tech_b)
+    no_groups = await save_view(world, a, a.admin, name="Nobody", visibility="groups")
+    assert field_codes(no_groups) == {"group_ids": "required"}
+    unknown = await save_view(
+        world, a, a.admin, name="Ghost", visibility="groups", group_ids=[str(uuid.uuid4())]
+    )
+    assert field_codes(unknown) == {"group_ids": "group_not_found"}
+    member = await world.call(
+        "PATCH",
+        f"{BASE}/saved-views/{made.json()['id']}",
+        a,
+        a.tech_a,
+        json={"name": "Mine now"},
+        headers={"If-Match": '"1"'},
+    )
+    assert problem(member) == (403, "permission_denied")
+    # Back to private: the groups are dropped, members no longer see it.
+    private = await world.call(
+        "PATCH",
+        f"{BASE}/saved-views/{made.json()['id']}",
+        a,
+        a.admin,
+        json={"visibility": "private"},
+        headers={"If-Match": '"1"'},
+    )
+    assert private.json()["group_ids"] == []
+    assert "Group A queue" not in await names(a.tech_a)
 
 
 # --- list settings (REQ-INC-104, 110) ------------------------------------------------------------
@@ -315,7 +360,7 @@ async def test_bulk_refuses_more_than_a_thousand_and_empty_selections(world: Wor
 
 async def test_new_tables_are_isolated_by_rls(world: World) -> None:
     a, b = world.a, world.b
-    view = (await save_view(world, a, a.tech_a, name="Mine", visibility="shared")).json()
+    view = (await save_view(world, a, a.tech_a, name="Mine", visibility="everyone")).json()
     await world.call("PUT", f"{BASE}/list-settings/open", a, a.tech_a, json={"page_size": 25})
     item = await world.create(a, a.admin, group_id=str(a.ga))
     await bulk(world, a, a.admin, "take", records=[item])

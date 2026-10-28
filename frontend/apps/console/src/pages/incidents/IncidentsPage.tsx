@@ -275,7 +275,14 @@ export function IncidentsPage() {
           {t('incidents.title')}
         </Typography.Title>
         <Space wrap>
-          {!trash && <ListExport title={viewName} filter={exported} />}
+          {!trash && (
+            <ListExport
+              title={viewName}
+              filter={exported}
+              columns={columns.map((c) => c.key)}
+              sort={sort}
+            />
+          )}
           {!trash && <BulkJobsButton onOpen={setJobId} />}
           {can('incidents.delete') && (
             <Segmented<'current' | 'trash'>

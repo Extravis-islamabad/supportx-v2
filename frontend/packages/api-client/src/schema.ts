@@ -8310,6 +8310,19 @@ export interface components {
             to: string[];
         };
         /**
+         * RecordSort
+         * @description One sort key of a records export: a field, ascending unless `desc`.
+         */
+        RecordSort: {
+            /**
+             * Desc
+             * @default false
+             */
+            desc: boolean;
+            /** Field */
+            field: string;
+        };
+        /**
          * Relative
          * @description People relative to the record who may run a transition (REQ-WF-004).
          * @enum {string}
@@ -8355,6 +8368,8 @@ export interface components {
         "ReportDefinition-Input": {
             /** @default bar */
             chart: components["schemas"]["ChartType"];
+            /** Columns */
+            columns?: string[] | null;
             /** Entity */
             entity: string;
             /** Filter */
@@ -8378,6 +8393,8 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Sort */
+            sort?: components["schemas"]["RecordSort"][];
         };
         /**
          * ReportDefinition
@@ -8386,6 +8403,8 @@ export interface components {
         "ReportDefinition-Output": {
             /** @default bar */
             chart: components["schemas"]["ChartType"];
+            /** Columns */
+            columns?: string[] | null;
             /** Entity */
             entity: string;
             /** Filter */
@@ -8409,6 +8428,8 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Sort */
+            sort?: components["schemas"]["RecordSort"][];
         };
         /**
          * ReportEntityOut
@@ -9324,6 +9345,11 @@ export interface components {
             filter?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Group Ids
+             * @description For visibility `groups`.
+             */
+            group_ids?: string[];
             /** Name */
             name: string;
             /**
@@ -9345,6 +9371,8 @@ export interface components {
             filter: {
                 [key: string]: unknown;
             } | null;
+            /** Group Ids */
+            group_ids: string[];
             /**
              * Id
              * Format: uuid
@@ -9381,6 +9409,8 @@ export interface components {
             filter?: {
                 [key: string]: unknown;
             } | null;
+            /** Group Ids */
+            group_ids?: string[] | null;
             /** Name */
             name?: string | null;
             /** Sort */
@@ -10503,10 +10533,10 @@ export interface components {
         };
         /**
          * ViewVisibility
-         * @description Who sees a saved view in their list of views.
+         * @description Who sees a saved view in their list of views (D-111 as approved: like dashboards).
          * @enum {string}
          */
-        ViewVisibility: "private" | "shared";
+        ViewVisibility: "private" | "groups" | "everyone";
         /**
          * Visibility
          * @description Public: the requester sees it (portal, email). Private: staff only.

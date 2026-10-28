@@ -1,7 +1,7 @@
 """Saved views, list settings and bulk jobs (WP-020d; REQ-INC-104, 106, 110, 119, 120).
 
-- work_item_views: a user's saved view (the list API's filter and sort, columns), private or
-  shared with everyone;
+- work_item_views: a user's saved view (the list API's filter and sort, columns), private,
+  shared with chosen support groups, or shared with everyone;
 - work_item_list_settings: one user's columns, sort and page size per view;
 - work_item_bulk_jobs: a bulk change of up to 1,000 frozen records with a result per record;
 - field_changes.batch_id: the job that made a person's change on their behalf, so each
@@ -178,6 +178,7 @@ def upgrade() -> None:
         sa.Column("owner_id", sa.UUID(), nullable=False),
         sa.Column("name", sa.String(length=120), nullable=False),
         sa.Column("visibility", sa.String(length=10), nullable=False),
+        sa.Column("group_ids", postgresql.ARRAY(sa.UUID()), server_default="{}", nullable=False),
         sa.Column("filter", postgresql.JSONB(astext_type=sa.Text()), nullable=True),
         sa.Column(
             "columns", postgresql.JSONB(astext_type=sa.Text()), server_default="[]", nullable=False
@@ -204,7 +205,13 @@ def upgrade() -> None:
             name=op.f("ck_work_item_views_type_code"),
         ),
         sa.CheckConstraint(
-            "visibility IN ('private', 'shared')", name=op.f("ck_work_item_views_visibility_code")
+            "visibility IN ('private', 'groups', 'everyone')",
+            name=op.f("ck_work_item_views_visibility_code"),
+        ),
+        sa.CheckConstraint(
+            "(visibility = 'groups') = (cardinality(group_ids) > 0) "
+            "AND cardinality(group_ids) <= 50",
+            name=op.f("ck_work_item_views_groups_when_shared_with_groups"),
         ),
         sa.CheckConstraint(
             "jsonb_array_length(columns) <= 40", name=op.f("ck_work_item_views_columns_limit")
@@ -228,7 +235,7 @@ def upgrade() -> None:
         "work_item_views",
         ["tenant_id", "type"],
         unique=False,
-        postgresql_where=sa.text("deleted_at IS NULL AND visibility = 'shared'"),
+        postgresql_where=sa.text("deleted_at IS NULL AND visibility <> 'private'"),
     )
     op.create_index(
         "uq_wiv_tenant_type_owner_name",
@@ -251,7 +258,7 @@ def downgrade() -> None:
     op.drop_index(
         "ix_wiv_tenant_type_shared",
         table_name="work_item_views",
-        postgresql_where=sa.text("deleted_at IS NULL AND visibility = 'shared'"),
+        postgresql_where=sa.text("deleted_at IS NULL AND visibility <> 'private'"),
     )
     op.drop_table("work_item_views")
     op.drop_index(

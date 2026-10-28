@@ -204,18 +204,20 @@ export interface ViewDraft {
   id?: string;
   version?: number;
   name: string;
-  shared: boolean;
+  visibility: SavedView['visibility'];
+  groupIds: string[];
   filter: FilterModel;
 }
 
 export function draftOf(view: SavedView | undefined): ViewDraft {
   return view === undefined
-    ? { name: '', shared: false, filter: { join: 'and', rows: [] } }
+    ? { name: '', visibility: 'private', groupIds: [], filter: { join: 'and', rows: [] } }
     : {
         id: view.id,
         version: view.version,
         name: view.name,
-        shared: view.visibility === 'shared',
+        visibility: view.visibility,
+        groupIds: view.group_ids,
         filter: fromDsl(view.filter) ?? { join: 'and', rows: [] },
       };
 }

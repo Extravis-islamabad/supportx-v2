@@ -2440,6 +2440,8 @@ export const ur: LabelResource = {
   'reports.filter_days': '{{field}} پچھلے {{days}} دنوں میں',
   'reports.or': 'یا',
   'reports.total': 'کل',
+  'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
+  'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
   'permission.dashboards.create.description':
     'اپنے ڈیش بورڈ بنانا اور تیار شدہ یا شیئر شدہ ڈیش بورڈ کاپی کرنا۔',
   'permission.dashboards.share.description':
@@ -3518,7 +3520,6 @@ export const ur: LabelResource = {
   'bulk_status.done': 'مکمل',
   'bulk_status.failed': 'رکا ہوا',
   'view_visibility.private': 'صرف میں',
-  'view_visibility.shared': 'ہر وہ شخص جو واقعات دیکھتا ہے',
   'event_type.work_items.view.changed': 'محفوظ ویو تبدیل ہوا',
   'event_type.work_items.list_settings.changed': 'فہرست کی ترتیبات تبدیل ہوئیں',
   'event_type.work_items.bulk_job.progressed': 'اجتماعی تبدیلی آگے بڑھی',
@@ -3606,4 +3607,9 @@ export const ur: LabelResource = {
   'work_item.field.worklog': 'ورک لاگ',
   'work_item.field.link': 'ربط',
   'incidents.history.bulk': 'اجتماعی تبدیلی',
+  'incidents.views.groups': 'منتخب گروپ',
+  'incidents.views.which_groups': 'کون سے گروپ دیکھیں',
+  'incidents.views.groups_needed': 'کم از کم ایک گروپ منتخب کریں، یا کوئی اور انتخاب۔',
+  'view_visibility.groups': 'منتخب گروپ',
+  'view_visibility.everyone': 'ہر وہ شخص جو واقعات دیکھتا ہے',
 };

@@ -2863,6 +2863,8 @@ export const ar: LabelResource = {
   'reports.filter_days': '{{field}} في آخر {{days}} يومًا',
   'reports.or': 'أو',
   'reports.total': 'الإجمالي',
+  'errors.field.unknown_column': 'هذا العمود غير موجود لهذه السجلات.',
+  'errors.field.duplicate_column': 'يمكن إدراج كل عمود مرة واحدة.',
   'permission.dashboards.create.description':
     'إنشاء لوحات معلوماتك ونسخ اللوحات الجاهزة أو المشتركة.',
   'permission.dashboards.share.description':
@@ -3980,7 +3982,6 @@ export const ar: LabelResource = {
   'bulk_status.done': 'اكتمل',
   'bulk_status.failed': 'متوقف',
   'view_visibility.private': 'أنا فقط',
-  'view_visibility.shared': 'كل من يرى الحوادث',
   'event_type.work_items.view.changed': 'تم تغيير طريقة عرض محفوظة',
   'event_type.work_items.list_settings.changed': 'تم تغيير إعدادات القائمة',
   'event_type.work_items.bulk_job.progressed': 'تقدّم تغيير جماعي',
@@ -4067,4 +4068,9 @@ export const ar: LabelResource = {
   'work_item.field.worklog': 'سجل العمل',
   'work_item.field.link': 'رابط',
   'incidents.history.bulk': 'تغيير جماعي',
+  'incidents.views.groups': 'مجموعات محددة',
+  'incidents.views.which_groups': 'المجموعات التي تراها',
+  'incidents.views.groups_needed': 'اختر مجموعة واحدة على الأقل، أو خيارًا آخر.',
+  'view_visibility.groups': 'مجموعات محددة',
+  'view_visibility.everyone': 'كل من يرى الحوادث',
 };
