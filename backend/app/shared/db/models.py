@@ -75,7 +75,8 @@ class TenantKeyed:
         )
 
 
-def _now() -> datetime:
+def utc_now() -> datetime:
+    """`onupdate` for every `updated_at` column (also models that define their own)."""
     return datetime.now(UTC)
 
 
@@ -90,7 +91,7 @@ class Timestamps:
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), sort_order=900)
     updated_at: Mapped[datetime] = mapped_column(
-        server_default=func.now(), onupdate=_now, sort_order=901
+        server_default=func.now(), onupdate=utc_now, sort_order=901
     )
 
 

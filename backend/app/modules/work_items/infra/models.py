@@ -49,7 +49,7 @@ from app.modules.work_items.domain.lifecycle import (
 )
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import Channel, WorkItemTypeCode
-from app.shared.db.models import Base, TenantEntity, TenantKeyed
+from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
 
 
 def _codes(column: str, values: Any) -> str:  # noqa: ANN401 - any StrEnum class
@@ -99,7 +99,7 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     updated_by: Mapped[uuid.UUID | None]
 
 

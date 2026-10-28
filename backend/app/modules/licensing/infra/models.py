@@ -15,7 +15,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base
+from app.shared.db.models import Base, utc_now
 
 EDITION_CODES = ("essentials", "professional", "enterprise")
 STATUS_CODES = ("active", "suspended")
@@ -52,6 +52,6 @@ class TenantSubscription(Base):
     status: Mapped[str] = mapped_column(String, server_default="active")
     version: Mapped[int] = mapped_column(server_default="1")
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
     created_by: Mapped[uuid.UUID | None]
     updated_by: Mapped[uuid.UUID | None]
