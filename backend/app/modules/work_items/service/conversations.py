@@ -403,7 +403,12 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
 
 
 async def add_requester_comment(
-    session: AsyncSession, record: WorkItem, body: str, *, source: Source
+    session: AsyncSession,
+    record: WorkItem,
+    body: str,
+    *,
+    source: Source,
+    automatic: bool = False,
 ) -> WorkItemConversation:
     """The requester's own words as a public reply (a rejected resolution, REQ-INC-096 AC2).
 
@@ -449,11 +454,41 @@ async def add_requester_comment(
             delivery_state=state,
             first_response=False,
             mentioned_ids=[],
+            automatic=automatic,
         ),
         aggregate_id=entry.id,
         aggregate_version=entry.version,
     )
     return entry
+
+
+async def add_requester_reply(  # noqa: PLR0913 - the reply and its context, explicit
+    session: AsyncSession,
+    wtype: WorkItemType,
+    record: WorkItem,
+    *,
+    body: str,
+    source: Source,
+    automatic: bool,
+    subject: Subject,
+    holders: items.PermissionHolders,
+) -> WorkItem | None:
+    """A reply by the record's requester from outside the console (e-mail WP-024, portal WP-028).
+
+    Only the requester or the person it is for (else 404, as for a record they cannot see; staff
+    reply through `add_entry` as themselves). The reply is public and in their name; then the
+    record moves as for any requester reply (WP-020f): resumed when waiting on them, reopened
+    within the window, or followed by a new record, which is returned so the sender can be told
+    its ID. An automatic reply (out-of-office) is recorded and does nothing else.
+    """
+    if subject.user_id not in {record.requester_id, record.on_behalf_of_id}:
+        raise NotFound(code=f"{wtype.code}_not_found")
+    await add_requester_comment(session, record, body, source=source, automatic=automatic)
+    if automatic:
+        return None
+    return await items.on_requester_reply(
+        session, subject, wtype, record, body=sanitize_html(body), source=source, holders=holders
+    )
 
 
 async def _entry(
