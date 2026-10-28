@@ -166,3 +166,25 @@ describe('BUG-04: technicians cannot choose "Confirmed by requester"', () => {
     );
   });
 });
+
+describe('BUG-06: a closed record says when it was closed', () => {
+  it('BUG-06: Properties show "Closed at" next to "Resolved at"', async () => {
+    api({
+      routes: {
+        ...COMMON,
+        ...record(
+          fakeIncident({
+            status: 'closed',
+            status_category: 'closed',
+            resolved_at: '2026-10-27T08:00:00Z',
+            closed_at: '2026-10-28T09:30:00Z',
+          }),
+        ),
+      },
+    });
+    render(<App />);
+    const closed = await screen.findByTestId('inc-prop-closed_at');
+    expect(closed.textContent).not.toBe('');
+    expect(screen.getByTestId('inc-properties').textContent).toContain('Closed at');
+  });
+});
