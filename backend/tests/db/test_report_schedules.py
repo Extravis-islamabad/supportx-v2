@@ -19,10 +19,10 @@ from sqlalchemy import text
 from app.core.config import Settings
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
-from app.modules.analytics.service.exports import Worker
+from app.modules.analytics.service.exports import SubjectLoader, Worker
 from app.modules.analytics.service.schedules import enqueue_due, run_schedule
 from app.modules.identity_access import mail_recipients, subject_for
-from tests.db import test_reports_api
+from tests.db import test_report_exports, test_reports_api
 from tests.db.test_incidents_api import CONSOLE, Org, World
 from tooling.db_testing import ThrowawayDatabase
 
@@ -64,7 +64,11 @@ def _body(org: Org, **extra: Any) -> dict[str, Any]:  # noqa: ANN401 - JSON
 
 
 async def _run_due(
-    world: World, migrated_db: ThrowawayDatabase, org: Org, settings: Settings
+    world: World,
+    migrated_db: ThrowawayDatabase,
+    org: Org,
+    settings: Settings,
+    load_subject: SubjectLoader = subject_for,
 ) -> None:
     """What the minute sweep and the consumers worker do, with the clock a week ahead."""
     database = Database(
@@ -87,7 +91,7 @@ async def _run_due(
                     Worker(
                         reporting=database,
                         storage=None,
-                        load_subject=subject_for,
+                        load_subject=load_subject,
                         render_pdf=None,
                         timeout_seconds=30,
                         max_rows=1000,
@@ -299,3 +303,25 @@ async def test_report_schedules_table_is_isolated_by_rls(mailing: tuple[World, S
     assert foreign.status_code == 404
     mine = (await world.call("GET", "/reports/schedules", a, a.admin)).json()["items"][0]
     assert mine["status"] == "active"
+
+
+async def test_req_rpt_056_a_worker_missing_a_service_records_a_failed_run(
+    mailing: tuple[World, Settings], migrated_db: ThrowawayDatabase
+) -> None:
+    world, settings = mailing
+    a = world.a
+    made = await world.call(
+        "POST", "/reports/schedules", a, a.admin, json=_body(a), headers=CONSOLE
+    )
+    assert made.status_code == 201, made.text
+    await _run_due(
+        world, migrated_db, a, settings, load_subject=test_report_exports.no_entitlements
+    )
+    item = (await world.call("GET", "/reports/schedules", a, a.admin)).json()["items"][0]
+    # Recorded (counts towards the pause after 3), not dead-lettered unseen.
+    assert (item["status"], item["last_result"], item["last_sent"]) == (
+        "active",
+        "report_failed",
+        0,
+    )
+    assert item["last_run_at"] is not None

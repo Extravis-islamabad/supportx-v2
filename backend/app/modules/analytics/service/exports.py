@@ -31,7 +31,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import Database
-from app.core.errors import Conflict, NotFound, PermissionDenied
+from app.core.errors import AppError, Conflict, NotFound, PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.analytics.domain.definition import ReportDefinition
@@ -411,7 +411,13 @@ async def _job(session: AsyncSession, row: FileSpec, worker: Worker) -> "_Job | 
         return "pdf_not_available"
     if worker.load_subject is None:
         return "report_failed"
-    subject = await worker.load_subject(session, row.tenant_id, row.requested_by)
+    try:
+        subject = await worker.load_subject(session, row.tenant_id, row.requested_by)
+    except AppError as error:
+        # A service the worker needs is missing (e.g. entitlements): retrying will not help, and
+        # a dead-lettered job would leave the person's export "running" for ever (REQ-RPT-056).
+        log.error("report_subject_unavailable", code=error.code)  # noqa: TRY400 - code only
+        return "report_failed"
     definition = ReportDefinition.model_validate(row.definition)
     try:
         provider = resolve_provider(definition.entity, subject)
@@ -525,6 +531,20 @@ async def _finish(session: AsyncSession, row: ReportExport, problem: str | None)
         aggregate_id=row.id,
     )
     return row
+
+
+async def fail_stalled_exports(session: AsyncSession, older_than: datetime) -> int:
+    """Exports still running since before `older_than` failed: their worker crashed or gave up."""
+    rows = list(
+        await session.scalars(
+            select(ReportExport)
+            .where(ReportExport.status == "running", ReportExport.created_at < older_than)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    for row in rows:
+        await _finish(session, row, "report_failed")
+    return len(rows)
 
 
 async def expire_exports(session: AsyncSession, storage: ObjectStorage | None) -> int:
