@@ -810,7 +810,14 @@ async def view_counts(
 
 # Fields whose history values are user IDs: the page names them (QA BUG-03).
 PERSON_FIELDS = frozenset(
-    {"requester_id", "on_behalf_of_id", "technician_id", "follower", "follower_access"}
+    {
+        "requester_id",
+        "on_behalf_of_id",
+        "technician_id",
+        "follower",
+        "follower_access",
+        "task.owner_id",  # WP-020e
+    }
 )
 
 
@@ -841,6 +848,15 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if c.field in PERSON_FIELDS or is_custom(c.field)
         for value in (c.old, c.new)
         if isinstance(value, str) and (c.field in PERSON_FIELDS or _is_uuid(value))
+    }
+    # A worklog's value names its owner (WP-020e).
+    named |= {
+        str(value["owner_id"])
+        for e in entries
+        for c in e.changes
+        if c.field == "worklog"
+        for value in (c.old, c.new)
+        if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
 

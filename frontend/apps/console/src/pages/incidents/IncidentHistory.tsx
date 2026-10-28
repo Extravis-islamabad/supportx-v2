@@ -34,6 +34,8 @@ const CODED: Record<string, string> = {
   follow_reason: 'follow_reason',
   conversation_entry: 'conversation_entry',
   note_visibility: 'visibility',
+  'task.status': 'task_status', // WP-020e
+  'task.priority': 'task_priority',
 };
 const TIMES = new Set([
   'resolved_at',
@@ -41,15 +43,17 @@ const TIMES = new Set([
   'last_reopened_at',
   'first_responded_at',
   'resolution_notified_at',
+  'task.due_at',
 ]);
 // Rich text and references with no words of their own: "changed", never the HTML or an ID.
-const CHANGED_ONLY = new Set(['description', 'resolution', 'follows_id']);
+const CHANGED_ONLY = new Set(['description', 'resolution', 'follows_id', 'task.position']);
 const PEOPLE = new Set([
   'requester_id',
   'on_behalf_of_id',
   'technician_id',
   'follower',
   'follower_access',
+  'task.owner_id',
 ]);
 // Flags: "not set" reads "No", not "(empty)".
 const FLAGS = new Set(['handed_over_out_of_reach']);
@@ -149,7 +153,25 @@ export function IncidentHistory({ id }: { id: string }) {
     if (change.field === 'category_id' && typeof value === 'string') {
       return categoryPath(t, categories.data ?? [], value, locale) || t('history.changed');
     }
-    if ((change.field === 'site_id' || change.field === 'group_id') && typeof value === 'string') {
+    // WP-020e parts: a worklog as person, type and time; a link by its kind only (the other
+    // record may be one this reader cannot see, REQ-INC-084 AC3).
+    if (change.field === 'worklog' && typeof value === 'object') {
+      const log = value as { owner_id?: string; worklog_type?: string; minutes?: number };
+      return t('incidents.worklogs.line', {
+        person: people[log.owner_id ?? '']?.display_name ?? t('incidents.unknown_value'),
+        type: t(`worklog_type.${log.worklog_type ?? 'other'}`),
+        duration: t('incidents.worklogs.minutes', { minutes: log.minutes ?? 0 }),
+      });
+    }
+    if (change.field === 'link' && typeof value === 'object') {
+      return t(`link_kind.${(value as { kind?: string }).kind ?? 'related'}`);
+    }
+    if (
+      (change.field === 'site_id' ||
+        change.field === 'group_id' ||
+        change.field === 'task.group_id') &&
+      typeof value === 'string'
+    ) {
       return units.get(value) ?? t('history.changed');
     }
     if (PEOPLE.has(change.field) && typeof value === 'string') {
