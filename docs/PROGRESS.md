@@ -1073,6 +1073,27 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ## Session log (newest first)
 
+### 2026-10-28 — WP-024 email channel, session 1 (lane B; in progress)
+Plan: ~/Desktop/wp-024-plan.md. Defaults: D-109 (pending review).
+- **Mailboxes** (`integrations` module, migration after lane C's 0035): IMAP with TLS by
+  default and plain only when allowed (audited), passwords sealed with the installation key
+  ring, Admin › Mail (state and reason, held count, add/change/test/remove, refusals at the form,
+  the shared conflict dialog, live on the tenant channel, Arabic counts in six forms).
+- **Fetching** every 2 minutes. A message is changed on the server only after it is stored, and
+  the `mail_fetched` ledger makes each message count once. Loops (our own addresses), floods,
+  too-large mail and automatic mail (out-of-office, bounces, lists) create nothing. Strangers
+  follow the mailbox's policy and get a polite answer.
+- **Threading:** notification e-mail subjects carry "[INC-12]". A reply without the token is
+  matched by In-Reply-To/References against the delivery log (`notifications.records_for_mail`).
+  The quoted history is dropped.
+- **Tests:** parser and routing units; ledger, policy, RLS and fetch-state tests on PostgreSQL;
+  the mailbox API; the IMAP reader against a private GreenMail (test-only image); console tests.
+- **Waiting on lane A:** the incident side of the port (`work_items/service/inbound_mail.py`,
+  on #105's `add_requester_reply`), a create entry-point channel ("email") and the mailbox's
+  default group. Notifications are to skip `automatic` conversation events once #105 is on main.
+- **Session 2:** Microsoft Graph and Gmail (OAuth app per installation, open question), a
+  queue for held messages, attachments from mail.
+
 ### 2026-10-28 — WP-020f: resolution, closure, reopen and cancel (lane A)
 
 - Built to the approved plan (~/Desktop/wp-020f-plan.md) with the product owner's change:
