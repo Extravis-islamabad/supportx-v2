@@ -217,6 +217,14 @@ async def resend(
         raise Conflict(code="invitation_not_pending")
     person = await _invitee(session, row.user_id)
     valid_days = (await get_identity_settings(session)).invitation_valid_days
+    # Keycloak cannot withdraw one link, so an account this invitation made and nobody has used
+    # is made afresh: the earlier e-mail's link then names an account that no longer exists and
+    # stops working (QA WP-039 BUG-01). An account that existed before keeps its earlier links
+    # until they expire (it is not ours to delete).
+    if row.created_account and row.keycloak_user_id is not None:
+        found = await keycloak.find_user(row.email)
+        if found is not None and found.id == row.keycloak_user_id and not found.has_password:
+            await keycloak.delete_user(row.keycloak_user_id)
     account, created, delivery = await _deliver(
         session, settings, keycloak, person, valid_days=valid_days
     )

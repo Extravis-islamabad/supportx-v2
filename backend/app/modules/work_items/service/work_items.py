@@ -1523,8 +1523,16 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     *,
     source: Source,
     holders: PermissionHolders,
+    channel: Channel | None = None,
+    entry_group_id: uuid.UUID | None = None,
 ) -> WorkItemView:
-    """A new record in the life cycle's first status (or `assigned` when a technician is set)."""
+    """A new record in the life cycle's first status (or `assigned` when a technician is set).
+
+    `channel` and `entry_group_id` are for entry points (e-mail WP-024, the portal WP-028),
+    never a client: the channel the record came in by (e-mail is otherwise reserved), and that
+    entry point's group, which routing applies after its rules and before the category's
+    group (history: "routed to the group of the way it came in").
+    """
     cat = await config.load(session, wtype)
     cleaned, problems = _check_fields(values, creating=True)
     manual, priority_reason, priority_problems = _priority_input(values)
@@ -1561,7 +1569,10 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         raise await _value_errors(session, wtype, problems)
     await _place(session, cleaned)
     initial = next(s.code for s in cat.statuses if not s.system and not s.disabled)
-    channel = cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
+    channel_given = channel
+    channel = (
+        channel or cleaned.get("channel") or (Channel.PHONE if source == "ui" else Channel.API)
+    )
     # Automation in the documented order (REQ-RUL-006): business rules, the matrix, routing and
     # auto-assignment. What the person entered stays their history; each automated change is
     # its own entry naming the rule, the routing reason or the assignment method.
@@ -1588,6 +1599,7 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         eligible=lambda: _eligible(session, subject, wtype, holders),
         route=True,
         assign_moment="create",
+        entry_group_id=entry_group_id,
     )
     custom, group_id, technician_id = _apply_automated(
         automated.values, cleaned, custom, group_id, technician_id
@@ -1632,13 +1644,16 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
     await WorkItemRepository(session).add(record)
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
+    # An entry point (e-mail, the portal) creates as the requester, who never had console
+    # access to lose and sees their own record as its requester: no hand-over question.
+    entry_point = channel_given is not None
     reach = await _keep_in_reach(
         session,
         subject,
         wtype,
         record,
-        confirmed=bool(values.get("confirm_lose_access")),
-        keep_following=values.get("keep_following"),
+        confirmed=entry_point or bool(values.get("confirm_lose_access")),
+        keep_following=False if entry_point else values.get("keep_following"),
     )
     handed_over = reach == LOST
     after = _snapshot(record)

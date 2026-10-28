@@ -49,6 +49,7 @@ import {
   type ReplyMode,
   type Visibility,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import {
   Attachments,
   ConflictDialog,
@@ -101,6 +102,7 @@ function initials(name: string): string {
  */
 export function IncidentConversation({ item, typing }: { item: Incident; typing: Typing }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const [filter, setFilter] = useState<Filter>('all');
   const [draft, setDraft] = useState<Draft | null>(null);
   const conversation = useIncidentConversation(item.id);
@@ -137,7 +139,10 @@ export function IncidentConversation({ item, typing }: { item: Incident; typing:
                   name: writers[0]?.[1].name ?? '',
                 })
               : t('conversation.typing.several', {
-                  names: writers.map(([, w]) => w.name).join(t('list.separator')),
+                  names: listFormat(
+                    writers.map(([, w]) => w.name),
+                    'conjunction',
+                  ),
                 })}
           </Typography.Text>
         )}
@@ -316,6 +321,7 @@ function EntryCard({
   files: StoredFile[];
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { can } = useAccess();
   const canEditRecord = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   const dates = useDateTime();
@@ -397,11 +403,11 @@ function EntryCard({
       </Flex>
       {entry.kind === 'reply' && entry.recipients !== null && (
         <Typography.Paragraph type="secondary" style={{ margin: '6px 0 0' }}>
-          {t('conversation.to')}: <bdi>{entry.recipients.to.join(', ')}</bdi>
+          {t('conversation.to')}: <bdi>{listFormat(entry.recipients.to)}</bdi>
           {entry.recipients.cc.length > 0 && (
             <>
               {' · '}
-              {t('conversation.cc')}: <bdi>{entry.recipients.cc.join(', ')}</bdi>
+              {t('conversation.cc')}: <bdi>{listFormat(entry.recipients.cc)}</bdi>
             </>
           )}
         </Typography.Paragraph>
@@ -476,6 +482,7 @@ function Composer({
   onDone: () => void;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { message } = App.useApp();
   const { can } = useAccess();
   const add = useAddConversationEntry(item.id);
@@ -563,9 +570,10 @@ function Composer({
           if (saved.not_notified.length > 0) {
             void message.warning(
               t('conversation.mention_not_notified', {
-                names: saved.not_notified
-                  .map((id) => saved.people[id]?.display_name ?? '')
-                  .join(t('list.separator')),
+                names: listFormat(
+                  saved.not_notified.map((id) => saved.people[id]?.display_name ?? ''),
+                  'conjunction',
+                ),
               }),
             );
           }
