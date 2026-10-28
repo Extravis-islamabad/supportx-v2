@@ -3,8 +3,8 @@
 Tenant-scoped with RLS. Mailboxes are records (soft delete, audited actors); the ledger is one row
 per fetched message, so a message is acted on once even across poller restarts.
 
-Revision ID: 0034
-Revises: 0033
+Revision ID: 0035
+Revises: 0033 (until lane A's 0034, WP-020f, is on main)
 Created: 2026-10-28
 """
 
@@ -16,8 +16,8 @@ from sqlalchemy.dialects import postgresql
 
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
-revision: str = "0034"
-down_revision: str | None = "0033"
+revision: str = "0035"
+down_revision: str | None = "0033"  # re-pointed at merge: after WP-020f's 0034
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
