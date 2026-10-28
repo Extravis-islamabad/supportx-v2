@@ -1981,6 +1981,7 @@ export const ur: LabelResource = {
   'automation.why.routing_rule': 'قاعدے «{{name}}» نے روٹ کیا۔',
   'automation.why.routing_category': 'زمرے کے گروپ کی طرف روٹ کیا۔',
   'automation.why.routing_fallback': 'متبادل گروپ کی طرف روٹ کیا (کوئی قاعدہ نہیں ملا)۔',
+  'automation.why.routing_entry': 'اس ذریعے کے گروپ کو بھیجا گیا جس سے یہ آیا (میل باکس یا پورٹل)۔',
   'automation.why.assigned': 'گروپ کے اندر {{method}} سے خودکار تفویض۔',
   'automation.why.assigned_loads':
     'گروپ کے اندر {{method}} سے خودکار تفویض؛ موازنہ شدہ بوجھ: {{loads}}۔',

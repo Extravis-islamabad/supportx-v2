@@ -2398,6 +2398,7 @@ export const ar: LabelResource = {
   'automation.why.routing_rule': 'وُجّه بالقاعدة «{{name}}».',
   'automation.why.routing_category': 'وُجّه إلى مجموعة الفئة.',
   'automation.why.routing_fallback': 'وُجّه إلى المجموعة الاحتياطية (لم تطابق أي قاعدة).',
+  'automation.why.routing_entry': 'وُجّه إلى مجموعة القناة التي وصل منها (صندوق بريد أو البوابة).',
   'automation.why.assigned': 'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة.',
   'automation.why.assigned_loads':
     'أُسند تلقائيًا بطريقة {{method}} داخل المجموعة؛ الأحمال المقارنة: {{loads}}.',
