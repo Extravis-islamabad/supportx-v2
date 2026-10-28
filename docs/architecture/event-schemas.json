@@ -1418,6 +1418,40 @@
         ],
         "title": "UserCreated",
         "type": "object"
+      },
+      "2": {
+        "description": "As UserCreated, with `email` as a source: a mail sender made a requester (WP-024).\n\nA new allowed value retypes a field, so a new schema version (docs/architecture/events.md\n\"Versioning\"); v1 stays registered for anything that still reads it. Published from WP-024 on.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV2",
+        "type": "object"
       }
     },
     "identity_access.user.logged_in": {
@@ -1583,6 +1617,34 @@
           "change"
         ],
         "title": "UserRoleChanged",
+        "type": "object"
+      }
+    },
+    "integrations.mailbox.changed": {
+      "1": {
+        "description": "A mailbox was added, changed or removed, or a fetch changed its state or its mail.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed",
+              "fetched"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "change"
+        ],
+        "title": "MailboxChanged",
         "type": "object"
       }
     },
