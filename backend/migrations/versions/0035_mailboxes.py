@@ -117,6 +117,7 @@ def upgrade() -> None:
         sa.Column("subject", sa.String(length=500), nullable=False),
         sa.Column("outcome", sa.String(length=12), nullable=False),
         sa.Column("reason", sa.String(length=40), nullable=True),
+        sa.Column("reason_params", postgresql.JSONB(), server_default="{}", nullable=False),
         sa.Column("record_type", sa.String(length=40), nullable=True),
         sa.Column("record_id", sa.Uuid(), nullable=True),
         sa.Column(

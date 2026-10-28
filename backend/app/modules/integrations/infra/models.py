@@ -20,7 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps
@@ -100,6 +100,7 @@ class MailFetched(TenantKeyed, Timestamps, Base):
     sender: Mapped[str] = mapped_column(String(320))
     subject: Mapped[str] = mapped_column(String(500))
     outcome: Mapped[str] = mapped_column(String(12))
-    reason: Mapped[str | None] = mapped_column(String(40))
+    reason: Mapped[str | None] = mapped_column(String(40))  # a label code, never shown raw
+    reason_params: Mapped[dict[str, str]] = mapped_column(JSONB, server_default="{}")
     record_type: Mapped[str | None] = mapped_column(String(40))
     record_id: Mapped[uuid.UUID | None]
