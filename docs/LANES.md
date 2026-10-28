@@ -9,7 +9,7 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 |---|---|---|---|---|---|---|
 | A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-029-FIX (PR open); next WP-020f | `fix/wp-029-qa` | main folder (`supportx-v2`) | 0025, 0028 (merged) | D-096, D-097, D-102, D-105; ADR-035 |
 | B | Identity, mail, notifications | WP-039 merged (#93, #91); CI shard follow-ups (#96, PR open); WP-039 QA done (~/Desktop/qa-wp039, 5 bugs); WP-023 notifications in `../supportx-v2-ntf` | `ci/shard-weights` | `../supportx-v2-ci` | 0024, 0026, 0032 (merged) | D-098, D-099, D-103, D-104 |
-| C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-035 merged (sessions 1-4, #73, #77, #84, #88); WP-035-FIX (QA bugs, branch `fix/wp-035-qa`); then WP-036 dashboards, then WP-033 knowledge sessions 1-4 | `fix/wp-035-qa` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031 (merged) | D-100, D-101, D-108; ADR-033, ADR-034 |
+| C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-035-FIX merged (#103); WP-036 dashboards (sessions 1-2, PR open); next WP-033 knowledge sessions 1-4 | `feat/wp-036-dashboards` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031 (merged), 0034 dashboards (renumber after lane A's #100 if it merges first) | D-100, D-101, D-108; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
 

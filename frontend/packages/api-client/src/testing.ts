@@ -43,6 +43,7 @@ const TECHNICIAN: Grant[] = [
   ['knowledge.manage', 'group'],
   ['reports.view', 'all'],
   ['reports.create', 'own'],
+  ['dashboards.create', 'own'],
   ['reports.export', 'all'],
   ['announcements.view', 'all'],
   ['announcements.manage', 'own'],
@@ -88,6 +89,8 @@ const ADMIN_EXTRA: Grant[] = [
   ['automation.manage', 'all'],
   ['reports.manage_folders', 'all'],
   ['reports.schedule', 'all'],
+  ['dashboards.share', 'all'],
+  ['dashboards.manage_defaults', 'all'],
   ['identity.manage', 'all'],
   ['notifications.manage', 'all'],
 ];

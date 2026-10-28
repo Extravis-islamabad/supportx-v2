@@ -6,12 +6,17 @@
         "description": "The answer: group (their groups, their own, their sites' unassigned) or all.",
         "properties": {
           "technician_scope": {
-            "enum": ["group", "all"],
+            "enum": [
+              "group",
+              "all"
+            ],
             "title": "Technician Scope",
             "type": "string"
           }
         },
-        "required": ["technician_scope"],
+        "required": [
+          "technician_scope"
+        ],
         "title": "AccessSettingsIn",
         "type": "object"
       },
@@ -31,7 +36,10 @@
             "title": "Answered At"
           },
           "technician_scope": {
-            "enum": ["group", "all"],
+            "enum": [
+              "group",
+              "all"
+            ],
             "title": "Technician Scope",
             "type": "string"
           },
@@ -41,7 +49,11 @@
             "type": "integer"
           }
         },
-        "required": ["technician_scope", "answered_at", "version"],
+        "required": [
+          "technician_scope",
+          "answered_at",
+          "version"
+        ],
         "title": "AccessSettingsOut",
         "type": "object"
       },
@@ -77,7 +89,11 @@
           },
           "mfa_mode": {
             "description": "What this organisation asks of the person (strictest of their roles).",
-            "enum": ["off", "optional", "required"],
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ],
             "title": "Mfa Mode",
             "type": "string"
           },
@@ -108,7 +124,10 @@
       },
       "ActionMode": {
         "description": "Whether a set action may replace what a person entered (REQ-RUL-003).",
-        "enum": ["fill_empty", "overwrite"],
+        "enum": [
+          "fill_empty",
+          "overwrite"
+        ],
         "title": "ActionMode",
         "type": "string"
       },
@@ -134,7 +153,10 @@
             "title": "Reason"
           }
         },
-        "required": ["action", "allowed"],
+        "required": [
+          "action",
+          "allowed"
+        ],
         "title": "ActionStateOut",
         "type": "object"
       },
@@ -163,19 +185,32 @@
             "type": "array"
           }
         },
-        "required": ["roles", "groups", "relatives"],
+        "required": [
+          "roles",
+          "groups",
+          "relatives"
+        ],
         "title": "AllowedForOut",
         "type": "object"
       },
       "AnnouncementAction": {
         "description": "AnnouncementStatus actions, in the order the UI shows them.",
-        "enum": ["publish", "unpublish", "archive", "reopen"],
+        "enum": [
+          "publish",
+          "unpublish",
+          "archive",
+          "reopen"
+        ],
         "title": "AnnouncementAction",
         "type": "string"
       },
       "AnnouncementAudience": {
         "description": "Who it is for: everyone in the tenant, or members of chosen sites / support groups.",
-        "enum": ["everyone", "sites", "groups"],
+        "enum": [
+          "everyone",
+          "sites",
+          "groups"
+        ],
         "title": "AnnouncementAudience",
         "type": "string"
       },
@@ -263,7 +298,10 @@
             "type": "string"
           }
         },
-        "required": ["title", "body"],
+        "required": [
+          "title",
+          "body"
+        ],
         "title": "AnnouncementIn",
         "type": "object"
       },
@@ -641,7 +679,11 @@
             "title": "Next Cursor"
           }
         },
-        "required": ["items", "next_cursor", "has_more"],
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
         "title": "AnnouncementPage",
         "type": "object"
       },
@@ -863,25 +905,41 @@
       },
       "AnnouncementSeverity": {
         "description": "How prominent it is: one scale, no mixing of \"high\" and \"affects users\".",
-        "enum": ["info", "warning", "critical"],
+        "enum": [
+          "info",
+          "warning",
+          "critical"
+        ],
         "title": "AnnouncementSeverity",
         "type": "string"
       },
       "AnnouncementStatus": {
         "description": "Lifecycle of an announcement. Stored as a code; the UI shows a label.",
-        "enum": ["draft", "published", "archived"],
+        "enum": [
+          "draft",
+          "published",
+          "archived"
+        ],
         "title": "AnnouncementStatus",
         "type": "string"
       },
       "AnnouncementVisibility": {
         "description": "Whether it is on screens now (computed).",
-        "enum": ["hidden", "scheduled", "live", "ended"],
+        "enum": [
+          "hidden",
+          "scheduled",
+          "live",
+          "ended"
+        ],
         "title": "AnnouncementVisibility",
         "type": "string"
       },
       "AssignMethod": {
         "description": "How a group spreads its new work (REQ-ASG-002..004).",
-        "enum": ["round_robin", "load_balancing"],
+        "enum": [
+          "round_robin",
+          "load_balancing"
+        ],
         "title": "AssignMethod",
         "type": "string"
       },
@@ -1078,7 +1136,11 @@
             "$ref": "#/components/schemas/OwnerType"
           }
         },
-        "required": ["owner_type", "owner_id", "file_ids"],
+        "required": [
+          "owner_type",
+          "owner_id",
+          "file_ids"
+        ],
         "title": "AttachIn",
         "type": "object"
       },
@@ -1246,7 +1308,13 @@
       },
       "AuditClient": {
         "description": "Where the request came from.",
-        "enum": ["console", "portal", "mobile", "api", "worker"],
+        "enum": [
+          "console",
+          "portal",
+          "mobile",
+          "api",
+          "worker"
+        ],
         "title": "AuditClient",
         "type": "string"
       },
@@ -1710,7 +1778,11 @@
             "title": "Next Cursor"
           }
         },
-        "required": ["items", "next_cursor", "has_more"],
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
         "title": "AuditEntryPage",
         "type": "object"
       },
@@ -1731,7 +1803,10 @@
           },
           "format": {
             "default": "jsonl",
-            "enum": ["jsonl", "csv"],
+            "enum": [
+              "jsonl",
+              "csv"
+            ],
             "title": "Format",
             "type": "string"
           },
@@ -1925,7 +2000,11 @@
       },
       "AuditOutcome": {
         "description": "Done, refused (permission, licence, read-only, step-up) or failed (validation, error).",
-        "enum": ["done", "refused", "failed"],
+        "enum": [
+          "done",
+          "refused",
+          "failed"
+        ],
         "title": "AuditOutcome",
         "type": "string"
       },
@@ -1971,7 +2050,9 @@
             "title": "User Agent"
           }
         },
-        "required": ["subject_id"],
+        "required": [
+          "subject_id"
+        ],
         "title": "AuditPersonalOut",
         "type": "object"
       },
@@ -2001,7 +2082,11 @@
             "title": "Next Cursor"
           }
         },
-        "required": ["items", "next_cursor", "has_more"],
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
         "title": "AuditRestoredPage",
         "type": "object"
       },
@@ -2189,7 +2274,10 @@
             "type": "object"
           }
         },
-        "required": ["name", "query"],
+        "required": [
+          "name",
+          "query"
+        ],
         "title": "AuditSavedSearchIn",
         "type": "object"
       },
@@ -2218,7 +2306,12 @@
             "type": "object"
           }
         },
-        "required": ["id", "name", "query", "created_at"],
+        "required": [
+          "id",
+          "name",
+          "query",
+          "created_at"
+        ],
         "title": "AuditSavedSearchOut",
         "type": "object"
       },
@@ -2481,13 +2574,23 @@
             "type": "string"
           }
         },
-        "required": ["id", "kind", "automation_name", "outcome", "detail", "occurred_at"],
+        "required": [
+          "id",
+          "kind",
+          "automation_name",
+          "outcome",
+          "detail",
+          "occurred_at"
+        ],
         "title": "AutomationRunOut",
         "type": "object"
       },
       "Availability": {
         "description": "A technician's own state (REQ-ASG-006): away people are never auto-assigned.",
-        "enum": ["available", "away"],
+        "enum": [
+          "available",
+          "away"
+        ],
         "title": "Availability",
         "type": "string"
       },
@@ -2521,7 +2624,11 @@
             "$ref": "#/components/schemas/Availability"
           }
         },
-        "required": ["state", "changed_at", "changed_by"],
+        "required": [
+          "state",
+          "changed_at",
+          "changed_by"
+        ],
         "title": "AvailabilityChangeOut",
         "type": "object"
       },
@@ -2533,7 +2640,9 @@
             "$ref": "#/components/schemas/Availability"
           }
         },
-        "required": ["state"],
+        "required": [
+          "state"
+        ],
         "title": "AvailabilityIn",
         "type": "object"
       },
@@ -2573,7 +2682,10 @@
             "type": "string"
           }
         },
-        "required": ["user_id", "state"],
+        "required": [
+          "user_id",
+          "state"
+        ],
         "title": "AvailabilityOut",
         "type": "object"
       },
@@ -2880,7 +2992,11 @@
             "type": "string"
           }
         },
-        "required": ["code", "folder", "definition"],
+        "required": [
+          "code",
+          "folder",
+          "definition"
+        ],
         "title": "BuiltinReportOut",
         "type": "object"
       },
@@ -2900,7 +3016,10 @@
             "type": "string"
           }
         },
-        "required": ["certificate_pem", "private_key_pem"],
+        "required": [
+          "certificate_pem",
+          "private_key_pem"
+        ],
         "title": "CertificateIn",
         "type": "object"
       },
@@ -2926,7 +3045,16 @@
       },
       "ChartType": {
         "description": "MVP chart types (REQ-RPT-044 AC3); the rest follow at V1.",
-        "enum": ["bar", "stacked_bar", "line", "area", "doughnut", "gauge", "kpi", "table"],
+        "enum": [
+          "bar",
+          "stacked_bar",
+          "line",
+          "area",
+          "doughnut",
+          "gauge",
+          "kpi",
+          "table"
+        ],
         "title": "ChartType",
         "type": "string"
       },
@@ -2963,7 +3091,12 @@
             "type": "number"
           }
         },
-        "required": ["code", "ratio", "required", "passed"],
+        "required": [
+          "code",
+          "ratio",
+          "required",
+          "passed"
+        ],
         "title": "CheckOut",
         "type": "object"
       },
@@ -3003,19 +3136,28 @@
             "$ref": "#/components/schemas/CheckStatus"
           }
         },
-        "required": ["status"],
+        "required": [
+          "status"
+        ],
         "title": "CheckResponse",
         "type": "object"
       },
       "CheckStatus": {
         "description": "Outcome of one dependency check.",
-        "enum": ["ok", "failed", "not_configured"],
+        "enum": [
+          "ok",
+          "failed",
+          "not_configured"
+        ],
         "title": "CheckStatus",
         "type": "string"
       },
       "ChoiceDisplay": {
         "description": "How a single choice is shown on forms.",
-        "enum": ["list", "radio"],
+        "enum": [
+          "list",
+          "radio"
+        ],
         "title": "ChoiceDisplay",
         "type": "string"
       },
@@ -3059,7 +3201,12 @@
             "title": "Suggested Primary"
           }
         },
-        "required": ["passes", "checks", "suggested_primary", "suggested_gradient"],
+        "required": [
+          "passes",
+          "checks",
+          "suggested_primary",
+          "suggested_gradient"
+        ],
         "title": "ColourReportOut",
         "type": "object"
       },
@@ -3101,7 +3248,10 @@
       },
       "ConditionOperator": {
         "description": "How a rule condition tests a record value.",
-        "enum": ["in", "not_in"],
+        "enum": [
+          "in",
+          "not_in"
+        ],
         "title": "ConditionOperator",
         "type": "string"
       },
@@ -3127,7 +3277,11 @@
             "type": "object"
           }
         },
-        "required": ["entry", "not_notified", "people"],
+        "required": [
+          "entry",
+          "not_notified",
+          "people"
+        ],
         "title": "ConversationAddedOut",
         "type": "object"
       },
@@ -3184,7 +3338,10 @@
             "description": "Notes: private by default. Replies are always public."
           }
         },
-        "required": ["kind", "body"],
+        "required": [
+          "kind",
+          "body"
+        ],
         "title": "ConversationEntryIn",
         "type": "object"
       },
@@ -3325,7 +3482,11 @@
             "type": "boolean"
           }
         },
-        "required": ["items", "truncated", "people"],
+        "required": [
+          "items",
+          "truncated",
+          "people"
+        ],
         "title": "ConversationOut",
         "type": "object"
       },
@@ -3345,7 +3506,11 @@
             "type": "string"
           }
         },
-        "required": ["counter", "count", "capped"],
+        "required": [
+          "counter",
+          "count",
+          "capped"
+        ],
         "title": "CounterOut",
         "type": "object"
       },
@@ -3379,13 +3544,17 @@
             "type": "boolean"
           }
         },
-        "required": ["labels"],
+        "required": [
+          "labels"
+        ],
         "title": "CustomFieldChoiceIO",
         "type": "object"
       },
       "CustomFieldEntity": {
         "description": "Records that carry custom fields (only incidents exist yet; others join as they come).",
-        "enum": ["incident"],
+        "enum": [
+          "incident"
+        ],
         "title": "CustomFieldEntity",
         "type": "string"
       },
@@ -3453,7 +3622,11 @@
             "$ref": "#/components/schemas/CustomFieldValidationIO"
           }
         },
-        "required": ["entity", "field_type", "labels"],
+        "required": [
+          "entity",
+          "field_type",
+          "labels"
+        ],
         "title": "CustomFieldIn",
         "type": "object"
       },
@@ -3474,7 +3647,10 @@
             "type": "array"
           }
         },
-        "required": ["entity", "ids"],
+        "required": [
+          "entity",
+          "ids"
+        ],
         "title": "CustomFieldOrderIn",
         "type": "object"
       },
@@ -3925,7 +4101,11 @@
               "type": "string"
             },
             "propertyNames": {
-              "enum": ["en", "ar", "ur"]
+              "enum": [
+                "en",
+                "ar",
+                "ur"
+              ]
             },
             "title": "Names",
             "type": "object"
@@ -3936,7 +4116,9 @@
             "type": "boolean"
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "DashboardIn",
         "type": "object"
       },
@@ -3967,7 +4149,12 @@
             "type": "array"
           }
         },
-        "required": ["items", "favourites", "home", "home_chosen"],
+        "required": [
+          "items",
+          "favourites",
+          "home",
+          "home_chosen"
+        ],
         "title": "DashboardListOut",
         "type": "object"
       },
@@ -4134,7 +4321,11 @@
                   "type": "string"
                 },
                 "propertyNames": {
-                  "enum": ["en", "ar", "ur"]
+                  "enum": [
+                    "en",
+                    "ar",
+                    "ur"
+                  ]
                 },
                 "type": "object"
               },
@@ -4161,19 +4352,33 @@
       },
       "DateBucket": {
         "description": "How a date grouping is cut, in the viewer's time zone (REQ-DSH-044).",
-        "enum": ["day", "week", "month", "quarter", "year", "age"],
+        "enum": [
+          "day",
+          "week",
+          "month",
+          "quarter",
+          "year",
+          "age"
+        ],
         "title": "DateBucket",
         "type": "string"
       },
       "DeliveryReason": {
         "description": "Why a reply is not (yet) sent.",
-        "enum": ["email_channel_not_configured"],
+        "enum": [
+          "email_channel_not_configured"
+        ],
         "title": "DeliveryReason",
         "type": "string"
       },
       "DeliveryState": {
         "description": "Where an outbound reply is. Notes have none.",
-        "enum": ["not_sent", "queued", "sent", "failed"],
+        "enum": [
+          "not_sent",
+          "queued",
+          "sent",
+          "failed"
+        ],
         "title": "DeliveryState",
         "type": "string"
       },
@@ -4248,7 +4453,9 @@
             "title": "Site Id"
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "DepartmentIn",
         "type": "object"
       },
@@ -4457,7 +4664,10 @@
             "type": "object"
           }
         },
-        "required": ["code", "labels"],
+        "required": [
+          "code",
+          "labels"
+        ],
         "title": "DeskIn",
         "type": "object"
       },
@@ -4498,7 +4708,15 @@
             "type": "integer"
           }
         },
-        "required": ["id", "code", "labels", "is_default", "disabled", "version", "created_at"],
+        "required": [
+          "id",
+          "code",
+          "labels",
+          "is_default",
+          "disabled",
+          "version",
+          "created_at"
+        ],
         "title": "DeskOut",
         "type": "object"
       },
@@ -4537,7 +4755,10 @@
       },
       "Disposition": {
         "description": "Open in the browser (images, PDFs) or save as a file.",
-        "enum": ["inline", "attachment"],
+        "enum": [
+          "inline",
+          "attachment"
+        ],
         "title": "Disposition",
         "type": "string"
       },
@@ -4551,7 +4772,9 @@
             "type": "string"
           }
         },
-        "required": ["host"],
+        "required": [
+          "host"
+        ],
         "title": "DomainIn",
         "type": "object"
       },
@@ -4652,7 +4875,11 @@
       },
       "DomainStatus": {
         "description": "Whether the address is proven to reach this installation.",
-        "enum": ["pending", "verified", "failed"],
+        "enum": [
+          "pending",
+          "verified",
+          "failed"
+        ],
         "title": "DomainStatus",
         "type": "string"
       },
@@ -4683,13 +4910,21 @@
             "title": "Subdomain"
           }
         },
-        "required": ["subdomain", "point_to", "items"],
+        "required": [
+          "subdomain",
+          "point_to",
+          "items"
+        ],
         "title": "DomainsOut",
         "type": "object"
       },
       "Edition": {
         "description": "Commercial tier (product-plan.md §9).",
-        "enum": ["essentials", "professional", "enterprise"],
+        "enum": [
+          "essentials",
+          "professional",
+          "enterprise"
+        ],
         "title": "Edition",
         "type": "string"
       },
@@ -4707,26 +4942,46 @@
           },
           "scope": {
             "description": "The broadest scope held.",
-            "enum": ["all", "site", "group", "own"],
+            "enum": [
+              "all",
+              "site",
+              "group",
+              "own"
+            ],
             "title": "Scope",
             "type": "string"
           },
           "scopes": {
             "items": {
-              "enum": ["all", "site", "group", "own"],
+              "enum": [
+                "all",
+                "site",
+                "group",
+                "own"
+              ],
               "type": "string"
             },
             "title": "Scopes",
             "type": "array"
           }
         },
-        "required": ["key", "scope", "scopes", "conditional"],
+        "required": [
+          "key",
+          "scope",
+          "scopes",
+          "conditional"
+        ],
         "title": "EffectivePermission",
         "type": "object"
       },
       "EntitlementState": {
         "description": "Derived licence state (see module docstring).",
-        "enum": ["active", "grace", "read_only", "invalid"],
+        "enum": [
+          "active",
+          "grace",
+          "read_only",
+          "invalid"
+        ],
         "title": "EntitlementState",
         "type": "string"
       },
@@ -4832,13 +5087,24 @@
       },
       "EntryKind": {
         "description": "A reply (to people, by a channel) or a note (on the record).",
-        "enum": ["reply", "note"],
+        "enum": [
+          "reply",
+          "note"
+        ],
         "title": "EntryKind",
         "type": "string"
       },
       "ExportFilter": {
         "description": "Fields an export can be filtered on (exact match).",
-        "enum": ["action", "category", "outcome", "actor_id", "object_type", "object_id", "client"],
+        "enum": [
+          "action",
+          "category",
+          "outcome",
+          "actor_id",
+          "object_type",
+          "object_id",
+          "client"
+        ],
         "title": "ExportFilter",
         "type": "string"
       },
@@ -4911,7 +5177,10 @@
             "title": "Next Change In Seconds"
           }
         },
-        "required": ["items", "next_change_in_seconds"],
+        "required": [
+          "items",
+          "next_change_in_seconds"
+        ],
         "title": "FeedOut",
         "type": "object"
       },
@@ -4929,7 +5198,9 @@
             "title": "Old"
           }
         },
-        "required": ["field"],
+        "required": [
+          "field"
+        ],
         "title": "FieldChangeOut",
         "type": "object"
       },
@@ -4975,13 +5246,25 @@
             "type": "object"
           }
         },
-        "required": ["field", "code", "message_key"],
+        "required": [
+          "field",
+          "code",
+          "message_key"
+        ],
         "title": "FieldError",
         "type": "object"
       },
       "FieldKind": {
         "description": "What a rule field holds; decides its operators and how values are checked.",
-        "enum": ["text", "code", "reference", "number", "boolean", "datetime", "codes"],
+        "enum": [
+          "text",
+          "code",
+          "reference",
+          "number",
+          "boolean",
+          "datetime",
+          "codes"
+        ],
         "title": "FieldKind",
         "type": "string"
       },
@@ -5155,7 +5438,14 @@
       },
       "FileState": {
         "description": "Where a file is. Only `clean` (and `not_scanned` when scanning is not required) opens.",
-        "enum": ["scanning", "clean", "infected", "scan_failed", "not_scanned", "deleted"],
+        "enum": [
+          "scanning",
+          "clean",
+          "infected",
+          "scan_failed",
+          "not_scanned",
+          "deleted"
+        ],
         "title": "FileState",
         "type": "string"
       },
@@ -5182,7 +5472,9 @@
             "type": "array"
           }
         },
-        "required": ["and"],
+        "required": [
+          "and"
+        ],
         "title": "FilterAnd",
         "type": "object"
       },
@@ -5209,7 +5501,9 @@
             "type": "array"
           }
         },
-        "required": ["and"],
+        "required": [
+          "and"
+        ],
         "title": "FilterAnd",
         "type": "object"
       },
@@ -5236,7 +5530,9 @@
             "type": "array"
           }
         },
-        "required": ["and"],
+        "required": [
+          "and"
+        ],
         "title": "FilterAnd",
         "type": "object"
       },
@@ -5283,7 +5579,10 @@
             "title": "Value"
           }
         },
-        "required": ["field", "op"],
+        "required": [
+          "field",
+          "op"
+        ],
         "title": "FilterCondition",
         "type": "object"
       },
@@ -5324,7 +5623,9 @@
             "type": "array"
           }
         },
-        "required": ["or"],
+        "required": [
+          "or"
+        ],
         "title": "FilterOr",
         "type": "object"
       },
@@ -5351,7 +5652,9 @@
             "type": "array"
           }
         },
-        "required": ["or"],
+        "required": [
+          "or"
+        ],
         "title": "FilterOr",
         "type": "object"
       },
@@ -5378,19 +5681,30 @@
             "type": "array"
           }
         },
-        "required": ["or"],
+        "required": [
+          "or"
+        ],
         "title": "FilterOr",
         "type": "object"
       },
       "FirstResponseAction": {
         "description": "Actions an admin may count as the first response (REQ-INC-065).",
-        "enum": ["reply", "public_note", "private_note"],
+        "enum": [
+          "reply",
+          "public_note",
+          "private_note"
+        ],
         "title": "FirstResponseAction",
         "type": "string"
       },
       "FollowReason": {
         "description": "How someone came to follow a record (shown in the followers list).",
-        "enum": ["self", "added", "handed_over", "mentioned"],
+        "enum": [
+          "self",
+          "added",
+          "handed_over",
+          "mentioned"
+        ],
         "title": "FollowReason",
         "type": "string"
       },
@@ -5421,7 +5735,13 @@
             "type": "string"
           }
         },
-        "required": ["user_id", "reason", "grants_access", "since", "removable"],
+        "required": [
+          "user_id",
+          "reason",
+          "grants_access",
+          "since",
+          "removable"
+        ],
         "title": "FollowerOut",
         "type": "object"
       },
@@ -5448,13 +5768,20 @@
             "type": "object"
           }
         },
-        "required": ["items", "may_manage", "people"],
+        "required": [
+          "items",
+          "may_manage",
+          "people"
+        ],
         "title": "FollowersOut",
         "type": "object"
       },
       "FormDensity": {
         "description": "How record forms lay out, per user (WP-020c): one column with labels above, or compact.\n\nCompact puts two columns side by side with the labels on the left (the denser layout\nServiceDesk Plus users are used to); stored server-side so it follows the user.",
-        "enum": ["comfortable", "compact"],
+        "enum": [
+          "comfortable",
+          "compact"
+        ],
         "title": "FormDensity",
         "type": "string"
       },
@@ -5480,12 +5807,20 @@
             "type": "string"
           },
           "scope": {
-            "enum": ["all", "site", "group", "own"],
+            "enum": [
+              "all",
+              "site",
+              "group",
+              "own"
+            ],
             "title": "Scope",
             "type": "string"
           }
         },
-        "required": ["permission", "scope"],
+        "required": [
+          "permission",
+          "scope"
+        ],
         "title": "GrantIO",
         "type": "object"
       },
@@ -5571,7 +5906,9 @@
             "type": "array"
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "GroupIn",
         "type": "object"
       },
@@ -5815,7 +6152,10 @@
             "type": "string"
           }
         },
-        "required": ["status", "version"],
+        "required": [
+          "status",
+          "version"
+        ],
         "title": "HealthResponse",
         "type": "object"
       },
@@ -5845,7 +6185,10 @@
             "title": "Actor Name"
           },
           "actor_type": {
-            "enum": ["user", "system"],
+            "enum": [
+              "user",
+              "system"
+            ],
             "title": "Actor Type",
             "type": "string"
           },
@@ -5857,7 +6200,13 @@
             "type": "array"
           },
           "kind": {
-            "enum": ["created", "updated", "status", "deleted", "restored"],
+            "enum": [
+              "created",
+              "updated",
+              "status",
+              "deleted",
+              "restored"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -5878,7 +6227,15 @@
             "title": "Reason"
           },
           "source": {
-            "enum": ["ui", "api", "rule", "workflow", "ai_agent", "system", "import"],
+            "enum": [
+              "ui",
+              "api",
+              "rule",
+              "workflow",
+              "ai_agent",
+              "system",
+              "import"
+            ],
             "title": "Source",
             "type": "string"
           },
@@ -5923,7 +6280,10 @@
             "title": "Next Cursor"
           }
         },
-        "required": ["items", "next_cursor"],
+        "required": [
+          "items",
+          "next_cursor"
+        ],
         "title": "HistoryOut",
         "type": "object"
       },
@@ -5959,7 +6319,10 @@
             "type": "string"
           }
         },
-        "required": ["dashboard_ref", "chosen"],
+        "required": [
+          "dashboard_ref",
+          "chosen"
+        ],
         "title": "HomeOut",
         "type": "object"
       },
@@ -6217,7 +6580,12 @@
           },
           "password_policy_state": {
             "description": "default: never edited here; applying until written into Keycloak.",
-            "enum": ["default", "applying", "applied", "failed"],
+            "enum": [
+              "default",
+              "applying",
+              "applied",
+              "failed"
+            ],
             "title": "Password Policy State",
             "type": "string"
           },
@@ -6269,7 +6637,12 @@
       },
       "Impact": {
         "description": "How widely it is felt, lowest first.",
-        "enum": ["one_person", "team", "department_or_site", "organisation"],
+        "enum": [
+          "one_person",
+          "team",
+          "department_or_site",
+          "organisation"
+        ],
         "title": "Impact",
         "type": "string"
       },
@@ -6301,7 +6674,10 @@
             "title": "Failure"
           },
           "file_format": {
-            "enum": ["csv", "xlsx"],
+            "enum": [
+              "csv",
+              "xlsx"
+            ],
             "title": "File Format",
             "type": "string"
           },
@@ -6327,7 +6703,10 @@
             "type": "string"
           },
           "match_on": {
-            "enum": ["email", "employee_id"],
+            "enum": [
+              "email",
+              "employee_id"
+            ],
             "title": "Match On",
             "type": "string"
           },
@@ -6343,7 +6722,12 @@
             "type": "integer"
           },
           "status": {
-            "enum": ["queued", "running", "done", "failed"],
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -6416,7 +6800,11 @@
             "title": "Row"
           }
         },
-        "required": ["row", "field", "code"],
+        "required": [
+          "row",
+          "field",
+          "code"
+        ],
         "title": "ImportProblem",
         "type": "object"
       },
@@ -6435,7 +6823,13 @@
       },
       "IndexState": {
         "description": "Promotion to an index (REQ-INC-014 AC2), built by the index worker (D-087, D-088).",
-        "enum": ["none", "pending", "building", "active", "failed"],
+        "enum": [
+          "none",
+          "pending",
+          "building",
+          "active",
+          "failed"
+        ],
         "title": "IndexState",
         "type": "string"
       },
@@ -6449,7 +6843,9 @@
             "type": "string"
           }
         },
-        "required": ["user_id"],
+        "required": [
+          "user_id"
+        ],
         "title": "InvitationIn",
         "type": "object"
       },
@@ -6464,7 +6860,9 @@
             "type": "array"
           }
         },
-        "required": ["items"],
+        "required": [
+          "items"
+        ],
         "title": "InvitationListOut",
         "type": "object"
       },
@@ -6485,7 +6883,10 @@
           },
           "delivery": {
             "description": "existing_account: they already have a password and can sign in now.",
-            "enum": ["email", "existing_account"],
+            "enum": [
+              "email",
+              "existing_account"
+            ],
             "title": "Delivery",
             "type": "string"
           },
@@ -6513,7 +6914,12 @@
             "type": "string"
           },
           "status": {
-            "enum": ["pending", "accepted", "expired", "revoked"],
+            "enum": [
+              "pending",
+              "accepted",
+              "expired",
+              "revoked"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -6544,7 +6950,11 @@
       },
       "Kind": {
         "description": "How a file may be shown: an image or a PDF previews in the browser; others download.",
-        "enum": ["image", "pdf", "other"],
+        "enum": [
+          "image",
+          "pdf",
+          "other"
+        ],
         "title": "Kind",
         "type": "string"
       },
@@ -6602,7 +7012,12 @@
             "title": "Used"
           }
         },
-        "required": ["key", "limit", "used", "remaining"],
+        "required": [
+          "key",
+          "limit",
+          "used",
+          "remaining"
+        ],
         "title": "LimitOut",
         "type": "object"
       },
@@ -6630,7 +7045,10 @@
             "type": "string"
           }
         },
-        "required": ["url", "expires_at"],
+        "required": [
+          "url",
+          "expires_at"
+        ],
         "title": "LinkOut",
         "type": "object"
       },
@@ -6647,7 +7065,9 @@
             "type": "array"
           }
         },
-        "required": ["codes"],
+        "required": [
+          "codes"
+        ],
         "title": "ListOrderIn",
         "type": "object"
       },
@@ -6675,7 +7095,9 @@
             "type": "object"
           }
         },
-        "required": ["labels"],
+        "required": [
+          "labels"
+        ],
         "title": "ListValueIn",
         "type": "object"
       },
@@ -6735,7 +7157,9 @@
             "type": "array"
           }
         },
-        "required": ["channels"],
+        "required": [
+          "channels"
+        ],
         "title": "LiveListChannels",
         "type": "object"
       },
@@ -6880,7 +7304,14 @@
             "type": "array"
           }
         },
-        "required": ["id", "record_type", "record_id", "cap", "triggers", "occurred_at"],
+        "required": [
+          "id",
+          "record_type",
+          "record_id",
+          "cap",
+          "triggers",
+          "occurred_at"
+        ],
         "title": "LoopStopOut",
         "type": "object"
       },
@@ -6897,7 +7328,11 @@
             "$ref": "#/components/schemas/Urgency"
           }
         },
-        "required": ["impact", "urgency", "priority"],
+        "required": [
+          "impact",
+          "urgency",
+          "priority"
+        ],
         "title": "MatrixCellIn",
         "type": "object"
       },
@@ -6914,7 +7349,9 @@
             "type": "array"
           }
         },
-        "required": ["cells"],
+        "required": [
+          "cells"
+        ],
         "title": "MatrixIn",
         "type": "object"
       },
@@ -6971,7 +7408,12 @@
             "$ref": "#/components/schemas/UserOut"
           }
         },
-        "required": ["user", "tenant", "tenants", "csrf_token"],
+        "required": [
+          "user",
+          "tenant",
+          "tenants",
+          "csrf_token"
+        ],
         "title": "MeResponse",
         "type": "object"
       },
@@ -6997,7 +7439,12 @@
             "type": "string"
           }
         },
-        "required": ["id", "display_name", "email", "can_see"],
+        "required": [
+          "id",
+          "display_name",
+          "email",
+          "can_see"
+        ],
         "title": "MentionableOut",
         "type": "object"
       },
@@ -7016,7 +7463,10 @@
             "type": "array"
           }
         },
-        "required": ["grace_days", "roles"],
+        "required": [
+          "grace_days",
+          "roles"
+        ],
         "title": "MfaPolicyOut",
         "type": "object"
       },
@@ -7030,7 +7480,9 @@
             "type": "string"
           }
         },
-        "required": ["mode"],
+        "required": [
+          "mode"
+        ],
         "title": "MfaRoleIn",
         "type": "object"
       },
@@ -7063,7 +7515,11 @@
             "title": "Key"
           },
           "mode": {
-            "enum": ["off", "optional", "required"],
+            "enum": [
+              "off",
+              "optional",
+              "required"
+            ],
             "title": "Mode",
             "type": "string"
           },
@@ -7097,13 +7553,24 @@
       },
       "NavLayout": {
         "description": "Where the console's navigation sits, per user (WP-011; a ServiceDesk Plus parity choice).\n\nStored server-side so the choice follows the user to every device.",
-        "enum": ["top", "side", "side_compact"],
+        "enum": [
+          "top",
+          "side",
+          "side_compact"
+        ],
         "title": "NavLayout",
         "type": "string"
       },
       "NotificationCategory": {
         "description": "Groups events for personal preferences (REQ-NTF-016).",
-        "enum": ["created", "assignment", "conversation", "status", "mention", "following"],
+        "enum": [
+          "created",
+          "assignment",
+          "conversation",
+          "status",
+          "mention",
+          "following"
+        ],
         "title": "NotificationCategory",
         "type": "string"
       },
@@ -7134,13 +7601,20 @@
             "type": "integer"
           }
         },
-        "required": ["items", "next_cursor", "unread"],
+        "required": [
+          "items",
+          "next_cursor",
+          "unread"
+        ],
         "title": "NotificationCentreOut",
         "type": "object"
       },
       "NotificationChannel": {
         "description": "How a notification reaches a person.",
-        "enum": ["in_app", "email"],
+        "enum": [
+          "in_app",
+          "email"
+        ],
         "title": "NotificationChannel",
         "type": "string"
       },
@@ -7155,7 +7629,10 @@
             "$ref": "#/components/schemas/NotificationChannel"
           }
         },
-        "required": ["category", "channel"],
+        "required": [
+          "category",
+          "channel"
+        ],
         "title": "NotificationChoiceIn",
         "type": "object"
       },
@@ -7178,7 +7655,12 @@
             "type": "boolean"
           }
         },
-        "required": ["category", "channel", "on", "locked"],
+        "required": [
+          "category",
+          "channel",
+          "on",
+          "locked"
+        ],
         "title": "NotificationChoiceOut",
         "type": "object"
       },
@@ -7204,7 +7686,11 @@
             "type": "array"
           }
         },
-        "required": ["field", "operator", "values"],
+        "required": [
+          "field",
+          "operator",
+          "values"
+        ],
         "title": "NotificationCondition",
         "type": "object"
       },
@@ -7264,7 +7750,13 @@
             "title": "Recipient Name"
           },
           "state": {
-            "enum": ["queued", "waiting", "sent", "failed", "suppressed"],
+            "enum": [
+              "queued",
+              "waiting",
+              "sent",
+              "failed",
+              "suppressed"
+            ],
             "title": "State",
             "type": "string"
           }
@@ -7385,7 +7877,11 @@
             "type": "integer"
           }
         },
-        "required": ["choices", "do_not_disturb", "version"],
+        "required": [
+          "choices",
+          "do_not_disturb",
+          "version"
+        ],
         "title": "NotificationPreferencesOut",
         "type": "object"
       },
@@ -7425,7 +7921,10 @@
             "type": "integer"
           }
         },
-        "required": ["changed", "unread"],
+        "required": [
+          "changed",
+          "unread"
+        ],
         "title": "NotificationReadOut",
         "type": "object"
       },
@@ -7485,7 +7984,9 @@
             "type": "array"
           }
         },
-        "required": ["enabled"],
+        "required": [
+          "enabled"
+        ],
         "title": "NotificationRuleIn",
         "type": "object"
       },
@@ -7649,7 +8150,10 @@
             "type": "integer"
           }
         },
-        "required": ["mail_configured", "waiting"],
+        "required": [
+          "mail_configured",
+          "waiting"
+        ],
         "title": "NotificationStatusOut",
         "type": "object"
       },
@@ -7664,7 +8168,9 @@
             "type": "integer"
           }
         },
-        "required": ["next_number"],
+        "required": [
+          "next_number"
+        ],
         "title": "NumberingIn",
         "type": "object"
       },
@@ -7717,7 +8223,10 @@
             "type": "string"
           }
         },
-        "required": ["record_type", "ids"],
+        "required": [
+          "record_type",
+          "ids"
+        ],
         "title": "OrderIn",
         "type": "object"
       },
@@ -7734,13 +8243,21 @@
             "type": "string"
           }
         },
-        "required": ["id", "display_name"],
+        "required": [
+          "id",
+          "display_name"
+        ],
         "title": "OwnerCandidateOut",
         "type": "object"
       },
       "OwnerType": {
         "description": "What a file can be attached to.",
-        "enum": ["work_item", "conversation_entry", "draft", "branding"],
+        "enum": [
+          "work_item",
+          "conversation_entry",
+          "draft",
+          "branding"
+        ],
         "title": "OwnerType",
         "type": "string"
       },
@@ -7753,7 +8270,9 @@
             "type": "string"
           }
         },
-        "required": ["email"],
+        "required": [
+          "email"
+        ],
         "title": "PasswordResetIn",
         "type": "object"
       },
@@ -7792,14 +8311,26 @@
           "scopes": {
             "description": "Scopes a role may grant it with, broadest first.",
             "items": {
-              "enum": ["all", "site", "group", "own"],
+              "enum": [
+                "all",
+                "site",
+                "group",
+                "own"
+              ],
               "type": "string"
             },
             "title": "Scopes",
             "type": "array"
           }
         },
-        "required": ["key", "module", "feature", "scopes", "entitled", "conditions_supported"],
+        "required": [
+          "key",
+          "module",
+          "feature",
+          "scopes",
+          "entitled",
+          "conditions_supported"
+        ],
         "title": "PermissionOut",
         "type": "object"
       },
@@ -7901,7 +8432,11 @@
           "locale": {
             "anyOf": [
               {
-                "enum": ["en", "ar", "ur"],
+                "enum": [
+                  "en",
+                  "ar",
+                  "ur"
+                ],
                 "type": "string"
               },
               {
@@ -8092,7 +8627,11 @@
           "locale": {
             "anyOf": [
               {
-                "enum": ["en", "ar", "ur"],
+                "enum": [
+                  "en",
+                  "ar",
+                  "ur"
+                ],
                 "type": "string"
               },
               {
@@ -8187,7 +8726,9 @@
             "title": "Vip"
           }
         },
-        "required": ["first_name"],
+        "required": [
+          "first_name"
+        ],
         "title": "PersonIn",
         "type": "object"
       },
@@ -8203,13 +8744,24 @@
             "type": "string"
           }
         },
-        "required": ["display_name", "email"],
+        "required": [
+          "display_name",
+          "email"
+        ],
         "title": "PersonOut",
         "type": "object"
       },
       "PickList": {
         "description": "Admin-managed value lists: the reason lists plus levels and closure codes.",
-        "enum": ["pause", "third_party", "cancel", "reopen", "reassign", "level", "closure_code"],
+        "enum": [
+          "pause",
+          "third_party",
+          "cancel",
+          "reopen",
+          "reassign",
+          "level",
+          "closure_code"
+        ],
         "title": "PickList",
         "type": "string"
       },
@@ -8242,19 +8794,34 @@
             "type": "integer"
           }
         },
-        "required": ["x", "y", "w", "h"],
+        "required": [
+          "x",
+          "y",
+          "w",
+          "h"
+        ],
         "title": "Placement",
         "type": "object"
       },
       "Priority": {
         "description": "P1 is the highest.",
-        "enum": ["p1", "p2", "p3", "p4"],
+        "enum": [
+          "p1",
+          "p2",
+          "p3",
+          "p4"
+        ],
         "title": "Priority",
         "type": "string"
       },
       "PrioritySource": {
         "description": "Where the current priority came from (shown as a marker, REQ-INC-010/011).",
-        "enum": ["matrix", "manual", "default", "rule"],
+        "enum": [
+          "matrix",
+          "manual",
+          "default",
+          "rule"
+        ],
         "title": "PrioritySource",
         "type": "string"
       },
@@ -8339,7 +8906,13 @@
             "type": "string"
           }
         },
-        "required": ["type", "title", "status", "code", "message_key"],
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code",
+          "message_key"
+        ],
         "title": "ProblemDetail",
         "type": "object"
       },
@@ -8369,7 +8942,12 @@
             "type": "string"
           }
         },
-        "required": ["customised", "primary_colour", "gradient", "logos"],
+        "required": [
+          "customised",
+          "primary_colour",
+          "gradient",
+          "logos"
+        ],
         "title": "PublicBrandingOut",
         "type": "object"
       },
@@ -8419,13 +8997,22 @@
             "type": "array"
           }
         },
-        "required": ["role_ids", "group_ids"],
+        "required": [
+          "role_ids",
+          "group_ids"
+        ],
         "title": "ReactivationOut",
         "type": "object"
       },
       "ReadCategory": {
         "description": "Kinds of sensitive reads that can be logged (REQ-AUD-004). Defaults in DEFAULT_READS.",
-        "enum": ["audit_log", "access_information", "security_settings", "secrets", "exports"],
+        "enum": [
+          "audit_log",
+          "access_information",
+          "security_settings",
+          "secrets",
+          "exports"
+        ],
         "title": "ReadCategory",
         "type": "string"
       },
@@ -8455,12 +9042,19 @@
             "type": "array"
           },
           "status": {
-            "enum": ["ready", "not_ready"],
+            "enum": [
+              "ready",
+              "not_ready"
+            ],
             "title": "Status",
             "type": "string"
           }
         },
-        "required": ["status", "checks", "failed"],
+        "required": [
+          "status",
+          "checks",
+          "failed"
+        ],
         "title": "ReadinessResponse",
         "type": "object"
       },
@@ -8477,19 +9071,32 @@
             "type": "string"
           }
         },
-        "required": ["token", "expires_in"],
+        "required": [
+          "token",
+          "expires_in"
+        ],
         "title": "RealtimeToken",
         "type": "object"
       },
       "ReasonList": {
         "description": "Pick lists of reasons (admin-editable values, seeded with defaults).",
-        "enum": ["pause", "third_party", "cancel", "reopen", "reassign"],
+        "enum": [
+          "pause",
+          "third_party",
+          "cancel",
+          "reopen",
+          "reassign"
+        ],
         "title": "ReasonList",
         "type": "string"
       },
       "ReasonMode": {
         "description": "Whether running a transition asks for a reason.",
-        "enum": ["none", "optional", "required"],
+        "enum": [
+          "none",
+          "optional",
+          "required"
+        ],
         "title": "ReasonMode",
         "type": "string"
       },
@@ -8511,19 +9118,32 @@
             "type": "array"
           }
         },
-        "required": ["to", "cc"],
+        "required": [
+          "to",
+          "cc"
+        ],
         "title": "RecipientsOut",
         "type": "object"
       },
       "Relative": {
         "description": "People relative to the record who may run a transition (REQ-WF-004).",
-        "enum": ["requester", "assignee", "group_head", "requester_manager", "department_head"],
+        "enum": [
+          "requester",
+          "assignee",
+          "group_head",
+          "requester_manager",
+          "department_head"
+        ],
         "title": "Relative",
         "type": "string"
       },
       "ReplyMode": {
         "description": "Which composer a reply came from (REQ-INC-058).",
-        "enum": ["reply", "reply_all", "forward"],
+        "enum": [
+          "reply",
+          "reply_all",
+          "forward"
+        ],
         "title": "ReplyMode",
         "type": "string"
       },
@@ -8542,7 +9162,10 @@
             "type": "string"
           }
         },
-        "required": ["name", "body"],
+        "required": [
+          "name",
+          "body"
+        ],
         "title": "ReplyTemplateIn",
         "type": "object"
       },
@@ -8567,7 +9190,12 @@
             "type": "integer"
           }
         },
-        "required": ["id", "name", "body", "version"],
+        "required": [
+          "id",
+          "name",
+          "body",
+          "version"
+        ],
         "title": "ReplyTemplateOut",
         "type": "object"
       },
@@ -8647,7 +9275,9 @@
             "type": "integer"
           }
         },
-        "required": ["entity"],
+        "required": [
+          "entity"
+        ],
         "title": "ReportDefinition",
         "type": "object"
       },
@@ -8727,7 +9357,9 @@
             "type": "integer"
           }
         },
-        "required": ["entity"],
+        "required": [
+          "entity"
+        ],
         "title": "ReportDefinition",
         "type": "object"
       },
@@ -8757,7 +9389,12 @@
             "type": "array"
           }
         },
-        "required": ["entity", "list_path", "fields", "measures"],
+        "required": [
+          "entity",
+          "list_path",
+          "fields",
+          "measures"
+        ],
         "title": "ReportEntityOut",
         "type": "object"
       },
@@ -8767,7 +9404,10 @@
         "properties": {
           "content": {
             "default": "summary",
-            "enum": ["summary", "records"],
+            "enum": [
+              "summary",
+              "records"
+            ],
             "title": "Content",
             "type": "string"
           },
@@ -8775,13 +9415,21 @@
             "$ref": "#/components/schemas/ReportDefinition-Input"
           },
           "format": {
-            "enum": ["csv", "xlsx", "pdf"],
+            "enum": [
+              "csv",
+              "xlsx",
+              "pdf"
+            ],
             "title": "Format",
             "type": "string"
           },
           "language": {
             "default": "en",
-            "enum": ["en", "ar", "ur"],
+            "enum": [
+              "en",
+              "ar",
+              "ur"
+            ],
             "title": "Language",
             "type": "string"
           },
@@ -8792,7 +9440,11 @@
             "type": "string"
           }
         },
-        "required": ["definition", "format", "title"],
+        "required": [
+          "definition",
+          "format",
+          "title"
+        ],
         "title": "ReportExportIn",
         "type": "object"
       },
@@ -8863,7 +9515,12 @@
             "title": "Size Bytes"
           },
           "status": {
-            "enum": ["running", "ready", "failed", "expired"],
+            "enum": [
+              "running",
+              "ready",
+              "failed",
+              "expired"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -8920,7 +9577,13 @@
             "type": "array"
           }
         },
-        "required": ["name", "type", "values", "multiple", "dimension"],
+        "required": [
+          "name",
+          "type",
+          "values",
+          "multiple",
+          "dimension"
+        ],
         "title": "ReportFieldOut",
         "type": "object"
       },
@@ -8935,7 +9598,9 @@
             "type": "string"
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "ReportFolderIn",
         "type": "object"
       },
@@ -8956,7 +9621,11 @@
             "type": "integer"
           }
         },
-        "required": ["id", "name", "version"],
+        "required": [
+          "id",
+          "name",
+          "version"
+        ],
         "title": "ReportFolderOut",
         "type": "object"
       },
@@ -8980,7 +9649,9 @@
             "type": "string"
           }
         },
-        "required": ["field"],
+        "required": [
+          "field"
+        ],
         "title": "ReportGroupBy",
         "type": "object"
       },
@@ -9029,7 +9700,13 @@
             "title": "Reference"
           }
         },
-        "required": ["field", "kind", "label_prefix", "reference", "bucket"],
+        "required": [
+          "field",
+          "kind",
+          "label_prefix",
+          "reference",
+          "bucket"
+        ],
         "title": "ReportGroupOut",
         "type": "object"
       },
@@ -9083,7 +9760,10 @@
             "type": "string"
           }
         },
-        "required": ["name", "definition"],
+        "required": [
+          "name",
+          "definition"
+        ],
         "title": "ReportIn",
         "type": "object"
       },
@@ -9119,7 +9799,12 @@
             "type": "array"
           }
         },
-        "required": ["builtin", "folders", "reports", "favourites"],
+        "required": [
+          "builtin",
+          "folders",
+          "reports",
+          "favourites"
+        ],
         "title": "ReportLibraryOut",
         "type": "object"
       },
@@ -9139,7 +9824,11 @@
             "type": "string"
           }
         },
-        "required": ["code", "unit", "better"],
+        "required": [
+          "code",
+          "unit",
+          "better"
+        ],
         "title": "ReportMeasureOut",
         "type": "object"
       },
@@ -9310,7 +9999,11 @@
             "type": "array"
           }
         },
-        "required": ["keys", "values", "drill"],
+        "required": [
+          "keys",
+          "values",
+          "drill"
+        ],
         "title": "ReportRowOut",
         "type": "object"
       },
@@ -9322,7 +10015,9 @@
             "$ref": "#/components/schemas/ReportDefinition-Input"
           }
         },
-        "required": ["definition"],
+        "required": [
+          "definition"
+        ],
         "title": "ReportRunIn",
         "type": "object"
       },
@@ -9338,7 +10033,10 @@
           },
           "content": {
             "default": "summary",
-            "enum": ["summary", "records"],
+            "enum": [
+              "summary",
+              "records"
+            ],
             "title": "Content",
             "type": "string"
           },
@@ -9369,12 +10067,20 @@
           },
           "format": {
             "default": "xlsx",
-            "enum": ["csv", "xlsx", "pdf"],
+            "enum": [
+              "csv",
+              "xlsx",
+              "pdf"
+            ],
             "title": "Format",
             "type": "string"
           },
           "frequency": {
-            "enum": ["daily", "weekly", "monthly"],
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly"
+            ],
             "title": "Frequency",
             "type": "string"
           },
@@ -9442,7 +10148,14 @@
             "type": "array"
           }
         },
-        "required": ["title", "report_ref", "frequency", "at_time", "time_zone", "start_date"],
+        "required": [
+          "title",
+          "report_ref",
+          "frequency",
+          "at_time",
+          "time_zone",
+          "start_date"
+        ],
         "title": "ReportScheduleIn",
         "type": "object"
       },
@@ -9455,7 +10168,10 @@
             "type": "string"
           },
           "content": {
-            "enum": ["summary", "records"],
+            "enum": [
+              "summary",
+              "records"
+            ],
             "title": "Content",
             "type": "string"
           },
@@ -9483,12 +10199,20 @@
             "title": "End Date"
           },
           "format": {
-            "enum": ["csv", "xlsx", "pdf"],
+            "enum": [
+              "csv",
+              "xlsx",
+              "pdf"
+            ],
             "title": "Format",
             "type": "string"
           },
           "frequency": {
-            "enum": ["daily", "weekly", "monthly"],
+            "enum": [
+              "daily",
+              "weekly",
+              "monthly"
+            ],
             "title": "Frequency",
             "type": "string"
           },
@@ -9607,7 +10331,11 @@
             "type": "string"
           },
           "status": {
-            "enum": ["active", "paused", "finished"],
+            "enum": [
+              "active",
+              "paused",
+              "finished"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -9675,7 +10403,10 @@
             "type": "boolean"
           }
         },
-        "required": ["mail_configured", "items"],
+        "required": [
+          "mail_configured",
+          "items"
+        ],
         "title": "ReportSchedulesOut",
         "type": "object"
       },
@@ -9699,7 +10430,10 @@
             "type": "integer"
           },
           "week_start": {
-            "enum": ["monday", "sunday"],
+            "enum": [
+              "monday",
+              "sunday"
+            ],
             "title": "Week Start",
             "type": "string"
           }
@@ -9760,7 +10494,10 @@
           "week_start": {
             "anyOf": [
               {
-                "enum": ["monday", "sunday"],
+                "enum": [
+                  "monday",
+                  "sunday"
+                ],
                 "type": "string"
               },
               {
@@ -9775,7 +10512,11 @@
       },
       "ResultOrder": {
         "description": "Order of grouped rows.",
-        "enum": ["key", "value_desc", "value_asc"],
+        "enum": [
+          "key",
+          "value_desc",
+          "value_asc"
+        ],
         "title": "ResultOrder",
         "type": "string"
       },
@@ -9809,7 +10550,9 @@
             "type": "array"
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "RoleCreate",
         "type": "object"
       },
@@ -9909,7 +10652,11 @@
             "type": "boolean"
           }
         },
-        "required": ["key", "name", "system"],
+        "required": [
+          "key",
+          "name",
+          "system"
+        ],
         "title": "RoleNameOut",
         "type": "object"
       },
@@ -10000,7 +10747,15 @@
             "type": "integer"
           }
         },
-        "required": ["id", "key", "name", "description", "is_system", "user_count", "version"],
+        "required": [
+          "id",
+          "key",
+          "name",
+          "description",
+          "is_system",
+          "user_count",
+          "version"
+        ],
         "title": "RoleSummary",
         "type": "object"
       },
@@ -10057,7 +10812,11 @@
             "default": "draft"
           }
         },
-        "required": ["record_type", "name", "group_id"],
+        "required": [
+          "record_type",
+          "name",
+          "group_id"
+        ],
         "title": "RoutingIn",
         "type": "object"
       },
@@ -10274,7 +11033,12 @@
             "type": "integer"
           }
         },
-        "required": ["record_type", "fallback_group_id", "use_category_group", "version"],
+        "required": [
+          "record_type",
+          "fallback_group_id",
+          "use_category_group",
+          "version"
+        ],
         "title": "RoutingSettingsOut",
         "type": "object"
       },
@@ -10295,7 +11059,10 @@
             "title": "Field"
           },
           "kind": {
-            "enum": ["set", "refuse"],
+            "enum": [
+              "set",
+              "refuse"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -10322,13 +11089,18 @@
             "title": "Value"
           }
         },
-        "required": ["kind"],
+        "required": [
+          "kind"
+        ],
         "title": "RuleActionIO",
         "type": "object"
       },
       "RuleEvent": {
         "description": "When a business rule runs (REQ-RUL-001).",
-        "enum": ["create", "update"],
+        "enum": [
+          "create",
+          "update"
+        ],
         "title": "RuleEvent",
         "type": "string"
       },
@@ -10368,7 +11140,13 @@
             "title": "Values"
           }
         },
-        "required": ["name", "kind", "values", "settable", "derived"],
+        "required": [
+          "name",
+          "kind",
+          "values",
+          "settable",
+          "derived"
+        ],
         "title": "RuleFieldOut",
         "type": "object"
       },
@@ -10448,7 +11226,12 @@
             "type": "boolean"
           }
         },
-        "required": ["record_type", "name", "events", "actions"],
+        "required": [
+          "record_type",
+          "name",
+          "events",
+          "actions"
+        ],
         "title": "RuleIn",
         "type": "object"
       },
@@ -10679,7 +11462,11 @@
       },
       "RuleState": {
         "description": "A draft never runs (REQ-RUL-029); a disabled rule is kept but never runs.",
-        "enum": ["draft", "enabled", "disabled"],
+        "enum": [
+          "draft",
+          "enabled",
+          "disabled"
+        ],
         "title": "RuleState",
         "type": "string"
       },
@@ -10707,7 +11494,11 @@
             "type": "integer"
           }
         },
-        "required": ["max_file_mb", "max_batch", "blocked_extensions"],
+        "required": [
+          "max_file_mb",
+          "max_batch",
+          "blocked_extensions"
+        ],
         "title": "RulesIn",
         "type": "object"
       },
@@ -10734,7 +11525,12 @@
             "type": "integer"
           }
         },
-        "required": ["max_file_mb", "max_batch", "blocked_extensions", "version"],
+        "required": [
+          "max_file_mb",
+          "max_batch",
+          "blocked_extensions",
+          "version"
+        ],
         "title": "RulesOut",
         "type": "object"
       },
@@ -10885,7 +11681,11 @@
       },
       "Scale": {
         "description": "The three ordered value lists of a work item type.",
-        "enum": ["impact", "urgency", "priority"],
+        "enum": [
+          "impact",
+          "urgency",
+          "priority"
+        ],
         "title": "Scale",
         "type": "string"
       },
@@ -10932,7 +11732,9 @@
             "type": "boolean"
           }
         },
-        "required": ["require_second_publisher"],
+        "required": [
+          "require_second_publisher"
+        ],
         "title": "SettingsIn",
         "type": "object"
       },
@@ -10949,7 +11751,10 @@
             "type": "integer"
           }
         },
-        "required": ["require_second_publisher", "version"],
+        "required": [
+          "require_second_publisher",
+          "version"
+        ],
         "title": "SettingsOut",
         "type": "object"
       },
@@ -10962,7 +11767,9 @@
             "type": "boolean"
           }
         },
-        "required": ["allowed"],
+        "required": [
+          "allowed"
+        ],
         "title": "SignInIn",
         "type": "object"
       },
@@ -10975,17 +11782,27 @@
             "type": "string"
           },
           "method": {
-            "enum": ["password", "single_sign_on"],
+            "enum": [
+              "password",
+              "single_sign_on"
+            ],
             "title": "Method",
             "type": "string"
           },
           "outcome": {
-            "enum": ["success", "failed"],
+            "enum": [
+              "success",
+              "failed"
+            ],
             "title": "Outcome",
             "type": "string"
           }
         },
-        "required": ["at", "outcome", "method"],
+        "required": [
+          "at",
+          "outcome",
+          "method"
+        ],
         "title": "SignInOut",
         "type": "object"
       },
@@ -11085,7 +11902,9 @@
             "title": "Time Zone"
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "title": "SiteIn",
         "type": "object"
       },
@@ -11448,7 +12267,13 @@
             "title": "Metadata Url"
           },
           "preset": {
-            "enum": ["entra", "okta", "google", "oidc", "saml"],
+            "enum": [
+              "entra",
+              "okta",
+              "google",
+              "oidc",
+              "saml"
+            ],
             "title": "Preset",
             "type": "string"
           },
@@ -11480,7 +12305,11 @@
             "title": "Sso Url"
           }
         },
-        "required": ["preset", "display_name", "domains"],
+        "required": [
+          "preset",
+          "display_name",
+          "domains"
+        ],
         "title": "SsoBody",
         "type": "object"
       },
@@ -11517,7 +12346,11 @@
             "type": "array"
           }
         },
-        "required": ["ok", "problems", "checked_at"],
+        "required": [
+          "ok",
+          "problems",
+          "checked_at"
+        ],
         "title": "SsoCheckOut",
         "type": "object"
       },
@@ -11532,7 +12365,9 @@
             "type": "array"
           }
         },
-        "required": ["items"],
+        "required": [
+          "items"
+        ],
         "title": "SsoListOut",
         "type": "object"
       },
@@ -11583,7 +12418,11 @@
             "title": "Site"
           }
         },
-        "required": ["email", "first_name", "last_name"],
+        "required": [
+          "email",
+          "first_name",
+          "last_name"
+        ],
         "title": "SsoMappingBody",
         "type": "object"
       },
@@ -11621,12 +12460,21 @@
             ]
           },
           "preset": {
-            "enum": ["entra", "okta", "google", "oidc", "saml"],
+            "enum": [
+              "entra",
+              "okta",
+              "google",
+              "oidc",
+              "saml"
+            ],
             "title": "Preset",
             "type": "string"
           },
           "protocol": {
-            "enum": ["oidc", "saml"],
+            "enum": [
+              "oidc",
+              "saml"
+            ],
             "title": "Protocol",
             "type": "string"
           },
@@ -11647,7 +12495,12 @@
             "type": "object"
           },
           "state": {
-            "enum": ["draft", "tested", "on", "off"],
+            "enum": [
+              "draft",
+              "tested",
+              "on",
+              "off"
+            ],
             "title": "State",
             "type": "string"
           },
@@ -11747,7 +12600,10 @@
             "title": "Site"
           }
         },
-        "required": ["email", "name"],
+        "required": [
+          "email",
+          "name"
+        ],
         "title": "SsoTestIdentityOut",
         "type": "object"
       },
@@ -11776,12 +12632,20 @@
             "title": "Reason"
           },
           "status": {
-            "enum": ["pending", "passed", "failed"],
+            "enum": [
+              "pending",
+              "passed",
+              "failed"
+            ],
             "title": "Status",
             "type": "string"
           }
         },
-        "required": ["status", "reason", "identity"],
+        "required": [
+          "status",
+          "reason",
+          "identity"
+        ],
         "title": "SsoTestResultOut",
         "type": "object"
       },
@@ -11797,19 +12661,34 @@
             "type": "string"
           }
         },
-        "required": ["test_id", "url"],
+        "required": [
+          "test_id",
+          "url"
+        ],
         "title": "SsoTestStartedOut",
         "type": "object"
       },
       "StateReason": {
         "description": "Why the state is not plain `active`. Shown to admins through labels.",
-        "enum": ["expired", "licence_mismatch", "suspended", "not_yet_valid", "no_entitlement"],
+        "enum": [
+          "expired",
+          "licence_mismatch",
+          "suspended",
+          "not_yet_valid",
+          "no_entitlement"
+        ],
         "title": "StateReason",
         "type": "string"
       },
       "StatusCategory": {
         "description": "The fixed meaning of a status.",
-        "enum": ["open", "paused", "resolved", "closed", "canceled"],
+        "enum": [
+          "open",
+          "paused",
+          "resolved",
+          "closed",
+          "canceled"
+        ],
         "title": "StatusCategory",
         "type": "string"
       },
@@ -11930,7 +12809,9 @@
             "type": "string"
           }
         },
-        "required": ["channel"],
+        "required": [
+          "channel"
+        ],
         "title": "SubscriptionTokenRequest",
         "type": "object"
       },
@@ -11943,7 +12824,9 @@
             "type": "string"
           }
         },
-        "required": ["tenant_id"],
+        "required": [
+          "tenant_id"
+        ],
         "title": "SwitchTenantRequest",
         "type": "object"
       },
@@ -11959,7 +12842,9 @@
             "type": "object"
           }
         },
-        "required": ["labels"],
+        "required": [
+          "labels"
+        ],
         "title": "TemplateCopyIn",
         "type": "object"
       },
@@ -12052,7 +12937,9 @@
             "type": "object"
           }
         },
-        "required": ["labels"],
+        "required": [
+          "labels"
+        ],
         "title": "TemplateIn",
         "type": "object"
       },
@@ -12303,7 +13190,10 @@
             "type": "string"
           }
         },
-        "required": ["id", "name"],
+        "required": [
+          "id",
+          "name"
+        ],
         "title": "TenantOut",
         "type": "object"
       },
@@ -12327,13 +13217,21 @@
             "$ref": "#/components/schemas/TenantStatus"
           }
         },
-        "required": ["id", "name", "slug", "status"],
+        "required": [
+          "id",
+          "name",
+          "slug",
+          "status"
+        ],
         "title": "TenantResponse",
         "type": "object"
       },
       "TenantStatus": {
         "description": "Lifecycle of a tenant. Stored as stable lowercase codes; the UI shows labels.",
-        "enum": ["active", "suspended"],
+        "enum": [
+          "active",
+          "suspended"
+        ],
         "title": "TenantStatus",
         "type": "string"
       },
@@ -12374,19 +13272,33 @@
             "type": "string"
           }
         },
-        "required": ["starts_at", "expires_at", "maintenance_until", "grace_days"],
+        "required": [
+          "starts_at",
+          "expires_at",
+          "maintenance_until",
+          "grace_days"
+        ],
         "title": "TermOut",
         "type": "object"
       },
       "TlsMode": {
         "description": "Who provides the certificate.",
-        "enum": ["automatic", "uploaded"],
+        "enum": [
+          "automatic",
+          "uploaded"
+        ],
         "title": "TlsMode",
         "type": "string"
       },
       "TlsStatus": {
         "description": "Where the certificate stands (labels: `domain.tls.<code>`).",
-        "enum": ["waiting", "pending", "issued", "failed", "not_managed"],
+        "enum": [
+          "waiting",
+          "pending",
+          "issued",
+          "failed",
+          "not_managed"
+        ],
         "title": "TlsStatus",
         "type": "string"
       },
@@ -12418,7 +13330,9 @@
             "$ref": "#/components/schemas/ReasonMode"
           }
         },
-        "required": ["reason_mode"],
+        "required": [
+          "reason_mode"
+        ],
         "title": "TransitionPatch",
         "type": "object"
       },
@@ -12592,7 +13506,10 @@
             "title": "Field"
           },
           "kind": {
-            "enum": ["set", "note"],
+            "enum": [
+              "set",
+              "note"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -12617,7 +13534,9 @@
             "title": "Value"
           }
         },
-        "required": ["kind"],
+        "required": [
+          "kind"
+        ],
         "title": "TriggerActionIO",
         "type": "object"
       },
@@ -12710,7 +13629,12 @@
             "default": "draft"
           }
         },
-        "required": ["record_type", "name", "events", "actions"],
+        "required": [
+          "record_type",
+          "name",
+          "events",
+          "actions"
+        ],
         "title": "TriggerIn",
         "type": "object"
       },
@@ -12946,7 +13870,9 @@
             "$ref": "#/components/schemas/UserType"
           }
         },
-        "required": ["user_type"],
+        "required": [
+          "user_type"
+        ],
         "title": "TypeIn",
         "type": "object"
       },
@@ -12959,18 +13885,28 @@
             "default": "note"
           },
           "state": {
-            "enum": ["start", "stop"],
+            "enum": [
+              "start",
+              "stop"
+            ],
             "title": "State",
             "type": "string"
           }
         },
-        "required": ["state"],
+        "required": [
+          "state"
+        ],
         "title": "TypingIn",
         "type": "object"
       },
       "Urgency": {
         "description": "How fast it must be fixed, lowest first.",
-        "enum": ["low", "medium", "high", "critical"],
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "critical"
+        ],
         "title": "Urgency",
         "type": "string"
       },
@@ -12997,7 +13933,11 @@
             "title": "Limit Bytes"
           }
         },
-        "required": ["bytes_used", "files", "limit_bytes"],
+        "required": [
+          "bytes_used",
+          "files",
+          "limit_bytes"
+        ],
         "title": "UsageOut",
         "type": "object"
       },
@@ -13034,7 +13974,12 @@
             "type": "string"
           }
         },
-        "required": ["user_id", "role_ids", "site_ids", "group_ids"],
+        "required": [
+          "user_id",
+          "role_ids",
+          "site_ids",
+          "group_ids"
+        ],
         "title": "UserAccessOut",
         "type": "object"
       },
@@ -13162,7 +14107,11 @@
             "title": "Last Name"
           },
           "locale": {
-            "enum": ["en", "ar", "ur"],
+            "enum": [
+              "en",
+              "ar",
+              "ur"
+            ],
             "title": "Locale",
             "type": "string"
           },
@@ -13250,7 +14199,10 @@
             "title": "Site Id"
           },
           "status": {
-            "enum": ["active", "disabled"],
+            "enum": [
+              "active",
+              "disabled"
+            ],
             "title": "Status",
             "type": "string"
           },
@@ -13268,7 +14220,11 @@
           "ui_locale": {
             "anyOf": [
               {
-                "enum": ["en", "ar", "ur"],
+                "enum": [
+                  "en",
+                  "ar",
+                  "ur"
+                ],
                 "type": "string"
               },
               {
@@ -13351,7 +14307,11 @@
           },
           "locale": {
             "description": "UI language: the one picked in the app, else the identity provider's.",
-            "enum": ["en", "ar", "ur"],
+            "enum": [
+              "en",
+              "ar",
+              "ur"
+            ],
             "title": "Locale",
             "type": "string"
           },
@@ -13383,7 +14343,14 @@
             "$ref": "#/components/schemas/UserType"
           }
         },
-        "required": ["id", "email", "display_name", "locale", "user_type", "roles"],
+        "required": [
+          "id",
+          "email",
+          "display_name",
+          "locale",
+          "user_type",
+          "roles"
+        ],
         "title": "UserOut",
         "type": "object"
       },
@@ -13426,7 +14393,11 @@
             "title": "Next Cursor"
           }
         },
-        "required": ["items", "next_cursor", "has_more"],
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
         "title": "UserPage",
         "type": "object"
       },
@@ -13501,7 +14472,10 @@
       },
       "UserType": {
         "description": "Which app a user works in. Stored as a code; the UI shows a label.",
-        "enum": ["technician", "requester"],
+        "enum": [
+          "technician",
+          "requester"
+        ],
         "title": "UserType",
         "type": "string"
       },
@@ -13537,13 +14511,20 @@
             "type": "string"
           }
         },
-        "required": ["loc", "msg", "type"],
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
         "title": "ValidationError",
         "type": "object"
       },
       "Visibility": {
         "description": "Public: the requester sees it (portal, email). Private: staff only.",
-        "enum": ["public", "private"],
+        "enum": [
+          "public",
+          "private"
+        ],
         "title": "Visibility",
         "type": "string"
       },
@@ -13555,7 +14536,9 @@
             "$ref": "#/components/schemas/Visibility"
           }
         },
-        "required": ["visibility"],
+        "required": [
+          "visibility"
+        ],
         "title": "VisibilityIn",
         "type": "object"
       },
@@ -13619,7 +14602,10 @@
             "title": "Title Key"
           }
         },
-        "required": ["id", "place"],
+        "required": [
+          "id",
+          "place"
+        ],
         "title": "Widget",
         "type": "object"
       },
@@ -13683,7 +14669,10 @@
             "title": "Title Key"
           }
         },
-        "required": ["id", "place"],
+        "required": [
+          "id",
+          "place"
+        ],
         "title": "Widget",
         "type": "object"
       },
@@ -13768,7 +14757,10 @@
             "default": "none"
           }
         },
-        "required": ["action", "allowed"],
+        "required": [
+          "action",
+          "allowed"
+        ],
         "title": "WorkItemActionStateOut",
         "type": "object"
       },
@@ -13868,7 +14860,12 @@
             "type": "integer"
           }
         },
-        "required": ["id", "display_name", "email", "open_count"],
+        "required": [
+          "id",
+          "display_name",
+          "email",
+          "open_count"
+        ],
         "title": "WorkItemAssigneeOut",
         "type": "object"
       },
@@ -14049,7 +15046,9 @@
             "title": "Parent Id"
           }
         },
-        "required": ["labels"],
+        "required": [
+          "labels"
+        ],
         "title": "WorkItemCategoryIn",
         "type": "object"
       },
@@ -14202,7 +15201,9 @@
             "title": "Old"
           }
         },
-        "required": ["field"],
+        "required": [
+          "field"
+        ],
         "title": "WorkItemFieldChangeOut",
         "type": "object"
       },
@@ -14232,7 +15233,10 @@
             "title": "Actor Name"
           },
           "actor_type": {
-            "enum": ["user", "system"],
+            "enum": [
+              "user",
+              "system"
+            ],
             "title": "Actor Type",
             "type": "string"
           },
@@ -14372,7 +15376,10 @@
             "type": "object"
           }
         },
-        "required": ["items", "next_cursor"],
+        "required": [
+          "items",
+          "next_cursor"
+        ],
         "title": "WorkItemHistoryOut",
         "type": "object"
       },
@@ -14610,7 +15617,10 @@
             ]
           }
         },
-        "required": ["subject", "requester_id"],
+        "required": [
+          "subject",
+          "requester_id"
+        ],
         "title": "WorkItemIn",
         "type": "object"
       },
@@ -14848,7 +15858,13 @@
             "type": "integer"
           }
         },
-        "required": ["code", "labels", "sort_order", "colour", "disabled"],
+        "required": [
+          "code",
+          "labels",
+          "sort_order",
+          "colour",
+          "disabled"
+        ],
         "title": "WorkItemListValueOut",
         "type": "object"
       },
@@ -14865,7 +15881,11 @@
             "$ref": "#/components/schemas/Urgency"
           }
         },
-        "required": ["impact", "urgency", "priority"],
+        "required": [
+          "impact",
+          "urgency",
+          "priority"
+        ],
         "title": "WorkItemMatrixCellOut",
         "type": "object"
       },
@@ -15410,7 +16430,11 @@
             "type": "object"
           }
         },
-        "required": ["items", "next_cursor", "has_more"],
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
+        ],
         "title": "WorkItemPage",
         "type": "object"
       },
@@ -15674,7 +16698,11 @@
             "type": "integer"
           }
         },
-        "required": ["list", "code", "labels"],
+        "required": [
+          "list",
+          "code",
+          "labels"
+        ],
         "title": "WorkItemReasonOut",
         "type": "object"
       },
@@ -15718,7 +16746,13 @@
             "$ref": "#/components/schemas/Scale"
           }
         },
-        "required": ["scale", "code", "rank", "colour", "labels"],
+        "required": [
+          "scale",
+          "code",
+          "rank",
+          "colour",
+          "labels"
+        ],
         "title": "WorkItemScaleValueOut",
         "type": "object"
       },
@@ -15740,7 +16774,9 @@
             "type": "object"
           }
         },
-        "required": ["items"],
+        "required": [
+          "items"
+        ],
         "title": "WorkItemSearchOut",
         "type": "object"
       },
@@ -15886,7 +16922,14 @@
             "type": "boolean"
           }
         },
-        "required": ["code", "category", "colour", "labels", "system", "disabled"],
+        "required": [
+          "code",
+          "category",
+          "colour",
+          "labels",
+          "system",
+          "disabled"
+        ],
         "title": "WorkItemStatusOut",
         "type": "object"
       },
@@ -15991,7 +17034,13 @@
             "title": "To Status"
           }
         },
-        "required": ["from_status", "action", "to_status", "reason_mode", "reason_list"],
+        "required": [
+          "from_status",
+          "action",
+          "to_status",
+          "reason_mode",
+          "reason_list"
+        ],
         "title": "WorkItemTransitionOut",
         "type": "object"
       },
@@ -16012,7 +17061,11 @@
             "type": "string"
           }
         },
-        "required": ["view", "count", "capped"],
+        "required": [
+          "view",
+          "count",
+          "capped"
+        ],
         "title": "WorkItemViewCountOut",
         "type": "object"
       }
@@ -16101,7 +17154,9 @@
           }
         },
         "summary": "Technician visibility",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       },
       "put": {
         "description": "Applies to every technician at once (their screens refresh).",
@@ -16209,7 +17264,9 @@
           }
         },
         "summary": "Answer or change technician visibility",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       }
     },
     "/api/v1/account/security": {
@@ -16239,7 +17296,9 @@
           }
         },
         "summary": "My sign-in and security",
-        "tags": ["account"]
+        "tags": [
+          "account"
+        ]
       }
     },
     "/api/v1/announcements": {
@@ -16399,7 +17458,9 @@
           }
         },
         "summary": "List announcements",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       },
       "post": {
         "description": "A new draft. Send an Idempotency-Key: a retried request returns the same 201.",
@@ -16497,7 +17558,9 @@
           }
         },
         "summary": "Create an announcement",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/feed": {
@@ -16557,7 +17620,9 @@
           }
         },
         "summary": "Announcements live for you",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/owner-candidates": {
@@ -16683,7 +17748,9 @@
           }
         },
         "summary": "People who may own an announcement",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/settings": {
@@ -16743,7 +17810,9 @@
           }
         },
         "summary": "Announcement settings",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       },
       "put": {
         "description": "Turn the four-eyes rule on or off. If-Match: the version you read (\"0\" if never set).",
@@ -16851,7 +17920,9 @@
           }
         },
         "summary": "Change announcement settings",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/trash": {
@@ -17011,7 +18082,9 @@
           }
         },
         "summary": "Announcements in the trash",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}": {
@@ -17114,7 +18187,9 @@
           }
         },
         "summary": "Move an announcement to the trash",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       },
       "get": {
         "description": "One announcement, as much of it as you may see.\n\nStaff in scope: everything (`kind` = staff). Its audience while it is live: the public view\n(`kind` = public). Anyone else: 404 `announcement_not_found`, even for drafts that exist.",
@@ -17195,7 +18270,9 @@
           }
         },
         "summary": "Get an announcement",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       },
       "patch": {
         "description": "Change the fields you send. Needs If-Match; the status changes through actions.",
@@ -17313,7 +18390,9 @@
           }
         },
         "summary": "Edit an announcement",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}/archive": {
@@ -17440,7 +18519,9 @@
           }
         },
         "summary": "Archive",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}/history": {
@@ -17552,7 +18633,9 @@
           }
         },
         "summary": "History of an announcement",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}/publish": {
@@ -17662,7 +18745,9 @@
           }
         },
         "summary": "Publish",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}/reopen": {
@@ -17772,7 +18857,9 @@
           }
         },
         "summary": "Reopen",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}/restore": {
@@ -17882,7 +18969,9 @@
           }
         },
         "summary": "Restore from the trash",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/announcements/{announcement_id}/unpublish": {
@@ -18009,7 +19098,9 @@
           }
         },
         "summary": "Unpublish",
-        "tags": ["announcements"]
+        "tags": [
+          "announcements"
+        ]
       }
     },
     "/api/v1/audit/archives": {
@@ -18073,7 +19164,9 @@
           }
         },
         "summary": "Audit archives",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/archives/{archive_id}/entries": {
@@ -18193,7 +19286,9 @@
           }
         },
         "summary": "Entries of a restored archive",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/archives/{archive_id}/restore": {
@@ -18295,7 +19390,9 @@
           }
         },
         "summary": "Restore an archive for an investigation",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/entries": {
@@ -18455,7 +19552,9 @@
           }
         },
         "summary": "Search the audit log",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/entries/{entry_id}": {
@@ -18537,7 +19636,9 @@
           }
         },
         "summary": "One audit entry",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/exports": {
@@ -18601,7 +19702,9 @@
           }
         },
         "summary": "Audit exports",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       },
       "post": {
         "description": "Built in the background; follow it in the export list. 503 if storage is missing.",
@@ -18679,7 +19782,9 @@
           }
         },
         "summary": "Export the audit log",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/exports/{export_id}/download": {
@@ -18767,7 +19872,9 @@
           }
         },
         "summary": "Download an export",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/saved-searches": {
@@ -18831,7 +19938,9 @@
           }
         },
         "summary": "Your saved audit searches",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       },
       "post": {
         "description": "Keep the current filters under a name (at most 50 per person).",
@@ -18909,7 +20018,9 @@
           }
         },
         "summary": "Save an audit search",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/saved-searches/{search_id}": {
@@ -18984,7 +20095,9 @@
           }
         },
         "summary": "Delete a saved audit search",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/settings": {
@@ -19044,7 +20157,9 @@
           }
         },
         "summary": "Audit settings",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       },
       "put": {
         "description": "Change settings within the platform limits (If-Match; \"0\" before the first change).",
@@ -19142,7 +20257,9 @@
           }
         },
         "summary": "Change audit settings",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/status": {
@@ -19202,7 +20319,9 @@
           }
         },
         "summary": "Integrity status of the audit log",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/audit/verification-runs": {
@@ -19266,7 +20385,9 @@
           }
         },
         "summary": "Verification runs",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       },
       "post": {
         "description": "Starts a background verification; follow it in the run list or the status.",
@@ -19344,7 +20465,9 @@
           }
         },
         "summary": "Verify a range now",
-        "tags": ["audit"]
+        "tags": [
+          "audit"
+        ]
       }
     },
     "/api/v1/auth/account-action": {
@@ -19357,7 +20480,11 @@
             "name": "action",
             "required": true,
             "schema": {
-              "enum": ["password", "mfa", "recovery_codes"],
+              "enum": [
+                "password",
+                "mfa",
+                "recovery_codes"
+              ],
               "title": "Action",
               "type": "string"
             }
@@ -19406,7 +20533,9 @@
           }
         },
         "summary": "Change password or MFA on the sign-in service's pages",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/auth/callback": {
@@ -19505,7 +20634,9 @@
           }
         },
         "summary": "Finish login",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/auth/login": {
@@ -19519,7 +20650,10 @@
             "required": false,
             "schema": {
               "default": "console",
-              "enum": ["console", "portal"],
+              "enum": [
+                "console",
+                "portal"
+              ],
               "title": "App",
               "type": "string"
             }
@@ -19568,7 +20702,9 @@
           }
         },
         "summary": "Start login",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/auth/logout": {
@@ -19591,7 +20727,9 @@
           }
         },
         "summary": "Log out",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/auth/me": {
@@ -19621,7 +20759,9 @@
           }
         },
         "summary": "Current session",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/auth/password-reset": {
@@ -19669,7 +20809,9 @@
           }
         },
         "summary": "Forgot password: send a reset e-mail",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/auth/switch-tenant": {
@@ -19719,7 +20861,9 @@
           }
         },
         "summary": "Switch active tenant",
-        "tags": ["auth"]
+        "tags": [
+          "auth"
+        ]
       }
     },
     "/api/v1/automation/availability": {
@@ -19819,7 +20963,9 @@
           }
         },
         "summary": "Availability of technicians",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/availability/{user_id}": {
@@ -19921,7 +21067,9 @@
           }
         },
         "summary": "Set a technician Available or Away",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/availability/{user_id}/history": {
@@ -20017,7 +21165,9 @@
           }
         },
         "summary": "Availability changes of one person",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/fields": {
@@ -20116,7 +21266,9 @@
           }
         },
         "summary": "Fields rules may use for a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/groups/{group_id}/assignment": {
@@ -20208,7 +21360,9 @@
           }
         },
         "summary": "A group's auto-assignment",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "put": {
         "description": "If-Match \"0\" for the first set-up.",
@@ -20326,7 +21480,9 @@
           }
         },
         "summary": "Set up a group's auto-assignment",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/loop-stops": {
@@ -20410,7 +21566,9 @@
           }
         },
         "summary": "Loops the guard stopped in the last 24 hours",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/routing": {
@@ -20509,7 +21667,9 @@
           }
         },
         "summary": "Routing rules of a record type, in order",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "post": {
         "description": "Last in the order.",
@@ -20617,7 +21777,9 @@
           }
         },
         "summary": "Add a routing rule",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/routing-order": {
@@ -20711,7 +21873,9 @@
           }
         },
         "summary": "Order the routing rules of a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/routing-settings": {
@@ -20806,7 +21970,9 @@
           }
         },
         "summary": "Routing settings of a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "put": {
         "description": "The fallback group must be an active group.",
@@ -20927,7 +22093,9 @@
           }
         },
         "summary": "Change the routing settings of a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/routing/{rule_id}": {
@@ -21030,7 +22198,9 @@
           }
         },
         "summary": "Remove a routing rule",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "patch": {
         "description": "Checked again as a whole.",
@@ -21148,7 +22318,9 @@
           }
         },
         "summary": "Change a routing rule",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/rules": {
@@ -21247,7 +22419,9 @@
           }
         },
         "summary": "Business rules of a record type, in order",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "post": {
         "description": "Checked against the record type when saved; last in the order.",
@@ -21355,7 +22529,9 @@
           }
         },
         "summary": "Add a business rule",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/rules-order": {
@@ -21449,7 +22625,9 @@
           }
         },
         "summary": "Order the business rules of a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/rules/{rule_id}": {
@@ -21552,7 +22730,9 @@
           }
         },
         "summary": "Remove a business rule",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "patch": {
         "description": "Checked again as a whole; switching a draft on is a change like any other.",
@@ -21670,7 +22850,9 @@
           }
         },
         "summary": "Change a business rule",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/runs": {
@@ -21766,7 +22948,9 @@
           }
         },
         "summary": "Automation log of one record",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/transitions": {
@@ -21865,7 +23049,9 @@
           }
         },
         "summary": "Transition settings of a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/transitions/{action}": {
@@ -21980,7 +23166,9 @@
           }
         },
         "summary": "Back to permission only for one action",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "put": {
         "description": "If-Match \"0\" the first time. 404 `transition_not_found` for an unknown action.",
@@ -22111,7 +23299,9 @@
           }
         },
         "summary": "Save one action's transition settings",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/triggers": {
@@ -22210,7 +23400,9 @@
           }
         },
         "summary": "Triggers of a record type, in order",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "post": {
         "description": "Checked against the record type when saved; last in the order.",
@@ -22318,7 +23510,9 @@
           }
         },
         "summary": "Add a trigger",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/triggers-order": {
@@ -22412,7 +23606,9 @@
           }
         },
         "summary": "Order the triggers of a record type",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/automation/triggers/{trigger_id}": {
@@ -22515,7 +23711,9 @@
           }
         },
         "summary": "Remove a trigger",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       },
       "patch": {
         "description": "Checked again as a whole.",
@@ -22633,7 +23831,9 @@
           }
         },
         "summary": "Change a trigger",
-        "tags": ["automation"]
+        "tags": [
+          "automation"
+        ]
       }
     },
     "/api/v1/custom-fields": {
@@ -22719,7 +23919,9 @@
           }
         },
         "summary": "Custom fields of an entity",
-        "tags": ["custom-fields"]
+        "tags": [
+          "custom-fields"
+        ]
       },
       "post": {
         "description": "A new field at the end of the entity's list. Its key comes from the English name.",
@@ -22787,7 +23989,9 @@
           }
         },
         "summary": "Add a custom field",
-        "tags": ["custom-fields"]
+        "tags": [
+          "custom-fields"
+        ]
       }
     },
     "/api/v1/custom-fields/order": {
@@ -22861,7 +24065,9 @@
           }
         },
         "summary": "Reorder custom fields",
-        "tags": ["custom-fields"]
+        "tags": [
+          "custom-fields"
+        ]
       }
     },
     "/api/v1/custom-fields/{field_id}": {
@@ -22966,7 +24172,9 @@
           }
         },
         "summary": "Remove a custom field",
-        "tags": ["custom-fields"]
+        "tags": [
+          "custom-fields"
+        ]
       },
       "patch": {
         "description": "Names, help, choices, default, validation; retire or bring back.",
@@ -23074,7 +24282,9 @@
           }
         },
         "summary": "Change a custom field",
-        "tags": ["custom-fields"]
+        "tags": [
+          "custom-fields"
+        ]
       }
     },
     "/api/v1/custom-fields/{field_id}/index": {
@@ -23174,7 +24384,9 @@
           }
         },
         "summary": "Ask for an index on a custom field",
-        "tags": ["custom-fields"]
+        "tags": [
+          "custom-fields"
+        ]
       }
     },
     "/api/v1/dashboards": {
@@ -23234,7 +24446,9 @@
           }
         },
         "summary": "Dashboards you may see",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       },
       "post": {
         "description": "Needs `dashboards.create`. A copy names its original in `copied_from` (REQ-DSH-021).",
@@ -23332,7 +24546,9 @@
           }
         },
         "summary": "Create or copy a dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       }
     },
     "/api/v1/dashboards/favourites/{ref}": {
@@ -23406,7 +24622,9 @@
           }
         },
         "summary": "Unstar a dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       },
       "put": {
         "description": "Moves it to your favourites at once (REQ-DSH-005 AC1).",
@@ -23478,7 +24696,9 @@
           }
         },
         "summary": "Star a dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       }
     },
     "/api/v1/dashboards/home": {
@@ -23538,7 +24758,9 @@
           }
         },
         "summary": "Your home dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       },
       "put": {
         "description": "A dashboard you can see, or null to go back to your role's home.",
@@ -23616,7 +24838,9 @@
           }
         },
         "summary": "Choose your home dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       }
     },
     "/api/v1/dashboards/role-homes": {
@@ -23680,7 +24904,9 @@
           }
         },
         "summary": "Home dashboards set per role",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       }
     },
     "/api/v1/dashboards/role-homes/{role_key}": {
@@ -23764,7 +24990,9 @@
           }
         },
         "summary": "Set a role's home dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       }
     },
     "/api/v1/dashboards/{ref}": {
@@ -23866,7 +25094,9 @@
           }
         },
         "summary": "Delete a dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       },
       "get": {
         "description": "A built-in one, a shared one, or your own; 404 otherwise.",
@@ -23945,7 +25175,9 @@
           }
         },
         "summary": "Get a dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       },
       "patch": {
         "description": "The fields you send, with If-Match. Built-in dashboards are never changed (copy them).",
@@ -24062,7 +25294,9 @@
           }
         },
         "summary": "Change a dashboard",
-        "tags": ["dashboards"]
+        "tags": [
+          "dashboards"
+        ]
       }
     },
     "/api/v1/entitlements": {
@@ -24122,7 +25356,9 @@
           }
         },
         "summary": "Current entitlements",
-        "tags": ["entitlements"]
+        "tags": [
+          "entitlements"
+        ]
       }
     },
     "/api/v1/files": {
@@ -24271,7 +25507,9 @@
           }
         },
         "summary": "Upload File",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/attach": {
@@ -24356,7 +25594,9 @@
           }
         },
         "summary": "Attach Drafts",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/content/{token}": {
@@ -24440,7 +25680,9 @@
           }
         },
         "summary": "File Content",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/records/{record_type}/{record_id}": {
@@ -24535,7 +25777,9 @@
           }
         },
         "summary": "Record Files",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/settings/rules": {
@@ -24595,7 +25839,9 @@
           }
         },
         "summary": "Get Rules",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       },
       "put": {
         "description": "Change the rules (If-Match; \"0\" before the first change). Audited with what changed.",
@@ -24693,7 +25939,9 @@
           }
         },
         "summary": "Put Rules",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/settings/status": {
@@ -24753,7 +26001,9 @@
           }
         },
         "summary": "Get Status",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/settings/usage": {
@@ -24813,7 +26063,9 @@
           }
         },
         "summary": "Get Usage",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/{file_id}": {
@@ -24888,7 +26140,9 @@
           }
         },
         "summary": "Delete File",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       },
       "get": {
         "description": "One file (its scan state, for the screen that is waiting on it).",
@@ -24968,7 +26222,9 @@
           }
         },
         "summary": "Get File",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/{file_id}/inline": {
@@ -25043,7 +26299,9 @@
           }
         },
         "summary": "Inline Image",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/{file_id}/link": {
@@ -25135,7 +26393,9 @@
           }
         },
         "summary": "Create Link",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/{file_id}/rescan": {
@@ -25217,7 +26477,9 @@
           }
         },
         "summary": "Rescan",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/files/{file_id}/thumbnail": {
@@ -25292,7 +26554,9 @@
           }
         },
         "summary": "Thumbnail",
-        "tags": ["files"]
+        "tags": [
+          "files"
+        ]
       }
     },
     "/api/v1/health": {
@@ -25322,7 +26586,9 @@
           }
         },
         "summary": "Liveness",
-        "tags": ["system"]
+        "tags": [
+          "system"
+        ]
       }
     },
     "/api/v1/identity/invitations": {
@@ -25421,7 +26687,9 @@
           }
         },
         "summary": "Invitations",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       },
       "post": {
         "description": "Keycloak sends the set-password e-mail from the tenant's sender, in the person's language.",
@@ -25529,7 +26797,9 @@
           }
         },
         "summary": "Invite a person",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/invitations/{invitation_id}/resend": {
@@ -25639,7 +26909,9 @@
           }
         },
         "summary": "Send an invitation again",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/invitations/{invitation_id}/revoke": {
@@ -25749,7 +27021,9 @@
           }
         },
         "summary": "Revoke an invitation",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/mfa": {
@@ -25829,7 +27103,9 @@
           }
         },
         "summary": "MFA policy",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/mfa/roles/{role_id}": {
@@ -25949,7 +27225,9 @@
           }
         },
         "summary": "Set a role's MFA mode",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/people/{user_id}/require-new-password": {
@@ -26034,7 +27312,9 @@
           }
         },
         "summary": "Require a new password at the next sign-in",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/people/{user_id}/reset-mfa": {
@@ -26119,7 +27399,9 @@
           }
         },
         "summary": "Reset a person's MFA",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/settings": {
@@ -26199,7 +27481,9 @@
           }
         },
         "summary": "Sign-in settings",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       },
       "put": {
         "description": "Save the fields sent; the others keep their values.\n\nSession limits apply to sessions begun from now on; people creation at once; the password\npolicy once the worker has written it into Keycloak (`password_policy_state`).",
@@ -26307,7 +27591,9 @@
           }
         },
         "summary": "Save sign-in settings",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/settings/password-policy/apply": {
@@ -26387,7 +27673,9 @@
           }
         },
         "summary": "Apply the password policy again",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/sso": {
@@ -26467,7 +27755,9 @@
           }
         },
         "summary": "Single sign-on set-ups",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       },
       "post": {
         "description": "Checked and saved in draft: test it, then switch it on.",
@@ -26575,7 +27865,9 @@
           }
         },
         "summary": "Add a single sign-on set-up",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/sso/{provider_id}": {
@@ -26678,7 +27970,9 @@
           }
         },
         "summary": "Remove a single sign-on set-up",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       },
       "get": {
         "description": "The set-up, with its last check.",
@@ -26768,7 +28062,9 @@
           }
         },
         "summary": "One single sign-on set-up",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       },
       "put": {
         "description": "A connection change sends it back to draft (an \"on\" set-up: switch it off first).",
@@ -26886,7 +28182,9 @@
           }
         },
         "summary": "Change a single sign-on set-up",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/sso/{provider_id}/switch-off": {
@@ -26996,7 +28294,9 @@
           }
         },
         "summary": "Switch a single sign-on set-up off",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/sso/{provider_id}/switch-on": {
@@ -27106,7 +28406,9 @@
           }
         },
         "summary": "Switch a single sign-on set-up on",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/sso/{provider_id}/tests": {
@@ -27198,7 +28500,9 @@
           }
         },
         "summary": "Start a test sign-in",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/identity/sso/{provider_id}/tests/{test_id}": {
@@ -27299,7 +28603,9 @@
           }
         },
         "summary": "Result of a test sign-in",
-        "tags": ["identity"]
+        "tags": [
+          "identity"
+        ]
       }
     },
     "/api/v1/incidents": {
@@ -27494,7 +28800,9 @@
           }
         },
         "summary": "List incidents",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "post": {
         "description": "A new record. Send an Idempotency-Key: a retried request returns the same 201.",
@@ -27602,7 +28910,9 @@
           }
         },
         "summary": "Create an incident",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/assignees": {
@@ -27724,7 +29034,9 @@
           }
         },
         "summary": "People who can be assigned",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/categories": {
@@ -27788,7 +29100,9 @@
           }
         },
         "summary": "Category tree",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "post": {
         "description": "A new node (at most three levels).",
@@ -27866,7 +29180,9 @@
           }
         },
         "summary": "Add a category",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/categories/{category_id}": {
@@ -27986,7 +29302,9 @@
           }
         },
         "summary": "Change a category",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/counters": {
@@ -28050,7 +29368,9 @@
           }
         },
         "summary": "Your personal counters",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/lookup/{value}": {
@@ -28131,7 +29451,9 @@
           }
         },
         "summary": "Find by display ID",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/reply-templates": {
@@ -28195,7 +29517,9 @@
           }
         },
         "summary": "Reply templates",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "post": {
         "description": "Names are unique (ignoring case).",
@@ -28273,7 +29597,9 @@
           }
         },
         "summary": "Add a reply template",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/reply-templates/{template_id}": {
@@ -28369,7 +29695,9 @@
           }
         },
         "summary": "Remove a reply template",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "put": {
         "description": "Needs If-Match.",
@@ -28480,7 +29808,9 @@
           }
         },
         "summary": "Change a reply template",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/search": {
@@ -28636,7 +29966,9 @@
           }
         },
         "summary": "Search incidents",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings": {
@@ -28696,7 +30028,9 @@
           }
         },
         "summary": "Incident configuration",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "patch": {
         "description": "Prefix, default priority and the automatic status moves on assignment.",
@@ -28804,7 +30138,9 @@
           }
         },
         "summary": "Change incident settings",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/lists/{list_name}/order": {
@@ -28921,7 +30257,9 @@
           }
         },
         "summary": "Reorder a pick list",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/lists/{list_name}/values": {
@@ -29038,7 +30376,9 @@
           }
         },
         "summary": "Add a value to a pick list",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/lists/{list_name}/values/{code}": {
@@ -29164,7 +30504,9 @@
           }
         },
         "summary": "Rename, colour, retire or bring back a pick list value",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/matrix": {
@@ -29273,7 +30615,9 @@
           }
         },
         "summary": "Replace the priority matrix",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/numbering": {
@@ -29382,7 +30726,9 @@
           }
         },
         "summary": "Set the next display number",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/scales/{scale}/{code}": {
@@ -29508,7 +30854,9 @@
           }
         },
         "summary": "Change an impact, urgency or priority value's labels or colour",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/statuses/{code}": {
@@ -29626,7 +30974,9 @@
           }
         },
         "summary": "Change a status's labels or colour",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/settings/transitions/{from_status}/{action}": {
@@ -29752,7 +31102,9 @@
           }
         },
         "summary": "Change a transition's reason prompt",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/templates": {
@@ -29816,7 +31168,9 @@
           }
         },
         "summary": "Templates",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "post": {
         "description": "A new template (never the default until made so).",
@@ -29894,7 +31248,9 @@
           }
         },
         "summary": "Add a template",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/templates/{template_id}": {
@@ -30014,7 +31370,9 @@
           }
         },
         "summary": "Change a template",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/templates/{template_id}/copy": {
@@ -30106,7 +31464,9 @@
           }
         },
         "summary": "Copy a template",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/trash": {
@@ -30266,7 +31626,9 @@
           }
         },
         "summary": "Incidents in the trash",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/views": {
@@ -30330,7 +31692,9 @@
           }
         },
         "summary": "Built-in incident views with counts",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}": {
@@ -30433,7 +31797,9 @@
           }
         },
         "summary": "Move to the trash",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "get": {
         "description": "One record within your view scope (404 otherwise, even if it exists).",
@@ -30513,7 +31879,9 @@
           }
         },
         "summary": "Get an incident",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "patch": {
         "description": "Change the fields you send. Needs If-Match. Priority by hand needs a reason.",
@@ -30631,7 +31999,9 @@
           }
         },
         "summary": "Edit fields",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/actions/{action}": {
@@ -30766,7 +32136,9 @@
           }
         },
         "summary": "Run a status action",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/assign": {
@@ -30886,7 +32258,9 @@
           }
         },
         "summary": "Assign or reassign",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/automation": {
@@ -30972,7 +32346,9 @@
           }
         },
         "summary": "Automation log of the record",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/conversation": {
@@ -31072,7 +32448,9 @@
           }
         },
         "summary": "Conversation",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "post": {
         "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and marked not_sent until an email channel exists (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
@@ -31180,7 +32558,9 @@
           }
         },
         "summary": "Reply or add a note",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/conversation/{entry_id}": {
@@ -31303,7 +32683,9 @@
           }
         },
         "summary": "Make a note public or private",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/followers": {
@@ -31385,7 +32767,9 @@
           }
         },
         "summary": "Followers",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/followers/{user_id}": {
@@ -31477,7 +32861,9 @@
           }
         },
         "summary": "Unfollow, or remove a follower",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       },
       "put": {
         "description": "Your own ID: follow it. Someone else: needs manage_followers, and they must see it.",
@@ -31567,7 +32953,9 @@
           }
         },
         "summary": "Follow, or add a follower",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/history": {
@@ -31623,7 +33011,11 @@
             "schema": {
               "default": "all",
               "description": "people, automation or all",
-              "enum": ["all", "people", "automation"],
+              "enum": [
+                "all",
+                "people",
+                "automation"
+              ],
               "title": "Actors",
               "type": "string"
             }
@@ -31692,7 +33084,9 @@
           }
         },
         "summary": "History",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/mentionable": {
@@ -31807,7 +33201,9 @@
           }
         },
         "summary": "People to mention or add as followers",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/restore": {
@@ -31917,7 +33313,9 @@
           }
         },
         "summary": "Restore from the trash",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/take": {
@@ -32044,7 +33442,9 @@
           }
         },
         "summary": "Take it yourself",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/incidents/{record_id}/typing": {
@@ -32129,7 +33529,9 @@
           }
         },
         "summary": "Show others you are writing",
-        "tags": ["incidents"]
+        "tags": [
+          "incidents"
+        ]
       }
     },
     "/api/v1/notifications": {
@@ -32234,7 +33636,9 @@
           }
         },
         "summary": "Your notifications",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/notifications/deliveries": {
@@ -32330,7 +33734,9 @@
           }
         },
         "summary": "Notifications of a record",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/notifications/preferences": {
@@ -32380,7 +33786,9 @@
           }
         },
         "summary": "Your notification preferences",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       },
       "put": {
         "description": "If-Match: the version you read (\"0\" before the first save).",
@@ -32478,7 +33886,9 @@
           }
         },
         "summary": "Change your notification preferences",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/notifications/read": {
@@ -32548,7 +33958,9 @@
           }
         },
         "summary": "Mark notifications read",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/notifications/rules": {
@@ -32602,7 +34014,9 @@
           }
         },
         "summary": "Notification rules of every event",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/notifications/rules/{event_code}": {
@@ -32711,7 +34125,9 @@
           }
         },
         "summary": "Reset an event's rule to the shipped default",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       },
       "put": {
         "description": "If-Match: the version you read (\"0\" while the default applies).",
@@ -32828,7 +34244,9 @@
           }
         },
         "summary": "Change an event's rule",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/notifications/status": {
@@ -32878,7 +34296,9 @@
           }
         },
         "summary": "Notification delivery status",
-        "tags": ["notifications"]
+        "tags": [
+          "notifications"
+        ]
       }
     },
     "/api/v1/organization/branding": {
@@ -32928,7 +34348,9 @@
           }
         },
         "summary": "Your tenant's brand",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/branding/check": {
@@ -32998,7 +34420,9 @@
           }
         },
         "summary": "Check brand colours",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/branding/settings": {
@@ -33048,7 +34472,9 @@
           }
         },
         "summary": "Branding settings",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "put": {
         "description": "Save the whole branding; every open console and portal shows it without a reload.",
@@ -33146,7 +34572,9 @@
           }
         },
         "summary": "Save the branding",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/departments": {
@@ -33251,7 +34679,9 @@
           }
         },
         "summary": "List departments",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "post": {
         "description": "A new department (Idempotency-Key supported).",
@@ -33359,7 +34789,9 @@
           }
         },
         "summary": "Add a department",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/departments/{department_id}": {
@@ -33462,7 +34894,9 @@
           }
         },
         "summary": "Remove a department nothing uses",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "patch": {
         "description": "Details, parent (never its own ancestor), or `disabled`.",
@@ -33580,7 +35014,9 @@
           }
         },
         "summary": "Change a department",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/desks": {
@@ -33664,7 +35100,9 @@
           }
         },
         "summary": "List desks",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "post": {
         "description": "Needs the ESM feature; counts against the licence limit `desks` (D-061, D-092).",
@@ -33772,7 +35210,9 @@
           }
         },
         "summary": "Add a desk (ESM)",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/desks/{desk_id}": {
@@ -33892,7 +35332,9 @@
           }
         },
         "summary": "Change a desk (ESM)",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/domains": {
@@ -33952,7 +35394,9 @@
           }
         },
         "summary": "Your addresses",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "post": {
         "description": "Add a host; it resolves to your tenant once checked (Idempotency-Key supported).",
@@ -34060,7 +35504,9 @@
           }
         },
         "summary": "Add a custom domain",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/domains/{domain_id}": {
@@ -34153,7 +35599,9 @@
           }
         },
         "summary": "Remove a custom domain",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/domains/{domain_id}/certificate": {
@@ -34273,7 +35721,9 @@
           }
         },
         "summary": "Use your own certificate",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/domains/{domain_id}/verify": {
@@ -34355,7 +35805,9 @@
           }
         },
         "summary": "Check a custom domain now",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/groups": {
@@ -34460,7 +35912,9 @@
           }
         },
         "summary": "List support groups",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "post": {
         "description": "A new group (Idempotency-Key supported). A group without members can be saved.",
@@ -34568,7 +36022,9 @@
           }
         },
         "summary": "Add a support group",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/groups/{unit_id}": {
@@ -34671,7 +36127,9 @@
           }
         },
         "summary": "Remove a support group nothing uses",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "patch": {
         "description": "Details, lead, sites served, desk, or `disabled`.",
@@ -34789,7 +36247,9 @@
           }
         },
         "summary": "Change a support group",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/groups/{unit_id}/members/{user_id}": {
@@ -34884,7 +36344,9 @@
           }
         },
         "summary": "Remove a member from a group",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "put": {
         "description": "Idempotent: adding an existing member changes nothing.",
@@ -34977,7 +36439,9 @@
           }
         },
         "summary": "Add a member to a group",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/sites": {
@@ -35061,7 +36525,9 @@
           }
         },
         "summary": "List sites",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "post": {
         "description": "A new site (Idempotency-Key supported).",
@@ -35169,7 +36635,9 @@
           }
         },
         "summary": "Add a site",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/sites/{unit_id}": {
@@ -35272,7 +36740,9 @@
           }
         },
         "summary": "Remove a site nothing uses",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "patch": {
         "description": "Details, or `disabled` (never the default site).",
@@ -35390,7 +36860,9 @@
           }
         },
         "summary": "Change a site",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/sites/{unit_id}/members/{user_id}": {
@@ -35485,7 +36957,9 @@
           }
         },
         "summary": "Remove a member from a site",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       },
       "put": {
         "description": "Idempotent: adding an existing member changes nothing.",
@@ -35578,7 +37052,9 @@
           }
         },
         "summary": "Add a member to a site",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/organization/tenant": {
@@ -35608,7 +37084,9 @@
           }
         },
         "summary": "Current tenant",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/people-imports": {
@@ -35692,7 +37170,9 @@
           }
         },
         "summary": "Recent people imports",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       },
       "post": {
         "description": "The raw file as the body (up to 5 MB, 5,000 rows); it is processed in the background.",
@@ -35715,7 +37195,10 @@
             "required": false,
             "schema": {
               "default": "email",
-              "enum": ["email", "employee_id"],
+              "enum": [
+                "email",
+                "employee_id"
+              ],
               "title": "Match On",
               "type": "string"
             }
@@ -35812,7 +37295,9 @@
           }
         },
         "summary": "Import people from a CSV or Excel file",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/people-imports/{import_id}": {
@@ -35904,7 +37389,9 @@
           }
         },
         "summary": "One people import",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/permissions": {
@@ -35988,7 +37475,9 @@
           }
         },
         "summary": "Permission catalogue",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       }
     },
     "/api/v1/public/branding": {
@@ -36018,7 +37507,9 @@
           }
         },
         "summary": "Brand of this address",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/public/branding/{tenant_ref}/login.css": {
@@ -36065,7 +37556,9 @@
           }
         },
         "summary": "Sign-in page stylesheet",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/public/branding/{tenant_ref}/{name}": {
@@ -36148,7 +37641,9 @@
           }
         },
         "summary": "A brand image",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/public/domain-check/{token}": {
@@ -36195,7 +37690,9 @@
           }
         },
         "summary": "Domain proof",
-        "tags": ["organization"]
+        "tags": [
+          "organization"
+        ]
       }
     },
     "/api/v1/ready": {
@@ -36235,7 +37732,9 @@
           }
         },
         "summary": "Readiness",
-        "tags": ["system"]
+        "tags": [
+          "system"
+        ]
       }
     },
     "/api/v1/realtime/connection-token": {
@@ -36265,7 +37764,9 @@
           }
         },
         "summary": "Realtime connection token",
-        "tags": ["realtime"]
+        "tags": [
+          "realtime"
+        ]
       }
     },
     "/api/v1/realtime/lists/{name}": {
@@ -36316,7 +37817,9 @@
           }
         },
         "summary": "Channels of a live list",
-        "tags": ["realtime"]
+        "tags": [
+          "realtime"
+        ]
       }
     },
     "/api/v1/realtime/subscription-token": {
@@ -36369,7 +37872,9 @@
           }
         },
         "summary": "Realtime subscription token",
-        "tags": ["realtime"]
+        "tags": [
+          "realtime"
+        ]
       }
     },
     "/api/v1/reports": {
@@ -36469,7 +37974,9 @@
           }
         },
         "summary": "Save a report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/entities/{entity}": {
@@ -36550,7 +38057,9 @@
           }
         },
         "summary": "What a report on an entity can use",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/exports": {
@@ -36614,7 +38123,9 @@
           }
         },
         "summary": "Your recent exports",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "post": {
         "description": "Needs `reports.export`. Built in the background; you are told live when it is ready.",
@@ -36722,7 +38233,9 @@
           }
         },
         "summary": "Export a report to a file",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/exports/{export_id}/file": {
@@ -36807,7 +38320,9 @@
           }
         },
         "summary": "Download an export",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/favourites/{report_ref}": {
@@ -36881,7 +38396,9 @@
           }
         },
         "summary": "Unstar a report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "put": {
         "description": "`builtin:<code>` or a saved report id.",
@@ -36953,7 +38470,9 @@
           }
         },
         "summary": "Star a report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/folders": {
@@ -37053,7 +38572,9 @@
           }
         },
         "summary": "Create a shared folder",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/folders/{folder_id}": {
@@ -37168,7 +38689,9 @@
           }
         },
         "summary": "Delete a shared folder",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "patch": {
         "description": "Needs `reports.manage_folders` and If-Match.",
@@ -37286,7 +38809,9 @@
           }
         },
         "summary": "Rename a shared folder",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/library": {
@@ -37346,7 +38871,9 @@
           }
         },
         "summary": "The reports home",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/run": {
@@ -37436,7 +38963,9 @@
           }
         },
         "summary": "Run a report definition",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/schedules": {
@@ -37496,7 +39025,9 @@
           }
         },
         "summary": "Scheduled reports",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "post": {
         "description": "Needs `reports.schedule` and outgoing mail.",
@@ -37604,7 +39135,9 @@
           }
         },
         "summary": "Schedule a report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/schedules/{schedule_id}": {
@@ -37707,7 +39240,9 @@
           }
         },
         "summary": "Delete a scheduled report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "put": {
         "description": "Replace its settings (If-Match).",
@@ -37825,7 +39360,9 @@
           }
         },
         "summary": "Change a scheduled report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/schedules/{schedule_id}/{action}": {
@@ -37848,7 +39385,10 @@
             "name": "action",
             "required": true,
             "schema": {
-              "enum": ["pause", "resume"],
+              "enum": [
+                "pause",
+                "resume"
+              ],
               "title": "Action",
               "type": "string"
             }
@@ -37945,7 +39485,9 @@
           }
         },
         "summary": "Pause or resume a scheduled report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/settings": {
@@ -38005,7 +39547,9 @@
           }
         },
         "summary": "Report settings of your organisation",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "patch": {
         "description": "Needs `settings.manage` and If-Match.",
@@ -38113,7 +39657,9 @@
           }
         },
         "summary": "Change report settings",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/reports/{report_id}": {
@@ -38216,7 +39762,9 @@
           }
         },
         "summary": "Delete a saved report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "get": {
         "description": "Yours, or one in a shared folder; 404 otherwise.",
@@ -38296,7 +39844,9 @@
           }
         },
         "summary": "Get a saved report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       },
       "patch": {
         "description": "The fields you send. Needs If-Match; built-in reports are never changed (copy them).",
@@ -38414,7 +39964,9 @@
           }
         },
         "summary": "Change a saved report",
-        "tags": ["reports"]
+        "tags": [
+          "reports"
+        ]
       }
     },
     "/api/v1/roles": {
@@ -38498,7 +40050,9 @@
           }
         },
         "summary": "List roles",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       },
       "post": {
         "description": "Create a role (Idempotency-Key supported). No permission beyond your own (unless admin).",
@@ -38606,7 +40160,9 @@
           }
         },
         "summary": "Create a custom role",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       }
     },
     "/api/v1/roles/{role_id}": {
@@ -38728,7 +40284,9 @@
           }
         },
         "summary": "Delete a custom role",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       },
       "get": {
         "description": "One role with its permission matrix and ETag.",
@@ -38818,7 +40376,9 @@
           }
         },
         "summary": "Get a role",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       },
       "patch": {
         "description": "Edit name, description and/or the permission matrix (If-Match). System roles: 403.",
@@ -38936,7 +40496,9 @@
           }
         },
         "summary": "Edit a custom role",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       }
     },
     "/api/v1/users": {
@@ -39115,7 +40677,9 @@
           }
         },
         "summary": "List users",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       },
       "post": {
         "description": "Before their first sign-in, which links them by email (D-092).",
@@ -39223,7 +40787,9 @@
           }
         },
         "summary": "Add a person",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}": {
@@ -39308,7 +40874,9 @@
           }
         },
         "summary": "Get a user",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       },
       "patch": {
         "description": "Change your own signature or time zone. Needs `If-Match` with the ETag you read.\n\nA stale If-Match gets 409 with `changed_fields`, `changed_by` and `changed_at`.",
@@ -39436,7 +41004,9 @@
           }
         },
         "summary": "Update your preferences",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}/access": {
@@ -39528,7 +41098,9 @@
           }
         },
         "summary": "Roles, sites and groups of a user",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       }
     },
     "/api/v1/users/{user_id}/deactivate": {
@@ -39638,7 +41210,9 @@
           }
         },
         "summary": "Deactivate a person",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}/person": {
@@ -39758,7 +41332,9 @@
           }
         },
         "summary": "Change a person's record",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}/reactivate": {
@@ -39878,7 +41454,9 @@
           }
         },
         "summary": "Reactivate a person",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}/reactivation": {
@@ -39970,7 +41548,9 @@
           }
         },
         "summary": "What reactivating would keep",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}/roles/{role_id}": {
@@ -40065,7 +41645,9 @@
           }
         },
         "summary": "Remove a role",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       },
       "put": {
         "description": "Idempotent. Only roles within your own permissions (tenant admins: any).",
@@ -40158,7 +41740,9 @@
           }
         },
         "summary": "Assign a role",
-        "tags": ["access"]
+        "tags": [
+          "access"
+        ]
       }
     },
     "/api/v1/users/{user_id}/sign-in": {
@@ -40278,7 +41862,9 @@
           }
         },
         "summary": "Allow or stop a person's sign-in",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     },
     "/api/v1/users/{user_id}/type": {
@@ -40398,7 +41984,9 @@
           }
         },
         "summary": "Make a person a technician or a requester",
-        "tags": ["users"]
+        "tags": [
+          "users"
+        ]
       }
     }
   }

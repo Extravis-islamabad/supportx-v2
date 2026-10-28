@@ -51,6 +51,24 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        path: 'dashboards',
+        handle: { section: 'dashboards' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/dashboards/DashboardsPage')).DashboardsPage,
+            }),
+          },
+          {
+            path: ':ref',
+            lazy: async () => ({
+              Component: (await import('./pages/dashboards/DashboardsPage')).DashboardsPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'reports',
         handle: { section: 'reports' },
         children: [
