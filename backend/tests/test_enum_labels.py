@@ -23,6 +23,13 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 ENUM_PREFIXES: dict[str, str] = {
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
+    # Tasks, worklogs and links (WP-020e)
+    "TaskStatus": "task_status",
+    "TaskPriority": "task_priority",
+    "WorklogType": "worklog_type",
+    "LinkKind": "link_kind",
+    "WorkItemLinkOut.relation": "link_relation",
+    "WorkItemTaskMoveIn.direction": "task_move_direction",
     # Incident lists and bulk jobs (WP-020d)
     "BulkAction": "bulk_action",
     "BulkOutcome": "bulk_outcome",

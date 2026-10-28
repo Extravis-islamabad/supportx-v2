@@ -639,7 +639,7 @@ class LinkView:
     link: WorkItemLink
     other_id: uuid.UUID
     # "related"; for follows: "follows" (this record follows the other) or "followed_by".
-    relation: str
+    relation: Literal["related", "follows", "followed_by"]
     visible: bool
     display_id: str | None
     subject_text: str | None
@@ -662,8 +662,8 @@ async def links(
     for link in rows:
         mine_is_source = link.source_id == record_id
         other = link.target_id if mine_is_source else link.source_id
-        relation = (
-            LinkKind.RELATED.value
+        relation: Literal["related", "follows", "followed_by"] = (
+            "related"
             if link.kind == LinkKind.RELATED
             else ("follows" if mine_is_source else "followed_by")
         )

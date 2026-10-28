@@ -93,6 +93,7 @@ class ClosureSettings:
     complete_open_work: bool
     auto_close_days: int | None
     reopen_window_days: int
+    task_owner_access: bool = False  # WP-020e (D-111)
 
 
 @dataclass(frozen=True)
@@ -393,6 +394,7 @@ async def load(session: AsyncSession, wtype: WorkItemType) -> Catalogue:
             complete_open_work=settings.complete_open_work,
             auto_close_days=settings.auto_close_days,
             reopen_window_days=settings.reopen_window_days,
+            task_owner_access=settings.task_owner_access,
         ),
         last_number=await last_number(session, wtype.counter_key),
     )

@@ -2219,6 +2219,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/my-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open tasks you own
+         * @description With the record each belongs to; a task-only owner (D-111) starts here.
+         */
+        get: operations["my_tasks_api_v1_incidents_my_tasks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/reply-templates": {
         parameters: {
             query?: never;
@@ -2842,6 +2862,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/{record_id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Links of a record
+         * @description Both directions; a record you cannot see shows as a link without its ID or subject.
+         */
+        get: operations["list_links_api_v1_incidents__record_id__links_get"];
+        put?: never;
+        /**
+         * Link a related record
+         * @description Both records must be visible to you; the link shows and is recorded on both.
+         */
+        post: operations["create_link_api_v1_incidents__record_id__links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a link
+         * @description From either side; both histories say so. Needs If-Match.
+         */
+        delete: operations["delete_link_api_v1_incidents__record_id__links__link_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/{record_id}/mentionable": {
         parameters: {
             query?: never;
@@ -2942,6 +3006,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/{record_id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Tasks of a record
+         * @description In their order, with "done / total".
+         */
+        get: operations["list_tasks_api_v1_incidents__record_id__tasks_get"];
+        put?: never;
+        /**
+         * Add a task
+         * @description At the end of the list; needs the record's edit permission.
+         */
+        post: operations["create_task_api_v1_incidents__record_id__tasks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a task
+         * @description Needs If-Match.
+         */
+        delete: operations["delete_task_api_v1_incidents__record_id__tasks__task_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a task
+         * @description Needs If-Match. A task-only owner (D-111) changes the status only.
+         */
+        patch: operations["update_task_api_v1_incidents__record_id__tasks__task_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/tasks/{task_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move a task up or down
+         * @description One place; the new order is saved for everyone (REQ-INC-072 AC2).
+         */
+        post: operations["move_task_api_v1_incidents__record_id__tasks__task_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/{record_id}/typing": {
         parameters: {
             query?: never;
@@ -2962,6 +3094,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/worklogs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Worklogs of a record
+         * @description Newest first, with totals per person and per type.
+         */
+        get: operations["list_worklogs_api_v1_incidents__record_id__worklogs_get"];
+        put?: never;
+        /**
+         * Log time
+         * @description Needs the record's edit permission. The end cannot be before the start.
+         */
+        post: operations["create_worklog_api_v1_incidents__record_id__worklogs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/{record_id}/worklogs/{worklog_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a worklog
+         * @description Needs If-Match.
+         */
+        delete: operations["delete_worklog_api_v1_incidents__record_id__worklogs__worklog_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a worklog
+         * @description Needs If-Match.
+         */
+        patch: operations["update_worklog_api_v1_incidents__record_id__worklogs__worklog_id__patch"];
         trace?: never;
     };
     "/api/v1/notifications": {
@@ -7184,6 +7364,12 @@ export interface components {
             disposition: components["schemas"]["Disposition"];
         };
         /**
+         * LinkKind
+         * @description How two records are linked (REQ-INC-084; `follows` from WP-020f's follow-up records).
+         * @enum {string}
+         */
+        LinkKind: "related" | "follows";
+        /**
          * LinkOut
          * @description A link that works for a few minutes, for you only.
          */
@@ -9636,6 +9822,18 @@ export interface components {
             tenant_id: string;
         };
         /**
+         * TaskPriority
+         * @description How urgent a task is, relative to the record's other tasks.
+         * @enum {string}
+         */
+        TaskPriority: "low" | "normal" | "high";
+        /**
+         * TaskStatus
+         * @description A task's own simple life cycle (REQ-INC-072).
+         * @enum {string}
+         */
+        TaskStatus: "open" | "in_progress" | "done" | "canceled";
+        /**
          * TemplateCopyIn
          * @description The copy's name.
          */
@@ -10594,6 +10792,11 @@ export interface components {
              * @description Fields required before resolving.
              */
             resolve_requires: string[];
+            /**
+             * Task Owner Access
+             * @description A task's owner may work on it without access to the record (D-111).
+             */
+            task_owner_access: boolean;
         };
         /**
          * WorkItemClosurePatch
@@ -10617,6 +10820,8 @@ export interface components {
             reopen_window_days?: number | null;
             /** Resolve Requires */
             resolve_requires?: string[] | null;
+            /** Task Owner Access */
+            task_owner_access?: boolean | null;
         };
         /**
          * WorkItemFieldChangeOut
@@ -10785,6 +10990,54 @@ export interface components {
             urgency?: components["schemas"]["Urgency"] | null;
         };
         /**
+         * WorkItemLinkIn
+         * @description Link another record as related.
+         */
+        WorkItemLinkIn: {
+            /** Comment */
+            comment?: string | null;
+            /**
+             * Other Id
+             * Format: uuid
+             */
+            other_id: string;
+        };
+        /**
+         * WorkItemLinkOut
+         * @description A link as this record shows it; `other` is empty when you cannot see that record.
+         */
+        WorkItemLinkOut: {
+            /** Comment */
+            comment: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            kind: components["schemas"]["LinkKind"];
+            /** Other Display Id */
+            other_display_id: string | null;
+            /**
+             * Other Id
+             * @description Only when you may see the other record.
+             */
+            other_id: string | null;
+            /** Other Subject */
+            other_subject: string | null;
+            /**
+             * Relation
+             * @enum {string}
+             */
+            relation: "related" | "follows" | "followed_by";
+            /** Version */
+            version: number;
+        };
+        /**
          * WorkItemListItem
          * @description One row of a list.
          */
@@ -10894,6 +11147,32 @@ export interface components {
             impact: components["schemas"]["Impact"];
             priority: components["schemas"]["Priority"];
             urgency: components["schemas"]["Urgency"];
+        };
+        /**
+         * WorkItemMinutesBy
+         * @description Minutes of one person or one worklog type.
+         */
+        WorkItemMinutesBy: {
+            /** Key */
+            key: string;
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * WorkItemMyTaskOut
+         * @description A task you own, with the record it belongs to.
+         */
+        WorkItemMyTaskOut: {
+            /** Display Id */
+            display_id: string;
+            /** Subject */
+            subject: string;
+            task: components["schemas"]["WorkItemTaskOut"];
+            /**
+             * Work Item Id
+             * Format: uuid
+             */
+            work_item_id: string;
         };
         /**
          * WorkItemOut
@@ -11272,6 +11551,111 @@ export interface components {
             group_id?: string | null;
         };
         /**
+         * WorkItemTaskIn
+         * @description A new task.
+         */
+        WorkItemTaskIn: {
+            /** Description */
+            description?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** @default normal */
+            priority: components["schemas"]["TaskPriority"];
+            /** @default open */
+            status: components["schemas"]["TaskStatus"];
+            /** Title */
+            title: string;
+        };
+        /**
+         * WorkItemTaskMoveIn
+         * @description Move the task one place up or down.
+         */
+        WorkItemTaskMoveIn: {
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "up" | "down";
+        };
+        /**
+         * WorkItemTaskOut
+         * @description One task of a record.
+         */
+        WorkItemTaskOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Description */
+            description: string | null;
+            /** Done At */
+            done_at: string | null;
+            /** Due At */
+            due_at: string | null;
+            /** Group Id */
+            group_id: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Owner Id */
+            owner_id: string | null;
+            /** Position */
+            position: number;
+            priority: components["schemas"]["TaskPriority"];
+            status: components["schemas"]["TaskStatus"];
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /**
+             * Work Item Id
+             * Format: uuid
+             */
+            work_item_id: string;
+        };
+        /**
+         * WorkItemTaskPatch
+         * @description Fields to change; the ones left out keep their value.
+         */
+        WorkItemTaskPatch: {
+            /** Description */
+            description?: string | null;
+            /** Due At */
+            due_at?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            priority?: components["schemas"]["TaskPriority"] | null;
+            status?: components["schemas"]["TaskStatus"] | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
+         * WorkItemTasksOut
+         * @description A record's tasks in their order, and "done / total" (canceled ones not counted).
+         */
+        WorkItemTasksOut: {
+            /** Done */
+            done: number;
+            /** Items */
+            items: components["schemas"]["WorkItemTaskOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * WorkItemTransitionIn
          * @description The reason, when the transition asks for one.
          */
@@ -11333,6 +11717,98 @@ export interface components {
             /** View */
             view: string;
         };
+        /**
+         * WorkItemWorklogIn
+         * @description Time spent: a start and an end or a duration (in minutes); both must agree if sent.
+         */
+        WorkItemWorklogIn: {
+            /** Description */
+            description?: string | null;
+            /** Ended At */
+            ended_at?: string | null;
+            /** Minutes */
+            minutes?: number | null;
+            /**
+             * Owner Id
+             * @description Defaults to you.
+             */
+            owner_id?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            worklog_type: components["schemas"]["WorklogType"];
+        };
+        /**
+         * WorkItemWorklogOut
+         * @description One worklog.
+         */
+        WorkItemWorklogOut: {
+            /** Created By */
+            created_by: string | null;
+            /** Description */
+            description: string | null;
+            /**
+             * Ended At
+             * Format: date-time
+             */
+            ended_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Minutes */
+            minutes: number;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+            /** Version */
+            version: number;
+            worklog_type: components["schemas"]["WorklogType"];
+        };
+        /**
+         * WorkItemWorklogPatch
+         * @description Fields to change; a new end recomputes the duration, a new duration the end.
+         */
+        WorkItemWorklogPatch: {
+            /** Description */
+            description?: string | null;
+            /** Ended At */
+            ended_at?: string | null;
+            /** Minutes */
+            minutes?: number | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            worklog_type?: components["schemas"]["WorklogType"] | null;
+        };
+        /**
+         * WorkItemWorklogsOut
+         * @description A record's worklogs, newest first, with totals per person and per type (AC3).
+         */
+        WorkItemWorklogsOut: {
+            /** By Owner */
+            by_owner: components["schemas"]["WorkItemMinutesBy"][];
+            /** By Type */
+            by_type: components["schemas"]["WorkItemMinutesBy"][];
+            /** Items */
+            items: components["schemas"]["WorkItemWorklogOut"][];
+            /** Minutes */
+            minutes: number;
+        };
+        /**
+         * WorklogType
+         * @description What the time was spent on (D-111: a fixed list in MVP; admin pick lists later).
+         * @enum {string}
+         */
+        WorklogType: "investigation" | "fix" | "communication" | "travel" | "other";
     };
     responses: never;
     parameters: never;
@@ -20925,6 +21401,62 @@ export interface operations {
             };
         };
     };
+    my_tasks_api_v1_incidents_my_tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemMyTaskOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     templates_api_v1_incidents_reply_templates_get: {
         parameters: {
             query?: never;
@@ -23874,6 +24406,223 @@ export interface operations {
             };
         };
     };
+    list_links_api_v1_incidents__record_id__links_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemLinkOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_link_api_v1_incidents__record_id__links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemLinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemLinkOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_link_api_v1_incidents__record_id__links__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     mentionable_api_v1_incidents__record_id__mentionable_get: {
         parameters: {
             query?: {
@@ -24262,6 +25011,377 @@ export interface operations {
             };
         };
     };
+    list_tasks_api_v1_incidents__record_id__tasks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemTasksOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_task_api_v1_incidents__record_id__tasks_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemTaskIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemTaskOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_task_api_v1_incidents__record_id__tasks__task_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_task_api_v1_incidents__record_id__tasks__task_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemTaskPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemTaskOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    move_task_api_v1_incidents__record_id__tasks__task_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemTaskMoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemTasksOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     typing_api_v1_incidents__record_id__typing_post: {
         parameters: {
             query?: never;
@@ -24310,6 +25430,305 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_worklogs_api_v1_incidents__record_id__worklogs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemWorklogsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_worklog_api_v1_incidents__record_id__worklogs_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemWorklogIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemWorklogOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_worklog_api_v1_incidents__record_id__worklogs__worklog_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                worklog_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_worklog_api_v1_incidents__record_id__worklogs__worklog_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                worklog_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemWorklogPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemWorklogOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
