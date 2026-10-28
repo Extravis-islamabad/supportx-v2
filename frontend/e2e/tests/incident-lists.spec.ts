@@ -102,6 +102,7 @@ test('REQ-INC-106: a view built with the filter builder lists exactly its incide
   await expect(page.getByRole('columnheader', { name: 'Created' })).toBeVisible();
   await page.reload(); // AC1: kept for this user after a reload
   const views = await openSelect(page, 'inc-view');
+  await page.keyboard.type(`E2E list ${stamp}`); // the view menu is long: search it
   await views.getByTitle(`E2E list ${stamp}`).click();
   await expect(page.getByRole('columnheader', { name: 'Created' })).toBeVisible();
 });
@@ -135,6 +136,7 @@ test('REQ-INC-120 AC1: a bulk close closes what it may and lists the rest with t
   }
   await page.getByTestId('inc-search').fill(`E2E list ${stamp} bulk`);
   const views = await openSelect(page, 'inc-view');
+  await page.keyboard.type('Resolved');
   await views.getByTitle(/^Resolved, awaiting confirmation/).click();
   for (const item of items) {
     await page.getByTestId(`inc-row-${item.display_id}`).getByRole('checkbox').check();
