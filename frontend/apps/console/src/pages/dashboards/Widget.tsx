@@ -114,6 +114,7 @@ export function Widget({
         words={words}
         view={shown.chart === 'table' ? 'table' : 'chart'}
         chartHeight={Math.max(140, widget.place.h * ROW_PX - 110)}
+        compact={widget.place.w <= 4}
         onDrill={(row) => {
           onDrill({
             title: `${title}: ${joinParts(row.keys.map((k, i) => (result.groups[i] ? words.key(result.groups[i], k) : '')))}`,
