@@ -41,6 +41,10 @@ function missing(key: string): string {
  * Plurals follow CLDR rules per locale (Arabic has six forms: `_zero`, `_one`, `_two`, `_few`,
  * `_many`, `_other`).
  */
+/** Unicode first-strong isolate and pop directional isolate. */
+export const FSI = '\u2068';
+export const PDI = '\u2069';
+
 export function createI18n(locale: Locale = 'en'): I18n {
   const instance = i18next.createInstance();
   void instance.init({
@@ -54,8 +58,15 @@ export function createI18n(locale: Locale = 'en'): I18n {
     supportedLngs: [...LOCALES],
     keySeparator: false,
     nsSeparator: false,
-    // React escapes output itself; double escaping would show "&amp;" to users.
-    interpolation: { escapeValue: false },
+    interpolation: {
+      // React escapes output itself, so this never HTML-escapes ("&amp;" would show to users).
+      // It isolates every filled value in Arabic and Urdu (FSI ... PDI), so a date, a time zone
+      // or a Latin name keeps its own order inside right-to-left text (QA WP-035 BUG-04). The
+      // server's `label()` does the same for exports and emails.
+      escapeValue: true,
+      escape: (value: string) =>
+        isRtlLocale(instance.language as Locale) ? `${FSI}${value}${PDI}` : value,
+    },
     initAsync: false,
     returnNull: false,
     parseMissingKeyHandler: missing,

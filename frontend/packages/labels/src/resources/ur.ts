@@ -2362,6 +2362,7 @@ export const ur: LabelResource = {
   'reports.filter_days': '{{field}} پچھلے {{days}} دنوں میں',
   'reports.or': 'یا',
   'reports.total': 'کل',
+  'reports.measure_value': '{{name}}: {{value}}',
   'reports.group_by': 'گروپ بندی',
   'reports.then_by': 'پھر',
   'reports.no_grouping': 'کوئی گروپ بندی نہیں',

@@ -143,7 +143,14 @@ export function AppearanceProvider({
     <AppearanceContext.Provider value={appearance}>
       <style>{PAGE_CSS}</style>
       <LabelsProvider locale={locale}>
-        <ConfigProvider direction={direction} locale={ANT_LOCALES[locale]} theme={themeConfig}>
+        <ConfigProvider
+          direction={direction}
+          locale={ANT_LOCALES[locale]}
+          theme={themeConfig}
+          // Option lists grow to their longest choice instead of cutting it to the box's width
+          // ("Stacked ..."), in every select of the product (QA WP-035 BUG-07).
+          popupMatchSelectWidth={false}
+        >
           <AntApp>{children}</AntApp>
         </ConfigProvider>
       </LabelsProvider>

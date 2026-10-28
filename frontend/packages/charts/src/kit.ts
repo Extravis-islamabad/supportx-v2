@@ -29,6 +29,26 @@ export interface KitInput {
   max?: number;
 }
 
+/** Longest category name shown on an axis or slice label; the tooltip and table show it whole. */
+export const LABEL_MAX = 24;
+
+/**
+ * `text` shortened in the middle ("QA35 789…Support Beta"), so names that differ only at the end
+ * stay apart (QA WP-035 BUG-06). Counts what readers see as one character (grapheme), so an
+ * Arabic letter keeps its marks.
+ */
+const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+
+export function middleEllipsis(text: string, max = LABEL_MAX): string {
+  const chars = Array.from(graphemes.segment(text), (part) => part.segment);
+  if (chars.length <= max) return text;
+  const head = Math.floor((max - 1) / 2);
+  const tail = max - 1 - head;
+  return `${chars.slice(0, head).join('')}…${chars.slice(chars.length - tail).join('')}`;
+}
+
+const shortLabel = (value: string | number) => middleEllipsis(String(value));
+
 /** Above this many points a line or area chart samples (LTTB) so the page never freezes. */
 export const LARGE_SERIES = 2_000;
 
@@ -49,9 +69,14 @@ export function kitOption(input: KitInput): EChartsCoreOption {
       series: [
         {
           type: 'pie',
-          radius: ['45%', '70%'],
+          // Up and a little smaller, so the slices never reach the legend row (QA BUG-03).
+          center: ['50%', '44%'],
+          radius: ['40%', '64%'],
           avoidLabelOverlap: true,
-          label: { show: true, formatter: '{b}' },
+          label: {
+            show: true,
+            formatter: (params: { name: string }) => shortLabel(params.name),
+          },
           data: input.categories.map((name, i) => ({
             name,
             value: first[i] ?? 0,
@@ -84,7 +109,11 @@ export function kitOption(input: KitInput): EChartsCoreOption {
     tooltip: { trigger: 'axis', valueFormatter: format },
     legend: single ? undefined : { type: 'scroll', bottom: 0 },
     grid: { left: 8, right: 8, top: 16, bottom: single ? 8 : 40, containLabel: true },
-    xAxis: { type: 'category', data: input.categories, axisLabel: { hideOverlap: true } },
+    xAxis: {
+      type: 'category',
+      data: input.categories,
+      axisLabel: { hideOverlap: true, formatter: shortLabel },
+    },
     yAxis: { type: 'value', axisLabel: format ? { formatter: format } : undefined },
     series: input.series.map((s) => ({
       name: s.name,

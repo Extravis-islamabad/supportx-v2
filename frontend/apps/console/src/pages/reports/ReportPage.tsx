@@ -34,6 +34,7 @@ import {
   type ChartType,
   type DateBucket,
   type ReportDefinition,
+  type ReportField,
   type ReportResult,
   type ReportRow,
 } from '@supportx/api-client';
@@ -47,7 +48,7 @@ import {
   type FilterModel,
   type FilterValueType,
 } from '@supportx/forms';
-import { useLabels } from '@supportx/labels';
+import { useLabels, useListFormat, type ListKind } from '@supportx/labels';
 import { refreshList, useListChannel } from '@supportx/realtime';
 import {
   describeError,
@@ -411,7 +412,9 @@ function Header({
   const star = useStarReport();
   const library = useReportLibrary();
   const starred = library.data?.favourites.includes(base.ref) ?? false;
-  const summary = filterInWords(definition.filter, words, t);
+  const fields = useReportEntity(definition.entity).data?.fields ?? [];
+  const list = useListFormat();
+  const summary = filterInWords(definition.filter, words, fields, t, list);
   return (
     <Space direction="vertical" size={4} style={{ width: '100%' }}>
       <Flex justify="space-between" align="center" wrap gap={12}>
@@ -437,9 +440,11 @@ function Header({
           <Descriptions.Item label={t('reports.total')}>
             <span data-testid="report-total">
               {result.measures
-                .map(
-                  (m, i) =>
-                    `${words.measure(result.entity, m.code).name}: ${words.value(m, result.totals[i])}`,
+                .map((m, i) =>
+                  t('reports.measure_value', {
+                    name: words.measure(result.entity, m.code).name,
+                    value: words.value(m, result.totals[i]),
+                  }),
                 )
                 .join(' · ')}
             </span>
@@ -455,7 +460,9 @@ function Header({
 function filterInWords(
   filter: unknown,
   words: ReportWords,
+  fields: ReportField[],
   t: (key: string, p?: Record<string, string | number>) => string,
+  list: (items: readonly string[], kind?: ListKind) => string,
 ): string {
   const model = fromDsl(filter);
   if (model === null) return t('reports.filter_custom');
@@ -468,25 +475,25 @@ function filterInWords(
       return t('reports.filter_days', { field, days: Number(value) });
     }
     if (value === null) return `${field} ${op}`;
-    const shown = Array.isArray(value) ? value.filter((v) => v !== null).join(', ') : String(value);
-    const group = {
+    // Every value by its name: codes by their label, groups, sites and people by name, never an
+    // id (rule d); lists joined the UI language's way (QA WP-035 BUG-05).
+    const group = fields.find((f) => f.name === row.field)?.dimension ?? {
       field: row.field,
       kind: 'code',
       label_prefix: row.field,
       reference: null,
       bucket: null,
-    } as const;
+    };
+    const name = (v: unknown) =>
+      typeof v === 'string' && row.op !== 'between' ? words.key(group, v) : String(v);
+    const values = (Array.isArray(value) ? value : [value]).filter((v) => v !== null).map(name);
     const named =
-      Array.isArray(value) && row.op !== 'between'
-        ? value
-            .map((v) =>
-              typeof v === 'string' && !/^[0-9a-f-]{36}$/.test(v) ? words.key(group, v) : v,
-            )
-            .join(', ')
-        : shown;
+      row.op === 'between'
+        ? list(values, 'unit')
+        : list(values, row.op === 'in' ? 'disjunction' : 'unit');
     return `${field} ${op} ${named}`;
   });
-  return parts.join(model.join === 'and' ? ' · ' : ` ${t('reports.or')} `);
+  return model.join === 'and' ? parts.join(' · ') : list(parts, 'disjunction');
 }
 
 function Results({

@@ -2735,6 +2735,7 @@ export const ar: LabelResource = {
   'reports.filter_days': '{{field}} في آخر {{days}} يومًا',
   'reports.or': 'أو',
   'reports.total': 'الإجمالي',
+  'reports.measure_value': '{{name}}: {{value}}',
   'reports.group_by': 'تجميع حسب',
   'reports.then_by': 'ثم حسب',
   'reports.no_grouping': 'بدون تجميع',

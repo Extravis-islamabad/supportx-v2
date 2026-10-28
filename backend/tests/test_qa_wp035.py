@@ -5,6 +5,7 @@ direction of every export path, so a finding cannot come back in another file ty
 """
 
 import re
+from pathlib import Path
 from xml.sax.saxutils import escape
 
 import pytest
@@ -81,3 +82,19 @@ def test_bug_04_pdf_isolates_every_cell_including_totals() -> None:
     assert cells
     assert all(c.startswith("<bdi>") for c in cells if c)
     assert f"{FSI}2026-10-28 07:02{PDI}" in html
+
+
+# --- ENV-01: the dev worker can make PDFs ---------------------------------------------------------
+
+
+def test_env_01_a_make_target_runs_the_consumers_with_pdf_exports() -> None:
+    root = Path(__file__).resolve().parents[2]
+    makefile = (root / "Makefile").read_text(encoding="utf-8")
+    target = re.search(r"^worker-consumers-pdf:.*\n((?:\t.*\n)+)", makefile, flags=re.MULTILINE)
+    assert target is not None
+    recipe = target.group(1)
+    assert "--group pdf" in recipe
+    assert "workers.consumers" in recipe
+    # Homebrew keeps glib outside /opt/homebrew/lib: WeasyPrint needs both on macOS.
+    assert "opt/glib/lib" in makefile
+    assert "make worker-consumers-pdf" in (root / "docs" / "dev-setup.md").read_text("utf-8")
