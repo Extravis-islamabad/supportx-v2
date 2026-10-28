@@ -30,7 +30,7 @@ import {
   type ReportResult,
 } from '@supportx/api-client';
 import { Chart, kitOption } from '@supportx/charts';
-import { useIsolate, useLabels } from '@supportx/labels';
+import { useIsolate, useJoinParts, useLabels } from '@supportx/labels';
 
 import type { Drill } from '../reports/DrillDrawer';
 import { ExportButton } from '../reports/exports';
@@ -51,11 +51,21 @@ export interface WidgetProps {
   onDrill: (drill: Drill) => void;
   /** Edit mode: the controls to move, resize and remove (REQ-DSH-019). */
   toolbar?: ReactNode;
+  /** Free-form edit mode: the title is where a widget is grabbed to drag it. */
+  dragHandle?: boolean;
 }
 
 /** One widget: a KPI tile or a chart, live, in the viewer's scope (REQ-DSH-007..016, 024). */
-export function Widget({ widget, definition, unfiltered, onDrill, toolbar }: WidgetProps) {
+export function Widget({
+  widget,
+  definition,
+  unfiltered,
+  onDrill,
+  toolbar,
+  dragHandle = false,
+}: WidgetProps) {
   const t = useLabels();
+  const joinParts = useJoinParts();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [type, setType] = useState<ChartType | null>(null);
@@ -103,7 +113,7 @@ export function Widget({ widget, definition, unfiltered, onDrill, toolbar }: Wid
         chartHeight={Math.max(140, widget.place.h * ROW_PX - 110)}
         onDrill={(row) => {
           onDrill({
-            title: `${title}: ${row.keys.map((k, i) => (result.groups[i] ? words.key(result.groups[i], k) : '')).join(' · ')}`,
+            title: `${title}: ${joinParts(row.keys.map((k, i) => (result.groups[i] ? words.key(result.groups[i], k) : '')))}`,
             filter: row.drill,
             count: typeof row.values[0] === 'number' ? row.values[0] : null,
           });
@@ -117,7 +127,15 @@ export function Widget({ widget, definition, unfiltered, onDrill, toolbar }: Wid
   return (
     <Card
       size="small"
-      title={<span data-testid={`widget-title-${widget.id}`}>{title}</span>}
+      title={
+        <span
+          className={dragHandle ? 'dashboard-drag-handle' : undefined}
+          style={dragHandle ? { cursor: 'move' } : undefined}
+          data-testid={`widget-title-${widget.id}`}
+        >
+          {title}
+        </span>
+      }
       style={{ height: '100%', overflow: 'hidden' }}
       styles={{ body: { overflow: 'auto', height: 'calc(100% - 40px)' } }}
       data-testid={`widget-${widget.id}`}
