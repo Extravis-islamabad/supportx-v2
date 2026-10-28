@@ -60,10 +60,12 @@ def route(  # noqa: PLR0911 - one return per routing outcome
     *,
     category_group: str | None,
     fallback_group: str | None,
+    entry_group: str | None = None,
 ) -> RoutingChoice | None:
     """The group for a record (REQ-ASG-001).
 
-    A group a person chose is kept, unless a matching rule says "overwrite".
+    A group a person chose is kept, unless a matching rule says "overwrite". After the rules,
+    the group of the way the record came in (a mailbox, WP-024) comes before the category's.
     """
     has_group = record.get("group_id") is not None
     for rule in rules:
@@ -78,6 +80,8 @@ def route(  # noqa: PLR0911 - one return per routing outcome
         return RoutingChoice(rule.group_id, "rule", rule.id, rule.name)
     if has_group:
         return None
+    if entry_group is not None:
+        return RoutingChoice(entry_group, "entry")
     if category_group is not None:
         return RoutingChoice(category_group, "category")
     if fallback_group is not None:

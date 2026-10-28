@@ -2383,6 +2383,8 @@ export const en = {
   'automation.why.routing_rule': 'Routed by the rule “{{name}}”.',
   'automation.why.routing_category': "Routed to the category's group.",
   'automation.why.routing_fallback': 'Routed to the fallback group (no rule matched).',
+  'automation.why.routing_entry':
+    'Routed to the group of the way it came in (a mailbox, the portal).',
   'automation.why.assigned': 'Auto-assigned by {{method}} within the group.',
   'automation.why.assigned_loads':
     'Auto-assigned by {{method}} within the group; loads compared: {{loads}}.',
