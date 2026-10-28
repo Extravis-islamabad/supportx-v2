@@ -15,8 +15,9 @@
   #77, export #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic;
   the 1M-row volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA
   round done (~/Desktop/qa-wp035, 8 bugs), all fixed in WP-035-FIX (#103). WP-036 dashboards
-  built (sessions 1-2, PR open); then WP-033 knowledge sessions 1-4 (plan approved as D-108; knowledge moved from
-  lane B). Lanes and claimed numbers: docs/LANES.md.
+  merged (#106), free-form layout follow-up (D-110, #115). WP-033 knowledge (plan D-108, moved
+  from lane B): session 1 (backend core) built, PR open; sessions 2-4 next. Lanes and claimed
+  numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,
   D-078). Lane B's next WP follows the MVP build plan.
@@ -663,7 +664,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
 
 ### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
-- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0036 (after lane C's
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0037 (after lane C's 0036 knowledge and
   0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
   actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
 - [x] REQ-INC-104: column chooser over every list field (custom fields as `custom.<key>`, system
@@ -691,8 +692,8 @@ New `automation` module (migration 0025); incidents register their rule fields (
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
 ### [ ] WP-020e — Tasks, worklogs and links (D-112, approved; built 2026-10-28, QA next)
-- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0037 (after WP-020d's
-  0036): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after WP-020d's
+  0037): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
   tests), `task_owner_access`, and `follows_id` copied into `follows` links per tenant. Draft PR
   #120 (stacked on #114).
 - [x] REQ-INC-072: tasks with their own status, owner, group, priority and due time; "done /
@@ -852,8 +853,10 @@ its numbers equal the report's and each viewer sees their own scope (REQ-DSH-028
   by" marker; drill-down in a side drawer; live via the scope-partitioned list channels (at most
   one refresh a second), connection indicator, polling fallback; the home page shows the home
   dashboard.
-- Not yet: `react-grid-layout` (D-100 deferred it to WP-036; asked the product owner; the grid
-  works without it); SLA widgets and the SLA dashboard (WP-025); approvals waiting (WP-030);
+- [x] **Follow-up — free-form layout** (D-110): `react-grid-layout` 2.2.4 in edit mode only (lazy),
+  drag by the title and resize from the end corner, keyboard buttons kept, RTL mirrored
+  (x' = 12 - x - w) and checked by `dashboards-grid.spec.ts` in English and Arabic.
+- Not yet: SLA widgets and the SLA dashboard (WP-025); approvals waiting (WP-030);
   tasks and reminders widgets (their features); embedded page, text, availability, MonetX (V1).
 
 ### [~] WP-035 — Reporting foundation and built-in reports (lane C; D-100; ADR-033, ADR-034; sessions 1-4 of 4 done 2026-10-28)
@@ -1152,7 +1155,7 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ### 2026-10-28 — WP-020e: tasks, worklogs and links (lane A)
 
-- Built to the approved plan; defaults recorded as D-112 (pending review). Migration 0037; API
+- Built to the approved plan; defaults recorded as D-112 (approved as listed). Migration 0038; API
   for tasks, worklogs and links; three record tabs, history in words, the task-owner setting on
   Admin › Incidents › Closing. Draft PR #120 (stacked on #114); e2e and QA next.
 - Lane C's dashboards took D-110, so WP-020d's defaults moved to D-111.
@@ -1161,13 +1164,36 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 - Built to the approved plan; defaults recorded as D-111 (pending review). Backend: new
   built-in views, saved views, list settings, list fields, view filters, bulk jobs (migration
-  0036, renumbered after lane C's 0035). Console: column chooser, view editor with the shared
+  0037, renumbered after lane C's 0035 dashboards and 0036 knowledge). Console: column chooser, view editor with the shared
   filter builder, time range, search chips, page size, selection across pages, bulk dialog and
   progress, export. Draft PR #114; e2e and the QA round next, then WP-020e.
 - Lane C found that migration 0034's data step changed no rows under FORCE RLS; confirmed with a
   test and fixed in #116 (loop per tenant).
 - Merges now go through `gh pr merge` without `--admin` (branch protection: 8 required checks,
   no bypass, product owner 2026-10-28). Cross-lane reviews are posted as PR comments.
+
+### 2026-10-28 — WP-033 session 1: knowledge backend core (lane C)
+
+- Knowledge module (D-108): settings, article types (file 08 Appendix A defaults on first use),
+  topic tree (six levels, move with subtree, delete moves the articles first), articles with a
+  first draft, autosave with If-Match, one open draft per language, new version from the
+  published one, translations. Migration 0036 with RLS on all five tables; a trigger keeps
+  published and superseded versions unchanged (REQ-KB-020 AC2).
+- Permissions: the 11 D-108 (7) permissions, declared by the module with role defaults
+  (technician: view/create at group, edit own and submit at own; requester: view at own). The
+  reserved `knowledge.view`/`knowledge.manage` left identity's list (lane B told); custom roles'
+  `knowledge.manage` becomes create + edit own + submit. That data step runs once per tenant
+  with app.tenant_id set, because FORCE RLS hides every row from a migration without it. The
+  same issue was found in 0034 and lane A fixed it (#116).
+- Who reads what: staff by technician audience (all or their groups); drafts only for the
+  author, owners and approvers; requesters get nothing from staff paths (their portal reading
+  is session 2). Lists, single reads and search share one predicate (REQ-KB-048).
+- Rich text: `div[data-callout]` with the four callout kinds is kept by the sanitiser.
+- Bug found by the tests: changing only the expiry date skipped the review/expiry check, so
+  the database constraint answered with a 500. Fixed in the service.
+- Not in this session (sessions 2-4 per D-108): review and approval, publish/withdraw,
+  requester portal reading, attachments (files owner type with lane B), console and portal
+  screens, knowledge-manager role seed, department audiences for requesters.
 
 ### 2026-10-28 — WP-020f: resolution, closure, reopen and cancel (lane A)
 
