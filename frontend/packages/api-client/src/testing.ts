@@ -39,8 +39,10 @@ const TECHNICIAN: Grant[] = [
   ['assets.view', 'all'],
   ['assets.manage', 'group'],
   ['cmdb.view', 'all'],
-  ['knowledge.view', 'all'],
-  ['knowledge.manage', 'group'],
+  ['knowledge.view', 'group'],
+  ['knowledge.create', 'group'],
+  ['knowledge.edit_own', 'own'],
+  ['knowledge.submit', 'own'],
   ['reports.view', 'all'],
   ['reports.create', 'own'],
   ['dashboards.create', 'own'],
@@ -99,7 +101,7 @@ const REQUESTER: Grant[] = [
   ['requests.view', 'own'],
   ['requests.create', 'all'],
   ['requests.close', 'own'],
-  ['knowledge.view', 'all'],
+  ['knowledge.view', 'own'],
 ];
 
 /** Effective permissions like GET /auth/me returns for the system roles (mirrors the backend). */

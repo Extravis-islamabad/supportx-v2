@@ -9,8 +9,20 @@ import {
   MinusOutlined,
   PlusOutlined,
 } from '@ant-design/icons';
-import { Alert, Button, Flex, Grid, Select, Space, Tag, Tooltip, Typography } from 'antd';
-import { useMemo, useState, type DragEvent } from 'react';
+import {
+  Alert,
+  Button,
+  ConfigProvider,
+  Flex,
+  Grid,
+  Select,
+  Space,
+  Spin,
+  Tag,
+  Tooltip,
+  Typography,
+} from 'antd';
+import { lazy, Suspense, useContext, useMemo, useState } from 'react';
 
 import {
   useReportEntity,
@@ -42,6 +54,8 @@ import {
 import { Widget } from './Widget';
 
 const DAYS = [7, 30, 90, 365] as const;
+// Only editors download the grid library (D-110).
+const FreeGrid = lazy(() => import('./FreeGrid').then((m) => ({ default: m.FreeGrid })));
 
 /**
  * A dashboard on screen (REQ-DSH-016, 019, 022, 024): the filter bar, the grid of live widgets,
@@ -67,6 +81,7 @@ export function DashboardView({
   const groups = useStructure('groups', true, true);
   const status = useRealtimeStatus();
   const screens = Grid.useBreakpoint();
+  const { direction } = useContext(ConfigProvider.ConfigContext);
   const narrow = !screens.md;
   // The viewer's filters for this visit; the owner's defaults are where they start (DSH-022).
   const [filters, setFilters] = useState<DashboardFilters>(dashboard.body.filters ?? {});
@@ -75,7 +90,6 @@ export function DashboardView({
   const saved = normalBody(dashboard.body);
   const [history, setHistory] = useState<Body[]>([]);
   const [draft, setDraft] = useState<Body>(saved);
-  const [dragged, setDragged] = useState<string | null>(null);
   const body = editing ? draft : saved;
   const fields = entity.data?.fields;
 
@@ -94,17 +108,6 @@ export function DashboardView({
       ),
     });
   };
-  const swap = (from: string, to: string) => {
-    const a = draft.widgets.find((w) => w.id === from);
-    const b = draft.widgets.find((w) => w.id === to);
-    if (!a || !b || a === b) return;
-    change({
-      ...draft,
-      widgets: draft.widgets.map((w) =>
-        w.id === from ? { ...w, place: b.place } : w.id === to ? { ...w, place: a.place } : w,
-      ),
-    });
-  };
   const userId = session?.user.id ?? '';
   const ordered = narrow ? readingOrder(body.widgets) : body.widgets;
   const definitions = useMemo(
@@ -116,6 +119,17 @@ export function DashboardView({
         ]),
       ),
     [body.widgets, userId, filters, library.data?.builtin, fields],
+  );
+
+  const renderWidget = (widget: DashboardWidget, handle: boolean) => (
+    <Widget
+      widget={widget}
+      definition={definitions.get(widget.id) ?? null}
+      unfiltered={unusableFilters(filters, fields)}
+      onDrill={setDrill}
+      toolbar={editing ? toolbar(widget) : undefined}
+      dragHandle={handle}
+    />
   );
 
   const toolbar = (widget: DashboardWidget) => {
@@ -261,64 +275,63 @@ export function DashboardView({
       {body.widgets.length === 0 && (
         <Typography.Paragraph type="secondary">{t('dashboards.empty')}</Typography.Paragraph>
       )}
-      <div
-        // A 12-column grid; in right to left the columns start on the right (CSS grid follows the
-        // page direction). Narrow screens stack the widgets in reading order (REQ-DSH-019 AC4).
-        style={
-          narrow
-            ? { display: 'flex', flexDirection: 'column', gap: 12 }
-            : {
-                display: 'grid',
-                gridTemplateColumns: `repeat(${String(COLUMNS)}, minmax(0, 1fr))`,
-                gridAutoRows: ROW_PX,
-                gap: 12,
+      {editing && !narrow ? (
+        // Edit mode: free-form drag and resize, loaded only now (D-110); the keyboard buttons
+        // stay on every widget (REQ-DSH-019 AC2).
+        <Suspense fallback={<Spin />}>
+          <FreeGrid
+            widgets={body.widgets}
+            rtl={direction === 'rtl'}
+            render={(widget) => renderWidget(widget, true)}
+            onPlaces={(places) => {
+              const moved = draft.widgets.map((w) => ({
+                ...w,
+                place: places.get(w.id) ?? w.place,
+              }));
+              if (JSON.stringify(moved) !== JSON.stringify(draft.widgets)) {
+                change({ ...draft, widgets: moved });
               }
-        }
-        data-testid="dashboard-grid"
-      >
-        {ordered.map((widget) => {
-          const p = widget.place;
-          const drag = editing
-            ? {
-                draggable: true,
-                onDragStart: () => {
-                  setDragged(widget.id);
-                },
-                onDragOver: (event: DragEvent) => {
-                  event.preventDefault();
-                },
-                onDrop: () => {
-                  if (dragged) swap(dragged, widget.id);
-                  setDragged(null);
-                },
-              }
-            : {};
-          return (
-            <div
-              key={widget.id}
-              {...drag}
-              style={
-                narrow
-                  ? { height: p.h * ROW_PX }
-                  : {
-                      gridColumn: `${String(p.x + 1)} / span ${String(p.w)}`,
-                      gridRow: `${String(p.y + 1)} / span ${String(p.h)}`,
-                      minWidth: 0,
-                      outline: editing ? '1px dashed currentColor' : undefined,
-                    }
-              }
-            >
-              <Widget
-                widget={widget}
-                definition={definitions.get(widget.id) ?? null}
-                unfiltered={unusableFilters(filters, fields)}
-                onDrill={setDrill}
-                toolbar={editing ? toolbar(widget) : undefined}
-              />
-            </div>
-          );
-        })}
-      </div>
+            }}
+          />
+        </Suspense>
+      ) : (
+        <div
+          // A 12-column grid; in right to left the columns start on the right (CSS grid follows
+          // the page direction). Narrow screens stack the widgets in reading order (REQ-DSH-019
+          // AC4); editing there uses the buttons.
+          style={
+            narrow
+              ? { display: 'flex', flexDirection: 'column', gap: 12 }
+              : {
+                  display: 'grid',
+                  gridTemplateColumns: `repeat(${String(COLUMNS)}, minmax(0, 1fr))`,
+                  gridAutoRows: ROW_PX,
+                  gap: 12,
+                }
+          }
+          data-testid="dashboard-grid"
+        >
+          {ordered.map((widget) => {
+            const p = widget.place;
+            return (
+              <div
+                key={widget.id}
+                style={
+                  narrow
+                    ? { height: p.h * ROW_PX }
+                    : {
+                        gridColumn: `${String(p.x + 1)} / span ${String(p.w)}`,
+                        gridRow: `${String(p.y + 1)} / span ${String(p.h)}`,
+                        minWidth: 0,
+                      }
+                }
+              >
+                {renderWidget(widget, false)}
+              </div>
+            );
+          })}
+        </div>
+      )}
       <DrillDrawer
         drill={drill}
         onClose={() => {
