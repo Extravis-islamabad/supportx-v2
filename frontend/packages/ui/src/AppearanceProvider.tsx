@@ -76,7 +76,12 @@ function useFavicon(brand: Branding): void {
 // A table wider than the screen scrolls inside its own box, never the page (QA BUG-03, 390 px).
 const PAGE_CSS =
   'html { scrollbar-gutter: stable; } body { margin: 0; } ' +
-  '.ant-table-content { overflow-x: auto; }';
+  '.ant-table-content { overflow-x: auto; } ' +
+  // Every option shows its whole label, wrapping when the list is narrow, never cut to
+  // "Stacked ..." (QA WP-035 BUG-07). Lists keep the box's width, so long lists stay virtual
+  // (fast, and every option keeps its accessible name).
+  '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
+  '{ white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }';
 
 /**
  * Theme (light / dark / high contrast, brand seeds), text direction and language for everything

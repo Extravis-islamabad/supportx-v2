@@ -1,9 +1,14 @@
-"""A small SVG chart for PDF exports (REQ-RPT-058: the PDF includes the chart).
+"""A small chart for PDF exports (REQ-RPT-058: the PDF includes the chart).
 
 Bar, line and doughnut in the same palette order as the console's chart kit, so a printed chart
-reads like the screen. Pure Python with no browser and no Node; every label is XML-escaped, and
-the SVG is inlined into the PDF's HTML, so it never needs a URL. Right-to-left mirrors the
-category axis like the console (REQ-DSH-046).
+reads like the screen. Pure Python with no browser and no Node.
+
+Shapes and numbers are SVG; **every word is HTML** with an explicit direction (QA WP-035
+BUG-02). WeasyPrint draws SVG `<text>` glyph by glyph, left to right, without shaping, so Arabic
+category names came out with their letters reversed; HTML text goes through Pango (shaping and
+bidi). Right-to-left mirrors the category axis like the console (REQ-DSH-046). Long names are
+shortened in the middle, so two names that differ at the end stay apart (BUG-06); the table
+below the chart always has them in full. One measure needs no legend (BUG-03).
 """
 
 import math
@@ -11,26 +16,38 @@ from xml.sax.saxutils import escape
 
 PALETTE = ("#1677ff", "#13a8a8", "#52c41a", "#faad14", "#f5222d", "#722ed1", "#eb2f96", "#8c8c8c")
 WIDTH = 640
-HEIGHT = 280
-LABEL_MAX = 14
+HEIGHT = 230
+LEFT = 40  # room for the value axis
+PLOT_W = WIDTH - 60
+LABEL_MAX = 24
 
 
-def _short(text: str) -> str:
-    return text if len(text) <= LABEL_MAX else f"{text[: LABEL_MAX - 1]}…"
+def short(text: str, limit: int = LABEL_MAX) -> str:
+    """`text` cut in the middle to at most `limit` characters ("QA35 789…ha Beta")."""
+    if len(text) <= limit:
+        return text
+    head = (limit - 1) // 2
+    tail = limit - 1 - head
+    return f"{text[:head]}…{text[-tail:]}"
 
 
-def _bars(categories: list[str], values: list[float], *, rtl: bool, line: bool) -> list[str]:
+def _word(text: str) -> str:
+    """A name inside a chart: escaped and isolated, so its own direction wins."""
+    return f'<bdi title="{escape(text, {chr(34): "&quot;"})}">{escape(short(text))}</bdi>'
+
+
+def _bars(values: list[float], *, rtl: bool, line: bool) -> str:
     top = max([*values, 0.0]) or 1.0
-    left, bottom, plot_w, plot_h = 40, HEIGHT - 50, WIDTH - 60, HEIGHT - 80
+    bottom, plot_h = HEIGHT - 10, HEIGHT - 40
     count = max(len(values), 1)
-    step = plot_w / count
+    step = PLOT_W / count
     parts = [
-        f'<line x1="{left}" y1="{bottom}" x2="{left + plot_w}" y2="{bottom}" stroke="#bfbfbf"/>'
+        f'<line x1="{LEFT}" y1="{bottom}" x2="{LEFT + PLOT_W}" y2="{bottom}" stroke="#bfbfbf"/>'
     ]
     points: list[str] = []
-    for index, (name, value) in enumerate(zip(categories, values, strict=True)):
+    for index, value in enumerate(values):
         slot = count - 1 - index if rtl else index
-        x = left + slot * step
+        x = LEFT + slot * step
         h = plot_h * value / top
         if line:
             points.append(f"{x + step / 2:.1f},{bottom - h:.1f}")
@@ -39,25 +56,22 @@ def _bars(categories: list[str], values: list[float], *, rtl: bool, line: bool) 
                 f'<rect x="{x + step * 0.15:.1f}" y="{bottom - h:.1f}" width="{step * 0.7:.1f}" '
                 f'height="{h:.1f}" fill="{PALETTE[0]}"/>'
             )
+        # Digits only in SVG: they need no shaping and read left to right in every language.
         parts.append(
             f'<text x="{x + step / 2:.1f}" y="{bottom - h - 4:.1f}" font-size="10" '
             f'text-anchor="middle">{escape(f"{value:g}")}</text>'
-        )
-        parts.append(
-            f'<text x="{x + step / 2:.1f}" y="{bottom + 14}" font-size="9" '
-            f'text-anchor="middle">{escape(_short(name))}</text>'
         )
     if line and points:
         parts.append(
             f'<polyline points="{" ".join(points)}" fill="none" stroke="{PALETTE[0]}" '
             'stroke-width="2"/>'
         )
-    return parts
+    return _svg(parts)
 
 
-def _doughnut(categories: list[str], values: list[float], *, rtl: bool) -> list[str]:
+def _doughnut(values: list[float]) -> str:
     total = sum(values) or 1.0
-    cx, cy, outer, inner = 140, HEIGHT / 2, 110, 60
+    cx, cy, outer, inner = 110, HEIGHT / 2, 100, 55
     parts: list[str] = []
     angle = -math.pi / 2
     for index, value in enumerate(values):
@@ -79,30 +93,56 @@ def _doughnut(categories: list[str], values: list[float], *, rtl: bool) -> list[
             f'fill="{PALETTE[index % len(PALETTE)]}"/>'
         )
         angle = end
-    legend_x = 40 if rtl else 300
-    for index, (name, value) in enumerate(zip(categories, values, strict=True)):
-        y = 30 + index * 18
-        if y > HEIGHT - 10:
-            break
-        parts.append(
-            f'<rect x="{legend_x}" y="{y - 9}" width="10" height="10" '
-            f'fill="{PALETTE[index % len(PALETTE)]}"/>'
-        )
-        parts.append(
-            f'<text x="{legend_x + 16}" y="{y}" font-size="10">'
-            f"{escape(_short(name))}: {escape(f'{value:g}')}</text>"
-        )
-    return parts
+    return _svg(parts, width=2 * cx)
 
 
-def chart_svg(kind: str, categories: list[str], values: list[float | None], *, rtl: bool) -> str:
-    """The chart as an inline SVG element (empty values count as 0)."""
+def _svg(parts: list[str], width: int = WIDTH) -> str:
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{HEIGHT}" '
+        f'viewBox="0 0 {width} {HEIGHT}" role="img" aria-hidden="true">{"".join(parts)}</svg>'
+    )
+
+
+def chart_svg(kind: str, values: list[float | None], *, rtl: bool) -> str:
+    """The chart's shapes and numbers (no words) as an inline SVG element."""
     numbers = [v or 0.0 for v in values]
     if kind == "doughnut":
-        parts = _doughnut(categories, numbers, rtl=rtl)
+        return _doughnut(numbers)
+    return _bars(numbers, rtl=rtl, line=kind in {"line", "area"})
+
+
+def chart_html(
+    kind: str,
+    categories: list[str],
+    values: list[float | None],
+    *,
+    rtl: bool,
+    series_name: str,
+) -> str:
+    """The chart for the PDF: SVG shapes, and the names as HTML in the report's direction.
+
+    Bars and lines get a category row under the plot, slot for slot (mirrored in right to
+    left, like the bars). A doughnut gets a list of its slices with their colours and values.
+    One measure (`series_name`) needs no legend: the caption under the chart names it.
+    """
+    direction = "rtl" if rtl else "ltr"
+    svg = chart_svg(kind, values, rtl=rtl)
+    if kind == "doughnut":
+        items = "".join(
+            f'<li><span class="swatch" style="background:{PALETTE[i % len(PALETTE)]}"></span>'
+            f"{_word(name)} <bdi>{escape(f'{value or 0:g}')}</bdi></li>"
+            for i, (name, value) in enumerate(zip(categories, values, strict=True))
+        )
+        body = f'<div class="pie">{svg}<ul class="slices" dir="{direction}">{items}</ul></div>'
     else:
-        parts = _bars(categories, numbers, rtl=rtl, line=kind in {"line", "area"})
+        # The category row sits under the plot area (the value axis keeps its room on the left
+        # in both directions: the SVG mirrors the slots, not the axis).
+        cells = "".join(f'<span class="cat">{_word(name)}</span>' for name in categories)
+        body = (
+            f'{svg}<div class="cats" dir="{direction}" '
+            f'style="margin-left:{LEFT}px;width:{PLOT_W}px">{cells}</div>'
+        )
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{WIDTH}" height="{HEIGHT}" '
-        f'viewBox="0 0 {WIDTH} {HEIGHT}" role="img">{"".join(parts)}</svg>'
+        f'<figure class="chart" dir="{direction}">{body}'
+        f"<figcaption><bdi>{escape(series_name)}</bdi></figcaption></figure>"
     )
