@@ -196,6 +196,12 @@ containers = ["app.modules.automation"]
 layers = ["api", "service", "infra", "domain"]
 
 [[tool.importlinter.contracts]]
+name = "integrations layers: api > service > infra > domain"
+type = "layers"
+containers = ["app.modules.integrations"]
+layers = ["api", "service", "infra", "domain"]
+
+[[tool.importlinter.contracts]]
 name = "notifications layers: api > service > infra > domain"
 type = "layers"
 containers = ["app.modules.notifications"]

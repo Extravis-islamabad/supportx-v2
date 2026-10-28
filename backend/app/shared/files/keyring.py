@@ -23,6 +23,7 @@ KEY_BYTES = 32
 _NONCE = 12
 _WRAP_CONTEXT = b"sx-files-dek-v1"
 _LINK_CONTEXT = b"sx-files-link-v1"
+_SECRET_CONTEXT = b"sx-secret-v1:"
 _ID = re.compile(r"^[A-Za-z0-9._-]{1,32}$")
 
 
@@ -86,6 +87,30 @@ class KeyRing:
             )
         except Exception as error:  # InvalidTag: another tenant's key, or tampered
             msg = "a wrapped data key does not open with its installation key"
+            raise KeyRingError(msg) from error
+
+    def seal(self, tenant_id: uuid.UUID, purpose: str, value: bytes) -> tuple[str, bytes]:
+        """(key id, sealed bytes) of a tenant secret (a mailbox password…), bound to its purpose.
+
+        Same keys as file data keys, another context: a sealed secret never opens as a data
+        key, nor as a secret of another purpose or tenant.
+        """
+        nonce = os.urandom(_NONCE)
+        context = _SECRET_CONTEXT + purpose.encode() + b"\0" + tenant_id.bytes
+        sealed = AESGCM(self.keys[self.active_id]).encrypt(nonce, value, context)
+        return self.active_id, nonce + sealed
+
+    def unseal(self, tenant_id: uuid.UUID, purpose: str, key_id: str, sealed: bytes) -> bytes:
+        """The secret; KeyRingError when the key is unknown or the bytes were changed."""
+        key = self.keys.get(key_id)
+        if key is None:
+            msg = f"files key {key_id!r} is not in the key ring (restored without it?)"
+            raise KeyRingError(msg)
+        context = _SECRET_CONTEXT + purpose.encode() + b"\0" + tenant_id.bytes
+        try:
+            return AESGCM(key).decrypt(sealed[:_NONCE], sealed[_NONCE:], context)
+        except Exception as error:  # InvalidTag: another tenant's or purpose's secret, or tampered
+            msg = "a sealed secret does not open with its installation key"
             raise KeyRingError(msg) from error
 
     def needs_rewrap(self, key_id: str) -> bool:
