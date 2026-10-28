@@ -346,3 +346,21 @@ async def test_req_inc_096_ac3_auto_close_only_after_the_requester_was_told(
     assert any((h.get("automation") or {}).get("rule") == "auto_close" for h in history)
     # Resolved for days, but nobody told the requester: never auto-closed.
     assert (await fresh(world, org, never_told))["status_category"] == "resolved"
+
+
+async def test_req_inc_094_a_closure_code_required_to_resolve_is_asked_by_the_move(
+    world: World,
+) -> None:
+    """The resolution and the closure code are not record fields: the move asks for either."""
+    org = world.a
+    assert (
+        await change_closure(world, org, resolve_requires=["resolution", "closure_code"])
+    ).status_code == 200
+    item = await world.create(org, org.admin)
+    (state,) = [a for a in (await fresh(world, org, item))["actions"] if a["action"] == "resolve"]
+    assert state["missing"] == []  # nothing to fill on the record: the dialog asks for both
+    refused = await world.act(org, org.admin, item, "resolve")
+    assert field_codes(refused) == {"closure_code": "required"}
+    resolved = await world.act(org, org.admin, item, "resolve", closure_code="workaround")
+    assert resolved.status_code == 200, resolved.text
+    assert resolved.json()["closure_code"] == "workaround"

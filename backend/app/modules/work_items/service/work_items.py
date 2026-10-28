@@ -68,7 +68,7 @@ from app.modules.work_items.domain.classification import (
     Urgency,
     compute_priority,
 )
-from app.modules.work_items.domain.closure import ASKED_BY_MOVE, within_reopen_window
+from app.modules.work_items.domain.closure import MOVE_FIELDS, within_reopen_window
 from app.modules.work_items.domain.conversation import FollowReason
 from app.modules.work_items.domain.lifecycle import (
     FINAL_CATEGORIES,
@@ -414,7 +414,7 @@ async def _view(  # noqa: C901 - one state per action and operation, flat
                 missing=tuple(
                     name
                     for name in await closing.missing_for(session, cat, record, action)
-                    if name != ASKED_BY_MOVE.get(action.value)
+                    if name not in MOVE_FIELDS
                 ),
             )
         )

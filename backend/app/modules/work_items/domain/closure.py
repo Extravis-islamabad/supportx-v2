@@ -37,8 +37,9 @@ RULE_FIELDS = frozenset(
         "tags",
     }
 )
-# Asked by the move dialog itself; the rest are filled on the record.
-ASKED_BY_MOVE = {"resolve": RESOLUTION, "close": CLOSURE_CODE}
+# Asked by the move dialog itself, on either move when the rules list them (a closure code
+# before resolving, a resolution before closing); the rest are filled on the record.
+MOVE_FIELDS = frozenset({RESOLUTION, CLOSURE_CODE})
 
 WINDOW_MIN, WINDOW_MAX = 1, 30
 AUTO_CLOSE_MIN, AUTO_CLOSE_MAX = 1, 30

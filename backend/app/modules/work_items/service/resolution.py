@@ -5,7 +5,7 @@ these), so the check is that the signed-in person is the record's requester or t
 for; anyone else gets 404, as for a record they cannot see.
 
 A requester cannot pick a closure code: when the closure rules ask for one and none was set,
-confirming closes with "fixed" (D-106). When the rules ask for anything else the record still
+confirming closes with "fixed" (D-107). When the rules ask for anything else the record still
 lacks, the confirmation is recorded and the record stays resolved for a technician to close.
 """
 

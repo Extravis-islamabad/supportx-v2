@@ -25,8 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import Conflict, FieldError, ValidationFailed
 from app.modules import metadata
 from app.modules.work_items.domain.closure import (
-    ASKED_BY_MOVE,
     CLOSURE_CODE,
+    MOVE_FIELDS,
     RESOLUTION,
     OpenItem,
     OpenWorkKind,
@@ -154,12 +154,14 @@ def _check_rules(  # noqa: PLR0913 - the move and its context, explicit
     """The move's own field (resolution or closure code) and the closure rules (REQ-INC-094)."""
     problems: list[tuple[str, str, Mapping[str, Any]]] = []
     values: dict[str, Any] = {name: getattr(record, name, None) for name in _record_fields()}
-    if action == RESOLVE:
-        text = sanitize_html(given.resolution) if given.resolution else None
-        if text is not None and not is_blank(text):
-            step.changes.update({RESOLUTION: text, "resolution_notified_at": None})
-            values[RESOLUTION] = text
-    elif given.closure_code:
+    # Either move takes either field (a rule may ask for a closure code before resolving).
+    text = sanitize_html(given.resolution) if given.resolution else None
+    if text is not None and not is_blank(text):
+        step.changes[RESOLUTION] = text
+        if action == RESOLVE:
+            step.changes["resolution_notified_at"] = None
+        values[RESOLUTION] = text
+    if given.closure_code:
         if given.closure_code in cat.reason_codes(PickList.CLOSURE_CODE):
             step.changes[CLOSURE_CODE] = given.closure_code
             values[CLOSURE_CODE] = given.closure_code
@@ -171,9 +173,8 @@ def _check_rules(  # noqa: PLR0913 - the move and its context, explicit
     for name in missing_fields(required, values, record.custom or {}):
         if name in named:  # already wrong (an unknown closure code): one problem per field
             continue
-        # The move asks for its own field; the rest are filled on the record first.
-        asked = ASKED_BY_MOVE.get(action.value) == name
-        problems.append((name, "required" if asked else record_code, {}))
+        # The move asks for the resolution and the closure code; the rest are on the record.
+        problems.append((name, "required" if name in MOVE_FIELDS else record_code, {}))
     if problems:
         raise _refused(problems)
 
