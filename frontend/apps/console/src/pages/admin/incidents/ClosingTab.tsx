@@ -91,6 +91,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     draftState.reset();
   };
   const noChannel = closure.requester_channels.length === 0;
+  const blocked = closure.requester_channel_states.filter((state) => state.reason !== null);
   const fieldOptions = [
     ...BUILT_IN.map((name) => ({ value: name, label: t(`work_item.field.${name}`) })),
     ...(customFields.data ?? [])
@@ -254,6 +255,24 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
             role="note"
             style={{ marginBottom: 12 }}
             message={t('settings.closing.auto_close_needs_notifications')}
+            // Why each channel cannot tell requesters yet, so the admin knows what to fix (QA BUG-02).
+            description={
+              blocked.length > 0 && (
+                <ul
+                  style={{ margin: 0, paddingInlineStart: 20 }}
+                  data-testid="settings-requester-channels"
+                >
+                  {blocked.map((state) => (
+                    <li key={state.channel}>
+                      {t('settings.closing.channel_state', {
+                        channel: t(`notification_channel.${state.channel}`),
+                        reason: t(`requester_channel_reason.${state.reason ?? ''}`),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
             data-testid="settings-auto-close-needs"
           />
         )}

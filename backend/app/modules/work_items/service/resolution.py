@@ -126,7 +126,9 @@ async def reject(  # noqa: PLR0913 - the answer and its context, explicit
     reopened = await items.system_move(
         session, wtype, cat, record, WorkItemAction.REOPEN, source=source, rule=REJECTED
     )
-    await conversations.add_requester_comment(session, reopened, comment, source=source)
+    await conversations.add_requester_comment(
+        session, reopened, comment, author_id=subject.user_id, source=source
+    )
     return Answered(reopened, closed=False)
 
 
@@ -177,6 +179,7 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
                     source="system",
                     rule=AUTO_CLOSED,
                     given=closing.MoveInput(closure_code=code),
+                    by_requester=False,
                 )
         except (ValidationFailed, Conflict):
             log.info("auto_close_skipped", record_id=str(record.id))

@@ -244,7 +244,12 @@ async def test_req_inc_051_ac1_a_requester_reply_resumes_awaiting_requester(worl
     now = await fresh(world, org, item)
     assert now["status"] == "in_progress"
     history = await world.history(org, now)
-    assert any((h.get("automation") or {}).get("rule") == "requester_reply" for h in history)
+    # The requester's own act (BUG-03): no automation, history says what they did.
+    assert any(
+        {"field": "requester_action", "old": None, "new": "requester_reply_resumed"} in h["changes"]
+        and h["automation"] is None
+        for h in history
+    )
 
 
 async def test_req_inc_051_ac2_waiting_on_a_third_party_does_not_move(world: World) -> None:

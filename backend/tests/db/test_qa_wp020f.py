@@ -14,11 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY, Database
 from app.core.tenancy import TenantContext
+from app.modules.identity_access import subject_for
+from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import closing
+from app.modules.work_items.service import closing, conversations
 from app.modules.work_items.service.notifications import IncidentNotifications
 from tests.db.test_closing_api import change_closure, fresh, settings
-from tests.db.test_incidents_api import World, field_codes, incidents_world
+from tests.db.test_incidents_api import BASE, World, field_codes, incidents_world
 from tooling.db_testing import ThrowawayDatabase
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
@@ -162,3 +164,137 @@ async def test_bug_02_auto_close_starts_once_a_channel_reaches_and_a_notice_is_d
     async with app_db.tenant_session(TenantContext(org.tenant)) as session:
         assert await resolution.auto_close_due(session, INCIDENT, datetime.now(UTC)) == 1
     assert (await fresh(world, org, item))["status_category"] == "closed"
+
+
+# --- BUG-01: a requester's own reply showed as an unsent outgoing reply ------------------------
+
+
+async def _replies(world: World, org: Any, item: dict[str, Any]) -> list[dict[str, Any]]:  # noqa: ANN401 - the Org fixture
+    found = await world.call("GET", f"{BASE}/{item['id']}/conversation", org, org.admin)
+    assert found.status_code == 200, found.text
+    return [e for e in found.json()["items"] if e["kind"] == "reply"]
+
+
+async def test_bug_01_a_requester_reply_from_outside_is_received_not_unsent(
+    world: World, app_db: Database
+) -> None:
+    """Whatever the path (reject, e-mail reply), words the requester sent in are received."""
+    org = world.a
+    item = await world.create(org, org.admin)
+    resolved = (await world.act(org, org.admin, item, "resolve")).json()
+    # The requester rejects the fix through the portal: their comment is an incoming reply.
+    rejected = await world.call(
+        "POST",
+        f"{BASE}/{item['id']}/resolution/reject",
+        org,
+        org.requester,
+        json={"comment": "Still jams."},
+        headers={"X-SupportX-Client": "portal"},
+    )
+    assert rejected.status_code == 200, rejected.text
+    # And replies by e-mail (lane B's WP-024 path through add_requester_reply).
+    async with app_db.tenant_session(TenantContext(org.tenant, user_id=org.requester)) as session:
+        record = await session.get(WorkItem, uuid.UUID(resolved["id"]))
+        assert record is not None
+        await conversations.add_requester_reply(
+            session,
+            INCIDENT,
+            record,
+            body="<p>Thanks, it works now.</p>",
+            source="email",
+            automatic=False,
+            subject=await subject_for(session, org.tenant, org.requester),
+            holders=world.app.state.policy,
+        )
+    replies = await _replies(world, org, item)
+    assert [(r["delivery_state"], r["delivery_reason"]) for r in replies] == [
+        ("received", None),
+        ("received", None),
+    ]
+
+
+async def test_bug_01_a_technician_reply_still_waits_for_the_email_channel(
+    world: World,
+) -> None:
+    """The same decision keeps staff replies outbound (unchanged behaviour)."""
+    org = world.a
+    item = await world.create(org, org.admin)
+    said = await world.call(
+        "POST",
+        f"{BASE}/{item['id']}/conversation",
+        org,
+        org.admin,
+        json={
+            "kind": "reply",
+            "visibility": "public",
+            "body": "<p>On it.</p>",
+            "reply_mode": "reply",
+        },
+    )
+    assert said.status_code == 201, said.text
+    replies = await _replies(world, org, item)
+    assert replies[0]["delivery_state"] in {"not_sent", "queued"}
+
+
+# --- BUG-03: the requester's own moves were filed as automation -----------------------------------
+
+
+async def _latest_status(world: World, org: Any, item: dict[str, Any], query: str = "") -> Any:  # noqa: ANN401 - JSON
+    found = await world.call("GET", f"{BASE}/{item['id']}/history{query}", org, org.admin)
+    assert found.status_code == 200, found.text
+    return next(e for e in found.json()["items"] if e["kind"] == "status")
+
+
+async def test_bug_03_confirm_and_reject_are_the_requesters_own_acts(world: World) -> None:
+    org = world.a
+    for answer, words in (("confirm", "requester_confirmed"), ("reject", "requester_rejected")):
+        item = (
+            await world.act(org, org.admin, await world.create(org, org.admin), "resolve")
+        ).json()
+        done = await world.call(
+            "POST",
+            f"{BASE}/{item['id']}/resolution/{answer}",
+            org,
+            org.requester,
+            json={"comment": "Still jams."} if answer == "reject" else None,
+            headers={"X-SupportX-Client": "portal"},
+        )
+        assert done.status_code == 200, done.text
+        entry = await _latest_status(world, org, item)
+        assert entry["automation"] is None, answer  # a person did it: no "Automatic" tag
+        assert (entry["actor_type"], entry["actor_id"], entry["source"]) == (
+            "user",
+            str(org.requester),
+            "portal",
+        )
+        assert {"field": "requester_action", "old": None, "new": words} in entry["changes"]
+        # The "People" filter shows it; "Automation" does not.
+        people = await _latest_status(world, org, item, "?actors=people")
+        assert people["change_id"] == entry["change_id"]
+
+
+async def test_bug_03_an_e_mail_reply_that_resumes_is_the_requesters_act(
+    world: World, app_db: Database
+) -> None:
+    org = world.a
+    item = await world.create(org, org.admin, technician_id=str(org.tech_a))
+    waiting = (await world.act(org, org.tech_a, item, "wait_requester", "confirmation")).json()
+    async with app_db.tenant_session(TenantContext(org.tenant, user_id=org.requester)) as session:
+        record = await session.get(WorkItem, uuid.UUID(waiting["id"]))
+        assert record is not None
+        await conversations.add_requester_reply(
+            session,
+            INCIDENT,
+            record,
+            body="<p>Here is the screenshot.</p>",
+            source="email",
+            automatic=False,
+            subject=await subject_for(session, org.tenant, org.requester),
+            holders=world.app.state.policy,
+        )
+    entry = await _latest_status(world, org, item)
+    assert entry["automation"] is None
+    assert (entry["actor_id"], entry["source"]) == (str(org.requester), "email")
+    assert {"field": "requester_action", "old": None, "new": "requester_reply_resumed"} in entry[
+        "changes"
+    ]

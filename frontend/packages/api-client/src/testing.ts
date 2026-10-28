@@ -545,6 +545,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
       requester_channels: [],
+      requester_channel_states: [],
     },
     next_number: 8,
   };

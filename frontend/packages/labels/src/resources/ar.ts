@@ -1303,6 +1303,7 @@ export const ar: LabelResource = {
   'errors.field.cannot_see_record': 'لا يستطيع هذا الشخص رؤية هذا السجل، لذا لا يمكنه متابعته.',
   'errors.field.duplicate_name': 'هذا الاسم مستخدم بالفعل.',
   'delivery_reason.email_channel_not_configured': 'قناة البريد الإلكتروني غير مُعدّة',
+  'delivery_state.received': 'مُستلَم',
   'delivery_state.not_sent': 'لم يُرسل',
   'delivery_state.queued': 'قيد الإرسال',
   'delivery_state.sent': 'تم الإرسال',
@@ -3654,6 +3655,9 @@ export const ar: LabelResource = {
     'فقط عندما يُبلَّغ مقدّم الطلب بالحل ولا يردّ خلال أيام العمل أدناه.',
   'settings.closing.auto_close_needs_notifications':
     'يتطلب إشعارات مقدّمي الطلبات: يبقى الإغلاق التلقائي متوقفًا حتى تتوفر قناة (البريد الإلكتروني أو البوابة) تُبلغ مقدّمي الطلبات بالحل. لا تُغلق أي حادثة لمقدّم طلب لم يُبلَّغ.',
+  'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'requester_channel_reason.mail_not_configured': 'لم يُعدّ خادم بريد صادر',
+  'requester_channel_reason.mail_failing': 'البريد الصادر يفشل؛ راجع الإدارة › البريد',
   'settings.closing.auto_close_days': 'أيام العمل قبل الإغلاق التلقائي',
   'settings.closing.days_range': 'من {{min}} إلى {{max}} يوم عمل.',
   'settings.closing.reopen_window_days': 'مدة إعادة الفتح (بالأيام)',

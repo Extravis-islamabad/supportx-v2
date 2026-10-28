@@ -874,6 +874,7 @@ export const ur: LabelResource = {
     'یہ شخص یہ ریکارڈ نہیں دیکھ سکتا، اس لیے اسے فالو نہیں کر سکتا۔',
   'errors.field.duplicate_name': 'یہ نام پہلے سے استعمال میں ہے۔',
   'delivery_reason.email_channel_not_configured': 'ای میل چینل ترتیب نہیں دیا گیا',
+  'delivery_state.received': 'موصول',
   'delivery_state.not_sent': 'نہیں بھیجا گیا',
   'delivery_state.queued': 'بھیجا جا رہا ہے',
   'delivery_state.sent': 'بھیج دیا گیا',
@@ -3502,6 +3503,9 @@ export const ur: LabelResource = {
     'صرف تب جب درخواست گزار کو حل کی اطلاع دی گئی ہو اور اس نے نیچے دیے گئے کاروباری دنوں میں جواب نہ دیا ہو۔',
   'settings.closing.auto_close_needs_notifications':
     'درخواست گزاروں کی اطلاعات درکار ہیں: خودکار بندش اس وقت تک بند رہتی ہے جب تک کوئی چینل (ای میل یا پورٹل) درخواست گزاروں کو حل کی اطلاع نہ دے سکے۔ کسی ایسے درخواست گزار کا واقعہ کبھی بند نہیں ہوتا جسے اطلاع نہ دی گئی ہو۔',
+  'settings.closing.channel_state': '{{channel}}: {{reason}}۔',
+  'requester_channel_reason.mail_not_configured': 'کوئی آؤٹ گوئنگ میل سرور سیٹ اپ نہیں',
+  'requester_channel_reason.mail_failing': 'آؤٹ گوئنگ میل ناکام ہو رہی ہے؛ ایڈمن › میل دیکھیں',
   'settings.closing.auto_close_days': 'خودکار بندش سے پہلے کاروباری دن',
   'settings.closing.days_range': '{{min}} سے {{max}} کاروباری دن۔',
   'settings.closing.reopen_window_days': 'دوبارہ کھولنے کی مدت (دن)',

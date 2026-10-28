@@ -37,6 +37,7 @@ from app.modules.work_items.domain.conversation import (
     Visibility,
     delivery_for,
     mentioned_ids,
+    reply_is_inbound,
     stamps_first_response,
     unmention,
 )
@@ -329,7 +330,13 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
     if claimed:
         known = await user_contacts(session, claimed)
         clean = unmention(clean, [u for u in claimed if u not in known])
-    state, reason = delivery_for(kind, email_channel=await email_channel_configured(session))
+    state, reason = delivery_for(
+        kind,
+        inbound=reply_is_inbound(
+            subject.user_id, {record.requester_id, record.on_behalf_of_id}, source
+        ),
+        email_channel=await email_channel_configured(session),
+    )
     mentioned: list[uuid.UUID] = []
     not_notified: list[uuid.UUID] = []
     for raw in mentioned_ids(clean):
@@ -402,11 +409,12 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
     return Added(entry, not_notified, names, follow_up)
 
 
-async def add_requester_comment(
+async def add_requester_comment(  # noqa: PLR0913 - the comment and who sent it how, explicit
     session: AsyncSession,
     record: WorkItem,
     body: str,
     *,
+    author_id: uuid.UUID,
     source: Source,
     automatic: bool = False,
 ) -> WorkItemConversation:
@@ -417,7 +425,9 @@ async def add_requester_comment(
     """
     clean = sanitize_html(body)
     state, reason = delivery_for(
-        EntryKind.REPLY, email_channel=await email_channel_configured(session)
+        EntryKind.REPLY,
+        inbound=reply_is_inbound(author_id, {record.requester_id, record.on_behalf_of_id}, source),
+        email_channel=await email_channel_configured(session),
     )
     entry = await ConversationRepository(session).add(
         WorkItemConversation(
@@ -483,7 +493,9 @@ async def add_requester_reply(  # noqa: PLR0913 - the reply and its context, exp
     """
     if subject.user_id not in {record.requester_id, record.on_behalf_of_id}:
         raise NotFound(code=f"{wtype.code}_not_found")
-    await add_requester_comment(session, record, body, source=source, automatic=automatic)
+    await add_requester_comment(
+        session, record, body, author_id=subject.user_id, source=source, automatic=automatic
+    )
     if automatic:
         return None
     return await items.on_requester_reply(

@@ -5197,8 +5197,9 @@
         "type": "string"
       },
       "DeliveryState": {
-        "description": "Where an outbound reply is. Notes have none.",
+        "description": "Where a reply is: outbound ones are sent, incoming ones were received. Notes have none.",
         "enum": [
+          "received",
           "not_sent",
           "queued",
           "sent",
@@ -12299,6 +12300,33 @@
         "title": "ReportSettingsPatch",
         "type": "object"
       },
+      "RequesterChannelOut": {
+        "description": "A channel that can tell requesters, for this tenant now.",
+        "properties": {
+          "channel": {
+            "title": "Channel",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: it reaches; else why not (a labelled code).",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "channel",
+          "reason"
+        ],
+        "title": "RequesterChannelOut",
+        "type": "object"
+      },
       "ResolutionAnswerOut": {
         "description": "What the requester's answer did (requesters see no more of the record here).",
         "properties": {
@@ -18020,8 +18048,16 @@
             "title": "Reopen Window Days",
             "type": "integer"
           },
+          "requester_channel_states": {
+            "description": "Every channel that can tell requesters, and why one does not reach now.",
+            "items": {
+              "$ref": "#/components/schemas/RequesterChannelOut"
+            },
+            "title": "Requester Channel States",
+            "type": "array"
+          },
           "requester_channels": {
-            "description": "Channels that can tell requesters; auto-close needs one.",
+            "description": "Channels that reach this tenant's requesters now; auto-close needs one.",
             "items": {
               "type": "string"
             },
@@ -18050,7 +18086,8 @@
           "auto_close_days",
           "reopen_window_days",
           "task_owner_access",
-          "requester_channels"
+          "requester_channels",
+          "requester_channel_states"
         ],
         "title": "WorkItemClosureOut",
         "type": "object"
