@@ -23,6 +23,14 @@ MAX_TEXT = 200_000  # characters of a body kept; the rest is cut (the original s
 # A display ID in a subject: "[INC-123]" (case-insensitive, any record prefix).
 TOKEN = re.compile(r"\[([A-Z]{2,10}-\d{1,12})\]", re.IGNORECASE)
 
+
+def with_token(subject: str, display_id: str) -> str:
+    """The subject of mail about a record, with its token, so a reply finds it ("[INC-12] ...")."""
+    if display_id.upper() in (t.upper() for t in TOKEN.findall(subject)):
+        return subject
+    return f"[{display_id}] {subject}"
+
+
 _AUTO_SUBMITTED_NO = {"no", ""}
 _BULK_PRECEDENCE = {"bulk", "list", "junk", "auto_reply"}
 _BOUNCE_SENDERS = re.compile(

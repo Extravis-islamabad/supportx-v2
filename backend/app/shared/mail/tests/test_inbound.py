@@ -4,7 +4,7 @@ from email.message import EmailMessage
 
 import pytest
 
-from app.shared.mail.domain.inbound import parse, reply_text
+from app.shared.mail.domain.inbound import parse, reply_text, with_token
 
 
 def _mail(**headers: str) -> EmailMessage:
@@ -104,3 +104,10 @@ def test_arabic_and_urdu_quote_markers() -> None:
 def test_a_message_that_is_all_quote_is_kept_whole() -> None:
     """Never lose what a person sent: an all-quote message stays as it is."""
     assert reply_text("> only a quote") == "> only a quote"
+
+
+def test_mail_about_a_record_carries_its_token_once() -> None:
+    assert with_token("Incident updated", "INC-12") == "[INC-12] Incident updated"
+    assert with_token("[inc-12] Incident updated", "INC-12") == "[inc-12] Incident updated"
+    reply = parse(f"Subject: Re: {with_token('Updated', 'INC-12')}\r\n\r\nok".encode())
+    assert reply.tokens == ("INC-12",)

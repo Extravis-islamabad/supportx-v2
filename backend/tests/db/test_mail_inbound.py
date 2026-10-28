@@ -21,7 +21,9 @@ from app.modules.integrations.infra.imap import FetchedMessage, MailboxUnavailab
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.integrations.service.fetching import fetch_mailbox
 from app.modules.integrations.service.inbound import process
+from app.modules.notifications.infra.models import NotificationDelivery
 from app.shared.files.keyring import KeyRing
+from app.shared.mail.infra.models import MailMessage
 from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
@@ -50,10 +52,13 @@ class FakeIncidents:
     refuse: str | None = None
 
     async def find_record(
-        self, session: object, *, tokens: Sequence[str], thread_message_ids: Sequence[str]
+        self, session: object, *, tokens: Sequence[str], record_ids: Sequence[uuid.UUID]
     ) -> FoundRecord | None:
-        del session, thread_message_ids
-        return next((self.records[t] for t in tokens if t in self.records), None)
+        del session
+        by_id = {r.record_id: r for r in self.records.values()}
+        return next((self.records[t] for t in tokens if t in self.records), None) or next(
+            (by_id[i] for i in record_ids if i in by_id), None
+        )
 
     async def create_from_mail(self, session: object, **values: object) -> CreatedRecord:
         del session
@@ -155,6 +160,45 @@ async def test_a_reply_lands_on_its_incident_without_the_quote(world: World) -> 
     assert reply["record"] == "INC-7"
     assert reply["automatic"] is False
     assert reply["body_html"] == "<p>It jams.</p>"  # the quoted history is not kept
+
+
+async def test_a_reply_that_lost_its_token_finds_the_record_by_the_mail_it_answers(
+    world: World,
+) -> None:
+    """REQ-INC-023 AC2: In-Reply-To names a notification SupportX sent about INC-9."""
+    record = FoundRecord("incident", uuid.uuid4(), "INC-9", frozenset({world.known}))
+    world.incidents.records["INC-9"] = record
+    sent = "<notify-1@supportx.test>"
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        mail = MailMessage(
+            tenant_id=world.tenant,
+            kind="notification",
+            language="en",
+            recipients=["sara@acme.test"],
+            subject="[INC-9] Printer jams",
+            state="sent",
+            message_id=sent,
+        )
+        session.add(mail)
+        await session.flush()
+        session.add(
+            NotificationDelivery(
+                tenant_id=world.tenant,
+                event_id=uuid.uuid4(),
+                event_code="incident_updated",
+                record_type="incident",
+                record_id=record.record_id,
+                display_id="INC-9",
+                user_id=world.known,
+                reasons=["requester"],
+                channel="email",
+                state="sent",
+                mail_id=mail.id,
+            )
+        )
+    outcome = await _process(world, _mail(Subject="Re: Printer jams", In_Reply_To=sent))
+    assert outcome is Outcome.REPLIED
+    assert [r["record"] for r in world.incidents.replies] == ["INC-9"]
 
 
 async def test_an_out_of_office_is_recorded_and_wakes_nothing(world: World) -> None:

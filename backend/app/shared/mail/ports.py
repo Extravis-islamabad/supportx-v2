@@ -4,8 +4,9 @@ The integrations module reads mailboxes and decides what a message becomes (new 
 nothing); the module that owns the records does the rest with its own rules, registered here at
 import (`work_items/service/inbound_mail.py` for incidents):
 
-- `find_record`: the record a message answers, from the subject token ("[INC-12]") or the
-  Message-ID of a mail sent about the record;
+- `find_record`: the record a message answers, from the subject token ("[INC-12]") or, when the
+  subject lost it, the records of the mail it answers (`record_ids`, from the notification
+  delivery log by Message-ID);
 - `create_from_mail`: a new record with channel "email", the requester as actor, through the
   module's create service (priority, routing, automation as for any new record);
 - `reply_from_mail`: a public reply by the requester (or the person it is for), with the
@@ -61,7 +62,7 @@ class InboundTarget(Protocol):
         ...
 
     async def find_record(
-        self, session: AsyncSession, *, tokens: Sequence[str], thread_message_ids: Sequence[str]
+        self, session: AsyncSession, *, tokens: Sequence[str], record_ids: Sequence[uuid.UUID]
     ) -> FoundRecord | None:
         """The record the message answers, or None."""
         ...

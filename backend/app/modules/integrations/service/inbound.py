@@ -35,6 +35,7 @@ from app.modules.integrations.domain.mailboxes import (
     route,
 )
 from app.modules.integrations.infra.models import Mailbox, MailFetched
+from app.modules.notifications import records_for_mail
 from app.shared.labels import label
 from app.shared.mail import MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text
@@ -218,8 +219,11 @@ async def process(  # noqa: PLR0911 - one return per outcome of the module docst
     target = inbound_target(RECORD_TYPE)
     found: FoundRecord | None = None
     if target is not None:
+        answered = await records_for_mail(session, message.thread_ids)
         found = await target.find_record(
-            session, tokens=message.tokens, thread_message_ids=message.thread_ids
+            session,
+            tokens=message.tokens,
+            record_ids=[record_id for kind, record_id in answered if kind == RECORD_TYPE],
         )
     sender_id = await person_by_email(session, message.sender) if message.sender else None
     decision = route(
