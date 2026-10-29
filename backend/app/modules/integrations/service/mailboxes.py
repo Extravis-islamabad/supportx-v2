@@ -178,31 +178,17 @@ async def changed(session: AsyncSession, row: Mailbox, change: Change) -> None:
     )
 
 
-async def _flooding(session: AsyncSession) -> set[uuid.UUID]:
-    """Mailboxes with mail waiting because a sender went over the flood limit (REQ-NTF-023)."""
-    rows = await session.scalars(
-        select(MailFetched.mailbox_id)
-        .where(MailFetched.outcome == Outcome.HELD.value, MailFetched.reason == "sender_rate")
-        .distinct()
-    )
-    return set(rows)
-
-
-def _view(
-    row: Mailbox, held: Mapping[uuid.UUID, int], flooding: set[uuid.UUID] | None = None
-) -> MailboxView:
-    return MailboxView(
-        row, row.secret_sealed is not None, held.get(row.id, 0), row.id in (flooding or set())
-    )
+def _view(row: Mailbox, held: Mapping[uuid.UUID, int]) -> MailboxView:
+    return MailboxView(row, row.secret_sealed is not None, held.get(row.id, 0), row.flooding)
 
 
 async def list_mailboxes(session: AsyncSession) -> list[MailboxView]:
     """Every mailbox of the tenant, by address."""
-    held, flooding = await _held_counts(session), await _flooding(session)
+    held = await _held_counts(session)
     rows = await session.scalars(
         select(Mailbox).where(Mailbox.deleted_at.is_(None)).order_by(Mailbox.address)
     )
-    return [_view(row, held, flooding) for row in rows]
+    return [_view(row, held) for row in rows]
 
 
 async def get_mailbox(session: AsyncSession, mailbox_id: uuid.UUID) -> MailboxView:
@@ -210,7 +196,7 @@ async def get_mailbox(session: AsyncSession, mailbox_id: uuid.UUID) -> MailboxVi
     row = await session.get(Mailbox, mailbox_id)
     if row is None or row.deleted_at is not None:
         raise NotFound(code="mailbox_not_found")
-    return _view(row, await _held_counts(session), await _flooding(session))
+    return _view(row, await _held_counts(session))
 
 
 def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:

@@ -40,7 +40,7 @@ from app.modules.integrations.service.connections import (
     open_reader,
     store_refresh_token,
 )
-from app.modules.integrations.service.inbound import process
+from app.modules.integrations.service.inbound import flood_over, process
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
 
@@ -76,6 +76,10 @@ async def _set_state(
             aggregate_id=mailbox.id,
             aggregate_version=mailbox.version,
         )
+    if mailbox.flooding and await flood_over(session, mailbox.id):
+        # Back under the limit: the warning goes away by itself, live (held mail still waits).
+        mailbox.flooding = False
+        moved = True
     mailbox.state, mailbox.state_reason = state.value, reason
     mailbox.last_fetch_at = now
     mailbox.next_fetch_at = now + timedelta(seconds=POLL_SECONDS)

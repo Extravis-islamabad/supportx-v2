@@ -32,6 +32,7 @@ from app.modules.identity_access import (
     person_by_email,
 )
 from app.modules.integrations.domain.mailboxes import (
+    PER_SENDER_LIMIT,
     WAITING,
     MailboxCreates,
     MailboxRules,
@@ -114,6 +115,30 @@ async def _flood_starts(session: AsyncSession, message: InboundMessage) -> bool:
         )
     )
     return not earlier
+
+
+async def flood_over(session: AsyncSession, mailbox_id: uuid.UUID) -> bool:
+    """Whether every sender held for flooding this mailbox is back under the limit."""
+    since = datetime.now(UTC) - timedelta(hours=1)
+    flooders = (
+        select(MailFetched.sender)
+        .where(
+            MailFetched.mailbox_id == mailbox_id,
+            MailFetched.reason == FLOOD,
+            MailFetched.created_at >= since,
+        )
+        .distinct()
+    )
+    still = await session.scalar(
+        select(func.count()).select_from(
+            select(MailFetched.sender)
+            .where(MailFetched.sender.in_(flooders), MailFetched.created_at >= since)
+            .group_by(MailFetched.sender)
+            .having(func.count() >= PER_SENDER_LIMIT)
+            .subquery()
+        )
+    )
+    return not still
 
 
 async def _recent(session: AsyncSession, sender: str) -> int:
@@ -357,6 +382,8 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
     if decision.outcome is Outcome.AUTOMATIC and found is not None:
         return await _automatic(ctx, found, decision.reason)
     if decision.outcome not in (Outcome.CREATED, Outcome.REPLIED):
+        if decision.reason == FLOOD:
+            mailbox.flooding = True  # the mail page says so until the flood is over
         if decision.reason == FLOOD and await _flood_starts(session, message):
             # Never silent (product owner, 2026-10-29): admins are told once per flood.
             await record_event(

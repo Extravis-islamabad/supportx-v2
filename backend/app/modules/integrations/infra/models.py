@@ -109,6 +109,9 @@ class Mailbox(TenantEntity):
     state: Mapped[str] = mapped_column(String(12), server_default="not_set_up")
     state_reason: Mapped[str | None] = mapped_column(String(60))
     last_fetch_at: Mapped[datetime | None]
+    # A sender is over the flood limit and their mail waits for review (REQ-NTF-023); cleared by
+    # the fetch once every such sender is back under the limit.
+    flooding: Mapped[bool] = mapped_column(Boolean, server_default="false")
     next_fetch_at: Mapped[datetime | None]
 
 
