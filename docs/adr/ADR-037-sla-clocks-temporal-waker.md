@@ -82,8 +82,8 @@ A timer engine alone does not settle the hard questions:
   - Temporal can be upgraded, restarted or lost briefly without changing any outcome.
   - The safety net keeps the 60-second promise through short outages.
 - **Negative:**
-  - Every wake-up costs a database round trip (`next_wake`, `fire`); measured by the 1M-clock
-    load test (D-115 D10).
+  - Every wake-up costs a database round trip (`next_wake`, `fire`); measured by the load test
+    (D-115 D10: 100k clocks on single node, 1M on SaaS, in GitHub only).
   - Two extra databases to back up on every profile (operations docs, backup runbook).
   - Workflow code needs versioning discipline (replay test in CI).
 - **Rejected:**

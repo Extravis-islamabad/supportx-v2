@@ -120,6 +120,12 @@ companions `react-draggable`, `react-resizable`, `fast-equals`, `resize-observer
 `clsx`, `prop-types`: free-form dashboard layout, lazy-loaded in edit mode only, keyboard
 move/resize buttons kept, right to left mirrored and checked by e2e.
 
+**Approved additions (D-115, WP-025):** `tzdata` (Apache-2.0; IANA time zones for `zoneinfo` in
+every image and the Nuitka build) and `icalendar` (BSD-2-Clause; holiday and working-calendar
+import, with size and line limits and a fuzz test, as the files are untrusted). Temporal's Python
+SDK `temporalio` (MIT) is the stack's Temporal client (§5); its server images and Helm chart are
+MIT.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
