@@ -24,7 +24,7 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
 from app.shared.clock import system_clock
-from app.shared.history import source_of
+from app.shared.history import HistoryEntry, source_of
 
 Responses = dict[int | str, dict[str, Any]]
 RESPONSES: Responses = {
@@ -788,6 +788,72 @@ async def article_versions(
     view = await articles.get_article(session, subject, article_id)
     found = await review.list_versions(session, subject, article_id)
     return [VersionOut.of(v, editor=view.can_edit or view.can_approve) for v in found]
+
+
+class KbFieldChangeOut(BaseModel):
+    """One field of one save. Values are codes, IDs, text or ISO dates; the UI labels them.
+
+    Version fields are named `version.<language>.<what>` (e.g. `version.ar.status`).
+    """
+
+    field: str
+    old: Any = None
+    new: Any = None
+
+
+class KbHistoryEntryOut(BaseModel):
+    """One save of an article."""
+
+    version: int
+    kind: str = Field(description="history_kind code: created, updated, status, deleted…")
+    occurred_at: datetime
+    actor_type: Literal["user", "system"]
+    actor_id: str | None
+    actor_name: str | None
+    source: str = Field(description="history_source code: ui, api, system…")
+    reason: str | None
+    changes: list[KbFieldChangeOut]
+
+    @classmethod
+    def of(cls, entry: HistoryEntry, names: dict[str, str]) -> "KbHistoryEntryOut":
+        """From a history entry plus resolved actor names."""
+        return cls(
+            version=entry.version,
+            kind=entry.kind,
+            occurred_at=entry.occurred_at,
+            actor_type="user" if entry.actor_type == "user" else "system",
+            actor_id=entry.actor_id,
+            actor_name=names.get(entry.actor_id or ""),
+            source=entry.source,
+            reason=entry.reason,
+            changes=[KbFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes],
+        )
+
+
+class KbHistoryOut(BaseModel):
+    """Saves of one article, newest first."""
+
+    items: list[KbHistoryEntryOut]
+    next_cursor: str | None
+
+
+@router.get("/articles/{article_id}/history", summary="History of an article")
+async def article_history(
+    article_id: uuid.UUID,
+    session: TenantSession,
+    subject: Viewer,
+    cursor: Annotated[str | None, Query(description="next_cursor of the previous page.")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> KbHistoryOut:
+    """Every save, newest first: who, when, from where, what, why (editors and approvers)."""
+    before = int(cursor) if cursor and cursor.isdigit() else None
+    entries, next_version, names = await review.history(
+        session, subject, article_id, before_version=before, limit=limit
+    )
+    return KbHistoryOut(
+        items=[KbHistoryEntryOut.of(entry, names) for entry in entries],
+        next_cursor=None if next_version is None else str(next_version),
+    )
 
 
 # --- session 2: the approval count and settings (REQ-KB-086, 090) ---------------------------------

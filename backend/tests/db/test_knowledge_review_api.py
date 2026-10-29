@@ -719,3 +719,17 @@ async def test_req_kb_033_ac2_a_deactivated_owner_hands_over_to_the_topic_owner(
         uuid.UUID(moved["id"]),
     )
     assert [(h["field"], h["source"]) for h in history] == [("owner_id", "system")]
+
+
+async def test_req_kb_080_history_for_those_who_work_on_the_article(world: World) -> None:
+    a = world.a
+    topic = await _topic(world, a)
+    article = await _published(world, a, topic)
+    url = _url(article, "/history")
+    mine = await world.call("GET", url, a, a.tech_a)
+    assert mine.status_code == 200, mine.text
+    fields = {c["field"] for e in mine.json()["items"] for c in e["changes"]}
+    assert {"version.en.status", "version.en.published"} <= fields
+    assert (await world.call("GET", url, a, a.admin)).status_code == 200
+    reader = await world.call("GET", url, a, a.tech_c)  # reads it, may not work on it
+    assert problem(reader) == (404, "kb_article_not_found")

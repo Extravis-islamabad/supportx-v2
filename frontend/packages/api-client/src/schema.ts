@@ -3248,6 +3248,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/articles/{article_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * History of an article
+         * @description Every save, newest first: who, when, from where, what, why (editors and approvers).
+         */
+        get: operations["article_history_api_v1_knowledge_articles__article_id__history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/knowledge/articles/{article_id}/restore": {
         parameters: {
             query?: never;
@@ -7879,6 +7899,66 @@ export interface components {
             user_id: string;
             /** Version */
             version: number;
+        };
+        /**
+         * KbFieldChangeOut
+         * @description One field of one save. Values are codes, IDs, text or ISO dates; the UI labels them.
+         *
+         *     Version fields are named `version.<language>.<what>` (e.g. `version.ar.status`).
+         */
+        KbFieldChangeOut: {
+            /** Field */
+            field: string;
+            /** New */
+            new?: unknown;
+            /** Old */
+            old?: unknown;
+        };
+        /**
+         * KbHistoryEntryOut
+         * @description One save of an article.
+         */
+        KbHistoryEntryOut: {
+            /** Actor Id */
+            actor_id: string | null;
+            /** Actor Name */
+            actor_name: string | null;
+            /**
+             * Actor Type
+             * @enum {string}
+             */
+            actor_type: "user" | "system";
+            /** Changes */
+            changes: components["schemas"]["KbFieldChangeOut"][];
+            /**
+             * Kind
+             * @description history_kind code: created, updated, status, deleted…
+             */
+            kind: string;
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Source
+             * @description history_source code: ui, api, system…
+             */
+            source: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * KbHistoryOut
+         * @description Saves of one article, newest first.
+         */
+        KbHistoryOut: {
+            /** Items */
+            items: components["schemas"]["KbHistoryEntryOut"][];
+            /** Next Cursor */
+            next_cursor: string | null;
         };
         /**
          * Kind
@@ -26904,6 +26984,77 @@ export interface operations {
             };
             /** @description Stale If-Match. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    article_history_api_v1_knowledge_articles__article_id__history_get: {
+        parameters: {
+            query?: {
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KbHistoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

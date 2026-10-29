@@ -29,7 +29,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, user_names
 from app.modules.knowledge.domain.knowledge import (
     VersionStatus,
     WorkflowStep,
@@ -70,7 +70,7 @@ from app.modules.knowledge.service.repos import (
 )
 from app.shared.clock import system_clock
 from app.shared.events import record_event
-from app.shared.history import Change, Source, record_changes
+from app.shared.history import Change, HistoryEntry, Source, history_page, record_changes
 
 REASON_MAX = 2000
 
@@ -540,3 +540,28 @@ async def update_settings(
         )
     await session.flush()
     return current
+
+
+# --- history (REQ-KB-080) -------------------------------------------------------------------------
+
+
+async def history(
+    session: AsyncSession,
+    subject: Subject,
+    article_id: uuid.UUID,
+    *,
+    before_version: int | None,
+    limit: int,
+) -> tuple[list[HistoryEntry], int | None, dict[str, str]]:
+    """Saves of an article, for those who may work on it: its editors, approvers and withdrawers.
+
+    Readers get 404: the history names drafts, reasons for sending back and withdrawing.
+    """
+    view = await get_article(session, subject, article_id)
+    if not (view.can_edit or view.can_approve or view.can_withdraw):
+        raise NotFound(code="kb_article_not_found")
+    entries, cursor = await history_page(
+        session, RECORD_TYPE, article_id, before_version=before_version, limit=limit
+    )
+    names = await user_names(session, sorted({e.actor_id for e in entries if e.actor_id}))
+    return entries, cursor, names
