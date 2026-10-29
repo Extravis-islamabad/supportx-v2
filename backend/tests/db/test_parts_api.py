@@ -64,8 +64,11 @@ async def test_req_inc_072_ac1_tasks_count_done_over_total_with_history(world: W
     # Only someone who may edit the record adds tasks.
     refused = await add_task(world, a, a.tech_b, item, title="Elsewhere")
     assert refused.status_code == 404, refused.text  # tech_b cannot see GA's record at all
+    # This tenant only: in one process other tests write part events to the same database.
     events = await world.sql(
-        "SELECT count(*) AS n FROM outbox_events WHERE event_type = 'work_items.part.changed'"
+        "SELECT count(*) AS n FROM outbox_events"
+        " WHERE event_type = 'work_items.part.changed' AND tenant_id = $1",
+        a.tenant,
     )
     assert events[0]["n"] == 3
 
