@@ -6,6 +6,7 @@ import {
   useUnits,
   type AnnouncementHistoryEntry,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useAccess, useAppearance, useLabel } from '@supportx/ui';
 
 type Change = AnnouncementHistoryEntry['changes'][number];
@@ -27,6 +28,7 @@ function valueText(
   t: Translate,
   format: Intl.DateTimeFormat,
   units: Map<string, string>,
+  listFormat: (items: readonly string[]) => string,
 ): string {
   if (value === null || value === undefined || value === '') return t('history.empty');
   const prefix = LABELLED[change.field];
@@ -37,9 +39,9 @@ function valueText(
   }
   if (Array.isArray(value)) {
     if (value.length === 0) return t('history.empty');
-    const names = value.map((id) => units.get(String(id)));
-    return names.every((name) => name !== undefined)
-      ? names.join(t('list.separator'))
+    const names = value.flatMap((id) => units.get(String(id)) ?? []);
+    return names.length === value.length
+      ? listFormat(names)
       : t('history.units', { count: value.length });
   }
   if (change.field === 'owner_id') return t('history.changed');
@@ -50,6 +52,7 @@ function valueText(
 /** The History tab: every save, newest first, with who, when, from where, what, and why. */
 export function AnnouncementHistory({ id }: { id: string }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const { can } = useAccess();
   const history = useAnnouncementHistory(id);
@@ -93,8 +96,8 @@ export function AnnouncementHistory({ id }: { id: string }) {
                     <li key={change.field}>
                       {t('history.change', {
                         field: t(`announcement.field.${change.field}`),
-                        old: valueText(change, change.old, t, format, units),
-                        new: valueText(change, change.new, t, format, units),
+                        old: valueText(change, change.old, t, format, units, listFormat),
+                        new: valueText(change, change.new, t, format, units, listFormat),
                       })}
                     </li>
                   ))}

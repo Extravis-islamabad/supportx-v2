@@ -2028,6 +2028,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change many incidents at once
+         * @description Queue a background job (up to 1,000 records); progress arrives on your channel.
+         *
+         *     Each record is changed as you, with its own permissions, transitions and closure rules;
+         *     a record that refuses is skipped with the reason. Send an Idempotency-Key.
+         */
+        post: operations["start_bulk_api_v1_incidents_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/bulk-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your latest bulk jobs
+         * @description Newest first, without the per-record results.
+         */
+        get: operations["bulk_jobs_api_v1_incidents_bulk_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/bulk-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of your bulk jobs
+         * @description Progress and a result per finished record.
+         */
+        get: operations["bulk_job_api_v1_incidents_bulk_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/categories": {
         parameters: {
             query?: never;
@@ -2085,6 +2148,50 @@ export interface paths {
          */
         get: operations["counters_api_v1_incidents_counters_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/list-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fields of the list (filter, sort, columns)
+         * @description Built-in and custom fields (`custom.<key>`), as the list's filter and sort take them.
+         */
+        get: operations["list_fields_api_v1_incidents_list_fields_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/list-settings/{view_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your columns, sort and page size
+         * @description For one view: a built-in view code, `all`, or `custom:<saved view id>`.
+         */
+        get: operations["list_setting_api_v1_incidents_list_settings__view_key__get"];
+        /**
+         * Save your list settings
+         * @description Columns and sort of this view only, for you only (REQ-INC-104 AC1, AC3).
+         */
+        put: operations["save_list_setting_api_v1_incidents_list_settings__view_key__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2158,6 +2265,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/saved-views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your saved views and the shared ones
+         * @description By name. Shared views are listed for everyone; only their owner changes them.
+         */
+        get: operations["saved_views_api_v1_incidents_saved_views_get"];
+        put?: never;
+        /**
+         * Save a view
+         * @description The filter is checked like the list's; names are unique per owner (ignoring case).
+         */
+        post: operations["create_saved_view_api_v1_incidents_saved_views_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/saved-views/{view_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove your view
+         * @description Needs If-Match.
+         */
+        delete: operations["delete_saved_view_api_v1_incidents_saved_views__view_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change your view
+         * @description Needs If-Match. Only the fields sent change.
+         */
+        patch: operations["update_saved_view_api_v1_incidents_saved_views__view_id__patch"];
         trace?: never;
     };
     "/api/v1/incidents/search": {
@@ -2438,6 +2593,26 @@ export interface paths {
          * @description Deleted records you may restore (needs the delete permission).
          */
         get: operations["trash_api_v1_incidents_trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/view-filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Built-in views as filters
+         * @description Each built-in view and personal counter as the filter DSL, where the DSL can say it.
+         */
+        get: operations["view_filters_api_v1_incidents_view_filters_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2783,6 +2958,274 @@ export interface paths {
          *     Only staff who may see the record are on that channel (never the requester, AC3).
          */
         post: operations["typing_api_v1_incidents__record_id__typing_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mailboxes
+         * @description Every mailbox with its state (the mail page, REQ-ADM-066 AC1).
+         */
+        get: operations["list_mailboxes_api_v1_integrations_mailboxes_get"];
+        put?: never;
+        /**
+         * Add a mailbox
+         * @description Send an Idempotency-Key: a retried request returns the same 201.
+         */
+        post: operations["create_mailbox_api_v1_integrations_mailboxes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a mailbox
+         * @description Stop reading it; the records it made keep their history.
+         */
+        delete: operations["remove_mailbox_api_v1_integrations_mailboxes__mailbox_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a mailbox
+         * @description If-Match: the version you read. A connection change is tested again at the next fetch.
+         */
+        patch: operations["update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a mailbox's connection
+         * @description Connects and looks for new mail; changes nothing on the server or here.
+         */
+        post: operations["test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mail waiting for an admin
+         * @description The review queue: held mail is never invisible (D-109 (9)).
+         */
+        get: operations["waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/discard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Discard a waiting message
+         * @description It stays in the ledger as discarded, without its copy.
+         */
+        post: operations["discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/waiting/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hand a held message in again
+         * @description Without the flood check; held again, with the new reason, if it still cannot be taken in.
+         */
+        post: operations["release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Articles
+         * @description Published articles you may read, or the drafts you may work on; searchable.
+         */
+        get: operations["list_articles_api_v1_knowledge_articles_get"];
+        put?: never;
+        /**
+         * Write an article
+         * @description Needs `knowledge.create`. Creates the article and its first draft.
+         */
+        post: operations["create_article_api_v1_knowledge_articles_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an article
+         * @description Published versions for its audience; drafts for its author, owners and approvers.
+         */
+        get: operations["get_article_api_v1_knowledge_articles__article_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an article
+         * @description Topic, type, owner, its own audience and dates. Needs If-Match.
+         */
+        patch: operations["update_article_api_v1_knowledge_articles__article_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}/drafts/{language}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a draft
+         * @description A new version from the published one, or a translation (same ID, topic and audience).
+         */
+        post: operations["new_draft_api_v1_knowledge_articles__article_id__drafts__language__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save a draft
+         * @description Autosave (REQ-KB-013). If-Match carries the draft's own version.
+         */
+        patch: operations["save_draft_api_v1_knowledge_articles__article_id__drafts__language__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The topic tree
+         * @description Topics you may see, parents first, in their order.
+         */
+        get: operations["list_topics_api_v1_knowledge_topics_get"];
+        put?: never;
+        /**
+         * Create a topic
+         * @description Needs `knowledge.manage_topics`. At the top, or under `parent_id` (≤ 6 levels).
+         */
+        post: operations["create_topic_api_v1_knowledge_topics_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/topics/{topic_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a topic
+         * @description To the trash with its subtopics; their articles move to `move_to` first.
+         */
+        delete: operations["delete_topic_api_v1_knowledge_topics__topic_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a topic
+         * @description Rename, reorder, move (with its subtopics) or change its audience. Needs If-Match.
+         */
+        patch: operations["update_topic_api_v1_knowledge_topics__topic_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Article types
+         * @description The organisation's article types (file 08 Appendix A defaults on first use).
+         */
+        get: operations["list_types_api_v1_knowledge_types_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4253,6 +4696,12 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * AfterFetch
+         * @description What happens to a message on the mail server once it is in SupportX (REQ-ADM-067).
+         * @enum {string}
+         */
+        AfterFetch: "mark_read" | "move" | "delete";
+        /**
          * AllowedForOut
          * @description Who a transition is limited to: roles, group names, people on the record (codes).
          */
@@ -4534,6 +4983,209 @@ export interface components {
          * @enum {string}
          */
         AnnouncementVisibility: "hidden" | "scheduled" | "live" | "ended";
+        /**
+         * ArticleIn
+         * @description A new article and its first draft (REQ-KB-001, 012).
+         */
+        ArticleIn: {
+            /**
+             * Body Html
+             * @description Rich text, sanitised.
+             * @default
+             */
+            body_html: string;
+            /** Expires On */
+            expires_on?: string | null;
+            /** Internal Note */
+            internal_note?: string | null;
+            /** Keywords */
+            keywords?: string[];
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "ar";
+            /**
+             * Own Audience
+             * @default false
+             */
+            own_audience: boolean;
+            /** Req Departments */
+            req_departments?: string[];
+            /** Req Groups */
+            req_groups?: string[];
+            /** Req Sites */
+            req_sites?: string[];
+            /**
+             * Requesters
+             * @default none
+             * @enum {string}
+             */
+            requesters: "none" | "all" | "selected";
+            /** Review On */
+            review_on?: string | null;
+            /**
+             * Tech All
+             * @default true
+             */
+            tech_all: boolean;
+            /** Tech Groups */
+            tech_groups?: string[];
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+        };
+        /**
+         * ArticleOut
+         * @description An article as you see it: its published versions, and its drafts if you may see them.
+         */
+        ArticleOut: {
+            /** Audience */
+            audience: {
+                [key: string]: unknown;
+            };
+            /** Can Edit */
+            can_edit: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Default Language */
+            default_language: string;
+            /** Display Id */
+            display_id: string;
+            /** Drafts */
+            drafts: {
+                [key: string]: components["schemas"]["VersionOut"];
+            };
+            /** Expired */
+            expired: boolean;
+            /** Expires On */
+            expires_on: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Published */
+            published: {
+                [key: string]: components["schemas"]["VersionOut"];
+            };
+            /** Review Due */
+            review_due: boolean;
+            /** Review On */
+            review_on: string | null;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** Withdrawn */
+            withdrawn: boolean;
+        };
+        /**
+         * ArticlePatch
+         * @description What to change on the article itself (the fields sent).
+         */
+        ArticlePatch: {
+            /** Expires On */
+            expires_on?: string | null;
+            /** Own Audience */
+            own_audience?: boolean | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Req Departments */
+            req_departments?: string[] | null;
+            /** Req Groups */
+            req_groups?: string[] | null;
+            /** Req Sites */
+            req_sites?: string[] | null;
+            /** Requesters */
+            requesters?: ("none" | "all" | "selected") | null;
+            /** Review On */
+            review_on?: string | null;
+            /** Tech All */
+            tech_all?: boolean | null;
+            /** Tech Groups */
+            tech_groups?: string[] | null;
+            /** Topic Id */
+            topic_id?: string | null;
+            /** Type Code */
+            type_code?: string | null;
+        };
+        /**
+         * ArticleRowOut
+         * @description One line of the knowledge list.
+         */
+        ArticleRowOut: {
+            /** Display Id */
+            display_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Language */
+            language: string;
+            /** Review On */
+            review_on: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * ArticleTypeOut
+         * @description An article type (built-in ones are named by `kb_type.<code>`).
+         */
+        ArticleTypeOut: {
+            /** Builtin */
+            builtin: boolean;
+            /** Code */
+            code: string;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Retired */
+            retired: boolean;
+            /** Review Months */
+            review_months: number;
+        };
         /**
          * AssignMethod
          * @description How a group spreads its new work (REQ-ASG-002..004).
@@ -5306,6 +5958,102 @@ export interface components {
             folder: string;
         };
         /**
+         * BulkAction
+         * @description What a bulk job does to each record.
+         * @enum {string}
+         */
+        BulkAction: "edit" | "assign" | "take" | "resolve" | "close";
+        /**
+         * BulkJobIn
+         * @description A bulk change: the picked rows, or every record of the list (`all_matching`).
+         *
+         *     With `all_matching`, send the list's own query parameters (view, filter, tag, simple
+         *     filters) with this request: the records are fixed now, at most 1,000.
+         */
+        BulkJobIn: {
+            action: components["schemas"]["BulkAction"];
+            /**
+             * All Matching
+             * @default false
+             */
+            all_matching: boolean;
+            /**
+             * Changes
+             * @description Edit: only the changed fields. Assign: group_id, technician_id, confirm_lose_access. Resolve: resolution. Close: closure_code. Both: confirm_open_work.
+             */
+            changes?: {
+                [key: string]: unknown;
+            };
+            /** Record Ids */
+            record_ids?: string[];
+        };
+        /**
+         * BulkJobOut
+         * @description A bulk job with its progress and results.
+         */
+        BulkJobOut: {
+            action: components["schemas"]["BulkAction"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Done Count */
+            done_count: number;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Processed */
+            processed: number;
+            /** Results */
+            results: components["schemas"]["BulkResultOut"][];
+            /** Skipped Count */
+            skipped_count: number;
+            /** Started At */
+            started_at: string | null;
+            status: components["schemas"]["BulkStatus"];
+            /** Total */
+            total: number;
+        };
+        /**
+         * BulkOutcome
+         * @description What happened to one record of a bulk job.
+         * @enum {string}
+         */
+        BulkOutcome: "done" | "skipped";
+        /**
+         * BulkResultOut
+         * @description What happened to one record; a skip carries the reason as a code (and field).
+         */
+        BulkResultOut: {
+            /** Code */
+            code?: string | null;
+            /** Display Id */
+            display_id: string | null;
+            /** Field */
+            field?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            outcome: components["schemas"]["BulkOutcome"];
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * BulkStatus
+         * @description Where a bulk job is.
+         * @enum {string}
+         */
+        BulkStatus: "queued" | "running" | "done" | "failed";
+        /**
          * CertificateIn
          * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
          */
@@ -5408,6 +6156,30 @@ export interface components {
          * @enum {string}
          */
         ConditionOperator: "in" | "not_in";
+        /**
+         * ConnectionSecurity
+         * @description Transport security of an IMAP or SMTP connection.
+         * @enum {string}
+         */
+        ConnectionSecurity: "tls" | "starttls" | "none";
+        /**
+         * ConnectionTestIn
+         * @description Settings to try (a new password, or the stored one when left out).
+         */
+        ConnectionTestIn: {
+            /** Password */
+            password?: string | null;
+        };
+        /**
+         * ConnectionTestOut
+         * @description Whether the mailbox answered; `reason` is a code the UI shows as its label.
+         */
+        ConnectionTestOut: {
+            /** Ok */
+            ok: boolean;
+            /** Reason */
+            reason?: string | null;
+        };
         /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
@@ -6028,6 +6800,22 @@ export interface components {
             subdomain: string | null;
         };
         /**
+         * DraftPatch
+         * @description Autosave of a draft (REQ-KB-013): the fields sent.
+         */
+        DraftPatch: {
+            /** Body Html */
+            body_html?: string | null;
+            /** Change Note */
+            change_note?: string | null;
+            /** Internal Note */
+            internal_note?: string | null;
+            /** Keywords */
+            keywords?: string[] | null;
+            /** Title */
+            title?: string | null;
+        };
+        /**
          * Edition
          * @description Commercial tier (product-plan.md §9).
          * @enum {string}
@@ -6108,7 +6896,7 @@ export interface components {
          * @description Why a check failed. Stable codes only: raw exception text never leaves the server.
          * @enum {string}
          */
-        FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "not_running" | "stale_heartbeat" | "error";
+        FailureReason: "timeout" | "unreachable" | "auth_failed" | "unexpected_response" | "not_running" | "stale_heartbeat" | "disconnected" | "backlog" | "error";
         /**
          * Feature
          * @description A licensable capability. A module declares one in its ModuleSpec (`feature=`).
@@ -6926,12 +7714,90 @@ export interface components {
             url: string;
         };
         /**
+         * ListColumn
+         * @description One column of the list: a field key (`custom.<key>` for custom fields) and its width.
+         */
+        ListColumn: {
+            /** Key */
+            key: string;
+            /**
+             * Width
+             * @description Pixels; none for the default width.
+             */
+            width?: number | null;
+        };
+        /**
+         * ListFieldNamingOut
+         * @description How the field's values are named (as in reports): a code prefix or a kind of record.
+         */
+        ListFieldNamingOut: {
+            /** Bucket */
+            bucket?: string | null;
+            /** Field */
+            field: string;
+            /** Kind */
+            kind: string;
+            /** Label Prefix */
+            label_prefix: string | null;
+            /** Reference */
+            reference: string | null;
+        };
+        /**
+         * ListFieldOut
+         * @description A field the list filters by, sorts by (`sortable`) or shows as a column.
+         */
+        ListFieldOut: {
+            dimension: components["schemas"]["ListFieldNamingOut"] | null;
+            /** Multiple */
+            multiple: boolean;
+            /** Name */
+            name: string;
+            /** Sortable */
+            sortable: boolean;
+            /** Type */
+            type: string;
+            /** Values */
+            values: string[];
+        };
+        /**
          * ListOrderIn
          * @description Every code of the list, in the new order.
          */
         ListOrderIn: {
             /** Codes */
             codes: string[];
+        };
+        /**
+         * ListSettingIn
+         * @description Your columns, sort and page size for one view.
+         */
+        ListSettingIn: {
+            /** Columns */
+            columns?: components["schemas"]["ListColumn"][];
+            /**
+             * Page Size
+             * @description 25, 50 or 100.
+             * @default 50
+             */
+            page_size: number;
+            /** Sort */
+            sort?: string | null;
+        };
+        /**
+         * ListSettingOut
+         * @description Saved settings, or the defaults (`version` null) when none were saved.
+         */
+        ListSettingOut: {
+            /** Columns */
+            columns: components["schemas"]["ListColumn"][];
+            /** Page Size */
+            page_size: number;
+            /** Sort */
+            sort: string | null;
+            /** Version */
+            version: number | null;
+            /** View Key */
+            view_key: string;
         };
         /**
          * ListValueIn
@@ -7021,6 +7887,150 @@ export interface components {
             /** Triggers */
             triggers: string[];
         };
+        /**
+         * MailboxCreates
+         * @description What a new (non-reply) message to the mailbox becomes.
+         * @enum {string}
+         */
+        MailboxCreates: "incident" | "nothing";
+        /**
+         * MailboxIn
+         * @description A new mailbox.
+         */
+        MailboxIn: {
+            /** Address */
+            address: string;
+            after_fetch?: components["schemas"]["AfterFetch"] | null;
+            /**
+             * Allow Plain
+             * @description Allow a connection without TLS (audited).
+             */
+            allow_plain?: boolean | null;
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            creates?: components["schemas"]["MailboxCreates"] | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Folder */
+            folder?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Host */
+            host: string;
+            /** Move To */
+            move_to?: string | null;
+            /**
+             * Password
+             * @description Stored sealed; never shown.
+             */
+            password: string;
+            /**
+             * Port
+             * @default 993
+             */
+            port: number;
+            security?: components["schemas"]["ConnectionSecurity"] | null;
+            unknown_senders?: components["schemas"]["UnknownSenders"] | null;
+            /** Username */
+            username: string;
+        };
+        /**
+         * MailboxOut
+         * @description A mailbox as the mail page shows it.
+         */
+        MailboxOut: {
+            /** Address */
+            address: string;
+            after_fetch: components["schemas"]["AfterFetch"];
+            /** Allow Plain */
+            allow_plain: boolean;
+            /** Allowed Domains */
+            allowed_domains: string[];
+            creates: components["schemas"]["MailboxCreates"];
+            /** Display Name */
+            display_name: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Folder */
+            folder: string;
+            /** Group Id */
+            group_id: string | null;
+            /** Has Password */
+            has_password: boolean;
+            /**
+             * Held
+             * @description Messages kept for an admin (refused, flooding, not matched).
+             */
+            held: number;
+            /** Host */
+            host: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Fetch At */
+            last_fetch_at: string | null;
+            /** Move To */
+            move_to: string | null;
+            /** Port */
+            port: number;
+            security: components["schemas"]["ConnectionSecurity"];
+            state: components["schemas"]["MailboxState"];
+            /**
+             * State Reason
+             * @description Code; the UI shows its label.
+             */
+            state_reason: string | null;
+            unknown_senders: components["schemas"]["UnknownSenders"];
+            /** Username */
+            username: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * MailboxPatch
+         * @description Fields to change; a password replaces the stored one.
+         */
+        MailboxPatch: {
+            after_fetch?: components["schemas"]["AfterFetch"] | null;
+            /**
+             * Allow Plain
+             * @description Allow a connection without TLS (audited).
+             */
+            allow_plain?: boolean | null;
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            creates?: components["schemas"]["MailboxCreates"] | null;
+            /** Display Name */
+            display_name?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Folder */
+            folder?: string | null;
+            /** Group Id */
+            group_id?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Move To */
+            move_to?: string | null;
+            /** Password */
+            password?: string | null;
+            /** Port */
+            port?: number | null;
+            security?: components["schemas"]["ConnectionSecurity"] | null;
+            unknown_senders?: components["schemas"]["UnknownSenders"] | null;
+            /** Username */
+            username?: string | null;
+        };
+        /**
+         * MailboxState
+         * @description What the mail page shows for a mailbox (REQ-ADM-066 AC1).
+         * @enum {string}
+         */
+        MailboxState: "not_set_up" | "working" | "failing";
         /**
          * MatrixCellIn
          * @description One cell.
@@ -7731,6 +8741,13 @@ export interface components {
              * @description Informational checks that are not OK.
              */
             degraded?: string[];
+            /**
+             * Event Delivery
+             * @description stalled: an event worker is down, disconnected from PostgreSQL or NATS, or events wait too long to be published. Notifications, live updates and exports are delayed until it recovers; nothing is lost.
+             * @default ok
+             * @enum {string}
+             */
+            event_delivery: "ok" | "stalled";
             /** Failed */
             failed: string[];
             /**
@@ -7775,11 +8792,38 @@ export interface components {
             to: string[];
         };
         /**
+         * RecordSort
+         * @description One sort key of a records export: a field, ascending unless `desc`.
+         */
+        RecordSort: {
+            /**
+             * Desc
+             * @default false
+             */
+            desc: boolean;
+            /** Field */
+            field: string;
+        };
+        /**
          * Relative
          * @description People relative to the record who may run a transition (REQ-WF-004).
          * @enum {string}
          */
         Relative: "requester" | "assignee" | "group_head" | "requester_manager" | "department_head";
+        /**
+         * ReleasedOut
+         * @description What a released message became; `reason` when it waits again.
+         */
+        ReleasedOut: {
+            /** Outcome */
+            outcome: string;
+            /** Reason */
+            reason: string | null;
+            /** Reason Params */
+            reason_params: {
+                [key: string]: string;
+            };
+        };
         /**
          * ReplyMode
          * @description Which composer a reply came from (REQ-INC-058).
@@ -7820,6 +8864,8 @@ export interface components {
         "ReportDefinition-Input": {
             /** @default bar */
             chart: components["schemas"]["ChartType"];
+            /** Columns */
+            columns?: string[] | null;
             /** Entity */
             entity: string;
             /** Filter */
@@ -7843,6 +8889,8 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Sort */
+            sort?: components["schemas"]["RecordSort"][];
         };
         /**
          * ReportDefinition
@@ -7851,6 +8899,8 @@ export interface components {
         "ReportDefinition-Output": {
             /** @default bar */
             chart: components["schemas"]["ChartType"];
+            /** Columns */
+            columns?: string[] | null;
             /** Entity */
             entity: string;
             /** Filter */
@@ -7874,6 +8924,8 @@ export interface components {
              * @constant
              */
             schema_version: 1;
+            /** Sort */
+            sort?: components["schemas"]["RecordSort"][];
         };
         /**
          * ReportEntityOut
@@ -8776,6 +9828,92 @@ export interface components {
             version: number;
         };
         /**
+         * SavedViewIn
+         * @description A view to save. `filter` and `sort` are the list API's own parameters, as sent.
+         */
+        SavedViewIn: {
+            /** Columns */
+            columns?: components["schemas"]["ListColumn"][];
+            /**
+             * Filter
+             * @description FilterExpression (the list's `filter`), or none for all.
+             */
+            filter?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Group Ids
+             * @description For visibility `groups`.
+             */
+            group_ids?: string[];
+            /** Name */
+            name: string;
+            /**
+             * Sort
+             * @description e.g. -created_at
+             */
+            sort?: string | null;
+            /** @default private */
+            visibility: components["schemas"]["ViewVisibility"];
+        };
+        /**
+         * SavedViewOut
+         * @description A saved view; `mine` says whether you may change it.
+         */
+        SavedViewOut: {
+            /** Columns */
+            columns: components["schemas"]["ListColumn"][];
+            /** Filter */
+            filter: {
+                [key: string]: unknown;
+            } | null;
+            /** Group Ids */
+            group_ids: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Sort */
+            sort: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            visibility: components["schemas"]["ViewVisibility"];
+        };
+        /**
+         * SavedViewPatch
+         * @description Fields to change; the ones left out keep their value.
+         */
+        SavedViewPatch: {
+            /** Columns */
+            columns?: components["schemas"]["ListColumn"][] | null;
+            /** Filter */
+            filter?: {
+                [key: string]: unknown;
+            } | null;
+            /** Group Ids */
+            group_ids?: string[] | null;
+            /** Name */
+            name?: string | null;
+            /** Sort */
+            sort?: string | null;
+            visibility?: components["schemas"]["ViewVisibility"] | null;
+        };
+        /**
          * Scale
          * @description The three ordered value lists of a work item type.
          * @enum {string}
@@ -9403,6 +10541,116 @@ export interface components {
          */
         TlsStatus: "waiting" | "pending" | "issued" | "failed" | "not_managed";
         /**
+         * TopicIn
+         * @description A new topic: a name per language, optionally under a parent (REQ-KB-003).
+         */
+        TopicIn: {
+            /** Description */
+            description?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Req Departments */
+            req_departments?: string[];
+            /** Req Groups */
+            req_groups?: string[];
+            /** Req Sites */
+            req_sites?: string[];
+            /**
+             * Requesters
+             * @default none
+             * @enum {string}
+             */
+            requesters: "none" | "all" | "selected";
+            /**
+             * Tech All
+             * @default true
+             */
+            tech_all: boolean;
+            /** Tech Groups */
+            tech_groups?: string[];
+        };
+        /**
+         * TopicOut
+         * @description A topic of the tree (names per language; the UI falls back to English).
+         */
+        TopicOut: {
+            /** Depth */
+            depth: number;
+            /** Description */
+            description: string | null;
+            /** Icon */
+            icon: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Owner Id */
+            owner_id: string | null;
+            /** Parent Id */
+            parent_id: string | null;
+            /** Req Departments */
+            req_departments: string[];
+            /** Req Groups */
+            req_groups: string[];
+            /** Req Sites */
+            req_sites: string[];
+            /** Requesters */
+            requesters: string;
+            /** Sort Order */
+            sort_order: number;
+            /** Tech All */
+            tech_all: boolean;
+            /** Tech Groups */
+            tech_groups: string[];
+            /** Version */
+            version: number;
+        };
+        /**
+         * TopicPatch
+         * @description The fields to change (a move sends `parent_id`, null for the top).
+         */
+        TopicPatch: {
+            /** Description */
+            description?: string | null;
+            /** Icon */
+            icon?: string | null;
+            /** Names */
+            names?: {
+                [key: string]: string;
+            } | null;
+            /** Owner Id */
+            owner_id?: string | null;
+            /** Parent Id */
+            parent_id?: string | null;
+            /** Req Departments */
+            req_departments?: string[] | null;
+            /** Req Groups */
+            req_groups?: string[] | null;
+            /** Req Sites */
+            req_sites?: string[] | null;
+            /** Requesters */
+            requesters?: ("none" | "all" | "selected") | null;
+            /** Sort Order */
+            sort_order?: number | null;
+            /** Tech All */
+            tech_all?: boolean | null;
+            /** Tech Groups */
+            tech_groups?: string[] | null;
+        };
+        /**
          * TransitionIn
          * @description Optional reason (unpublish and archive), kept in the history.
          */
@@ -9614,6 +10862,12 @@ export interface components {
              */
             state: "start" | "stop";
         };
+        /**
+         * UnknownSenders
+         * @description What mail from an address SupportX does not know does (REQ-INC-027).
+         * @enum {string}
+         */
+        UnknownSenders: "create" | "create_allowed_domains" | "reject";
         /**
          * Urgency
          * @description How fast it must be fixed, lowest first.
@@ -9858,6 +11112,70 @@ export interface components {
             type: string;
         };
         /**
+         * VersionOut
+         * @description One version of one language. `internal_note` only for those who may edit (KB-001 AC2).
+         */
+        VersionOut: {
+            /** Body Html */
+            body_html: string;
+            /** Change Note */
+            change_note: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Internal Note */
+            internal_note: string | null;
+            /** Keywords */
+            keywords: string[];
+            /** Language */
+            language: string;
+            /** Number */
+            number: number;
+            /** Published At */
+            published_at: string | null;
+            /** Reject Reason */
+            reject_reason: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ViewFilterOut
+         * @description A built-in view as a filter, for what takes a filter and not a view (the export).
+         */
+        ViewFilterOut: {
+            /**
+             * Expressible
+             * @description False: the view needs more than the filter DSL.
+             */
+            expressible: boolean;
+            /**
+             * Filter
+             * @description None with `expressible`: no condition.
+             */
+            filter: {
+                [key: string]: unknown;
+            } | null;
+            /** View */
+            view: string;
+        };
+        /**
+         * ViewVisibility
+         * @description Who sees a saved view in their list of views (D-111 as approved: like dashboards).
+         * @enum {string}
+         */
+        ViewVisibility: "private" | "groups" | "everyone";
+        /**
          * Visibility
          * @description Public: the requester sees it (portal, email). Private: staff only.
          * @enum {string}
@@ -9869,6 +11187,50 @@ export interface components {
          */
         VisibilityIn: {
             visibility: components["schemas"]["Visibility"];
+        };
+        /**
+         * WaitingIn
+         * @description Which waiting message (by its Message-ID).
+         */
+        WaitingIn: {
+            /** Message Id */
+            message_id: string;
+        };
+        /**
+         * WaitingOut
+         * @description A message in the review queue (held, or too large to take in).
+         */
+        WaitingOut: {
+            /** Message Id */
+            message_id: string;
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "held" | "too_large";
+            /**
+             * Reason
+             * @description Code; the UI shows its label.
+             */
+            reason: string | null;
+            /** Reason Params */
+            reason_params: {
+                [key: string]: string;
+            };
+            /**
+             * Received At
+             * Format: date-time
+             */
+            received_at: string;
+            /**
+             * Releasable
+             * @description Whether handing it in again can help.
+             */
+            releasable: boolean;
+            /** Sender */
+            sender: string;
+            /** Subject */
+            subject: string;
         };
         /**
          * Widget
@@ -10205,6 +11567,11 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Bulk Job Id
+             * @description The bulk job that made this change for its actor (WP-020d).
+             */
+            bulk_job_id?: string | null;
+            /**
              * Change Id
              * Format: uuid
              */
@@ -10335,15 +11702,30 @@ export interface components {
             /** Category Id */
             category_id: string | null;
             channel: components["schemas"]["Channel"];
+            /** Closed At */
+            closed_at: string | null;
+            /** Closure Code */
+            closure_code: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Custom
+             * @description Custom values by key.
+             */
+            custom?: {
+                [key: string]: unknown;
+            };
             /** Deleted At */
             deleted_at: string | null;
+            /** Department Id */
+            department_id: string | null;
             /** Display Id */
             display_id: string;
+            /** First Responded At */
+            first_responded_at: string | null;
             /** Group Id */
             group_id: string | null;
             /**
@@ -10351,10 +11733,13 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            impact: components["schemas"]["Impact"] | null;
             /** Level */
             level: string | null;
             priority: components["schemas"]["Priority"];
             priority_source: components["schemas"]["PrioritySource"];
+            /** Reopen Count */
+            reopen_count: number;
             /**
              * Requester Id
              * Format: uuid
@@ -10362,6 +11747,8 @@ export interface components {
             requester_id: string;
             /** Resolution Due At */
             resolution_due_at: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
             /** Site Id */
             site_id: string | null;
             /** Sla Policy Id */
@@ -10369,6 +11756,8 @@ export interface components {
             /** Status */
             status: string;
             status_category: components["schemas"]["StatusCategory"];
+            /** Status Changed At */
+            status_changed_at: string | null;
             /** Status Reason Code */
             status_reason_code: string | null;
             /** Subject */
@@ -10382,6 +11771,7 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            urgency: components["schemas"]["Urgency"] | null;
             /** Version */
             version: number;
         };
@@ -19702,6 +21092,214 @@ export interface operations {
             };
         };
     };
+    start_bulk_api_v1_incidents_bulk_post: {
+        parameters: {
+            query?: {
+                view?: string | null;
+                tag?: string | null;
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkJobIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    bulk_jobs_api_v1_incidents_bulk_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    bulk_job_api_v1_incidents_bulk_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     categories_api_v1_incidents_categories_get: {
         parameters: {
             query?: never;
@@ -19953,6 +21551,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_fields_api_v1_incidents_list_fields_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFieldOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_setting_api_v1_incidents_list_settings__view_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSettingOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    save_list_setting_api_v1_incidents_list_settings__view_key__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The version read; leave out only for the first save. */
+                "If-Match"?: string | null;
+            };
+            path: {
+                view_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListSettingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSettingOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */
@@ -20288,6 +22090,290 @@ export interface operations {
                 };
             };
             /** @description version_conflict: someone changed it first. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    saved_views_api_v1_incidents_saved_views_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_saved_view_api_v1_incidents_saved_views_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_saved_view_api_v1_incidents_saved_views__view_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_saved_view_api_v1_incidents_saved_views__view_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -21610,6 +23696,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    view_filters_api_v1_incidents_view_filters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewFilterOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -23086,6 +25228,1401 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_mailboxes_api_v1_integrations_mailboxes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_mailbox_api_v1_integrations_mailboxes_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailboxIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    remove_mailbox_api_v1_integrations_mailboxes__mailbox_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MailboxPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectionTestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionTestOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    waiting_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitingOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    discard_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_discard_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaitingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not waiting any more (mail_not_waiting). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaitingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleasedOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not waiting any more (mail_not_waiting). */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_articles_api_v1_knowledge_articles_get: {
+        parameters: {
+            query?: {
+                view?: "published" | "my_drafts";
+                language?: "en" | "ar";
+                topic_id?: string | null;
+                /** @description Search words. */
+                q?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleRowOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_article_api_v1_knowledge_articles_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_article_api_v1_knowledge_articles__article_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_article_api_v1_knowledge_articles__article_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticlePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    new_draft_api_v1_knowledge_articles__article_id__drafts__language__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+                language: "en" | "ar";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description kb_draft_exists. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    save_draft_api_v1_knowledge_articles__article_id__drafts__language__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                article_id: string;
+                language: "en" | "ar";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_topics_api_v1_knowledge_topics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_topic_api_v1_knowledge_topics_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_topic_api_v1_knowledge_topics__topic_id__delete: {
+        parameters: {
+            query?: {
+                /** @description Where its articles go. */
+                move_to?: string | null;
+            };
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_topic_api_v1_knowledge_topics__topic_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                topic_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TopicPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TopicOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_types_api_v1_knowledge_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleTypeOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

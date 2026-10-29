@@ -1,3 +1,4 @@
+import { useListFormat } from '@supportx/labels';
 import { PlusOutlined } from '@ant-design/icons';
 import {
   Alert,
@@ -144,6 +145,7 @@ function unitName(row: Row, t: ReturnType<typeof useLabel>, language: string): s
 
 function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { message } = App.useApp();
   const rows = useStructure(kind);
   const { remove } = useStructureChange(kind);
@@ -172,9 +174,12 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
         onError: (error) => {
           if (error instanceof ApiError && error.code.endsWith('_in_use')) {
             // Say what still uses it, so the admin knows to make it inactive instead.
-            const uses = Object.entries(error.params)
-              .map(([what, count]) => t(`organization.uses.${what}`, { count: Number(count) }))
-              .join(', ');
+            const uses = listFormat(
+              Object.entries(error.params).map(([what, count]) =>
+                t(`organization.uses.${what}`, { count: Number(count) }),
+              ),
+              'conjunction',
+            );
             markHandled(error); // said here, with what still uses it
             void message.warning(t('organization.in_use', { uses }));
             return;
@@ -259,7 +264,7 @@ function UnitsTab({ kind, editable }: { kind: StructureKind; editable: boolean }
                     const ids =
                       (row.site_ids as string[] | undefined) ??
                       (row.site_id ? [row.site_id as string] : []);
-                    return ids.map((id) => siteName.get(id) ?? '').join(t('list.separator'));
+                    return listFormat(ids.map((id) => siteName.get(id) ?? ''));
                   },
                 },
               ]

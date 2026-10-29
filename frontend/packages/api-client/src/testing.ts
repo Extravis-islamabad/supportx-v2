@@ -39,8 +39,10 @@ const TECHNICIAN: Grant[] = [
   ['assets.view', 'all'],
   ['assets.manage', 'group'],
   ['cmdb.view', 'all'],
-  ['knowledge.view', 'all'],
-  ['knowledge.manage', 'group'],
+  ['knowledge.view', 'group'],
+  ['knowledge.create', 'group'],
+  ['knowledge.edit_own', 'own'],
+  ['knowledge.submit', 'own'],
   ['reports.view', 'all'],
   ['reports.create', 'own'],
   ['dashboards.create', 'own'],
@@ -93,13 +95,14 @@ const ADMIN_EXTRA: Grant[] = [
   ['dashboards.manage_defaults', 'all'],
   ['identity.manage', 'all'],
   ['notifications.manage', 'all'],
+  ['mailboxes.manage', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
   ['requests.view', 'own'],
   ['requests.create', 'all'],
   ['requests.close', 'own'],
-  ['knowledge.view', 'all'],
+  ['knowledge.view', 'own'],
 ];
 
 /** Effective permissions like GET /auth/me returns for the system roles (mirrors the backend). */
@@ -768,6 +771,37 @@ export function fakeNotificationRule(
     version: 0,
     updated_at: null,
     updated_by: null,
+    ...overrides,
+  };
+}
+
+/** A support mailbox (WP-024), working, with nothing held. */
+export function fakeMailbox(
+  overrides: Partial<components['schemas']['MailboxOut']> = {},
+): components['schemas']['MailboxOut'] {
+  return {
+    id: '01900000-0000-7000-8000-000000000a01',
+    address: 'it@acme.test',
+    display_name: null,
+    host: 'imap.acme.test',
+    port: 993,
+    security: 'tls',
+    allow_plain: false,
+    username: 'it@acme.test',
+    has_password: true,
+    folder: 'INBOX',
+    after_fetch: 'mark_read',
+    move_to: null,
+    creates: 'incident',
+    group_id: null,
+    unknown_senders: 'create_allowed_domains',
+    allowed_domains: ['acme.test'],
+    enabled: true,
+    state: 'working',
+    state_reason: null,
+    last_fetch_at: '2026-10-28T09:00:00Z',
+    held: 0,
+    version: 1,
     ...overrides,
   };
 }

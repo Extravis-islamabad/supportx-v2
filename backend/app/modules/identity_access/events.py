@@ -112,6 +112,22 @@ class UserCreated(DomainEvent):
     source: Literal["admin", "import"]
 
 
+class UserCreatedV2(DomainEvent):
+    """As UserCreated, with `email` as a source: a mail sender made a requester (WP-024).
+
+    A new allowed value retypes a field, so a new schema version (docs/architecture/events.md
+    "Versioning"); v1 stays registered for anything that still reads it. Published from WP-024 on.
+    """
+
+    event_type: ClassVar[str] = "identity_access.user.created"
+    schema_version: ClassVar[int] = 2
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    user_type: Literal["technician", "requester"]
+    source: Literal["admin", "import", "email"]
+
+
 class UserStatusChanged(DomainEvent):
     """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in."""
 
@@ -215,6 +231,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     RoleChanged,
     UserRoleChanged,
     UserCreated,
+    UserCreatedV2,
     UserStatusChanged,
     PeopleImportProgressed,
     AccessSettingsChanged,

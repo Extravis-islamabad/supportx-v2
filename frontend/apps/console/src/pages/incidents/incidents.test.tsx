@@ -93,7 +93,7 @@ describe('Incidents list', () => {
     const fake = api({ routes: listRoutes() });
     render(<App />);
     await screen.findByTestId('inc-row-INC-7');
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search subject or ID' }), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Search subject or ID' }), {
       target: { value: 'INC-7' },
     });
     await waitFor(() => {

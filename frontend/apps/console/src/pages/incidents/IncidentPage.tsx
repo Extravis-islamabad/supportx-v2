@@ -38,6 +38,7 @@ import {
   type IncidentActionState,
   type CustomField,
 } from '@supportx/api-client';
+import { useListFormat } from '@supportx/labels';
 import { useRecordChannel, type PresenceMember } from '@supportx/realtime';
 import {
   useConflictRetry,
@@ -441,6 +442,7 @@ function Details({
   me: string | null;
 }) {
   const t = useLabel();
+  const listFormat = useListFormat();
   const { locale } = useAppearance();
   const dates = useDateTime();
   const categories = useIncidentCategories();
@@ -567,7 +569,7 @@ function Details({
     {
       key: 'tags',
       label: t('work_item.field.tags'),
-      view: item.tags.join(', '),
+      view: listFormat(item.tags),
       edit: { kind: 'tags', value: item.tags },
     },
     // Custom fields (WP-026): the ones the template shows, and any other holding a value

@@ -45,3 +45,15 @@ objectStorage:
   seaweedfs:
     storage: {size: 1Gi}
     volumeSizeLimitMB: 256
+
+# Every e-mail goes to the in-cluster mail catcher and none leaves (dev only; deploy/k3d/e2e.sh
+# reads it on 127.0.0.1:28025).
+mailCatcher:
+  enabled: true
+  devNodePort: 30825          # 127.0.0.1:28025 on the host (deploy/k3d/cluster.yaml)
+
+mail:
+  smtpHost: supportx-mailcatcher
+  smtpPort: 1025
+  smtpSecurity: none
+  fromAddress: noreply@supportx.localhost

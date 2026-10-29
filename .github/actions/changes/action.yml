@@ -2,8 +2,9 @@ name: Changes
 description: >-
   Whether this run needs a job's heavy work. Workflows with required checks trigger on every PR
   (a required check that never reports blocks the merge forever); this first step decides, from
-  the PR's changed files, whether to do the work or finish at once with a stated reason.
-  Not a pull request (nightly, push, manual): always run.
+  the changed files, whether to do the work or finish at once with a stated reason. Pull
+  requests: the PR's files. Merge queue: the group's files against main. Anything else
+  (nightly, push, manual): always run.
 inputs:
   light:
     description: Paths that never need the heavy work (ERE on each changed file's path).
@@ -27,25 +28,38 @@ runs:
         GH_TOKEN: ${{ github.token }}
         EVENT: ${{ github.event_name }}
         PR: ${{ github.event.pull_request.number }}
+        QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
+        QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
         REPO: ${{ github.repository }}
         LIGHT: ${{ inputs.light }}
         NEEDS: ${{ inputs.needs }}
         SKIPPED: ${{ inputs.skipped }}
       run: |
         set -euo pipefail
-        if [ "$EVENT" != "pull_request" ]; then
-          echo "run=true" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-        # Both names of a renamed file count. The API lists at most 3000 files: a PR that big runs.
-        files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" \
-          --jq '.[] | .filename, (.previous_filename // empty)')
+        # Both names of a renamed file count. The APIs list at most so many files (pull request:
+        # 3000; compare: 300): a change that big always runs.
+        case "$EVENT" in
+          pull_request)
+            files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" \
+              --jq '.[] | .filename, (.previous_filename // empty)')
+            limit=3000
+            ;;
+          merge_group)
+            files=$(gh api "repos/$REPO/compare/$QUEUE_BASE...$QUEUE_HEAD" \
+              --jq '.files[] | .filename, (.previous_filename // empty)')
+            limit=300
+            ;;
+          *)
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+            ;;
+        esac
         count=$(printf '%s\n' "$files" | grep -c . || true)
         run=false
         reason="$SKIPPED"
-        if [ "$count" -ge 3000 ]; then
+        if [ "$count" -ge "$limit" ]; then
           run=true
-          reason="over 3000 changed files"
+          reason="$limit or more changed files"
         else
           while IFS= read -r file; do
             [ -n "$file" ] || continue
