@@ -19,6 +19,7 @@ channels.
 import html
 import uuid
 from collections.abc import Mapping
+from datetime import datetime
 
 import nh3
 from sqlalchemy import select
@@ -28,12 +29,19 @@ from app.core.database import SESSION_TENANT_KEY
 from app.core.errors import NotFound
 from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
-from app.modules.work_items.domain.conversation import EntryKind, Visibility
+from app.modules.work_items.domain.conversation import (
+    FINAL_DELIVERY,
+    DeliveryReason,
+    DeliveryState,
+    EntryKind,
+    Visibility,
+)
 from app.modules.work_items.domain.lifecycle import WorkItemAction
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.events import (
     WorkItemAssigned,
     WorkItemConversationAdded,
+    WorkItemConversationDeliveryChanged,
     WorkItemCreated,
     WorkItemFollowerAdded,
     WorkItemStatusChanged,
@@ -43,7 +51,7 @@ from app.modules.work_items.service import catalogue
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.file_access import sees_private
 from app.modules.work_items.service.realtime import RECORD_KIND
-from app.shared.events import EventEnvelope
+from app.shared.events import EventEnvelope, record_event
 from app.shared.notifications.ports import (
     EventDefault,
     LabelRef,
@@ -358,6 +366,58 @@ class IncidentNotifications:
             },
             urgent=record.priority == "p1",
             event_code=event_code,
+            entry_id=uuid.UUID(str(payload["entry_id"])) if "entry_id" in payload else None,
+        )
+
+    async def delivery_changed(  # noqa: PLR0913 - the port's fields, explicit
+        self,
+        session: AsyncSession,
+        *,
+        record_id: uuid.UUID,
+        entry_id: uuid.UUID,
+        state: str,
+        reason: str | None,
+        at: datetime,
+    ) -> None:
+        """Move a reply's delivery state (REQ-INC-059), in order and never back from sent.
+
+        Only replies move (notes have no delivery state, and a reply the requester sent by mail
+        is theirs, not ours to deliver). Each applied change bumps the entry's version, so a
+        resend from a stale screen is refused, and the timeline hears of it live.
+        """
+        entry = await session.scalar(
+            select(WorkItemConversation)
+            .where(
+                WorkItemConversation.id == entry_id,
+                WorkItemConversation.work_item_id == record_id,
+                WorkItemConversation.deleted_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if entry is None or entry.delivery_state not in MOVABLE:
+            return
+        if entry.delivery_updated_at is not None and at <= entry.delivery_updated_at:
+            return  # an older report arriving late
+        new_state, new_reason = DeliveryState(state), DeliveryReason(reason) if reason else None
+        if (entry.delivery_state, entry.delivery_reason) == (new_state.value, reason):
+            entry.delivery_updated_at = at
+            return
+        entry.delivery_state = new_state.value
+        entry.delivery_reason = new_reason.value if new_reason else None
+        entry.delivery_updated_at = at
+        entry.version += 1
+        await record_event(
+            session,
+            WorkItemConversationDeliveryChanged(
+                work_item_id=record_id,
+                entry_id=entry.id,
+                kind=entry.kind,
+                visibility=entry.visibility,
+                delivery_state=entry.delivery_state,
+                delivery_reason=entry.delivery_reason,
+            ),
+            aggregate_id=entry.id,
+            aggregate_version=entry.version,
         )
 
     async def access(
@@ -384,6 +444,10 @@ class IncidentNotifications:
             return RecordAccess.PUBLIC if own else RecordAccess.NONE
         return RecordAccess.FULL if sees_private(subject, INCIDENT) else RecordAccess.PUBLIC
 
+
+# The states the engine may move a reply out of: never "sent" (FINAL_DELIVERY) and never a
+# reply the requester wrote (it has its own state).
+MOVABLE = frozenset(state.value for state in DeliveryState if state not in FINAL_DELIVERY)
 
 SOURCE = IncidentNotifications()
 

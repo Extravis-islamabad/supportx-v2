@@ -4235,7 +4235,20 @@
                 "type": "null"
               }
             ],
-            "description": "Replies only. not_sent: saved, but nothing could send it (see the reason)."
+            "description": "Replies only: waiting (mail not set up), queued, retrying, sent or failed (see the reason; a failed reply can be resent). not_sent is legacy."
+          },
+          "delivery_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the delivery state last moved.",
+            "title": "Delivery Updated At"
           },
           "first_response": {
             "description": "This entry stamped the first response.",
@@ -4295,6 +4308,7 @@
           "recipients",
           "delivery_state",
           "delivery_reason",
+          "delivery_updated_at",
           "first_response",
           "mentioned_ids",
           "created_at",
@@ -5219,18 +5233,32 @@
         "type": "string"
       },
       "DeliveryReason": {
-        "description": "Why a reply is not (yet) sent.",
+        "description": "Why a reply is not (yet) sent: a code the timeline shows as its label.",
         "enum": [
-          "email_channel_not_configured"
+          "email_channel_not_configured",
+          "mail_not_configured",
+          "not_sent_in_time",
+          "no_address",
+          "mail_refused",
+          "not_notified",
+          "recipient_refused",
+          "recipient_deferred",
+          "message_refused",
+          "authentication_failed",
+          "server_unavailable",
+          "server_busy",
+          "gave_up"
         ],
         "title": "DeliveryReason",
         "type": "string"
       },
       "DeliveryState": {
-        "description": "Where an outbound reply is. Notes have none.",
+        "description": "Where an outbound reply is (REQ-INC-059). Notes have none.\n\nThe notification engine moves it as the e-mail to the requester goes (WP-024 session 3).",
         "enum": [
           "not_sent",
+          "waiting",
           "queued",
+          "retrying",
           "sent",
           "failed"
         ],
@@ -8474,6 +8502,55 @@
           "occurred_at"
         ],
         "title": "LoopStopOut",
+        "type": "object"
+      },
+      "MailFixerOut": {
+        "description": "A person by name only (no address: this is shown to every technician).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "MailFixerOut",
+        "type": "object"
+      },
+      "MailStatusOut": {
+        "description": "For the reply composer (REQ-INC-060): whether a reply can go out by e-mail now.",
+        "properties": {
+          "mail_configured": {
+            "title": "Mail Configured",
+            "type": "boolean"
+          },
+          "waiting": {
+            "description": "E-mails waiting for outgoing mail in this organisation.",
+            "title": "Waiting",
+            "type": "integer"
+          },
+          "who_can_fix": {
+            "description": "People who can set mail up (names only).",
+            "items": {
+              "$ref": "#/components/schemas/MailFixerOut"
+            },
+            "title": "Who Can Fix",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mail_configured",
+          "waiting",
+          "who_can_fix"
+        ],
+        "title": "MailStatusOut",
         "type": "object"
       },
       "MailboxCreates": {
@@ -40712,6 +40789,58 @@
           }
         },
         "summary": "Notifications of a record",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/mail-status": {
+      "get": {
+        "description": "For staff who reply on records (any `*.reply` permission); others get 403.",
+        "operationId": "mail_status_api_v1_notifications_mail_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not staff (mail_status_staff_only)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Whether replies can go out by e-mail",
         "tags": [
           "notifications"
         ]

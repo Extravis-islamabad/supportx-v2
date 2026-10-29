@@ -18,9 +18,9 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission, require_signed_in
 from app.core.config import Settings
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail
+from app.core.errors import PermissionDenied, ProblemDetail
 from app.modules.audit import audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import PolicyService, Subject, get_policy
 from app.modules.notifications.domain.rules import ConditionOperator
 from app.modules.notifications.infra.models import Notification
 from app.modules.notifications.service import admin, centre
@@ -39,6 +39,9 @@ CONFLICT: Responses = {
     409: {"model": ProblemDetail, "description": "Stale If-Match: version_conflict."},
 }
 NOT_FOUND: Responses = {404: {"model": ProblemDetail, "description": "Not found or not yours."}}
+FORBIDDEN: Responses = {
+    403: {"model": ProblemDetail, "description": "Not staff (mail_status_staff_only)."}
+}
 
 router = APIRouter(
     prefix="/notifications",
@@ -48,6 +51,7 @@ router = APIRouter(
 )
 
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
+Policy = Annotated[PolicyService, Depends(get_policy)]
 Manage = Annotated[Subject, Depends(require_permission(admin.MANAGE))]
 
 
@@ -386,6 +390,41 @@ async def status(
     del subject
     return NotificationStatusOut(
         mail_configured=mail_configured(settings), waiting=await waiting_count(session)
+    )
+
+
+# Who can set mail up: the people who manage mailboxes (integrations, Admin > Mail).
+MAIL_ADMINS = "mailboxes.manage"
+WHO_CAN_FIX_LIMIT = 10
+
+
+class MailFixerOut(BaseModel):
+    """A person by name only (no address: this is shown to every technician)."""
+
+    id: uuid.UUID
+    display_name: str
+
+
+class MailStatusOut(BaseModel):
+    """For the reply composer (REQ-INC-060): whether a reply can go out by e-mail now."""
+
+    mail_configured: bool
+    waiting: int = Field(description="E-mails waiting for outgoing mail in this organisation.")
+    who_can_fix: list[MailFixerOut] = Field(description="People who can set mail up (names only).")
+
+
+@router.get("/mail-status", summary="Whether replies can go out by e-mail", responses=FORBIDDEN)
+async def mail_status(
+    session: TenantSession, subject: SignedIn, settings: AppSettings, policy: Policy
+) -> MailStatusOut:
+    """For staff who reply on records (any `*.reply` permission); others get 403."""
+    if not any(permission.endswith(".reply") for permission in subject.grants):
+        raise PermissionDenied(code="mail_status_staff_only")
+    fixers = await policy.holders(session, subject.tenant_id, MAIL_ADMINS, limit=WHO_CAN_FIX_LIMIT)
+    return MailStatusOut(
+        mail_configured=mail_configured(settings),
+        waiting=await waiting_count(session),
+        who_can_fix=[MailFixerOut(id=i, display_name=name) for i, name in fixers],
     )
 
 

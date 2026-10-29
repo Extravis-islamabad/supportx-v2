@@ -14,12 +14,14 @@ from app.shared.mail.domain.message import (
     OutgoingMail,
 )
 from app.shared.mail.service.outgoing import (
+    MailContentGone,
     MailNotConfigured,
     MailState,
     mail_configured,
     mail_states,
     mails_with_message_ids,
     queue_mail,
+    requeue_mail,
 )
 
 __all__ = [
@@ -27,6 +29,7 @@ __all__ = [
     "Attachment",
     "Language",
     "MailBrand",
+    "MailContentGone",
     "MailNotConfigured",
     "MailRefused",
     "MailState",
@@ -35,6 +38,7 @@ __all__ = [
     "mail_states",
     "mails_with_message_ids",
     "queue_mail",
+    "requeue_mail",
     "with_token",
     "wrap_html",
 ]

@@ -138,6 +138,20 @@ class WorkItemConversationVisibilityChanged(_ConversationEvent):
     from_visibility: str
 
 
+class WorkItemConversationDeliveryChanged(_ConversationEvent):
+    """A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).
+
+    Raised when the notification engine learns how the e-mail to the requester went; the timeline
+    refetches the entry (codes only, never an address or the server's text).
+    """
+
+    event_type: ClassVar[str] = "work_items.conversation.delivery_changed"
+    schema_version: ClassVar[int] = 1
+
+    delivery_state: str
+    delivery_reason: str | None = None
+
+
 class _FollowerEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_follower"
 
@@ -222,6 +236,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
+    WorkItemConversationDeliveryChanged,
     WorkItemFollowerAdded,
     WorkItemFollowerRemoved,
     WorkItemReplyTemplatesChanged,
