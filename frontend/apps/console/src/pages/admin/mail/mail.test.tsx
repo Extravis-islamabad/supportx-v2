@@ -329,4 +329,18 @@ describe('Admin › Mail', () => {
       /^The app's secret or certificate expires /,
     );
   });
+
+  it('alerts when a sender floods the mailbox and their mail waits for review', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    api({
+      me: ADMIN,
+      routes: { [`GET ${BASE}`]: { body: [fakeMailbox({ flooding: true, held: 2 })] } },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('mailbox-it@acme.test');
+    expect(within(row).getByTestId('mailbox-flooding').textContent).toBe(
+      'A sender is flooding this mailbox: their mail waits for review',
+    );
+    expect(within(row).getByTestId('mailbox-review')).toBeTruthy();
+  });
 });

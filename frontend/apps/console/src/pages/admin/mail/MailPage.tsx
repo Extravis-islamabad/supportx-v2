@@ -245,6 +245,11 @@ export function MailPage() {
               }
               description={
                 <Flex vertical gap={2}>
+                  {mailbox.flooding && (
+                    <Typography.Text type="warning" data-testid="mailbox-flooding">
+                      {t('mail.flooding')}
+                    </Typography.Text>
+                  )}
                   {mailbox.needs_sign_in && !mailbox.signed_in && (
                     <Typography.Text type="warning" data-testid="mailbox-needs-sign-in">
                       {t('mail.oauth.not_signed_in')}

@@ -43,4 +43,24 @@ class MailboxCredentialExpiring(DomainEvent):
     expires_at: datetime
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (MailboxChanged, MailboxFailing, MailboxCredentialExpiring)
+class MailboxMailHeld(DomainEvent):
+    """A sender went over the flood limit: their mail waits in the review queue (REQ-NTF-023).
+
+    Raised once per flood (the first message held for it in the hour), so admins are told once,
+    not per message. No address in the payload: the review queue shows who it is.
+    """
+
+    event_type: ClassVar[str] = "integrations.mailbox.mail_held"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "mailbox"
+
+    mailbox_id: uuid.UUID
+    reason: str  # "sender_rate"
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (
+    MailboxChanged,
+    MailboxFailing,
+    MailboxCredentialExpiring,
+    MailboxMailHeld,
+)

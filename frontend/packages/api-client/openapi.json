@@ -8855,6 +8855,11 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "flooding": {
+            "description": "A sender went over the flood limit; their mail waits in the review queue.",
+            "title": "Flooding",
+            "type": "boolean"
+          },
           "folder": {
             "title": "Folder",
             "type": "string"
@@ -9011,6 +9016,7 @@
           "state_reason",
           "last_fetch_at",
           "held",
+          "flooding",
           "version"
         ],
         "title": "MailboxOut",

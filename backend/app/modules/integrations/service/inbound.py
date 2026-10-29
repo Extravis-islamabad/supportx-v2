@@ -40,9 +40,11 @@ from app.modules.integrations.domain.mailboxes import (
     releasable,
     route,
 )
+from app.modules.integrations.events import MailboxMailHeld
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.integrations.service import attachments
 from app.modules.notifications import records_for_mail
+from app.shared.events import record_event
 from app.shared.files.ports import OwnerType
 from app.shared.labels import label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
@@ -95,7 +97,30 @@ async def _claim(session: AsyncSession, mailbox: Mailbox, message: InboundMessag
     return bool(getattr(result, "rowcount", 0))
 
 
+FLOOD = "sender_rate"
+
+
+async def _flood_starts(session: AsyncSession, message: InboundMessage) -> bool:
+    """Whether this is the sender's first message held for flooding within the hour."""
+    since = datetime.now(UTC) - timedelta(hours=1)
+    earlier = await session.scalar(
+        select(func.count())
+        .select_from(MailFetched)
+        .where(
+            MailFetched.sender == message.sender,
+            MailFetched.reason == FLOOD,
+            MailFetched.created_at >= since,
+            MailFetched.message_id != message.message_id[:500],
+        )
+    )
+    return not earlier
+
+
 async def _recent(session: AsyncSession, sender: str) -> int:
+    """Messages from `sender` in the last hour (REQ-NTF-023).
+
+    Replies and automatic mail count too (product owner, 2026-10-29).
+    """
     since = datetime.now(UTC) - timedelta(hours=1)
     return int(
         await session.scalar(
@@ -332,6 +357,14 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
     if decision.outcome is Outcome.AUTOMATIC and found is not None:
         return await _automatic(ctx, found, decision.reason)
     if decision.outcome not in (Outcome.CREATED, Outcome.REPLIED):
+        if decision.reason == FLOOD and await _flood_starts(session, message):
+            # Never silent (product owner, 2026-10-29): admins are told once per flood.
+            await record_event(
+                session,
+                MailboxMailHeld(mailbox_id=mailbox.id, reason=FLOOD),
+                aggregate_id=mailbox.id,
+                aggregate_version=mailbox.version,
+            )
         if decision.outcome is Outcome.REJECTED:
             await _answer(session, settings, mailbox, message, f"mailbox_answer.{decision.reason}")
         return await _finish(session, mailbox, message, decision.outcome, reason=decision.reason)
