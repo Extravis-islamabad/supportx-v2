@@ -2918,6 +2918,10 @@ export const en = {
   'kb_requesters.none': 'Not shared with requesters',
   'kb_requesters.all': 'All requesters',
   'kb_requesters.selected': 'Chosen requesters',
+  'knowledge.article_settings': 'Article settings',
+  'knowledge.settings_saved': 'Article settings saved.',
+  'knowledge.own_audience_help':
+    "Off: the article follows its topic's audience. On: it narrows it.",
   'knowledge.title': 'Knowledge',
   'knowledge.topics': 'Topics',
   'knowledge.all_topics': 'All topics',

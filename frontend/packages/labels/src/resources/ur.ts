@@ -2514,6 +2514,10 @@ export const ur: LabelResource = {
   'kb_requesters.none': 'درخواست دہندگان کے ساتھ شیئر نہیں',
   'kb_requesters.all': 'تمام درخواست دہندگان',
   'kb_requesters.selected': 'منتخب درخواست دہندگان',
+  'knowledge.article_settings': 'مضمون کی ترتیبات',
+  'knowledge.settings_saved': 'مضمون کی ترتیبات محفوظ ہو گئیں۔',
+  'knowledge.own_audience_help':
+    'بند: مضمون اپنے موضوع کے قارئین کی پیروی کرتا ہے۔ آن: انہیں محدود کرتا ہے۔',
   'knowledge.title': 'علمی ذخیرہ',
   'knowledge.topics': 'موضوعات',
   'knowledge.all_topics': 'تمام موضوعات',

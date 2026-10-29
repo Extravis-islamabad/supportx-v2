@@ -41,6 +41,7 @@ import {
 } from '@supportx/ui';
 
 import { ArticleActions } from './ArticleActions';
+import { ArticleSettings } from './ArticleSettings';
 import { AudienceSummary } from './AudienceFields';
 import { useKnowledgeLive } from './live';
 import {
@@ -96,6 +97,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
   const topics = useKbTopics();
   const types = useKbTypes();
   const body = useRef<HTMLDivElement>(null);
+  const [settings, setSettings] = useState(false);
 
   const viewers = useRecordChannel('kb', article.id, (event) => {
     const cached = queryClient.getQueryData<KbArticle>(queryKeys.knowledge.detail(article.id));
@@ -187,11 +189,32 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
         />
       )}
       {work && (
-        <ArticleActions
+        <Space wrap>
+          <ArticleActions
+            article={article}
+            language={language}
+            onEdit={() => {
+              void navigate(`/knowledge/articles/${article.id}/edit/${language}`);
+            }}
+          />
+          {article.can_edit && (
+            <Button
+              onClick={() => {
+                setSettings(true);
+              }}
+              data-testid="kb-settings"
+            >
+              {t('knowledge.article_settings')}
+            </Button>
+          )}
+        </Space>
+      )}
+      {settings && (
+        <ArticleSettings
           article={article}
           language={language}
-          onEdit={() => {
-            void navigate(`/knowledge/articles/${article.id}/edit/${language}`);
+          onClose={() => {
+            setSettings(false);
           }}
         />
       )}

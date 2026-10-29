@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { KbVersion } from '@supportx/api-client';
@@ -125,6 +125,26 @@ describe('The article page', () => {
       screen.getByLabelText(/Approve and publish: Only the topic owner or an approver can decide/),
     ).toBeDefined();
     expect(screen.getByTestId('kb-action-still_correct').hasAttribute('disabled')).toBe(false);
+  });
+
+  it('saves the article settings with If-Match (rule g)', async () => {
+    const fake = api(fakeSession(), {
+      ...page(ARTICLE),
+      [`PATCH /api/v1/knowledge/articles/${ARTICLE.id}`]: { body: { ...ARTICLE, version: 3 } },
+      'GET /api/v1/users': { body: { items: [], has_more: false, next_cursor: null } },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('kb-settings'));
+    const dialog = await screen.findByTestId('kb-settings-dialog');
+    fireEvent.click(within(dialog.closest('.ant-modal') ?? dialog).getByText('Save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/knowledge/articles/${ARTICLE.id}`)).toHaveLength(1);
+    });
+    const [call] = fake.find('PATCH', `/api/v1/knowledge/articles/${ARTICLE.id}`);
+    expect(call?.headers.get('If-Match')).toBe('"2"');
+    const sent = call?.body as Record<string, unknown>;
+    expect(sent).toMatchObject({ topic_id: ARTICLE.topic_id, own_audience: false });
+    expect(sent).not.toHaveProperty('tech_groups'); // the topic's audience stays inherited
   });
 
   it('reads an Arabic article right to left, whatever the screen language', async () => {
