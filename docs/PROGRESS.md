@@ -664,7 +664,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   Closing (closure rules, open work, auto-close disabled with the reason while no channel
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
 
-### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
+### [x] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28; QA and fix round 2026-10-29)
 - **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after lane B's 0037 mailboxes, lane C's 0036 knowledge and
   0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
   actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
@@ -1134,6 +1134,25 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-29 — WP-020d QA and fix round (lane A)
+
+- QA on main f4caaa2 under the lock: ~/Desktop/qa-wp020d/QA-REPORT.md. The e2e passed, and the
+  views, sharing with groups (D-111c), chips, page size, bulk and live list all work.
+  Found 3 bugs; BUG-03 (Arabic 390 px clipping) was withdrawn after a re-check (a drawer-animation
+  capture). The axe user-menu finding went to lane C (fixed on their header branch).
+- Fix branch `fix/wp-020d-qa` from main:
+  - BUG-01: every view count follows the changes that move it.
+    - Record changes already reach the lists (tests per event type).
+    - Personal changes now reach the person's own channel: follow and unfollow (and a
+      hand-over that keeps access) and a reply by someone else send `work_items.lists_changed`;
+      a manager change sends `users.reports_changed` to the old and new manager (`UserUpdated`
+      gains an additive `managers`); a membership change's `access.changed` now recounts too.
+    - Views refetch every minute, like the counters (clock-based counts).
+    - Documented in docs/architecture/realtime.md.
+  - BUG-02: the toolbar is two rows that each fit (view and search; then filters, sort, page
+    size, columns), and chips stack under a fixed-width search. Measured at 1470 px (nothing
+    moves sideways when a chip is added) and 390 px (no sideways scroll).
 
 ### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
 

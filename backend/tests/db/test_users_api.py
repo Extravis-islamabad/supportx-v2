@@ -378,6 +378,7 @@ async def test_patch_needs_if_match_and_rejects_stale_versions(directory: Direct
     assert event["payload"] == {
         "user_id": str(directory.tech),
         "changed_fields": ["signature", "time_zone"],
+        "managers": [],  # only a manager change names the managers (WP-020d QA BUG-01)
     }
     assert event["aggregate_version"] == 2
     assert event["actor"] == {"type": "user", "id": str(directory.tech)}
