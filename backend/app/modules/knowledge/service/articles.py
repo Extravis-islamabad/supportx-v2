@@ -609,14 +609,15 @@ def _view_filters(view: str, subject: Subject, today: date) -> list[ColumnElemen
     """The conditions a list view adds to the reader's audience."""
     live = KbArticle.withdrawn_at.is_(None)
     soon = today + timedelta(days=REVIEW_SOON_DAYS)
-    return {
+    filters: dict[str, list[ColumnElement[bool]]] = {
         "published": [live],
         "review_due": [live, KbArticle.review_on <= soon],
         "expired": [live, KbArticle.expires_on <= today],
         "my_drafts": [drafts_visible(subject)],
         "in_review": [drafts_visible(subject)],
         "awaiting_approval": [awaiting_approval(subject)],
-    }.get(view, [])
+    }
+    return filters.get(view, [])
 
 
 @dataclass(frozen=True)
