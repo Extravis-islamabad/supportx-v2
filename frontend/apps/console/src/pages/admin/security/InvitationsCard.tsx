@@ -158,7 +158,12 @@ export function InvitationsCard() {
     act.mutate(
       { id: row.id, version, action },
       {
-        onSuccess: () => {
+        onSuccess: (saved) => {
+          if (action === 'resend' && saved.earlier_links_work) {
+            // Keycloak cannot withdraw one link: say so rather than imply it (product owner).
+            void message.warning(t('security.invitations.resent_earlier_work'));
+            return;
+          }
           void message.success(
             t(action === 'resend' ? 'security.invitations.resent' : 'security.invitations.revoked'),
           );
@@ -211,9 +216,18 @@ export function InvitationsCard() {
               key: 'expires',
               title: t('security.invitations.expires'),
               render: (_, row) =>
-                row.delivery === 'existing_account'
-                  ? t('invitation_delivery.existing_account')
-                  : dates.format(row.expires_at),
+                row.delivery === 'existing_account' ? (
+                  t('invitation_delivery.existing_account')
+                ) : (
+                  <Flex vertical gap={2}>
+                    {dates.format(row.expires_at)}
+                    {row.earlier_links_work && waiting(row) && (
+                      <Typography.Text type="secondary" data-testid="invitation-earlier-links">
+                        {t('security.invitations.earlier_links_work')}
+                      </Typography.Text>
+                    )}
+                  </Flex>
+                ),
             },
             {
               key: 'actions',

@@ -3851,6 +3851,10 @@ export const en = {
   'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
+  'security.invitations.earlier_links_work':
+    'Links sent earlier also still work until they expire.',
+  'security.invitations.resent_earlier_work':
+    'Invitation sent again. This person had an account before the invitation, so links sent earlier also still work until they expire.',
   // WP-020d: the incident list's columns, views, time range, chips, bulk and export.
   'incidents.columns.button': 'Columns',
   'incidents.columns.title': 'Choose columns',

@@ -327,6 +327,14 @@ Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows 
 - Temporal's `auto-setup` image stopped at 1.29.7 (newer server versions ship without it). It is
   fine for dev; how Temporal is deployed in real environments is decided in WP-014.
 
+## Continuous integration on docs-only changes
+
+Every pull request gets all required checks, also when it changes only `docs/` or Markdown: the
+heavy jobs (the dev stack with end-to-end tests, the cluster images) start with a "changes" step
+(`.github/actions/changes`) and finish at once with "skipped: docs-only change". A new push to a
+pull request cancels that pull request's older runs; runs on `main` and nightly runs are never
+cancelled.
+
 ## Merging
 
 `main` takes changes through GitHub's merge queue: when a pull request's required checks pass,

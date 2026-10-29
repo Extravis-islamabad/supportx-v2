@@ -571,6 +571,9 @@ class InvitationOut(BaseModel):
     expires_at: datetime
     accepted_at: datetime | None
     sends: int
+    earlier_links_work: bool = Field(
+        description="Links e-mailed earlier still work until they expire (shown on screen)."
+    )
     version: int
 
 
