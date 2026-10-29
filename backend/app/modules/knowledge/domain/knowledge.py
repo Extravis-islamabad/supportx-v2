@@ -173,6 +173,7 @@ class WorkflowStep(StrEnum):
     REVIEWED = "reviewed"  # "still correct": the review date moved, no new version (REQ-KB-034)
     DELETED = "deleted"  # to the trash (REQ-KB-079)
     RESTORED = "restored"  # back from the trash
+    REVIEW_DUE = "review_due"  # its review date came (REQ-KB-034, 086): the owner hears it once
 
 
 def submit_problem(status: VersionStatus) -> str | None:

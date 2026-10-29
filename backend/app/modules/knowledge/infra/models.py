@@ -156,6 +156,8 @@ class KbArticle(TenantEntity):
     expires_on: Mapped[date | None]
     withdrawn_reason: Mapped[str | None] = mapped_column(Text)
     withdrawn_at: Mapped[datetime | None]
+    # The review date the owner was last reminded of, so each date reminds once (REQ-KB-086).
+    review_reminded_on: Mapped[date | None]
 
 
 class KbArticleVersion(TenantEntity):

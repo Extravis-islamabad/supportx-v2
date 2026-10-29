@@ -2,6 +2,8 @@
 
 - `kb_reviews`: who checked an article and moved its review date, with no new version
   (REQ-KB-034). Tenant-scoped with RLS.
+- `kb_articles.review_reminded_on`: the review date its owner was last reminded of, so the
+  hourly sweep reminds once per date (REQ-KB-086). Nullable, no default: expand only.
 - Files may belong to a knowledge article (`kb_article` owner type, lane B's files module):
   expand-only, as 0022 did for branding.
 
@@ -81,6 +83,7 @@ def upgrade() -> None:
     enable_tenant_rls("kb_reviews")
     enable_actor_audit("kb_reviews")
     grant_app("kb_reviews", ("SELECT", "INSERT"))
+    op.add_column("kb_articles", sa.Column("review_reminded_on", sa.Date(), nullable=True))
 
     op.drop_constraint(op.f("ck_file_links_owner_type"), "file_links", type_="check")
     op.create_check_constraint(op.f("ck_file_links_owner_type"), "file_links", OWNER_TYPES_AFTER)
@@ -91,4 +94,5 @@ def downgrade() -> None:
     op.execute(_DROP_ARTICLE_LINKS)
     op.drop_constraint(op.f("ck_file_links_owner_type"), "file_links", type_="check")
     op.create_check_constraint(op.f("ck_file_links_owner_type"), "file_links", OWNER_TYPES_BEFORE)
+    op.drop_column("kb_articles", "review_reminded_on")
     op.drop_table("kb_reviews")
