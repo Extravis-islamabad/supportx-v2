@@ -1,7 +1,8 @@
-"""Knowledge over HTTP (WP-033 session 1): `/api/v1/knowledge`.
+"""Knowledge over HTTP (WP-033 sessions 1-2): `/api/v1/knowledge`.
 
-Topics, articles and their drafts. Approval, publishing, withdrawal, trash and requesters'
-reading follow in session 2 (D-108). Static paths come before `/{id}`.
+Topics, articles and their drafts (session 1); review and approval, withdrawal, "still
+correct", trash, versions, settings and requesters' reading (session 2, D-108). Static paths
+come before `/{id}`.
 """
 
 import uuid
@@ -14,9 +15,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
+from app.modules.audit import audited
 from app.modules.identity_access import Subject
 from app.modules.knowledge.infra.models import KbArticleVersion, KbTopic, KbType
-from app.modules.knowledge.service import articles, topics
+from app.modules.knowledge.service import articles, review, topics
 from app.modules.knowledge.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -254,9 +256,12 @@ class ArticleOut(BaseModel):
     expired: bool
     review_due: bool
     withdrawn: bool
+    withdrawn_reason: str | None = Field(description="For editors and withdrawers only.")
     published: dict[str, VersionOut]
     drafts: dict[str, VersionOut]
     can_edit: bool
+    can_approve: bool
+    can_withdraw: bool
     version: int
     created_at: datetime
     updated_at: datetime
@@ -278,11 +283,16 @@ class ArticleOut(BaseModel):
             expired=view.expired,
             review_due=view.review_due,
             withdrawn=article.withdrawn_at is not None,
+            withdrawn_reason=(
+                article.withdrawn_reason if view.can_edit or view.can_withdraw else None
+            ),
             published={
                 k: VersionOut.of(v, editor=view.can_edit) for k, v in view.published.items()
             },
             drafts={k: VersionOut.of(v, editor=True) for k, v in view.drafts.items()},
             can_edit=view.can_edit,
+            can_approve=view.can_approve,
+            can_withdraw=view.can_withdraw,
             version=article.version,
             created_at=article.created_at,
             updated_at=article.updated_at,
@@ -397,7 +407,18 @@ async def list_types(session: TenantSession, subject: Viewer) -> list[ArticleTyp
 async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
     session: TenantSession,
     subject: Viewer,
-    view: Annotated[Literal["published", "my_drafts"], Query()] = "published",
+    view: Annotated[
+        Literal[
+            "published",
+            "my_drafts",
+            "in_review",
+            "awaiting_approval",
+            "review_due",
+            "expired",
+            "trash",
+        ],
+        Query(),
+    ] = "published",
     language: Annotated[Language, Query()] = "en",
     topic_id: Annotated[uuid.UUID | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200, description="Search words.")] = None,
@@ -527,3 +548,293 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     set_etag(response, draft.version)
     return VersionOut.of(draft, editor=True)
+
+
+# --- session 2: review and approval (REQ-KB-027, 028) ---------------------------------------------
+
+
+class SubmitIn(BaseModel):
+    """Send a draft to review, with an optional note for the approver."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ReasonIn(BaseModel):
+    """A reason, required (sending back, withdrawing)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(max_length=2000)
+
+
+@router.post(
+    "/articles/{article_id}/drafts/{language}/submit",
+    summary="Send a draft to review",
+    responses=CONFLICT,
+)
+async def submit_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    language: Language,
+    body: SubmitIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> VersionOut:
+    """If-Match carries the draft's version. Approvers see it at once (no mail needed)."""
+    submitted = await review.submit(
+        session,
+        subject,
+        article_id,
+        language,
+        note=body.note,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, submitted.version)
+    return VersionOut.of(submitted, editor=True)
+
+
+@router.post(
+    "/articles/{article_id}/drafts/{language}/approve",
+    summary="Approve and publish",
+    responses=CONFLICT,
+    dependencies=[
+        audited(
+            "knowledge.article_approved",
+            object_type="kb_article",
+            object_param="article_id",
+            detail_params=("language",),
+        )
+    ],
+)
+async def approve_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    language: Language,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Publishes the version in review; the previous one is replaced at the same moment."""
+    view = await review.approve(
+        session, subject, article_id, language, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, view.article.version)
+    return ArticleOut.of(view)
+
+
+@router.post(
+    "/articles/{article_id}/drafts/{language}/reject",
+    summary="Send back to the author",
+    responses=CONFLICT,
+)
+async def reject_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    language: Language,
+    body: ReasonIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> VersionOut:
+    """The version becomes a draft again; the author sees the reason."""
+    rejected = await review.reject(
+        session,
+        subject,
+        article_id,
+        language,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, rejected.version)
+    return VersionOut.of(rejected, editor=True)
+
+
+# --- session 2: withdraw, still correct, trash, versions (REQ-KB-020, 031, 034, 079) --------------
+
+
+@router.post(
+    "/articles/{article_id}/withdraw",
+    summary="Withdraw",
+    responses=CONFLICT,
+    dependencies=[
+        audited("knowledge.article_withdrawn", object_type="kb_article", object_param="article_id")
+    ],
+)
+async def withdraw_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    body: ReasonIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Off every reader path at once; approving a new version brings it back."""
+    view = await review.withdraw(
+        session,
+        subject,
+        article_id,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, view.article.version)
+    return ArticleOut.of(view)
+
+
+@router.post("/articles/{article_id}/still-correct", summary="Still correct", responses=CONFLICT)
+async def still_correct(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Records a review; the review date moves on, with no new version."""
+    view = await review.still_correct(
+        session, subject, article_id, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, view.article.version)
+    return ArticleOut.of(view)
+
+
+@router.delete(
+    "/articles/{article_id}",
+    summary="Move to the trash",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=CONFLICT,
+    dependencies=[
+        audited("knowledge.article_deleted", object_type="kb_article", object_param="article_id")
+    ],
+)
+async def delete_article(
+    article_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+) -> None:
+    """Restorable; nothing is deleted for good here (GDPR erasure jobs only)."""
+    await review.delete_article(
+        session, subject, article_id, expected_version=version, source=source_of(request)
+    )
+
+
+@router.post(
+    "/articles/{article_id}/restore",
+    summary="Restore from the trash",
+    responses=CONFLICT,
+    dependencies=[
+        audited("knowledge.article_restored", object_type="kb_article", object_param="article_id")
+    ],
+)
+async def restore_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Back into its topic (409 kb_topic_in_trash while the topic is in the trash)."""
+    view = await review.restore_article(
+        session, subject, article_id, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, view.article.version)
+    return ArticleOut.of(view)
+
+
+@router.get("/articles/{article_id}/versions", summary="Versions")
+async def article_versions(
+    article_id: uuid.UUID, session: TenantSession, subject: Viewer
+) -> list[VersionOut]:
+    """Published and earlier versions; drafts and reviews for those who may see them."""
+    view = await articles.get_article(session, subject, article_id)
+    found = await review.list_versions(session, subject, article_id)
+    return [VersionOut.of(v, editor=view.can_edit or view.can_approve) for v in found]
+
+
+# --- session 2: the approval count and settings (REQ-KB-086, 090) ---------------------------------
+
+
+class ApprovalCountOut(BaseModel):
+    """A number for a menu badge."""
+
+    count: int
+
+
+@router.get("/approvals/count", summary="Articles awaiting my approval")
+async def approvals_count(session: TenantSession, subject: Viewer) -> ApprovalCountOut:
+    """The live count in the Knowledge menu (refreshed by realtime)."""
+    return ApprovalCountOut(count=await review.awaiting_count(session, subject))
+
+
+class KnowledgeSettingsOut(BaseModel):
+    """Knowledge settings (REQ-KB-090)."""
+
+    prefix: str
+    self_approval: bool
+    requesters_enabled: bool
+    version: int
+
+
+class KnowledgeSettingsPatch(BaseModel):
+    """Change knowledge settings (If-Match)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    self_approval: bool | None = None
+    requesters_enabled: bool | None = None
+
+
+@router.get("/settings", summary="Knowledge settings")
+async def get_settings(
+    session: TenantSession, subject: Viewer, response: Response
+) -> KnowledgeSettingsOut:
+    """Read by every reader (the screens need self-approval); changed by settings managers."""
+    del subject
+    found = await articles.settings_row(session)
+    set_etag(response, found.version)
+    return KnowledgeSettingsOut(
+        prefix=found.prefix,
+        self_approval=found.self_approval,
+        requesters_enabled=found.requesters_enabled,
+        version=found.version,
+    )
+
+
+@router.patch(
+    "/settings",
+    summary="Change knowledge settings",
+    responses=CONFLICT,
+    dependencies=[audited("knowledge.settings_changed", object_type="kb_settings")],
+)
+async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    body: KnowledgeSettingsPatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> KnowledgeSettingsOut:
+    """Needs `knowledge.manage_settings`."""
+    values = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    found = await review.update_settings(
+        session, subject, values, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, found.version)
+    return KnowledgeSettingsOut(
+        prefix=found.prefix,
+        self_approval=found.self_approval,
+        requesters_enabled=found.requesters_enabled,
+        version=found.version,
+    )

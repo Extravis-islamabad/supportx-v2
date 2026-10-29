@@ -2029,6 +2029,7 @@ export const en = {
     "Your logo, colours and texts are removed and every screen shows SupportX's brand again.",
   'branding.reset_done': 'The default brand is back.',
   'file_owner_type.branding': 'Branding',
+  'file_owner_type.kb_article': 'Knowledge article',
   'domain_status.pending': 'Not checked yet',
   'domain_status.verified': 'Verified',
   'domain_status.failed': 'Check failed',
@@ -2911,6 +2912,68 @@ export const en = {
   'kb_requesters.none': 'Not shared with requesters',
   'kb_requesters.all': 'All requesters',
   'kb_requesters.selected': 'Chosen requesters',
+  'errors.kb_article_withdrawn': 'This article is no longer available.',
+  'errors.kb_cannot_approve':
+    "You cannot approve this article. The topic's owner or an approver can.",
+  'errors.kb_cannot_delete': 'You cannot move this article to the trash.',
+  'errors.kb_cannot_withdraw': 'You cannot withdraw this article.',
+  'errors.kb_not_published': 'This article is not published yet.',
+  'errors.kb_topic_in_trash':
+    'Its topic is in the trash. Restore the topic first, or choose another topic.',
+  'errors.kb_not_a_draft': 'Only a draft can be sent for review.',
+  'errors.kb_not_in_review': 'This version is not waiting for review.',
+  'errors.kb_self_approval_off':
+    'Authors cannot approve their own articles here. Ask another approver.',
+  'errors.field.reason_required': 'Give a reason.',
+  'event_type.knowledge.article.workflow': 'Knowledge article review step',
+  'audit.action.knowledge.article_approved': 'Approved an article',
+  'audit.action.knowledge.article_withdrawn': 'Withdrew an article',
+  'audit.action.knowledge.article_deleted': 'Moved an article to the trash',
+  'audit.action.knowledge.article_restored': 'Restored an article',
+  'audit.action.knowledge.settings_changed': 'Changed knowledge settings',
+  'audit.object.kb_article': 'Knowledge article',
+  'audit.object.kb_settings': 'Knowledge settings',
+  'notification_recipient.approvers': 'Approvers',
+  'notification_recipient.author': 'Author',
+  'notification_recipient.owner': 'Article owner',
+  'notification_recipient.topic_owner': 'Topic owner',
+  'notification_event.kb_article.submitted': 'Article sent for review',
+  'notification_event.kb_article.approved': 'Article approved',
+  'notification_event.kb_article.rejected': 'Article sent back',
+  'notification_event.kb_article.withdrawn': 'Article withdrawn',
+  'notification_event.kb_article.review_due': 'Article review due',
+  'notification_variable.article.reason': 'Article › Reason',
+  'notification_variable.article.review_on': 'Article › Review date',
+  'notification_template.kb_article.submitted.in_app':
+    '{{ actor.name }} sent {{ record.display_id }} for review: {{ record.title }}',
+  'notification_template.kb_article.submitted.subject':
+    'Review requested: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.submitted.body':
+    'Hello {{ recipient.name }},\n\n{{ actor.name }} sent the article {{ record.display_id }} "{{ record.title }}" for review. Open it to approve it or send it back.',
+  'notification_template.kb_article.approved.in_app':
+    '{{ record.display_id }} is published: {{ record.title }}',
+  'notification_template.kb_article.approved.subject':
+    'Published: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.approved.body':
+    'Hello {{ recipient.name }},\n\n{{ actor.name }} approved the article {{ record.display_id }} "{{ record.title }}". Its readers see it now.',
+  'notification_template.kb_article.rejected.in_app':
+    '{{ record.display_id }} was sent back: {{ article.reason }}',
+  'notification_template.kb_article.rejected.subject':
+    'Sent back: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.rejected.body':
+    'Hello {{ recipient.name }},\n\n{{ actor.name }} sent the article {{ record.display_id }} "{{ record.title }}" back as a draft.\n\nReason: {{ article.reason }}',
+  'notification_template.kb_article.withdrawn.in_app':
+    '{{ record.display_id }} was withdrawn: {{ article.reason }}',
+  'notification_template.kb_article.withdrawn.subject':
+    'Withdrawn: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.withdrawn.body':
+    'Hello {{ recipient.name }},\n\n{{ actor.name }} withdrew the article {{ record.display_id }} "{{ record.title }}". Readers no longer see it.\n\nReason: {{ article.reason }}',
+  'notification_template.kb_article.review_due.in_app':
+    '{{ record.display_id }} is due for review: {{ record.title }}',
+  'notification_template.kb_article.review_due.subject':
+    'Review due: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.review_due.body':
+    'Hello {{ recipient.name }},\n\nThe article {{ record.display_id }} "{{ record.title }}" was due for review on {{ article.review_on }}. Check it is still correct, or edit it.',
   'errors.field.unknown_column': 'This column does not exist for these records.',
   'errors.field.duplicate_column': 'Each column can be listed once.',
   'permission.dashboards.create.description':

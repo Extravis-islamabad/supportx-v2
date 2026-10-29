@@ -13,15 +13,15 @@ REQ-KB-001, 002, 005, 006, 008, 012, 013, 020, 021, 033, 034, 035, 049.
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from typing import Any
 
-from sqlalchemy import and_, select
+from sqlalchemy import ColumnElement, and_, false, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, person_placement
 from app.modules.knowledge.domain.knowledge import (
     BUILTIN_TYPES,
     ID_PREFIX,
@@ -40,10 +40,15 @@ from app.modules.knowledge.infra.models import (
 )
 from app.modules.knowledge.service.access import (
     CREATE,
+    DELETE,
     VIEW,
     article_audience,
+    awaiting_approval,
     drafts_visible,
     is_staff,
+    may_approve,
+    may_withdraw,
+    requester_sees,
     require,
     sees_drafts,
     staff_may_edit,
@@ -66,6 +71,7 @@ from app.shared.richtext import sanitize_html
 from app.shared.search import ENGINE, SearchDocument
 
 RECORD_TYPE = "kb_article"
+REVIEW_SOON_DAYS = 15  # "review due" includes the next 15 days (REQ-KB-034)
 KEYWORD_MAX = 60
 OPEN = (VersionStatus.DRAFT, VersionStatus.IN_REVIEW)
 _VERSION_COLUMNS = KbArticleVersion.__table__.c
@@ -136,6 +142,8 @@ class ArticleView:
     can_edit: bool
     expired: bool
     review_due: bool
+    can_approve: bool = False
+    can_withdraw: bool = False
 
 
 def _today() -> date:
@@ -157,13 +165,26 @@ async def _versions(session: AsyncSession, article_id: uuid.UUID) -> list[KbArti
     )
 
 
+async def reader_predicate(session: AsyncSession, subject: Subject) -> ColumnElement[bool]:
+    """Who may read which articles, as SQL: one rule for pages, lists, search and files.
+
+    Staff by technician audience (D-108 (4)); requesters by requester audience, never withdrawn
+    or expired ones, and none while requesters are switched off (REQ-KB-045, 048, 090).
+    """
+    require(subject, VIEW)
+    if is_staff(subject):
+        return staff_sees(subject)
+    settings = await settings_row(session)
+    if not settings.requesters_enabled:
+        return false()
+    placement = await person_placement(session, subject.user_id)
+    return requester_sees(subject, placement.department_id, _today())
+
+
 async def _load(
     session: AsyncSession, subject: Subject, article_id: uuid.UUID
 ) -> tuple[KbArticle, KbTopic]:
-    """The article and its topic, if the subject reaches it as staff; 404 otherwise."""
-    require(subject, VIEW)
-    if not is_staff(subject):
-        raise NotFound(code="kb_article_not_found")  # requesters read published (session 2)
+    """The article and its topic, if the subject may read it; 404 otherwise."""
     row = (
         await session.execute(
             select(KbArticle, KbTopic)
@@ -171,7 +192,11 @@ async def _load(
                 KbTopic,
                 and_(KbTopic.id == KbArticle.topic_id, KbTopic.tenant_id == KbArticle.tenant_id),
             )
-            .where(KbArticle.id == article_id, KbArticle.deleted_at.is_(None), staff_sees(subject))
+            .where(
+                KbArticle.id == article_id,
+                KbArticle.deleted_at.is_(None),
+                await reader_predicate(session, subject),
+            )
         )
     ).first()
     if row is None:
@@ -185,7 +210,13 @@ async def get_article(
     """One article: published versions for its audience; drafts only for those who may (D-108)."""
     article, topic = await _load(session, subject, article_id)
     versions = await _versions(session, article.id)
-    drafts_ok = sees_drafts(subject, article, topic)
+    staff = is_staff(subject)
+    # Drafts and versions in review: their author, owners and approvers only (D-108 (1)).
+    drafts_ok = staff and sees_drafts(subject, article, topic)
+    can_withdraw = staff and may_withdraw(subject, article, topic)
+    if article.withdrawn_at is not None and not (drafts_ok or can_withdraw):
+        # Readers who had it: "no longer available" (REQ-KB-031); the rest never reach here.
+        raise NotFound(code="kb_article_withdrawn")
     published = {v.language: v for v in versions if v.status == VersionStatus.PUBLISHED}
     drafts = {v.language: v for v in versions if v.status in OPEN} if drafts_ok else {}
     if not published and not drafts:
@@ -196,9 +227,11 @@ async def get_article(
         topic=topic,
         published=published,
         drafts=drafts,
-        can_edit=staff_may_edit(subject, article, topic),
+        can_edit=staff and staff_may_edit(subject, article, topic),
         expired=article.expires_on is not None and article.expires_on <= today,
         review_due=article.review_on is not None and article.review_on <= today,
+        can_approve=staff and may_approve(subject, article, topic),
+        can_withdraw=can_withdraw,
     )
 
 
@@ -572,6 +605,21 @@ async def new_draft(
 # --- lists ----------------------------------------------------------------------------------------
 
 
+def _view_filters(view: str, subject: Subject, today: date) -> list[ColumnElement[bool]]:
+    """The conditions a list view adds to the reader's audience."""
+    live = KbArticle.withdrawn_at.is_(None)
+    soon = today + timedelta(days=REVIEW_SOON_DAYS)
+    filters: dict[str, list[ColumnElement[bool]]] = {
+        "published": [live],
+        "review_due": [live, KbArticle.review_on <= soon],
+        "expired": [live, KbArticle.expires_on <= today],
+        "my_drafts": [drafts_visible(subject)],
+        "in_review": [drafts_visible(subject)],
+        "awaiting_approval": [awaiting_approval(subject)],
+    }
+    return filters.get(view, [])
+
+
 @dataclass(frozen=True)
 class ArticleRow:
     """One line of a list: the article, and the version shown for it.
@@ -593,15 +641,27 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
     query: str | None = None,
     limit: int = 50,
 ) -> list[ArticleRow]:
-    """Articles of one view (REQ-KB-013, 077).
+    """Articles of one view (REQ-KB-013, 077), in the reader's audience; searchable (WP-027).
 
-    `published`: what readers see; `my_drafts`: open drafts the subject may work on. Searched
-    through the search port (WP-027) when `query` is given.
+    `published`: what readers see (never withdrawn); `my_drafts` and `in_review`: open versions
+    the subject may work on (D-108 (1)); `awaiting_approval`: versions in review this subject
+    may decide (REQ-KB-027); `review_due`: published, review within 15 days (REQ-KB-034);
+    `expired`: past their expiry (REQ-KB-035); `trash`: deleted articles (REQ-KB-079).
+    Requesters have the `published` view only.
     """
-    require(subject, VIEW)
-    if not is_staff(subject):
+    reader = await reader_predicate(session, subject)
+    staff = is_staff(subject)
+    if (not staff and view != "published") or (view == "trash" and not subject.holds(DELETE)):
         return []
-    statuses = [VersionStatus.PUBLISHED.value] if view == "published" else [s.value for s in OPEN]
+    statuses = {
+        "my_drafts": [s.value for s in OPEN],
+        "in_review": [VersionStatus.IN_REVIEW.value],
+        "awaiting_approval": [VersionStatus.IN_REVIEW.value],
+        "trash": [VersionStatus.PUBLISHED.value, *(s.value for s in OPEN)],
+    }.get(view, [VersionStatus.PUBLISHED.value])
+    deleted = (
+        KbArticle.deleted_at.is_not(None) if view == "trash" else KbArticle.deleted_at.is_(None)
+    )
     statement = (
         select(KbArticle, KbArticleVersion)
         .join(
@@ -617,10 +677,9 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
                 KbArticleVersion.status.in_(statuses),
             ),
         )
-        .where(KbArticle.deleted_at.is_(None), staff_sees(subject))
+        .where(deleted, reader)
     )
-    if view != "published":
-        statement = statement.where(drafts_visible(subject))
+    statement = statement.where(*_view_filters(view, subject, _today()))
     if topic_id is not None:
         statement = statement.where(KbArticle.topic_id == topic_id)
     order: list[Any] = [KbArticle.updated_at.desc(), KbArticle.id]

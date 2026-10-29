@@ -14,6 +14,7 @@ owner and approvers (D-108 (1)); published versions by the audience.
 """
 
 import uuid
+from datetime import date
 from typing import Any
 
 from sqlalchemy import ColumnElement, and_, case, false, or_, true
@@ -161,3 +162,80 @@ def drafts_visible(subject: Subject) -> ColumnElement[bool]:
 def owner_ids(*ids: uuid.UUID | None) -> set[uuid.UUID]:
     """The non-empty ids among `ids`."""
     return {i for i in ids if i is not None}
+
+
+# --- session 2: withdrawing, the approval inbox and requester reading -----------------------------
+
+
+def may_withdraw(subject: Subject, article: KbArticle, topic: KbTopic) -> bool:
+    """`knowledge.withdraw` within its scope, or the topic's owner (REQ-KB-031)."""
+    if topic.owner_id == subject.user_id:
+        return True
+    scope = subject.broadest_scope(WITHDRAW)
+    if scope == "all":
+        return True
+    if scope == "group":
+        audience = article_audience(article, topic)
+        return audience.tech_all or bool(audience.tech_groups & subject.group_ids)
+    return False
+
+
+def awaiting_approval(subject: Subject) -> ColumnElement[bool]:
+    """SQL counterpart of `may_approve`: the versions in review this subject may decide."""
+    mine: ColumnElement[bool] = KbTopic.owner_id == subject.user_id
+    scope = subject.broadest_scope(APPROVE)
+    if scope == "all":
+        return true()
+    if scope == "group":
+        tech_all, tech_groups = _audience_columns(article=True)
+        groups = list(subject.group_ids)
+        in_group = tech_all.is_(True)
+        if groups:
+            in_group = or_(in_group, tech_groups.overlap(groups))
+        return or_(mine, in_group)
+    return mine
+
+
+def _audience_overlap(
+    article_column: Any,  # noqa: ANN401 - an ARRAY(Uuid) column of KbArticle
+    topic_column: Any,  # noqa: ANN401 - the same column of KbTopic
+    values: list[uuid.UUID],
+) -> ColumnElement[bool]:
+    """The effective (article's own, else topic's) list shares a value with `values`."""
+    if not values:
+        return false()
+    own = KbArticle.own_audience
+    return or_(
+        and_(own.is_(True), article_column.overlap(values)),
+        and_(own.is_(False), topic_column.overlap(values)),
+    )
+
+
+def requester_sees(
+    subject: Subject, department_id: uuid.UUID | None, today: date
+) -> ColumnElement[bool]:
+    """SQL: a requester may read the article (REQ-KB-045, 048; D-108 (1)).
+
+    Inside its requester audience (all, or one of the requester's groups, sites or department),
+    not withdrawn and not expired. The published version is chosen by the caller; drafts and
+    versions in review never reach a requester.
+    """
+    own = KbArticle.own_audience
+    audience = case((own.is_(True), KbArticle.requesters), else_=KbTopic.requesters)
+    selected = or_(
+        _audience_overlap(KbArticle.req_groups, KbTopic.req_groups, list(subject.group_ids)),
+        _audience_overlap(KbArticle.req_sites, KbTopic.req_sites, list(subject.site_ids)),
+        _audience_overlap(
+            KbArticle.req_departments,
+            KbTopic.req_departments,
+            [department_id] if department_id is not None else [],
+        ),
+    )
+    return and_(
+        KbArticle.withdrawn_at.is_(None),
+        or_(KbArticle.expires_on.is_(None), KbArticle.expires_on > today),
+        or_(
+            audience == RequesterAudience.ALL.value,
+            and_(audience == RequesterAudience.SELECTED.value, selected),
+        ),
+    )

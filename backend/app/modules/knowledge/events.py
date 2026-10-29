@@ -2,7 +2,7 @@
 
 Payloads carry IDs, codes and changed field names only, never titles or text (rule c): a
 listener that needs words reads them through the module with its own reader's rights.
-Session 2 adds submitted, approved, rejected, published and withdrawn (D-108 (5)).
+Session 2 adds the workflow event: submitted, approved, rejected, withdrawn and more (D-108 (5)).
 """
 
 import uuid
@@ -49,4 +49,31 @@ class KbArticleSaved(DomainEvent):
     changed_fields: list[str]
 
 
-EVENTS: tuple[type[DomainEvent], ...] = (KbTopicSaved, KbTopicDeleted, KbArticleSaved)
+class KbArticleWorkflow(DomainEvent):
+    """A step of an article's review life (D-108 (5)), for notifications and live screens.
+
+    Steps: submitted, approved, rejected, withdrawn, reviewed ("still correct"), deleted, restored.
+    """
+
+    event_type: ClassVar[str] = "knowledge.article.workflow"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "kb_article"
+
+    article_id: uuid.UUID
+    topic_id: uuid.UUID
+    owner_id: uuid.UUID
+    step: str  # WorkflowStep
+    language: str | None
+    version_number: int | None
+    author_id: uuid.UUID | None  # who wrote the version (submitted / decided ones)
+    # Whether the change touched what readers see (approve, withdraw, delete, restore): the
+    # requester-facing broadcast is sent only then.
+    readers_affected: bool
+
+
+EVENTS: tuple[type[DomainEvent], ...] = (
+    KbTopicSaved,
+    KbTopicDeleted,
+    KbArticleSaved,
+    KbArticleWorkflow,
+)

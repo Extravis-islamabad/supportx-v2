@@ -156,6 +156,8 @@ class KbArticle(TenantEntity):
     expires_on: Mapped[date | None]
     withdrawn_reason: Mapped[str | None] = mapped_column(Text)
     withdrawn_at: Mapped[datetime | None]
+    # The review date the owner was last reminded of, so each date reminds once (REQ-KB-086).
+    review_reminded_on: Mapped[date | None]
 
 
 class KbArticleVersion(TenantEntity):
@@ -247,3 +249,24 @@ class KbArticleVersion(TenantEntity):
     search_title: Unmapped[str] = unmapped_column(
         Text, Computed("sx_search_normalize(title)", persisted=True)
     )
+
+
+class KbReview(TenantEntity):
+    """One "still correct" review: checked, review date moved forward, no new version.
+
+    REQ-KB-034: the history of who checked an article and when.
+    """
+
+    __tablename__ = "kb_reviews"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "article_id"],
+            ["kb_articles.tenant_id", "kb_articles.id"],
+            name="fk_kb_reviews_article",
+        ),
+        Index(None, "tenant_id", "article_id", "created_at"),
+    )
+
+    article_id: Mapped[uuid.UUID]
+    reviewed_by: Mapped[uuid.UUID]
+    next_review_on: Mapped[date]

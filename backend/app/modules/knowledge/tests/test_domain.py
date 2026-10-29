@@ -9,11 +9,16 @@ from app.modules.knowledge.domain.knowledge import (
     Audience,
     Reader,
     RequesterAudience,
+    VersionStatus,
     add_months,
     date_problems,
+    decide_problem,
     default_review,
     depth_problem,
     may_read,
+    requester_may_read,
+    self_approval_problem,
+    submit_problem,
 )
 
 GA, GB = uuid.uuid4(), uuid.uuid4()
@@ -93,3 +98,37 @@ def test_d108_4_who_reads_published_content() -> None:
     assert may_read(by_site, requester)
     by_dept = Audience(requesters=RequesterAudience.SELECTED, req_departments=frozenset({DEPT}))
     assert not may_read(by_dept, requester)
+
+
+# --- session 2: the review flow (REQ-KB-027, 028, 031, 035) ---------------------------------------
+
+
+def test_req_kb_027_only_drafts_go_to_review_and_only_reviews_are_decided() -> None:
+    assert submit_problem(VersionStatus.DRAFT) is None
+    for status in (VersionStatus.IN_REVIEW, VersionStatus.PUBLISHED, VersionStatus.SUPERSEDED):
+        assert submit_problem(status) == "kb_not_a_draft"
+    assert decide_problem(VersionStatus.IN_REVIEW) is None
+    for status in (VersionStatus.DRAFT, VersionStatus.PUBLISHED, VersionStatus.REJECTED):
+        assert decide_problem(status) == "kb_not_in_review"
+
+
+def test_req_kb_028_self_approval_follows_the_setting() -> None:
+    author, other = uuid.uuid4(), uuid.uuid4()
+    assert self_approval_problem(allowed=True, author_id=author, approver=author) is None
+    assert self_approval_problem(allowed=False, author_id=author, approver=other) is None
+    assert (
+        self_approval_problem(allowed=False, author_id=author, approver=author)
+        == "kb_self_approval_off"
+    )
+
+
+def test_req_kb_031_035_requesters_never_read_withdrawn_or_expired() -> None:
+    everyone = Audience(requesters=RequesterAudience.ALL)
+    requester = Reader(staff=False)
+    live = {"requesters_enabled": True, "expired": False, "withdrawn": False}
+    assert requester_may_read(everyone, requester, **live)
+    assert not requester_may_read(everyone, requester, **{**live, "expired": True})
+    assert not requester_may_read(everyone, requester, **{**live, "withdrawn": True})
+    assert not requester_may_read(everyone, requester, **{**live, "requesters_enabled": False})
+    assert not requester_may_read(Audience(), requester, **live)
+    assert not requester_may_read(everyone, Reader(staff=True), **live)

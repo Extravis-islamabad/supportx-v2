@@ -22,6 +22,7 @@ from app.modules.work_items.domain.conversation import EntryKind, Visibility
 from app.modules.work_items.domain.types import TYPES, WorkItemType, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem, WorkItemConversation
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.realtime import RECORD_KIND
 from app.shared.files.ports import Action, Actor, Owner, OwnerType
 
 
@@ -51,6 +52,8 @@ class WorkItemFileAccess:
     """`FileOwnerAccess` for work items and their conversation entries."""
 
     owner_types = frozenset({OwnerType.WORK_ITEM, OwnerType.CONVERSATION_ENTRY})
+    record_types = frozenset(code.value for code in TYPES)
+    channel_kind: str | None = RECORD_KIND
 
     async def check(
         self,

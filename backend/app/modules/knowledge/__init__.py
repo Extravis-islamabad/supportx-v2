@@ -8,10 +8,13 @@ publishing, withdrawal, trash, requesters, notifications. Licensed with the `kno
 Public interface for other modules: none yet (session 4 adds links to records).
 """
 
+from fastapi import FastAPI
+
 from app.core.authorization import PermissionSpec, Scope
 from app.core.modules import ModuleSpec
 from app.modules.knowledge.api.routes import router
 from app.modules.knowledge.events import EVENTS
+from app.modules.knowledge.service import notifications
 from app.modules.knowledge.service.access import (
     APPROVE,
     CREATE,
@@ -25,6 +28,10 @@ from app.modules.knowledge.service.access import (
     VIEW,
     WITHDRAW,
 )
+from app.modules.knowledge.service.file_access import FILE_ACCESS
+from app.modules.knowledge.service.realtime import CHANNELS, ROUTES
+from app.shared.files.ports import register_owner_access, unregister_owner_access
+from app.shared.schedules import ScheduleSpec
 
 FEATURE = "knowledge"
 _READ: tuple[Scope, ...] = ("all", "group", "own")  # own: reading as a requester
@@ -47,12 +54,34 @@ PERMISSIONS = (
     PermissionSpec(MANAGE_SETTINGS, FEATURE, ("all",)),
 )
 
+
+async def _startup(app: FastAPI) -> None:
+    del app
+    register_owner_access(FILE_ACCESS)
+
+
+async def _shutdown(app: FastAPI) -> None:
+    del app
+    unregister_owner_access(FILE_ACCESS.owner_types)
+
+
 module = ModuleSpec(
     name="knowledge",
     routers=[router],
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
+    channels=CHANNELS,
+    realtime=ROUTES,
+    on_startup=[_startup],
+    on_shutdown=[_shutdown],
+    schedules=[ScheduleSpec("knowledge__review_due", 3600, notifications.review_due_sweep)],
 )
+
+# Knowledge notifications (REQ-KB-086) and article files: at import, for the workers too (they
+# import modules without running startup hooks); startup registers the files again after a
+# shutdown (tests start and stop the app).
+notifications.register()
+register_owner_access(FILE_ACCESS)
 
 __all__ = ["module"]

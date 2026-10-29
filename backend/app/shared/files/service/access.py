@@ -24,7 +24,14 @@ from app.shared.files.domain.types import Kind, Sniffed, inline_allowed
 from app.shared.files.events import FileChanged
 from app.shared.files.infra import blobs
 from app.shared.files.infra.models import FileLink, StoredFile
-from app.shared.files.ports import Action, Actor, OwnerType, owner_access, record_access
+from app.shared.files.ports import (
+    Action,
+    Actor,
+    OwnerType,
+    UnknownOwnerError,
+    owner_access,
+    record_access,
+)
 from app.shared.files.service.core import FileServices, data_key, now
 
 
@@ -84,9 +91,11 @@ async def for_record(
     session: AsyncSession, actor: Actor, record_type: str, record_id: uuid.UUID
 ) -> list[Attachment]:
     """Every file on a record (the record itself, its replies and notes) the actor may see."""
-    visible = await record_access(record_type).visible_owners(
-        session, actor, record_type, record_id
-    )
+    try:
+        source = record_access(record_type)
+    except UnknownOwnerError:  # answered like a record the actor may not see
+        raise NotFound(code="file_owner_not_found") from None
+    visible = await source.visible_owners(session, actor, record_type, record_id)
     rows = await session.execute(
         select(StoredFile, FileLink)
         .join(FileLink, FileLink.file_id == StoredFile.id)

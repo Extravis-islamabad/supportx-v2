@@ -2054,6 +2054,7 @@ export const ar: LabelResource = {
   'branding.reset_body': 'تُزال شعاراتك وألوانك ونصوصك وتعرض كل الشاشات علامة SupportX من جديد.',
   'branding.reset_done': 'عادت العلامة الافتراضية.',
   'file_owner_type.branding': 'العلامة التجارية',
+  'file_owner_type.kb_article': 'مقالة معرفة',
   'domain_status.pending': 'لم يُفحص بعد',
   'domain_status.verified': 'تم التحقق',
   'domain_status.failed': 'فشل الفحص',
@@ -2924,6 +2925,65 @@ export const ar: LabelResource = {
   'kb_requesters.none': 'غير مشتركة مع مقدمي الطلبات',
   'kb_requesters.all': 'كل مقدمي الطلبات',
   'kb_requesters.selected': 'مقدمو طلبات محددون',
+  'errors.kb_article_withdrawn': 'لم تعد هذه المقالة متاحة.',
+  'errors.kb_cannot_approve': 'لا يمكنك اعتماد هذه المقالة. يمكن ذلك لمالك الموضوع أو لمعتمِد.',
+  'errors.kb_cannot_delete': 'لا يمكنك نقل هذه المقالة إلى سلة المحذوفات.',
+  'errors.kb_cannot_withdraw': 'لا يمكنك سحب هذه المقالة.',
+  'errors.kb_not_published': 'هذه المقالة غير منشورة بعد.',
+  'errors.kb_topic_in_trash': 'موضوعها في سلة المحذوفات. استعد الموضوع أولاً أو اختر موضوعاً آخر.',
+  'errors.kb_not_a_draft': 'يمكن إرسال المسودة فقط للمراجعة.',
+  'errors.kb_not_in_review': 'هذا الإصدار لا ينتظر المراجعة.',
+  'errors.kb_self_approval_off': 'لا يمكن للمؤلفين اعتماد مقالاتهم هنا. اطلب ذلك من معتمِد آخر.',
+  'errors.field.reason_required': 'اذكر السبب.',
+  'event_type.knowledge.article.workflow': 'خطوة مراجعة مقالة معرفة',
+  'audit.action.knowledge.article_approved': 'اعتمد مقالة',
+  'audit.action.knowledge.article_withdrawn': 'سحب مقالة',
+  'audit.action.knowledge.article_deleted': 'نقل مقالة إلى سلة المحذوفات',
+  'audit.action.knowledge.article_restored': 'استعاد مقالة',
+  'audit.action.knowledge.settings_changed': 'غيّر إعدادات المعرفة',
+  'audit.object.kb_article': 'مقالة معرفة',
+  'audit.object.kb_settings': 'إعدادات المعرفة',
+  'notification_recipient.approvers': 'المعتمِدون',
+  'notification_recipient.author': 'المؤلف',
+  'notification_recipient.owner': 'مالك المقالة',
+  'notification_recipient.topic_owner': 'مالك الموضوع',
+  'notification_event.kb_article.submitted': 'أُرسلت مقالة للمراجعة',
+  'notification_event.kb_article.approved': 'اعتُمدت المقالة',
+  'notification_event.kb_article.rejected': 'أُعيدت المقالة',
+  'notification_event.kb_article.withdrawn': 'سُحبت المقالة',
+  'notification_event.kb_article.review_due': 'حان موعد مراجعة المقالة',
+  'notification_variable.article.reason': 'المقالة › السبب',
+  'notification_variable.article.review_on': 'المقالة › تاريخ المراجعة',
+  'notification_template.kb_article.submitted.in_app':
+    'أرسل {{ actor.name }} المقالة {{ record.display_id }} للمراجعة: {{ record.title }}',
+  'notification_template.kb_article.submitted.subject':
+    'مطلوب مراجعة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.submitted.body':
+    'مرحباً {{ recipient.name }}،\n\nأرسل {{ actor.name }} المقالة {{ record.display_id }} "{{ record.title }}" للمراجعة. افتحها لاعتمادها أو إعادتها.',
+  'notification_template.kb_article.approved.in_app':
+    'نُشرت {{ record.display_id }}: {{ record.title }}',
+  'notification_template.kb_article.approved.subject':
+    'منشورة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.approved.body':
+    'مرحباً {{ recipient.name }}،\n\nاعتمد {{ actor.name }} المقالة {{ record.display_id }} "{{ record.title }}". يراها قرّاؤها الآن.',
+  'notification_template.kb_article.rejected.in_app':
+    'أُعيدت {{ record.display_id }}: {{ article.reason }}',
+  'notification_template.kb_article.rejected.subject':
+    'أُعيدت: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.rejected.body':
+    'مرحباً {{ recipient.name }}،\n\nأعاد {{ actor.name }} المقالة {{ record.display_id }} "{{ record.title }}" كمسودة.\n\nالسبب: {{ article.reason }}',
+  'notification_template.kb_article.withdrawn.in_app':
+    'سُحبت {{ record.display_id }}: {{ article.reason }}',
+  'notification_template.kb_article.withdrawn.subject':
+    'مسحوبة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.withdrawn.body':
+    'مرحباً {{ recipient.name }}،\n\nسحب {{ actor.name }} المقالة {{ record.display_id }} "{{ record.title }}". لم يعد القرّاء يرونها.\n\nالسبب: {{ article.reason }}',
+  'notification_template.kb_article.review_due.in_app':
+    'حان موعد مراجعة {{ record.display_id }}: {{ record.title }}',
+  'notification_template.kb_article.review_due.subject':
+    'موعد المراجعة: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.review_due.body':
+    'مرحباً {{ recipient.name }}،\n\nحان موعد مراجعة المقالة {{ record.display_id }} "{{ record.title }}" في {{ article.review_on }}. تحقّق من أنها ما زالت صحيحة أو عدّلها.',
   'errors.field.unknown_column': 'هذا العمود غير موجود لهذه السجلات.',
   'errors.field.duplicate_column': 'يمكن إدراج كل عمود مرة واحدة.',
   'permission.dashboards.create.description':

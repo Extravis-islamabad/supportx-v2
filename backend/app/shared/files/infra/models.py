@@ -39,7 +39,7 @@ from app.shared.db.models import (
 )
 
 STATES = ("scanning", "clean", "infected", "scan_failed", "not_scanned", "deleted")
-OWNER_TYPES = ("work_item", "conversation_entry", "draft", "branding")
+OWNER_TYPES = ("work_item", "conversation_entry", "draft", "branding", "kb_article")
 SOURCES = ("ui", "api", "email", "portal")
 
 
