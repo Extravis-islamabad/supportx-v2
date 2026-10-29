@@ -35,6 +35,9 @@ import {
 import { personFieldKey } from './fields';
 
 const MAX_BYTES = 5 * 1024 * 1024;
+// File format names as values, so the labels isolate them in right-to-left sentences ("UTF-8"
+// would read "8-UTF"); labels never carry direction marks (packages/labels README).
+const FORMAT_WORDS = { csv: 'CSV (UTF-8)', xlsx: '.xlsx', utf8: 'UTF-8' };
 const STATUS_TONE: Record<PeopleImport['status'], Tone> = {
   queued: 'default',
   running: 'info',
@@ -121,7 +124,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
             <InboxOutlined />
           </p>
           <p className="ant-upload-text">{t('people.import.drop')}</p>
-          <p className="ant-upload-hint">{t('people.import.limits')}</p>
+          <p className="ant-upload-hint">{t('people.import.limits', FORMAT_WORDS)}</p>
         </Upload.Dragger>
         {problem !== undefined && (
           <Alert type="error" showIcon message={problem} data-testid="people-import-problem" />
@@ -162,6 +165,7 @@ function ImportItem({ job }: { job: PeopleImport }) {
             type="error"
             showIcon
             message={t(`people_import_failure.${job.failure}`, {
+              ...FORMAT_WORDS,
               detail: job.problems[0]?.detail ?? '',
             })}
           />
