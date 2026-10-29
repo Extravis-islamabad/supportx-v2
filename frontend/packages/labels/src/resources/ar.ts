@@ -4200,6 +4200,32 @@ export const ar: LabelResource = {
   'mail.field.allowed_domains_hint':
     'مثل acme.com. يُضاف المرسلون من هذه النطاقات كمقدّمي طلبات لا يمكنهم تسجيل الدخول.',
   'mail.field.enabled': 'قراءة صندوق البريد هذا',
+  'mail.field.protocol': 'نوع صندوق البريد',
+  'mail.field.directory_id': 'معرّف الدليل (المستأجر)',
+  'mail.field.client_id': 'معرّف التطبيق (العميل)',
+  'mail.field.auth_model': 'طريقة تسجيل دخول SupportX',
+  'mail.field.auth_model_hint_app':
+    'موصى به. اقصر التطبيق على صناديق بريد الدعم في Exchange Online (RBAC للتطبيقات).',
+  'mail.field.auth_model_hint_delegated':
+    'يسجّل شخص الدخول مرة واحدة بحساب صندوق البريد نفسه. غير مناسب لصناديق البريد المشتركة.',
+  'mail.field.credential_kind': 'بيانات اعتماد التطبيق',
+  'mail.field.client_secret': 'سرّ العميل',
+  'mail.field.certificate': 'الشهادة والمفتاح الخاص (PEM)',
+  'mail.field.certificate_hint':
+    'الصق الشهادة ومفتاحها الخاص RSA. يُحفظ المفتاح مختومًا ولا يُعرض مرة أخرى.',
+  'mail.field.client_secret_keep': 'اتركه فارغًا للإبقاء على المحفوظ.',
+  'mail.field.credential_expires_at': 'تاريخ انتهاء السرّ (اختياري)',
+  'mail.field.credential_expires_at_hint': 'يذكّر SupportX مسؤولي البريد قبل 14 يومًا.',
+  'mail.oauth.intro_graph': 'يستخدم تطبيق مؤسستك في Microsoft Entra. يشرح دليل المسؤول كل خطوة.',
+  'mail.oauth.intro_gmail':
+    'يستخدم عميل OAuth الخاص بمؤسستك في Google Cloud. يشرح دليل المسؤول كل خطوة.',
+  'mail.oauth.redirect': 'عنوان إعادة التوجيه الذي يُسجَّل في تطبيقك',
+  'mail.oauth.sign_in': 'تسجيل الدخول بحساب صندوق البريد',
+  'mail.oauth.sign_in_again': 'تسجيل الدخول مرة أخرى',
+  'mail.oauth.not_signed_in': 'بانتظار تسجيل الدخول بحساب صندوق البريد',
+  'mail.oauth.signed_in': 'تم تسجيل الدخول. سيُقرأ صندوق البريد في الفحص التالي.',
+  'mail.oauth.sign_in_failed': 'لم ينجح تسجيل الدخول: {{reason}}.',
+  'mail.oauth.credential_expires': 'ينتهي سرّ التطبيق أو شهادته في {{when}}',
   'mail.held_zero': 'لا توجد رسائل تنتظر مسؤولًا',
   'mail.held_two': 'رسالتان تنتظران مسؤولًا',
   'mail.held_few': '{{count}} رسائل تنتظر مسؤولًا',

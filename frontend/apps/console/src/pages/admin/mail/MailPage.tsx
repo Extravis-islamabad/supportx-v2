@@ -1,11 +1,13 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { App, Flex, List, Space, Typography } from 'antd';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 
 import {
   queryKeys,
   useMailboxes,
   useRemoveMailbox,
+  useStartMailboxSignIn,
   useTestMailbox,
   type Mailbox,
 } from '@supportx/api-client';
@@ -24,6 +26,16 @@ import {
 import { MailboxEditor } from './MailboxEditor';
 import { WaitingMailDrawer } from './WaitingMailDrawer';
 import { mailboxView, useMailboxFieldName } from './conflict';
+import { browser } from './navigation';
+
+const WARNING_DAYS = 14; // as the server announces it (CREDENTIAL_WARNING_DAYS)
+const DAY_MS = 86_400_000;
+
+/** The OAuth app's secret or certificate expires within the warning period (or has expired). */
+function expiresSoon(mailbox: Mailbox, now: number): boolean {
+  if (mailbox.credential_expires_at == null) return false;
+  return Date.parse(mailbox.credential_expires_at) - now < WARNING_DAYS * DAY_MS;
+}
 
 const STATE_TONE: Record<Mailbox['state'], Tone> = {
   not_set_up: 'default',
@@ -45,6 +57,35 @@ export function MailPage() {
   const mailboxes = useMailboxes();
   const remove = useRemoveMailbox();
   const test = useTestMailbox();
+  const signIn = useStartMailboxSignIn();
+  const [params, setParams] = useSearchParams();
+  // Back from Microsoft's or Google's sign-in: say how it went once, then clean the address.
+  const returned = params.get('sign_in');
+  const announced = useRef<string | null>(null);
+  useEffect(() => {
+    // Once per return, although the effect runs again before the address is cleaned.
+    if (returned === null || announced.current === returned) return;
+    announced.current = returned;
+    if (returned === 'ok') void message.success(t('mail.oauth.signed_in'));
+    else
+      void message.error(
+        t('mail.oauth.sign_in_failed', { reason: t(`mailbox_reason.${returned}`) }),
+      );
+    setParams({}, { replace: true });
+  }, [returned, message, setParams, t]);
+  const startSignIn = (mailbox: Mailbox) => {
+    signIn.mutate(
+      { id: mailbox.id },
+      {
+        onSuccess: (result) => {
+          browser.go(result.authorize_url);
+        },
+        onError: reportError,
+      },
+    );
+  };
+  // When the page opened: expiry is announced days ahead, so a fresh clock per render is not needed.
+  const [now] = useState(() => Date.now());
   const retry = useConflictRetry();
   const fieldName = useMailboxFieldName();
   const [editing, setEditing] = useState<Mailbox | 'new' | null>(null);
@@ -107,6 +148,22 @@ export function MailPage() {
           <List.Item
             data-testid={`mailbox-${mailbox.address}`}
             actions={[
+              ...(mailbox.needs_sign_in
+                ? [
+                    <WriteButton
+                      key="sign-in"
+                      size="small"
+                      type={mailbox.signed_in ? 'default' : 'primary'}
+                      loading={signIn.isPending && signIn.variables.id === mailbox.id}
+                      onClick={() => {
+                        startSignIn(mailbox);
+                      }}
+                      data-testid="mailbox-sign-in"
+                    >
+                      {t(mailbox.signed_in ? 'mail.oauth.sign_in_again' : 'mail.oauth.sign_in')}
+                    </WriteButton>,
+                  ]
+                : []),
               ...(mailbox.held > 0
                 ? [
                     <WriteButton
@@ -172,6 +229,9 @@ export function MailPage() {
                   {mailbox.display_name !== null && (
                     <Typography.Text type="secondary">{mailbox.display_name}</Typography.Text>
                   )}
+                  <ToneTag tone="default" testId="mailbox-protocol">
+                    {t(`mailbox_protocol.${mailbox.protocol}`)}
+                  </ToneTag>
                   <ToneTag tone={STATE_TONE[mailbox.state]} testId="mailbox-state">
                     {t(`mailbox_state.${mailbox.state}`)}
                   </ToneTag>
@@ -185,6 +245,18 @@ export function MailPage() {
               }
               description={
                 <Flex vertical gap={2}>
+                  {mailbox.needs_sign_in && !mailbox.signed_in && (
+                    <Typography.Text type="warning" data-testid="mailbox-needs-sign-in">
+                      {t('mail.oauth.not_signed_in')}
+                    </Typography.Text>
+                  )}
+                  {expiresSoon(mailbox, now) && mailbox.credential_expires_at != null && (
+                    <Typography.Text type="warning" data-testid="mailbox-credential-expiry">
+                      {t('mail.oauth.credential_expires', {
+                        when: dates.format(mailbox.credential_expires_at),
+                      })}
+                    </Typography.Text>
+                  )}
                   {mailbox.state_reason !== null && (
                     <Typography.Text type="danger" data-testid="mailbox-reason">
                       {t(`mailbox_reason.${mailbox.state_reason}`)}

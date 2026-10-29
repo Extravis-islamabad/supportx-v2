@@ -4142,6 +4142,33 @@ export const en = {
   'mail.field.allowed_domains_hint':
     'For example acme.com. Senders from these domains are added as requesters who cannot sign in.',
   'mail.field.enabled': 'Read this mailbox',
+  'mail.field.protocol': 'Kind of mailbox',
+  'mail.field.directory_id': 'Directory (tenant) ID',
+  'mail.field.client_id': 'Application (client) ID',
+  'mail.field.auth_model': 'How SupportX signs in',
+  'mail.field.auth_model_hint_app':
+    'Recommended. Limit the app to the support mailboxes in Exchange Online (RBAC for Applications).',
+  'mail.field.auth_model_hint_delegated':
+    "Someone signs in once as the mailbox's own account. Not for shared mailboxes.",
+  'mail.field.credential_kind': 'App credential',
+  'mail.field.client_secret': 'Client secret',
+  'mail.field.certificate': 'Certificate and private key (PEM)',
+  'mail.field.certificate_hint':
+    'Paste the certificate and its RSA private key. The key is stored sealed and never shown again.',
+  'mail.field.client_secret_keep': 'Leave empty to keep the stored one.',
+  'mail.field.credential_expires_at': 'Secret expires (optional)',
+  'mail.field.credential_expires_at_hint': 'SupportX reminds the mail admins 14 days before.',
+  'mail.oauth.intro_graph':
+    "Uses your organisation's own app in Microsoft Entra. The admin guide explains each step.",
+  'mail.oauth.intro_gmail':
+    "Uses your organisation's own OAuth client in Google Cloud. The admin guide explains each step.",
+  'mail.oauth.redirect': 'Redirect address to register in your app',
+  'mail.oauth.sign_in': 'Sign in as the mailbox',
+  'mail.oauth.sign_in_again': 'Sign in again',
+  'mail.oauth.not_signed_in': 'Waiting for someone to sign in as the mailbox',
+  'mail.oauth.signed_in': 'Signed in. The mailbox is read at the next check.',
+  'mail.oauth.sign_in_failed': 'The sign-in did not work: {{reason}}.',
+  'mail.oauth.credential_expires': "The app's secret or certificate expires {{when}}",
   'audit.action.mailbox.mail_released': 'Handed in held mail again',
   'audit.action.mailbox.mail_discarded': 'Discarded held mail',
   'errors.mail_not_waiting': 'This message is no longer waiting: someone handled it already.',

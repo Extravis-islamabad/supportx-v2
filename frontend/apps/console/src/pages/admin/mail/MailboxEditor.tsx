@@ -1,4 +1,4 @@
-import { Drawer, Flex, Input, InputNumber, Select, Switch, Typography } from 'antd';
+import { Alert, Drawer, Flex, Input, InputNumber, Select, Switch, Typography } from 'antd';
 import { useState } from 'react';
 
 import {
@@ -10,6 +10,7 @@ import {
 } from '@supportx/api-client';
 import {
   ConflictDialog,
+  DateTimeField,
   FormProblem,
   lengthLimit,
   markHandled,
@@ -22,11 +23,19 @@ import {
 import { FieldNote } from '../security/FieldNote';
 import { mailboxView, useMailboxFieldName } from './conflict';
 
+type Protocol = Mailbox['protocol'];
+type AuthModel = NonNullable<Mailbox['auth_model']>;
+type CredentialKind = NonNullable<Mailbox['credential_kind']>;
 type Security = Mailbox['security'];
 type AfterFetch = Mailbox['after_fetch'];
 type Creates = Mailbox['creates'];
 type UnknownSenders = Mailbox['unknown_senders'];
+const PROTOCOLS: Protocol[] = ['imap', 'graph', 'gmail'];
+const AUTH_MODELS: AuthModel[] = ['app', 'delegated'];
+const CREDENTIAL_KINDS: CredentialKind[] = ['secret', 'certificate'];
 const SECURITY: Security[] = ['tls', 'starttls', 'none'];
+/** Where Microsoft and Google send the admin back after signing in (docs/guides/mail-oauth-apps.md). */
+export const CALLBACK_PATH = '/api/v1/integrations/oauth/callback';
 const AFTER_FETCH: AfterFetch[] = ['mark_read', 'move', 'delete'];
 const CREATES: Creates[] = ['incident', 'nothing'];
 const UNKNOWN: UnknownSenders[] = ['create_allowed_domains', 'create', 'reject'];
@@ -36,6 +45,13 @@ const DOMAIN = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a
 interface Form {
   address: string;
   display_name: string;
+  protocol: Protocol;
+  auth_model: AuthModel;
+  client_id: string;
+  directory_id: string;
+  credential_kind: CredentialKind;
+  client_secret: string;
+  credential_expires_at: string | null;
   host: string;
   port: number;
   security: Security;
@@ -55,6 +71,13 @@ function formFrom(saved: Mailbox | null): Form {
   return {
     address: saved?.address ?? '',
     display_name: saved?.display_name ?? '',
+    protocol: saved?.protocol ?? 'imap',
+    auth_model: saved?.auth_model ?? 'app',
+    client_id: saved?.client_id ?? '',
+    directory_id: saved?.directory_id ?? '',
+    credential_kind: saved?.credential_kind ?? 'secret',
+    client_secret: '',
+    credential_expires_at: saved?.credential_expires_at ?? null,
     host: saved?.host ?? '',
     port: saved?.port ?? 993,
     security: saved?.security ?? 'tls',
@@ -77,7 +100,7 @@ function typedProblems(form: Form, editing: boolean): Record<string, string> {
   if (!editing && form.address !== '' && !/^[^@\s]+@[^@\s]+$/.test(form.address.trim())) {
     found.address = 'errors.field.mailbox_address_invalid';
   }
-  if (form.security === 'none' && !form.allow_plain) {
+  if (form.protocol === 'imap' && form.security === 'none' && !form.allow_plain) {
     found.security = 'errors.field.plain_connection_refused';
   }
   if (form.after_fetch === 'move' && form.move_to.trim() === '') {
@@ -128,19 +151,43 @@ export function MailboxEditor({
       Object.fromEntries(Object.entries(current).filter(([f]) => !fields.includes(f))),
     );
   };
+  const imap = form.protocol === 'imap';
+  const graph = form.protocol === 'graph';
+  // Gmail always signs in as the mailbox; Microsoft 365 when delegated (the admin guide, model B).
+  const signsIn = form.protocol === 'gmail' || (graph && form.auth_model === 'delegated');
   const required =
-    form.host.trim() !== '' &&
-    form.username.trim() !== '' &&
     form.folder.trim() !== '' &&
-    (editing || (form.address.trim() !== '' && form.password !== ''));
+    (imap
+      ? form.host.trim() !== '' && form.username.trim() !== '' && (editing || form.password !== '')
+      : form.client_id.trim() !== '' &&
+        (!graph || form.directory_id.trim() !== '') &&
+        (editing || form.client_secret !== '')) &&
+    (editing || form.address.trim() !== '');
 
+  const connection = (): MailboxChange =>
+    imap
+      ? {
+          host: form.host.trim(),
+          port: form.port,
+          security: form.security,
+          allow_plain: form.allow_plain,
+          username: form.username.trim(),
+          ...(form.password === '' ? {} : { password: form.password }),
+        }
+      : {
+          client_id: form.client_id.trim(),
+          auth_model: graph ? form.auth_model : 'delegated',
+          credential_kind: graph ? form.credential_kind : 'secret',
+          ...(graph ? { directory_id: form.directory_id.trim() } : {}),
+          // A certificate says when it expires; a secret's expiry is the admin's to enter.
+          ...(graph && form.credential_kind === 'certificate'
+            ? {}
+            : { credential_expires_at: form.credential_expires_at }),
+          ...(form.client_secret === '' ? {} : { client_secret: form.client_secret }),
+        };
   const body = (): MailboxChange => ({
+    ...connection(),
     display_name: form.display_name.trim() || null,
-    host: form.host.trim(),
-    port: form.port,
-    security: form.security,
-    allow_plain: form.allow_plain,
-    username: form.username.trim(),
     folder: form.folder.trim(),
     after_fetch: form.after_fetch,
     move_to: form.after_fetch === 'move' ? form.move_to.trim() : null,
@@ -148,7 +195,6 @@ export function MailboxEditor({
     unknown_senders: form.unknown_senders,
     allowed_domains: form.allowed_domains.map((d) => d.trim().toLowerCase()),
     enabled: form.enabled,
-    ...(form.password === '' ? {} : { password: form.password }),
   });
 
   const onError = (error: unknown) => {
@@ -176,14 +222,7 @@ export function MailboxEditor({
     if (mailbox === null) {
       create.mutate(
         {
-          body: {
-            ...body(),
-            address: form.address.trim(),
-            host: form.host.trim(),
-            port: form.port,
-            username: form.username.trim(),
-            password: form.password,
-          },
+          body: { ...body(), address: form.address.trim(), protocol: form.protocol },
           key,
         },
         { onSuccess: onClose, onError },
@@ -201,7 +240,10 @@ export function MailboxEditor({
     </FieldNote>
   );
   const status = (name: string) => (message(name) === null ? undefined : 'error');
-  const text = (name: 'address' | 'host' | 'username' | 'folder' | 'move_to', max = 255) => (
+  const text = (
+    name: 'address' | 'host' | 'username' | 'folder' | 'move_to' | 'client_id' | 'directory_id',
+    max = 255,
+  ) => (
     <Input
       id={`mailbox-${name}`}
       value={form[name]}
@@ -229,6 +271,143 @@ export function MailboxEditor({
       }}
       data-testid={`mailbox-${name}`}
     />
+  );
+
+  const imapFields = (
+    <>
+      {field('host', 'mail.field.host', text('host'))}
+      <Flex gap={12} wrap>
+        {field('security', 'mail.field.security', choice('security', SECURITY, 'mailbox_security'))}
+        {field(
+          'port',
+          'mail.field.port',
+          <InputNumber
+            id="mailbox-port"
+            min={1}
+            max={65535}
+            value={form.port}
+            onChange={(port) => {
+              set({ port: port ?? PORTS[form.security] }, 'port');
+            }}
+            data-testid="mailbox-port"
+          />,
+        )}
+      </Flex>
+      {form.security === 'none' &&
+        field(
+          'allow_plain',
+          'mail.field.allow_plain',
+          <Switch
+            id="mailbox-allow_plain"
+            checked={form.allow_plain}
+            onChange={(allow_plain) => {
+              set({ allow_plain }, 'allow_plain', 'security');
+            }}
+            data-testid="mailbox-allow_plain"
+          />,
+          'mail.field.allow_plain_hint',
+        )}
+      {field('username', 'mail.field.username', text('username', 320))}
+      {field(
+        'password',
+        'mail.field.password',
+        <Input.Password
+          id="mailbox-password"
+          value={form.password}
+          autoComplete="new-password"
+          status={status('password')}
+          onChange={(event) => {
+            set({ password: event.target.value }, 'password');
+          }}
+          data-testid="mailbox-password"
+        />,
+        editing ? 'mail.field.password_keep' : undefined,
+      )}
+    </>
+  );
+  const certificate = graph && form.credential_kind === 'certificate';
+  const oauthFields = (
+    <>
+      <Typography.Text type="secondary">{t(`mail.oauth.intro_${form.protocol}`)}</Typography.Text>
+      {graph && field('directory_id', 'mail.field.directory_id', text('directory_id', 64))}
+      {field('client_id', 'mail.field.client_id', text('client_id'))}
+      {graph &&
+        field(
+          'auth_model',
+          'mail.field.auth_model',
+          choice('auth_model', AUTH_MODELS, 'mailbox_auth_model'),
+          `mail.field.auth_model_hint_${form.auth_model}`,
+        )}
+      {graph &&
+        field(
+          'credential_kind',
+          'mail.field.credential_kind',
+          choice('credential_kind', CREDENTIAL_KINDS, 'mailbox_credential_kind'),
+        )}
+      {field(
+        'client_secret',
+        certificate ? 'mail.field.certificate' : 'mail.field.client_secret',
+        certificate ? (
+          <Input.TextArea
+            id="mailbox-client_secret"
+            value={form.client_secret}
+            autoSize={{ minRows: 4, maxRows: 8 }}
+            spellCheck={false}
+            dir="ltr"
+            status={status('client_secret')}
+            aria-describedby="mailbox-client_secret-problem"
+            onChange={(event) => {
+              set({ client_secret: event.target.value }, 'client_secret');
+            }}
+            data-testid="mailbox-client_secret"
+          />
+        ) : (
+          <Input.Password
+            id="mailbox-client_secret"
+            value={form.client_secret}
+            autoComplete="new-password"
+            status={status('client_secret')}
+            aria-describedby="mailbox-client_secret-problem"
+            onChange={(event) => {
+              set({ client_secret: event.target.value }, 'client_secret');
+            }}
+            data-testid="mailbox-client_secret"
+          />
+        ),
+        editing
+          ? 'mail.field.client_secret_keep'
+          : certificate
+            ? 'mail.field.certificate_hint'
+            : undefined,
+      )}
+      {!certificate &&
+        field(
+          'credential_expires_at',
+          'mail.field.credential_expires_at',
+          <DateTimeField
+            id="mailbox-credential_expires_at"
+            value={form.credential_expires_at}
+            onChange={(credential_expires_at) => {
+              set({ credential_expires_at }, 'credential_expires_at');
+            }}
+            testId="mailbox-credential_expires_at"
+          />,
+          'mail.field.credential_expires_at_hint',
+        )}
+      {signsIn && (
+        <Alert
+          type="info"
+          showIcon
+          data-testid="mailbox-redirect"
+          message={t('mail.oauth.redirect')}
+          description={
+            <Typography.Text copyable dir="ltr" data-testid="mailbox-redirect-address">
+              {window.location.origin + CALLBACK_PATH}
+            </Typography.Text>
+          }
+        />
+      )}
+    </>
   );
 
   return (
@@ -281,58 +460,18 @@ export function MailboxEditor({
         <Typography.Title level={5} style={{ margin: 0 }}>
           {t('mail.section.connection')}
         </Typography.Title>
-        {field('host', 'mail.field.host', text('host'))}
-        <Flex gap={12} wrap>
-          {field(
-            'security',
-            'mail.field.security',
-            choice('security', SECURITY, 'mailbox_security'),
-          )}
-          {field(
-            'port',
-            'mail.field.port',
-            <InputNumber
-              id="mailbox-port"
-              min={1}
-              max={65535}
-              value={form.port}
-              onChange={(port) => {
-                set({ port: port ?? PORTS[form.security] }, 'port');
-              }}
-              data-testid="mailbox-port"
-            />,
-          )}
-        </Flex>
-        {form.security === 'none' &&
+        {editing ? (
+          <Typography.Text data-testid="mailbox-protocol-shown">
+            {t(`mailbox_protocol.${form.protocol}`)}
+          </Typography.Text>
+        ) : (
           field(
-            'allow_plain',
-            'mail.field.allow_plain',
-            <Switch
-              id="mailbox-allow_plain"
-              checked={form.allow_plain}
-              onChange={(allow_plain) => {
-                set({ allow_plain }, 'allow_plain', 'security');
-              }}
-              data-testid="mailbox-allow_plain"
-            />,
-            'mail.field.allow_plain_hint',
-          )}
-        {field('username', 'mail.field.username', text('username', 320))}
-        {field(
-          'password',
-          'mail.field.password',
-          <Input.Password
-            id="mailbox-password"
-            value={form.password}
-            autoComplete="new-password"
-            status={status('password')}
-            onChange={(event) => {
-              set({ password: event.target.value }, 'password');
-            }}
-            data-testid="mailbox-password"
-          />,
-          editing ? 'mail.field.password_keep' : undefined,
+            'protocol',
+            'mail.field.protocol',
+            choice('protocol', PROTOCOLS, 'mailbox_protocol'),
+          )
         )}
+        {imap ? imapFields : oauthFields}
         {field('folder', 'mail.field.folder', text('folder'))}
         {field(
           'after_fetch',

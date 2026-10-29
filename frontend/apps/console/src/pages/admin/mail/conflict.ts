@@ -4,6 +4,12 @@ import { useLabel } from '@supportx/ui';
 // A mailbox's settings by the name the editor gives them, for the shared conflict dialog.
 const NAMES = {
   display_name: 'mail.field.display_name',
+  directory_id: 'mail.field.directory_id',
+  client_id: 'mail.field.client_id',
+  auth_model: 'mail.field.auth_model',
+  credential_kind: 'mail.field.credential_kind',
+  credential_expires_at: 'mail.field.credential_expires_at',
+  signed_in: 'mail.oauth.sign_in',
   host: 'mail.field.host',
   port: 'mail.field.port',
   security: 'mail.field.security',

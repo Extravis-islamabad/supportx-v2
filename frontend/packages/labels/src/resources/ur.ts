@@ -3760,6 +3760,33 @@ export const ur: LabelResource = {
   'mail.field.allowed_domains_hint':
     'مثلاً acme.com۔ ان ڈومینز کے بھیجنے والے ایسے درخواست گزار کے طور پر شامل ہوتے ہیں جو سائن ان نہیں کر سکتے۔',
   'mail.field.enabled': 'یہ میل باکس پڑھیں',
+  'mail.field.protocol': 'میل باکس کی قسم',
+  'mail.field.directory_id': 'ڈائریکٹری (ٹیننٹ) آئی ڈی',
+  'mail.field.client_id': 'ایپلیکیشن (کلائنٹ) آئی ڈی',
+  'mail.field.auth_model': 'SupportX کیسے سائن اِن کرتا ہے',
+  'mail.field.auth_model_hint_app':
+    'تجویز کردہ۔ Exchange Online میں ایپ کو سپورٹ میل باکسز تک محدود کریں (RBAC for Applications)۔',
+  'mail.field.auth_model_hint_delegated':
+    'کوئی ایک بار میل باکس کے اپنے اکاؤنٹ سے سائن اِن کرتا ہے۔ مشترکہ میل باکسز کے لیے نہیں۔',
+  'mail.field.credential_kind': 'ایپ کی اسناد',
+  'mail.field.client_secret': 'کلائنٹ سیکرٹ',
+  'mail.field.certificate': 'سرٹیفکیٹ اور پرائیویٹ کی (PEM)',
+  'mail.field.certificate_hint':
+    'سرٹیفکیٹ اور اس کی RSA پرائیویٹ کی چسپاں کریں۔ کی مہر بند محفوظ ہوتی ہے اور دوبارہ نہیں دکھائی جاتی۔',
+  'mail.field.client_secret_keep': 'محفوظ شدہ رکھنے کے لیے خالی چھوڑ دیں۔',
+  'mail.field.credential_expires_at': 'سیکرٹ کی میعاد (اختیاری)',
+  'mail.field.credential_expires_at_hint': 'SupportX میل ایڈمنز کو 14 دن پہلے یاد دلاتا ہے۔',
+  'mail.oauth.intro_graph':
+    'آپ کی تنظیم کی اپنی Microsoft Entra ایپ استعمال کرتا ہے۔ ایڈمن گائیڈ ہر قدم سمجھاتی ہے۔',
+  'mail.oauth.intro_gmail':
+    'آپ کی تنظیم کا اپنا Google Cloud OAuth کلائنٹ استعمال کرتا ہے۔ ایڈمن گائیڈ ہر قدم سمجھاتی ہے۔',
+  'mail.oauth.redirect': 'ری ڈائریکٹ پتہ جو آپ کی ایپ میں درج کرنا ہے',
+  'mail.oauth.sign_in': 'میل باکس کے اکاؤنٹ سے سائن اِن',
+  'mail.oauth.sign_in_again': 'دوبارہ سائن اِن',
+  'mail.oauth.not_signed_in': 'میل باکس کے اکاؤنٹ سے سائن اِن کا انتظار',
+  'mail.oauth.signed_in': 'سائن اِن ہو گیا۔ میل باکس اگلی جانچ پر پڑھا جائے گا۔',
+  'mail.oauth.sign_in_failed': 'سائن اِن کامیاب نہیں ہوا: {{reason}}۔',
+  'mail.oauth.credential_expires': 'ایپ کا سیکرٹ یا سرٹیفکیٹ {{when}} کو ختم ہو رہا ہے',
   'audit.action.mailbox.mail_released': 'روکی گئی میل دوبارہ داخل کی',
   'audit.action.mailbox.mail_discarded': 'روکی گئی میل رد کی',
   'errors.mail_not_waiting': 'یہ پیغام اب منتظر نہیں: کسی نے پہلے ہی اسے نمٹا دیا۔',

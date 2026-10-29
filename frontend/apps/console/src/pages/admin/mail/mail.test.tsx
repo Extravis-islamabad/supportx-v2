@@ -1,10 +1,11 @@
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeMailbox } from '@supportx/api-client/testing';
 
 import { App } from '../../../App';
 import { consoleApi, fakeSession, problem } from '../../../test/api';
+import { browser } from './navigation';
 
 // WP-024 screens: Admin › Mail.
 let restore: () => void = () => undefined;
@@ -203,5 +204,129 @@ describe('Admin › Mail', () => {
     render(<App />);
     expect(await screen.findByTestId('user-menu')).toBeTruthy();
     expect(screen.queryByText('Mail')).toBeNull();
+  });
+
+  // --- Microsoft 365 and Gmail (WP-024 session 2) ------------------------------------------------
+
+  it('adds a Gmail mailbox with the redirect address to register', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: { body: [] },
+        [`POST ${BASE}`]: {
+          status: 201,
+          body: fakeMailbox({ protocol: 'gmail', needs_sign_in: true, host: null }),
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-add'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    fireEvent.mouseDown(within(editor).getByRole('combobox', { name: 'Kind of mailbox' }));
+    fireEvent.click(await screen.findByTitle('Gmail'));
+    expect(within(editor).queryByTestId('mailbox-host')).toBeNull();
+    expect(within(editor).queryByTestId('mailbox-directory_id')).toBeNull(); // Microsoft only
+    expect(within(editor).getByTestId('mailbox-redirect-address').textContent).toBe(
+      `${window.location.origin}/api/v1/integrations/oauth/callback`,
+    );
+    for (const [name, value] of [
+      ['address', 'help@acme.test'],
+      ['client_id', 'app-1'],
+      ['client_secret', 's3cret'],
+    ] as const) {
+      fireEvent.change(within(editor).getByTestId(`mailbox-${name}`), { target: { value } });
+    }
+    fireEvent.click(within(editor).getByTestId('mailbox-save'));
+    await waitFor(() => {
+      expect(fake.find('POST', BASE)).toHaveLength(1);
+    });
+    expect(fake.find('POST', BASE)[0]?.body).toMatchObject({
+      address: 'help@acme.test',
+      protocol: 'gmail',
+      client_id: 'app-1',
+      client_secret: 's3cret',
+      auth_model: 'delegated',
+      credential_kind: 'secret',
+    });
+    expect(fake.find('POST', BASE)[0]?.body).not.toHaveProperty('host');
+  });
+
+  it('asks Microsoft 365 for its directory and shows no redirect with app permission', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    api({ me: ADMIN, routes: { [`GET ${BASE}`]: { body: [] } } });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-add'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    fireEvent.mouseDown(within(editor).getByRole('combobox', { name: 'Kind of mailbox' }));
+    fireEvent.click(await screen.findByTitle('Microsoft 365'));
+    expect(within(editor).getByTestId('mailbox-directory_id')).toBeTruthy();
+    expect(within(editor).queryByTestId('mailbox-redirect')).toBeNull(); // nobody signs in
+    fireEvent.mouseDown(within(editor).getByRole('combobox', { name: 'App credential' }));
+    fireEvent.click(await screen.findByTitle('Certificate'));
+    expect(within(editor).getByText('Certificate and private key (PEM)')).toBeTruthy();
+    expect(within(editor).queryByTestId('mailbox-credential_expires_at')).toBeNull(); // read from it
+  });
+
+  it('sends the admin to the provider to sign in as the mailbox', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const go = vi.spyOn(browser, 'go').mockImplementation(() => undefined);
+    try {
+      const box = fakeMailbox({ protocol: 'gmail', needs_sign_in: true, signed_in: false });
+      const fake = api({
+        me: ADMIN,
+        routes: {
+          [`GET ${BASE}`]: { body: [box] },
+          [`POST ${BASE}/${box.id}/sign-in`]: {
+            body: { authorize_url: 'https://accounts.test/auth?state=x' },
+          },
+        },
+      });
+      render(<App />);
+      const row = await screen.findByTestId('mailbox-it@acme.test');
+      expect(within(row).getByTestId('mailbox-needs-sign-in').textContent).toBe(
+        'Waiting for someone to sign in as the mailbox',
+      );
+      fireEvent.click(within(row).getByTestId('mailbox-sign-in'));
+      await waitFor(() => {
+        expect(go).toHaveBeenCalledWith('https://accounts.test/auth?state=x');
+      });
+      expect(fake.find('POST', `${BASE}/${box.id}/sign-in`)).toHaveLength(1);
+    } finally {
+      go.mockRestore();
+    }
+  });
+
+  it('says why a sign-in did not work when the provider sends the admin back', async () => {
+    window.history.pushState({}, '', '/admin/mail?sign_in=oauth_wrong_account&mailbox=x');
+    api({ me: ADMIN, routes: { [`GET ${BASE}`]: { body: [] } } });
+    render(<App />);
+    expect(
+      await screen.findByText(
+        "The sign-in did not work: The sign-in was with another account than the mailbox's own.",
+      ),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(window.location.search).toBe('');
+    });
+  });
+
+  it('warns ahead of an expiring app secret', async () => {
+    window.history.pushState({}, '', '/admin/mail');
+    const soon = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    api({
+      me: ADMIN,
+      routes: {
+        [`GET ${BASE}`]: {
+          body: [fakeMailbox({ protocol: 'graph', credential_expires_at: soon })],
+        },
+      },
+    });
+    render(<App />);
+    const row = await screen.findByTestId('mailbox-it@acme.test');
+    expect(within(row).getByTestId('mailbox-protocol').textContent).toBe('Microsoft 365');
+    expect(within(row).getByTestId('mailbox-credential-expiry').textContent).toMatch(
+      /^The app's secret or certificate expires /,
+    );
   });
 });
