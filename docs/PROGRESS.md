@@ -1137,8 +1137,8 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 
 ### 2026-10-29 — WP-024 email channel, session 2: Microsoft 365, Gmail, attachments (lane B)
 
-Defaults: D-116 (proposed, pending review). Draft PR #133.
-- **Microsoft 365 and Gmail mailboxes** (`integrations`, migration 0040, expand only):
+Defaults: D-116 (approved 2026-10-29). Draft PR #133.
+- **Microsoft 365 and Gmail mailboxes** (`integrations`, migration 0042, expand only):
   - the customer's own OAuth app per mailbox, with a client secret or a Microsoft certificate
     (RS256 client assertion), sealed with the installation key ring;
   - Graph with application permission or delegated, and Gmail delegated, with the least

@@ -8,7 +8,7 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 | Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
 |---|---|---|---|---|---|---|
 | A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-020f merged (#100, #105, #107), 0034 fix (#116), entry points (#110), list format (this PR); WP-020d (#114) and WP-020e (#120) built, QA next; then WP-025 | `feat/wp-020d`, `feat/wp-020e` | main folder (`supportx-v2`) | 0034 (merged); 0038 (WP-020d), 0039 (WP-020e) | D-105, D-107, D-111, D-112, D-113; ADR-035 |
-| B | Identity, mail, notifications | Worker resilience #102 and WP-039-FIX #104 (CI, then merge); WP-024 email channel session 1 in progress (mailboxes, IMAP fetch, mail page, threading; waits on lane A's #105 for the incident side) | `fix/worker-resilience`, `fix/wp-039-qa`, `feat/wp-024-email` | `../supportx-v2-resil`, `../supportx-v2-w39fix`, `../supportx-v2-mail` | 0024, 0026, 0032, 0033 (merged); WP-024 next free after lane C's 0035 | D-098, D-099, D-103, D-104, D-106 |
+| B | Identity, mail, notifications | WP-024 session 2 (Microsoft 365, Gmail, attachments) built, draft #133; WP-024 QA fixes #131 and label isolation #132 drafts; WP-024 session 3 (outgoing per mailbox, delivery state) next | `feat/wp-024-graph-gmail`, `fix/wp-024-qa`, `fix/label-isolation` | `../supportx-v2-w24s2`, `../supportx-v2-w24fix`, `../supportx-v2-iso` | 0024, 0026, 0032, 0033, 0037 (merged); 0042 mailbox OAuth (after lane A's 0040 and lane C's 0041; renumbered at merge) | D-098, D-099, D-103, D-104, D-106, D-109, D-116 |
 | C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-036 merged (#106), free grid #115; WP-033 knowledge session 1 PR open, sessions 2-4 next | `feat/wp-033-knowledge` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031, 0035 (merged), 0036 knowledge (lane A's WP-020d also wants 0036: second to merge renumbers) | D-100, D-101, D-108, D-110; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
@@ -20,7 +20,7 @@ Take the lock by writing your lane here (and telling the other lanes); release i
 
 | Holder | Since | Purpose |
 |---|---|---|
-| (free) | | |
+| Lane B | 2026-10-29 | Full `make check` for #133 (with lane A's fix/requester-file-access applied locally) |
 
 The shared stack (API :8000, workers, console 5173, portal 5174) runs from `../supportx-v2-stack`,
 a clean detached worktree at origin/main, never from a lane's working branch (2026-10-28). The lock

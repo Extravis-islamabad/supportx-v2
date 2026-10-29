@@ -1,4 +1,4 @@
-"""Mailboxes and the ledger of fetched mail (WP-024; migrations 0037 and 0040).
+"""Mailboxes and the ledger of fetched mail (WP-024; migrations 0037 and 0042).
 
 Both tenant-scoped with RLS. A mailbox's password is stored sealed with the installation key ring
 (AES-256-GCM, bound to the tenant and to the purpose "mailbox"), never in clear. The ledger has

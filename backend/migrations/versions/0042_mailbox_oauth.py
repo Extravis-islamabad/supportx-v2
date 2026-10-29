@@ -5,8 +5,8 @@ Expand only: new nullable columns, a wider protocol check, and host/port/usernam
 password); the refresh token and a pending consent are sealed the same way. The consent's state
 is stored only as a SHA-256 hash.
 
-Revision ID: 0040
-Revises: 0038
+Revision ID: 0042
+Revises: 0038 (0040 is lane A's, 0041 lane C's: rebased onto the head at merge)
 Created: 2026-10-29
 """
 
@@ -15,7 +15,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0040"
+revision: str = "0042"
 down_revision: str | None = "0038"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
