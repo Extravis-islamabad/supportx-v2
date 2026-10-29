@@ -1648,6 +1648,51 @@
         "type": "object"
       }
     },
+    "integrations.mailbox.credential_expiring": {
+      "1": {
+        "description": "The OAuth app's secret or certificate expires within the warning period (REQ-INT-050).",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "expires_at"
+        ],
+        "title": "MailboxCredentialExpiring",
+        "type": "object"
+      }
+    },
+    "integrations.mailbox.failing": {
+      "1": {
+        "description": "A mailbox stopped working, or fails for a new reason: its admins are told (never silent).",
+        "properties": {
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "reason"
+        ],
+        "title": "MailboxFailing",
+        "type": "object"
+      }
+    },
     "knowledge.article.saved": {
       "1": {
         "description": "An article or one of its drafts was created or changed (`language`: the draft's).",
