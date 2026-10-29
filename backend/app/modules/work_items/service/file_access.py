@@ -52,7 +52,8 @@ def _requester_side(subject: Subject, record: WorkItem) -> bool:
 
 
 def _staff_only() -> PermissionDenied:
-    return PermissionDenied(params={"reason": "requester_files"})
+    # Seen, but staff work: removing files, or adding to someone else's entry (named, not 404).
+    return PermissionDenied(code="file_staff_only")
 
 
 def sees_private(subject: Subject, wtype: WorkItemType) -> bool:

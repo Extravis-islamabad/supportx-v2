@@ -1059,6 +1059,8 @@ export const ur: LabelResource = {
   'file_warning.files_not_scanned': 'کچھ فائلیں بغیر اسکین کے محفوظ کی گئیں۔',
   'file_warning.files_scan_failed': 'کچھ فائلوں کی جانچ نہیں ہو سکی۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.file_staff_only':
+    'صرف سروس ڈیسک فائلیں ہٹا سکتا ہے یا کسی اور کے پیغام میں شامل کر سکتا ہے۔',
   'errors.file_owner_not_found':
     'جس چیز سے آپ منسلک کر رہے ہیں وہ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.file_owner_not_allowed': 'وہاں فائلیں منسلک نہیں کی جا سکتیں۔',

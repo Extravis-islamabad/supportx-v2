@@ -6,6 +6,7 @@ record's files and those of its public entries, and attach to the record and to 
 replies. Removing files, and anything private, stays with staff. Staff keep their own rules.
 """
 
+import json
 import subprocess
 import sys
 import uuid
@@ -15,12 +16,18 @@ from app.core.database import Database
 from app.core.errors import NotFound, PermissionDenied
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import subject_for
+from app.modules.system.service.files import REALTIME as FILE_ROUTES
 from app.modules.work_items.service.file_access import FILE_ACCESS
+from app.shared.events import EventEnvelope
+from app.shared.files.events import FileUploaded
 from app.shared.files.ports import Action, OwnerType
+from app.shared.files.service.core import FileServices
+from tests.db.test_audit_exports import storage
 from tests.db.test_conversation_api import say, timeline
-from tests.db.test_incidents_api import BASE, Org, World, world
+from tests.db.test_files_api import files, record_files, scan_waiting, upload
+from tests.db.test_incidents_api import BASE, Org, World, problem, world
 
-__all__ = ["world"]  # the fixture, re-used
+__all__ = ["files", "storage", "world"]  # the fixtures, re-used
 
 PORTAL = {"X-SupportX-Client": "portal"}
 
@@ -154,13 +161,124 @@ async def test_staff_keep_their_own_rules(world: World, app_db: Database) -> Non
 
 
 def test_file_access_is_registered_at_import_for_the_worker() -> None:
-    """The mail fetch runs in the worker, which imports modules without their startup hooks."""
+    """The worker loads modules as `discover_modules` does and never runs startup hooks."""
     code = (
-        "import app.modules.work_items\n"
+        "from app.core.modules import discover_modules\n"
         "from app.shared.files.ports import OwnerType, owner_access\n"
+        "discover_modules()  # what workers/consumers does: imports, no app, no startup\n"
         "owner_access(OwnerType.WORK_ITEM); owner_access(OwnerType.CONVERSATION_ENTRY)\n"
     )
     done = subprocess.run(  # noqa: S603 - our own interpreter and a fixed program
         [sys.executable, "-c", code], capture_output=True, text=True, check=False
     )
     assert done.returncode == 0, done.stderr
+
+
+# --- through the files API (coordinator's conditions, 2026-10-29) ------------------------------
+
+
+async def test_through_the_api_a_requester_sees_public_files_only(
+    world: World, files: FileServices
+) -> None:
+    """D-052: every public entry of their own record; private notes hidden, even by direct ID."""
+    del files
+    org = world.a
+    item = await world.create(org, org.admin, group_id=str(org.ga))
+    reply = await say(world, org, org.tech_a, item, kind="reply", body="<p>Try this.</p>")
+    note = await say(world, org, org.tech_a, item, body="<p>Internal.</p>")
+    assert (reply.status_code, note.status_code) == (201, 201)
+    on_record = await upload(world, org, org.tech_a, ("work_item", item["id"]), b"a", "record.txt")
+    on_reply = await upload(
+        world,
+        org,
+        org.tech_a,
+        ("conversation_entry", reply.json()["entry"]["id"]),
+        b"b",
+        "guide.txt",
+    )
+    on_note = await upload(
+        world, org, org.tech_a, ("conversation_entry", note.json()["entry"]["id"]), b"c", "pay.txt"
+    )
+    mine = await upload(world, org, org.requester, ("work_item", item["id"]), b"d", "photo.txt")
+    for made in (on_record, on_reply, on_note, mine):
+        assert made.status_code == 201, made.text
+    await scan_waiting(world)
+    seen = {f["name"] for f in await record_files(world, org, org.requester, item)}
+    assert seen == {"record.txt", "guide.txt", "photo.txt"}  # never "pay.txt"
+    secret = on_note.json()["id"]
+    assert problem(await world.call("GET", f"/files/{secret}", org, org.requester)) == (
+        404,
+        "file_not_found",
+    )
+    link = await world.call("POST", f"/files/{secret}/link", org, org.requester, json={})
+    assert problem(link) == (404, "file_not_found")
+    # Seen, but removing is staff work: refused with a reason, not hidden.
+    removed = await world.call("DELETE", f"/files/{on_record.json()['id']}", org, org.requester)
+    assert problem(removed) == (403, "file_staff_only")
+
+
+async def test_through_the_api_other_requesters_and_tenants_find_nothing(
+    world: World, files: FileServices
+) -> None:
+    del files
+    org, other = world.a, world.b
+    item = await world.create(org, org.admin, group_id=str(org.ga))
+    stored = await upload(world, org, org.requester, ("work_item", item["id"]), b"d", "photo.txt")
+    assert stored.status_code == 201, stored.text
+    await scan_waiting(world)
+    file_id = stored.json()["id"]
+    for who, tenant in ((org.requester2, org), (other.requester, other)):
+        assert problem(await world.call("GET", f"/files/{file_id}", tenant, who)) == (
+            404,
+            "file_not_found",
+        )
+        listed = await world.call("GET", f"/files/records/incident/{item['id']}", tenant, who)
+        assert listed.status_code == 404, listed.text
+        attach = await upload(world, tenant, who, ("work_item", item["id"]), b"x", "x.txt")
+        assert attach.status_code == 404, attach.text
+
+
+async def test_realtime_and_search_do_not_carry_the_files_to_a_requester(
+    world: World, files: FileServices, app_db: Database
+) -> None:
+    del files
+    org = world.a
+    item = await world.create(org, org.admin, group_id=str(org.ga))
+    note = await say(world, org, org.tech_a, item, body="<p>Internal.</p>")
+    secret = await upload(
+        world,
+        org,
+        org.tech_a,
+        ("conversation_entry", note.json()["entry"]["id"]),
+        b"c",
+        "payroll.txt",
+    )
+    assert secret.status_code == 201, secret.text
+    # File events go to the record's channel only, with the file ID only; a requester may not
+    # join that channel (it is for staff who may view the record).
+    events = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1 AND event_type = $2",
+        org.tenant,
+        FileUploaded.event_type,
+    )
+    envelope = EventEnvelope.model_validate(json.loads(events[-1]["envelope"]))
+    async with app_db.tenant_session(TenantContext(org.tenant)) as session:
+        (route,) = [r for r in FILE_ROUTES if envelope.event_type in r.event_types]
+        effects = await route.route(envelope, session)
+    assert [(p.channel.name, p.ids, p.fields) for p in effects.publications] == [
+        (f"t:{org.tenant}:wi:{item['id']}", (secret.json()["id"],), ())
+    ]
+    token = await world.call(
+        "POST",
+        "/realtime/subscription-token",
+        org,
+        org.requester,
+        json={"channel": f"t:{org.tenant}:wi:{item['id']}"},
+    )
+    assert problem(token) == (403, "realtime_channel_denied")
+    # Search never finds a record by a file's name for anyone, and a requester has no staff search.
+    searched = await world.call(
+        "GET", f"{BASE}/search", org, org.requester, params={"q": "payroll"}
+    )
+    found = searched.json().get("items", []) if searched.status_code == 200 else []
+    assert item["id"] not in [i["id"] for i in found]
