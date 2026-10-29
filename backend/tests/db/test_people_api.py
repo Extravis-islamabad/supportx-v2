@@ -435,7 +435,11 @@ async def test_csv_import_creates_updates_and_reports_rows(world: World) -> None
     # The file is not kept once read.
     conn = await asyncpg.connect(world.db.admin_url)
     try:
-        assert await conn.fetchval("SELECT content FROM people_imports") is None
+        kept = await conn.fetch(
+            "SELECT content FROM people_imports WHERE tenant_id = $1", org.tenant
+        )
+        assert kept
+        assert all(r["content"] is None for r in kept)
     finally:
         await conn.close()
 

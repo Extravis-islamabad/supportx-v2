@@ -546,7 +546,12 @@ async def events_of(bff: Bff, email: str) -> list[dict[str, Any]]:
 async def _user_ids(bff: Bff, email: str) -> list[asyncpg.Record]:
     conn = await asyncpg.connect(bff.db.admin_url)
     try:
-        return await conn.fetch("SELECT id FROM users WHERE email = $1", email)
+        # This test's tenants only: other tests in the process reuse the same e-mail addresses.
+        return await conn.fetch(
+            "SELECT id FROM users WHERE email = $1 AND tenant_id = ANY($2::uuid[])",
+            email,
+            list(bff.tenants),
+        )
     finally:
         await conn.close()
 
