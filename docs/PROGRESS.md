@@ -64,6 +64,19 @@ decisions D1-D13 (D-038).
    unprotected `main`.
 3. **Dependabot PR #3 (jsdom 27 → 30, test helper)** awaits review; majors for TypeScript, Ant
    Design and React are ignored per D-014, ADR-002 and CLAUDE.md §3 (PRs #2, #4, #5, #6 closed).
+4. **Lane A's part of WP-040 (agreed with lane B, 2026-10-29), after #131–#134 and lane A's
+   queue:**
+   - Identity keeps one event, `identity_access.user.status_changed` (v1), with two defaulted
+     fields: `reason` (`admin` | `directory` | `erasure`, default `admin`) and `source`
+     (`entra` | `ldap` | none).
+   - work_items consumes it idempotently (by event ID):
+     - `disabled` sets `assignee_inactive_since` on that tenant's open incidents assigned to
+       the person, per tenant under RLS, through the service (outbox events, live lists);
+     - `active` clears the flag only where they are still the assignee;
+     - any reassignment clears it in the normal save path.
+   - A built-in view "needs reassignment" with a live count, and a record banner "the assignee
+     is no longer active", in en/ar/ur.
+   - Pending approvals wait for WP-030.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
