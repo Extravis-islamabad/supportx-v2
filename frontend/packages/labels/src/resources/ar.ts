@@ -4092,6 +4092,12 @@ export const ar: LabelResource = {
   'mailbox_reason.mailbox_no_password': 'لا توجد كلمة مرور محفوظة لصندوق البريد هذا',
   'mailbox_reason.mailbox_secret_unreadable':
     'تعذّرت قراءة كلمة المرور المحفوظة (تغيّرت حلقة المفاتيح؟)',
+  'mail_attachment.not_kept': 'مرفقات لم تُحفظ:',
+  'mail_attachment.too_many': 'عدد الملفات في الرسالة يتجاوز الحدّ ({{max}})',
+  'mail_attachment.too_large': 'أكبر من {{limit_mb}} ميغابايت',
+  'mail_attachment.blocked': 'هذا النوع من الملفات غير مسموح به',
+  'mail_attachment.files_not_configured': 'تخزين الملفات غير مُعدّ',
+  'mail_attachment.not_allowed': 'تعذّر حفظه (حدّ التخزين أو الصلاحية)',
   'mailbox_reason.oauth_not_connected': 'لم يسجّل أحد الدخول بحساب صندوق البريد هذا بعد',
   'mailbox_reason.oauth_consent_revoked':
     'انتهت صلاحية تسجيل الدخول أو سُحبت: سجّل الدخول بحساب صندوق البريد مرة أخرى',

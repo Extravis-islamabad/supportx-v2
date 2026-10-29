@@ -3424,6 +3424,12 @@ export const ur: LabelResource = {
   'mailbox_reason.imap_move_failed': 'میل سرور نے پیغام منتقل نہیں کیا',
   'mailbox_reason.mailbox_no_password': 'اس میل باکس کا کوئی پاس ورڈ محفوظ نہیں',
   'mailbox_reason.mailbox_secret_unreadable': 'محفوظ پاس ورڈ پڑھا نہیں جا سکا (کلیدی رنگ بدل گئی؟)',
+  'mail_attachment.not_kept': 'منسلکات جو محفوظ نہیں ہوئیں:',
+  'mail_attachment.too_many': 'ایک پیغام میں {{max}} سے زیادہ فائلیں',
+  'mail_attachment.too_large': '{{limit_mb}} MB سے بڑی',
+  'mail_attachment.blocked': 'اس قسم کی فائل کی اجازت نہیں',
+  'mail_attachment.files_not_configured': 'فائل اسٹوریج ترتیب نہیں دیا گیا',
+  'mail_attachment.not_allowed': 'محفوظ نہیں ہو سکی (اسٹوریج کی حد یا اجازت)',
   'mailbox_reason.oauth_not_connected': 'ابھی تک کسی نے اس میل باکس کے اکاؤنٹ سے سائن اِن نہیں کیا',
   'mailbox_reason.oauth_consent_revoked':
     'سائن اِن کی میعاد ختم ہو گئی یا واپس لے لیا گیا: میل باکس کے اکاؤنٹ سے دوبارہ سائن اِن کریں',

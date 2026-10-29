@@ -29,6 +29,7 @@ from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
     InboundRefused,
+    Replied,
     inbound_target,
     register_inbound_target,
     unregister_inbound_target,
@@ -72,10 +73,10 @@ class FakeIncidents:
 
     async def reply_from_mail(
         self, session: object, record: FoundRecord, **values: object
-    ) -> CreatedRecord | None:
+    ) -> Replied:
         del session
         self.replies.append({"record": record.display_id, **values})
-        return self.follow_up
+        return Replied(entry_id=None, follow_up=self.follow_up)
 
 
 @dataclass

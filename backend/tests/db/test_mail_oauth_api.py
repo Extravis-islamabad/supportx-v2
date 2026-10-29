@@ -6,8 +6,9 @@ mailbox or an expiring credential reaching the people who manage mailboxes.
 """
 
 import uuid
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
+from email.message import EmailMessage
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -17,15 +18,19 @@ from pydantic import SecretStr
 
 from app.core.database import Database, create_engine
 from app.core.tenancy import TenantContext
-from app.modules.integrations.service import connections
+from app.modules.integrations.service import attachments, connections
 from app.modules.integrations.service.fetching import fetch_mailbox, warn_expiring
 from app.modules.integrations.tests.fake_providers import FakeProviders, endpoint_settings
+from app.shared.files.infra.scanner import FakeScanner
 from app.shared.files.keyring import KeyRing
+from app.shared.files.service.core import FileServices
+from app.shared.storage import S3Storage
+from tests.db.test_audit_exports import storage
 from tests.db.test_files_api import audit_actions
 from tests.db.test_incidents_api import World, field_codes, world
 from tests.db.test_notifications_api import deliveries, run_engine
 
-__all__ = ["world"]  # fixture, re-used
+__all__ = ["storage", "world"]  # fixtures, re-used
 
 pytestmark = [pytest.mark.db]
 
@@ -299,3 +304,98 @@ async def test_an_expiring_secret_is_announced_ahead_once(
         if r["user_id"] == world.a.admin and r["event_code"] == "mailbox.credential_expiring"
     ]
     assert sorted(told) == ["email", "in_app"]  # once, on each channel
+
+
+# --- attachments (REQ-INC-023; WP-022's one upload path) ----------------------------------------
+
+
+@pytest.fixture
+async def stored(world: World, storage: S3Storage) -> AsyncIterator[KeyRing]:
+    """Real S3-compatible storage, the fake scanner, and one key ring for mailboxes and files."""
+    ring = _configure(world)
+    attachments.use_services(FileServices(storage=storage, keyring=ring, scanner=FakeScanner()))
+    yield ring
+    attachments.use_services(None)
+
+
+def _with_files(subject: str, files: dict[str, bytes], *, text: str = "See attached.") -> bytes:
+    message = EmailMessage()
+    message["From"] = f"Sara <{SENDER}>"
+    message["To"] = ADDRESS
+    message["Subject"] = subject
+    message["Message-ID"] = f"<{uuid.uuid4().hex}@alpha.test>"
+    message.set_content(text)
+    for name, data in files.items():
+        message.add_attachment(data, maintype="application", subtype="octet-stream", filename=name)
+    return message.as_bytes()
+
+
+async def _files_of(world: World, record_id: uuid.UUID) -> list[tuple[str, str]]:
+    rows = await world.sql(
+        "SELECT f.name, f.state FROM files f JOIN file_links l ON l.file_id = f.id"
+        " WHERE f.tenant_id = $1 AND l.record_id = $2 ORDER BY f.name",
+        world.a.tenant,
+        record_id,
+    )
+    return [(r["name"], r["state"]) for r in rows]
+
+
+async def test_mail_attachments_go_through_the_files_path_and_refusals_are_named(
+    world: World, fake: FakeProviders, stored: KeyRing
+) -> None:
+    await _requester(world)
+    created = (await _add(world, GMAIL)).json()
+    _back(await _sign_in(world, fake, created["id"], ADDRESS))
+    fake.deliver(
+        ADDRESS,
+        _with_files("Broken printer", {"notes.txt": b"tray 2 jams", "run.exe": b"MZ\x90\x00"}),
+    )
+    assert await _fetch(world, created["id"], stored) == 1
+    (incident,) = await world.sql(
+        "SELECT id, display_id, description FROM work_items"
+        " WHERE tenant_id = $1 AND subject = 'Broken printer'",
+        world.a.tenant,
+    )
+    # Kept, waiting for the scanner like any upload; never served before it is clean.
+    assert await _files_of(world, incident["id"]) == [("notes.txt", "scanning")]
+    # The refused file is named on the record, not dropped silently.
+    assert "Attachments not kept:" in incident["description"]
+    assert "run.exe" in incident["description"]
+    uploaded = await world.sql(
+        "SELECT envelope->'payload' AS payload FROM outbox_events"
+        " WHERE tenant_id = $1 AND event_type = 'system.file.uploaded'",
+        world.a.tenant,
+    )
+    assert len(uploaded) == 1  # the same event as any other upload
+
+    reply = _with_files(
+        f"Re: [{incident['display_id']}] Broken printer",
+        {"photo.txt": b"still jams"},
+        text="Again.",
+    )
+    fake.deliver(ADDRESS, reply)
+    assert await _fetch(world, created["id"], stored) == 1
+    names = [name for name, _ in await _files_of(world, incident["id"])]
+    assert names == ["notes.txt", "photo.txt"]
+
+
+async def test_without_file_storage_attachments_are_named_not_lost(
+    world: World, fake: FakeProviders
+) -> None:
+    ring = _configure(world)
+    attachments.use_services(FileServices(storage=None, keyring=ring, scanner=FakeScanner()))
+    try:
+        await _requester(world)
+        created = (await _add(world, GMAIL)).json()
+        _back(await _sign_in(world, fake, created["id"], ADDRESS))
+        fake.deliver(ADDRESS, _with_files("Scanner", {"notes.txt": b"x"}))
+        assert await _fetch(world, created["id"], ring) == 1
+    finally:
+        attachments.use_services(None)
+    (ledger,) = await world.sql(
+        "SELECT outcome, reason_params FROM mail_fetched"
+        " WHERE tenant_id = $1 AND subject = 'Scanner'",
+        world.a.tenant,
+    )
+    assert ledger["outcome"] == "created"
+    assert "notes.txt" in ledger["reason_params"]

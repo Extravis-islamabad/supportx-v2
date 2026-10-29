@@ -4032,6 +4032,12 @@ export const en = {
   'mailbox_reason.mailbox_no_password': 'No password is stored for this mailbox',
   'mailbox_reason.mailbox_secret_unreadable':
     'The stored password cannot be read (key ring changed?)',
+  'mail_attachment.not_kept': 'Attachments not kept:',
+  'mail_attachment.too_many': 'more than {{max}} files in one message',
+  'mail_attachment.too_large': 'larger than {{limit_mb}} MB',
+  'mail_attachment.blocked': 'this type of file is not allowed',
+  'mail_attachment.files_not_configured': 'file storage is not set up',
+  'mail_attachment.not_allowed': 'it could not be stored (storage limit or permission)',
   'mailbox_reason.oauth_not_connected': 'Nobody has signed in as this mailbox yet',
   'mailbox_reason.oauth_consent_revoked':
     'The sign-in has expired or was withdrawn: sign in as the mailbox again',
