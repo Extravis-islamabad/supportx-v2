@@ -158,3 +158,51 @@ def depth_problem(parent_depth: int | None, subtree_height: int = 1) -> str | No
     """A topic (with its subtree) placed under a parent must stay within six levels."""
     depth = (parent_depth or 0) + subtree_height
     return "topic_too_deep" if depth > MAX_TOPIC_DEPTH else None
+
+
+# --- review and approval (session 2; REQ-KB-027, 028, 031, 034) ---------------------------------
+
+
+class WorkflowStep(StrEnum):
+    """What happened to an article or one of its versions, for events and notifications."""
+
+    SUBMITTED = "submitted"  # a draft went to review
+    APPROVED = "approved"  # published to its audience (REQ-KB-027)
+    REJECTED = "rejected"  # sent back to its author with a reason
+    WITHDRAWN = "withdrawn"  # taken off every reader path (REQ-KB-031)
+    REVIEWED = "reviewed"  # "still correct": the review date moved, no new version (REQ-KB-034)
+    DELETED = "deleted"  # to the trash (REQ-KB-079)
+    RESTORED = "restored"  # back from the trash
+
+
+def submit_problem(status: VersionStatus) -> str | None:
+    """Only a draft goes to review."""
+    return None if status == VersionStatus.DRAFT else "kb_not_a_draft"
+
+
+def decide_problem(status: VersionStatus) -> str | None:
+    """Only a version in review is approved or sent back."""
+    return None if status == VersionStatus.IN_REVIEW else "kb_not_in_review"
+
+
+def self_approval_problem(
+    *, allowed: bool, author_id: uuid.UUID | None, approver: uuid.UUID
+) -> str | None:
+    """Approving your own version follows the setting (REQ-KB-028; on by default)."""
+    if allowed or author_id != approver:
+        return None
+    return "kb_self_approval_off"
+
+
+def requester_may_read(
+    audience: "Audience",
+    reader: "Reader",
+    *,
+    requesters_enabled: bool,
+    expired: bool,
+    withdrawn: bool,
+) -> bool:
+    """A requester reads a published article only inside its audience, unexpired and live."""
+    if reader.staff or not requesters_enabled or expired or withdrawn:
+        return False
+    return may_read(audience, reader)
