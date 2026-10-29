@@ -377,3 +377,25 @@ async def test_wp024_bug_04_an_automatic_reply_keeps_its_flag_on_the_entry(
             )
     flags = [e["automatic"] for e in await _replies(world, org, item)]
     assert flags == [True, False]
+
+
+async def test_wp024_a_reply_from_outside_names_its_entry(world: World, app_db: Database) -> None:
+    """Mail attachments belong on the reply itself, so the caller learns the entry's ID."""
+    org = world.a
+    item = await world.create(org, org.admin)
+    async with app_db.tenant_session(TenantContext(org.tenant, user_id=org.requester)) as session:
+        record = await session.get(WorkItem, uuid.UUID(item["id"]))
+        assert record is not None
+        replied = await conversations.add_requester_reply(
+            session,
+            INCIDENT,
+            record,
+            body="<p>Photo attached.</p>",
+            source="email",
+            automatic=False,
+            subject=await subject_for(session, org.tenant, org.requester),
+            holders=world.app.state.policy,
+        )
+    assert replied.follow_up is None
+    (entry,) = await _replies(world, org, item)
+    assert str(replied.entry_id) == entry["id"]

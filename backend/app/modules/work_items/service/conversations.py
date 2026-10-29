@@ -473,6 +473,18 @@ async def add_requester_comment(  # noqa: PLR0913 - the comment and who sent it 
     return entry
 
 
+@dataclass(frozen=True)
+class RequesterReply:
+    """What a requester's reply from outside made: its entry, and a follow-up record if any.
+
+    The entry's ID lets the channel attach what came with the reply to it (mail attachments,
+    WP-024); the follow-up's ID is told to the sender.
+    """
+
+    entry_id: uuid.UUID
+    follow_up: WorkItem | None
+
+
 async def add_requester_reply(  # noqa: PLR0913 - the reply and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -483,25 +495,26 @@ async def add_requester_reply(  # noqa: PLR0913 - the reply and its context, exp
     automatic: bool,
     subject: Subject,
     holders: items.PermissionHolders,
-) -> WorkItem | None:
+) -> RequesterReply:
     """A reply by the record's requester from outside the console (e-mail WP-024, portal WP-028).
 
     Only the requester or the person it is for (else 404, as for a record they cannot see; staff
     reply through `add_entry` as themselves). The reply is public and in their name; then the
     record moves as for any requester reply (WP-020f): resumed when waiting on them, reopened
-    within the window, or followed by a new record, which is returned so the sender can be told
-    its ID. An automatic reply (out-of-office) is recorded and does nothing else.
+    within the window, or followed by a new record. Both the entry and any follow-up are
+    returned. An automatic reply (out-of-office) is recorded and does nothing else.
     """
     if subject.user_id not in {record.requester_id, record.on_behalf_of_id}:
         raise NotFound(code=f"{wtype.code}_not_found")
-    await add_requester_comment(
+    entry = await add_requester_comment(
         session, record, body, author_id=subject.user_id, source=source, automatic=automatic
     )
     if automatic:
-        return None
-    return await items.on_requester_reply(
+        return RequesterReply(entry.id, None)
+    follow_up = await items.on_requester_reply(
         session, subject, wtype, record, body=sanitize_html(body), source=source, holders=holders
     )
+    return RequesterReply(entry.id, follow_up)
 
 
 async def _entry(

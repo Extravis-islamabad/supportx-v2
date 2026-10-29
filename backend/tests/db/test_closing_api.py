@@ -425,7 +425,7 @@ async def _reply_from_outside(
         subject = await subject_for(session, org.tenant, user)
         record = await session.get(WorkItem, uuid.UUID(item["id"]))
         assert record is not None
-        return await conversations.add_requester_reply(
+        replied = await conversations.add_requester_reply(
             session,
             INCIDENT,
             record,
@@ -435,6 +435,7 @@ async def _reply_from_outside(
             subject=subject,
             holders=world.app.state.policy,
         )
+        return replied.follow_up
 
 
 async def test_a_requester_reply_from_outside_reopens_and_an_auto_reply_does_nothing(
