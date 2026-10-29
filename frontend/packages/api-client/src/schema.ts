@@ -8097,6 +8097,11 @@ export interface components {
             display_name: string | null;
             /** Enabled */
             enabled: boolean;
+            /**
+             * Flooding
+             * @description A sender went over the flood limit; their mail waits in the review queue.
+             */
+            flooding: boolean;
             /** Folder */
             folder: string;
             /** Group Id */

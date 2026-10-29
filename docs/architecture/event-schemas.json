@@ -1693,6 +1693,28 @@
         "type": "object"
       }
     },
+    "integrations.mailbox.mail_held": {
+      "1": {
+        "description": "A sender went over the flood limit: their mail waits in the review queue (REQ-NTF-023).\n\nRaised once per flood (the first message held for it in the hour), so admins are told once,\nnot per message. No address in the payload: the review queue shows who it is.",
+        "properties": {
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "reason"
+        ],
+        "title": "MailboxMailHeld",
+        "type": "object"
+      }
+    },
     "knowledge.article.saved": {
       "1": {
         "description": "An article or one of its drafts was created or changed (`language`: the draft's).",

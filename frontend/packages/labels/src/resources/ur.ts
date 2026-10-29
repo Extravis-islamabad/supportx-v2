@@ -3445,6 +3445,15 @@ export const ur: LabelResource = {
   'mailbox_reason.imap_move_failed': 'میل سرور نے پیغام منتقل نہیں کیا',
   'mailbox_reason.mailbox_no_password': 'اس میل باکس کا کوئی پاس ورڈ محفوظ نہیں',
   'mailbox_reason.mailbox_secret_unreadable': 'محفوظ پاس ورڈ پڑھا نہیں جا سکا (کلیدی رنگ بدل گئی؟)',
+  'event_type.integrations.mailbox.mail_held': 'میل باکس کی میل جائزے کے لیے روکی گئی',
+  'notification_event.mailbox.mail_held': 'ایک بھیجنے والا میل باکس کو پیغامات سے بھر رہا ہے',
+  'notification_template.mailbox.mail_held.in_app':
+    '{{ record.title }} کی میل جائزے کے لیے روکی گئی: ایک بھیجنے والے نے ایک گھنٹے میں 10 سے زیادہ پیغامات بھیجے',
+  'notification_template.mailbox.mail_held.subject':
+    'میل باکس {{ record.title }}: میل جائزے کے لیے روکی گئی',
+  'notification_template.mailbox.mail_held.body':
+    'السلام علیکم {{ recipient.name }}،\n\nایک بھیجنے والے نے {{ record.title }} پر ایک گھنٹے میں 10 سے زیادہ پیغامات بھیجے، جوابات سمیت۔ SupportX ریکارڈ بنانے کے بجائے ان کی مزید میل روک لیتا ہے، اس لیے کچھ ضائع نہیں ہوتا اور کوئی لوپ نہیں چلتا۔\n\nایڈمن › میل کھولیں، روکے گئے پیغامات کا جائزہ لیں، اور انہیں دوبارہ داخل کریں یا رد کریں۔',
+  'mail.flooding': 'ایک بھیجنے والا اس میل باکس کو بھر رہا ہے: ان کی میل جائزے کی منتظر ہے',
   'mail_attachment.not_kept': 'منسلکات جو محفوظ نہیں ہوئیں:',
   'mail_attachment.too_many': 'ایک پیغام میں {{max}} سے زیادہ فائلیں',
   'mail_attachment.too_large': '{{limit_mb}} MB سے بڑی',

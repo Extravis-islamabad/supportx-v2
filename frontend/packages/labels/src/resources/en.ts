@@ -4053,6 +4053,15 @@ export const en = {
   'mailbox_reason.mailbox_no_password': 'No password is stored for this mailbox',
   'mailbox_reason.mailbox_secret_unreadable':
     'The stored password cannot be read (key ring changed?)',
+  'event_type.integrations.mailbox.mail_held': 'Mailbox mail held for review',
+  'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_template.mailbox.mail_held.in_app':
+    'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
+  'notification_template.mailbox.mail_held.subject':
+    'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.mailbox.mail_held.body':
+    'Hello {{ recipient.name }},\n\nA sender sent more than 10 messages in an hour to {{ record.title }}, replies included. SupportX holds their further mail instead of creating records, so nothing is lost and no loop runs.\n\nOpen Admin › Mail, review the held messages, and hand them in again or discard them.',
+  'mail.flooding': 'A sender is flooding this mailbox: their mail waits for review',
   'mail_attachment.not_kept': 'Attachments not kept:',
   'mail_attachment.too_many': 'more than {{max}} files in one message',
   'mail_attachment.too_large': 'larger than {{limit_mb}} MB',

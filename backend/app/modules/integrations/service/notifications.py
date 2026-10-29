@@ -13,7 +13,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
 from app.modules.identity_access import subject_for, worker_policy
-from app.modules.integrations.events import MailboxCredentialExpiring, MailboxFailing
+from app.modules.integrations.events import (
+    MailboxCredentialExpiring,
+    MailboxFailing,
+    MailboxMailHeld,
+)
 from app.modules.integrations.infra.models import Mailbox
 from app.modules.integrations.service.mailboxes import MANAGE
 from app.shared.events import EventEnvelope
@@ -34,6 +38,7 @@ MAIL_ADMINS = "mail_admins"
 ADMINS_LIMIT = 200  # people told about one mailbox; a tenant has a handful of mail admins
 FAILING = "mailbox.failing"
 EXPIRING = "mailbox.credential_expiring"
+HELD = "mailbox.mail_held"  # a sender over the flood limit (REQ-NTF-023)
 
 _VARIABLES = (
     Variable("record.title", "notification_variable.mailbox.address"),
@@ -60,6 +65,11 @@ class MailboxNotifications:
             EventDefault(enabled=True, recipients=(MAIL_ADMINS,)),
             variables=(Variable("mailbox.expires_at", "notification_variable.mailbox.expires_at"),),
         ),
+        NotificationEvent(
+            HELD,
+            NotificationCategory.STATUS,
+            EventDefault(enabled=True, recipients=(MAIL_ADMINS,)),
+        ),
     )
     recipient_kinds: ClassVar[tuple[str, ...]] = (MAIL_ADMINS,)
     variables: ClassVar[tuple[Variable, ...]] = _VARIABLES
@@ -67,6 +77,7 @@ class MailboxNotifications:
     event_types: ClassVar[tuple[str, ...]] = (
         MailboxFailing.event_type,
         MailboxCredentialExpiring.event_type,
+        MailboxMailHeld.event_type,
     )
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
@@ -74,6 +85,7 @@ class MailboxNotifications:
         return {
             MailboxFailing.event_type: (FAILING,),
             MailboxCredentialExpiring.event_type: (EXPIRING,),
+            MailboxMailHeld.event_type: (HELD,),
         }.get(envelope.event_type, ())
 
     async def context(
@@ -92,7 +104,7 @@ class MailboxNotifications:
         }
         if event_code == FAILING:
             values["mailbox.reason"] = LabelRef(f"mailbox_reason.{envelope.payload['reason']}")
-        else:
+        elif event_code == EXPIRING:
             values["mailbox.expires_at"] = mailbox.credential_expires_at
         return RecordContext(
             record_id=mailbox.id,

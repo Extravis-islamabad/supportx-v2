@@ -155,6 +155,9 @@ class MailboxOut(BaseModel):
     state_reason: str | None = Field(description="Code; the UI shows its label.")
     last_fetch_at: datetime | None
     held: int = Field(description="Messages kept for an admin (refused, flooding, not matched).")
+    flooding: bool = Field(
+        description="A sender went over the flood limit; their mail waits in the review queue."
+    )
     version: int
 
     @classmethod
@@ -193,6 +196,7 @@ class MailboxOut(BaseModel):
             state_reason=row.state_reason,
             last_fetch_at=row.last_fetch_at,
             held=view.held,
+            flooding=view.flooding,
             version=row.version,
         )
 
