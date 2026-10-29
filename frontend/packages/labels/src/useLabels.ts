@@ -1,21 +1,33 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { FSI, isRtlLocale, PDI, type LabelInput, type LabelParams, type Locale } from './label';
+import {
+  FSI,
+  isolatedFor,
+  stripIsolates,
+  isRtlLocale,
+  PDI,
+  type LabelInput,
+  type LabelParams,
+  type Locale,
+} from './label';
 
 /** `t(key, params)` bound to the current locale; re-renders when the language changes. */
 export function useLabels(): (key: LabelInput, params?: LabelParams) => string {
-  const { t } = useTranslation();
-  return (key, params) => t(key, params);
+  const { t, i18n } = useTranslation();
+  // Filled values are isolated like the server's label() does (isolateValue).
+  return (key, params) => t(key, isolatedFor(t(key), params, i18n.language as Locale));
 }
 
 /**
  * `t(locale, key, params)`: a label in a given language, whatever the UI's (WP-020c-FIX:
  * suggesting names in every language). Missing keys fall back as usual (Urdu → English).
+ * What it builds is stored (a template's name in each language), so values get no directional
+ * marks: plain, like the server's `plain_label`.
  */
 export function useLabelsIn(): (locale: string, key: LabelInput, params?: LabelParams) => string {
   const { i18n } = useTranslation();
-  return (locale, key, params) => i18n.getFixedT(locale)(key, params);
+  return (locale, key, params) => stripIsolates(i18n.getFixedT(locale)(key, params));
 }
 
 export type ListKind = 'conjunction' | 'disjunction' | 'unit';

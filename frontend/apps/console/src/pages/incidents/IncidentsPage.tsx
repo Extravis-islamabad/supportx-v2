@@ -3,7 +3,7 @@ import { Alert, App, Button, Flex, Segmented, Select, Space, Table, Typography }
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 
-import { useListFormat } from '@supportx/labels';
+import { stripIsolates, useListFormat } from '@supportx/labels';
 
 import {
   allOf,
@@ -84,7 +84,9 @@ const SETTINGS_CHANGED = 'work_items.list_settings_changed';
 const ID_PATTERN = /^([A-Za-z]{2,6}-)?\d{1,18}$/;
 
 /** Subject words, or a display ID ("INC-12", "12"), in one search box. */
-function searchOf(text: string): FilterExpression | undefined {
+function searchOf(typed: string): FilterExpression | undefined {
+  // A pasted ID or subject may carry directional marks from a screen (isolation rule).
+  const text = stripIsolates(typed).trim();
   if (text === '') return undefined;
   const subject: FilterExpression = { field: 'subject', op: 'contains', value: text };
   if (!ID_PATTERN.test(text)) return subject;

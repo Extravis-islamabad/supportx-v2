@@ -62,6 +62,7 @@ from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
+from app.shared.labels import strip_isolates
 
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
@@ -986,7 +987,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             wtype,
             policy,
             group_id=group_id,
-            search=(search or "").strip() or None,
+            search=strip_isolates(search or "").strip() or None,  # a pasted name may carry marks
             limit=limit,
         )
         return [
@@ -1021,7 +1022,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             session,
             subject,
             wtype,
-            (q or "").strip() or None,
+            strip_isolates(q or "").strip() or None,  # a pasted ID or name may carry marks
             status_categories={c.value for c in status_category},
             requester_id=requester_id,
             ids=ids,

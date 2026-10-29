@@ -428,7 +428,10 @@ describe('WP-026 QA findings', () => {
     open(`/incidents/${item.id}`);
     const tabs = await screen.findAllByRole('tab');
     fireEvent.click(tabs[1] as Element);
-    expect((await screen.findByText(/الطابق \(موقوف\)/)).textContent).toBe('الطابق (موقوف)');
+    // The name is a filled value: isolated in Arabic text (the isolation rule, packages/labels).
+    expect((await screen.findByText(/الطابق.? \(موقوف\)/)).textContent).toBe(
+      '\u2068الطابق\u2069 (موقوف)',
+    );
   });
 
   it('C6: when editing, the type is plain text, not a disabled control', async () => {

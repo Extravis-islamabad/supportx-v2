@@ -1,3 +1,4 @@
+import { stripIsolates } from '@supportx/labels';
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -71,7 +72,8 @@ export function chipSuggestions(
   t: (key: string, params?: Record<string, string>) => string,
   taken: SearchChip[],
 ): SearchChip[] {
-  const needle = text.trim().toLocaleLowerCase();
+  // A pasted value may carry directional marks from a screen (isolation rule).
+  const needle = stripIsolates(text).trim().toLocaleLowerCase();
   if (needle === '') return [];
   const found: SearchChip[] = [];
   const byName = new Map(fields.map((f) => [f.name, f]));

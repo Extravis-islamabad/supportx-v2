@@ -2,7 +2,7 @@ import { act, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { label } from './label';
+import { FSI, label, PDI } from './label';
 import { LabelsProvider } from './react';
 import { useLabels } from './useLabels';
 
@@ -15,8 +15,9 @@ describe('i18next labels', () => {
     expect(label('auth.tenant_switched', 'en', { tenant: 'Other Company' })).toBe(
       'You are now working in Other Company.',
     );
+    // A Latin value in an Arabic sentence is isolated (the isolation rule, isolation-cases.json).
     expect(label('auth.tenant_switched', 'ar', { tenant: 'Other Company' })).toBe(
-      'أنت تعمل الآن في Other Company.',
+      `أنت تعمل الآن في ${FSI}Other Company${PDI}.`,
     );
   });
 

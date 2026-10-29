@@ -54,7 +54,7 @@ from app.modules.organization import email_branding, get_current_tenant
 from app.shared.events import ConsumerSpec, EventEnvelope, record_event
 from app.shared.history import stale_version
 from app.shared.ids import new_id
-from app.shared.labels import LANGUAGES, label
+from app.shared.labels import LANGUAGES, html_label, plain_label
 from app.shared.mail import Language, OutgoingMail, mail_configured, queue_mail, wrap_html
 
 log = get_logger(__name__)
@@ -379,8 +379,10 @@ async def notify_reset(session: AsyncSession, settings: Settings, person: User) 
     context = session.info[SESSION_TENANT_KEY]
     brand = await email_branding(session, settings, context.tenant_id, language)
     tenant = await get_current_tenant(session)
-    subject = label("mail.mfa_reset.subject", language)
-    body = label("mail.mfa_reset.body", language, organisation=tenant.name)
+    # Mail: no directional marks in the subject or plain text; <bdi> in the HTML part.
+    subject = plain_label("mail.mfa_reset.subject", language)
+    body = plain_label("mail.mfa_reset.body", language, organisation=tenant.name)
+    body_html = html_label("mail.mfa_reset.body", language, organisation=tenant.name)
     await queue_mail(
         session,
         settings,
@@ -391,7 +393,7 @@ async def notify_reset(session: AsyncSession, settings: Settings, person: User) 
             subject=subject,
             text=body,
             html=wrap_html(
-                Markup("<p>{}</p>").format(body), brand=brand, language=language, title=subject
+                Markup("<p>{}</p>").format(body_html), brand=brand, language=language, title=subject
             ),
             sender_name=tenant.name,
         ),

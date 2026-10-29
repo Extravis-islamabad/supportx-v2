@@ -1,0 +1,127 @@
+{
+  "//": "The isolation rule: a filled value is wrapped in FSI…PDI when the sentence is right-to-left (ar, ur) or the value has right-to-left letters (bidi class R or AL); numbers, display IDs and values already isolated never. The server's label() (backend/tests/test_label_isolation.py) and the console's label() (src/isolation.test.ts) must give exactly these texts. A label that is only one placeholder is the value itself: no marks.",
+  "cases": [
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "Other Company"
+      },
+      "text": "You are now working in Other Company."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "ar",
+      "params": {
+        "tenant": "Other Company"
+      },
+      "text": "أنت تعمل الآن في ⁨Other Company⁩."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "شركة أخرى"
+      },
+      "text": "You are now working in ⁨شركة أخرى⁩."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "Ali علي"
+      },
+      "text": "You are now working in ⁨Ali علي⁩."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "שלום"
+      },
+      "text": "You are now working in ⁨שלום⁩."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "+1 555"
+      },
+      "text": "You are now working in +1 555."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "—"
+      },
+      "text": "You are now working in —."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "ar",
+      "params": {
+        "tenant": "⁨Already⁩"
+      },
+      "text": "أنت تعمل الآن في ⁨Already⁩."
+    },
+    {
+      "key": "auth.tenant_switched",
+      "locale": "en",
+      "params": {
+        "tenant": "⁨علي⁩"
+      },
+      "text": "You are now working in ⁨علي⁩."
+    },
+    {
+      "key": "users.total",
+      "locale": "en",
+      "params": {
+        "count": 7
+      },
+      "text": "7 users"
+    },
+    {
+      "key": "home.seats_used",
+      "locale": "ar",
+      "params": {
+        "used": 3,
+        "limit": 10
+      },
+      "text": "3 من 10 مستخدمة"
+    },
+    {
+      "key": "notification.open_record",
+      "locale": "ar",
+      "params": {
+        "id": "INC-12"
+      },
+      "text": "فتح INC-12"
+    },
+    {
+      "key": "mail.waiting.from",
+      "locale": "ar",
+      "params": {
+        "sender": "a@b.test",
+        "when": "29/10/2026"
+      },
+      "text": "من ⁨a@b.test⁩ · ⁨29/10/2026⁩"
+    },
+    {
+      "key": "errors.rule_refused",
+      "locale": "ar",
+      "params": {
+        "message_ar": "اختر موقع الطابعة."
+      },
+      "text": "اختر موقع الطابعة."
+    },
+    {
+      "key": "errors.rule_refused",
+      "locale": "en",
+      "params": {
+        "message": "Choose علي"
+      },
+      "text": "Choose علي"
+    }
+  ]
+}

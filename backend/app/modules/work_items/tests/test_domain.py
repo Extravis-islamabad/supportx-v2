@@ -296,3 +296,11 @@ def test_status_def_codes_are_unique() -> None:
     assert len(codes) == len(set(codes))
     assert {t.from_status for t in DEFAULT_TRANSITIONS} <= set(codes)
     assert StatusDef("x", StatusCategory.OPEN, "#000000").system is False
+
+
+def test_a_display_id_copied_from_a_screen_parses_without_its_marks() -> None:
+    """Isolation rule (2026-10-29): screens wrap values in FSI…PDI; a paste carries them."""
+    from app.modules.work_items.domain.types import parse_display_id  # noqa: PLC0415
+
+    assert parse_display_id("\u2068INC-12\u2069", "INC") == ("INC", 12)
+    assert parse_display_id(" \u2066inc-7\u2069 ", "INC") == ("INC", 7)

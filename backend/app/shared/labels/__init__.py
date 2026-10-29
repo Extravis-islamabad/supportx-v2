@@ -14,9 +14,13 @@ programming error and raises, so tests catch it instead of a code reaching a use
 
 import json
 import re
+import unicodedata
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 from typing import Final
+
+from markupsafe import Markup, escape
 
 LANGUAGES: Final = ("en", "ar", "ur")
 FALLBACK: Final = "en"
@@ -73,27 +77,112 @@ def _lookup(key: str, language: str, count: int | None) -> str:
     raise MissingLabelError(key)
 
 
-def label(key: str, language: str, **params: object) -> str:
-    """The label of `key` in `language` (falling back to English), with `{{params}}` filled.
+# Directional isolates (U+2066..U+2069). A value that starts with an isolate is already isolated.
+_ISOLATES = re.compile("[\u2066-\u2069]")
+_OPENERS = ("\u2066", "\u2067", FSI)
+# Display IDs and thread tokens ("INC-12", "[INC-12]") stay as typed: they are matched and pasted.
+_TOKEN = re.compile(r"^\[?[A-Z]{2,10}-\d{1,12}\]?$")
 
-    `count=<int>` also picks the plural form, like i18next does in the UI. In Arabic and Urdu
-    every filled value is wrapped in Unicode isolates (FSI/PDI), as the console does.
+
+def strip_isolates(text: str) -> str:
+    """Text without directional isolates: a pasted "INC-12" with marks still matches."""
+    return _ISOLATES.sub("", text)
+
+
+def _has_rtl_letters(text: str) -> bool:
+    return any(unicodedata.bidirectional(char) in {"R", "AL"} for char in text)
+
+
+def isolate(value: object, language: str) -> str:
+    """A filled value as shown on screen: isolated (FSI…PDI) when its direction can differ.
+
+    The rule (also in the console, packages/labels): a string is wrapped when the sentence is
+    right-to-left (ar, ur) or the value has right-to-left letters (bidi class R or AL). Numbers,
+    display IDs and values already isolated are left as they are.
     """
+    if not isinstance(value, str):
+        return str(value)
+    if not value or value.startswith(_OPENERS) or _TOKEN.match(value):
+        return value
+    if language in RTL_LANGUAGES or _has_rtl_letters(value):
+        return f"{FSI}{value}{PDI}"
+    return value
+
+
+def _plain(value: object) -> str:
+    return str(value)
+
+
+def _lookup_for(key: str, language: str, params: dict[str, object]) -> str:
     count = params.get("count")
-    text = _lookup(
+    return _lookup(
         key,
         language if language in LANGUAGES else FALLBACK,
         count if isinstance(count, int) else None,
     )
-    rtl = language in RTL_LANGUAGES
+
+
+def _render(
+    key: str, language: str, params: dict[str, object], fill_one: Callable[[object], str]
+) -> str:
+    text = _lookup_for(key, language, params)
+    if _PARAM.fullmatch(text.strip()):
+        # The value is the whole label: nothing around it to keep apart from.
+        fill_one = _plain
 
     def fill(match: re.Match[str]) -> str:
-        if match.group(1) not in params:
+        name = match.group(1)
+        if name not in params:
             return match.group(0)
-        value = str(params[match.group(1)])
-        return f"{FSI}{value}{PDI}" if rtl else value
+        return str(params[name]) if name == "count" else fill_one(params[name])
 
     return _PARAM.sub(fill, text)
+
+
+def label(key: str, language: str, **params: object) -> str:
+    """The label of `key` in `language` (falling back to English), with `{{params}}` filled.
+
+    `count=<int>` also picks the plural form, like i18next does in the UI. A filled value is
+    wrapped in Unicode isolates (FSI/PDI) when its direction can differ from the sentence's (see
+    `isolate`), as the console does: a Latin name in Arabic, an Arabic name in English. For text
+    that leaves the screen (e-mail subjects and plain text, exported files) use `plain_label`.
+    """
+    return _render(key, language, params, lambda value: isolate(value, language))
+
+
+def plain_label(key: str, language: str, **params: object) -> str:
+    """`label` with no directional marks at all.
+
+    For e-mail subjects and plain-text parts (marks break thread tokens like "[INC-12]" and show
+    in older clients) and exported files (a file is data).
+    """
+    return strip_isolates(_render(key, language, params, str))
+
+
+def html_label(key: str, language: str, **params: object) -> Markup:
+    """`label` for an e-mail's HTML part: the text escaped, each filled value in `<bdi>`.
+
+    `<bdi>` isolates a value in HTML without invisible characters, which the plain-text part and
+    the subject must not carry (see `plain_label`).
+    """
+
+    def fill_one(value: object) -> Markup:
+        text = strip_isolates(str(value))
+        if isolate(text, language) == text or not isinstance(value, str):
+            return escape(text)
+        return Markup("<bdi>{}</bdi>").format(text)
+
+    parts = _PARAM.split(_lookup_for(key, language, params))
+    # _PARAM has one group: even items are text, odd items are parameter names.
+    out = Markup("")
+    for index, part in enumerate(parts):
+        if index % 2 == 0:
+            out += escape(part)
+        elif part in params:
+            out += escape(str(params[part])) if part == "count" else fill_one(params[part])
+        else:
+            out += escape("{{" + part + "}}")
+    return out
 
 
 __all__ = [
@@ -103,6 +192,10 @@ __all__ = [
     "RTL_LANGUAGES",
     "MissingLabelError",
     "has_label",
+    "html_label",
+    "isolate",
     "label",
+    "plain_label",
     "plural_category",
+    "strip_isolates",
 ]
