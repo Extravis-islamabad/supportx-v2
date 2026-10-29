@@ -180,6 +180,17 @@ def may_withdraw(subject: Subject, article: KbArticle, topic: KbTopic) -> bool:
     return False
 
 
+def withdrawals_visible(subject: Subject) -> ColumnElement[bool]:
+    """SQL counterpart of `may_withdraw` or `sees_drafts`: who sees withdrawn articles."""
+    scope = subject.broadest_scope(WITHDRAW)
+    if scope == "all":
+        return true()
+    mine: ColumnElement[bool] = KbTopic.owner_id == subject.user_id
+    if scope == "group":
+        return or_(mine, staff_sees(subject), drafts_visible(subject))
+    return or_(mine, drafts_visible(subject))
+
+
 def awaiting_approval(subject: Subject) -> ColumnElement[bool]:
     """SQL counterpart of `may_approve`: the versions in review this subject may decide."""
     mine: ColumnElement[bool] = KbTopic.owner_id == subject.user_id

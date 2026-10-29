@@ -1429,6 +1429,10 @@
             "title": "Display Id",
             "type": "string"
           },
+          "expired": {
+            "title": "Expired",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1437,6 +1441,15 @@
           "language": {
             "title": "Language",
             "type": "string"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "review_due": {
+            "title": "Review Due",
+            "type": "boolean"
           },
           "review_on": {
             "anyOf": [
@@ -1471,6 +1484,10 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
+          },
+          "withdrawn": {
+            "title": "Withdrawn",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1482,7 +1499,11 @@
           "title",
           "status",
           "review_on",
-          "updated_at"
+          "updated_at",
+          "owner_id",
+          "expired",
+          "withdrawn",
+          "review_due"
         ],
         "title": "ArticleRowOut",
         "type": "object"
@@ -39049,7 +39070,10 @@
                 "in_review",
                 "awaiting_approval",
                 "review_due",
+                "due_today",
+                "overdue",
                 "expired",
+                "withdrawn",
                 "trash"
               ],
               "title": "View",
@@ -39057,11 +39081,13 @@
             }
           },
           {
+            "description": "Preferred language of each row.",
             "in": "query",
             "name": "language",
             "required": false,
             "schema": {
               "default": "en",
+              "description": "Preferred language of each row.",
               "enum": [
                 "en",
                 "ar"
@@ -39116,6 +39142,62 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type_code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 40,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Type Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "owner_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Owner Id"
+            }
+          },
+          {
+            "description": "Only versions in this language.",
+            "in": "query",
+            "name": "only_language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "en",
+                    "ar"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only versions in this language.",
+              "title": "Only Language"
             }
           }
         ],

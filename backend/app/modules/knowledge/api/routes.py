@@ -23,6 +23,7 @@ from app.modules.knowledge.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
+from app.shared.clock import system_clock
 from app.shared.history import source_of
 
 Responses = dict[int | str, dict[str, Any]]
@@ -311,6 +312,10 @@ class ArticleRowOut(BaseModel):
     status: str
     review_on: date | None
     updated_at: datetime
+    owner_id: uuid.UUID
+    expired: bool
+    withdrawn: bool
+    review_due: bool
 
 
 # --- topics ---------------------------------------------------------------------------------------
@@ -414,20 +419,38 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
             "in_review",
             "awaiting_approval",
             "review_due",
+            "due_today",
+            "overdue",
             "expired",
+            "withdrawn",
             "trash",
         ],
         Query(),
     ] = "published",
-    language: Annotated[Language, Query()] = "en",
+    language: Annotated[Language, Query(description="Preferred language of each row.")] = "en",
     topic_id: Annotated[uuid.UUID | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200, description="Search words.")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    type_code: Annotated[str | None, Query(max_length=40)] = None,
+    owner_id: Annotated[uuid.UUID | None, Query()] = None,
+    only_language: Annotated[
+        Language | None, Query(description="Only versions in this language.")
+    ] = None,
 ) -> list[ArticleRowOut]:
     """Published articles you may read, or the drafts you may work on; searchable."""
     rows = await articles.list_articles(
-        session, subject, view=view, language=language, topic_id=topic_id, query=q, limit=limit
+        session,
+        subject,
+        view=view,
+        language=language,
+        topic_id=topic_id,
+        query=q,
+        limit=limit,
+        type_code=type_code,
+        owner_id=owner_id,
+        only_language=only_language,
     )
+    today = system_clock.now().date()
     return [
         ArticleRowOut(
             id=r.article.id,
@@ -439,6 +462,10 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
             status=r.version.status,
             review_on=r.article.review_on,
             updated_at=r.article.updated_at,
+            owner_id=r.article.owner_id,
+            expired=r.article.expires_on is not None and r.article.expires_on <= today,
+            withdrawn=r.article.withdrawn_at is not None,
+            review_due=r.article.review_on is not None and r.article.review_on <= today,
         )
         for r in rows
     ]

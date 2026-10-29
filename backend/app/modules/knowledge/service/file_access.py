@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import NotFound, PermissionDenied
 from app.modules.identity_access import Subject
 from app.modules.knowledge.service.articles import RECORD_TYPE, get_article
-from app.modules.knowledge.service.notifications import RECORD_KIND
+from app.modules.knowledge.service.realtime import RECORD_KIND
 from app.shared.files.ports import Action, Actor, Owner, OwnerType
 
 

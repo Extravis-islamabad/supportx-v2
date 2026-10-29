@@ -5347,6 +5347,8 @@ export interface components {
         ArticleRowOut: {
             /** Display Id */
             display_id: string;
+            /** Expired */
+            expired: boolean;
             /**
              * Id
              * Format: uuid
@@ -5354,6 +5356,13 @@ export interface components {
             id: string;
             /** Language */
             language: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Review Due */
+            review_due: boolean;
             /** Review On */
             review_on: string | null;
             /** Status */
@@ -5372,6 +5381,8 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /** Withdrawn */
+            withdrawn: boolean;
         };
         /**
          * ArticleTypeOut
@@ -26138,12 +26149,17 @@ export interface operations {
     list_articles_api_v1_knowledge_articles_get: {
         parameters: {
             query?: {
-                view?: "published" | "my_drafts" | "in_review" | "awaiting_approval" | "review_due" | "expired" | "trash";
+                view?: "published" | "my_drafts" | "in_review" | "awaiting_approval" | "review_due" | "due_today" | "overdue" | "expired" | "withdrawn" | "trash";
+                /** @description Preferred language of each row. */
                 language?: "en" | "ar";
                 topic_id?: string | null;
                 /** @description Search words. */
                 q?: string | null;
                 limit?: number;
+                type_code?: string | null;
+                owner_id?: string | null;
+                /** @description Only versions in this language. */
+                only_language?: ("en" | "ar") | null;
             };
             header?: never;
             path?: never;
