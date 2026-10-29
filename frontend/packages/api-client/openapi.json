@@ -39443,7 +39443,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleOut"
+                }
               }
             },
             "description": "Successful Response"
@@ -41269,7 +41271,9 @@
           "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/TopicOut"
+                }
               }
             },
             "description": "Successful Response"

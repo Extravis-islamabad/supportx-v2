@@ -327,7 +327,12 @@ async def list_topics(session: TenantSession, subject: Viewer) -> list[TopicOut]
     return [TopicOut.of(t) for t in await topics.list_topics(session, subject)]
 
 
-@router.post("/topics", summary="Create a topic", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/topics",
+    summary="Create a topic",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TopicOut,
+)
 async def create_topic(
     body: TopicIn,
     session: TenantSession,
@@ -471,7 +476,12 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
     ]
 
 
-@router.post("/articles", summary="Write an article", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/articles",
+    summary="Write an article",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ArticleOut,
+)
 async def create_article(
     body: ArticleIn,
     session: TenantSession,

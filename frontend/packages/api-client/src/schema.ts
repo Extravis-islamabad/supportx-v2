@@ -26325,7 +26325,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["ArticleOut"];
                 };
             };
             /** @description Not signed in. */
@@ -27605,7 +27605,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["TopicOut"];
                 };
             };
             /** @description Not signed in. */
