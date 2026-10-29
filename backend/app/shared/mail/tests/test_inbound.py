@@ -4,7 +4,7 @@ from email.message import EmailMessage
 
 import pytest
 
-from app.shared.mail.domain.inbound import parse, reply_text, with_token
+from app.shared.mail.domain.inbound import parse, reply_text, request_text, with_token
 
 
 def _mail(**headers: str) -> EmailMessage:
@@ -111,3 +111,24 @@ def test_mail_about_a_record_carries_its_token_once() -> None:
     assert with_token("[inc-12] Incident updated", "INC-12") == "[inc-12] Incident updated"
     reply = parse(f"Subject: Re: {with_token('Updated', 'INC-12')}\r\n\r\nok".encode())
     assert reply.tokens == ("INC-12",)
+
+
+def test_bug_01_a_new_mails_signature_is_not_kept() -> None:
+    """QA WP-024 BUG-01: the signature stayed in the incident's description (REQ-INC-023)."""
+    assert (
+        request_text("It jams every morning.\n\n-- \nLina\nPhone 123") == "It jams every morning."
+    )
+    assert request_text("Help please.\n\nSent from my iPhone") == "Help please."
+
+
+def test_bug_01_a_forwarded_request_keeps_what_was_forwarded() -> None:
+    """New mail is often a forwarded problem: the forwarded part is the request, never cut."""
+    text = "FYI, see below.\n-- \nLina\n\n-----Original Message-----\nFrom: x\nThe VPN fails."
+    kept = request_text(text)
+    assert "The VPN fails." in kept
+    assert "Original Message" in kept
+    assert "Lina" not in kept  # only the signature block between them goes
+
+
+def test_bug_01_nothing_a_person_wrote_is_lost() -> None:
+    assert request_text("-- \nonly a signature") == "-- \nonly a signature"

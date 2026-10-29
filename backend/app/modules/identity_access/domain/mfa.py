@@ -20,6 +20,7 @@ from typing import Literal
 
 from app.modules.identity_access.domain.permissions import (
     AUDITOR,
+    KNOWLEDGE_MANAGER,
     REQUESTER,
     SECURITY_ADMIN,
     TECHNICIAN,
@@ -34,6 +35,8 @@ DEFAULT_MODES: dict[str, Mode] = {
     SECURITY_ADMIN: "required",
     AUDITOR: "required",
     TECHNICIAN: "required",
+    # Publishes to every requester: an elevated staff role like the ones above (D-104 extended).
+    KNOWLEDGE_MANAGER: "required",
     REQUESTER: "optional",
 }
 CUSTOM_ROLE_DEFAULT: Mode = "optional"

@@ -1,8 +1,4 @@
 import { App as AntApp, ConfigProvider } from 'antd';
-import type { Locale as AntLocale } from 'antd/es/locale';
-import arEG from 'antd/locale/ar_EG';
-import enUS from 'antd/locale/en_US';
-import urPK from 'antd/locale/ur_PK';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ar';
 import 'dayjs/locale/ur';
@@ -10,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
+import { ANT_LOCALES } from './antdLocales';
 import {
   AppearanceContext,
   type Appearance,
@@ -18,7 +15,6 @@ import {
 } from './appearance';
 import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
 
-const ANT_LOCALES: Record<Locale, AntLocale> = { en: enUS, ar: arEG, ur: urPK };
 const MODE_STORAGE_KEY = 'supportx.theme_mode';
 
 export interface AppearanceProviderProps {

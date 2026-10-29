@@ -9,6 +9,7 @@ import {
   useTestMailbox,
   type Mailbox,
 } from '@supportx/api-client';
+import { useIsolate } from '@supportx/labels';
 import { useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
@@ -47,6 +48,8 @@ export function MailPage() {
   const test = useTestMailbox();
   const retry = useConflictRetry();
   const fieldName = useMailboxFieldName();
+  // Latin addresses and dates inside right-to-left sentences keep their order (QA WP-024 BUG-02).
+  const isolate = useIsolate();
   const [editing, setEditing] = useState<Mailbox | 'new' | null>(null);
   const [removing, setRemoving] = useState<Mailbox>();
   const [reviewing, setReviewing] = useState<string | null>(null);
@@ -149,7 +152,7 @@ export function MailPage() {
                 danger
                 onClick={() => {
                   modal.confirm({
-                    title: t('mail.remove_title', { address: mailbox.address }),
+                    title: t('mail.remove_title', { address: isolate(mailbox.address) }),
                     content: t('mail.remove_body'),
                     okText: t('actions.delete'),
                     okButtonProps: { danger: true },
@@ -199,7 +202,9 @@ export function MailPage() {
                   <Typography.Text type="secondary">
                     {mailbox.last_fetch_at == null
                       ? t('mail.never_fetched')
-                      : t('mail.last_fetch', { when: dates.format(mailbox.last_fetch_at) })}
+                      : t('mail.last_fetch', {
+                          when: isolate(dates.format(mailbox.last_fetch_at)),
+                        })}
                   </Typography.Text>
                 </Flex>
               }

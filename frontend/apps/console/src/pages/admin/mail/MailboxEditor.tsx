@@ -309,6 +309,8 @@ export function MailboxEditor({
             'mail.field.allow_plain',
             <Switch
               id="mailbox-allow_plain"
+              // Its own size: the field column stretches its children (QA WP-024 BUG-03).
+              style={{ alignSelf: 'flex-start' }}
               checked={form.allow_plain}
               onChange={(allow_plain) => {
                 set({ allow_plain }, 'allow_plain', 'security');
@@ -374,6 +376,8 @@ export function MailboxEditor({
           'mail.field.enabled',
           <Switch
             id="mailbox-enabled"
+            // Its own size: the field column stretches its children (QA WP-024 BUG-03).
+            style={{ alignSelf: 'flex-start' }}
             checked={form.enabled}
             onChange={(enabled) => {
               set({ enabled }, 'enabled');

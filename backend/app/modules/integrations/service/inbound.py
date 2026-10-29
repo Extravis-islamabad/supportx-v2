@@ -44,7 +44,7 @@ from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.notifications import records_for_mail
 from app.shared.labels import label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
-from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text
+from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text, request_text
 from app.shared.mail.ports import FoundRecord, InboundRefused, InboundTarget, inbound_target
 
 log = get_logger(__name__)
@@ -231,7 +231,7 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
         ctx.session,
         requester_id=requester,
         subject=ctx.message.subject or _first_line(ctx.message.text),
-        body_html=body_html(ctx.message.text),
+        body_html=body_html(request_text(ctx.message.text)),
         group_id=ctx.mailbox.group_id,
         message_id=ctx.message.message_id,
     )
