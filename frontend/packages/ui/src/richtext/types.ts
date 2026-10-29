@@ -33,4 +33,6 @@ export interface RichTextFieldProps {
    * shown inline; the screen attaches them to the saved entry. Without it images are not taken.
    */
   imageOwnerId?: string;
+  /** Offer callout boxes (info, warning, tip, note) in the toolbar (knowledge articles). */
+  callouts?: boolean;
 }
