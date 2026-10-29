@@ -335,6 +335,16 @@ heavy jobs (the dev stack with end-to-end tests, the cluster images) start with 
 pull request cancels that pull request's older runs; runs on `main` and nightly runs are never
 cancelled.
 
+## Merging
+
+`main` takes changes through GitHub's merge queue: when a pull request's required checks pass,
+`gh pr merge <number> --merge` adds it to the queue (no catching up with `main` by hand). The
+queue tests it on top of `main` and the pull requests ahead of it, with the same required checks
+(the workflows also trigger on `merge_group`; docs-only groups take the fast path), and merges it
+when they pass. A failing entry leaves the queue and the ones behind it are tested again without
+it. Two pull requests that each pass alone but break together (two migrations with the same
+number, for example) fail in the queue, not on `main`.
+
 ## Tool versions
 
 Every tool has an exact version, so an upstream release never changes a build: Node in `.nvmrc`,

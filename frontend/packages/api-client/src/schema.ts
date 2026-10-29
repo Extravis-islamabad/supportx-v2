@@ -2028,6 +2028,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change many incidents at once
+         * @description Queue a background job (up to 1,000 records); progress arrives on your channel.
+         *
+         *     Each record is changed as you, with its own permissions, transitions and closure rules;
+         *     a record that refuses is skipped with the reason. Send an Idempotency-Key.
+         */
+        post: operations["start_bulk_api_v1_incidents_bulk_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/bulk-jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your latest bulk jobs
+         * @description Newest first, without the per-record results.
+         */
+        get: operations["bulk_jobs_api_v1_incidents_bulk_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/bulk-jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One of your bulk jobs
+         * @description Progress and a result per finished record.
+         */
+        get: operations["bulk_job_api_v1_incidents_bulk_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/categories": {
         parameters: {
             query?: never;
@@ -2085,6 +2148,50 @@ export interface paths {
          */
         get: operations["counters_api_v1_incidents_counters_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/list-fields": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fields of the list (filter, sort, columns)
+         * @description Built-in and custom fields (`custom.<key>`), as the list's filter and sort take them.
+         */
+        get: operations["list_fields_api_v1_incidents_list_fields_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/list-settings/{view_key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your columns, sort and page size
+         * @description For one view: a built-in view code, `all`, or `custom:<saved view id>`.
+         */
+        get: operations["list_setting_api_v1_incidents_list_settings__view_key__get"];
+        /**
+         * Save your list settings
+         * @description Columns and sort of this view only, for you only (REQ-INC-104 AC1, AC3).
+         */
+        put: operations["save_list_setting_api_v1_incidents_list_settings__view_key__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2158,6 +2265,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/saved-views": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Your saved views and the shared ones
+         * @description By name. Shared views are listed for everyone; only their owner changes them.
+         */
+        get: operations["saved_views_api_v1_incidents_saved_views_get"];
+        put?: never;
+        /**
+         * Save a view
+         * @description The filter is checked like the list's; names are unique per owner (ignoring case).
+         */
+        post: operations["create_saved_view_api_v1_incidents_saved_views_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/saved-views/{view_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove your view
+         * @description Needs If-Match.
+         */
+        delete: operations["delete_saved_view_api_v1_incidents_saved_views__view_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change your view
+         * @description Needs If-Match. Only the fields sent change.
+         */
+        patch: operations["update_saved_view_api_v1_incidents_saved_views__view_id__patch"];
         trace?: never;
     };
     "/api/v1/incidents/search": {
@@ -2438,6 +2593,26 @@ export interface paths {
          * @description Deleted records you may restore (needs the delete permission).
          */
         get: operations["trash_api_v1_incidents_trash_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/incidents/view-filters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Built-in views as filters
+         * @description Each built-in view and personal counter as the filter DSL, where the DSL can say it.
+         */
+        get: operations["view_filters_api_v1_incidents_view_filters_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5783,6 +5958,102 @@ export interface components {
             folder: string;
         };
         /**
+         * BulkAction
+         * @description What a bulk job does to each record.
+         * @enum {string}
+         */
+        BulkAction: "edit" | "assign" | "take" | "resolve" | "close";
+        /**
+         * BulkJobIn
+         * @description A bulk change: the picked rows, or every record of the list (`all_matching`).
+         *
+         *     With `all_matching`, send the list's own query parameters (view, filter, tag, simple
+         *     filters) with this request: the records are fixed now, at most 1,000.
+         */
+        BulkJobIn: {
+            action: components["schemas"]["BulkAction"];
+            /**
+             * All Matching
+             * @default false
+             */
+            all_matching: boolean;
+            /**
+             * Changes
+             * @description Edit: only the changed fields. Assign: group_id, technician_id, confirm_lose_access. Resolve: resolution. Close: closure_code. Both: confirm_open_work.
+             */
+            changes?: {
+                [key: string]: unknown;
+            };
+            /** Record Ids */
+            record_ids?: string[];
+        };
+        /**
+         * BulkJobOut
+         * @description A bulk job with its progress and results.
+         */
+        BulkJobOut: {
+            action: components["schemas"]["BulkAction"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Done Count */
+            done_count: number;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Processed */
+            processed: number;
+            /** Results */
+            results: components["schemas"]["BulkResultOut"][];
+            /** Skipped Count */
+            skipped_count: number;
+            /** Started At */
+            started_at: string | null;
+            status: components["schemas"]["BulkStatus"];
+            /** Total */
+            total: number;
+        };
+        /**
+         * BulkOutcome
+         * @description What happened to one record of a bulk job.
+         * @enum {string}
+         */
+        BulkOutcome: "done" | "skipped";
+        /**
+         * BulkResultOut
+         * @description What happened to one record; a skip carries the reason as a code (and field).
+         */
+        BulkResultOut: {
+            /** Code */
+            code?: string | null;
+            /** Display Id */
+            display_id: string | null;
+            /** Field */
+            field?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            outcome: components["schemas"]["BulkOutcome"];
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * BulkStatus
+         * @description Where a bulk job is.
+         * @enum {string}
+         */
+        BulkStatus: "queued" | "running" | "done" | "failed";
+        /**
          * CertificateIn
          * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
          */
@@ -7448,12 +7719,90 @@ export interface components {
             url: string;
         };
         /**
+         * ListColumn
+         * @description One column of the list: a field key (`custom.<key>` for custom fields) and its width.
+         */
+        ListColumn: {
+            /** Key */
+            key: string;
+            /**
+             * Width
+             * @description Pixels; none for the default width.
+             */
+            width?: number | null;
+        };
+        /**
+         * ListFieldNamingOut
+         * @description How the field's values are named (as in reports): a code prefix or a kind of record.
+         */
+        ListFieldNamingOut: {
+            /** Bucket */
+            bucket?: string | null;
+            /** Field */
+            field: string;
+            /** Kind */
+            kind: string;
+            /** Label Prefix */
+            label_prefix: string | null;
+            /** Reference */
+            reference: string | null;
+        };
+        /**
+         * ListFieldOut
+         * @description A field the list filters by, sorts by (`sortable`) or shows as a column.
+         */
+        ListFieldOut: {
+            dimension: components["schemas"]["ListFieldNamingOut"] | null;
+            /** Multiple */
+            multiple: boolean;
+            /** Name */
+            name: string;
+            /** Sortable */
+            sortable: boolean;
+            /** Type */
+            type: string;
+            /** Values */
+            values: string[];
+        };
+        /**
          * ListOrderIn
          * @description Every code of the list, in the new order.
          */
         ListOrderIn: {
             /** Codes */
             codes: string[];
+        };
+        /**
+         * ListSettingIn
+         * @description Your columns, sort and page size for one view.
+         */
+        ListSettingIn: {
+            /** Columns */
+            columns?: components["schemas"]["ListColumn"][];
+            /**
+             * Page Size
+             * @description 25, 50 or 100.
+             * @default 50
+             */
+            page_size: number;
+            /** Sort */
+            sort?: string | null;
+        };
+        /**
+         * ListSettingOut
+         * @description Saved settings, or the defaults (`version` null) when none were saved.
+         */
+        ListSettingOut: {
+            /** Columns */
+            columns: components["schemas"]["ListColumn"][];
+            /** Page Size */
+            page_size: number;
+            /** Sort */
+            sort: string | null;
+            /** Version */
+            version: number | null;
+            /** View Key */
+            view_key: string;
         };
         /**
          * ListValueIn
@@ -9484,6 +9833,92 @@ export interface components {
             version: number;
         };
         /**
+         * SavedViewIn
+         * @description A view to save. `filter` and `sort` are the list API's own parameters, as sent.
+         */
+        SavedViewIn: {
+            /** Columns */
+            columns?: components["schemas"]["ListColumn"][];
+            /**
+             * Filter
+             * @description FilterExpression (the list's `filter`), or none for all.
+             */
+            filter?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Group Ids
+             * @description For visibility `groups`.
+             */
+            group_ids?: string[];
+            /** Name */
+            name: string;
+            /**
+             * Sort
+             * @description e.g. -created_at
+             */
+            sort?: string | null;
+            /** @default private */
+            visibility: components["schemas"]["ViewVisibility"];
+        };
+        /**
+         * SavedViewOut
+         * @description A saved view; `mine` says whether you may change it.
+         */
+        SavedViewOut: {
+            /** Columns */
+            columns: components["schemas"]["ListColumn"][];
+            /** Filter */
+            filter: {
+                [key: string]: unknown;
+            } | null;
+            /** Group Ids */
+            group_ids: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mine */
+            mine: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /** Sort */
+            sort: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            visibility: components["schemas"]["ViewVisibility"];
+        };
+        /**
+         * SavedViewPatch
+         * @description Fields to change; the ones left out keep their value.
+         */
+        SavedViewPatch: {
+            /** Columns */
+            columns?: components["schemas"]["ListColumn"][] | null;
+            /** Filter */
+            filter?: {
+                [key: string]: unknown;
+            } | null;
+            /** Group Ids */
+            group_ids?: string[] | null;
+            /** Name */
+            name?: string | null;
+            /** Sort */
+            sort?: string | null;
+            visibility?: components["schemas"]["ViewVisibility"] | null;
+        };
+        /**
          * Scale
          * @description The three ordered value lists of a work item type.
          * @enum {string}
@@ -10720,6 +11155,32 @@ export interface components {
             version: number;
         };
         /**
+         * ViewFilterOut
+         * @description A built-in view as a filter, for what takes a filter and not a view (the export).
+         */
+        ViewFilterOut: {
+            /**
+             * Expressible
+             * @description False: the view needs more than the filter DSL.
+             */
+            expressible: boolean;
+            /**
+             * Filter
+             * @description None with `expressible`: no condition.
+             */
+            filter: {
+                [key: string]: unknown;
+            } | null;
+            /** View */
+            view: string;
+        };
+        /**
+         * ViewVisibility
+         * @description Who sees a saved view in their list of views (D-111 as approved: like dashboards).
+         * @enum {string}
+         */
+        ViewVisibility: "private" | "groups" | "everyone";
+        /**
          * Visibility
          * @description Public: the requester sees it (portal, email). Private: staff only.
          * @enum {string}
@@ -11111,6 +11572,11 @@ export interface components {
                 [key: string]: unknown;
             } | null;
             /**
+             * Bulk Job Id
+             * @description The bulk job that made this change for its actor (WP-020d).
+             */
+            bulk_job_id?: string | null;
+            /**
              * Change Id
              * Format: uuid
              */
@@ -11241,15 +11707,30 @@ export interface components {
             /** Category Id */
             category_id: string | null;
             channel: components["schemas"]["Channel"];
+            /** Closed At */
+            closed_at: string | null;
+            /** Closure Code */
+            closure_code: string | null;
             /**
              * Created At
              * Format: date-time
              */
             created_at: string;
+            /**
+             * Custom
+             * @description Custom values by key.
+             */
+            custom?: {
+                [key: string]: unknown;
+            };
             /** Deleted At */
             deleted_at: string | null;
+            /** Department Id */
+            department_id: string | null;
             /** Display Id */
             display_id: string;
+            /** First Responded At */
+            first_responded_at: string | null;
             /** Group Id */
             group_id: string | null;
             /**
@@ -11257,10 +11738,13 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            impact: components["schemas"]["Impact"] | null;
             /** Level */
             level: string | null;
             priority: components["schemas"]["Priority"];
             priority_source: components["schemas"]["PrioritySource"];
+            /** Reopen Count */
+            reopen_count: number;
             /**
              * Requester Id
              * Format: uuid
@@ -11268,6 +11752,8 @@ export interface components {
             requester_id: string;
             /** Resolution Due At */
             resolution_due_at: string | null;
+            /** Resolved At */
+            resolved_at: string | null;
             /** Site Id */
             site_id: string | null;
             /** Sla Policy Id */
@@ -11275,6 +11761,8 @@ export interface components {
             /** Status */
             status: string;
             status_category: components["schemas"]["StatusCategory"];
+            /** Status Changed At */
+            status_changed_at: string | null;
             /** Status Reason Code */
             status_reason_code: string | null;
             /** Subject */
@@ -11288,6 +11776,7 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            urgency: components["schemas"]["Urgency"] | null;
             /** Version */
             version: number;
         };
@@ -20608,6 +21097,214 @@ export interface operations {
             };
         };
     };
+    start_bulk_api_v1_incidents_bulk_post: {
+        parameters: {
+            query?: {
+                view?: string | null;
+                tag?: string | null;
+                /** @description Filter DSL as JSON (schema: FilterExpression). */
+                filter?: string | null;
+                /** @description e.g. -created_at,display_name */
+                sort?: string | null;
+                /** @description Page size (default 50, max 200). */
+                limit?: number | null;
+                /** @description next_cursor of the previous page. */
+                cursor?: string | null;
+                /** @description Also count matches (capped). */
+                include_total?: boolean;
+            };
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkJobIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    bulk_jobs_api_v1_incidents_bulk_jobs_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    bulk_job_api_v1_incidents_bulk_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BulkJobOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     categories_api_v1_incidents_categories_get: {
         parameters: {
             query?: never;
@@ -20859,6 +21556,210 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_fields_api_v1_incidents_list_fields_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListFieldOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_setting_api_v1_incidents_list_settings__view_key__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                view_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSettingOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    save_list_setting_api_v1_incidents_list_settings__view_key__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The version read; leave out only for the first save. */
+                "If-Match"?: string | null;
+            };
+            path: {
+                view_key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListSettingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListSettingOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */
@@ -21194,6 +22095,290 @@ export interface operations {
                 };
             };
             /** @description version_conflict: someone changed it first. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    saved_views_api_v1_incidents_saved_views_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_saved_view_api_v1_incidents_saved_views_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_saved_view_api_v1_incidents_saved_views__view_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_saved_view_api_v1_incidents_saved_views__view_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                view_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedViewPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedViewOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description The version is stale; the problem names what changed. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -22516,6 +23701,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    view_filters_api_v1_incidents_view_filters_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ViewFilterOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

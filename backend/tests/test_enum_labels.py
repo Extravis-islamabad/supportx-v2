@@ -30,6 +30,11 @@ ENUM_PREFIXES: dict[str, str] = {
     "WaitingOut.outcome": "mail_outcome",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
+    # Incident lists and bulk jobs (WP-020d)
+    "BulkAction": "bulk_action",
+    "BulkOutcome": "bulk_outcome",
+    "BulkStatus": "bulk_status",
+    "ViewVisibility": "view_visibility",
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
