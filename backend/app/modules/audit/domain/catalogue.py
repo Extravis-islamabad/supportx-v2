@@ -211,6 +211,12 @@ ACTIONS: dict[str, Action] = _actions(
     ("report.export_downloaded", AuditCategory.DATA, "analytics"),
     # dashboards (WP-036): a role's home dashboard (what every holder of the role lands on)
     ("dashboard.role_home_set", AuditCategory.CONFIGURATION, "analytics"),
+    # knowledge (WP-033 s2, REQ-KB-080): publishing, withdrawing, the trash and settings
+    ("knowledge.article_approved", AuditCategory.RECORDS, "knowledge"),
+    ("knowledge.article_withdrawn", AuditCategory.RECORDS, "knowledge"),
+    ("knowledge.article_deleted", AuditCategory.RECORDS, "knowledge"),
+    ("knowledge.article_restored", AuditCategory.RECORDS, "knowledge"),
+    ("knowledge.settings_changed", AuditCategory.CONFIGURATION, "knowledge"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

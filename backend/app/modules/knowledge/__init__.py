@@ -25,6 +25,7 @@ from app.modules.knowledge.service.access import (
     VIEW,
     WITHDRAW,
 )
+from app.modules.knowledge.service.realtime import CHANNELS, ROUTES
 
 FEATURE = "knowledge"
 _READ: tuple[Scope, ...] = ("all", "group", "own")  # own: reading as a requester
@@ -53,6 +54,8 @@ module = ModuleSpec(
     events=EVENTS,
     feature=FEATURE,
     permissions=PERMISSIONS,
+    channels=CHANNELS,
+    realtime=ROUTES,
 )
 
 __all__ = ["module"]
