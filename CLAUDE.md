@@ -122,7 +122,9 @@ move/resize buttons kept, right to left mirrored and checked by e2e.
 
 **Approved additions (D-115, WP-025):** `tzdata` (Apache-2.0; IANA time zones for `zoneinfo` in
 every image and the Nuitka build) and `icalendar` (BSD-2-Clause; holiday and working-calendar
-import, with size and line limits and a fuzz test, as the files are untrusted). Temporal's Python
+import, with size and line limits and a fuzz test, as the files are untrusted). icalendar's own
+dependencies already ship through approved packages: `python-dateutil` (Apache-2.0/BSD-3-Clause),
+`six` (MIT), `typing-extensions` (PSF-2.0, Python < 3.13). Temporal's Python
 SDK `temporalio` (MIT) is the stack's Temporal client (§5); its server images and Helm chart are
 MIT.
 
