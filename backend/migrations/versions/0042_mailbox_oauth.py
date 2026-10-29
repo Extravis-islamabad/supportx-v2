@@ -11,6 +11,7 @@ Created: 2026-10-29
 """
 
 from collections.abc import Sequence
+from typing import Any
 
 import sqlalchemy as sa
 from alembic import op
@@ -20,7 +21,8 @@ down_revision: str | None = "0038"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
-_COLUMNS = (
+# Any: the columns hold different Python types (str, datetime, bytes, bool).
+_COLUMNS: tuple[sa.Column[Any], ...] = (
     sa.Column("auth_model", sa.String(length=12), nullable=True),
     sa.Column("client_id", sa.String(length=255), nullable=True),
     sa.Column("directory_id", sa.String(length=64), nullable=True),
@@ -34,6 +36,7 @@ _COLUMNS = (
     sa.Column("oauth_pending_key_id", sa.String(length=32), nullable=True),
     sa.Column("oauth_pending_sealed", sa.LargeBinary(), nullable=True),
     sa.Column("oauth_pending_until", sa.DateTime(timezone=True), nullable=True),
+    sa.Column("flooding", sa.Boolean(), server_default="false", nullable=False),
 )
 
 

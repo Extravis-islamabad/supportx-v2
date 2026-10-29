@@ -461,3 +461,34 @@ async def test_flood_replies_count_are_held_for_review_and_admins_are_told_once(
     async with world.database.tenant_session(TenantContext(world.tenant)) as session:
         (view,) = [v for v in await list_mailboxes(session) if v.row.id == world.mailbox]
     assert view.flooding  # the mail page says so (a visible alert, not only a count)
+
+
+async def test_flooding_clears_by_itself_once_the_sender_is_back_under_the_limit(
+    world: World,
+) -> None:
+    """A stuck "flooding" is as misleading as a silent one (coordinator, 2026-10-29)."""
+    for _ in range(PER_SENDER_LIMIT + 1):
+        await _process(world, _mail())
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        (view,) = [v for v in await list_mailboxes(session) if v.row.id == world.mailbox]
+    assert view.flooding
+    signals = await _signals(world)
+    # An hour later the sender is back under the limit; the held mail itself still waits.
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE mail_fetched SET created_at = created_at - interval '61 minutes'"
+            " WHERE tenant_id = $1",
+            world.tenant,
+        )
+    finally:
+        await conn.close()
+    ring = KeyRing.parse(KeyRing.generate())
+    await fetch_mailbox(
+        world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=FakeReader([])
+    )
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        (view,) = [v for v in await list_mailboxes(session) if v.row.id == world.mailbox]
+    assert not view.flooding
+    assert view.held == 1  # still in the review queue, never dropped
+    assert await _signals(world) == signals + 1  # the mail page refetches: gone live
