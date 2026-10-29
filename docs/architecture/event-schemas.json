@@ -1702,6 +1702,82 @@
         "type": "object"
       }
     },
+    "knowledge.article.workflow": {
+      "1": {
+        "description": "A step of an article's review life (D-108 (5)), for notifications and live screens.\n\nSteps: submitted, approved, rejected, withdrawn, reviewed (\"still correct\"), deleted, restored.",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "author_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "readers_affected": {
+            "title": "Readers Affected",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Number"
+          }
+        },
+        "required": [
+          "article_id",
+          "topic_id",
+          "owner_id",
+          "step",
+          "language",
+          "version_number",
+          "author_id",
+          "readers_affected"
+        ],
+        "title": "KbArticleWorkflow",
+        "type": "object"
+      }
+    },
     "knowledge.topic.deleted": {
       "1": {
         "description": "A topic went to the trash; its articles moved to `moved_to` (REQ-KB-004 AC2).",

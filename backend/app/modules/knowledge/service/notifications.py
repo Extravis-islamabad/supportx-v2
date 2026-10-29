@@ -161,7 +161,7 @@ class ArticleNotifications:
     events = EVENTS
     recipient_kinds = RECIPIENT_KINDS
     variables = VARIABLES
-    conditions = ("type",)
+    conditions: tuple[str, ...] = ()  # no rule conditions yet (the rules screen tests priority)
     event_types = (KbArticleWorkflow.event_type,)
 
     def events_for(self, envelope: EventEnvelope) -> tuple[str, ...]:
@@ -227,7 +227,7 @@ class ArticleNotifications:
             # of reasons all the same.
             public_variables={k: v for k, v in variables.items() if k != "article.reason"},
             relatives=relatives,
-            conditions={"type": article.type_code},
+            conditions={},
         )
 
     async def access(

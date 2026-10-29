@@ -1628,6 +1628,7 @@ export const ur: LabelResource = {
     'آپ کا لوگو، رنگ اور متن ہٹا دیے جائیں گے اور ہر اسکرین دوبارہ SupportX کا برانڈ دکھائے گی۔',
   'branding.reset_done': 'طے شدہ برانڈ واپس آ گیا۔',
   'file_owner_type.branding': 'برانڈنگ',
+  'file_owner_type.kb_article': 'علمی مضمون',
   'domain_status.pending': 'ابھی جانچ نہیں ہوئی',
   'domain_status.verified': 'تصدیق شدہ',
   'domain_status.failed': 'جانچ ناکام',
@@ -2507,6 +2508,68 @@ export const ur: LabelResource = {
   'kb_requesters.none': 'درخواست دہندگان کے ساتھ شیئر نہیں',
   'kb_requesters.all': 'تمام درخواست دہندگان',
   'kb_requesters.selected': 'منتخب درخواست دہندگان',
+  'errors.kb_article_withdrawn': 'یہ مضمون اب دستیاب نہیں ہے۔',
+  'errors.kb_cannot_approve':
+    'آپ یہ مضمون منظور نہیں کر سکتے۔ موضوع کا مالک یا منظور کنندہ کر سکتا ہے۔',
+  'errors.kb_cannot_delete': 'آپ یہ مضمون ردی میں نہیں ڈال سکتے۔',
+  'errors.kb_cannot_withdraw': 'آپ یہ مضمون واپس نہیں لے سکتے۔',
+  'errors.kb_not_published': 'یہ مضمون ابھی شائع نہیں ہوا۔',
+  'errors.kb_topic_in_trash':
+    'اس کا موضوع ردی میں ہے۔ پہلے موضوع بحال کریں یا کوئی اور موضوع چنیں۔',
+  'errors.kb_not_a_draft': 'صرف مسودہ جائزے کے لیے بھیجا جا سکتا ہے۔',
+  'errors.kb_not_in_review': 'یہ ورژن جائزے کا منتظر نہیں ہے۔',
+  'errors.kb_self_approval_off':
+    'یہاں مصنف اپنے مضامین منظور نہیں کر سکتے۔ کسی اور منظور کنندہ سے کہیں۔',
+  'errors.field.reason_required': 'وجہ بتائیں۔',
+  'event_type.knowledge.article.workflow': 'علمی مضمون کے جائزے کا مرحلہ',
+  'audit.action.knowledge.article_approved': 'مضمون منظور کیا',
+  'audit.action.knowledge.article_withdrawn': 'مضمون واپس لیا',
+  'audit.action.knowledge.article_deleted': 'مضمون ردی میں ڈالا',
+  'audit.action.knowledge.article_restored': 'مضمون بحال کیا',
+  'audit.action.knowledge.settings_changed': 'علمی ذخیرے کی ترتیبات بدلیں',
+  'audit.object.kb_article': 'علمی مضمون',
+  'audit.object.kb_settings': 'علمی ذخیرے کی ترتیبات',
+  'notification_recipient.approvers': 'منظور کنندگان',
+  'notification_recipient.author': 'مصنف',
+  'notification_recipient.owner': 'مضمون کا مالک',
+  'notification_recipient.topic_owner': 'موضوع کا مالک',
+  'notification_event.kb_article.submitted': 'مضمون جائزے کے لیے بھیجا گیا',
+  'notification_event.kb_article.approved': 'مضمون منظور ہوا',
+  'notification_event.kb_article.rejected': 'مضمون واپس بھیجا گیا',
+  'notification_event.kb_article.withdrawn': 'مضمون واپس لیا گیا',
+  'notification_event.kb_article.review_due': 'مضمون کے جائزے کا وقت',
+  'notification_variable.article.reason': 'مضمون › وجہ',
+  'notification_variable.article.review_on': 'مضمون › جائزے کی تاریخ',
+  'notification_template.kb_article.submitted.in_app':
+    '{{ actor.name }} نے {{ record.display_id }} جائزے کے لیے بھیجا: {{ record.title }}',
+  'notification_template.kb_article.submitted.subject':
+    'جائزہ درکار: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.submitted.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" جائزے کے لیے بھیجا ہے۔ اسے کھول کر منظور کریں یا واپس بھیجیں۔',
+  'notification_template.kb_article.approved.in_app':
+    '{{ record.display_id }} شائع ہو گیا: {{ record.title }}',
+  'notification_template.kb_article.approved.subject':
+    'شائع شدہ: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.approved.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" منظور کر دیا۔ اب اس کے قارئین اسے دیکھ سکتے ہیں۔',
+  'notification_template.kb_article.rejected.in_app':
+    '{{ record.display_id }} واپس بھیجا گیا: {{ article.reason }}',
+  'notification_template.kb_article.rejected.subject':
+    'واپس بھیجا گیا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.rejected.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" مسودے کے طور پر واپس بھیج دیا۔\n\nوجہ: {{ article.reason }}',
+  'notification_template.kb_article.withdrawn.in_app':
+    '{{ record.display_id }} واپس لیا گیا: {{ article.reason }}',
+  'notification_template.kb_article.withdrawn.subject':
+    'واپس لیا گیا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.withdrawn.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ actor.name }} نے مضمون {{ record.display_id }} "{{ record.title }}" واپس لے لیا۔ قارئین اب اسے نہیں دیکھ سکتے۔\n\nوجہ: {{ article.reason }}',
+  'notification_template.kb_article.review_due.in_app':
+    '{{ record.display_id }} کے جائزے کا وقت ہے: {{ record.title }}',
+  'notification_template.kb_article.review_due.subject':
+    'جائزے کا وقت: {{ record.display_id }} {{ record.title }}',
+  'notification_template.kb_article.review_due.body':
+    'السلام علیکم {{ recipient.name }}،\n\nمضمون {{ record.display_id }} "{{ record.title }}" کا جائزہ {{ article.review_on }} کو ہونا تھا۔ دیکھیں کہ یہ اب بھی درست ہے، یا اس میں ترمیم کریں۔',
   'errors.field.unknown_column': 'یہ کالم ان ریکارڈز کے لیے موجود نہیں۔',
   'errors.field.duplicate_column': 'ہر کالم ایک بار درج کیا جا سکتا ہے۔',
   'permission.dashboards.create.description':

@@ -766,19 +766,19 @@ async def article_versions(
 # --- session 2: the approval count and settings (REQ-KB-086, 090) ---------------------------------
 
 
-class CountOut(BaseModel):
+class ApprovalCountOut(BaseModel):
     """A number for a menu badge."""
 
     count: int
 
 
 @router.get("/approvals/count", summary="Articles awaiting my approval")
-async def approvals_count(session: TenantSession, subject: Viewer) -> CountOut:
+async def approvals_count(session: TenantSession, subject: Viewer) -> ApprovalCountOut:
     """The live count in the Knowledge menu (refreshed by realtime)."""
-    return CountOut(count=await review.awaiting_count(session, subject))
+    return ApprovalCountOut(count=await review.awaiting_count(session, subject))
 
 
-class SettingsOut(BaseModel):
+class KnowledgeSettingsOut(BaseModel):
     """Knowledge settings (REQ-KB-090)."""
 
     prefix: str
@@ -787,7 +787,7 @@ class SettingsOut(BaseModel):
     version: int
 
 
-class SettingsPatch(BaseModel):
+class KnowledgeSettingsPatch(BaseModel):
     """Change knowledge settings (If-Match)."""
 
     model_config = ConfigDict(extra="forbid")
@@ -797,12 +797,14 @@ class SettingsPatch(BaseModel):
 
 
 @router.get("/settings", summary="Knowledge settings")
-async def get_settings(session: TenantSession, subject: Viewer, response: Response) -> SettingsOut:
+async def get_settings(
+    session: TenantSession, subject: Viewer, response: Response
+) -> KnowledgeSettingsOut:
     """Read by every reader (the screens need self-approval); changed by settings managers."""
     del subject
     found = await articles.settings_row(session)
     set_etag(response, found.version)
-    return SettingsOut(
+    return KnowledgeSettingsOut(
         prefix=found.prefix,
         self_approval=found.self_approval,
         requesters_enabled=found.requesters_enabled,
@@ -817,20 +819,20 @@ async def get_settings(session: TenantSession, subject: Viewer, response: Respon
     dependencies=[audited("knowledge.settings_changed", object_type="kb_settings")],
 )
 async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-    body: SettingsPatch,
+    body: KnowledgeSettingsPatch,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Viewer,
     request: Request,
     response: Response,
-) -> SettingsOut:
+) -> KnowledgeSettingsOut:
     """Needs `knowledge.manage_settings`."""
     values = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
     found = await review.update_settings(
         session, subject, values, expected_version=version, source=source_of(request)
     )
     set_etag(response, found.version)
-    return SettingsOut(
+    return KnowledgeSettingsOut(
         prefix=found.prefix,
         self_approval=found.self_approval,
         requesters_enabled=found.requesters_enabled,
