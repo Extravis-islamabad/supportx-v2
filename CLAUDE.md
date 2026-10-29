@@ -230,7 +230,10 @@ UTC; `created_at`, `updated_at`, `created_by`, `updated_by` on every table; soft
 `deleted_at` (hard delete only via GDPR erasure jobs); enums stored as stable lowercase codes;
 snake_case, plural table names. Custom field values in typed JSONB with GIN indexes (§6.6).
 Field-level history for every change with source (UI, API, rule, workflow, AI agent) (§7.4).
-Migrations follow expand/contract (§14.3) and must be reversible.
+Migrations follow expand/contract (§14.3) and must be reversible. **A merged migration is never
+edited** (product owner, 2026-10-28): any environment may already have run it, and an edit never
+reaches those. Fixes go in a new migration. Data steps run once per tenant with `app.tenant_id`
+set (business tables force RLS, so a statement without it changes nothing; see 0023).
 
 ## 7. API conventions (§10)
 
