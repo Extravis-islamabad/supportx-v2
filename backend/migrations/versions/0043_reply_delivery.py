@@ -121,8 +121,9 @@ def downgrade() -> None:
     op.drop_index("ix_notification_deliveries_tenant_mail", table_name="notification_deliveries")
     op.drop_index("ix_notification_deliveries_tenant_entry", table_name="notification_deliveries")
     op.drop_column("notification_deliveries", "entry_id")
-    # Replies the engine moved since (queued, sent, failed with a new reason) keep their state;
-    # only the new states and reasons go back to what the old checks allow.
+    # Lossy by nature: "waiting" and "retrying" both become "not_sent" (the old checks know
+    # nothing else), and the new reasons are cleared. Replies the engine moved to queued, sent
+    # or failed keep that state.
     op.execute(BACK_TO_NOT_SENT)
     op.execute(
         _per_tenant(

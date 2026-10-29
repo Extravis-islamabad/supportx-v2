@@ -264,3 +264,29 @@ async def test_the_mail_state_event_names_no_one(world: World) -> None:
     )
     payload = json.loads(row["envelope"])["payload"]
     assert set(payload) == {"mail_id", "kind", "state", "failure", "at"}
+
+
+async def test_a_reply_the_requester_wrote_never_moves(world: World) -> None:
+    """Lane A's `received` (a reply that came in by mail) is not ours to deliver."""
+    from app.modules.work_items.service.notifications import SOURCE  # noqa: PLC0415 - one use
+
+    org = world.a
+    item, entry = await _reply(world, org)
+    await world.sql(
+        "UPDATE work_item_conversations SET delivery_state = 'received', delivery_reason = NULL"
+        " WHERE id = $1",
+        uuid.UUID(entry["id"]),
+    )
+    await _in_session(
+        world,
+        org,
+        lambda s: SOURCE.delivery_changed(
+            s,
+            record_id=uuid.UUID(item["id"]),
+            entry_id=uuid.UUID(entry["id"]),
+            state="failed",
+            reason="gave_up",
+            at=datetime.now(UTC) + timedelta(minutes=1),
+        ),
+    )
+    assert (await _entry(world, entry["id"]))["delivery_state"] == "received"

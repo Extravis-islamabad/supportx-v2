@@ -30,7 +30,6 @@ from app.core.errors import NotFound
 from app.modules.identity_access import subject_for, user_names
 from app.modules.organization import unit_heads, users_in_groups
 from app.modules.work_items.domain.conversation import (
-    FINAL_DELIVERY,
     DeliveryReason,
     DeliveryState,
     EntryKind,
@@ -445,9 +444,18 @@ class IncidentNotifications:
         return RecordAccess.FULL if sees_private(subject, INCIDENT) else RecordAccess.PUBLIC
 
 
-# The states the engine may move a reply out of: never "sent" (FINAL_DELIVERY) and never a
-# reply the requester wrote (it has its own state).
-MOVABLE = frozenset(state.value for state in DeliveryState if state not in FINAL_DELIVERY)
+# The states the engine may move a reply out of, named one by one (lane A's review): never
+# "sent" (final) and never a state added later, such as a reply the requester wrote by mail
+# ("received"), unless it is listed here on purpose.
+MOVABLE = frozenset(
+    {
+        DeliveryState.NOT_SENT.value,
+        DeliveryState.WAITING.value,
+        DeliveryState.QUEUED.value,
+        DeliveryState.RETRYING.value,
+        DeliveryState.FAILED.value,
+    }
+)
 
 SOURCE = IncidentNotifications()
 

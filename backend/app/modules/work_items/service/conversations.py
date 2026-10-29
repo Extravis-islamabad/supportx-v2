@@ -19,7 +19,7 @@ import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
@@ -359,6 +359,7 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
             body=clean,
             recipients=recipients,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=first,
             mentioned_ids=mentioned,
@@ -430,6 +431,7 @@ async def add_requester_comment(
             body=clean,
             recipients=None,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=False,
             mentioned_ids=[],
