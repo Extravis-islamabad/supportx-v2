@@ -22,25 +22,49 @@ from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, 
 from app.modules.integrations.domain.mailboxes import (
     WAITING,
     AfterFetch,
+    AuthModel,
     ConnectionSecurity,
+    CredentialKind,
     MailboxCreates,
+    MailboxProtocol,
     MailboxState,
     Outcome,
     UnknownSenders,
     check_security,
+    oauth_problems,
     releasable,
 )
 from app.modules.integrations.events import MailboxChanged
-from app.modules.integrations.infra.imap import ImapReader, ImapSettings, MailboxUnavailableError
+from app.modules.integrations.infra.imap import MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.integrations.service import inbound
-from app.modules.integrations.service.fetching import key_ring, own_addresses, seal_password
+from app.modules.integrations.service.connections import (
+    CONSENT_DECLINED,
+    CONSENT_EXPIRED,
+    SECRET_PURPOSE,
+    ConsentRefusedError,
+    credential_expiry,
+    finish_consent,
+    key_ring,
+    open_reader,
+    pending_consent,
+    seal,
+    start_consent,
+)
+from app.modules.integrations.service.fetching import own_addresses
 from app.shared.events import record_event
+from app.shared.files.keyring import KeyRing
 
 MANAGE = "mailboxes.manage"
 Change = Literal["added", "changed", "removed", "fetched"]
 FIELDS = (
     "address",
+    "protocol",
+    "auth_model",
+    "client_id",
+    "directory_id",
+    "credential_kind",
+    "credential_expires_at",
     "display_name",
     "host",
     "port",
@@ -69,19 +93,55 @@ class MailboxView:
     """A mailbox as the mail page shows it (never its password)."""
 
     row: Mailbox
-    has_password: bool
+    has_password: bool  # the IMAP password, or the OAuth app's secret or certificate
     held: int  # messages kept for an admin (refused, flooding, not the requester)
 
 
-def _problems(values: Mapping[str, Any]) -> list[FieldError]:
-    security = ConnectionSecurity(values.get("security", "tls"))
+# Every code `_problems` can give (labels errors.field.<code>; tests/test_error_labels.py reads
+# FIELD_PROBLEMS sets).
+FIELD_PROBLEMS = frozenset(
+    {
+        "required",
+        "plain_connection_refused",
+        "mailbox_address_invalid",
+        "mailbox_auth_model_unsupported",
+        "oauth_certificate_invalid",
+    }
+)
+
+
+def _field_error(name: str, code: str) -> FieldError:
+    key = "errors.field.required" if code == "required" else f"errors.field.{code}"
+    return FieldError(field=f"body.{name}", code=code, message_key=key)
+
+
+def _problems(values: Mapping[str, Any], *, has_secret: bool) -> list[FieldError]:
+    protocol = MailboxProtocol(values.get("protocol") or MailboxProtocol.IMAP)
+    security = ConnectionSecurity(values.get("security") or "tls")
     errors = [
-        FieldError(
-            field="body.security",
-            code="plain_connection_refused",
-            message_key="errors.field.plain_connection_refused",
+        _field_error("security", code)
+        for code in check_security(security, allow_plain=bool(values.get("allow_plain")))
+        if protocol is MailboxProtocol.IMAP
+    ]
+    if protocol is MailboxProtocol.IMAP:
+        errors += [
+            _field_error(name, "required")
+            for name in ("host", "port", "username")
+            if not values.get(name)
+        ]
+        if not has_secret:
+            errors.append(_field_error("password", "required"))
+    auth_model, kind = values.get("auth_model"), values.get("credential_kind")
+    errors += [
+        _field_error(name, code)
+        for name, code in oauth_problems(
+            protocol,
+            auth_model=AuthModel(auth_model) if auth_model else None,
+            credential_kind=CredentialKind(kind) if kind else None,
+            client_id=values.get("client_id"),
+            directory_id=values.get("directory_id"),
+            has_credential=has_secret,
         )
-        for _ in check_security(security, allow_plain=bool(values.get("allow_plain")))
     ]
     if values.get("after_fetch") == AfterFetch.MOVE.value and not values.get("move_to"):
         errors.append(
@@ -145,16 +205,28 @@ def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:
             setattr(row, name, value.lower() if name == "address" else value)
 
 
+def _store_secret(row: Mailbox, ring: KeyRing, secret: str) -> None:
+    """Seal the password or OAuth credential; a certificate's own expiry is announced ahead."""
+    kind = CredentialKind(row.credential_kind) if row.credential_kind else None
+    if row.protocol != MailboxProtocol.IMAP.value and kind is CredentialKind.CERTIFICATE:
+        try:
+            row.credential_expires_at = credential_expiry(kind, secret)
+        except MailboxUnavailableError as exc:
+            raise ValidationFailed(errors=[_field_error("client_secret", exc.reason)]) from exc
+        row.credential_warned_at = None
+    row.secret_key_id, row.secret_sealed = seal(ring, row.tenant_id, SECRET_PURPOSE, secret)
+
+
 async def create_mailbox(
     session: AsyncSession,
     settings: Settings,
     tenant_id: uuid.UUID,
     values: Mapping[str, Any],
     *,
-    password: str,
+    password: str | None,
 ) -> MailboxView:
-    """A new mailbox; fetched at the next poll once its connection works."""
-    if errors := _problems(values):
+    """A new mailbox; fetched at the next poll once its connection works (or its consent)."""
+    if errors := _problems(values, has_secret=bool(password)):
         raise ValidationFailed(errors=errors)
     ring = key_ring(settings)
     if ring is None:
@@ -169,7 +241,8 @@ async def create_mailbox(
         raise Conflict(code="mailbox_address_taken")
     row = Mailbox(tenant_id=tenant_id, state=MailboxState.NOT_SET_UP.value)
     _apply(row, values)
-    row.secret_key_id, row.secret_sealed = seal_password(ring, tenant_id, password)
+    if password:  # required for every kind (_problems)
+        _store_secret(row, ring, password)
     session.add(row)
     await session.flush()
     await changed(session, row, "added")
@@ -193,15 +266,19 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
             params={"expected_version": expected_version, "current_version": row.version},
         )
     merged = {name: getattr(row, name) for name in FIELDS} | dict(values)
-    if errors := _problems(merged):
+    if errors := _problems(merged, has_secret=bool(password) or row.secret_sealed is not None):
         raise ValidationFailed(errors=errors)
+    signed_in = {"protocol", "auth_model", "client_id", "directory_id", "address"}
+    if any(name in values and values[name] != getattr(row, name) for name in signed_in):
+        # Another app, model or mailbox: the earlier sign-in no longer applies.
+        row.token_key_id = row.token_sealed = row.connected_account = None
     _apply(row, values)
     if password:
         ring = key_ring(settings)
         if ring is None:
             raise KeyRingMissing
-        row.secret_key_id, row.secret_sealed = seal_password(ring, row.tenant_id, password)
-    connection = {"host", "port", "security", "username", "folder"}
+        _store_secret(row, ring, password)
+    connection = {"host", "port", "security", "username", "folder"} | signed_in
     if password or connection & set(values):
         row.state, row.state_reason, row.next_fetch_at = MailboxState.NOT_SET_UP.value, None, None
     row.version += 1
@@ -290,16 +367,86 @@ async def discard_mail(
     await changed(session, mailbox, "changed")
 
 
-async def test_connection(settings: ImapSettings) -> str | None:
-    """Connect and count new mail, changing nothing; None when it works, else a reason code."""
-    reader = ImapReader(settings)
+async def try_connection(
+    mailbox: Mailbox, settings: Settings, *, secret: str | None = None
+) -> str | None:
+    """Connect and look for new mail, changing nothing; None when it works, else a reason code.
+
+    `secret` tries a new password or credential before it is saved; otherwise the stored one.
+    """
+    ring = key_ring(settings)
+    if ring is None:
+        return "mailbox_key_ring_missing"
     try:
-        await reader.new_messages(limit=1)
+        opened = await open_reader(mailbox, ring, settings, secret=secret)
+    except MailboxUnavailableError as exc:
+        return exc.reason
+    try:
+        await opened.reader.new_messages(limit=1)
     except MailboxUnavailableError as exc:
         return exc.reason
     finally:
-        await reader.close()
+        await opened.reader.close()
     return None
+
+
+async def start_sign_in(
+    session: AsyncSession,
+    settings: Settings,
+    mailbox_id: uuid.UUID,
+    *,
+    admin_id: uuid.UUID,
+    origin: str,
+) -> str:
+    """The Microsoft or Google sign-in address for this mailbox's consent (ten minutes)."""
+    row = (await get_mailbox(session, mailbox_id)).row
+    ring = key_ring(settings)
+    if ring is None:
+        raise KeyRingMissing
+    try:
+        return start_consent(row, ring, settings, admin_id=admin_id, origin=origin)
+    except ConsentRefusedError as exc:  # IMAP, or Microsoft 365 with application permission
+        raise Conflict(code="mailbox_sign_in_not_needed") from exc
+    except MailboxUnavailableError as exc:  # no credential stored, or it cannot be unsealed
+        raise Conflict(code="mailbox_credential_unreadable") from exc
+
+
+@dataclass(frozen=True)
+class SignInResult:
+    """Where the callback sends the admin back: the mailbox, and a reason when it failed."""
+
+    mailbox_id: uuid.UUID | None
+    reason: str | None
+
+
+async def complete_sign_in(  # noqa: PLR0913 - the callback's facts, explicit
+    session: AsyncSession,
+    settings: Settings,
+    *,
+    state: str,
+    code: str | None,
+    declined: bool,
+    admin_id: uuid.UUID,
+    origin: str,
+) -> SignInResult:
+    """Finish a consent; a refusal is returned (not raised) so the cleared state is committed."""
+    row = await pending_consent(session, state) if state else None
+    ring = key_ring(settings)
+    if row is None or ring is None:
+        return SignInResult(None, CONSENT_EXPIRED)
+    try:
+        if declined or not code:
+            row.oauth_state_hash = row.oauth_pending_key_id = None
+            row.oauth_pending_sealed = row.oauth_pending_until = None
+            raise ConsentRefusedError(CONSENT_DECLINED, row.id)  # noqa: TRY301 - one refusal path
+        await finish_consent(row, ring, settings, code=code, admin_id=admin_id, origin=origin)
+    except ConsentRefusedError as exc:
+        return SignInResult(row.id, exc.reason)
+    row.version += 1
+    row.updated_at = datetime.now(UTC)
+    await session.flush()
+    await changed(session, row, "changed")
+    return SignInResult(row.id, None)
 
 
 __all__ = [
@@ -307,15 +454,18 @@ __all__ = [
     "AfterFetch",
     "MailboxCreates",
     "MailboxView",
+    "SignInResult",
     "UnknownSenders",
     "WaitingMail",
+    "complete_sign_in",
     "create_mailbox",
     "discard_mail",
     "get_mailbox",
     "list_mailboxes",
     "release_mail",
     "remove_mailbox",
-    "test_connection",
+    "start_sign_in",
+    "try_connection",
     "update_mailbox",
     "waiting_mail",
 ]

@@ -4032,6 +4032,61 @@ export const en = {
   'mailbox_reason.mailbox_no_password': 'No password is stored for this mailbox',
   'mailbox_reason.mailbox_secret_unreadable':
     'The stored password cannot be read (key ring changed?)',
+  'mailbox_reason.oauth_not_connected': 'Nobody has signed in as this mailbox yet',
+  'mailbox_reason.oauth_consent_revoked':
+    'The sign-in has expired or was withdrawn: sign in as the mailbox again',
+  'mailbox_reason.oauth_client_rejected':
+    "Microsoft or Google refused the app's secret or certificate (expired or wrong?)",
+  'mailbox_reason.oauth_not_allowed':
+    'The app may not read this mailbox (permission or mailbox scope)',
+  'mailbox_reason.oauth_unreachable': 'Microsoft or Google cannot be reached',
+  'mailbox_reason.oauth_certificate_invalid':
+    'The certificate cannot be used: paste the certificate and its RSA private key (PEM)',
+  'mailbox_reason.oauth_wrong_account':
+    "The sign-in was with another account than the mailbox's own",
+  'mailbox_reason.oauth_consent_expired':
+    'The sign-in took too long or was already used: start it again',
+  'mailbox_reason.oauth_consent_not_yours':
+    'This sign-in was started by someone else or on another address',
+  'mailbox_reason.oauth_consent_declined': 'Access was not allowed on the sign-in page',
+  'mailbox_reason.mailbox_folder_not_found': 'The folder does not exist in this mailbox',
+  'mailbox_reason.mailbox_not_found_at_provider': 'Microsoft or Google does not know this mailbox',
+  'mailbox_reason.mailbox_key_ring_missing':
+    'No installation key ring is configured, so secrets cannot be read',
+  'mailbox_protocol.imap': 'IMAP',
+  'mailbox_protocol.graph': 'Microsoft 365',
+  'mailbox_protocol.gmail': 'Gmail',
+  'mailbox_auth_model.app': 'App permission (no one signs in)',
+  'mailbox_auth_model.delegated': 'Signed in as the mailbox',
+  'mailbox_credential_kind.secret': 'Client secret',
+  'mailbox_credential_kind.certificate': 'Certificate',
+  'errors.mailbox_sign_in_not_needed': 'This mailbox does not need anyone to sign in.',
+  'errors.mailbox_credential_unreadable':
+    "The app's secret or certificate is missing or cannot be read. Enter it again.",
+  'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
+  'errors.field.oauth_certificate_invalid':
+    'Paste the certificate and its RSA private key, both as PEM.',
+  'audit.action.mailbox.consent_started': 'Started signing in as a mailbox',
+  'audit.action.mailbox.connected': 'Signed in as a mailbox',
+  'event_type.integrations.mailbox.failing': 'Mailbox failing',
+  'event_type.integrations.mailbox.credential_expiring': 'Mailbox app credential expiring',
+  'notification_event.mailbox.failing': 'Mailbox stopped working',
+  'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
+  'notification_recipient.mail_admins': 'People who manage mailboxes',
+  'notification_variable.mailbox.address': 'Mailbox › Address',
+  'notification_variable.mailbox.reason': 'Mailbox › Reason',
+  'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
+  'notification_template.mailbox.failing.in_app':
+    '{{ record.title }} stopped working: {{ mailbox.reason }}',
+  'notification_template.mailbox.failing.subject': 'Mailbox {{ record.title }} stopped working',
+  'notification_template.mailbox.failing.body':
+    'Hello {{ recipient.name }},\n\nSupportX cannot read {{ record.title }}: {{ mailbox.reason }}.\n\nMail waits on the server until this is fixed. Open Admin › Mail to see the mailbox.',
+  'notification_template.mailbox.credential_expiring.in_app':
+    'The app secret or certificate of {{ record.title }} expires {{ mailbox.expires_at }}',
+  'notification_template.mailbox.credential_expiring.subject':
+    'Mailbox {{ record.title }}: app credential expires soon',
+  'notification_template.mailbox.credential_expiring.body':
+    'Hello {{ recipient.name }},\n\nThe secret or certificate SupportX uses to read {{ record.title }} expires {{ mailbox.expires_at }}. Add a new one in your Microsoft or Google admin console, then enter it in Admin › Mail, so mail keeps arriving.',
   'mailbox_answer.unknown_sender.subject': 'Re: {{subject}}',
   'mailbox_answer.unknown_sender.body':
     'Thank you for your message. {{address}} only takes requests from people we know, so nothing was created. Please ask your IT team to add you, or write from your work address.',

@@ -3424,6 +3424,63 @@ export const ur: LabelResource = {
   'mailbox_reason.imap_move_failed': 'میل سرور نے پیغام منتقل نہیں کیا',
   'mailbox_reason.mailbox_no_password': 'اس میل باکس کا کوئی پاس ورڈ محفوظ نہیں',
   'mailbox_reason.mailbox_secret_unreadable': 'محفوظ پاس ورڈ پڑھا نہیں جا سکا (کلیدی رنگ بدل گئی؟)',
+  'mailbox_reason.oauth_not_connected': 'ابھی تک کسی نے اس میل باکس کے اکاؤنٹ سے سائن اِن نہیں کیا',
+  'mailbox_reason.oauth_consent_revoked':
+    'سائن اِن کی میعاد ختم ہو گئی یا واپس لے لیا گیا: میل باکس کے اکاؤنٹ سے دوبارہ سائن اِن کریں',
+  'mailbox_reason.oauth_client_rejected':
+    'Microsoft یا Google نے ایپ کا سیکرٹ یا سرٹیفکیٹ قبول نہیں کیا (میعاد ختم یا غلط؟)',
+  'mailbox_reason.oauth_not_allowed':
+    'ایپ کو یہ میل باکس پڑھنے کی اجازت نہیں (اجازت یا میل باکس کا دائرہ)',
+  'mailbox_reason.oauth_unreachable': 'Microsoft یا Google تک رسائی نہیں ہو سکی',
+  'mailbox_reason.oauth_certificate_invalid':
+    'سرٹیفکیٹ استعمال نہیں ہو سکتا: سرٹیفکیٹ اور اس کی RSA پرائیویٹ کی (PEM) چسپاں کریں',
+  'mailbox_reason.oauth_wrong_account':
+    'سائن اِن میل باکس کے اپنے اکاؤنٹ کے بجائے کسی اور اکاؤنٹ سے ہوا',
+  'mailbox_reason.oauth_consent_expired':
+    'سائن اِن میں بہت دیر ہو گئی یا یہ پہلے ہی استعمال ہو چکا: دوبارہ شروع کریں',
+  'mailbox_reason.oauth_consent_not_yours': 'یہ سائن اِن کسی اور نے یا کسی اور پتے پر شروع کیا تھا',
+  'mailbox_reason.oauth_consent_declined': 'سائن اِن صفحے پر رسائی کی اجازت نہیں دی گئی',
+  'mailbox_reason.mailbox_folder_not_found': 'یہ فولڈر اس میل باکس میں موجود نہیں',
+  'mailbox_reason.mailbox_not_found_at_provider': 'Microsoft یا Google اس میل باکس کو نہیں جانتے',
+  'mailbox_reason.mailbox_key_ring_missing':
+    'انسٹالیشن کی کلیدی رنگ ترتیب نہیں دی گئی، اس لیے راز پڑھے نہیں جا سکتے',
+  'mailbox_protocol.imap': 'IMAP',
+  'mailbox_protocol.graph': 'Microsoft 365',
+  'mailbox_protocol.gmail': 'Gmail',
+  'mailbox_auth_model.app': 'ایپ کی اجازت (کوئی سائن اِن نہیں کرتا)',
+  'mailbox_auth_model.delegated': 'میل باکس کے اکاؤنٹ سے سائن اِن',
+  'mailbox_credential_kind.secret': 'کلائنٹ سیکرٹ',
+  'mailbox_credential_kind.certificate': 'سرٹیفکیٹ',
+  'errors.mailbox_sign_in_not_needed': 'اس میل باکس کے لیے کسی کو سائن اِن کرنے کی ضرورت نہیں۔',
+  'errors.mailbox_credential_unreadable':
+    'ایپ کا سیکرٹ یا سرٹیفکیٹ موجود نہیں یا پڑھا نہیں جا سکتا۔ دوبارہ درج کریں۔',
+  'errors.field.mailbox_auth_model_unsupported': 'اس قسم کے میل باکس کے لیے دستیاب نہیں۔',
+  'errors.field.oauth_certificate_invalid':
+    'سرٹیفکیٹ اور اس کی RSA پرائیویٹ کی، دونوں PEM میں چسپاں کریں۔',
+  'audit.action.mailbox.consent_started': 'میل باکس کے اکاؤنٹ سے سائن اِن شروع کیا',
+  'audit.action.mailbox.connected': 'میل باکس کے اکاؤنٹ سے سائن اِن کیا',
+  'event_type.integrations.mailbox.failing': 'میل باکس کام نہیں کر رہا',
+  'event_type.integrations.mailbox.credential_expiring':
+    'میل باکس ایپ کی اسناد کی میعاد ختم ہونے والی ہے',
+  'notification_event.mailbox.failing': 'میل باکس نے کام کرنا بند کر دیا',
+  'notification_event.mailbox.credential_expiring':
+    'میل باکس ایپ کا سیکرٹ یا سرٹیفکیٹ ختم ہونے والا ہے',
+  'notification_recipient.mail_admins': 'میل باکس سنبھالنے والے افراد',
+  'notification_variable.mailbox.address': 'میل باکس › پتہ',
+  'notification_variable.mailbox.reason': 'میل باکس › وجہ',
+  'notification_variable.mailbox.expires_at': 'میل باکس › اسناد کی میعاد',
+  'notification_template.mailbox.failing.in_app':
+    '{{ record.title }} نے کام کرنا بند کر دیا: {{ mailbox.reason }}',
+  'notification_template.mailbox.failing.subject':
+    'میل باکس {{ record.title }} نے کام کرنا بند کر دیا',
+  'notification_template.mailbox.failing.body':
+    'السلام علیکم {{ recipient.name }}،\n\nSupportX {{ record.title }} نہیں پڑھ سکتا: {{ mailbox.reason }}۔\n\nجب تک یہ ٹھیک نہ ہو، میل سرور پر انتظار کرتی ہے۔ میل باکس دیکھنے کے لیے ایڈمن › میل کھولیں۔',
+  'notification_template.mailbox.credential_expiring.in_app':
+    '{{ record.title }} کی ایپ کا سیکرٹ یا سرٹیفکیٹ {{ mailbox.expires_at }} کو ختم ہو رہا ہے',
+  'notification_template.mailbox.credential_expiring.subject':
+    'میل باکس {{ record.title }}: ایپ کی اسناد جلد ختم ہو رہی ہیں',
+  'notification_template.mailbox.credential_expiring.body':
+    'السلام علیکم {{ recipient.name }}،\n\nجو سیکرٹ یا سرٹیفکیٹ SupportX {{ record.title }} پڑھنے کے لیے استعمال کرتا ہے، وہ {{ mailbox.expires_at }} کو ختم ہو رہا ہے۔ اپنے Microsoft یا Google ایڈمن کنسول میں نیا بنائیں، پھر ایڈمن › میل میں درج کریں تاکہ میل آتی رہے۔',
   'mailbox_answer.unknown_sender.subject': 'جواب: {{subject}}',
   'mailbox_answer.unknown_sender.body':
     'آپ کے پیغام کا شکریہ۔ {{address}} صرف جانے پہچانے لوگوں کی درخواستیں لیتا ہے، اس لیے کچھ نہیں بنایا گیا۔ براہ کرم اپنی آئی ٹی ٹیم سے آپ کو شامل کرنے کو کہیں، یا اپنے دفتری پتے سے لکھیں۔',
