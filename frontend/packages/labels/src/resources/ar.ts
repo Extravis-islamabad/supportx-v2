@@ -2931,6 +2931,8 @@ export const ar: LabelResource = {
   'kb_requesters.none': 'غير مشتركة مع مقدمي الطلبات',
   'kb_requesters.all': 'كل مقدمي الطلبات',
   'kb_requesters.selected': 'مقدمو طلبات محددون',
+  'knowledge.move_up': 'نقل لأعلى',
+  'knowledge.move_down': 'نقل لأسفل',
   'knowledge.article_settings': 'إعدادات المقالة',
   'knowledge.settings_saved': 'حُفظت إعدادات المقالة.',
   'knowledge.own_audience_help': 'إيقاف: تتبع المقالة جمهور موضوعها. تشغيل: تضيّقه.',

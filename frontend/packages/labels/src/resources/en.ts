@@ -2918,6 +2918,8 @@ export const en = {
   'kb_requesters.none': 'Not shared with requesters',
   'kb_requesters.all': 'All requesters',
   'kb_requesters.selected': 'Chosen requesters',
+  'knowledge.move_up': 'Move up',
+  'knowledge.move_down': 'Move down',
   'knowledge.article_settings': 'Article settings',
   'knowledge.settings_saved': 'Article settings saved.',
   'knowledge.own_audience_help':

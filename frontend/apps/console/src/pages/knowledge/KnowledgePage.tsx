@@ -1,4 +1,11 @@
-import { DeleteOutlined, EditOutlined, FolderAddOutlined, PlusOutlined } from '@ant-design/icons';
+import {
+  ArrowDownOutlined,
+  ArrowUpOutlined,
+  DeleteOutlined,
+  EditOutlined,
+  FolderAddOutlined,
+  PlusOutlined,
+} from '@ant-design/icons';
 import { Badge, Button, Card, Flex, Input, Select, Space, Table, Tree, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
@@ -9,6 +16,7 @@ import {
   useKbArticles,
   useKbTopics,
   useKbTypes,
+  useUpdateKbTopic,
   type KbArticleRow,
   type KbLanguage,
   type KbTopic,
@@ -69,6 +77,7 @@ export function KnowledgePage() {
 
   const [editing, setEditing] = useState<{ topic: KbTopic | null; parentId: string | null }>();
   const [deleting, setDeleting] = useState<KbTopic | null>(null);
+  const reorder = useUpdateKbTopic();
   const allTopics = useMemo(() => topics.data ?? [], [topics.data]);
   const tree = useMemo(() => topicTree(allTopics, language), [allTopics, language]);
   const selected = allTopics.find((topic) => topic.id === topicId);
@@ -77,6 +86,31 @@ export function KnowledgePage() {
   const dateFormat = new Intl.DateTimeFormat(locale, { dateStyle: 'medium' });
 
   if (!allowed) return <NoAccess titleKey="nav.knowledge" />;
+
+  // Siblings in their order, for moving the selected topic up or down (keyboard friendly).
+  const siblings = (topic: KbTopic) =>
+    allTopics
+      .filter((other) => other.parent_id === topic.parent_id)
+      .sort((a, b) => a.sort_order - b.sort_order);
+  const move = (topic: KbTopic, step: -1 | 1) => {
+    const row = siblings(topic);
+    const at = row.findIndex((other) => other.id === topic.id);
+    const neighbour = row[at + step];
+    if (neighbour === undefined) return;
+    const swap = (one: KbTopic, order: number) =>
+      reorder.mutateAsync({ id: one.id, changes: { sort_order: order }, version: one.version });
+    // Distinct orders even when both had the same one.
+    const [low, high] =
+      topic.sort_order === neighbour.sort_order
+        ? [topic.sort_order, topic.sort_order + 1]
+        : [
+            Math.min(topic.sort_order, neighbour.sort_order),
+            Math.max(topic.sort_order, neighbour.sort_order),
+          ];
+    const mine = step === -1 ? low : high;
+    const theirs = step === -1 ? high : low;
+    Promise.all([swap(topic, mine), swap(neighbour, theirs)]).catch(reportError);
+  };
 
   const setParam = (key: string, value: string | undefined) => {
     const next = new URLSearchParams(params);
@@ -181,6 +215,30 @@ export function KnowledgePage() {
                 data-testid="kb-edit-topic"
               >
                 {t('knowledge.edit_topic')}
+              </WriteButton>
+              <WriteButton
+                size="small"
+                icon={<ArrowUpOutlined />}
+                disabled={siblings(selected)[0]?.id === selected.id}
+                loading={reorder.isPending}
+                onClick={() => {
+                  move(selected, -1);
+                }}
+                data-testid="kb-topic-up"
+              >
+                {t('knowledge.move_up')}
+              </WriteButton>
+              <WriteButton
+                size="small"
+                icon={<ArrowDownOutlined />}
+                disabled={siblings(selected).at(-1)?.id === selected.id}
+                loading={reorder.isPending}
+                onClick={() => {
+                  move(selected, 1);
+                }}
+                data-testid="kb-topic-down"
+              >
+                {t('knowledge.move_down')}
               </WriteButton>
               <WriteButton
                 size="small"
