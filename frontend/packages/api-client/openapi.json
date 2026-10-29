@@ -1168,6 +1168,18 @@
             "title": "Owner Id",
             "type": "string"
           },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The owner's display name.",
+            "title": "Owner Name"
+          },
           "published": {
             "additionalProperties": {
               "$ref": "#/components/schemas/VersionOut"

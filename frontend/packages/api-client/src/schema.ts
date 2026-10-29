@@ -5300,6 +5300,11 @@ export interface components {
              * Format: uuid
              */
             owner_id: string;
+            /**
+             * Owner Name
+             * @description The owner's display name.
+             */
+            owner_name?: string | null;
             /** Published */
             published: {
                 [key: string]: components["schemas"]["VersionOut"];

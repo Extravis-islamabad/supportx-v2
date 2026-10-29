@@ -11,12 +11,13 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, user_names
 from app.modules.knowledge.infra.models import KbArticleVersion, KbTopic, KbType
 from app.modules.knowledge.service import articles, review, topics
 from app.modules.knowledge.service.access import VIEW
@@ -267,8 +268,10 @@ class ArticleOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    owner_name: str | None = Field(default=None, description="The owner's display name.")
+
     @classmethod
-    def of(cls, view: articles.ArticleView) -> "ArticleOut":
+    def of(cls, view: articles.ArticleView, owner_name: str | None = None) -> "ArticleOut":
         """From the service view."""
         article = view.article
         return cls(
@@ -277,6 +280,7 @@ class ArticleOut(BaseModel):
             topic_id=article.topic_id,
             type_code=article.type_code,
             owner_id=article.owner_id,
+            owner_name=owner_name,
             default_language=article.default_language,
             audience=articles.audience_text(view),
             review_on=article.review_on,
@@ -298,6 +302,12 @@ class ArticleOut(BaseModel):
             created_at=article.created_at,
             updated_at=article.updated_at,
         )
+
+
+async def _article_out(session: AsyncSession, view: articles.ArticleView) -> ArticleOut:
+    """The article with its owner's name."""
+    owner = str(view.article.owner_id)
+    return ArticleOut.of(view, (await user_names(session, [owner])).get(owner))
 
 
 class ArticleRowOut(BaseModel):
@@ -495,7 +505,7 @@ async def create_article(
         view = await articles.create_article(
             session, subject, body.model_dump(), source=source_of(request)
         )
-        out = ArticleOut.of(view)
+        out = await _article_out(session, view)
         return Created(
             body=out,
             headers={
@@ -514,7 +524,7 @@ async def get_article(
     """Published versions for its audience; drafts for its author, owners and approvers."""
     view = await articles.get_article(session, subject, article_id)
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.patch("/articles/{article_id}", summary="Change an article", responses=CONFLICT)
@@ -537,7 +547,7 @@ async def update_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post(
@@ -662,7 +672,7 @@ async def approve_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, article_id, language, expected_version=version, source=source_of(request)
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post(
@@ -724,7 +734,7 @@ async def withdraw_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post("/articles/{article_id}/still-correct", summary="Still correct", responses=CONFLICT)
@@ -741,7 +751,7 @@ async def still_correct(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, article_id, expected_version=version, source=source_of(request)
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.delete(
@@ -787,7 +797,7 @@ async def restore_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, article_id, expected_version=version, source=source_of(request)
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.get("/articles/{article_id}/versions", summary="Versions")
