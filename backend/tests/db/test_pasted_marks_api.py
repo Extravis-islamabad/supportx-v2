@@ -34,3 +34,27 @@ async def test_a_pasted_name_with_marks_finds_the_person(world: World) -> None:
     found = await world.call("GET", "/users", a, a.admin, params={"q": marked})
     assert found.status_code == 200, found.text
     assert person["id"] in [item["id"] for item in found.json()["items"]]
+
+
+async def test_a_pasted_name_with_marks_finds_the_assignee(world: World) -> None:
+    a = world.a
+    people = await world.call("GET", f"{BASE}/assignees", a, a.admin, params={"limit": 1})
+    assert people.status_code == 200, people.text
+    person = people.json()[0]
+    marked = f"{FSI}{person['display_name']}{PDI}"
+    found = await world.call("GET", f"{BASE}/assignees", a, a.admin, params={"search": marked})
+    assert found.status_code == 200, found.text
+    assert person["id"] in [item["id"] for item in found.json()]
+
+
+async def test_a_pasted_name_with_marks_finds_someone_to_mention(world: World) -> None:
+    a = world.a
+    made = await world.create(a, a.admin, subject="Pasted marks mention")
+    path = f"{BASE}/{made['id']}/mentionable"
+    people = await world.call("GET", path, a, a.admin, params={"limit": 1})
+    assert people.status_code == 200, people.text
+    person = people.json()[0]
+    marked = f"{FSI}{person['display_name']}{PDI}"
+    found = await world.call("GET", path, a, a.admin, params={"search": marked})
+    assert found.status_code == 200, found.text
+    assert person["id"] in [item["id"] for item in found.json()]

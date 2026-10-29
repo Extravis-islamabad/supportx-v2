@@ -505,8 +505,8 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
             record_id,
             policy,
             policy,
-            search=strip_isolates(search) if search else search,
-            limit=limit,  # pasted marks
+            search=strip_isolates(search or "").strip() or None,  # a pasted name may carry marks
+            limit=limit,
         )
         return [
             MentionableOut(id=u, display_name=n, email=e, can_see=sees) for u, n, e, sees in found

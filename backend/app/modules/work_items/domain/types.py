@@ -18,10 +18,9 @@ from app.modules.work_items.domain.lifecycle import (
     StatusDef,
     TransitionDef,
 )
+from app.shared.labels import strip_isolates
 
 SUBJECT_MAX = 250
-# Directional isolates (U+2066..U+2069), as app.shared.labels.strip_isolates removes them.
-_ISOLATES = re.compile("[\u2066-\u2069]")
 DESCRIPTION_MAX = 100_000  # sanitised HTML, characters
 TAG_MAX = 40
 TAGS_MAX = 20
@@ -162,7 +161,7 @@ def parse_display_id(value: str, prefix: str) -> tuple[str | None, int | None]:
 
     Directional isolates are ignored: an ID copied from a screen may carry them.
     """
-    text = _ISOLATES.sub("", value).strip().upper()
+    text = strip_isolates(value).strip().upper()
     match = re.fullmatch(r"(?:([A-Z]{2,6})-)?(\d{1,18})", text)
     if match is None:
         return None, None

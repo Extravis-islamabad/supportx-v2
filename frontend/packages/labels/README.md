@@ -15,7 +15,9 @@ label that is nothing but the one placeholder.
 - Text that leaves the screen carries no marks: mail subjects, plain-text mail and exported files
   use `plain_label` on the server; HTML mail uses `html_label`, which isolates with `<bdi>`.
 - Search, pickers and the mail token parser strip pasted marks (`stripIsolates` /
-  `strip_isolates`).
+  `strip_isolates`). Only the isolates (U+2066–U+2069) are stripped, because they are the only
+  marks SupportX writes; never use LRM/RLM (U+200E/U+200F) or the older embeddings and overrides
+  (U+202A–U+202E) in labels or values.
 - `useLabelsIn` returns plain text, because it builds stored names.
 - `rtl-ranges.json` is generated from Python's Unicode data by `backend/tooling/rtl_ranges.py`
   (`make labels-json`).
