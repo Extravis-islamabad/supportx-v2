@@ -21,7 +21,12 @@ from app.modules.integrations.infra.imap import FetchedMessage, MailboxUnavailab
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.integrations.service.fetching import fetch_mailbox
 from app.modules.integrations.service.inbound import NotWaiting, process
-from app.modules.integrations.service.mailboxes import discard_mail, release_mail, waiting_mail
+from app.modules.integrations.service.mailboxes import (
+    discard_mail,
+    list_mailboxes,
+    release_mail,
+    waiting_mail,
+)
 from app.modules.notifications.infra.models import NotificationDelivery
 from app.shared.files.keyring import KeyRing
 from app.shared.mail.infra.models import MailMessage
@@ -29,6 +34,7 @@ from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
     InboundRefused,
+    Replied,
     inbound_target,
     register_inbound_target,
     unregister_inbound_target,
@@ -72,10 +78,10 @@ class FakeIncidents:
 
     async def reply_from_mail(
         self, session: object, record: FoundRecord, **values: object
-    ) -> CreatedRecord | None:
+    ) -> Replied:
         del session
         self.replies.append({"record": record.display_id, **values})
-        return self.follow_up
+        return Replied(entry_id=None, follow_up=self.follow_up)
 
 
 @dataclass
@@ -419,3 +425,70 @@ async def test_a_reply_by_someone_else_can_only_be_discarded(world: World) -> No
     async with world.database.tenant_session(TenantContext(world.tenant)) as session:
         with pytest.raises(NotWaiting):  # twice: someone else was quicker
             await discard_mail(session, world.mailbox, "other@mail.acme.test", admin_id=world.known)
+
+
+async def _held_events(world: World) -> int:
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        return int(
+            await conn.fetchval(
+                "SELECT count(*) FROM outbox_events WHERE event_type = $1 AND aggregate_id = $2",
+                "integrations.mailbox.mail_held",
+                str(world.mailbox),
+            )
+        )
+    finally:
+        await conn.close()
+
+
+async def test_flood_replies_count_are_held_for_review_and_admins_are_told_once(
+    world: World,
+) -> None:
+    """REQ-NTF-023 (product owner, 2026-10-29): over the limit is held, visible, never dropped."""
+    world.incidents.records["INC-7"] = FoundRecord(
+        "incident", uuid.uuid4(), "INC-7", frozenset({world.known})
+    )
+    for _ in range(PER_SENDER_LIMIT):
+        await _process(world, _mail(Subject="Re: [INC-7] Printer jams"))
+    assert len(world.incidents.replies) == PER_SENDER_LIMIT  # replies taken in, and counted
+    # The next reply goes over the limit: held in the review queue, not taken in, not dropped.
+    assert await _process(world, _mail(Subject="Re: [INC-7] still")) is Outcome.HELD
+    assert len(world.incidents.replies) == PER_SENDER_LIMIT
+    assert (await _waiting(world))[-1] == ("held", "sender_rate", True)
+    assert await _held_events(world) == 1  # admins are told once per flood
+    assert await _process(world, _mail(Subject="Re: [INC-7] and again")) is Outcome.HELD
+    assert await _held_events(world) == 1
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        (view,) = [v for v in await list_mailboxes(session) if v.row.id == world.mailbox]
+    assert view.flooding  # the mail page says so (a visible alert, not only a count)
+
+
+async def test_flooding_clears_by_itself_once_the_sender_is_back_under_the_limit(
+    world: World,
+) -> None:
+    """A stuck "flooding" is as misleading as a silent one (coordinator, 2026-10-29)."""
+    for _ in range(PER_SENDER_LIMIT + 1):
+        await _process(world, _mail())
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        (view,) = [v for v in await list_mailboxes(session) if v.row.id == world.mailbox]
+    assert view.flooding
+    signals = await _signals(world)
+    # An hour later the sender is back under the limit; the held mail itself still waits.
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        await conn.execute(
+            "UPDATE mail_fetched SET created_at = created_at - interval '61 minutes'"
+            " WHERE tenant_id = $1",
+            world.tenant,
+        )
+    finally:
+        await conn.close()
+    ring = KeyRing.parse(KeyRing.generate())
+    await fetch_mailbox(
+        world.database, SETTINGS, world.tenant, world.mailbox, ring=ring, reader=FakeReader([])
+    )
+    async with world.database.tenant_session(TenantContext(world.tenant)) as session:
+        (view,) = [v for v in await list_mailboxes(session) if v.row.id == world.mailbox]
+    assert not view.flooding
+    assert view.held == 1  # still in the review queue, never dropped
+    assert await _signals(world) == signals + 1  # the mail page refetches: gone live

@@ -2,8 +2,8 @@
 
 For administrators of an organisation that runs SupportX. D-109 (2).
 
-SupportX can read support mailboxes over IMAP (available now) or, for Microsoft 365 and Google
-Workspace, through the Microsoft Graph and Gmail APIs (coming with WP-024 session 2). The APIs
+SupportX can read support mailboxes over IMAP or, for Microsoft 365 and Google Workspace, through
+the Microsoft Graph and Gmail APIs. The APIs
 need an OAuth app. **You register that app yourself, once per SupportX installation, in your
 own Microsoft or Google admin console.** Your mail then goes straight from Microsoft or Google
 to your SupportX. It never passes through an app or a server run by Extravis, which matters
@@ -16,11 +16,28 @@ support mailbox you allow it to read.
 > They rename things from time to time. If a step looks different, look for the same setting
 > under its new name.
 
+## What SupportX asks for (least privilege)
+
+SupportX reads messages, marks them read, moves them to a folder you choose, or deletes them only
+when you choose that for the mailbox. It never sends mail through these APIs: replies go out
+through your SupportX's outgoing mail settings. These are the only scopes it requests:
+
+| Mailbox | How it signs in | Scopes |
+|---|---|---|
+| Microsoft 365 | App permission (no one signs in, model A) | `https://graph.microsoft.com/.default`, which resolves to the **Mail.ReadWrite** application permission you grant (nothing else) |
+| Microsoft 365 | Signed in as the mailbox (delegated, model B) | `Mail.ReadWrite` and `offline_access` (to stay connected) |
+| Gmail | Signed in as the mailbox | `https://www.googleapis.com/auth/gmail.modify` |
+
+Deleting in Gmail moves the message to Trash (`gmail.modify` cannot erase mail); in Microsoft 365
+it moves to Deleted Items.
+
 ## Before you start
 
 - **The redirect address of your SupportX.** Admin › Mail shows it when you add a Microsoft 365
   or Gmail mailbox, ready to copy. It is your console's address followed by
   `/api/v1/integrations/oauth/callback`.
+- **Your SupportX's key ring.** Secrets, certificates and sign-ins are stored sealed with the
+  installation key ring (`SUPPORTX_FILES_KEYS`), never in clear, and are never shown again.
 - **Who does it.** Registering the app needs an administrator of your Microsoft Entra ID tenant
   (Application Administrator or higher) or of your Google Workspace (Super Admin). Giving
   consent for the whole organisation needs the same roles.
@@ -49,12 +66,15 @@ through Graph: replies go out through your SupportX's outgoing mail settings.
 Prefer a certificate: it cannot be read back the way a secret can.
 
 - **Certificate (recommended):** **Certificates & secrets › Certificates › Upload
-  certificate**. Upload the public part of a certificate your organisation issues. SupportX
-  keeps the private key sealed with its installation key ring.
+  certificate**. Upload the public part of a certificate your organisation issues (RSA). In
+  SupportX, paste the certificate and its private key together, both as PEM. SupportX keeps them
+  sealed, signs each token request with the key, reads the expiry date from the certificate and
+  reminds the mail admins 14 days before it.
 - **Client secret:** **Certificates & secrets › Client secrets › New client secret**. Choose
-  an expiry your policy allows, and copy the **Value** at once (it is shown only once). Put a
-  reminder in your calendar: when it expires, SupportX shows the mailbox as failing with the
-  reason, and mail waits on the server until you add a new secret.
+  an expiry your policy allows, and copy the **Value** at once (it is shown only once). Enter
+  its expiry date in SupportX too: the mail admins are reminded 14 days before. When it expires,
+  SupportX shows the mailbox as failing with the reason, tells the mail admins, and mail waits
+  on the server until you add a new secret.
 
 ### 3. Choose how far the app reaches
 
@@ -88,9 +108,12 @@ application permissions.
 
 ### 4. Connect the mailbox in SupportX
 
-1. Admin › Mail › **Add a mailbox**, then choose Microsoft 365.
-2. Enter the tenant ID, the client ID and the certificate or secret, and the mailbox's address.
-3. Choose **Test**. A working connection says "The mailbox answered". A refusal shows the
+1. Admin › Mail › **Add a mailbox**, kind **Microsoft 365**.
+2. Enter the mailbox's address, the directory (tenant) ID, the application (client) ID, how
+   SupportX signs in (app permission or signed in as the mailbox) and the certificate or secret.
+3. Model B only: choose **Sign in as the mailbox** on the mailbox and sign in with the
+   mailbox's own account. You come back to Admin › Mail, which says whether it worked.
+4. Choose **Test**. A working connection says "The mailbox answered". A refusal shows the
    reason on the page.
 
 ## Google Workspace (Gmail API)
@@ -123,23 +146,29 @@ sends mail through Gmail and never deletes mail unless you choose that for the m
 
 ### 4. Connect the mailbox in SupportX
 
-1. Admin › Mail › **Add a mailbox**, then choose Gmail.
-2. Enter the client ID and secret, then choose **Connect**. A Google sign-in opens: sign in
-   **as the support mailbox's account** and allow access.
+1. Admin › Mail › **Add a mailbox**, kind **Gmail**. Enter the mailbox's address, the client ID
+   and the client secret, and save.
+2. Choose **Sign in as the mailbox**. A Google sign-in opens: sign in **as the support
+   mailbox's account** and allow access. SupportX refuses a sign-in with any other account, so a
+   sign-in never reads someone else's mail. The sign-in link works once, for ten minutes, for the
+   admin who started it.
 3. Choose **Test**.
 
 A Google group's address (a "collaborative inbox") cannot be connected this way, because it
 has no account to sign in as. Use a real account for the support address, or forward the
 group to one.
 
-**Domain-wide delegation** (a service account that can act as any user) also works, but it
-reaches every mailbox in your Workspace. Use it only if your policy requires it, and limit the
-delegation to the `gmail.modify` scope.
+**Domain-wide delegation** (a service account that can act as any user) is not offered: it
+reaches every mailbox in your Workspace.
 
 ## Afterwards
 
 - **Rotate credentials** before they expire. SupportX shows a failing mailbox with its reason,
-  and mail waits on the server, never lost, until it can read again.
+  tells the people who manage mailboxes (in the app and by e-mail, once per new reason), and mail
+  waits on the server, never lost, until it can read again.
+- **Attachments** in support mail are kept on the incident or reply like any upload: the
+  tenant's file size limit and blocked types apply, and files are virus-scanned before anyone
+  can open them. A file that is refused is named on the incident with the reason.
 - **To remove access,** delete the client secret or certificate, or remove the app's consent
   (Microsoft: **Enterprise applications › <app> › Permissions**; Google: **Security › API
   controls › App access control**). Then remove the mailbox in Admin › Mail.

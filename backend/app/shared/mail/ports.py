@@ -53,6 +53,14 @@ class CreatedRecord:
     display_id: str
 
 
+@dataclass(frozen=True)
+class Replied:
+    """A reply taken in: its conversation entry, and the follow-up a late reply started."""
+
+    entry_id: uuid.UUID | None  # where the reply's attachments go; None: on the record
+    follow_up: CreatedRecord | None = None
+
+
 class InboundTarget(Protocol):
     """Registered by the module that owns the records mail turns into."""
 
@@ -89,7 +97,7 @@ class InboundTarget(Protocol):
         body_html: str,
         automatic: bool,
         message_id: str,
-    ) -> CreatedRecord | None:
+    ) -> Replied:
         """The reply on the record; a follow-up record when the record was closed too long."""
         ...
 

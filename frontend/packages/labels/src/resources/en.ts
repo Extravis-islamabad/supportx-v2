@@ -4032,6 +4032,76 @@ export const en = {
   'mailbox_reason.mailbox_no_password': 'No password is stored for this mailbox',
   'mailbox_reason.mailbox_secret_unreadable':
     'The stored password cannot be read (key ring changed?)',
+  'event_type.integrations.mailbox.mail_held': 'Mailbox mail held for review',
+  'notification_event.mailbox.mail_held': 'A sender is flooding a mailbox',
+  'notification_template.mailbox.mail_held.in_app':
+    'Mail to {{ record.title }} is held for review: a sender sent more than 10 messages in an hour',
+  'notification_template.mailbox.mail_held.subject':
+    'Mailbox {{ record.title }}: mail held for review',
+  'notification_template.mailbox.mail_held.body':
+    'Hello {{ recipient.name }},\n\nA sender sent more than 10 messages in an hour to {{ record.title }}, replies included. SupportX holds their further mail instead of creating records, so nothing is lost and no loop runs.\n\nOpen Admin › Mail, review the held messages, and hand them in again or discard them.',
+  'mail.flooding': 'A sender is flooding this mailbox: their mail waits for review',
+  'mail_attachment.not_kept': 'Attachments not kept:',
+  'mail_attachment.too_many': 'more than {{max}} files in one message',
+  'mail_attachment.too_large': 'larger than {{limit_mb}} MB',
+  'mail_attachment.blocked': 'this type of file is not allowed',
+  'mail_attachment.files_not_configured': 'file storage is not set up',
+  'mail_attachment.not_allowed': 'it could not be stored (storage limit or permission)',
+  'mailbox_reason.oauth_not_connected': 'Nobody has signed in as this mailbox yet',
+  'mailbox_reason.oauth_consent_revoked':
+    'The sign-in has expired or was withdrawn: sign in as the mailbox again',
+  'mailbox_reason.oauth_client_rejected':
+    "Microsoft or Google refused the app's secret or certificate (expired or wrong?)",
+  'mailbox_reason.oauth_not_allowed':
+    'The app may not read this mailbox (permission or mailbox scope)',
+  'mailbox_reason.oauth_unreachable': 'Microsoft or Google cannot be reached',
+  'mailbox_reason.oauth_certificate_invalid':
+    'The certificate cannot be used: paste the certificate and its RSA private key (PEM)',
+  'mailbox_reason.oauth_wrong_account':
+    "The sign-in was with another account than the mailbox's own",
+  'mailbox_reason.oauth_consent_expired':
+    'The sign-in took too long or was already used: start it again',
+  'mailbox_reason.oauth_consent_not_yours':
+    'This sign-in was started by someone else or on another address',
+  'mailbox_reason.oauth_consent_declined': 'Access was not allowed on the sign-in page',
+  'mailbox_reason.mailbox_folder_not_found': 'The folder does not exist in this mailbox',
+  'mailbox_reason.mailbox_not_found_at_provider': 'Microsoft or Google does not know this mailbox',
+  'mailbox_reason.mailbox_key_ring_missing':
+    'No installation key ring is configured, so secrets cannot be read',
+  'mailbox_protocol.imap': 'IMAP',
+  'mailbox_protocol.graph': 'Microsoft 365',
+  'mailbox_protocol.gmail': 'Gmail',
+  'mailbox_auth_model.app': 'App permission (no one signs in)',
+  'mailbox_auth_model.delegated': 'Signed in as the mailbox',
+  'mailbox_credential_kind.secret': 'Client secret',
+  'mailbox_credential_kind.certificate': 'Certificate',
+  'errors.mailbox_sign_in_not_needed': 'This mailbox does not need anyone to sign in.',
+  'errors.mailbox_credential_unreadable':
+    "The app's secret or certificate is missing or cannot be read. Enter it again.",
+  'errors.field.mailbox_auth_model_unsupported': 'Not available for this kind of mailbox.',
+  'errors.field.oauth_certificate_invalid':
+    'Paste the certificate and its RSA private key, both as PEM.',
+  'audit.action.mailbox.consent_started': 'Started signing in as a mailbox',
+  'audit.action.mailbox.connected': 'Signed in as a mailbox',
+  'event_type.integrations.mailbox.failing': 'Mailbox failing',
+  'event_type.integrations.mailbox.credential_expiring': 'Mailbox app credential expiring',
+  'notification_event.mailbox.failing': 'Mailbox stopped working',
+  'notification_event.mailbox.credential_expiring': 'Mailbox app secret or certificate expiring',
+  'notification_recipient.mail_admins': 'People who manage mailboxes',
+  'notification_variable.mailbox.address': 'Mailbox › Address',
+  'notification_variable.mailbox.reason': 'Mailbox › Reason',
+  'notification_variable.mailbox.expires_at': 'Mailbox › Credential expires',
+  'notification_template.mailbox.failing.in_app':
+    '{{ record.title }} stopped working: {{ mailbox.reason }}',
+  'notification_template.mailbox.failing.subject': 'Mailbox {{ record.title }} stopped working',
+  'notification_template.mailbox.failing.body':
+    'Hello {{ recipient.name }},\n\nSupportX cannot read {{ record.title }}: {{ mailbox.reason }}.\n\nMail waits on the server until this is fixed. Open Admin › Mail to see the mailbox.',
+  'notification_template.mailbox.credential_expiring.in_app':
+    'The app secret or certificate of {{ record.title }} expires {{ mailbox.expires_at }}',
+  'notification_template.mailbox.credential_expiring.subject':
+    'Mailbox {{ record.title }}: app credential expires soon',
+  'notification_template.mailbox.credential_expiring.body':
+    'Hello {{ recipient.name }},\n\nThe secret or certificate SupportX uses to read {{ record.title }} expires {{ mailbox.expires_at }}. Add a new one in your Microsoft or Google admin console, then enter it in Admin › Mail, so mail keeps arriving.',
   'mailbox_answer.unknown_sender.subject': 'Re: {{subject}}',
   'mailbox_answer.unknown_sender.body':
     'Thank you for your message. {{address}} only takes requests from people we know, so nothing was created. Please ask your IT team to add you, or write from your work address.',
@@ -4081,6 +4151,33 @@ export const en = {
   'mail.field.allowed_domains_hint':
     'For example acme.com. Senders from these domains are added as requesters who cannot sign in.',
   'mail.field.enabled': 'Read this mailbox',
+  'mail.field.protocol': 'Kind of mailbox',
+  'mail.field.directory_id': 'Directory (tenant) ID',
+  'mail.field.client_id': 'Application (client) ID',
+  'mail.field.auth_model': 'How SupportX signs in',
+  'mail.field.auth_model_hint_app':
+    'Recommended. Limit the app to the support mailboxes in Exchange Online (RBAC for Applications).',
+  'mail.field.auth_model_hint_delegated':
+    "Someone signs in once as the mailbox's own account. Not for shared mailboxes.",
+  'mail.field.credential_kind': 'App credential',
+  'mail.field.client_secret': 'Client secret',
+  'mail.field.certificate': 'Certificate and private key (PEM)',
+  'mail.field.certificate_hint':
+    'Paste the certificate and its RSA private key. The key is stored sealed and never shown again.',
+  'mail.field.client_secret_keep': 'Leave empty to keep the stored one.',
+  'mail.field.credential_expires_at': 'Secret expires (optional)',
+  'mail.field.credential_expires_at_hint': 'SupportX reminds the mail admins 14 days before.',
+  'mail.oauth.intro_graph':
+    "Uses your organisation's own app in Microsoft Entra. The admin guide explains each step.",
+  'mail.oauth.intro_gmail':
+    "Uses your organisation's own OAuth client in Google Cloud. The admin guide explains each step.",
+  'mail.oauth.redirect': 'Redirect address to register in your app',
+  'mail.oauth.sign_in': 'Sign in as the mailbox',
+  'mail.oauth.sign_in_again': 'Sign in again',
+  'mail.oauth.not_signed_in': 'Waiting for someone to sign in as the mailbox',
+  'mail.oauth.signed_in': 'Signed in. The mailbox is read at the next check.',
+  'mail.oauth.sign_in_failed': 'The sign-in did not work: {{reason}}.',
+  'mail.oauth.credential_expires': "The app's secret or certificate expires {{when}}",
   'audit.action.mailbox.mail_released': 'Handed in held mail again',
   'audit.action.mailbox.mail_discarded': 'Discarded held mail',
   'errors.mail_not_waiting': 'This message is no longer waiting: someone handled it already.',

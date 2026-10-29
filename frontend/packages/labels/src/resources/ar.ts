@@ -4092,6 +4092,75 @@ export const ar: LabelResource = {
   'mailbox_reason.mailbox_no_password': 'لا توجد كلمة مرور محفوظة لصندوق البريد هذا',
   'mailbox_reason.mailbox_secret_unreadable':
     'تعذّرت قراءة كلمة المرور المحفوظة (تغيّرت حلقة المفاتيح؟)',
+  'event_type.integrations.mailbox.mail_held': 'بريد محتجز للمراجعة في صندوق البريد',
+  'notification_event.mailbox.mail_held': 'مُرسِل يُغرق صندوق بريد بالرسائل',
+  'notification_template.mailbox.mail_held.in_app':
+    'البريد الوارد إلى {{ record.title }} محتجز للمراجعة: أرسل مُرسِل أكثر من 10 رسائل خلال ساعة',
+  'notification_template.mailbox.mail_held.subject':
+    'صندوق البريد {{ record.title }}: بريد محتجز للمراجعة',
+  'notification_template.mailbox.mail_held.body':
+    'مرحبًا {{ recipient.name }}،\n\nأرسل مُرسِل أكثر من 10 رسائل خلال ساعة إلى {{ record.title }}، بما فيها الردود. يحتجز SupportX بريده التالي بدل إنشاء سجلات، فلا يضيع شيء ولا تحدث حلقة.\n\nافتح الإدارة › البريد، وراجع الرسائل المحتجزة، ثم أعد إدخالها أو تجاهلها.',
+  'mail.flooding': 'مُرسِل يُغرق صندوق البريد هذا: بريده بانتظار المراجعة',
+  'mail_attachment.not_kept': 'مرفقات لم تُحفظ:',
+  'mail_attachment.too_many': 'عدد الملفات في الرسالة يتجاوز الحدّ ({{max}})',
+  'mail_attachment.too_large': 'أكبر من {{limit_mb}} ميغابايت',
+  'mail_attachment.blocked': 'هذا النوع من الملفات غير مسموح به',
+  'mail_attachment.files_not_configured': 'تخزين الملفات غير مُعدّ',
+  'mail_attachment.not_allowed': 'تعذّر حفظه (حدّ التخزين أو الصلاحية)',
+  'mailbox_reason.oauth_not_connected': 'لم يسجّل أحد الدخول بحساب صندوق البريد هذا بعد',
+  'mailbox_reason.oauth_consent_revoked':
+    'انتهت صلاحية تسجيل الدخول أو سُحبت: سجّل الدخول بحساب صندوق البريد مرة أخرى',
+  'mailbox_reason.oauth_client_rejected':
+    'رفضت Microsoft أو Google سرّ التطبيق أو شهادته (منتهية الصلاحية أو غير صحيحة؟)',
+  'mailbox_reason.oauth_not_allowed':
+    'لا يُسمح للتطبيق بقراءة صندوق البريد هذا (الصلاحية أو نطاق صناديق البريد)',
+  'mailbox_reason.oauth_unreachable': 'تعذّر الوصول إلى Microsoft أو Google',
+  'mailbox_reason.oauth_certificate_invalid':
+    'تعذّر استخدام الشهادة: الصق الشهادة ومفتاحها الخاص RSA بصيغة PEM',
+  'mailbox_reason.oauth_wrong_account': 'تم تسجيل الدخول بحساب غير حساب صندوق البريد نفسه',
+  'mailbox_reason.oauth_consent_expired':
+    'استغرق تسجيل الدخول وقتًا طويلًا أو استُخدم من قبل: ابدأه من جديد',
+  'mailbox_reason.oauth_consent_not_yours': 'بدأ شخص آخر تسجيل الدخول هذا أو بدأه على عنوان آخر',
+  'mailbox_reason.oauth_consent_declined': 'لم يُسمح بالوصول في صفحة تسجيل الدخول',
+  'mailbox_reason.mailbox_folder_not_found': 'المجلد غير موجود في صندوق البريد هذا',
+  'mailbox_reason.mailbox_not_found_at_provider': 'لا تعرف Microsoft أو Google صندوق البريد هذا',
+  'mailbox_reason.mailbox_key_ring_missing':
+    'لم تُضبط حلقة مفاتيح التثبيت، لذا لا يمكن قراءة الأسرار',
+  'mailbox_protocol.imap': 'IMAP',
+  'mailbox_protocol.graph': 'Microsoft 365',
+  'mailbox_protocol.gmail': 'Gmail',
+  'mailbox_auth_model.app': 'صلاحية التطبيق (لا يسجّل أحد الدخول)',
+  'mailbox_auth_model.delegated': 'بتسجيل الدخول بحساب صندوق البريد',
+  'mailbox_credential_kind.secret': 'سرّ العميل',
+  'mailbox_credential_kind.certificate': 'شهادة',
+  'errors.mailbox_sign_in_not_needed': 'لا يحتاج صندوق البريد هذا إلى تسجيل دخول أحد.',
+  'errors.mailbox_credential_unreadable':
+    'سرّ التطبيق أو شهادته مفقود أو تتعذّر قراءته. أدخله مرة أخرى.',
+  'errors.field.mailbox_auth_model_unsupported': 'غير متاح لهذا النوع من صناديق البريد.',
+  'errors.field.oauth_certificate_invalid': 'الصق الشهادة ومفتاحها الخاص RSA، كلاهما بصيغة PEM.',
+  'audit.action.mailbox.consent_started': 'بدأ تسجيل الدخول بحساب صندوق بريد',
+  'audit.action.mailbox.connected': 'سجّل الدخول بحساب صندوق بريد',
+  'event_type.integrations.mailbox.failing': 'صندوق البريد لا يعمل',
+  'event_type.integrations.mailbox.credential_expiring':
+    'بيانات اعتماد تطبيق صندوق البريد على وشك الانتهاء',
+  'notification_event.mailbox.failing': 'توقف صندوق البريد عن العمل',
+  'notification_event.mailbox.credential_expiring':
+    'سرّ تطبيق صندوق البريد أو شهادته على وشك الانتهاء',
+  'notification_recipient.mail_admins': 'من يديرون صناديق البريد',
+  'notification_variable.mailbox.address': 'صندوق البريد › العنوان',
+  'notification_variable.mailbox.reason': 'صندوق البريد › السبب',
+  'notification_variable.mailbox.expires_at': 'صندوق البريد › تنتهي بيانات الاعتماد',
+  'notification_template.mailbox.failing.in_app':
+    'توقف {{ record.title }} عن العمل: {{ mailbox.reason }}',
+  'notification_template.mailbox.failing.subject': 'توقف صندوق البريد {{ record.title }} عن العمل',
+  'notification_template.mailbox.failing.body':
+    'مرحبًا {{ recipient.name }}،\n\nلا يستطيع SupportX قراءة {{ record.title }}: {{ mailbox.reason }}.\n\nيبقى البريد على الخادم حتى يُصلح ذلك. افتح الإدارة › البريد لرؤية صندوق البريد.',
+  'notification_template.mailbox.credential_expiring.in_app':
+    'ينتهي سرّ تطبيق {{ record.title }} أو شهادته في {{ mailbox.expires_at }}',
+  'notification_template.mailbox.credential_expiring.subject':
+    'صندوق البريد {{ record.title }}: تنتهي بيانات اعتماد التطبيق قريبًا',
+  'notification_template.mailbox.credential_expiring.body':
+    'مرحبًا {{ recipient.name }}،\n\nينتهي السرّ أو الشهادة التي يستخدمها SupportX لقراءة {{ record.title }} في {{ mailbox.expires_at }}. أضف واحدًا جديدًا في وحدة تحكم المسؤول لدى Microsoft أو Google، ثم أدخله في الإدارة › البريد ليستمر وصول البريد.',
   'mailbox_answer.unknown_sender.subject': 'رد: {{subject}}',
   'mailbox_answer.unknown_sender.body':
     'شكرًا لرسالتك. لا يستقبل {{address}} الطلبات إلا من أشخاص نعرفهم، لذلك لم يُنشأ شيء. يُرجى أن تطلب من فريق تقنية المعلومات إضافتك، أو أن تكتب من عنوان عملك.',
@@ -4140,6 +4209,32 @@ export const ar: LabelResource = {
   'mail.field.allowed_domains_hint':
     'مثل acme.com. يُضاف المرسلون من هذه النطاقات كمقدّمي طلبات لا يمكنهم تسجيل الدخول.',
   'mail.field.enabled': 'قراءة صندوق البريد هذا',
+  'mail.field.protocol': 'نوع صندوق البريد',
+  'mail.field.directory_id': 'معرّف الدليل (المستأجر)',
+  'mail.field.client_id': 'معرّف التطبيق (العميل)',
+  'mail.field.auth_model': 'طريقة تسجيل دخول SupportX',
+  'mail.field.auth_model_hint_app':
+    'موصى به. اقصر التطبيق على صناديق بريد الدعم في Exchange Online (RBAC للتطبيقات).',
+  'mail.field.auth_model_hint_delegated':
+    'يسجّل شخص الدخول مرة واحدة بحساب صندوق البريد نفسه. غير مناسب لصناديق البريد المشتركة.',
+  'mail.field.credential_kind': 'بيانات اعتماد التطبيق',
+  'mail.field.client_secret': 'سرّ العميل',
+  'mail.field.certificate': 'الشهادة والمفتاح الخاص (PEM)',
+  'mail.field.certificate_hint':
+    'الصق الشهادة ومفتاحها الخاص RSA. يُحفظ المفتاح مختومًا ولا يُعرض مرة أخرى.',
+  'mail.field.client_secret_keep': 'اتركه فارغًا للإبقاء على المحفوظ.',
+  'mail.field.credential_expires_at': 'تاريخ انتهاء السرّ (اختياري)',
+  'mail.field.credential_expires_at_hint': 'يذكّر SupportX مسؤولي البريد قبل 14 يومًا.',
+  'mail.oauth.intro_graph': 'يستخدم تطبيق مؤسستك في Microsoft Entra. يشرح دليل المسؤول كل خطوة.',
+  'mail.oauth.intro_gmail':
+    'يستخدم عميل OAuth الخاص بمؤسستك في Google Cloud. يشرح دليل المسؤول كل خطوة.',
+  'mail.oauth.redirect': 'عنوان إعادة التوجيه الذي يُسجَّل في تطبيقك',
+  'mail.oauth.sign_in': 'تسجيل الدخول بحساب صندوق البريد',
+  'mail.oauth.sign_in_again': 'تسجيل الدخول مرة أخرى',
+  'mail.oauth.not_signed_in': 'بانتظار تسجيل الدخول بحساب صندوق البريد',
+  'mail.oauth.signed_in': 'تم تسجيل الدخول. سيُقرأ صندوق البريد في الفحص التالي.',
+  'mail.oauth.sign_in_failed': 'لم ينجح تسجيل الدخول: {{reason}}.',
+  'mail.oauth.credential_expires': 'ينتهي سرّ التطبيق أو شهادته في {{when}}',
   'mail.held_zero': 'لا توجد رسائل تنتظر مسؤولًا',
   'mail.held_two': 'رسالتان تنتظران مسؤولًا',
   'mail.held_few': '{{count}} رسائل تنتظر مسؤولًا',

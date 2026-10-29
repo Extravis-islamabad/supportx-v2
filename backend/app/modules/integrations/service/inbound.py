@@ -15,7 +15,7 @@ The caller marks the message on the mail server only after this transaction comm
 """
 
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 
 from markupsafe import Markup, escape
@@ -32,6 +32,7 @@ from app.modules.identity_access import (
     person_by_email,
 )
 from app.modules.integrations.domain.mailboxes import (
+    PER_SENDER_LIMIT,
     WAITING,
     MailboxCreates,
     MailboxRules,
@@ -40,8 +41,12 @@ from app.modules.integrations.domain.mailboxes import (
     releasable,
     route,
 )
+from app.modules.integrations.events import MailboxMailHeld
 from app.modules.integrations.infra.models import Mailbox, MailFetched
+from app.modules.integrations.service import attachments
 from app.modules.notifications import records_for_mail
+from app.shared.events import record_event
+from app.shared.files.ports import OwnerType
 from app.shared.labels import label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text
@@ -93,7 +98,54 @@ async def _claim(session: AsyncSession, mailbox: Mailbox, message: InboundMessag
     return bool(getattr(result, "rowcount", 0))
 
 
+FLOOD = "sender_rate"
+
+
+async def _flood_starts(session: AsyncSession, message: InboundMessage) -> bool:
+    """Whether this is the sender's first message held for flooding within the hour."""
+    since = datetime.now(UTC) - timedelta(hours=1)
+    earlier = await session.scalar(
+        select(func.count())
+        .select_from(MailFetched)
+        .where(
+            MailFetched.sender == message.sender,
+            MailFetched.reason == FLOOD,
+            MailFetched.created_at >= since,
+            MailFetched.message_id != message.message_id[:500],
+        )
+    )
+    return not earlier
+
+
+async def flood_over(session: AsyncSession, mailbox_id: uuid.UUID) -> bool:
+    """Whether every sender held for flooding this mailbox is back under the limit."""
+    since = datetime.now(UTC) - timedelta(hours=1)
+    flooders = (
+        select(MailFetched.sender)
+        .where(
+            MailFetched.mailbox_id == mailbox_id,
+            MailFetched.reason == FLOOD,
+            MailFetched.created_at >= since,
+        )
+        .distinct()
+    )
+    still = await session.scalar(
+        select(func.count()).select_from(
+            select(MailFetched.sender)
+            .where(MailFetched.sender.in_(flooders), MailFetched.created_at >= since)
+            .group_by(MailFetched.sender)
+            .having(func.count() >= PER_SENDER_LIMIT)
+            .subquery()
+        )
+    )
+    return not still
+
+
 async def _recent(session: AsyncSession, sender: str) -> int:
+    """Messages from `sender` in the last hour (REQ-NTF-023).
+
+    Replies and automatic mail count too (product owner, 2026-10-29).
+    """
     since = datetime.now(UTC) - timedelta(hours=1)
     return int(
         await session.scalar(
@@ -165,10 +217,19 @@ async def _finish(  # noqa: PLR0913 - the ledger row's result, explicit
 @dataclass(frozen=True)
 class _Context:
     session: AsyncSession
+    settings: Settings
     mailbox: Mailbox
     message: InboundMessage
     target: InboundTarget
     sender_id: uuid.UUID | None
+    # Attachments refused only when stored (quota, permission): kept on the ledger row.
+    not_kept: list[attachments.NotKept] = field(default_factory=list)
+
+    def ledger_params(self) -> dict[str, str]:
+        """The ledger row's params: which attachments could not be kept, if any."""
+        if not self.not_kept:
+            return {}
+        return {"not_kept": ", ".join(item.name for item in self.not_kept)[:500]}
 
 
 async def _automatic(ctx: _Context, found: FoundRecord, reason: str | None) -> Outcome:
@@ -194,13 +255,26 @@ async def _reply(ctx: _Context, settings: Settings, found: FoundRecord) -> Outco
         return await _finish(
             ctx.session, ctx.mailbox, ctx.message, Outcome.HELD, reason="not_requester"
         )
-    follow_up = await ctx.target.reply_from_mail(
+    screened = await attachments.screen(ctx.session, ctx.message.attachments)
+    language = await attachments.language_of(ctx.session, ctx.sender_id)
+    replied = await ctx.target.reply_from_mail(
         ctx.session,
         found,
         author_id=ctx.sender_id,
-        body_html=body_html(reply_text(ctx.message.text)),
+        body_html=body_html(reply_text(ctx.message.text))
+        + attachments.not_kept_html(screened.not_kept, language),
         automatic=False,
         message_id=ctx.message.message_id,
+    )
+    follow_up = replied.follow_up
+    await _keep_files(
+        ctx,
+        screened,
+        owner=(
+            (OwnerType.CONVERSATION_ENTRY, replied.entry_id)
+            if replied.entry_id is not None
+            else (OwnerType.WORK_ITEM, (follow_up or found).record_id)
+        ),
     )
     if follow_up is not None:
         # Too late to reopen: a new incident follows the closed one; the sender learns its ID,
@@ -212,8 +286,31 @@ async def _reply(ctx: _Context, settings: Settings, found: FoundRecord) -> Outco
     record = follow_up or found
     return await _finish(
         ctx.session, ctx.mailbox, ctx.message, Outcome.REPLIED,
-        record=(record.record_type, record.record_id),
+        record=(record.record_type, record.record_id), params=ctx.ledger_params(),
     )  # fmt: skip
+
+
+async def _keep_files(
+    ctx: _Context,
+    screened: attachments.Screened,
+    *,
+    owner: tuple[OwnerType, uuid.UUID],
+    person: uuid.UUID | None = None,
+) -> None:
+    """Store the screened attachments as the sender; a late refusal is noted on the ledger row."""
+    sender = person or ctx.sender_id
+    if sender is None or not screened.keep:
+        return
+    refused = await attachments.keep(
+        ctx.session,
+        ctx.settings,
+        screened.keep,
+        sender_id=sender,
+        owner_type=owner[0],
+        owner_id=owner[1],
+    )
+    if refused:
+        ctx.not_kept.extend(refused)
 
 
 async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
@@ -227,17 +324,23 @@ async def _create(ctx: _Context, *, create_requester: bool) -> Outcome:
         return await _finish(
             ctx.session, ctx.mailbox, ctx.message, Outcome.REJECTED, reason="unknown_sender"
         )
+    screened = await attachments.screen(ctx.session, ctx.message.attachments)
+    language = await attachments.language_of(ctx.session, requester)
     created = await ctx.target.create_from_mail(
         ctx.session,
         requester_id=requester,
         subject=ctx.message.subject or _first_line(ctx.message.text),
-        body_html=body_html(ctx.message.text),
+        body_html=body_html(ctx.message.text)
+        + attachments.not_kept_html(screened.not_kept, language),
         group_id=ctx.mailbox.group_id,
         message_id=ctx.message.message_id,
     )
+    await _keep_files(
+        ctx, screened, owner=(OwnerType.WORK_ITEM, created.record_id), person=requester
+    )
     return await _finish(
         ctx.session, ctx.mailbox, ctx.message, Outcome.CREATED,
-        record=(created.record_type, created.record_id),
+        record=(created.record_type, created.record_id), params=ctx.ledger_params(),
     )  # fmt: skip
 
 
@@ -275,10 +378,20 @@ async def _handle(  # noqa: PLR0913 - one return per outcome of the module docst
     )
     if target is None:
         return await _finish(session, mailbox, message, Outcome.HELD, reason="no_target")
-    ctx = _Context(session, mailbox, message, target, sender_id)
+    ctx = _Context(session, settings, mailbox, message, target, sender_id)
     if decision.outcome is Outcome.AUTOMATIC and found is not None:
         return await _automatic(ctx, found, decision.reason)
     if decision.outcome not in (Outcome.CREATED, Outcome.REPLIED):
+        if decision.reason == FLOOD:
+            mailbox.flooding = True  # the mail page says so until the flood is over
+        if decision.reason == FLOOD and await _flood_starts(session, message):
+            # Never silent (product owner, 2026-10-29): admins are told once per flood.
+            await record_event(
+                session,
+                MailboxMailHeld(mailbox_id=mailbox.id, reason=FLOOD),
+                aggregate_id=mailbox.id,
+                aggregate_version=mailbox.version,
+            )
         if decision.outcome is Outcome.REJECTED:
             await _answer(session, settings, mailbox, message, f"mailbox_answer.{decision.reason}")
         return await _finish(session, mailbox, message, decision.outcome, reason=decision.reason)

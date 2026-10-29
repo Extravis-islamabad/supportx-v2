@@ -126,6 +126,14 @@ class Settings(BaseSettings):
     mail_max_attempts: int = Field(default=5, ge=1, le=20)
     # Bodies and attachments are personal data: cleared this long after sending or failing.
     mail_content_retention_days: int = Field(default=30, ge=1, le=3650)
+    # Microsoft 365 and Gmail mailboxes (WP-024 session 2): where the providers answer. The
+    # defaults are the public clouds; a sovereign cloud (e.g. Microsoft's national clouds)
+    # changes them. Air-gapped installations read mail over IMAP only (D-109 (2)).
+    mail_microsoft_login_url: str = "https://login.microsoftonline.com"
+    mail_graph_url: str = "https://graph.microsoft.com/v1.0"
+    mail_google_authorize_url: str = "https://accounts.google.com/o/oauth2/v2/auth"
+    mail_google_token_url: str = "https://oauth2.googleapis.com/token"  # noqa: S105 - a URL
+    mail_gmail_url: str = "https://gmail.googleapis.com/gmail/v1"
     # Public base URLs of the two UIs. They may carry a path: in Kubernetes both share one host,
     # the portal under /portal (WP-014, D3). The OIDC callback is <origin>/api/v1/auth/callback
     # (same origin as the UI, D-009); after login the browser lands on the returnTo path, else on

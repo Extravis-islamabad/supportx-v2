@@ -18,6 +18,7 @@ For each fetched message, in this order:
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import StrEnum
 
 PER_SENDER_LIMIT = 10  # messages per address per hour before holding (proposed default)
@@ -29,6 +30,30 @@ class MailboxProtocol(StrEnum):
     """How a mailbox is read."""
 
     IMAP = "imap"
+    GRAPH = "graph"  # Microsoft 365 through Microsoft Graph (OAuth 2.0, D-109 (2))
+    GMAIL = "gmail"  # Google Workspace through the Gmail API (OAuth 2.0)
+
+
+class AuthModel(StrEnum):
+    """How an API mailbox signs in (docs/guides/mail-oauth-apps.md)."""
+
+    APP = "app"  # Graph application permission: no one signs in (model A)
+    DELEGATED = "delegated"  # someone signs in as the mailbox once; a refresh token is kept
+
+
+class CredentialKind(StrEnum):
+    """What proves the customer's OAuth app (client) to Microsoft or Google."""
+
+    SECRET = "secret"  # noqa: S105 - a kind of credential, not a password
+    CERTIFICATE = "certificate"  # Microsoft only: a private key signs each token request
+
+
+# Least privilege (D-109 (2), listed in docs/guides/mail-oauth-apps.md): read, mark and move mail.
+# Never sending, never full mailbox access.
+GRAPH_APP_SCOPES = ("https://graph.microsoft.com/.default",)  # the app's granted Mail.ReadWrite
+GRAPH_DELEGATED_SCOPES = ("offline_access", "https://graph.microsoft.com/Mail.ReadWrite")
+GMAIL_SCOPES = ("https://www.googleapis.com/auth/gmail.modify",)
+CREDENTIAL_WARNING_DAYS = 14  # an expiring client secret or certificate is announced this early
 
 
 class ConnectionSecurity(StrEnum):
@@ -153,6 +178,58 @@ def route(  # noqa: PLR0911, PLR0913 - one decision per rule in the module docst
     if policy is UnknownSenders.CREATE_ALLOWED_DOMAINS and domain_of(sender) in allowed:
         return Routing(Outcome.CREATED, create_requester=True)
     return Routing(Outcome.REJECTED, "unknown_sender")
+
+
+def oauth_problems(  # noqa: PLR0913 - one check per field, explicit
+    protocol: MailboxProtocol,
+    *,
+    auth_model: AuthModel | None,
+    credential_kind: CredentialKind | None,
+    client_id: str | None,
+    directory_id: str | None,
+    has_credential: bool,
+) -> list[tuple[str, str]]:
+    """(field, code) problems of an API mailbox's sign-in settings; none for IMAP."""
+    if protocol is MailboxProtocol.IMAP:
+        return []
+    problems: list[tuple[str, str]] = []
+    if not client_id:
+        problems.append(("client_id", "required"))
+    if not has_credential:
+        problems.append(("client_secret", "required"))
+    if protocol is MailboxProtocol.GRAPH:
+        if not directory_id:
+            problems.append(("directory_id", "required"))
+        if auth_model is None:
+            problems.append(("auth_model", "required"))
+    elif auth_model is AuthModel.APP:
+        # Gmail without someone signing in needs domain-wide delegation, not offered (it reaches
+        # every mailbox of the Workspace).
+        problems.append(("auth_model", "mailbox_auth_model_unsupported"))
+    if protocol is MailboxProtocol.GMAIL and credential_kind is CredentialKind.CERTIFICATE:
+        problems.append(("credential_kind", "mailbox_auth_model_unsupported"))
+    return problems
+
+
+def scopes_for(protocol: MailboxProtocol, auth_model: AuthModel) -> tuple[str, ...]:
+    """The OAuth scopes SupportX asks for: the least that reads, marks and moves mail."""
+    if protocol is MailboxProtocol.GMAIL:
+        return GMAIL_SCOPES
+    return GRAPH_APP_SCOPES if auth_model is AuthModel.APP else GRAPH_DELEGATED_SCOPES
+
+
+def needs_sign_in(protocol: MailboxProtocol, auth_model: AuthModel | None) -> bool:
+    """Whether someone must sign in as the mailbox (a consent screen) before it can be read."""
+    return protocol is not MailboxProtocol.IMAP and auth_model is not AuthModel.APP
+
+
+def credential_warning_due(
+    expires_at: datetime | None, warned_at: datetime | None, now: datetime
+) -> bool:
+    """Whether to announce an expiring credential now (once per expiry date)."""
+    if expires_at is None or expires_at - now > timedelta(days=CREDENTIAL_WARNING_DAYS):
+        return False
+    return warned_at is None or warned_at < expires_at - timedelta(days=CREDENTIAL_WARNING_DAYS)
 
 
 def check_security(security: ConnectionSecurity, *, allow_plain: bool) -> list[str]:

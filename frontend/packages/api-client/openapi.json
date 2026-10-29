@@ -3088,6 +3088,15 @@
         "title": "AuditStatusOut",
         "type": "object"
       },
+      "AuthModel": {
+        "description": "How an API mailbox signs in (docs/guides/mail-oauth-apps.md).",
+        "enum": [
+          "app",
+          "delegated"
+        ],
+        "title": "AuthModel",
+        "type": "string"
+      },
       "AutomationRunOut": {
         "description": "One automation step on the record: names, codes and outcomes, never values.",
         "properties": {
@@ -4026,8 +4035,20 @@
       },
       "ConnectionTestIn": {
         "additionalProperties": false,
-        "description": "Settings to try (a new password, or the stored one when left out).",
+        "description": "A new password or client secret to try, or the stored one when left out.",
         "properties": {
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "password": {
             "anyOf": [
               {
@@ -4338,6 +4359,15 @@
         ],
         "title": "CounterOut",
         "type": "object"
+      },
+      "CredentialKind": {
+        "description": "What proves the customer's OAuth app (client) to Microsoft or Google.",
+        "enum": [
+          "secret",
+          "certificate"
+        ],
+        "title": "CredentialKind",
+        "type": "string"
       },
       "CustomFieldChoiceIO": {
         "additionalProperties": false,
@@ -8457,7 +8487,7 @@
       },
       "MailboxIn": {
         "additionalProperties": false,
-        "description": "A new mailbox.",
+        "description": "A new mailbox: IMAP (server, account, password) or Microsoft 365 / Gmail (OAuth app).",
         "properties": {
           "address": {
             "maxLength": 320,
@@ -8502,6 +8532,44 @@
             ],
             "title": "Allowed Domains"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft 365: app (no one signs in) or delegated. Gmail: delegated."
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The OAuth app's secret, or its certificate and private key (PEM). Sealed.",
+            "title": "Client Secret"
+          },
           "creates": {
             "anyOf": [
               {
@@ -8511,6 +8579,43 @@
                 "type": "null"
               }
             ]
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the client secret expires (read from a certificate); warned ahead.",
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft Entra tenant ID.",
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -8561,10 +8666,17 @@
             "title": "Group Id"
           },
           "host": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
           },
           "move_to": {
             "anyOf": [
@@ -8579,18 +8691,36 @@
             "title": "Move To"
           },
           "password": {
-            "description": "Stored sealed; never shown.",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IMAP. Stored sealed; never shown.",
+            "title": "Password"
           },
           "port": {
-            "default": 993,
-            "maximum": 65535.0,
-            "minimum": 1.0,
-            "title": "Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IMAP: 993 when left out.",
+            "title": "Port"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/MailboxProtocol",
+            "default": "imap"
           },
           "security": {
             "anyOf": [
@@ -8613,17 +8743,21 @@
             ]
           },
           "username": {
-            "maxLength": 320,
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
         "required": [
-          "host",
-          "username",
-          "address",
-          "password"
+          "address"
         ],
         "title": "MailboxIn",
         "type": "object"
@@ -8649,8 +8783,62 @@
             "title": "Allowed Domains",
             "type": "array"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
           "creates": {
             "$ref": "#/components/schemas/MailboxCreates"
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -8665,6 +8853,11 @@
           },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "flooding": {
+            "description": "A sender went over the flood limit; their mail waits in the review queue.",
+            "title": "Flooding",
             "type": "boolean"
           },
           "folder": {
@@ -8684,6 +8877,7 @@
             "title": "Group Id"
           },
           "has_password": {
+            "description": "A password or client secret is stored.",
             "title": "Has Password",
             "type": "boolean"
           },
@@ -8693,8 +8887,15 @@
             "type": "integer"
           },
           "host": {
-            "title": "Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
           },
           "id": {
             "format": "uuid",
@@ -8724,12 +8925,32 @@
             ],
             "title": "Move To"
           },
+          "needs_sign_in": {
+            "description": "Someone must sign in as the mailbox (consent).",
+            "title": "Needs Sign In",
+            "type": "boolean"
+          },
           "port": {
-            "title": "Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/MailboxProtocol"
           },
           "security": {
             "$ref": "#/components/schemas/ConnectionSecurity"
+          },
+          "signed_in": {
+            "description": "A sign-in (refresh token) is stored.",
+            "title": "Signed In",
+            "type": "boolean"
           },
           "state": {
             "$ref": "#/components/schemas/MailboxState"
@@ -8750,8 +8971,15 @@
             "$ref": "#/components/schemas/UnknownSenders"
           },
           "username": {
-            "title": "Username",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "version": {
             "title": "Version",
@@ -8762,12 +8990,20 @@
           "id",
           "address",
           "display_name",
+          "protocol",
           "host",
           "port",
           "security",
           "allow_plain",
           "username",
           "has_password",
+          "auth_model",
+          "client_id",
+          "directory_id",
+          "credential_kind",
+          "credential_expires_at",
+          "needs_sign_in",
+          "signed_in",
           "folder",
           "after_fetch",
           "move_to",
@@ -8780,6 +9016,7 @@
           "state_reason",
           "last_fetch_at",
           "held",
+          "flooding",
           "version"
         ],
         "title": "MailboxOut",
@@ -8787,7 +9024,7 @@
       },
       "MailboxPatch": {
         "additionalProperties": false,
-        "description": "Fields to change; a password replaces the stored one.",
+        "description": "Fields to change; a password or client secret replaces the stored one.",
         "properties": {
           "after_fetch": {
             "anyOf": [
@@ -8826,6 +9063,43 @@
             ],
             "title": "Allowed Domains"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft 365: app (no one signs in) or delegated. Gmail: delegated."
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "creates": {
             "anyOf": [
               {
@@ -8835,6 +9109,43 @@
                 "type": "null"
               }
             ]
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the client secret expires (read from a certificate); warned ahead.",
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft Entra tenant ID.",
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -8970,6 +9281,30 @@
           }
         },
         "title": "MailboxPatch",
+        "type": "object"
+      },
+      "MailboxProtocol": {
+        "description": "How a mailbox is read.",
+        "enum": [
+          "imap",
+          "graph",
+          "gmail"
+        ],
+        "title": "MailboxProtocol",
+        "type": "string"
+      },
+      "MailboxSignInOut": {
+        "description": "Where to send the browser: Microsoft's or Google's sign-in, for the mailbox's account.",
+        "properties": {
+          "authorize_url": {
+            "title": "Authorize Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url"
+        ],
+        "title": "MailboxSignInOut",
         "type": "object"
       },
       "MailboxState": {
@@ -38454,6 +38789,100 @@
         ]
       }
     },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/sign-in": {
+      "post": {
+        "description": "Gmail, and Microsoft 365 with delegated permission. Valid ten minutes, for you only.",
+        "operationId": "start_sign_in_api_v1_integrations_mailboxes__mailbox_id__sign_in_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSignInOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Start signing in as the mailbox (consent)",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
       "post": {
         "description": "Connects and looks for new mail; changes nothing on the server or here.",
@@ -38832,6 +39261,88 @@
           }
         },
         "summary": "Hand a held message in again",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/oauth/callback": {
+      "get": {
+        "description": "Stores the sign-in and returns to Admin > Mail, which shows the result.\n\nThe authorization code and state are never logged (see app.core.logging's query redaction).",
+        "operationId": "sign_in_callback_api_v1_integrations_oauth_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Microsoft or Google sends the admin back here",
         "tags": [
           "integrations"
         ]
