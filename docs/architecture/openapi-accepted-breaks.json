@@ -43,6 +43,66 @@
       "decision": "D-095",
       "date": "2026-10-28",
       "why": "Worker resilience (must-fix before the pilot): a check's reason gains disconnected and backlog; the map of checks is otherwise unchanged."
+    },
+    {
+      "break": "GET /api/v1/integrations/mailboxes 200: response[].host changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "GET /api/v1/integrations/mailboxes 200: response[].port changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "GET /api/v1/integrations/mailboxes 200: response[].username changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "POST /api/v1/integrations/mailboxes: body.port changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: the IMAP port is optional on create (993 when left out) and absent for Microsoft 365 and Gmail mailboxes."
+    },
+    {
+      "break": "POST /api/v1/integrations/mailboxes 201: response.host changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "POST /api/v1/integrations/mailboxes 201: response.port changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "POST /api/v1/integrations/mailboxes 201: response.username changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "PATCH /api/v1/integrations/mailboxes/{mailbox_id} 200: response.host changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "PATCH /api/v1/integrations/mailboxes/{mailbox_id} 200: response.port changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
+    },
+    {
+      "break": "PATCH /api/v1/integrations/mailboxes/{mailbox_id} 200: response.username changed type",
+      "decision": "D-109",
+      "date": "2026-10-29",
+      "why": "WP-024 session 2: a Microsoft 365 or Gmail mailbox has no IMAP server, port or user name (null); IMAP mailboxes still always have them."
     }
   ]
 }

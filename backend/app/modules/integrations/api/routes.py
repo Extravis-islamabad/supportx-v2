@@ -334,7 +334,7 @@ def origin_of(request: Request, settings: Settings) -> str:
     return f"{console.scheme}://{request.headers.get('host') or console.netloc}"
 
 
-class SignInOut(BaseModel):
+class MailboxSignInOut(BaseModel):
     """Where to send the browser: Microsoft's or Google's sign-in, for the mailbox's account."""
 
     authorize_url: str
@@ -354,7 +354,7 @@ async def start_sign_in(
     session: TenantSession,
     subject: Manage,
     settings: AppSettings,
-) -> SignInOut:
+) -> MailboxSignInOut:
     """Gmail, and Microsoft 365 with delegated permission. Valid ten minutes, for you only."""
     url = await service.start_sign_in(
         session,
@@ -363,7 +363,7 @@ async def start_sign_in(
         admin_id=subject.user_id,
         origin=origin_of(request, settings),
     )
-    return SignInOut(authorize_url=url)
+    return MailboxSignInOut(authorize_url=url)
 
 
 oauth_router = APIRouter(
