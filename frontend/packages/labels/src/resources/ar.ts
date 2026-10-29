@@ -1486,6 +1486,7 @@ export const ar: LabelResource = {
   'file_warning.files_not_scanned': 'خُزّنت بعض الملفات دون فحص.',
   'file_warning.files_scan_failed': 'تعذّر فحص بعض الملفات.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',
+  'errors.file_staff_only': 'فريق الدعم وحده يمكنه حذف الملفات أو إضافتها إلى رسالة شخص آخر.',
   'errors.file_owner_not_found': 'ما تحاول الإرفاق به غير موجود أو لا يمكنك رؤيته.',
   'errors.file_owner_not_allowed': 'لا يمكن إرفاق الملفات هناك.',
   'errors.file_not_ready': 'هذا الملف غير جاهز للفتح.',
