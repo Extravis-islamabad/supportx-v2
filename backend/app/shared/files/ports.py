@@ -65,6 +65,11 @@ class FileOwnerAccess(Protocol):
     """Answers about owners of some types, for one person. Implemented by owner modules."""
 
     owner_types: frozenset[OwnerType]
+    # The record types whose file lists this module answers for (`GET /files/records/{type}/…`).
+    record_types: frozenset[str]
+    # Kind of those records' realtime channel (`t:{tenant}:{kind}:{id}`), where file changes are
+    # announced; None when the records have no record channel.
+    channel_kind: str | None
 
     async def check(
         self,
@@ -88,6 +93,7 @@ class FileOwnerAccess(Protocol):
 
 
 _OWNERS: dict[OwnerType, FileOwnerAccess] = {}
+_RECORDS: dict[str, FileOwnerAccess] = {}
 
 
 class UnknownOwnerError(LookupError):
@@ -98,12 +104,16 @@ def register_owner_access(access: FileOwnerAccess) -> None:
     """Called by an owner module at startup."""
     for owner_type in access.owner_types:
         _OWNERS[owner_type] = access
+    for record_type in access.record_types:
+        _RECORDS[record_type] = access
 
 
 def unregister_owner_access(owner_types: Iterable[OwnerType]) -> None:
     """Called at shutdown (and by tests)."""
     for owner_type in owner_types:
-        _OWNERS.pop(owner_type, None)
+        access = _OWNERS.pop(owner_type, None)
+        for record_type in access.record_types if access is not None else ():
+            _RECORDS.pop(record_type, None)
 
 
 def owner_access(owner_type: OwnerType) -> FileOwnerAccess:
@@ -115,9 +125,17 @@ def owner_access(owner_type: OwnerType) -> FileOwnerAccess:
 
 
 def record_access(record_type: str) -> FileOwnerAccess:
-    """Who answers for a record's owners (the module owning WORK_ITEM answers for work items)."""
-    del record_type  # one record family today: work items
-    return owner_access(OwnerType.WORK_ITEM)
+    """Who answers for a record's owners: the module that declared `record_type`."""
+    access = _RECORDS.get(record_type)
+    if access is None:
+        raise UnknownOwnerError(record_type)
+    return access
+
+
+def record_channel_kind(record_type: str | None) -> str | None:
+    """The realtime channel kind of a record type's records; None when unknown or channel-less."""
+    access = _RECORDS.get(record_type) if record_type is not None else None
+    return access.channel_kind if access is not None else None
 
 
 # The tenant's storage limit in bytes (None = unlimited), from the entitlement interface.

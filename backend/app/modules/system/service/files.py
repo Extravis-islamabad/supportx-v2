@@ -28,6 +28,7 @@ from app.shared.files.domain.states import FileState
 from app.shared.files.events import FileChanged, FileUploaded
 from app.shared.files.infra.models import TenantStorageUsage
 from app.shared.files.infra.scanner import ScannerUnavailableError
+from app.shared.files.ports import record_channel_kind
 from app.shared.files.service import cleanup, scanning
 from app.shared.files.service.core import GB, FileServices
 from app.shared.realtime import Publication, RealtimeEffects, RealtimeRoute, personal
@@ -41,7 +42,7 @@ _scanner_problems = _meter.create_counter(
 )
 _blocked = _meter.create_counter("supportx_files_blocked", description="Files blocked as malware")
 
-RECORD_KIND = "wi"  # the work item record channel (work_items owns it)
+RECORD_KIND = "wi"  # fallback: the work item record channel (work_items owns it)
 FILES_CHANGED = "files.changed"
 
 
@@ -188,7 +189,10 @@ async def _file_changed(envelope: EventEnvelope, session: AsyncSession) -> Realt
     file_id = str(payload["file_id"])
     record_id = payload.get("record_id")
     if record_id is not None:
-        channel = record_channel(envelope.tenant_id, RECORD_KIND, uuid.UUID(str(record_id)))
+        # The record's own channel (an article's, an incident's); events from before record
+        # types were declared, and channel-less records, keep the work item channel.
+        kind = record_channel_kind(payload.get("record_type")) or RECORD_KIND
+        channel = record_channel(envelope.tenant_id, kind, uuid.UUID(str(record_id)))
     else:  # an editor draft: only its uploader's screens care
         channel = personal(envelope.tenant_id, uuid.UUID(str(payload["owner_id"])))
     return RealtimeEffects(publications=[Publication(channel, FILES_CHANGED, ids=(file_id,))])

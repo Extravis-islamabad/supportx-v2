@@ -15,7 +15,9 @@ transaction: the rows, their field history and the workflow event (outbox, rule 
 - **Still correct:** records a review and moves the review date forward, with no new version
   (REQ-KB-034).
 - **Delete / restore:** the trash (REQ-KB-079). Nothing is ever deleted for good here: hard
-  deletes only through GDPR erasure jobs (CLAUDE.md §6).
+  deletes only through GDPR erasure jobs (CLAUDE.md §6). An article in the trash keeps its files
+  (restoring brings them back with it); whatever purges an article for good must take its files
+  along with `app.shared.files.service.cleanup.purge_record("kb_article", id)`.
 """
 
 import uuid

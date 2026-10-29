@@ -30,6 +30,10 @@ class BrandingFileAccess:
     """`FileOwnerAccess` for the tenant's brand uploads."""
 
     owner_types = frozenset({OwnerType.BRANDING})
+    record_types = frozenset({RECORD_TYPE})
+    channel_kind: str | None = (
+        None  # brand images have no record page; the branding screen refetches
+    )
 
     async def check(
         self,

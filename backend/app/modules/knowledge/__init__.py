@@ -78,7 +78,10 @@ module = ModuleSpec(
     schedules=[ScheduleSpec("knowledge__review_due", 3600, notifications.review_due_sweep)],
 )
 
-# Knowledge notifications (REQ-KB-086): at import, for the worker too.
+# Knowledge notifications (REQ-KB-086) and article files: at import, for the workers too (they
+# import modules without running startup hooks); startup registers the files again after a
+# shutdown (tests start and stop the app).
 notifications.register()
+register_owner_access(FILE_ACCESS)
 
 __all__ = ["module"]
