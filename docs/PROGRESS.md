@@ -8,8 +8,8 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** WP-020f QA round, then WP-020d/e (views and bulk; tasks, worklogs and
-  links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** WP-020d e2e and QA round (built, draft #114), then WP-020e (tasks,
+  worklogs and links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
@@ -647,9 +647,10 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Port for e-mail and the portal: `work_items.add_requester_reply` saves a requester's reply
   from outside the console (requester or on-behalf-of only) and runs the reactions above; an
   automatic reply (out-of-office) is recorded and moves nothing (`automatic` on the event).
-- [ ] Follow-up (lane C's #103): lane A's hand-joined visible lists move to `useListFormat` /
-  `useJoinParts` (customFields/values.ts, IncidentPage tags, pickers.tsx, IncidentConversation
-  recipients, AuditEntryDrawer, actionReason.ts, ConflictDialog fields), before WP-020d/e.
+- [x] Follow-up (lane C's #103): lane A's hand-joined visible lists moved to `useListFormat` /
+  `useJoinParts`, with a guard test (`packages/labels/src/list-joins.test.ts`; #111).
+- [x] Migration 0034's data step ran without a tenant and changed nothing under FORCE RLS (lane
+  C's finding); it now loops per tenant (#116, `tests/db/test_closure_migration.py`).
 - [ ] Wired by later packages: requester notified (`resolution_notified`, WP-023/024/028),
   confirm/reject links (WP-023), e-mail replies (WP-024), tasks and links (WP-020e), approvals
   (WP-030), knowledge search (WP-033), working calendars and SLA resume/restart (WP-025).
@@ -662,6 +663,34 @@ New `automation` module (migration 0025); incidents register their rule fields (
   "waits until the requester is told"; history and why-lines in words; Admin › Incidents ›
   Closing (closure rules, open work, auto-close disabled with the reason while no channel
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
+
+### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after lane B's 0037 mailboxes, lane C's 0036 knowledge and
+  0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
+  actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
+- [x] REQ-INC-104: column chooser over every list field (custom fields as `custom.<key>`, system
+  times), reorder by buttons, resize on the header (mouse or arrow keys), sort by any sortable
+  column on the server; saved per user per view. List rows carry custom values and more fields.
+- [x] REQ-INC-105/152: built-in views overdue, due today, followed by me, shared with me, from my
+  direct reports; each tested against its definition, with live counts. Deferred: pending
+  approval (WP-030), the type filter (WP-031).
+- [x] REQ-INC-106: saved views (private, chosen groups or everyone; D-111 as approved) built with lane C's FilterBuilder; "apply
+  without saving" changes only the screen; the saved filter is the list API's `filter` as is.
+- [x] REQ-INC-108: time range (created, updated, due, resolved; presets and custom; quarter exact
+  in the user's zone); the active range names its field.
+- [x] REQ-INC-109: search chips from suggestions ("Status is Open"), no syntax; results in place.
+  (The search panel over the current screen is WP-027's palette.)
+- [x] REQ-INC-110: page size 25/50/100, saved with the view's settings.
+- [x] REQ-INC-119/120: select rows, the page or "all N" (frozen when the job starts, ≤1,000);
+  actions disabled with the reason until something is selected; bulk edit (only ticked fields),
+  assign, take, resolve, close as a background job in the consumers worker, as the requester;
+  per-record results with reasons in words; live progress; "Bulk changes" keeps results;
+  history names the job; lists refresh once per batch.
+- [x] Export through lane C's report export (`content: records`); built-in views travel as their
+  filter equivalents (`GET /incidents/view-filters`, each tested to return the view's rows).
+- [x] Export columns and sort: the file has the list's columns and sort (lane C's #108).
+- Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
+  Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
@@ -1117,6 +1146,18 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   stays the console's internal label key.
 - Tests: 5 Vitest (crumbs, desk with and without ESM, tab title, top layout) and one e2e (Arabic,
   390 px, no sideways scroll, axe).
+
+### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
+
+- Built to the approved plan; defaults D-111 (approved with group sharing). Backend: new
+  built-in views, saved views, list settings, list fields, view filters, bulk jobs (migration
+  0038, renumbered after 0035 dashboards, 0036 knowledge and 0037 mailboxes). Console: column chooser, view editor with the shared
+  filter builder, time range, search chips, page size, selection across pages, bulk dialog and
+  progress, export. Draft PR #114; e2e and the QA round next, then WP-020e.
+- Lane C found that migration 0034's data step changed no rows under FORCE RLS; confirmed with a
+  test and fixed in #116 (loop per tenant).
+- Merges now go through `gh pr merge` without `--admin` (branch protection: 8 required checks,
+  no bypass, product owner 2026-10-28). Cross-lane reviews are posted as PR comments.
 
 ### 2026-10-29 — WP-024 email channel, session 1 (lane B)
 Plan: ~/Desktop/wp-024-plan.md. Defaults: D-109, approved with customer-registered OAuth apps
