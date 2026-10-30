@@ -458,6 +458,7 @@ export function fakeConversationEntry(
     recipients: null,
     delivery_state: null,
     delivery_reason: null,
+    delivery_updated_at: null,
     first_response: false,
     mentioned_ids: [],
     created_at: '2026-10-24T09:30:00Z',

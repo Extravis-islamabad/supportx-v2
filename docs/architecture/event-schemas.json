@@ -2378,6 +2378,56 @@
         "type": "object"
       }
     },
+    "system.mail.state_changed": {
+      "1": {
+        "description": "A send attempt ended: sent, failed for good, or to be tried again (REQ-INC-059).\n\nThe notification engine moves the delivery log and the record's message along with it.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Failure"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mail_id": {
+            "format": "uuid",
+            "title": "Mail Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "sent",
+              "retrying",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mail_id",
+          "kind",
+          "state",
+          "at"
+        ],
+        "title": "MailStateChanged",
+        "type": "object"
+      }
+    },
     "work_items.bulk_job.progressed": {
       "1": {
         "description": "A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only).",
@@ -2488,6 +2538,56 @@
           "visibility"
         ],
         "title": "WorkItemConversationAdded",
+        "type": "object"
+      }
+    },
+    "work_items.conversation.delivery_changed": {
+      "1": {
+        "description": "A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).\n\nRaised when the notification engine learns how the e-mail to the requester went; the timeline\nrefetches the entry (codes only, never an address or the server's text).",
+        "properties": {
+          "delivery_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivery Reason"
+          },
+          "delivery_state": {
+            "title": "Delivery State",
+            "type": "string"
+          },
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility",
+          "delivery_state"
+        ],
+        "title": "WorkItemConversationDeliveryChanged",
         "type": "object"
       }
     },

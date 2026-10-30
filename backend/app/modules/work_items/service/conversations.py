@@ -19,12 +19,13 @@ import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import NotFound, PermissionDenied
 from app.modules.identity_access import Subject, authorize_stored, user_contacts
 from app.modules.work_items.domain.conversation import (
@@ -60,6 +61,7 @@ from app.modules.work_items.service.catalogue import load as load_catalogue
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
+from app.shared.mail import mail_configured
 from app.shared.richtext import is_blank, sanitize_html
 
 TIMELINE_MAX = 500
@@ -93,13 +95,13 @@ class TemplateRepository(Repository[WorkItemReplyTemplate]):
 
 
 async def email_channel_configured(session: AsyncSession) -> bool:
-    """Whether outbound email can send replies. Not before WP-024 (the email channel).
+    """Whether outgoing mail is set up (WP-024): a reply is then queued, else it waits.
 
-    Until then every reply is saved and shown as "not sent: email channel not configured"
-    (never dropped, never pretending to be sent). WP-024 replaces this with its mailbox lookup.
+    The notification engine moves the reply on from there (sent, retrying, failed), so the
+    timeline never pretends a reply was sent (REQ-INC-059, REQ-INC-060).
     """
     del session
-    return False
+    return mail_configured(get_settings())
 
 
 # --- reading --------------------------------------------------------------------------------------
@@ -357,6 +359,7 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
             body=clean,
             recipients=recipients,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=first,
             mentioned_ids=mentioned,
@@ -428,6 +431,7 @@ async def add_requester_comment(
             body=clean,
             recipients=None,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=False,
             mentioned_ids=[],

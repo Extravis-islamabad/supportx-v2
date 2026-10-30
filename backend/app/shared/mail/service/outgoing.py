@@ -18,6 +18,7 @@ import uuid
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Literal
 from urllib.parse import urlsplit
 
 from sqlalchemy import select, update
@@ -30,7 +31,7 @@ from app.core.logging import get_logger
 from app.shared.events import record_event
 from app.shared.ids import new_id
 from app.shared.mail.domain.message import Attachment, OutgoingMail, build_mime, check
-from app.shared.mail.events import MailQueued
+from app.shared.mail.events import MailQueued, MailStateChanged
 from app.shared.mail.infra import smtp
 from app.shared.mail.infra.models import MailAttachment, MailMessage
 
@@ -155,19 +156,74 @@ async def deliver(
         row.state, row.failure = "failed", exc.code
         row.purge_after = now + timedelta(days=settings.mail_content_retention_days)
         log.warning("mail_refused", mail_id=str(mail_id), reason=exc.code)
+        await _changed(session, row, "failed", now)
         return row.state
-    except smtp.TemporaryFailure:
+    except smtp.TemporaryFailure as exc:
         if row.attempts >= settings.mail_max_attempts:
             row.state, row.failure = "failed", "gave_up"
             row.purge_after = now + timedelta(days=settings.mail_content_retention_days)
             log.warning("mail_gave_up", mail_id=str(mail_id), attempts=row.attempts)
+            await _changed(session, row, "failed", now)
         else:
+            row.failure = exc.code
             row.next_attempt_at = now + retry_delay(row.attempts)
+            await _changed(session, row, "retrying", now)
         return row.state
     row.state, row.sent_at, row.message_id = "sent", now, str(mime["Message-ID"])
+    row.failure = None
     row.next_attempt_at = None
     row.purge_after = now + timedelta(days=settings.mail_content_retention_days)
+    await _changed(session, row, "sent", now)
     return row.state
+
+
+async def _changed(
+    session: AsyncSession,
+    row: MailMessage,
+    state: Literal["sent", "retrying", "failed"],
+    at: datetime,
+) -> None:
+    """Tell the callers' modules (notifications) how the attempt ended, in this transaction."""
+    await record_event(
+        session,
+        MailStateChanged(mail_id=row.id, kind=row.kind, state=state, failure=row.failure, at=at),
+        aggregate_id=row.id,
+    )
+
+
+class MailContentGone(ServiceUnavailable):
+    """The message's text was cleared (retention), so it cannot be sent again as it was."""
+
+    code = "mail_content_gone"
+
+
+async def requeue_mail(
+    session: AsyncSession, settings: Settings, mail_id: uuid.UUID, *, to: str
+) -> uuid.UUID:
+    """Queue a copy of a sent or failed message to `to` (a resend); the new message's ID.
+
+    The same subject and bodies, to the person's current address. MailNotConfigured without
+    outgoing mail; MailContentGone when retention already cleared the text.
+    """
+    row = await session.scalar(select(MailMessage).where(MailMessage.id == mail_id))
+    if row is None or row.text_body is None:
+        raise MailContentGone
+    original = await _load(session, row)
+    return await queue_mail(
+        session,
+        settings,
+        OutgoingMail(
+            kind=original.kind,
+            to=(to,),
+            subject=original.subject,
+            text=original.text,
+            language=original.language,
+            html=original.html,
+            reply_to=original.reply_to,
+            sender_name=original.sender_name,
+            attachments=original.attachments,
+        ),
+    )
 
 
 @dataclass(frozen=True)

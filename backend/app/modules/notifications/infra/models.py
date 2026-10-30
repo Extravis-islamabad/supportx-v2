@@ -100,6 +100,18 @@ class NotificationDelivery(UuidPrimaryKey, TenantScoped, Timestamps, Base):
             postgresql_where=text("state = 'waiting'"),
         ),
         Index("ix_notification_deliveries_tenant_created", "tenant_id", "created_at"),
+        Index(
+            "ix_notification_deliveries_tenant_entry",
+            "tenant_id",
+            "entry_id",
+            postgresql_where=text("entry_id IS NOT NULL"),
+        ),
+        Index(
+            "ix_notification_deliveries_tenant_mail",
+            "tenant_id",
+            "mail_id",
+            postgresql_where=text("mail_id IS NOT NULL"),
+        ),
         CheckConstraint("channel IN ('in_app', 'email')", name="channel_code"),
         CheckConstraint(
             "state IN ('queued', 'waiting', 'sent', 'failed', 'suppressed')", name="state_code"
@@ -119,6 +131,8 @@ class NotificationDelivery(UuidPrimaryKey, TenantScoped, Timestamps, Base):
     language: Mapped[str | None] = mapped_column(String(5))
     notification_id: Mapped[uuid.UUID | None]
     mail_id: Mapped[uuid.UUID | None]
+    # The part of the record the message carries (a reply), so its delivery state can follow.
+    entry_id: Mapped[uuid.UUID | None]
     resent_from: Mapped[uuid.UUID | None]
     resent_by: Mapped[uuid.UUID | None]
     # The rendered e-mail while it waits for outgoing mail to be set up; cleared once it is

@@ -16,7 +16,11 @@ PERMANENT_FROM = 500
 
 
 class TemporaryFailure(Exception):
-    """Try again later (server unreachable, busy, timeout, 4xx)."""
+    """Try again later (server unreachable, busy, timeout, 4xx): `code` for the record."""
+
+    def __init__(self, *, code: str = "server_unavailable") -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class PermanentFailure(Exception):
@@ -64,13 +68,13 @@ async def send(settings: SmtpSettings, message: EmailMessage) -> None:
         codes = [code for code, _ in exc.recipients.values()]
         if codes and min(codes) >= PERMANENT_FROM:
             raise PermanentFailure(code="recipient_refused") from exc
-        raise TemporaryFailure from exc
+        raise TemporaryFailure(code="recipient_deferred") from exc
     except smtplib.SMTPAuthenticationError as exc:
         raise PermanentFailure(code="authentication_failed") from exc
     except smtplib.SMTPResponseException as exc:
         if exc.smtp_code >= PERMANENT_FROM:
             raise PermanentFailure(code="message_refused") from exc
-        raise TemporaryFailure from exc
+        raise TemporaryFailure(code="server_busy") from exc
     except (smtplib.SMTPException, OSError) as exc:
         raise TemporaryFailure from exc
 

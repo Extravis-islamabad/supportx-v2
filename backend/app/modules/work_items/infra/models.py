@@ -625,6 +625,8 @@ class WorkItemConversation(TenantEntity):
     recipients: Mapped[dict[str, list[str]] | None] = mapped_column(JSONB)
     delivery_state: Mapped[str | None] = mapped_column(String(20))
     delivery_reason: Mapped[str | None] = mapped_column(String(40))
+    # When the e-mail's state last moved: a late, older update never overwrites a newer one.
+    delivery_updated_at: Mapped[datetime | None]
     first_response: Mapped[bool] = mapped_column(Boolean, server_default="false")
     mentioned_ids: Mapped[list[uuid.UUID]] = mapped_column(
         ARRAY(UUID(as_uuid=True)), server_default="{}"

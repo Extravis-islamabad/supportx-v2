@@ -19,8 +19,9 @@ support mailbox you allow it to read.
 ## What SupportX asks for (least privilege)
 
 SupportX reads messages, marks them read, moves them to a folder you choose, or deletes them only
-when you choose that for the mailbox. It never sends mail through these APIs: replies go out
-through your SupportX's outgoing mail settings. These are the only scopes it requests:
+when you choose that for the mailbox. By default it never sends mail through these APIs: replies go
+out through your SupportX's outgoing mail settings (see *Sending as the mailbox* for the opt-in).
+These are the only scopes it requests by default:
 
 | Mailbox | How it signs in | Scopes |
 |---|---|---|
@@ -46,8 +47,9 @@ it moves to Deleted Items.
 
 ## Microsoft 365 (Microsoft Graph)
 
-SupportX reads, marks and moves messages, so it needs `Mail.ReadWrite`. It never sends mail
-through Graph: replies go out through your SupportX's outgoing mail settings.
+SupportX reads, marks and moves messages, so it needs `Mail.ReadWrite`. It sends through Graph
+only from mailboxes you opt in (*Sending as the mailbox*); otherwise replies go out through your
+SupportX's outgoing mail settings.
 
 ### 1. Register the app
 
@@ -118,8 +120,9 @@ application permissions.
 
 ## Google Workspace (Gmail API)
 
-SupportX reads, labels and archives messages, so it needs the `gmail.modify` scope. It never
-sends mail through Gmail and never deletes mail unless you choose that for the mailbox.
+SupportX reads, labels and archives messages, so it needs the `gmail.modify` scope. It sends
+through Gmail only from a mailbox you opt in (*Sending as the mailbox*), and never deletes mail
+unless you choose that for the mailbox.
 
 ### 1. Create a project and turn on the Gmail API
 
@@ -160,6 +163,30 @@ group to one.
 
 **Domain-wide delegation** (a service account that can act as any user) is not offered: it
 reaches every mailbox in your Workspace.
+
+## Sending as the mailbox (optional)
+
+By default SupportX sends replies and notifications from your organisation's sender address, with
+**Reply-To** set to the support mailbox, so answers still come back to it. If you want replies to
+come **from** the support mailbox itself, turn on **Send as this mailbox** for that mailbox in
+Admin › Mail. Only then does SupportX ask for the permission to send, and only for that mailbox.
+
+**Microsoft 365.**
+- Add the **Mail.Send** permission to the app, the same kind (application or delegated) as its
+  Mail.ReadWrite, and grant admin consent.
+- With application permission, **limit sending to the opted-in mailboxes**, as you limited reading
+  in step 3. Put only those mailboxes in the management scope of the RBAC for Applications
+  assignment ("Application Mail.Send"), or in the application access policy's group.
+- Never grant send-as for the whole organisation. `Test-ServicePrincipalAuthorization` should
+  allow sending from an opted-in mailbox and deny any other.
+
+**Gmail.**
+- Add the `https://www.googleapis.com/auth/gmail.send` scope to the consent screen.
+- After you turn on **Send as this mailbox**, choose **Sign in again** on that mailbox: the new
+  consent covers sending for that one account only. Nothing else in your Workspace is reachable.
+
+To stop it, turn **Send as this mailbox** off: mail goes from your organisation's sender again.
+Then remove the send permission from the app.
 
 ## Afterwards
 

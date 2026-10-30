@@ -52,8 +52,8 @@ def test_req_inc_065_ac3_once_and_never_by_the_requester() -> None:
 
 def test_replies_wait_for_the_email_channel_and_say_why() -> None:
     assert delivery_for(EntryKind.REPLY, email_channel=False) == (
-        DeliveryState.NOT_SENT,
-        DeliveryReason.EMAIL_CHANNEL_NOT_CONFIGURED,
+        DeliveryState.WAITING,
+        DeliveryReason.MAIL_NOT_CONFIGURED,
     )
     assert delivery_for(EntryKind.REPLY, email_channel=True) == (DeliveryState.QUEUED, None)
     assert delivery_for(EntryKind.NOTE, email_channel=False) == (None, None)

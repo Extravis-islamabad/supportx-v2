@@ -3314,6 +3314,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/mail-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether replies can go out by e-mail
+         * @description For staff who reply on records (any `*.reply` permission); others get 403.
+         */
+        get: operations["mail_status_api_v1_notifications_mail_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/preferences": {
         parameters: {
             query?: never;
@@ -6286,8 +6306,13 @@ export interface components {
             /** Created By */
             created_by: string | null;
             delivery_reason: components["schemas"]["DeliveryReason"] | null;
-            /** @description Replies only. not_sent: saved, but nothing could send it (see the reason). */
+            /** @description Replies only: waiting (mail not set up), queued, retrying, sent or failed (see the reason; a failed reply can be resent). not_sent is legacy. */
             delivery_state: components["schemas"]["DeliveryState"] | null;
+            /**
+             * Delivery Updated At
+             * @description When the delivery state last moved.
+             */
+            delivery_updated_at: string | null;
             /**
              * First Response
              * @description This entry stamped the first response.
@@ -6650,16 +6675,18 @@ export interface components {
         DateBucket: "day" | "week" | "month" | "quarter" | "year" | "age";
         /**
          * DeliveryReason
-         * @description Why a reply is not (yet) sent.
+         * @description Why a reply is not (yet) sent: a code the timeline shows as its label.
          * @enum {string}
          */
-        DeliveryReason: "email_channel_not_configured";
+        DeliveryReason: "email_channel_not_configured" | "mail_not_configured" | "not_sent_in_time" | "no_address" | "mail_refused" | "not_notified" | "recipient_refused" | "recipient_deferred" | "message_refused" | "authentication_failed" | "server_unavailable" | "server_busy" | "gave_up";
         /**
          * DeliveryState
-         * @description Where an outbound reply is. Notes have none.
+         * @description Where an outbound reply is (REQ-INC-059). Notes have none.
+         *
+         *     The notification engine moves it as the e-mail to the requester goes (WP-024 session 3).
          * @enum {string}
          */
-        DeliveryState: "not_sent" | "queued" | "sent" | "failed";
+        DeliveryState: "not_sent" | "waiting" | "queued" | "retrying" | "sent" | "failed";
         /**
          * DepartmentIn
          * @description A new department.
@@ -7942,6 +7969,37 @@ export interface components {
             record_type: string;
             /** Triggers */
             triggers: string[];
+        };
+        /**
+         * MailFixerOut
+         * @description A person by name only (no address: this is shown to every technician).
+         */
+        MailFixerOut: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
+         * MailStatusOut
+         * @description For the reply composer (REQ-INC-060): whether a reply can go out by e-mail now.
+         */
+        MailStatusOut: {
+            /** Mail Configured */
+            mail_configured: boolean;
+            /**
+             * Waiting
+             * @description E-mails waiting for outgoing mail in this organisation.
+             */
+            waiting: number;
+            /**
+             * Who Can Fix
+             * @description People who can set mail up (names only).
+             */
+            who_can_fix: components["schemas"]["MailFixerOut"][];
         };
         /**
          * MailboxCreates
@@ -27005,6 +27063,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mail_status_api_v1_notifications_mail_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailStatusOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not staff (mail_status_staff_only). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

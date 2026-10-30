@@ -306,7 +306,11 @@ ROUTES = [
     ),
     RealtimeRoute(("work_items.settings.changed",), _settings_changed),
     RealtimeRoute(
-        ("work_items.conversation.added", "work_items.conversation.visibility_changed"),
+        (
+            "work_items.conversation.added",
+            "work_items.conversation.visibility_changed",
+            "work_items.conversation.delivery_changed",
+        ),
         _conversation_changed,
     ),
     RealtimeRoute(("work_items.follower.added", "work_items.follower.removed"), _followers_changed),
