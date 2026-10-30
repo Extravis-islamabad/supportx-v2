@@ -3,15 +3,7 @@ import { expect, test } from '@playwright/test';
 import { SEEDED } from '../stack';
 import { expectAccessible, goToSection, navItems, settledBox, signIn, signInAs } from './helpers';
 
-const SECTIONS = [
-  'Service requests',
-  'Problems',
-  'Changes',
-  'Releases',
-  'Assets',
-  'CMDB',
-  'Knowledge',
-];
+const SECTIONS = ['Service requests', 'Problems', 'Changes', 'Releases', 'Assets', 'CMDB'];
 
 test('navigation: every section opens a translated coming-soon page; palette and 404 work', async ({
   page,

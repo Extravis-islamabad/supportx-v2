@@ -11,19 +11,21 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
-from app.modules.identity_access import Subject
+from app.modules.identity_access import Subject, user_names
 from app.modules.knowledge.infra.models import KbArticleVersion, KbTopic, KbType
 from app.modules.knowledge.service import articles, review, topics
 from app.modules.knowledge.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
-from app.shared.history import source_of
+from app.shared.clock import system_clock
+from app.shared.history import HistoryEntry, source_of
 
 Responses = dict[int | str, dict[str, Any]]
 RESPONSES: Responses = {
@@ -266,8 +268,10 @@ class ArticleOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
+    owner_name: str | None = Field(default=None, description="The owner's display name.")
+
     @classmethod
-    def of(cls, view: articles.ArticleView) -> "ArticleOut":
+    def of(cls, view: articles.ArticleView, owner_name: str | None = None) -> "ArticleOut":
         """From the service view."""
         article = view.article
         return cls(
@@ -276,6 +280,7 @@ class ArticleOut(BaseModel):
             topic_id=article.topic_id,
             type_code=article.type_code,
             owner_id=article.owner_id,
+            owner_name=owner_name,
             default_language=article.default_language,
             audience=articles.audience_text(view),
             review_on=article.review_on,
@@ -299,6 +304,12 @@ class ArticleOut(BaseModel):
         )
 
 
+async def _article_out(session: AsyncSession, view: articles.ArticleView) -> ArticleOut:
+    """The article with its owner's name."""
+    owner = str(view.article.owner_id)
+    return ArticleOut.of(view, (await user_names(session, [owner])).get(owner))
+
+
 class ArticleRowOut(BaseModel):
     """One line of the knowledge list."""
 
@@ -311,6 +322,10 @@ class ArticleRowOut(BaseModel):
     status: str
     review_on: date | None
     updated_at: datetime
+    owner_id: uuid.UUID
+    expired: bool
+    withdrawn: bool
+    review_due: bool
 
 
 # --- topics ---------------------------------------------------------------------------------------
@@ -322,7 +337,12 @@ async def list_topics(session: TenantSession, subject: Viewer) -> list[TopicOut]
     return [TopicOut.of(t) for t in await topics.list_topics(session, subject)]
 
 
-@router.post("/topics", summary="Create a topic", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/topics",
+    summary="Create a topic",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TopicOut,
+)
 async def create_topic(
     body: TopicIn,
     session: TenantSession,
@@ -414,20 +434,38 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
             "in_review",
             "awaiting_approval",
             "review_due",
+            "due_today",
+            "overdue",
             "expired",
+            "withdrawn",
             "trash",
         ],
         Query(),
     ] = "published",
-    language: Annotated[Language, Query()] = "en",
+    language: Annotated[Language, Query(description="Preferred language of each row.")] = "en",
     topic_id: Annotated[uuid.UUID | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200, description="Search words.")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    type_code: Annotated[str | None, Query(max_length=40)] = None,
+    owner_id: Annotated[uuid.UUID | None, Query()] = None,
+    only_language: Annotated[
+        Language | None, Query(description="Only versions in this language.")
+    ] = None,
 ) -> list[ArticleRowOut]:
     """Published articles you may read, or the drafts you may work on; searchable."""
     rows = await articles.list_articles(
-        session, subject, view=view, language=language, topic_id=topic_id, query=q, limit=limit
+        session,
+        subject,
+        view=view,
+        language=language,
+        topic_id=topic_id,
+        query=q,
+        limit=limit,
+        type_code=type_code,
+        owner_id=owner_id,
+        only_language=only_language,
     )
+    today = system_clock.now().date()
     return [
         ArticleRowOut(
             id=r.article.id,
@@ -439,12 +477,21 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
             status=r.version.status,
             review_on=r.article.review_on,
             updated_at=r.article.updated_at,
+            owner_id=r.article.owner_id,
+            expired=r.article.expires_on is not None and r.article.expires_on <= today,
+            withdrawn=r.article.withdrawn_at is not None,
+            review_due=r.article.review_on is not None and r.article.review_on <= today,
         )
         for r in rows
     ]
 
 
-@router.post("/articles", summary="Write an article", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/articles",
+    summary="Write an article",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ArticleOut,
+)
 async def create_article(
     body: ArticleIn,
     session: TenantSession,
@@ -458,7 +505,7 @@ async def create_article(
         view = await articles.create_article(
             session, subject, body.model_dump(), source=source_of(request)
         )
-        out = ArticleOut.of(view)
+        out = await _article_out(session, view)
         return Created(
             body=out,
             headers={
@@ -477,7 +524,7 @@ async def get_article(
     """Published versions for its audience; drafts for its author, owners and approvers."""
     view = await articles.get_article(session, subject, article_id)
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.patch("/articles/{article_id}", summary="Change an article", responses=CONFLICT)
@@ -500,7 +547,7 @@ async def update_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post(
@@ -625,7 +672,7 @@ async def approve_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, article_id, language, expected_version=version, source=source_of(request)
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post(
@@ -687,7 +734,7 @@ async def withdraw_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post("/articles/{article_id}/still-correct", summary="Still correct", responses=CONFLICT)
@@ -704,7 +751,7 @@ async def still_correct(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, article_id, expected_version=version, source=source_of(request)
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.delete(
@@ -750,7 +797,7 @@ async def restore_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, article_id, expected_version=version, source=source_of(request)
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.get("/articles/{article_id}/versions", summary="Versions")
@@ -761,6 +808,72 @@ async def article_versions(
     view = await articles.get_article(session, subject, article_id)
     found = await review.list_versions(session, subject, article_id)
     return [VersionOut.of(v, editor=view.can_edit or view.can_approve) for v in found]
+
+
+class KbFieldChangeOut(BaseModel):
+    """One field of one save. Values are codes, IDs, text or ISO dates; the UI labels them.
+
+    Version fields are named `version.<language>.<what>` (e.g. `version.ar.status`).
+    """
+
+    field: str
+    old: Any = None
+    new: Any = None
+
+
+class KbHistoryEntryOut(BaseModel):
+    """One save of an article."""
+
+    version: int
+    kind: str = Field(description="history_kind code: created, updated, status, deleted…")
+    occurred_at: datetime
+    actor_type: Literal["user", "system"]
+    actor_id: str | None
+    actor_name: str | None
+    source: str = Field(description="history_source code: ui, api, system…")
+    reason: str | None
+    changes: list[KbFieldChangeOut]
+
+    @classmethod
+    def of(cls, entry: HistoryEntry, names: dict[str, str]) -> "KbHistoryEntryOut":
+        """From a history entry plus resolved actor names."""
+        return cls(
+            version=entry.version,
+            kind=entry.kind,
+            occurred_at=entry.occurred_at,
+            actor_type="user" if entry.actor_type == "user" else "system",
+            actor_id=entry.actor_id,
+            actor_name=names.get(entry.actor_id or ""),
+            source=entry.source,
+            reason=entry.reason,
+            changes=[KbFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes],
+        )
+
+
+class KbHistoryOut(BaseModel):
+    """Saves of one article, newest first."""
+
+    items: list[KbHistoryEntryOut]
+    next_cursor: str | None
+
+
+@router.get("/articles/{article_id}/history", summary="History of an article")
+async def article_history(
+    article_id: uuid.UUID,
+    session: TenantSession,
+    subject: Viewer,
+    cursor: Annotated[str | None, Query(description="next_cursor of the previous page.")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> KbHistoryOut:
+    """Every save, newest first: who, when, from where, what, why (editors and approvers)."""
+    before = int(cursor) if cursor and cursor.isdigit() else None
+    entries, next_version, names = await review.history(
+        session, subject, article_id, before_version=before, limit=limit
+    )
+    return KbHistoryOut(
+        items=[KbHistoryEntryOut.of(entry, names) for entry in entries],
+        next_cursor=None if next_version is None else str(next_version),
+    )
 
 
 # --- session 2: the approval count and settings (REQ-KB-086, 090) ---------------------------------

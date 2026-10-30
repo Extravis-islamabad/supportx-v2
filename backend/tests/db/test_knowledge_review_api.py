@@ -21,6 +21,7 @@ from app.modules.identity_access import subject_for
 from app.modules.knowledge.domain.knowledge import add_months
 from app.modules.knowledge.service.file_access import FILE_ACCESS
 from app.modules.knowledge.service.notifications import remind_due_reviews
+from app.modules.knowledge.service.owners import hand_over
 from app.modules.knowledge.service.realtime import ROUTES
 from app.shared.events import EventEnvelope
 from app.shared.files.ports import Action, OwnerType
@@ -609,3 +610,126 @@ async def test_req_kb_048_ac3_live_updates_carry_ids_only_to_the_audience(world:
     assert not any(str(a.ga) in channel or "broadcast" in channel for channel in with_ids)
     # Readers' screens refetch on a broadcast that names nothing.
     assert [p.ids for p in effects.publications if "broadcast" in str(p.channel)] == [()]
+
+
+# --- session 3a: the article channel, more views, owner hand-over ------------------------------
+
+
+async def test_req_kb_048_the_article_channel_follows_the_reader_rule(world: World) -> None:
+    a = world.a
+    network = await _topic(world, a, "Network", tech_all=False, tech_groups=[str(a.ga)])
+    article = await _published(world, a, network)
+
+    async def channel(user: uuid.UUID) -> int:
+        token = await world.call(
+            "POST",
+            "/realtime/subscription-token",
+            a,
+            user,
+            json={"channel": f"t:{a.tenant}:kb:{article['id']}"},
+        )
+        return token.status_code
+
+    assert await channel(a.tech_c) == 200  # in GA
+    assert await channel(a.tech_b) == 403  # GB only
+    assert await channel(a.requester) == 403
+    withdrawn = await world.call(
+        "POST",
+        _url(article, "/withdraw"),
+        a,
+        a.admin,
+        json={"reason": "Replaced"},
+        headers=_match(article["version"]),
+    )
+    assert withdrawn.status_code == 200, withdrawn.text
+    assert await channel(a.tech_c) == 403  # a reader loses the page with the article
+    assert await channel(a.tech_a) == 200  # its author keeps it
+
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE tenant_id = $1 AND aggregate_id = $2"
+        " AND event_type = 'knowledge.article.workflow' ORDER BY id DESC LIMIT 1",
+        a.tenant,
+        article["id"],
+    )
+    route = next(r for r in ROUTES if "knowledge.article.workflow" in r.event_types)
+    envelope = EventEnvelope.model_validate(json.loads(rows[0]["envelope"]))
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        effects = await route.route(envelope, session)
+    page = [p for p in effects.publications if p.channel.kind == "kb"]
+    assert [(p.ids, p.fields) for p in page] == [((article["id"],), ("withdrawn",))]
+
+
+async def test_req_kb_077_views_and_filters(world: World) -> None:
+    a = world.a
+    topic = await _topic(world, a)
+    due = await _published(world, a, topic, title="Due today")
+    late = await _published(world, a, topic, title="Overdue", type_code="faq")
+    gone = await _published(world, a, topic, title="Withdrawn one")
+    today = datetime.now(UTC).date()
+    await world.sql(
+        "UPDATE kb_articles SET review_on = $1 WHERE id = $2", today, uuid.UUID(due["id"])
+    )
+    await world.sql(
+        "UPDATE kb_articles SET review_on = $1 WHERE id = $2",
+        today - timedelta(days=3),
+        uuid.UUID(late["id"]),
+    )
+    pulled = await world.call(
+        "POST",
+        _url(gone, "/withdraw"),
+        a,
+        a.admin,
+        json={"reason": "Old"},
+        headers=_match(gone["version"]),
+    )
+    assert pulled.status_code == 200, pulled.text
+
+    assert due["id"] in await _list(world, a, a.admin, view="due_today")
+    assert late["id"] not in await _list(world, a, a.admin, view="due_today")
+    assert late["id"] in await _list(world, a, a.admin, view="overdue")
+    assert due["id"] not in await _list(world, a, a.admin, view="overdue")
+    assert await _list(world, a, a.admin, view="withdrawn") >= {gone["id"]}
+    assert gone["id"] not in await _list(world, a, a.tech_c, view="withdrawn")  # a reader
+    assert gone["id"] in await _list(world, a, a.tech_a, view="withdrawn")  # its author
+    assert await _list(world, a, a.admin, type_code="faq") & {due["id"], late["id"]} == {late["id"]}
+    assert due["id"] in await _list(world, a, a.admin, owner_id=str(a.tech_a))
+    assert await _list(world, a, a.admin, owner_id=str(a.tech_b)) & {due["id"]} == set()
+    assert await _list(world, a, a.admin, only_language="ar") & {due["id"]} == set()
+    rows = await world.call("GET", ARTICLES, a, a.admin, params={"view": "overdue"})
+    row = next(r for r in rows.json() if r["id"] == late["id"])
+    assert (row["review_due"], row["withdrawn"], row["owner_id"]) == (True, False, str(a.tech_a))
+
+
+async def test_req_kb_033_ac2_a_deactivated_owner_hands_over_to_the_topic_owner(
+    world: World,
+) -> None:
+    a = world.a
+    owned = await _topic(world, a, "Owned", owner_id=str(a.tech_c))
+    orphan = await _topic(world, a, "No owner")
+    moved = await _published(world, a, owned)
+    kept = await _published(world, a, orphan)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await hand_over(session, a.tech_a) == 1
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await hand_over(session, a.tech_a) == 0  # idempotent
+    assert (await _read(world, a, a.admin, moved)).json()["owner_id"] == str(a.tech_c)
+    assert (await _read(world, a, a.admin, kept)).json()["owner_id"] == str(a.tech_a)
+    history = await world.sql(
+        "SELECT field, source FROM field_changes WHERE record_id = $1 AND field = 'owner_id'",
+        uuid.UUID(moved["id"]),
+    )
+    assert [(h["field"], h["source"]) for h in history] == [("owner_id", "system")]
+
+
+async def test_req_kb_080_history_for_those_who_work_on_the_article(world: World) -> None:
+    a = world.a
+    topic = await _topic(world, a)
+    article = await _published(world, a, topic)
+    url = _url(article, "/history")
+    mine = await world.call("GET", url, a, a.tech_a)
+    assert mine.status_code == 200, mine.text
+    fields = {c["field"] for e in mine.json()["items"] for c in e["changes"]}
+    assert {"version.en.status", "version.en.published"} <= fields
+    assert (await world.call("GET", url, a, a.admin)).status_code == 200
+    reader = await world.call("GET", url, a, a.tech_c)  # reads it, may not work on it
+    assert problem(reader) == (404, "kb_article_not_found")

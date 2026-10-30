@@ -93,6 +93,36 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        path: 'knowledge',
+        handle: { section: 'knowledge' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/KnowledgePage')).KnowledgePage,
+            }),
+          },
+          {
+            path: 'articles/new',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ArticleEditorPage')).NewArticlePage,
+            }),
+          },
+          {
+            path: 'articles/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ArticlePage')).ArticlePage,
+            }),
+          },
+          {
+            path: 'articles/:id/edit/:lang',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ArticleEditorPage')).ArticleEditorPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'announcements',
         handle: { section: 'announcements' },
         children: [

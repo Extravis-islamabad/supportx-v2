@@ -62,6 +62,14 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  ['knowledge.view', 'all'],
+  ['knowledge.edit_any', 'all'],
+  ['knowledge.delete', 'all'],
+  ['knowledge.approve', 'all'],
+  ['knowledge.withdraw', 'all'],
+  ['knowledge.manage_topics', 'all'],
+  ['knowledge.manage_types', 'all'],
+  ['knowledge.manage_settings', 'all'],
   ['files.manage', 'all'],
   ['announcements.manage', 'all'],
   ['announcements.publish', 'all'],
@@ -122,6 +130,60 @@ export function fakePermissions(
     scopes: [scope],
     conditional: false,
   }));
+}
+
+/** A knowledge article as its author sees it: published in English unless overridden. */
+export function fakeKbArticle(
+  overrides: Partial<components['schemas']['ArticleOut']> = {},
+): components['schemas']['ArticleOut'] {
+  const version = {
+    id: '01900000-0000-7000-8000-00000000b101',
+    language: 'en',
+    number: 1,
+    status: 'published',
+    title: 'Reset your VPN token',
+    body_html: '<h2>Before you start</h2><p>Open the portal.</p><h2>Steps</h2><p>Reset.</p>',
+    keywords: ['vpn'],
+    change_note: null,
+    internal_note: null,
+    reject_reason: null,
+    version: 1,
+    updated_at: '2026-10-29T08:00:00Z',
+    published_at: '2026-10-29T08:00:00Z',
+  };
+  return {
+    id: '01900000-0000-7000-8000-00000000b001',
+    display_id: 'KB-1',
+    topic_id: '01900000-0000-7000-8000-00000000b201',
+    type_code: 'how_to',
+    owner_id: '01900000-0000-7000-8000-000000000101',
+    owner_name: 'Tariq Technician',
+    default_language: 'en',
+    audience: {
+      inherited: true,
+      tech_all: true,
+      tech_groups: [],
+      requesters: 'none',
+      req_groups: [],
+      req_sites: [],
+      req_departments: [],
+    },
+    review_on: '2027-10-29',
+    expires_on: null,
+    expired: false,
+    review_due: false,
+    withdrawn: false,
+    withdrawn_reason: null,
+    published: { en: version },
+    drafts: {},
+    can_edit: true,
+    can_approve: false,
+    can_withdraw: false,
+    version: 2,
+    created_at: '2026-10-29T08:00:00Z',
+    updated_at: '2026-10-29T08:00:00Z',
+    ...overrides,
+  };
 }
 
 /** An announcement as staff see it (GET /announcements/{id}): a draft unless overridden. */

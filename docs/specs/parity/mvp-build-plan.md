@@ -75,7 +75,7 @@ By file: 01 92, 02 61, 03 60, 08 38, 09 40, 10 11, 11 75, 12 20.
 | 17 | WP-031 | Service catalog administration | 16 | 2 | WP-030, WP-026 | A | 1 |
 | 18 | WP-032 | Portal: home, catalog, approvals inbox and preview | 9 | 2 | WP-028, WP-031 | A | — |
 | 19 | WP-033 | Knowledge base: authoring, versions, approval, visibility | 31 | 3 | WP-022 | B | 1 |
-| 20 | WP-034 | Knowledge search, suggestions and portal knowledge | 9 | 2 | WP-033, WP-027, WP-028 | B | — |
+| 20 | WP-034 | Knowledge search, suggestions and portal knowledge | 9 | 2 | WP-033, WP-027, WP-028 | C (D-108, D-117) | — |
 | 21 | WP-035 | Reporting foundation and built-in reports | 19 | 3 | WP-025, WP-026 | B | 2 |
 | 22 | WP-036 | Home page and live dashboards | 21 | 2 | WP-035 | B | — |
 | 23 | WP-037 | Minimal AI gateway and local model | 11 | 2 | — | B | — |
@@ -571,7 +571,8 @@ the design partner's own testing come on top.
 
 ### WP-034 — Knowledge search, suggestions and portal knowledge
 
-- **Sessions:** 2 · **Depends on:** WP-033, WP-027, WP-028 · **Requirements:** 9 · **Lane:** B
+- **Sessions:** 2 · **Depends on:** WP-033, WP-027, WP-028 · **Requirements:** 9 · **Lane:** C
+  (knowledge moved to lane C, D-108; REQ-KB-063 and 064 are built in WP-033 session 4, D-117)
 
 | ID | Title | File |
 |---|---|---|

@@ -74,6 +74,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "AnnouncementStatus": "announcement_status",
     "AnnouncementVisibility": "announcement_visibility",
     "HistoryEntryOut.actor_type": "actor_type",
+    "KbHistoryEntryOut.actor_type": "actor_type",
     "HistoryEntryOut.kind": "change_kind",
     "HistoryEntryOut.source": "change_source",
     "CheckStatus": "check_status",

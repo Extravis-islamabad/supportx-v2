@@ -10,6 +10,7 @@ import {
   FullscreenExitOutlined,
   FullscreenOutlined,
   HighlightOutlined,
+  InfoCircleOutlined,
   ItalicOutlined,
   LineOutlined,
   LinkOutlined,
@@ -41,6 +42,8 @@ import { usePersonalChannel } from '@supportx/realtime';
 import { useAppearance, useLabel } from '../appearance';
 import {
   BlockFormat,
+  CALLOUTS,
+  Callout,
   HIGHLIGHTS,
   HighlightMark,
   TEXT_COLOURS,
@@ -83,6 +86,7 @@ export default function RichTextEditor({
   minHeight,
   autoFocus = false,
   imageOwnerId,
+  callouts = false,
 }: RichTextFieldProps) {
   const t = useLabel();
   const [fullScreen, setFullScreen] = useState(false);
@@ -113,6 +117,7 @@ export default function RichTextEditor({
       ListItemDirection,
       ...(mentions === undefined ? [] : [mentionExtension(mentions)]),
       ...(imageOwnerId === undefined ? [] : [InlineImage]),
+      ...(callouts ? [Callout] : []),
     ],
     content: value ?? '',
     editable: !disabled,
@@ -195,6 +200,7 @@ export default function RichTextEditor({
         <Toolbar
           editor={editor}
           templates={templates}
+          callouts={callouts}
           onManageTemplates={onManageTemplates}
           fullScreen={fullScreen}
           onFullScreen={() => {
@@ -297,12 +303,14 @@ type HeadingChoice = 'paragraph' | '2' | '3' | '4';
 
 function Toolbar({
   editor,
+  callouts,
   templates,
   onManageTemplates,
   fullScreen,
   onFullScreen,
 }: {
   editor: Editor;
+  callouts: boolean;
   templates: RichTextTemplate[] | undefined;
   onManageTemplates: (() => void) | undefined;
   fullScreen: boolean;
@@ -602,6 +610,38 @@ function Toolbar({
         onClick={() => chain().unsetAllMarks().clearNodes().setAlignment(null).run()}
         testId="rt-clear"
       />
+      {callouts && (
+        <Dropdown
+          trigger={['click']}
+          menu={{
+            items: [
+              ...CALLOUTS.map((kind) => ({
+                key: kind,
+                label: t(`richtext.callout.${kind}`),
+                onClick: () => chain().setCallout(kind).run(),
+              })),
+              { type: 'divider' as const },
+              {
+                key: 'none',
+                label: t('richtext.callout.remove'),
+                onClick: () => chain().unsetCallout().run(),
+              },
+            ],
+          }}
+        >
+          <Button
+            size="small"
+            type="text"
+            icon={<InfoCircleOutlined />}
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
+            data-testid="rt-callout"
+          >
+            {t('richtext.callout')}
+          </Button>
+        </Dropdown>
+      )}
       {templates !== undefined && (
         <Dropdown
           trigger={['click']}

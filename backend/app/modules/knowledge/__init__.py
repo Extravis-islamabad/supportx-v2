@@ -29,6 +29,7 @@ from app.modules.knowledge.service.access import (
     WITHDRAW,
 )
 from app.modules.knowledge.service.file_access import FILE_ACCESS
+from app.modules.knowledge.service.owners import OWNER_DEACTIVATED
 from app.modules.knowledge.service.realtime import CHANNELS, ROUTES
 from app.shared.files.ports import register_owner_access, unregister_owner_access
 from app.shared.schedules import ScheduleSpec
@@ -73,6 +74,7 @@ module = ModuleSpec(
     permissions=PERMISSIONS,
     channels=CHANNELS,
     realtime=ROUTES,
+    consumers=[OWNER_DEACTIVATED],
     on_startup=[_startup],
     on_shutdown=[_shutdown],
     schedules=[ScheduleSpec("knowledge__review_due", 3600, notifications.review_due_sweep)],

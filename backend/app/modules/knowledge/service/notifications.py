@@ -31,6 +31,7 @@ from app.modules.knowledge.events import KbArticleWorkflow
 from app.modules.knowledge.infra.models import KbArticle, KbArticleVersion, KbTopic
 from app.modules.knowledge.service.access import APPROVE, is_staff, may_approve
 from app.modules.knowledge.service.articles import RECORD_TYPE, get_article
+from app.modules.knowledge.service.realtime import RECORD_KIND
 from app.shared.clock import system_clock
 from app.shared.events import EventEnvelope, record_event
 from app.shared.notifications.ports import (
@@ -46,9 +47,6 @@ from app.shared.notifications.ports import (
 
 log = get_logger(__name__)
 
-# The article page's realtime channel kind (`t:{tenant}:kb:{id}`): its delivery log refreshes
-# there once the console's article page subscribes (session 3).
-RECORD_KIND = "kb"
 # Approvers are found among holders of `knowledge.approve`; a tenant has a handful at most.
 APPROVER_LIMIT = 500
 
