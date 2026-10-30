@@ -1,4 +1,4 @@
-import { Button, Card, Space, Typography } from 'antd';
+import { App, Button, Card, Space, Typography } from 'antd';
 import { useMemo } from 'react';
 
 import { ApiError } from '@supportx/api-client';
@@ -37,8 +37,12 @@ const SAMPLES = [
  * Development-only gallery (route exists only when import.meta.env.DEV): theme controls, the
  * chart wrapper, the read-only aware button and every error toast.
  */
+// Held open (duration 0): the toast contrast check scans them fully shown, never mid-animation.
+const TOASTS = ['success', 'error', 'warning', 'info'] as const;
+
 export function DevComponentsPage() {
   const t = useLabel();
+  const { message } = App.useApp();
   const option = useMemo(
     () => ({
       xAxis: { type: 'category', data: DAYS.map((day) => t(`weekday.${day}`)) },
@@ -58,6 +62,18 @@ export function DevComponentsPage() {
       </Card>
       <Card>
         <WriteButton type="primary">{t('dev.write_button')}</WriteButton>
+      </Card>
+      <Card>
+        <Button
+          onClick={() => {
+            for (const type of TOASTS) {
+              void message.open({ type, content: t('dev.toast_sample'), duration: 0 });
+            }
+          }}
+          data-testid="dev-toasts"
+        >
+          {t('dev.toasts')}
+        </Button>
       </Card>
       <Card title={t('dev.errors')}>
         <Space wrap>

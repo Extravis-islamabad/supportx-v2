@@ -102,6 +102,116 @@ export async function expectAccessible(
   ).toEqual([]);
 }
 
+type Rgba = [number, number, number, number];
+
+/** WCAG contrast ratio of two opaque colours. */
+function contrastRatio(foreground: Rgba, background: Rgba): number {
+  const luminance = ([r, g, b]: Rgba): number => {
+    const [lr = 0, lg = 0, lb = 0] = [r, g, b].map((value) => {
+      const unit = value / 255;
+      return unit <= 0.03928 ? unit / 12.92 : ((unit + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+  };
+  const [dark = 0, light = 0] = [luminance(foreground), luminance(background)].sort(
+    (x, y) => x - y,
+  );
+  return (light + 0.05) / (dark + 0.05);
+}
+
+/**
+ * WCAG AA text contrast measured from computed colours, for what axe cannot see: its
+ * color-contrast rule takes Arabic-script text for an icon ligature and skips it, so "axe clean"
+ * in Arabic or Urdu says nothing about contrast (docs/architecture/testing.md). Walks the visible
+ * text under `root`, blends each colour and its opacity over the real backgrounds behind it, and
+ * asks 4.5:1, or 3:1 for large text. Disabled controls are exempt (WCAG 1.4.3); text over a
+ * background image cannot be measured and is skipped.
+ */
+export async function expectTextContrast(
+  page: Page,
+  label: string,
+  { root = 'main', atLeast = 1 }: { root?: string; atLeast?: number } = {},
+): Promise<void> {
+  const measured = await page.evaluate((selector) => {
+    const parse = (colour: string): Rgba => {
+      const [r = 0, g = 0, b = 0, a = 1] = (colour.match(/[\d.]+/g) ?? []).map(Number);
+      return [r, g, b, a];
+    };
+    const over = (front: Rgba, back: Rgba): Rgba => {
+      const [r, g, b, a] = front;
+      return [r * a + back[0] * (1 - a), g * a + back[1] * (1 - a), b * a + back[2] * (1 - a), 1];
+    };
+    const found: { text: string; colour: Rgba; background: Rgba; large: boolean }[] = [];
+    for (const start of document.querySelectorAll(selector)) {
+      const walker = document.createTreeWalker(start, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+        const text = node.textContent?.trim() ?? '';
+        const element = node.parentElement;
+        if (text === '' || element === null || element.getClientRects().length === 0) continue;
+        const style = getComputedStyle(element);
+        if (style.visibility !== 'visible') continue;
+        if (element.closest('[disabled], [aria-disabled="true"], [class*="-disabled"]')) continue;
+        // Everything behind the text, nearest first, down to the first opaque layer.
+        const layers: Rgba[] = [];
+        let opacity = 1;
+        let image = false;
+        for (let at: Element | null = element; at !== null; at = at.parentElement) {
+          const own = getComputedStyle(at);
+          opacity *= Number(own.opacity);
+          if (own.backgroundImage !== 'none') image = true;
+          const layer = parse(own.backgroundColor);
+          if (layer[3] > 0 && layers.at(-1)?.[3] !== 1) layers.push(layer);
+        }
+        if (image || opacity === 0) continue;
+        let background: Rgba = [255, 255, 255, 1];
+        for (const layer of layers.reverse()) background = over(layer, background);
+        const [r, g, b, a] = parse(style.color);
+        const size = parseFloat(style.fontSize);
+        const bold = Number(style.fontWeight) >= 700;
+        found.push({
+          text: text.slice(0, 40),
+          colour: over([r, g, b, a * opacity], background),
+          background,
+          large: size >= 24 || (bold && size >= 18.66),
+        });
+      }
+    }
+    return found;
+  }, root);
+  expect(measured.length, `text measured on ${label}`).toBeGreaterThanOrEqual(atLeast);
+  const low = measured.flatMap((item) => {
+    const ratio = contrastRatio(item.colour, item.background);
+    return ratio < (item.large ? 3 : 4.5) ? [`${ratio.toFixed(2)}:1 "${item.text}"`] : [];
+  });
+  expect([...new Set(low)], `low contrast on ${label}`).toEqual([]);
+}
+
+/**
+ * Toasts held open on the dev page, fully shown (`expectAccessible` waits until toasts have gone).
+ * Every animation must have finished first, so a half-faded toast cannot pass or fail by timing.
+ */
+export async function expectToastsAccessible(page: Page, label: string): Promise<void> {
+  await expect(page.locator('.ant-message-notice')).toHaveCount(4);
+  await page.evaluate(async () => {
+    const shown = [...document.querySelectorAll('.ant-message')];
+    const animations = shown.flatMap((toast) => toast.getAnimations({ subtree: true }));
+    await Promise.all(animations.map((animation) => animation.finished));
+  });
+  const kinds = await page
+    .locator('.ant-message-custom-content')
+    .evaluateAll((toasts: Element[]) => toasts.map((toast) => toast.getAttribute('class')));
+  expect(new Set(kinds).size, `four kinds on ${label}`).toBe(4);
+  await expectTextContrast(page, label, { root: '.ant-message-notice-content', atLeast: 4 });
+  const results = await new AxeBuilder({ page })
+    .include('.ant-message')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  expect(
+    results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(' | ')}`),
+    `axe violations on ${label}`,
+  ).toEqual([]);
+}
+
 interface RoleRow {
   id: string;
   key: string;
