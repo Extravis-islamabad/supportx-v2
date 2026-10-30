@@ -20,7 +20,7 @@ Take the lock by writing your lane here (and telling the other lanes); release i
 
 | Holder | Since | Purpose |
 |---|---|---|
-| (free) | | |
+| Lane B | 2026-10-30 | Full `make check` for #133 then #134 (with lane A's #142 applied locally); leaves the stack up |
 
 The shared stack (API :8000, workers, console 5173, portal 5174) runs from `../supportx-v2-stack`,
 a clean detached worktree at origin/main, never from a lane's working branch (2026-10-28). The lock
