@@ -7,6 +7,7 @@ import { RealtimeProvider } from '@supportx/realtime';
 import {
   AddressBranding,
   AppearanceProvider,
+  CrumbProvider,
   createQueryClient,
   ErrorBoundary,
   ErrorReporterProvider,
@@ -50,7 +51,9 @@ export function App({ navigate }: AppProps) {
                   <RealtimeProvider tenantId={session.tenant.id} userId={session.user.id}>
                     <TenantBranding />
                     <LicenceProvider key={session.tenant.id} session={session}>
-                      <RouterProvider router={router} />
+                      <CrumbProvider>
+                        <RouterProvider router={router} />
+                      </CrumbProvider>
                     </LicenceProvider>
                   </RealtimeProvider>
                 )}

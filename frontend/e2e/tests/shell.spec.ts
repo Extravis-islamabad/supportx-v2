@@ -99,3 +99,69 @@ test('accessibility: main screens have no serious or critical axe violations', a
   await page.keyboard.press('Escape');
   await expectAccessible(page, 'my profile (dark)');
 });
+
+test('where you are: breadcrumbs and the tab title, never "Technician Console", Arabic and 390 px', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await signInAs(page, 'admin', '/reports/builtin/incidents_open_by_priority');
+  // Sign-in lands on the configured console; open the page on the console under test.
+  await page.goto('/reports/builtin/incidents_open_by_priority');
+  const crumbs = page.getByTestId('header-crumbs');
+  await expect(crumbs).toHaveText('Reports/Open incidents by priority');
+  await expect(crumbs.getByRole('link', { name: 'Reports' })).toHaveAttribute('href', '/reports');
+  await expect(page).toHaveTitle('Open incidents by priority · Reports · SupportX');
+  await expect(page.getByText('Technician Console')).toHaveCount(0);
+
+  const me = (await (await page.request.get('/api/v1/auth/me')).json()) as {
+    csrf_token: string;
+    user: { id: string };
+  };
+  const path = `/api/v1/users/${me.user.id}`;
+  const setLocale = async (ui_locale: string | null) => {
+    const user = (await (await page.request.get(path)).json()) as { version: number };
+    const saved = await page.request.patch(path, {
+      data: { ui_locale },
+      headers: { 'If-Match': `"${String(user.version)}"`, 'X-CSRF-Token': me.csrf_token },
+    });
+    expect(saved.status(), await saved.text()).toBe(200);
+  };
+  try {
+    // The phone-width header in English: no axe violations, the user menu included (its name
+    // and its visible initials agree; QA WP-036 BUG-07 and WP-020d).
+    await page.setViewportSize({ width: 390, height: 800 });
+    await expect(crumbs).toBeVisible();
+    await expectAccessible(page, 'header at 390 px (English)');
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await setLocale('ar');
+    await page.reload();
+    await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+    await expect(crumbs).toHaveText('التقارير/الحوادث المفتوحة حسب الأولوية');
+    await expect(page).toHaveTitle('الحوادث المفتوحة حسب الأولوية · التقارير · SupportX');
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      await expect(crumbs).toBeVisible();
+      // Measured once the layout has settled after the resize (it overshoots for a frame).
+      await expect
+        .poll(
+          () =>
+            page.evaluate(
+              () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            ),
+          { message: `no sideways scroll at ${String(width)} px` },
+        )
+        .toBeLessThanOrEqual(0);
+      // The top menu never reaches under the search button (QA WP-036 BUG-06).
+      const nav = await page.getByTestId('nav-top').boundingBox();
+      const search = await page.getByTestId('open-palette').boundingBox();
+      if (nav !== null && search !== null) {
+        const apart = nav.x + nav.width <= search.x + 1 || search.x + search.width <= nav.x + 1;
+        expect(apart, `menu and search apart at ${String(width)} px`).toBe(true);
+      }
+    }
+    // The loop ends at 390 px: the phone-width header in Arabic, the user menu included.
+    await expectAccessible(page, 'header at 390 px (Arabic)');
+  } finally {
+    await setLocale(null);
+  }
+});

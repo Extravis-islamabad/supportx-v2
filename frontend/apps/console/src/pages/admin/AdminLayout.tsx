@@ -1,7 +1,7 @@
 import { Tabs, Typography } from 'antd';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
-import { NoAccess, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
 
 /** Admin tabs, each shown only to users holding its permission (WP-016). */
 const TABS = [
@@ -26,6 +26,12 @@ export function AdminLayout() {
   const tabs = TABS.filter((tab) => can(tab.permission));
   const active = pathname.split('/')[2];
   const first = tabs[0];
+  const tab = tabs.find((candidate) => candidate.key === active);
+  usePageCrumbs(
+    tab === undefined
+      ? null
+      : [{ label: t('nav.admin'), path: '/admin' }, { label: t(tab.labelKey) }],
+  );
 
   if (first === undefined) return <NoAccess titleKey="nav.admin" />;
   if (active === undefined || active === '') return <Navigate to={`/admin/${first.key}`} replace />;
