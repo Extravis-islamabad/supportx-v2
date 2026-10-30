@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testing';
@@ -81,6 +81,37 @@ describe('Incident parts (WP-020e)', () => {
       title: 'Order toner',
       status: 'open',
     });
+  });
+
+  it('REQ-INC-072: what is typed while a task saves is kept (found by the e2e in CI)', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'tasks');
+    let finish: () => void = () => undefined;
+    const fake = api({
+      [`GET ${PATH}/tasks`]: { body: { items: [], done: 0, total: 0 } },
+      [`POST ${PATH}/tasks`]: async () => {
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+        return { status: 201, body: task('First', 'open', 0) };
+      },
+    });
+    render(<App />);
+    const title = await screen.findByTestId<HTMLInputElement>('inc-task-title');
+    fireEvent.change(title, { target: { value: 'First' } });
+    fireEvent.click(screen.getByTestId('inc-task-add'));
+    await waitFor(() => {
+      expect(fake.find('POST', `${PATH}/tasks`)).toHaveLength(1);
+    });
+    fireEvent.change(title, { target: { value: 'Second' } });
+    await act(async () => {
+      finish();
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId<HTMLButtonElement>('inc-task-add').disabled).toBe(false);
+    });
+    expect(title.value).toBe('Second');
   });
 
   it('REQ-INC-067: no worklog is saved without a start and an end or a duration', async () => {
