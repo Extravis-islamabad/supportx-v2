@@ -1287,6 +1287,7 @@ export const en = {
   'errors.field.cannot_see_record': 'This person cannot see this record, so they cannot follow it.',
   'errors.field.duplicate_name': 'This name is already used.',
   'delivery_reason.email_channel_not_configured': 'email channel not configured',
+  'delivery_state.received': 'Received',
   'delivery_state.not_sent': 'Not sent',
   'delivery_state.queued': 'Sending',
   'delivery_state.sent': 'Sent',
@@ -2351,6 +2352,8 @@ export const en = {
   'errors.open_work_blocked': 'This cannot be done while this work is open: {{items}}.',
   'errors.open_work_unconfirmed': 'Work is still open: {{items}}. Confirm to go ahead anyway.',
   'errors.field.required_to_resolve': 'Needed before resolving.',
+  'errors.field.requester_only': "Only the requester's confirmation sets this code.",
+  'incidents.closure_code_requester_only': '{{name}}: set only when the requester confirms the fix',
   'errors.field.required_to_close': 'Needed before closing.',
   'errors.field.auto_close_needs_notifications':
     'Auto-close needs requester notifications: no channel can tell requesters of a resolution yet.',
@@ -3654,6 +3657,9 @@ export const en = {
     'Only when the requester was told of the resolution and did not answer within the business days below.',
   'settings.closing.auto_close_needs_notifications':
     'Requires requester notifications: auto-close stays off until a channel (e-mail or the portal) can tell requesters of a resolution. An incident is never closed for a requester who was never told.',
+  'settings.closing.channel_state': '{{channel}}: {{reason}}.',
+  'requester_channel_reason.mail_not_configured': 'no outgoing mail server is set up',
+  'requester_channel_reason.mail_failing': 'outgoing mail is failing; check Admin › Mail',
   'settings.closing.auto_close_days': 'Business days before auto-close',
   'settings.closing.days_range': 'From {{min}} to {{max}} business days.',
   'settings.closing.reopen_window_days': 'Reopen window (days)',

@@ -267,7 +267,7 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:
             problem("auto_close_days", "out_of_range", min=AUTO_CLOSE_MIN, max=AUTO_CLOSE_MAX)
-        elif days is not None and not closing.requester_channels():
+        elif days is not None and not await closing.requester_channels(session):
             problem("auto_close_days", "auto_close_needs_notifications")
         changes["auto_close_days"] = days
     if "reopen_window_days" in values:

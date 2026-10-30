@@ -398,6 +398,12 @@ function EntryCard({
               {t('conversation.first_response')}
             </ToneTag>
           )}
+          {entry.delivery_state === 'received' && (
+            // The requester's own words, sent in from the portal or by e-mail (QA BUG-01).
+            <ToneTag tone="info" testId="conv-received">
+              {t('delivery_state.received')}
+            </ToneTag>
+          )}
         </Space>
         <Typography.Text type="secondary">{dates.format(entry.created_at)}</Typography.Text>
       </Flex>

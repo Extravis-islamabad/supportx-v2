@@ -5,7 +5,15 @@ import { fakeIncident, fakeIncidentCatalogue } from '@supportx/api-client/testin
 
 import { App } from '../../../App';
 import { consoleApi } from '../../../test/api';
-import { chipsFilter, exportFilter, quarterOf, rangeFilter, skipReason } from './model';
+import type { ReportWords } from '../../reports/names';
+import {
+  builderFields,
+  chipsFilter,
+  exportFilter,
+  quarterOf,
+  rangeFilter,
+  skipReason,
+} from './model';
 
 // WP-020d: the incident list's columns, views, time range, chips, selection, bulk and export.
 // Test names cite docs/specs/parity/01-work-items-incidents.md criteria.
@@ -310,4 +318,90 @@ describe('Incident list (WP-020d)', () => {
     });
     expect(screen.getByTestId('inc-time-active').textContent).toBe('Created: This week'); // AC2
   });
+});
+
+describe('WP-020f QA', () => {
+  beforeEach(() => {
+    window.history.pushState({}, '', '/incidents');
+  });
+  afterEach(() => {
+    restore();
+  });
+
+  const coded = (name: string, values: string[]) => ({
+    name,
+    type: 'string',
+    values,
+    multiple: false,
+    sortable: true,
+    dimension: { field: name, kind: 'admin_code', label_prefix: null, reference: null },
+  });
+
+  it('BUG-05: closure code and level are offered by name in search chips', async () => {
+    const fake = api({
+      routes: routes({
+        'GET /api/v1/incidents/list-fields': {
+          body: [
+            ...FIELDS,
+            coded('closure_code', ['fixed', 'confirmed_by_requester']),
+            coded('level', ['tier_1', 'tier_2']),
+          ],
+        },
+      }),
+    });
+    render(<App />);
+    await screen.findByTestId('inc-row-INC-7');
+    fireEvent.change(screen.getByTestId('inc-search'), { target: { value: 'confirmed' } });
+    fireEvent.click(await screen.findByText('Closure code is Confirmed by requester'));
+    await waitFor(() => {
+      const last = fake.find('GET', '/api/v1/incidents').at(-1);
+      expect(JSON.parse(last?.url.searchParams.get('filter') ?? 'null')).toMatchObject({
+        field: 'closure_code',
+        op: 'eq',
+        value: 'confirmed_by_requester',
+      });
+    });
+    fireEvent.change(screen.getByTestId('inc-search'), { target: { value: 'tier 2' } });
+    expect(await screen.findByText('Level is Tier 2')).toBeDefined();
+  });
+});
+
+it('BUG-05: in the view builder a coded field is a pick list, never free text', () => {
+  const words = {
+    field: (name: string) => name,
+    choices: (f: { values: string[] }) =>
+      f.values.length > 0 ? f.values.map((v) => ({ value: v, label: `named ${v}` })) : undefined,
+  } as unknown as ReportWords;
+  const [closure, subject] = builderFields(
+    [
+      {
+        name: 'closure_code',
+        type: 'string',
+        values: ['fixed'],
+        multiple: false,
+        sortable: true,
+        dimension: {
+          field: 'closure_code',
+          kind: 'admin_code',
+          label_prefix: null,
+          reference: null,
+          bucket: null,
+        },
+      },
+      {
+        name: 'subject',
+        type: 'string',
+        values: [],
+        multiple: false,
+        sortable: true,
+        dimension: null,
+      },
+    ],
+    words,
+  );
+  expect(closure).toMatchObject({
+    type: 'enum',
+    choices: [{ value: 'fixed', label: 'named fixed' }],
+  });
+  expect(subject?.type).toBe('string');
 });

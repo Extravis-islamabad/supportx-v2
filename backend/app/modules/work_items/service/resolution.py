@@ -92,7 +92,7 @@ async def confirm(
                 WorkItemAction.CLOSE,
                 source=source,
                 rule=CONFIRMED,
-                given=closing.MoveInput(closure_code=code),
+                given=closing.MoveInput(closure_code=code, requester_confirmation=True),
             )
     except (ValidationFailed, Conflict):
         # The closure rules need more than the requester can give: a technician closes it.
@@ -126,7 +126,9 @@ async def reject(  # noqa: PLR0913 - the answer and its context, explicit
     reopened = await items.system_move(
         session, wtype, cat, record, WorkItemAction.REOPEN, source=source, rule=REJECTED
     )
-    await conversations.add_requester_comment(session, reopened, comment, source=source)
+    await conversations.add_requester_comment(
+        session, reopened, comment, author_id=subject.user_id, source=source
+    )
     return Answered(reopened, closed=False)
 
 
@@ -143,7 +145,7 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
     """
     cat = await config.load(session, wtype)
     days = cat.closure.auto_close_days
-    if days is None or not closing.requester_channels():
+    if days is None or not await closing.requester_channels(session):
         return 0
     # Business days are at least as long as calendar days: a cheap first cut in SQL.
     rows = await session.scalars(
@@ -176,7 +178,8 @@ async def auto_close_due(session: AsyncSession, wtype: WorkItemType, now: dateti
                     WorkItemAction.CLOSE,
                     source="system",
                     rule=AUTO_CLOSED,
-                    given=closing.MoveInput(closure_code=code),
+                    given=closing.MoveInput(closure_code=code, requester_confirmation=True),
+                    by_requester=False,
                 )
         except (ValidationFailed, Conflict):
             log.info("auto_close_skipped", record_id=str(record.id))

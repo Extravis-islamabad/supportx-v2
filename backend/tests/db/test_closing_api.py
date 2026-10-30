@@ -168,6 +168,12 @@ async def test_req_inc_097_reopen_keeps_the_past_and_asks_again(world: World) ->
     assert ("closure_code", "fixed") in seen
 
 
+async def _reaches(session: object) -> str | None:
+    """A requester channel that reaches every tenant (the port is per tenant since BUG-02)."""
+    del session
+    return None
+
+
 async def test_req_inc_096_auto_close_waits_for_a_channel_that_tells_requesters(
     world: World,
 ) -> None:
@@ -175,7 +181,7 @@ async def test_req_inc_096_auto_close_waits_for_a_channel_that_tells_requesters(
     assert (await settings(world, org))["closure"]["auto_close_days"] is None  # off by default
     refused = await change_closure(world, org, auto_close_days=3)
     assert field_codes(refused) == {"auto_close_days": "auto_close_needs_notifications"}
-    closing.register_requester_channel("email")
+    closing.register_requester_channel("email", _reaches)
     try:
         allowed = await change_closure(world, org, auto_close_days=3)
         assert allowed.status_code == 200, allowed.text
@@ -238,7 +244,12 @@ async def test_req_inc_051_ac1_a_requester_reply_resumes_awaiting_requester(worl
     now = await fresh(world, org, item)
     assert now["status"] == "in_progress"
     history = await world.history(org, now)
-    assert any((h.get("automation") or {}).get("rule") == "requester_reply" for h in history)
+    # The requester's own act (BUG-03): no automation, history says what they did.
+    assert any(
+        {"field": "requester_action", "old": None, "new": "requester_reply_resumed"} in h["changes"]
+        and h["automation"] is None
+        for h in history
+    )
 
 
 async def test_req_inc_051_ac2_waiting_on_a_third_party_does_not_move(world: World) -> None:
@@ -341,12 +352,15 @@ async def test_req_inc_096_ac3_auto_close_only_after_the_requester_was_told(
     never_told = (
         await world.act(org, org.admin, await world.create(org, org.admin), "resolve")
     ).json()
-    closing.register_requester_channel("email")
+    closing.register_requester_channel("email", _reaches)
     try:
         assert (await change_closure(world, org, auto_close_days=1)).status_code == 200
         async with app_db.tenant_session(TenantContext(org.tenant)) as session:
             assert await closing.resolution_notified(
-                session, uuid.UUID(told["id"]), datetime.now(UTC) - timedelta(days=4)
+                session,
+                uuid.UUID(told["id"]),
+                event_at=datetime.now(UTC),
+                at=datetime.now(UTC) - timedelta(days=4),
             )
         async with app_db.tenant_session(TenantContext(org.tenant)) as session:
             closed = await resolution.auto_close_due(session, INCIDENT, datetime.now(UTC))
@@ -411,7 +425,7 @@ async def _reply_from_outside(
         subject = await subject_for(session, org.tenant, user)
         record = await session.get(WorkItem, uuid.UUID(item["id"]))
         assert record is not None
-        return await conversations.add_requester_reply(
+        replied = await conversations.add_requester_reply(
             session,
             INCIDENT,
             record,
@@ -421,6 +435,7 @@ async def _reply_from_outside(
             subject=subject,
             holders=world.app.state.policy,
         )
+        return replied.follow_up
 
 
 async def test_a_requester_reply_from_outside_reopens_and_an_auto_reply_does_nothing(

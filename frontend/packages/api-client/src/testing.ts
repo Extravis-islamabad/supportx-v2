@@ -460,6 +460,7 @@ export function fakeConversationEntry(
     delivery_reason: null,
     first_response: false,
     mentioned_ids: [],
+    automatic: false,
     created_at: '2026-10-24T09:30:00Z',
     created_by: '01900000-0000-7000-8000-0000000000a1',
     version: 1,
@@ -532,9 +533,21 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       colour: null,
       disabled: false,
     })),
-    closure_codes: ['fixed', 'workaround', 'no_fault_found', 'duplicate', 'user_error'].map(
-      (code, sort_order) => ({ code, labels: null, sort_order, colour: null, disabled: false }),
-    ),
+    // D-083 plus D-107's "confirmed_by_requester", as the server seeds them.
+    closure_codes: [
+      'fixed',
+      'workaround',
+      'no_fault_found',
+      'duplicate',
+      'user_error',
+      'confirmed_by_requester',
+    ].map((code, sort_order) => ({
+      code,
+      labels: null,
+      sort_order,
+      colour: null,
+      disabled: false,
+    })),
     // WP-020f defaults (D1, D2, D5): auto-close off until a channel tells requesters.
     closure: {
       resolve_requires: ['resolution'],
@@ -545,6 +558,7 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       reopen_window_days: 7,
       task_owner_access: false, // WP-020e (D-112): off by default
       requester_channels: [],
+      requester_channel_states: [],
     },
     next_number: 8,
   };

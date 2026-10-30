@@ -107,6 +107,19 @@ describe('Admin › Incidents › Closing', () => {
     expect(input?.disabled).toBe(true);
   });
 
+  it('BUG-02: a channel that cannot reach requesters says why, in words', async () => {
+    const catalogue = fakeIncidentCatalogue();
+    catalogue.closure.requester_channel_states = [
+      { channel: 'email', reason: 'mail_not_configured' },
+    ];
+    api({ me: ADMIN, routes: routes(catalogue) });
+    open('/admin/incidents/closing');
+    const reasons = await screen.findByTestId('settings-requester-channels');
+    expect(reasons.textContent).toContain('E-mail');
+    expect(reasons.textContent).toContain('no outgoing mail server is set up');
+    expect(reasons.textContent).not.toContain('mail_not_configured');
+  });
+
   it('REQ-INC-096 AC3: with a channel, auto-close can be switched on with business days', async () => {
     const catalogue = fakeIncidentCatalogue();
     catalogue.closure.requester_channels = ['email'];

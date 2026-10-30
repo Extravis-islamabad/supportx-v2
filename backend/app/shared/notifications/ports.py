@@ -21,7 +21,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -179,6 +179,32 @@ class RecordSource(Protocol):
         self, session: AsyncSession, user_id: uuid.UUID, record_id: uuid.UUID
     ) -> RecordAccess:
         """What `user_id` may see of the record now (the module's own visibility rules)."""
+        ...
+
+
+@runtime_checkable
+class DeliveryListener(Protocol):
+    """Optional for a `RecordSource`: told when a notification really reached someone.
+
+    The engine calls it once a delivery is `sent` (the mail server accepted it for that address;
+    never for queued, refused, suppressed or no address). The owning module decides what that
+    delivery means for its record, e.g. "the requester was told of the resolution" (WP-020f
+    BUG-02, agreed by lanes A and B 2026-10-29). `event_at` is when the domain event the
+    notification was about happened; `at` is when the delivery was accepted.
+    """
+
+    async def delivered(  # noqa: PLR0913 - the delivery's facts, explicit
+        self,
+        session: AsyncSession,
+        *,
+        event_code: str,
+        record_id: uuid.UUID,
+        user_id: uuid.UUID,
+        reasons: tuple[str, ...],
+        event_at: datetime,
+        at: datetime,
+    ) -> None:
+        """React to one sent delivery (in the record's tenant session)."""
         ...
 
 

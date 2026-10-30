@@ -39,7 +39,7 @@ from app.modules.work_items.service.closing import (
     unregister_open_work,
     unregister_requester_channel,
 )
-from app.modules.work_items.service.conversations import add_requester_reply
+from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
@@ -109,6 +109,7 @@ module = ModuleSpec(
 __all__ = [
     "OpenItem",
     "OpenWorkKind",
+    "RequesterReply",
     "add_requester_reply",
     "module",
     "register_open_work",
