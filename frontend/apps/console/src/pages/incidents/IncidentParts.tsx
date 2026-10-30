@@ -57,6 +57,11 @@ const WORKLOG_TYPES: readonly WorklogType[] = [
 ];
 
 /** Display names of the people a list mentions (looked up once per list). */
+/** After a save: empty a field only if it still holds what was sent, not what came since. */
+function clearIfSent<T>(sent: T, empty: T): (current: T) => T {
+  return (current) => (current === sent ? empty : current);
+}
+
 function usePeople(ids: (string | null | undefined)[]): Map<string, string> {
   const wanted = [...new Set(ids.filter((id): id is string => typeof id === 'string'))].sort();
   const users = useUsers(
@@ -106,9 +111,10 @@ export function IncidentTasks({ item, canEdit }: { item: Incident; canEdit: bool
       },
       {
         onSuccess: () => {
-          setTitle('');
-          setOwner(null);
-          setDue(null);
+          // The next task may already be typed (a quick second add, or the e2e in CI).
+          setTitle(clearIfSent(title, ''));
+          setOwner(clearIfSent(owner, null));
+          setDue(clearIfSent(due, null));
         },
         onError: reportError,
       },
@@ -306,10 +312,10 @@ export function IncidentWorklogs({ item, canEdit }: { item: Incident; canEdit: b
       },
       {
         onSuccess: () => {
-          setStart(null);
-          setEnd(null);
-          setMinutes(null);
-          setDescription('');
+          setStart(clearIfSent(start, null));
+          setEnd(clearIfSent(end, null));
+          setMinutes(clearIfSent(minutes, null));
+          setDescription(clearIfSent(description, ''));
         },
         onError: reportError,
       },
