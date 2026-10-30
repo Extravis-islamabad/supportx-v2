@@ -332,6 +332,30 @@ describe('WP-036 QA fixes', () => {
     }
   });
 
+  it('D-119: "Open incidents" keeps its count under "last 7 days" and says it is a number of now', async () => {
+    window.history.pushState({}, '', '/dashboards/builtin%3Amy_work');
+    const fake = api({ me: fakeSession(), routes: routes() });
+    render(<App />);
+    await screen.findByTestId('widget-title-my_open');
+    expect((await screen.findByTestId('widget-now-my_open')).textContent).toBe('Now');
+    const time = screen.getByTestId('dashboard-filter-days');
+    fireEvent.mouseDown(time.querySelector('.ant-select-selector') ?? time);
+    fireEvent.click(await screen.findByTitle('Last 7 days'));
+    expect((await screen.findByTestId('widget-unfiltered-my_open')).textContent).toBe(
+      'Not filtered by Time range',
+    );
+    expect(screen.queryByTestId('widget-filtered-my_open')).toBeNull();
+    // Same question to the API, so the same count: no created_at condition was added.
+    await waitFor(() => {
+      const open = fake
+        .find('POST', '/api/v1/reports/run')
+        .map((run) => JSON.stringify(run.body))
+        .filter((body) => body.includes('status_category'));
+      expect(open.length).toBeGreaterThan(0);
+      expect(open.some((body) => body.includes('last_n_days'))).toBe(false);
+    });
+  });
+
   it('BUG-04: every control of Add widget is named by its label (screen readers)', async () => {
     window.history.pushState({}, '', `/dashboards/${MINE.ref}`);
     api({ me: fakeSession(), routes: routes() });

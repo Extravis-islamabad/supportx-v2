@@ -40,7 +40,13 @@ import { useRealtimeStatus } from '@supportx/realtime';
 import { DrillDrawer, type Drill } from '../reports/DrillDrawer';
 import { useLiveReportRefresh } from '../reports/liveRefresh';
 import { AddWidget } from './AddWidget';
-import { appliedFilters, unusableFilters, widgetDefinition } from './widgetDefinition';
+import {
+  appliedFilters,
+  isOpenNow,
+  nowFilters,
+  unusableFilters,
+  widgetDefinition,
+} from './widgetDefinition';
 import {
   adjust,
   COLUMNS,
@@ -121,17 +127,28 @@ export function DashboardView({
     [body.widgets, userId, filters, library.data?.builtin, fields],
   );
 
-  const renderWidget = (widget: DashboardWidget, handle: boolean) => (
-    <Widget
-      widget={widget}
-      definition={definitions.get(widget.id) ?? null}
-      unfiltered={unusableFilters(filters, fields)}
-      filtered={appliedFilters(filters, fields)}
-      onDrill={setDrill}
-      toolbar={editing ? toolbar(widget) : undefined}
-      dragHandle={handle}
-    />
-  );
+  const renderWidget = (widget: DashboardWidget, handle: boolean) => {
+    const definition = definitions.get(widget.id) ?? null;
+    const now = isOpenNow(definition);
+    const notes = nowFilters(
+      now,
+      filters,
+      appliedFilters(filters, fields),
+      unusableFilters(filters, fields),
+    );
+    return (
+      <Widget
+        widget={widget}
+        definition={definition}
+        now={now}
+        unfiltered={notes.unfiltered}
+        filtered={notes.filtered}
+        onDrill={setDrill}
+        toolbar={editing ? toolbar(widget) : undefined}
+        dragHandle={handle}
+      />
+    );
+  };
 
   const toolbar = (widget: DashboardWidget) => {
     const name = widgetTitle(widget, t);

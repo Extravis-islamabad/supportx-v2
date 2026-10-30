@@ -2952,6 +2952,7 @@ export const ar: LabelResource = {
     'اسحب العناصر، أو استخدم أسهمها لتحريكها وتغيير حجمها. «تم» يحفظ؛ «تراجع» يلغي آخر تغيير.',
   'dashboards.empty': 'لا توجد عناصر بعد. عدّل التخطيط لإضافة بعضها.',
   'dashboards.expand': 'تكبير',
+  'dashboards.now': 'الآن',
   'dashboards.filter_days': 'النطاق الزمني',
   'dashboards.filter_group_id': 'المجموعة',
   'dashboards.filter_site_id': 'الموقع',

@@ -2535,6 +2535,7 @@ export const ur: LabelResource = {
     'وجیٹس کو گھسیٹیں، یا انہیں منتقل کرنے اور سائز بدلنے کے لیے تیر استعمال کریں۔ «مکمل» محفوظ کرتا ہے؛ «واپس» آخری تبدیلی منسوخ کرتا ہے۔',
   'dashboards.empty': 'ابھی کوئی وجیٹ نہیں۔ کچھ شامل کرنے کے لیے ترتیب میں ترمیم کریں۔',
   'dashboards.expand': 'بڑا کریں',
+  'dashboards.now': 'ابھی',
   'dashboards.filter_days': 'وقت کی حد',
   'dashboards.filter_group_id': 'گروپ',
   'dashboards.filter_site_id': 'سائٹ',

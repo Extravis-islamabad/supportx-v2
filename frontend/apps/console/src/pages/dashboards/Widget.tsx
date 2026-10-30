@@ -66,6 +66,8 @@ export interface WidgetProps {
   definition: ReportDefinition | null;
   /** Filters of the bar this widget cannot use ("not filtered by site", REQ-DSH-022 AC2). */
   unfiltered: string[];
+  /** An open-now widget: the number of this moment, whatever the time filter (D-119). */
+  now?: boolean;
   /** Filters of the bar this widget does use ("filtered by site"): it always says which. */
   filtered?: string[];
   onDrill: (drill: Drill) => void;
@@ -80,6 +82,7 @@ export function Widget({
   widget,
   definition,
   unfiltered,
+  now = false,
   filtered = [],
   onDrill,
   toolbar,
@@ -225,6 +228,7 @@ export function Widget({
         tabIndex={0}
         style={{ height: '100%', overflow: 'auto', padding: 12 }}
       >
+        {now && <Tag data-testid={`widget-now-${widget.id}`}>{t('dashboards.now')}</Tag>}
         {filtered.length > 0 && (
           <Tag data-testid={`widget-filtered-${widget.id}`}>
             {t('dashboards.filtered_by', {
