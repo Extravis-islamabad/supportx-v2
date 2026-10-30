@@ -48,6 +48,7 @@ from app.modules.work_items.domain.lifecycle import (
     WorkItemAction,
 )
 from app.modules.work_items.domain.lists import BulkAction, BulkStatus, ViewVisibility
+from app.modules.work_items.domain.parts import LinkKind, TaskPriority, TaskStatus, WorklogType
 from app.modules.work_items.domain.templates import IMPACT_DETAILS_MAX, PickList
 from app.modules.work_items.domain.types import Channel, WorkItemTypeCode
 from app.shared.db.models import Base, TenantEntity, TenantKeyed, utc_now
@@ -118,6 +119,8 @@ class WorkItemTypeSettings(TenantKeyed, Base):
     auto_close_days: Mapped[int | None] = mapped_column(Integer)
     # Days after resolution or closure in which a requester reply reopens (REQ-INC-098).
     reopen_window_days: Mapped[int] = mapped_column(Integer, server_default="7")
+    # REQ-INC-072 AC3 (D-112): a task's owner may work on it without access to the record.
+    task_owner_access: Mapped[bool] = mapped_column(Boolean, server_default="false")
     # Which shipped defaults this tenant has (catalogue.SEED_VERSION); older ones are topped up.
     seed_version: Mapped[int] = mapped_column(Integer, server_default="1")
     version: Mapped[int] = mapped_column(BigInteger, default=1, server_default="1")
@@ -817,3 +820,124 @@ class WorkItemBulkJob(TenantEntity):
     results: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
+
+
+class WorkItemTask(TenantEntity):
+    """A task on a work item (REQ-INC-072): its own status, owner, group, priority and due time.
+
+    `position` orders a record's tasks; moving one renumbers the record's tasks in one save.
+    """
+
+    __tablename__ = "work_item_tasks"
+    __table_args__ = (
+        _work_item_fk("fk_wit_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_wit_owner"
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "group_id"],
+            ["support_groups.tenant_id", "support_groups.id"],
+            name="fk_wit_group",
+        ),
+        CheckConstraint(_codes("status", TaskStatus), name="status_code"),
+        CheckConstraint(_codes("priority", TaskPriority), name="priority_code"),
+        CheckConstraint("length(btrim(title)) BETWEEN 1 AND 200", name="title_length"),
+        CheckConstraint(
+            "description IS NULL OR char_length(description) <= 4000", name="description_length"
+        ),
+        Index("ix_wit_tenant_item_position", "tenant_id", "work_item_id", "position", "id"),
+        Index(
+            "ix_wit_tenant_owner_open",
+            "tenant_id",
+            "owner_id",
+            postgresql_where=text("deleted_at IS NULL AND status IN ('open', 'in_progress')"),
+        ),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str | None] = mapped_column(Text)
+    owner_id: Mapped[uuid.UUID | None]
+    group_id: Mapped[uuid.UUID | None]
+    status: Mapped[str] = mapped_column(String(20), server_default="open")
+    priority: Mapped[str] = mapped_column(String(10), server_default="normal")
+    due_at: Mapped[datetime | None]
+    position: Mapped[int] = mapped_column(Integer)
+    done_at: Mapped[datetime | None]
+
+
+class WorkItemWorklog(TenantEntity):
+    """Time spent on a work item (REQ-INC-067): whose, what kind, when and how long.
+
+    Times only (costs are V1, D-047). Start, end and minutes always agree (domain/parts.py).
+    """
+
+    __tablename__ = "work_item_worklogs"
+    __table_args__ = (
+        _work_item_fk("fk_wiw_work_item"),
+        ForeignKeyConstraint(
+            ["tenant_id", "owner_id"], ["users.tenant_id", "users.id"], name="fk_wiw_owner"
+        ),
+        CheckConstraint(_codes("worklog_type", WorklogType), name="worklog_type_code"),
+        CheckConstraint("ended_at >= started_at", name="end_after_start"),
+        CheckConstraint("minutes BETWEEN 1 AND 10080", name="minutes_range"),
+        CheckConstraint(
+            "description IS NULL OR char_length(description) <= 4000", name="description_length"
+        ),
+        Index("ix_wiw_tenant_item_start", "tenant_id", "work_item_id", "started_at", "id"),
+        Index("ix_wiw_tenant_owner_start", "tenant_id", "owner_id", "started_at"),
+    )
+
+    work_item_id: Mapped[uuid.UUID]
+    owner_id: Mapped[uuid.UUID]
+    worklog_type: Mapped[str] = mapped_column(String(20))
+    started_at: Mapped[datetime]
+    ended_at: Mapped[datetime]
+    minutes: Mapped[int] = mapped_column(Integer)
+    description: Mapped[str | None] = mapped_column(Text)
+
+
+class WorkItemLink(TenantEntity):
+    """Two work items linked (REQ-INC-084), shown and recorded on both.
+
+    One row per pair and kind: `source_id` follows `target_id` for `follows`; for `related` the
+    pair is stored in ID order, so A-B and B-A are the same link.
+    """
+
+    __tablename__ = "work_item_links"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "source_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_wil_source",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "target_id"],
+            ["work_items.tenant_id", "work_items.id"],
+            name="fk_wil_target",
+        ),
+        CheckConstraint(_codes("kind", LinkKind), name="kind_code"),
+        CheckConstraint("source_id <> target_id", name="not_itself"),
+        CheckConstraint("kind <> 'related' OR source_id < target_id", name="related_in_order"),
+        CheckConstraint("comment IS NULL OR char_length(comment) <= 500", name="comment_length"),
+        Index(
+            "uq_wil_tenant_pair_kind",
+            "tenant_id",
+            "source_id",
+            "target_id",
+            "kind",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "ix_wil_tenant_target",
+            "tenant_id",
+            "target_id",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    source_id: Mapped[uuid.UUID]
+    target_id: Mapped[uuid.UUID]
+    kind: Mapped[str] = mapped_column(String(20))
+    comment: Mapped[str | None] = mapped_column(String(500))

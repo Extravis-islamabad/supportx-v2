@@ -199,6 +199,13 @@ FIELD_PROBLEMS = frozenset(
         "too_deep",
         # WP-020d: bulk jobs
         "too_many_records",
+        # WP-020e: worklogs and links
+        "end_before_start",
+        "end_or_duration_required",
+        "duration_mismatch",
+        "already_linked",
+        "cannot_link_itself",
+        "record_not_found",
         # WP-020b: conversation, followers, reply templates
         "not_allowed_for_notes",
         "invalid_email",

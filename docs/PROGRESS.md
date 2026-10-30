@@ -8,8 +8,7 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** WP-020d e2e and QA round (built, draft #114), then WP-020e (tasks,
-  worklogs and links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** WP-020d/e e2e and QA round (built: #114, #120), then WP-025 (lane A). Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
@@ -692,6 +691,25 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
 
+### [ ] WP-020e — Tasks, worklogs and links (D-112, approved; built 2026-10-28, QA next)
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0039 (after WP-020d's
+  0038): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
+  tests), `task_owner_access`, and `follows_id` copied into `follows` links per tenant. Draft PR
+  #120 (stacked on #114).
+- [x] REQ-INC-072: tasks with their own status, owner, group, priority and due time; "done /
+  total" on the tab, live; reorder by buttons, saved for everyone; open tasks are open work for
+  resolve and close; task-only owner access (off by default) with `/incidents/my-tasks`.
+- [x] REQ-INC-067: worklogs (owner, type, start, end or duration, description); the end is never
+  before the start; start + duration fills the end and back; totals per person and type, live.
+- [x] REQ-INC-084: related links shown and recorded on both records, removable from either side;
+  a record you cannot see shows as a link without its ID or subject; follow-up records are
+  `follows` links.
+- [ ] Deferred: child incidents (REQ-INC-095) with parent/child links; "log time in the resolve
+  step" (REQ-INC-090 AC3) in the move dialog; admin-editable worklog types; the `follows_id`
+  contract step.
+- Tests: `tests/db/test_parts_api.py` (9), `test_parts_domain.py` (3), the follows link in
+  `test_closing_api.py`, Vitest `parts.test.tsx` (3), e2e `incident-parts.spec.ts` (runs at QA).
+
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
 and bulk · WP-020e tasks, worklogs (time) and links · WP-020f resolution and closure · WP-021 people
@@ -1134,6 +1152,13 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-28 — WP-020e: tasks, worklogs and links (lane A)
+
+- Built to the approved plan; defaults recorded as D-112 (approved as listed). Migration 0039; API
+  for tasks, worklogs and links; three record tabs, history in words, the task-owner setting on
+  Admin › Incidents › Closing. Draft PR #120 (stacked on #114); e2e and QA next.
+- Lane C's dashboards took D-110, so WP-020d's defaults moved to D-111.
 
 ### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
 

@@ -65,7 +65,8 @@ SUITE_RECORDS = (
         SUITE_PREFIX,
     ),
     *(
-        # Their conversation and followers (WP-020b), which reference the incident.
+        # Their conversation, followers (WP-020b), tasks and worklogs (WP-020e), which reference
+        # the incident.
         (
             table,
             (
@@ -74,7 +75,22 @@ SUITE_RECORDS = (
             ),
             SUITE_PREFIX,
         )
-        for table in ("work_item_conversations", "work_item_followers")
+        for table in (
+            "work_item_conversations",
+            "work_item_followers",
+            "work_item_tasks",
+            "work_item_worklogs",
+        )
+    ),
+    (
+        # Links (WP-020e) reference an incident from either side.
+        "work_item_links",
+        (
+            "DELETE FROM work_item_links WHERE"
+            " source_id IN (SELECT id FROM work_items WHERE subject LIKE $1)"
+            " OR target_id IN (SELECT id FROM work_items WHERE subject LIKE $1)"
+        ),
+        SUITE_PREFIX,
     ),
     ("work_items", "DELETE FROM work_items WHERE subject LIKE $1", SUITE_PREFIX),
     (

@@ -3,7 +3,15 @@
  * Kept per user in this browser: a convenience, so storage errors (private mode, blocked
  * storage) simply mean "start on Conversation".
  */
-export const RECORD_TABS = ['conversation', 'details', 'history', 'automation'] as const;
+export const RECORD_TABS = [
+  'conversation',
+  'details',
+  'tasks',
+  'worklogs',
+  'links',
+  'history',
+  'automation',
+] as const;
 export type RecordTab = (typeof RECORD_TABS)[number];
 export const DEFAULT_TAB: RecordTab = 'conversation';
 

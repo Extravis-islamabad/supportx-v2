@@ -323,6 +323,30 @@ export {
   type SavedViewChange,
   type SavedViewInput,
 } from './incidentLists';
+export {
+  useIncidentLinks,
+  useIncidentTasks,
+  useIncidentWorklogs,
+  useLinkChange,
+  useMyTasks,
+  useTaskChange,
+  useWorklogChange,
+  type IncidentLink,
+  type IncidentTask,
+  type IncidentTaskInput,
+  type IncidentTaskPatch,
+  type IncidentTasks,
+  type IncidentWorklog,
+  type IncidentWorklogInput,
+  type IncidentWorklogs,
+  type LinkChange,
+  type MyTask,
+  type TaskChange,
+  type TaskPriority,
+  type TaskStatus,
+  type WorklogChange,
+  type WorklogType,
+} from './incidentParts';
 export { queryKeys } from './keys';
 export {
   exportFileUrl,

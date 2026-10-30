@@ -23,6 +23,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_record_routes,
 )
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
@@ -537,6 +538,9 @@ class WorkItemClosureOut(BaseModel):
     complete_open_work: bool
     auto_close_days: int | None = Field(description="Business days; null: off.")
     reopen_window_days: int
+    task_owner_access: bool = Field(
+        description="A task's owner may work on it without access to the record (D-112)."
+    )
     requester_channels: list[str] = Field(
         description="Channels that can tell requesters; auto-close needs one."
     )
@@ -701,6 +705,7 @@ class WorkItemCatalogueOut(BaseModel):
                 complete_open_work=cat.closure.complete_open_work,
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
+                task_owner_access=cat.closure.task_owner_access,
                 requester_channels=sorted(requester_channels()),
             ),
             next_number=cat.last_number + 1,
@@ -720,6 +725,7 @@ class WorkItemClosurePatch(BaseModel):
         default=None, description="1 to 30 business days; null switches auto-close off."
     )
     reopen_window_days: int | None = None
+    task_owner_access: bool | None = None
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -1174,6 +1180,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return WorkItemCategoryOut.of(node)
 
     add_list_routes(router, wtype)
+    add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
@@ -1444,4 +1451,5 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
 
     add_record_routes(router, wtype)
+    add_parts_routes(router, wtype)
     return router

@@ -287,6 +287,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "technician_id",
         "followers",
         "close_requires",
+        "worklog_type",
     }
     assert found <= FIELD_PROBLEMS, sorted(found - FIELD_PROBLEMS)
 

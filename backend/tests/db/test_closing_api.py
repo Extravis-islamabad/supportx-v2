@@ -18,7 +18,7 @@ from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import closing, conversations, resolution
+from app.modules.work_items.service import closing, conversations, parts, resolution
 from tests.db.test_conversation_api import say, timeline
 from tests.db.test_incidents_api import BASE, Org, World, field_codes, incidents_world, problem
 from tooling.db_testing import ThrowawayDatabase
@@ -111,13 +111,16 @@ async def test_req_inc_094_only_known_fields_can_be_required(world: World) -> No
 
 
 @pytest.fixture
-def open_task() -> Iterator[None]:
+def open_task(world: World) -> Iterator[None]:
+    """A fake task checker, after the app registered the real one (WP-020e), then the real one."""
+    del world
+
     async def tasks(_session: object, _record: object) -> list[OpenItem]:
         return [OpenItem(OpenWorkKind.TASKS, "Replace the toner")]
 
     closing.register_open_work(OpenWorkKind.TASKS, tasks)
     yield
-    closing.unregister_open_work(OpenWorkKind.TASKS)
+    closing.register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
 
 
 @pytest.mark.usefixtures("open_task")
@@ -276,6 +279,13 @@ async def test_req_inc_098_ac2_a_reply_after_the_window_starts_a_new_record(worl
     new = (await world.call("GET", f"{BASE}/{follow_up['id']}", org, org.admin)).json()
     assert new["follows_id"] == closed["id"]
     assert new["display_id"] == follow_up["display_id"]
+    # WP-020e: the follow-up is a `follows` link, shown on both records.
+    on_new = (await world.call("GET", f"{BASE}/{follow_up['id']}/links", org, org.admin)).json()
+    on_old = (await world.call("GET", f"{BASE}/{closed['id']}/links", org, org.admin)).json()
+    assert [(x["kind"], x["relation"], x["other_id"]) for x in on_new] == [
+        ("follows", "follows", closed["id"])
+    ]
+    assert [(x["relation"], x["other_id"]) for x in on_old] == [("followed_by", follow_up["id"])]
     assert "New problem with the same printer" in (new["description"] or "")
 
 

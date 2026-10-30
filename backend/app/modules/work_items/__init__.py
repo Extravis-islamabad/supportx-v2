@@ -25,6 +25,7 @@ from app.modules.work_items.service import (
     bulk,
     inbound_mail,
     notifications,
+    parts,
     report_names,
     resolution,
 )
@@ -47,8 +48,21 @@ from app.shared.files.ports import register_owner_access, unregister_owner_acces
 from app.shared.schedules import ScheduleSpec
 
 
+def _register_parts() -> None:
+    """Open tasks are the record's open work (WP-020f port).
+
+    Workers close records too (bulk), so this runs at import as well as at app startup (after a
+    test unregistered it).
+    """
+    register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
+
+
+_register_parts()
+
+
 async def _startup(app: FastAPI) -> None:
     del app
+    _register_parts()
     register_owner_access(FILE_ACCESS)
     register_sources()  # again after a shutdown (tests start and stop the app)
 

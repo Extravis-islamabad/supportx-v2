@@ -25,6 +25,7 @@ import {
   queryKeys,
   useDeleteIncident,
   useIncident,
+  useIncidentTasks,
   useIncidentCatalogue,
   useIncidentCategories,
   attachDrafts,
@@ -70,6 +71,7 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
 import { IncidentHistory } from './IncidentHistory';
@@ -147,6 +149,8 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const typingTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
   const me = useSession().data?.user.id ?? null;
   const [tab, setTab] = useState<string>(() => lastTab(me));
+  // Tasks, worklogs and links follow the record's edit permission (WP-020e).
+  const canEditParts = item.operations.find((o) => o.action === 'edit')?.allowed === true;
   // Offered first in quick search and record pickers (REQ-INC-085).
   useEffect(() => {
     rememberIncident(me, item.id);
@@ -194,6 +198,18 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       if (event.by !== undefined) stopTyping(event.by);
       void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.conversation(item.id) });
       if (editing.current === 0) void reload();
+      return;
+    }
+    // A task, worklog or link changed (WP-020e): that part's list refetches.
+    if (event.type === 'work_items.part_changed') {
+      const part = event.fields?.[0];
+      if (part === 'task') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.tasks(item.id) });
+      } else if (part === 'worklog') {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.worklogs(item.id) });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.incidents.links(item.id) });
+      }
       return;
     }
     if (event.type === 'work_items.followers_changed') {
@@ -399,6 +415,21 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             ),
           },
           {
+            key: 'tasks',
+            label: <TasksTabLabel id={item.id} />,
+            children: <IncidentTasks item={item} canEdit={canEditParts} />,
+          },
+          {
+            key: 'worklogs',
+            label: t('incidents.tab.worklogs'),
+            children: <IncidentWorklogs item={item} canEdit={canEditParts} />,
+          },
+          {
+            key: 'links',
+            label: t('incidents.tab.links'),
+            children: <IncidentLinks item={item} canEdit={canEditParts} />,
+          },
+          {
             key: 'history',
             label: t('incidents.tab.history', { count: item.history_count }),
             children: <IncidentHistory id={item.id} />,
@@ -411,6 +442,19 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
         ]}
       />
     </Space>
+  );
+}
+
+/** "Tasks 1/3": done over total, live (REQ-INC-072 AC1). */
+function TasksTabLabel({ id }: { id: string }) {
+  const t = useLabel();
+  const tasks = useIncidentTasks(id);
+  return (
+    <span data-testid="inc-tab-tasks">
+      {tasks.data === undefined || tasks.data.total === 0
+        ? t('incidents.tab.tasks')
+        : t('incidents.tab.tasks_count', { done: tasks.data.done, total: tasks.data.total })}
+    </span>
   );
 }
 
