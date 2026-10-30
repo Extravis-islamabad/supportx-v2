@@ -1378,7 +1378,7 @@ export const ur: LabelResource = {
   'errors.pick_list_not_found': 'یہ فہرست موجود نہیں۔',
   'errors.pick_list_value_not_found': 'یہ قدر اب موجود نہیں۔',
   'errors.template_not_found': 'یہ سانچہ اب موجود نہیں۔',
-  'errors.field.invalid_colour': '‎#1677ff جیسا رنگ منتخب کریں۔',
+  'errors.field.invalid_colour': '#1677ff جیسا رنگ منتخب کریں۔',
   'errors.field.matrix_incomplete': 'اثر اور فوریت کے ہر جوڑے کو ترجیح درکار ہے۔',
   'errors.field.value_required_by_system':
     '"دیگر" ریٹائر نہیں ہو سکتا: جب کوئی وجہ موزوں نہ ہو تو یہی راستہ ہے۔',
@@ -1724,7 +1724,7 @@ export const ur: LabelResource = {
   'errors.desk_limit_reached': 'آپ کا لائسنس مزید ڈیسک کی اجازت نہیں دیتا۔',
   'errors.invalid_choice': 'یہ قدر دستیاب انتخاب میں سے نہیں۔',
   'errors.people_import_file_too_large': 'فائل 5 MB سے بڑی ہے۔',
-  'errors.people_import_file_not_readable': 'CSV فائل یا Excel ورک بُک (.xlsx) استعمال کریں۔',
+  'errors.people_import_file_not_readable': 'CSV فائل یا Excel ورک بُک ({{xlsx}}) استعمال کریں۔',
   'errors.sign_in_not_allowed': 'آپ کے اکاؤنٹ کے لیے سائن اِن بند ہے۔ اپنے منتظم سے رابطہ کریں۔',
   'errors.tenant_admin_is_technician':
     'ٹیننٹ منتظم ٹیکنیشن ہی رہتا ہے۔ پہلے منتظم کا کردار ہٹائیں۔',
@@ -1889,7 +1889,7 @@ export const ur: LabelResource = {
     'کالم: پہلا نام (لازمی)، آخری نام، ای میل، ملازم آئی ڈی، عہدہ، فون، موبائل، سائٹ، شعبہ، مینیجر (ای میل)، قسم، VIP، سائن اِن، زبان۔ خالی خانے قدریں نہیں بدلتے۔',
   'people.import.match_on': 'موجودہ افراد کو ملائیں بذریعہ',
   'people.import.drop': 'فائل یہاں چھوڑیں یا منتخب کرنے کے لیے کلک کریں',
-  'people.import.limits': 'CSV ‏(UTF-8) یا ‎.xlsx، زیادہ سے زیادہ 5 MB اور 5,000 قطاریں',
+  'people.import.limits': '{{csv}} یا {{xlsx}}، زیادہ سے زیادہ 5 MB اور 5,000 قطاریں',
   'people.import.queued': '{{name}} درآمد ہو رہی ہے',
   'people.import.recent': 'حالیہ درآمدات',
   'people.import.none': 'ابھی کوئی درآمد نہیں',
@@ -1903,8 +1903,8 @@ export const ur: LabelResource = {
   'people.import.problem': 'مسئلہ',
   'people_import_failure.file_too_large': 'فائل 5 MB سے بڑی ہے۔',
   'people_import_failure.file_not_readable':
-    'فائل پڑھی نہ جا سکی۔ CSV ‏(UTF-8) یا ‎.xlsx استعمال کریں۔',
-  'people_import_failure.file_not_utf8': 'CSV فائل کو UTF-8 میں محفوظ کر کے دوبارہ کوشش کریں۔',
+    'فائل پڑھی نہ جا سکی۔ {{csv}} یا {{xlsx}} استعمال کریں۔',
+  'people_import_failure.file_not_utf8': 'CSV فائل کو {{utf8}} میں محفوظ کر کے دوبارہ کوشش کریں۔',
   'people_import_failure.file_unsafe':
     'ورک بُک کھلنے پر اپنے سائز سے کہیں بڑی ہو جاتی ہے، اس لیے نہیں کھولی گئی۔',
   'people_import_failure.too_many_rows': '5,000 سے زیادہ قطاریں۔ فائل تقسیم کریں۔',

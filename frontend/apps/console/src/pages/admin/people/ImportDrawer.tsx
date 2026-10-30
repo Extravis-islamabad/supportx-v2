@@ -16,6 +16,8 @@ import {
 } from 'antd';
 import { useState } from 'react';
 
+import { useIsolate } from '@supportx/labels';
+
 import {
   queryKeys,
   usePeopleImports,
@@ -35,6 +37,19 @@ import {
 import { personFieldKey } from './fields';
 
 const MAX_BYTES = 5 * 1024 * 1024;
+// File format names as values, so the labels isolate them in right-to-left sentences ("UTF-8"
+// would read "8-UTF"); labels never carry direction marks (packages/labels README).
+const FORMAT_WORDS = { csv: 'CSV (UTF-8)', xlsx: '.xlsx', utf8: 'UTF-8' };
+
+/** The format names, isolated in right-to-left languages (the shared fill does it after #132). */
+function useFormatWords(): typeof FORMAT_WORDS {
+  const isolate = useIsolate();
+  return {
+    csv: isolate(FORMAT_WORDS.csv),
+    xlsx: isolate(FORMAT_WORDS.xlsx),
+    utf8: isolate(FORMAT_WORDS.utf8),
+  };
+}
 const STATUS_TONE: Record<PeopleImport['status'], Tone> = {
   queued: 'default',
   running: 'info',
@@ -48,6 +63,7 @@ const STATUS_TONE: Record<PeopleImport['status'], Tone> = {
  */
 export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const t = useLabel();
+  const formats = useFormatWords();
   const { message } = App.useApp();
   const imports = usePeopleImports(open);
   const start = useStartPeopleImport();
@@ -121,7 +137,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
             <InboxOutlined />
           </p>
           <p className="ant-upload-text">{t('people.import.drop')}</p>
-          <p className="ant-upload-hint">{t('people.import.limits')}</p>
+          <p className="ant-upload-hint">{t('people.import.limits', formats)}</p>
         </Upload.Dragger>
         {problem !== undefined && (
           <Alert type="error" showIcon message={problem} data-testid="people-import-problem" />
@@ -141,6 +157,7 @@ export function ImportDrawer({ open, onClose }: { open: boolean; onClose: () => 
 
 function ImportItem({ job }: { job: PeopleImport }) {
   const t = useLabel();
+  const formats = useFormatWords();
   const { locale } = useAppearance();
   const [showProblems, setShowProblems] = useState(false);
   const percent = job.total === 0 ? 0 : Math.round((job.processed / job.total) * 100);
@@ -162,6 +179,7 @@ function ImportItem({ job }: { job: PeopleImport }) {
             type="error"
             showIcon
             message={t(`people_import_failure.${job.failure}`, {
+              ...formats,
               detail: job.problems[0]?.detail ?? '',
             })}
           />

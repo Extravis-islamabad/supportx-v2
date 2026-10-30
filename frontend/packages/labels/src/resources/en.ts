@@ -2124,7 +2124,7 @@ export const en = {
   'errors.desk_limit_reached': 'Your licence allows no more desks.',
   'errors.invalid_choice': 'This value is not one of the choices.',
   'errors.people_import_file_too_large': 'The file is larger than 5 MB.',
-  'errors.people_import_file_not_readable': 'Use a CSV file or an Excel workbook (.xlsx).',
+  'errors.people_import_file_not_readable': 'Use a CSV file or an Excel workbook ({{xlsx}}).',
   'errors.sign_in_not_allowed': 'Sign-in is turned off for your account. Ask your administrator.',
   'errors.tenant_admin_is_technician':
     'A tenant administrator stays a technician. Remove the administrator role first.',
@@ -2289,7 +2289,7 @@ export const en = {
     'Columns: First name (required), Last name, Email, Employee ID, Job title, Phone, Mobile, Site, Department, Manager (email), Type, VIP, Can sign in, Language. Empty cells leave values unchanged.',
   'people.import.match_on': 'Match existing people by',
   'people.import.drop': 'Drop a file here or click to choose one',
-  'people.import.limits': 'CSV (UTF-8) or .xlsx, up to 5 MB and 5,000 rows',
+  'people.import.limits': '{{csv}} or {{xlsx}}, up to 5 MB and 5,000 rows',
   'people.import.queued': '{{name}} is being imported',
   'people.import.recent': 'Recent imports',
   'people.import.none': 'No imports yet',
@@ -2302,9 +2302,8 @@ export const en = {
   'people.import.column': 'Column',
   'people.import.problem': 'Problem',
   'people_import_failure.file_too_large': 'The file is larger than 5 MB.',
-  'people_import_failure.file_not_readable':
-    'The file could not be read. Use CSV (UTF-8) or .xlsx.',
-  'people_import_failure.file_not_utf8': 'Save the CSV file as UTF-8 and try again.',
+  'people_import_failure.file_not_readable': 'The file could not be read. Use {{csv}} or {{xlsx}}.',
+  'people_import_failure.file_not_utf8': 'Save the CSV file as {{utf8}} and try again.',
   'people_import_failure.file_unsafe':
     'The workbook unpacks to far more than its size, so it was not opened.',
   'people_import_failure.too_many_rows': 'More than 5,000 rows. Split the file.',

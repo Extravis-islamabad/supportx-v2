@@ -49,6 +49,9 @@ log = get_logger(__name__)
 
 BATCH = 100
 MAX_PROBLEMS = 1000  # kept on the import; the counts stay exact beyond this
+# File format names, sent as values so labels isolate them: typed into a right-to-left sentence,
+# "UTF-8" would read "8-UTF" (labels README: no direction marks in labels).
+FORMAT_WORDS = {"csv": "CSV (UTF-8)", "xlsx": ".xlsx", "utf8": "UTF-8"}
 MatchOn = Literal["email", "employee_id"]
 LANGUAGE_NAMES = {"english": "en", "arabic": "ar", "urdu": "ur"}
 
@@ -78,7 +81,9 @@ async def start_import(
         if len(content) > MAX_FILE_BYTES:
             raise ImportRefused(ImportFailure.TOO_LARGE)  # noqa: TRY301 - same refusal as the job's
     except ImportRefused as refused:
-        raise ValidationFailed(code=f"people_import_{refused.failure.value}") from refused
+        raise ValidationFailed(
+            code=f"people_import_{refused.failure.value}", params=FORMAT_WORDS
+        ) from refused
     job = await ImportRepository(session).add(
         PeopleImport(
             file_name=file_name[:255] or "people",
