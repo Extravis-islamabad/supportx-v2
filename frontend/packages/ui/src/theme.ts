@@ -88,6 +88,8 @@ export function buildTheme(
         colorText: '#000000',
         colorTextSecondary: '#1f1f1f',
         colorTextTertiary: '#262626',
+        // Ant Design's default placeholder is 1.84:1 on white; this one is 7:1 (theme-contrast.test).
+        colorTextPlaceholder: '#595959',
         colorBorder: '#000000',
         colorBorderSecondary: '#000000',
         colorBgLayout: '#ffffff',

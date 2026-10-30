@@ -63,3 +63,18 @@ tenant session RLS does this for you; raw SQL through the admin connection (`wor
 Why: an unscoped count passes alone and under `-n` sharding, then fails in a single-process run
 (`make check`) because another test wrote the same event type. Found in WP-020e's task test
 (5 events counted where its own 3 were expected).
+
+## Contrast in Arabic and Urdu: axe does not check it (2026-10-30)
+
+**"axe clean" in Arabic or Urdu does not prove contrast.** axe's `color-contrast` rule reports
+"inapplicable" on Arabic-script text: even `#ccc` on white gives no violation. Its `isIconLigature`
+check takes the script's joined letters for an icon font, and no option turns that off (axe-core
+4.14.0). Latin text inside a right-to-left page is measured normally. Every other axe rule still
+applies to these pages.
+
+Contrast in those languages is covered by:
+- `packages/ui/src/theme-contrast.test.ts`: the palette tokens against WCAG AA, in every theme;
+- `expectTextContrast` in `frontend/e2e/tests/helpers.ts`: computed colours of the visible text;
+  `rtl-contrast.spec.ts` runs it on key screens in Arabic and Urdu. Use it on new right-to-left
+  screens that bring their own colours.
+- `expectToastsAccessible`: toasts held open, as `expectAccessible` waits until toasts have gone.
