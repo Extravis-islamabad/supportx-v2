@@ -34,6 +34,7 @@ from app.modules.analytics.domain.schedule import Frequency
 from app.modules.analytics.infra.models import ReportExport, ReportSchedule, ReportSettings
 from app.modules.analytics.service import exports, library, schedules
 from app.modules.analytics.service.compiler import available_measures, compile_report
+from app.modules.analytics.service.dashboards import for_viewer
 from app.modules.analytics.service.jobs import storage_or_none
 from app.modules.analytics.service.runner import (
     ReportResult,
@@ -339,7 +340,7 @@ async def run(
         _reporting_db(request),
         context,
         subject,
-        body.definition,
+        for_viewer(body.definition, subject),
         source=source,
         zone=_zone(request),
         timeout_seconds=limits.interactive_timeout_seconds,

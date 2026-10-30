@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Radio, Select, Switch } from 'antd';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import {
   useReportEntity,
@@ -9,20 +9,23 @@ import {
   type ChartType,
   type DashboardWidget,
   type ReportDefinition,
+  type WidgetCatalogueEntry,
 } from '@supportx/api-client';
 import { useLabels } from '@supportx/labels';
 import { lengthLimit } from '@supportx/ui';
 
 import { INCIDENT_REPORT_FIELDS, useReportWords } from '../reports/names';
+import { RecordsWidget } from './RecordsWidget';
+import { WidgetCataloguePicker } from './WidgetCatalogue';
 import { widgetDefinition } from './widgetDefinition';
 import { Widget } from './Widget';
 
 const CHARTS: ChartType[] = ['kpi', 'bar', 'stacked_bar', 'line', 'area', 'doughnut', 'table'];
 
 /**
- * "Add widget" (REQ-DSH-007 AC1, REQ-DSH-009): one action, a search over every report, or a
- * quick chart (grouping, measure, chart type, number or percent), with a live preview of real
- * data before adding (REQ-DSH-007 AC2).
+ * "Add widget" (REQ-DSH-007 AC1, REQ-DSH-009): one action, the searchable widget catalogue
+ * (D-114), a search over every report, or a quick chart (grouping, measure, chart type, number
+ * or percent), with a live preview of real data before adding (REQ-DSH-007 AC2).
  */
 export function AddWidget({
   taken,
@@ -35,12 +38,14 @@ export function AddWidget({
   onAdd: (widget: DashboardWidget) => void;
 }) {
   const t = useLabels();
+  const ids = useId();
   const session = useSession().data;
   const library = useReportLibrary();
   const entity = useReportEntity('incident');
   const words = useReportWords();
   const [open, setOpen] = useState(false);
-  const [source, setSource] = useState<'report' | 'quick'>('quick');
+  const [source, setSource] = useState<'catalogue' | 'report' | 'quick'>('catalogue');
+  const [entry, setEntry] = useState<WidgetCatalogueEntry>();
   const [reportRef, setReportRef] = useState<string>();
   const [title, setTitle] = useState('');
   const [group, setGroup] = useState<string>();
@@ -72,6 +77,17 @@ export function AddWidget({
   const kpi = source === 'quick' && (chart === 'kpi' || group === undefined);
   const widget: DashboardWidget | null = useMemo(() => {
     const place = kpi ? { x: 0, y: below, w: 3, h: 2 } : { x: 0, y: below, w: 6, h: 4 };
+    if (source === 'catalogue') {
+      if (!entry) return null;
+      const [w, h] = [entry.widget.place.w, entry.widget.place.h];
+      const named = title.trim();
+      return {
+        ...entry.widget,
+        id,
+        ...(named ? { title: named, title_key: null } : {}),
+        place: { x: 0, y: below, w, h },
+      };
+    }
     if (source === 'report') {
       if (!reportRef) return null;
       const name = reports.find((r) => r.value === reportRef)?.label ?? '';
@@ -94,7 +110,7 @@ export function AddWidget({
     };
     // `reports` and `words` change identity each render; their content is what matters here.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
-  }, [source, reportRef, title, group, measure, chart, percent, below, id, kpi]);
+  }, [source, entry, reportRef, title, group, measure, chart, percent, below, id, kpi]);
   const preview = widget
     ? widgetDefinition(widget, {
         userId: session?.user.id ?? '',
@@ -118,6 +134,8 @@ export function AddWidget({
         open={open}
         title={t('dashboards.add_widget')}
         width="min(900px, 96vw)"
+        // A closed dialog leaves nothing behind: no stale preview beside the added widget.
+        destroyOnHidden
         okText={t('dashboards.add')}
         cancelText={t('reports.cancel')}
         okButtonProps={{ disabled: widget === null, 'data-testid': 'dashboard-add-confirm' }}
@@ -135,18 +153,24 @@ export function AddWidget({
             <Radio.Group
               value={source}
               onChange={(event) => {
-                setSource(event.target.value as 'report' | 'quick');
+                setSource(event.target.value as 'catalogue' | 'report' | 'quick');
               }}
               options={[
+                { value: 'catalogue', label: t('dashboards.source_catalogue') },
                 { value: 'quick', label: t('dashboards.quick_chart') },
                 { value: 'report', label: t('dashboards.from_report') },
               ]}
               data-testid="dashboard-add-source"
             />
           </Form.Item>
-          {source === 'report' ? (
-            <Form.Item label={t('dashboards.report')}>
+          {source === 'catalogue' ? (
+            <Form.Item>
+              <WidgetCataloguePicker value={entry?.code} onChange={setEntry} />
+            </Form.Item>
+          ) : source === 'report' ? (
+            <Form.Item label={t('dashboards.report')} htmlFor={`${ids}-report`}>
               <Select
+                id={`${ids}-report`}
                 showSearch
                 optionFilterProp="label"
                 value={reportRef}
@@ -158,8 +182,9 @@ export function AddWidget({
             </Form.Item>
           ) : (
             <>
-              <Form.Item label={t('reports.group_by')}>
+              <Form.Item label={t('reports.group_by')} htmlFor={`${ids}-group`}>
                 <Select
+                  id={`${ids}-group`}
                   allowClear
                   value={group}
                   onChange={setGroup}
@@ -168,8 +193,9 @@ export function AddWidget({
                   data-testid="dashboard-add-group"
                 />
               </Form.Item>
-              <Form.Item label={t('reports.measures')}>
+              <Form.Item label={t('reports.measures')} htmlFor={`${ids}-measure`}>
                 <Select
+                  id={`${ids}-measure`}
                   value={measure}
                   onChange={setMeasure}
                   options={(entity.data?.measures ?? []).map((m) => ({
@@ -179,21 +205,23 @@ export function AddWidget({
                   data-testid="dashboard-add-measure"
                 />
               </Form.Item>
-              <Form.Item label={t('reports.chart')}>
+              <Form.Item label={t('reports.chart')} htmlFor={`${ids}-chart`}>
                 <Select
+                  id={`${ids}-chart`}
                   value={chart}
                   onChange={setChart}
                   options={CHARTS.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
                   data-testid="dashboard-add-chart"
                 />
               </Form.Item>
-              <Form.Item label={t('dashboards.percent')}>
-                <Switch checked={percent} onChange={setPercent} />
+              <Form.Item label={t('dashboards.percent')} htmlFor={`${ids}-percent`}>
+                <Switch id={`${ids}-percent`} checked={percent} onChange={setPercent} />
               </Form.Item>
             </>
           )}
-          <Form.Item label={t('dashboards.widget_title')}>
+          <Form.Item label={t('dashboards.widget_title')} htmlFor={`${ids}-title`}>
             <Input
+              id={`${ids}-title`}
               value={title}
               count={lengthLimit(120)}
               onChange={(event) => {
@@ -206,12 +234,21 @@ export function AddWidget({
         {widget && (
           // A preview with real data before it is added (REQ-DSH-007 AC2).
           <div style={{ height: widget.place.h * 72 + 40 }} data-testid="dashboard-add-preview">
-            <Widget
-              widget={widget}
-              definition={preview}
-              unfiltered={[]}
-              onDrill={() => undefined}
-            />
+            {widget.records ? (
+              <RecordsWidget
+                widget={widget}
+                userId={session?.user.id ?? ''}
+                filters={{}}
+                onDrill={() => undefined}
+              />
+            ) : (
+              <Widget
+                widget={widget}
+                definition={preview}
+                unfiltered={[]}
+                onDrill={() => undefined}
+              />
+            )}
           </div>
         )}
       </Modal>
