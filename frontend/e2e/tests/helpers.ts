@@ -125,9 +125,10 @@ function contrastRatio(foreground: Rgba, background: Rgba): number {
  * in Arabic or Urdu says nothing about contrast (docs/architecture/testing.md). Walks the visible
  * text under `root`, blends each colour and its opacity over the real backgrounds behind it, and
  * asks 4.5:1, or 3:1 for large text. Disabled controls are exempt (WCAG 1.4.3); text over a
- * background image cannot be measured and is skipped. A list reloading sits under a half-opaque
- * overlay: it is read again until the overlay has gone, in the same tick as the measuring, so a
- * reload can never be measured as low contrast.
+ * background image cannot be measured and is skipped. Nothing is measured while a list is loading
+ * or fading back in: Ant Design's overlay leaves its class first and then fades over 0.3 s, so the
+ * read repeats until no overlay and no CSS transition remain, in the same tick as the measuring.
+ * (Endless animations, such as a live dot, are not transitions and do not hold it up.)
  */
 export async function expectTextContrast(
   page: Page,
@@ -142,7 +143,12 @@ export async function expectTextContrast(
   }
   const read = (): Promise<Measured[] | null> =>
     page.evaluate((selector) => {
-      if (document.querySelector('.ant-spin-blur') !== null) return null;
+      const settling = document
+        .getAnimations()
+        .some(
+          (animation) => animation instanceof CSSTransition && animation.playState === 'running',
+        );
+      if (settling || document.querySelector('.ant-spin-blur') !== null) return null;
       const parse = (colour: string): Rgba => {
         const [r = 0, g = 0, b = 0, a = 1] = (colour.match(/[\d.]+/g) ?? []).map(Number);
         return [r, g, b, a];
