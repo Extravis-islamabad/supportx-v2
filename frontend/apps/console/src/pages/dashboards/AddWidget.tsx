@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Radio, Select, Switch } from 'antd';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import {
   useReportEntity,
@@ -38,6 +38,7 @@ export function AddWidget({
   onAdd: (widget: DashboardWidget) => void;
 }) {
   const t = useLabels();
+  const ids = useId();
   const session = useSession().data;
   const library = useReportLibrary();
   const entity = useReportEntity('incident');
@@ -167,8 +168,9 @@ export function AddWidget({
               <WidgetCataloguePicker value={entry?.code} onChange={setEntry} />
             </Form.Item>
           ) : source === 'report' ? (
-            <Form.Item label={t('dashboards.report')}>
+            <Form.Item label={t('dashboards.report')} htmlFor={`${ids}-report`}>
               <Select
+                id={`${ids}-report`}
                 showSearch
                 optionFilterProp="label"
                 value={reportRef}
@@ -180,8 +182,9 @@ export function AddWidget({
             </Form.Item>
           ) : (
             <>
-              <Form.Item label={t('reports.group_by')}>
+              <Form.Item label={t('reports.group_by')} htmlFor={`${ids}-group`}>
                 <Select
+                  id={`${ids}-group`}
                   allowClear
                   value={group}
                   onChange={setGroup}
@@ -190,8 +193,9 @@ export function AddWidget({
                   data-testid="dashboard-add-group"
                 />
               </Form.Item>
-              <Form.Item label={t('reports.measures')}>
+              <Form.Item label={t('reports.measures')} htmlFor={`${ids}-measure`}>
                 <Select
+                  id={`${ids}-measure`}
                   value={measure}
                   onChange={setMeasure}
                   options={(entity.data?.measures ?? []).map((m) => ({
@@ -201,21 +205,23 @@ export function AddWidget({
                   data-testid="dashboard-add-measure"
                 />
               </Form.Item>
-              <Form.Item label={t('reports.chart')}>
+              <Form.Item label={t('reports.chart')} htmlFor={`${ids}-chart`}>
                 <Select
+                  id={`${ids}-chart`}
                   value={chart}
                   onChange={setChart}
                   options={CHARTS.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
                   data-testid="dashboard-add-chart"
                 />
               </Form.Item>
-              <Form.Item label={t('dashboards.percent')}>
-                <Switch checked={percent} onChange={setPercent} />
+              <Form.Item label={t('dashboards.percent')} htmlFor={`${ids}-percent`}>
+                <Switch id={`${ids}-percent`} checked={percent} onChange={setPercent} />
               </Form.Item>
             </>
           )}
-          <Form.Item label={t('dashboards.widget_title')}>
+          <Form.Item label={t('dashboards.widget_title')} htmlFor={`${ids}-title`}>
             <Input
+              id={`${ids}-title`}
               value={title}
               count={lengthLimit(120)}
               onChange={(event) => {
