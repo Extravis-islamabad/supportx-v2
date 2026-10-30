@@ -125,59 +125,80 @@ function contrastRatio(foreground: Rgba, background: Rgba): number {
  * in Arabic or Urdu says nothing about contrast (docs/architecture/testing.md). Walks the visible
  * text under `root`, blends each colour and its opacity over the real backgrounds behind it, and
  * asks 4.5:1, or 3:1 for large text. Disabled controls are exempt (WCAG 1.4.3); text over a
- * background image cannot be measured and is skipped.
+ * background image cannot be measured and is skipped. A list reloading sits under a half-opaque
+ * overlay: it is read again until the overlay has gone, in the same tick as the measuring, so a
+ * reload can never be measured as low contrast.
  */
 export async function expectTextContrast(
   page: Page,
   label: string,
   { root = 'main', atLeast = 1 }: { root?: string; atLeast?: number } = {},
 ): Promise<void> {
-  const measured = await page.evaluate((selector) => {
-    const parse = (colour: string): Rgba => {
-      const [r = 0, g = 0, b = 0, a = 1] = (colour.match(/[\d.]+/g) ?? []).map(Number);
-      return [r, g, b, a];
-    };
-    const over = (front: Rgba, back: Rgba): Rgba => {
-      const [r, g, b, a] = front;
-      return [r * a + back[0] * (1 - a), g * a + back[1] * (1 - a), b * a + back[2] * (1 - a), 1];
-    };
-    const found: { text: string; colour: Rgba; background: Rgba; large: boolean }[] = [];
-    for (const start of document.querySelectorAll(selector)) {
-      const walker = document.createTreeWalker(start, NodeFilter.SHOW_TEXT);
-      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-        const text = node.textContent?.trim() ?? '';
-        const element = node.parentElement;
-        if (text === '' || element === null || element.getClientRects().length === 0) continue;
-        const style = getComputedStyle(element);
-        if (style.visibility !== 'visible') continue;
-        if (element.closest('[disabled], [aria-disabled="true"], [class*="-disabled"]')) continue;
-        // Everything behind the text, nearest first, down to the first opaque layer.
-        const layers: Rgba[] = [];
-        let opacity = 1;
-        let image = false;
-        for (let at: Element | null = element; at !== null; at = at.parentElement) {
-          const own = getComputedStyle(at);
-          opacity *= Number(own.opacity);
-          if (own.backgroundImage !== 'none') image = true;
-          const layer = parse(own.backgroundColor);
-          if (layer[3] > 0 && layers.at(-1)?.[3] !== 1) layers.push(layer);
+  interface Measured {
+    text: string;
+    colour: Rgba;
+    background: Rgba;
+    large: boolean;
+  }
+  const read = (): Promise<Measured[] | null> =>
+    page.evaluate((selector) => {
+      if (document.querySelector('.ant-spin-blur') !== null) return null;
+      const parse = (colour: string): Rgba => {
+        const [r = 0, g = 0, b = 0, a = 1] = (colour.match(/[\d.]+/g) ?? []).map(Number);
+        return [r, g, b, a];
+      };
+      const over = (front: Rgba, back: Rgba): Rgba => {
+        const [r, g, b, a] = front;
+        return [r * a + back[0] * (1 - a), g * a + back[1] * (1 - a), b * a + back[2] * (1 - a), 1];
+      };
+      const found: Measured[] = [];
+      for (const start of document.querySelectorAll(selector)) {
+        const walker = document.createTreeWalker(start, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+          const text = node.textContent?.trim() ?? '';
+          const element = node.parentElement;
+          if (text === '' || element === null || element.getClientRects().length === 0) continue;
+          const style = getComputedStyle(element);
+          if (style.visibility !== 'visible') continue;
+          if (element.closest('[disabled], [aria-disabled="true"], [class*="-disabled"]')) continue;
+          // Everything behind the text, nearest first, down to the first opaque layer.
+          const layers: Rgba[] = [];
+          let opacity = 1;
+          let image = false;
+          for (let at: Element | null = element; at !== null; at = at.parentElement) {
+            const own = getComputedStyle(at);
+            opacity *= Number(own.opacity);
+            if (own.backgroundImage !== 'none') image = true;
+            const layer = parse(own.backgroundColor);
+            if (layer[3] > 0 && layers.at(-1)?.[3] !== 1) layers.push(layer);
+          }
+          if (image || opacity === 0) continue;
+          let background: Rgba = [255, 255, 255, 1];
+          for (const layer of layers.reverse()) background = over(layer, background);
+          const [r, g, b, a] = parse(style.color);
+          const size = parseFloat(style.fontSize);
+          const bold = Number(style.fontWeight) >= 700;
+          found.push({
+            text: text.slice(0, 40),
+            colour: over([r, g, b, a * opacity], background),
+            background,
+            large: size >= 24 || (bold && size >= 18.66),
+          });
         }
-        if (image || opacity === 0) continue;
-        let background: Rgba = [255, 255, 255, 1];
-        for (const layer of layers.reverse()) background = over(layer, background);
-        const [r, g, b, a] = parse(style.color);
-        const size = parseFloat(style.fontSize);
-        const bold = Number(style.fontWeight) >= 700;
-        found.push({
-          text: text.slice(0, 40),
-          colour: over([r, g, b, a * opacity], background),
-          background,
-          large: size >= 24 || (bold && size >= 18.66),
-        });
       }
-    }
-    return found;
-  }, root);
+      return found;
+    }, root);
+  const latest: { found: Measured[] | null } = { found: null };
+  await expect
+    .poll(
+      async () => {
+        latest.found = await read();
+        return latest.found !== null;
+      },
+      { message: `${label} finished loading`, timeout: 10_000 },
+    )
+    .toBe(true);
+  const measured = latest.found ?? [];
   expect(measured.length, `text measured on ${label}`).toBeGreaterThanOrEqual(atLeast);
   const low = measured.flatMap((item) => {
     const ratio = contrastRatio(item.colour, item.background);
