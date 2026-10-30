@@ -269,6 +269,8 @@ export const ar: LabelResource = {
   'dev.chart_title': 'عرض توضيحي: التذاكر حسب اليوم',
   'dev.chart_aria': 'مخطط أعمدة لأعداد تذاكر تجريبية لكل يوم عمل.',
   'dev.write_button': 'تعديل (إجراء كتابة)',
+  'dev.toasts': 'عرض الإشعارات (تبقى مفتوحة)',
+  'dev.toast_sample': 'رسالة نموذجية',
   'dev.errors': 'رسائل الأخطاء',
   'weekday.mon': 'الإثنين',
   'weekday.tue': 'الثلاثاء',

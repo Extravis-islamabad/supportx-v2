@@ -281,6 +281,8 @@ export const en = {
   'dev.chart_title': 'Demo: tickets by day',
   'dev.chart_aria': 'Bar chart of demo ticket counts per weekday.',
   'dev.write_button': 'Edit (write action)',
+  'dev.toasts': 'Show toasts (held open)',
+  'dev.toast_sample': 'A sample message',
   'dev.errors': 'Error messages',
   'weekday.mon': 'Mon',
   'weekday.tue': 'Tue',
