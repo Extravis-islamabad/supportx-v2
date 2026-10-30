@@ -13,7 +13,7 @@ describe('labels carry no hard-coded direction marks', () => {
   for (const [language, resources] of Object.entries({ en, ar, ur })) {
     it(`${language}: no LRM, RLM, embeddings, overrides or isolates`, () => {
       const marked = Object.entries(resources)
-        .filter(([, text]) => MARKS.test(text))
+        .filter(([, text]) => text !== undefined && MARKS.test(text))
         .map(([key]) => key);
       expect(marked).toEqual([]);
     });
