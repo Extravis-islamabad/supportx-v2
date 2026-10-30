@@ -42,6 +42,37 @@ export function unusableFilters(
   );
 }
 
+const NOW_MEASURES = new Set(['open_count', 'unassigned_open_count']);
+const OPEN_CATEGORIES = new Set(['open', 'paused']);
+
+/** The filter requires open records: a condition on status_category, alone or inside an AND. */
+function requiresOpen(filter: unknown): boolean {
+  if (filter === null || typeof filter !== 'object') return false;
+  const node = filter as { and?: unknown[]; field?: string; op?: string; value?: unknown };
+  if (Array.isArray(node.and)) return node.and.some(requiresOpen);
+  return (
+    node.field === 'status_category' &&
+    node.op === 'in' &&
+    Array.isArray(node.value) &&
+    node.value.length > 0 &&
+    node.value.every((value) => OPEN_CATEGORIES.has(String(value)))
+  );
+}
+
+/**
+ * An "open now" widget: what is open at this moment, however old (product owner on QA WP-036 Q1,
+ * D-119). The time filter never narrows it, or "Open incidents" would shrink to those created
+ * lately. Reports split over time (a date bucket) are trends; "by age" is still a picture of now.
+ */
+export function isOpenNow(definition: ReportDefinition | null | undefined): boolean {
+  if (!definition) return false;
+  const buckets = (definition.group_by ?? []) as { bucket?: string | null }[];
+  if (buckets.some((group) => group.bucket != null && group.bucket !== 'age')) return false;
+  if (requiresOpen(definition.filter)) return true;
+  const measures = definition.measures ?? [];
+  return measures.length > 0 && measures.every((m) => NOW_MEASURES.has(m));
+}
+
 /**
  * The report definition a widget runs for one viewer: its own definition (or the report it
  * refers to), "me" as the viewer, and the dashboard's filters added (AND) where the entity has
@@ -80,7 +111,7 @@ export function widgetDefinition(
   if (filters.group_id && !skip.has('group_id')) {
     extra.push({ field: 'group_id', op: 'eq', value: filters.group_id });
   }
-  if (filters.days && !skip.has('days')) {
+  if (filters.days && !skip.has('days') && !isOpenNow(own)) {
     extra.push({ field: 'created_at', op: 'last_n_days', value: filters.days });
   }
   if (extra.length === 0) return own;
@@ -90,4 +121,34 @@ export function widgetDefinition(
       ? extra[0]
       : { and: extra };
   return { ...own, filter: filter as ReportDefinition['filter'] };
+}
+
+/**
+ * The time filter moves from "used" to "not used" on an open-now widget, so its note says so.
+ */
+export function nowFilters(
+  now: boolean,
+  filters: DashboardFilters,
+  applied: DashboardFilterKey[],
+  unusable: DashboardFilterKey[],
+): { filtered: DashboardFilterKey[]; unfiltered: DashboardFilterKey[] } {
+  if (!now || filters.days == null) return { filtered: applied, unfiltered: unusable };
+  return {
+    filtered: applied.filter((key) => key !== 'days'),
+    unfiltered: unusable.includes('days') ? unusable : [...unusable, 'days'],
+  };
+}
+
+/**
+ * The filters of the bar a widget does use (never silent: the widget names them beside those it
+ * cannot use, coordinator and QA WP-036 Q1).
+ */
+export function appliedFilters(
+  filters: DashboardFilters,
+  fields: ReportField[] | undefined,
+): DashboardFilterKey[] {
+  const unusable = new Set(unusableFilters(filters, fields));
+  return (Object.keys(FILTER_FIELDS) as DashboardFilterKey[]).filter(
+    (key) => filters[key] != null && !unusable.has(key),
+  );
 }

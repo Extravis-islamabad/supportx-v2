@@ -1,8 +1,15 @@
 import {
+  AreaChartOutlined,
   ArrowDownOutlined,
   ArrowUpOutlined,
+  BarChartOutlined,
+  DashboardOutlined,
   ExpandOutlined,
+  LineChartOutlined,
+  NumberOutlined,
+  PieChartOutlined,
   ReloadOutlined,
+  TableOutlined,
 } from '@ant-design/icons';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -39,6 +46,17 @@ import { Results } from '../reports/ReportPage';
 import { kpiPeriod, previousPeriod, sparkline, trend } from './kpi';
 import { ROW_PX, widgetTitle } from './layout';
 
+const CHART_ICONS: Record<ChartType, typeof BarChartOutlined> = {
+  bar: BarChartOutlined,
+  stacked_bar: BarChartOutlined,
+  line: LineChartOutlined,
+  area: AreaChartOutlined,
+  doughnut: PieChartOutlined,
+  gauge: DashboardOutlined,
+  kpi: NumberOutlined,
+  table: TableOutlined,
+};
+
 // Chart types a viewer may switch a widget to (REQ-DSH-015): for that viewer only.
 const SWITCHABLE: ChartType[] = ['bar', 'stacked_bar', 'line', 'area', 'doughnut', 'table'];
 
@@ -48,6 +66,10 @@ export interface WidgetProps {
   definition: ReportDefinition | null;
   /** Filters of the bar this widget cannot use ("not filtered by site", REQ-DSH-022 AC2). */
   unfiltered: string[];
+  /** An open-now widget: the number of this moment, whatever the time filter (D-119). */
+  now?: boolean;
+  /** Filters of the bar this widget does use ("filtered by site"): it always says which. */
+  filtered?: string[];
   onDrill: (drill: Drill) => void;
   /** Edit mode: the controls to move, resize and remove (REQ-DSH-019). */
   toolbar?: ReactNode;
@@ -60,6 +82,8 @@ export function Widget({
   widget,
   definition,
   unfiltered,
+  now = false,
+  filtered = [],
   onDrill,
   toolbar,
   dragHandle = false,
@@ -111,6 +135,7 @@ export function Widget({
         words={words}
         view={shown.chart === 'table' ? 'table' : 'chart'}
         chartHeight={Math.max(140, widget.place.h * ROW_PX - 110)}
+        compact={widget.place.w <= 4}
         onDrill={(row) => {
           onDrill({
             title: `${title}: ${joinParts(row.keys.map((k, i) => (result.groups[i] ? words.key(result.groups[i], k) : '')))}`,
@@ -137,7 +162,7 @@ export function Widget({
         </span>
       }
       style={{ height: '100%', overflow: 'hidden' }}
-      styles={{ body: { overflow: 'auto', height: 'calc(100% - 40px)' } }}
+      styles={{ body: { overflow: 'hidden', height: 'calc(100% - 40px)', padding: 0 } }}
       data-testid={`widget-${widget.id}`}
       extra={
         toolbar ?? (
@@ -156,6 +181,13 @@ export function Widget({
                   setType(next);
                 }}
                 options={SWITCHABLE.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
+                // An icon of the current type, named for readers, so the title keeps its room
+                // (QA WP-036 C2); the list still says each type in words.
+                labelRender={({ value }) => {
+                  const Icon = CHART_ICONS[value as ChartType];
+                  return <Icon role="img" aria-label={t(`report_chart.${String(value)}`)} />;
+                }}
+                popupMatchSelectWidth={false}
                 data-testid={`widget-type-${widget.id}`}
               />
             )}
@@ -188,14 +220,31 @@ export function Widget({
         )
       }
     >
-      {unfiltered.length > 0 && (
-        <Tag data-testid={`widget-unfiltered-${widget.id}`}>
-          {t('dashboards.not_filtered_by', {
-            filters: unfiltered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
-          })}
-        </Tag>
-      )}
-      {body}
+      {/* The content scrolls in a region named by the widget, so a keyboard can reach and
+          scroll it (QA WP-036 BUG-05, axe scrollable-region-focusable). */}
+      <div
+        role="region"
+        aria-label={title}
+        tabIndex={0}
+        style={{ height: '100%', overflow: 'auto', padding: 12 }}
+      >
+        {now && <Tag data-testid={`widget-now-${widget.id}`}>{t('dashboards.now')}</Tag>}
+        {filtered.length > 0 && (
+          <Tag data-testid={`widget-filtered-${widget.id}`}>
+            {t('dashboards.filtered_by', {
+              filters: filtered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
+            })}
+          </Tag>
+        )}
+        {unfiltered.length > 0 && (
+          <Tag data-testid={`widget-unfiltered-${widget.id}`}>
+            {t('dashboards.not_filtered_by', {
+              filters: unfiltered.map((f) => t(`dashboards.filter_${f}`)).join(' · '),
+            })}
+          </Tag>
+        )}
+        {body}
+      </div>
       <Modal
         open={expanded}
         title={title}

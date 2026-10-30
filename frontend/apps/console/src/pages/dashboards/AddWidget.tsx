@@ -1,6 +1,6 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Form, Input, Modal, Radio, Select, Switch } from 'antd';
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import {
   useReportEntity,
@@ -13,7 +13,7 @@ import {
 import { useLabels } from '@supportx/labels';
 import { lengthLimit } from '@supportx/ui';
 
-import { INCIDENT_REPORT_FIELDS, useReportWords } from '../reports/names';
+import { fieldLabelKey, INCIDENT_REPORT_FIELDS, useReportWords } from '../reports/names';
 import { widgetDefinition } from './widgetDefinition';
 import { Widget } from './Widget';
 
@@ -40,6 +40,8 @@ export function AddWidget({
   const entity = useReportEntity('incident');
   const words = useReportWords();
   const [open, setOpen] = useState(false);
+  // Each control is named by its label (QA WP-036 BUG-04): the label points at the control's id.
+  const ids = useId();
   const [source, setSource] = useState<'report' | 'quick'>('quick');
   const [reportRef, setReportRef] = useState<string>();
   const [title, setTitle] = useState('');
@@ -72,10 +74,19 @@ export function AddWidget({
   const kpi = source === 'quick' && (chart === 'kpi' || group === undefined);
   const widget: DashboardWidget | null = useMemo(() => {
     const place = kpi ? { x: 0, y: below, w: 3, h: 2 } : { x: 0, y: below, w: 6, h: 4 };
+    // A title typed by the user is theirs; otherwise a shipped name is kept as its label key, so
+    // every viewer reads it in their own language (QA WP-036 BUG-03).
+    const typed = title.trim();
     if (source === 'report') {
       if (!reportRef) return null;
+      if (typed) return { id, title: typed, report_ref: reportRef, place };
+      if (reportRef.startsWith('builtin:')) {
+        const code = reportRef.slice('builtin:'.length);
+        return { id, title_key: `report.${code}`, report_ref: reportRef, place };
+      }
+      // A saved report's name is its owner's own words.
       const name = reports.find((r) => r.value === reportRef)?.label ?? '';
-      return { id, title: title.trim() || name, report_ref: reportRef, place };
+      return { id, title: name, report_ref: reportRef, place };
     }
     const report: ReportDefinition = {
       schema_version: 1,
@@ -86,9 +97,12 @@ export function AddWidget({
       chart: kpi ? 'kpi' : chart,
       percent,
     };
+    if (typed) return { id, title: typed, report, place };
+    // A custom field's name is the admin's own words; shipped fields and measures have labels.
+    if (group?.startsWith('custom.')) return { id, title: words.field(group), report, place };
     return {
       id,
-      title: title.trim() || (group ? words.field(group) : words.measure('incident', measure).name),
+      title_key: group ? fieldLabelKey(group) : `measure.incident.${measure}`,
       report,
       place,
     };
@@ -145,8 +159,9 @@ export function AddWidget({
             />
           </Form.Item>
           {source === 'report' ? (
-            <Form.Item label={t('dashboards.report')}>
+            <Form.Item label={t('dashboards.report')} htmlFor={`${ids}-report`}>
               <Select
+                id={`${ids}-report`}
                 showSearch
                 optionFilterProp="label"
                 value={reportRef}
@@ -158,8 +173,9 @@ export function AddWidget({
             </Form.Item>
           ) : (
             <>
-              <Form.Item label={t('reports.group_by')}>
+              <Form.Item label={t('reports.group_by')} htmlFor={`${ids}-group`}>
                 <Select
+                  id={`${ids}-group`}
                   allowClear
                   value={group}
                   onChange={setGroup}
@@ -168,8 +184,9 @@ export function AddWidget({
                   data-testid="dashboard-add-group"
                 />
               </Form.Item>
-              <Form.Item label={t('reports.measures')}>
+              <Form.Item label={t('reports.measures')} htmlFor={`${ids}-measure`}>
                 <Select
+                  id={`${ids}-measure`}
                   value={measure}
                   onChange={setMeasure}
                   options={(entity.data?.measures ?? []).map((m) => ({
@@ -179,21 +196,23 @@ export function AddWidget({
                   data-testid="dashboard-add-measure"
                 />
               </Form.Item>
-              <Form.Item label={t('reports.chart')}>
+              <Form.Item label={t('reports.chart')} htmlFor={`${ids}-chart`}>
                 <Select
+                  id={`${ids}-chart`}
                   value={chart}
                   onChange={setChart}
                   options={CHARTS.map((c) => ({ value: c, label: t(`report_chart.${c}`) }))}
                   data-testid="dashboard-add-chart"
                 />
               </Form.Item>
-              <Form.Item label={t('dashboards.percent')}>
-                <Switch checked={percent} onChange={setPercent} />
+              <Form.Item label={t('dashboards.percent')} htmlFor={`${ids}-percent`}>
+                <Switch id={`${ids}-percent`} checked={percent} onChange={setPercent} />
               </Form.Item>
             </>
           )}
-          <Form.Item label={t('dashboards.widget_title')}>
+          <Form.Item label={t('dashboards.widget_title')} htmlFor={`${ids}-title`}>
             <Input
+              id={`${ids}-title`}
               value={title}
               count={lengthLimit(120)}
               onChange={(event) => {
