@@ -3,7 +3,8 @@
 Tenants; sites and support groups with their members (WP-016: the `site` and `group` scopes of
 the policy layer), their details, departments and desks (WP-021, ADR-032); tenant branding and
 addresses (WP-017: logo, colours, texts, custom domains, the tenant an address belongs to).
-Business hours arrive with a later work package. Files (WP-022): the module answers the files
+Sites and groups name their working calendar (`calendar_id`, WP-025); the calendars are the
+sla module's. Files (WP-022): the module answers the files
 service's access questions for brand uploads (`service/file_access.py`), registered at startup.
 
 Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantStatus`,
@@ -12,7 +13,8 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 `find_site`, `find_department` (directory sync and sign-in mapping, WP-039 D6), `leave_groups`,
 `register_usage` (modules that point at a site, group or department say how many rows use it),
 `tenant_for_host`, `HostTenant` (sign-in hint, WP-017), `get_branding`, `BrandingView`,
-`email_branding`, `EmailBranding`, `header_html` (e-mails).
+`email_branding`, `EmailBranding`, `header_html` (e-mails), `register_calendar_check`,
+`calendar_users`, `CalendarUsers` (WP-025: which calendar a site or group names).
 """
 
 from fastapi import FastAPI
@@ -30,6 +32,11 @@ from app.modules.organization.domain.tenant import TenantStatus, TenantView
 from app.modules.organization.events import EVENTS
 from app.modules.organization.service import report_names
 from app.modules.organization.service.branding import BrandingView, get_branding
+from app.modules.organization.service.calendars import (
+    CalendarUsers,
+    calendar_users,
+    register_calendar_check,
+)
 from app.modules.organization.service.email_branding import (
     EmailBranding,
     email_branding,
@@ -114,6 +121,7 @@ module = ModuleSpec(
 
 __all__ = [
     "BrandingView",
+    "CalendarUsers",
     "EmailBranding",
     "HostTenant",
     "Memberships",
@@ -121,6 +129,7 @@ __all__ = [
     "TenantStatus",
     "TenantView",
     "active_unit_ids",
+    "calendar_users",
     "default_desk_id",
     "default_site",
     "department_site",
@@ -135,6 +144,7 @@ __all__ = [
     "leave_groups",
     "memberships",
     "module",
+    "register_calendar_check",
     "register_usage",
     "site_defaults",
     "tenant_for_host",

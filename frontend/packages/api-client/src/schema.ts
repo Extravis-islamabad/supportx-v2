@@ -4392,6 +4392,198 @@ export interface paths {
         patch: operations["update_role_api_v1_roles__role_id__patch"];
         trace?: never;
     };
+    "/api/v1/sla/calendars": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Working calendars
+         * @description Every calendar: around the clock and the default operating hours first.
+         */
+        get: operations["list_calendars_api_v1_sla_calendars_get"];
+        put?: never;
+        /**
+         * Create a working calendar
+         * @description Needs `sla.manage`. A week or a preset in a time zone, with holiday lists.
+         */
+        post: operations["create_calendar_api_v1_sla_calendars_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/calendars/{calendar_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One working calendar
+         * @description A calendar with its holiday lists and the sites and groups that use it.
+         */
+        get: operations["get_calendar_api_v1_sla_calendars__calendar_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a working calendar
+         * @description Needs `sla.manage`. Refused (409) for a system calendar and one a site or group uses.
+         */
+        delete: operations["delete_calendar_api_v1_sla_calendars__calendar_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a working calendar
+         * @description Needs `sla.manage` and If-Match. Around the clock: only its name and translations.
+         */
+        patch: operations["update_calendar_api_v1_sla_calendars__calendar_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/sla/holiday-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Holiday lists
+         * @description Every holiday list by name.
+         */
+        get: operations["list_holiday_lists_api_v1_sla_holiday_lists_get"];
+        put?: never;
+        /**
+         * Create a holiday list
+         * @description Needs `sla.manage`.
+         */
+        post: operations["create_holiday_list_api_v1_sla_holiday_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/holiday-lists/{list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One holiday list
+         * @description A holiday list with its count and the calendars that use it.
+         */
+        get: operations["get_holiday_list_api_v1_sla_holiday_lists__list_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a holiday list
+         * @description Needs `sla.manage`. The calendars that used it stop using it.
+         */
+        delete: operations["delete_holiday_list_api_v1_sla_holiday_lists__list_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a holiday list
+         * @description Needs `sla.manage` and If-Match.
+         */
+        patch: operations["update_holiday_list_api_v1_sla_holiday_lists__list_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/sla/holiday-lists/{list_id}/copy-year": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Copy a year's holidays to the next year
+         * @description Needs `sla.manage`. Each copy is flagged "check this date" (REQ-SLA-012 AC3).
+         */
+        post: operations["copy_year_api_v1_sla_holiday_lists__list_id__copy_year_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/holiday-lists/{list_id}/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A list's holidays
+         * @description By date; `year`: the holidays that touch that year.
+         */
+        get: operations["list_holidays_api_v1_sla_holiday_lists__list_id__holidays_get"];
+        put?: never;
+        /**
+         * Add a holiday
+         * @description Needs `sla.manage`. A date, a range of whole days, or a morning or afternoon off.
+         */
+        post: operations["add_holiday_api_v1_sla_holiday_lists__list_id__holidays_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/holiday-lists/{list_id}/holidays/{holiday_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a holiday
+         * @description Needs `sla.manage`.
+         */
+        delete: operations["delete_holiday_api_v1_sla_holiday_lists__list_id__holidays__holiday_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change a holiday
+         * @description Needs `sla.manage` and If-Match. Saving clears "check this date" unless it is sent.
+         */
+        patch: operations["update_holiday_api_v1_sla_holiday_lists__list_id__holidays__holiday_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/sla/holiday-lists/{list_id}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import holidays from an iCalendar file
+         * @description Needs `sla.manage`. The raw .ics file as the body (up to 1 MB); reports what it skipped.
+         */
+        post: operations["import_holidays_api_v1_sla_holiday_lists__list_id__import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -6054,6 +6246,114 @@ export interface components {
          */
         BulkStatus: "queued" | "running" | "done" | "failed";
         /**
+         * SlaCalendarIn
+         * @description A new operating-hours calendar: a week, or a preset (Monday to Friday by default).
+         */
+        CalendarIn: {
+            /** Holiday List Ids */
+            holiday_list_ids?: string[];
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            preset?: components["schemas"]["WeekPreset"] | null;
+            /**
+             * Time Zone
+             * @example Asia/Karachi
+             */
+            time_zone: string;
+            /** Week */
+            week?: components["schemas"]["WorkingPeriod"][] | null;
+        };
+        /**
+         * SlaCalendar
+         * @description A working calendar, who uses it and what you may do with it.
+         */
+        CalendarOut: {
+            /** Can Manage */
+            can_manage: boolean;
+            /**
+             * Delete Refusal
+             * @description `action_reason.<code>` when it cannot go.
+             */
+            delete_refusal: string | null;
+            /**
+             * Fixed
+             * @description Around the clock: only the name can change.
+             */
+            fixed: boolean;
+            /** Holiday List Ids */
+            holiday_list_ids: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description `sla_calendar_kind.<code>`: hours or around the clock.
+             */
+            kind: string;
+            /**
+             * Labels
+             * @description Its name in other languages (ar, ur).
+             */
+            labels: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /**
+             * System Key
+             * @description `sla_calendar.<key>`: a calendar every tenant has.
+             */
+            system_key: string | null;
+            /** Time Zone */
+            time_zone: string;
+            /** Used By Groups */
+            used_by_groups: components["schemas"]["CalendarUser"][];
+            /** Used By Sites */
+            used_by_sites: components["schemas"]["CalendarUser"][];
+            /** Version */
+            version: number;
+            /** Week */
+            week: components["schemas"]["WorkingPeriod"][];
+        };
+        /**
+         * SlaCalendarPatch
+         * @description What to change (only what is sent); `holiday_list_ids` replaces the lists.
+         */
+        CalendarPatch: {
+            /** Holiday List Ids */
+            holiday_list_ids?: string[] | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Name */
+            name?: string | null;
+            preset?: components["schemas"]["WeekPreset"] | null;
+            /** Time Zone */
+            time_zone?: string | null;
+            /** Week */
+            week?: components["schemas"]["WorkingPeriod"][] | null;
+        };
+        /**
+         * SlaCalendarUser
+         * @description A site or support group that names the calendar.
+         */
+        CalendarUser: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
          * CertificateIn
          * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
          */
@@ -6276,6 +6576,14 @@ export interface components {
              * @description Only the newest entries are listed.
              */
             truncated: boolean;
+        };
+        /**
+         * SlaCopyYearIn
+         * @description Copy the holidays that start in `year` to the year after.
+         */
+        CopyYearIn: {
+            /** Year */
+            year: number;
         };
         /**
          * CounterOut
@@ -7215,6 +7523,11 @@ export interface components {
          * @description A new support group.
          */
         GroupIn: {
+            /**
+             * Calendar Id
+             * @description Its working calendar (SLA).
+             */
+            calendar_id?: string | null;
             /** Description */
             description?: string | null;
             /**
@@ -7238,6 +7551,11 @@ export interface components {
          * @description A support group with its details, the sites it serves and its members.
          */
         GroupOut: {
+            /**
+             * Calendar Id
+             * @description Its working calendar (SLA).
+             */
+            calendar_id: string | null;
             /** Description */
             description: string | null;
             /**
@@ -7278,6 +7596,11 @@ export interface components {
          * @description What to change (only what is sent); `site_ids` replaces the list.
          */
         GroupPatch: {
+            /**
+             * Calendar Id
+             * @description Its working calendar (SLA).
+             */
+            calendar_id?: string | null;
             /** Description */
             description?: string | null;
             /** Desk Id */
@@ -7358,6 +7681,148 @@ export interface components {
             items: components["schemas"]["HistoryEntryOut"][];
             /** Next Cursor */
             next_cursor: string | null;
+        };
+        /**
+         * SlaHolidayImport
+         * @description What an import or a copy added and what it skipped.
+         */
+        HolidayImportOut: {
+            /** Created */
+            created: components["schemas"]["HolidayOut"][];
+            /** Skipped */
+            skipped: components["schemas"]["SkippedHoliday"][];
+        };
+        /**
+         * SlaHolidayIn
+         * @description A new holiday; `ends_on` defaults to `starts_on`.
+         */
+        HolidayIn: {
+            /** Ends On */
+            ends_on?: string | null;
+            /** Name */
+            name: string;
+            /** @default full */
+            part: components["schemas"]["HolidayPart"];
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+        };
+        /**
+         * SlaHolidayListIn
+         * @description A new holiday list.
+         */
+        HolidayListIn: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+        };
+        /**
+         * SlaHolidayList
+         * @description A holiday list, how many holidays it holds and the calendars that use it.
+         */
+        HolidayListOut: {
+            /** Calendar Ids */
+            calendar_ids: string[];
+            /** Can Manage */
+            can_manage: boolean;
+            /** Holiday Count */
+            holiday_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SlaHolidayListPatch
+         * @description What to change (only what is sent).
+         */
+        HolidayListPatch: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * SlaHoliday
+         * @description One holiday: a date or a range of whole days, or a half day.
+         */
+        HolidayOut: {
+            /**
+             * Ends On
+             * Format: date
+             */
+            ends_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * List Id
+             * Format: uuid
+             */
+            list_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Needs Review
+             * @description Copied to this year: check the date.
+             */
+            needs_review: boolean;
+            /**
+             * Origin
+             * @description `sla_holiday_origin.<code>`.
+             */
+            origin: string;
+            /** @description `sla_holiday_part.<code>`. */
+            part: components["schemas"]["HolidayPart"];
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * HolidayPart
+         * @description How much of a working day a holiday takes.
+         * @enum {string}
+         */
+        HolidayPart: "full" | "morning" | "afternoon";
+        /**
+         * SlaHolidayPatch
+         * @description What to change; a saved holiday is no longer flagged for review unless `needs_review`.
+         */
+        HolidayPatch: {
+            /** Ends On */
+            ends_on?: string | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+            part?: components["schemas"]["HolidayPart"] | null;
+            /** Starts On */
+            starts_on?: string | null;
         };
         /**
          * HomeIn
@@ -9988,6 +10453,11 @@ export interface components {
         SiteIn: {
             /** Address */
             address?: string | null;
+            /**
+             * Calendar Id
+             * @description Its working calendar (SLA).
+             */
+            calendar_id?: string | null;
             /** Default Language */
             default_language?: string | null;
             /** Description */
@@ -10013,6 +10483,11 @@ export interface components {
         SiteOut: {
             /** Address */
             address: string | null;
+            /**
+             * Calendar Id
+             * @description Its working calendar (SLA).
+             */
+            calendar_id: string | null;
             /** Default Language */
             default_language: string | null;
             /** Description */
@@ -10054,6 +10529,11 @@ export interface components {
         SitePatch: {
             /** Address */
             address?: string | null;
+            /**
+             * Calendar Id
+             * @description Its working calendar (SLA).
+             */
+            calendar_id?: string | null;
             /** Default Language */
             default_language?: string | null;
             /** Description */
@@ -10070,6 +10550,16 @@ export interface components {
             region?: string | null;
             /** Time Zone */
             time_zone?: string | null;
+        };
+        /**
+         * SlaSkippedHoliday
+         * @description A holiday the import or copy left out, and why (`sla_import_skip.<code>`).
+         */
+        SkippedHoliday: {
+            /** Name */
+            name: string | null;
+            /** Reason */
+            reason: string;
         };
         /**
          * SsoBody
@@ -11233,6 +11723,12 @@ export interface components {
             subject: string;
         };
         /**
+         * WeekPreset
+         * @description The working weeks offered in one click at setup (D-115 D2).
+         * @enum {string}
+         */
+        WeekPreset: "mon_fri" | "sun_thu" | "mon_sat";
+        /**
          * Widget
          * @description One widget: a report definition (or a report reference) shown on the dashboard.
          */
@@ -12242,6 +12738,28 @@ export interface components {
             count: number;
             /** View */
             view: string;
+        };
+        /**
+         * SlaWorkingPeriod
+         * @description One working period on a weekday; an end not after the start runs past midnight.
+         */
+        WorkingPeriod: {
+            /**
+             * End
+             * @description 24:00 is midnight.
+             * @example 18:00
+             */
+            end: string;
+            /**
+             * Start
+             * @example 09:00
+             */
+            start: string;
+            /**
+             * Weekday
+             * @description 0 = Monday ... 6 = Sunday.
+             */
+            weekday: number;
         };
     };
     responses: never;
@@ -31893,6 +32411,1165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_calendars_api_v1_sla_calendars_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_calendar_api_v1_sla_calendars_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_calendar_api_v1_sla_calendars__calendar_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_calendar_api_v1_sla_calendars__calendar_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_calendar_api_v1_sla_calendars__calendar_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CalendarPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_holiday_lists_api_v1_sla_holiday_lists_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayListOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_holiday_list_api_v1_sla_holiday_lists_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HolidayListIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayListOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_holiday_list_api_v1_sla_holiday_lists__list_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayListOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_holiday_list_api_v1_sla_holiday_lists__list_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_holiday_list_api_v1_sla_holiday_lists__list_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HolidayListPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayListOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    copy_year_api_v1_sla_holiday_lists__list_id__copy_year_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CopyYearIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayImportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_holidays_api_v1_sla_holiday_lists__list_id__holidays_get: {
+        parameters: {
+            query?: {
+                year?: number | null;
+            };
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    add_holiday_api_v1_sla_holiday_lists__list_id__holidays_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HolidayIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_holiday_api_v1_sla_holiday_lists__list_id__holidays__holiday_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                list_id: string;
+                holiday_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_holiday_api_v1_sla_holiday_lists__list_id__holidays__holiday_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                list_id: string;
+                holiday_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HolidayPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    import_holidays_api_v1_sla_holiday_lists__list_id__import_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HolidayImportOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */
