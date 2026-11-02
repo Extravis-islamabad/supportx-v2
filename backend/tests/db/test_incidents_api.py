@@ -460,6 +460,19 @@ async def test_req_inc_010_priority_override_needs_permission_and_reason(world: 
 
 async def test_req_inc_011_default_priority_and_no_sla_marker(world: World) -> None:
     a = world.a
+    # D-074: the default policy covers every priority out of the box; without a P3 target in
+    # it, a P3 record has no SLA.
+    (default,) = (await world.call("GET", "/sla/record-types/incident/policies", a, a.admin)).json()
+    kept = [t for t in default["targets"] if t["priority"] != "p3"]
+    cleared = await world.call(
+        "PATCH",
+        f"/sla/policies/{default['id']}",
+        a,
+        a.admin,
+        json={"targets": kept},
+        headers={**CONSOLE, "If-Match": f'"{default["version"]}"'},
+    )
+    assert cleared.status_code == 200, cleared.text
     item = await world.create(a, a.admin)
     assert (item["priority"], item["priority_source"]) == ("p3", "default")  # AC1
     assert item["sla_policy_id"] is None  # AC2: shown as "no SLA applies"
@@ -1060,8 +1073,11 @@ async def test_req_wi_017_ac1_licence_gates_incidents(world: World) -> None:
 
 
 async def envelopes(world: World, item_id: str) -> list[EventEnvelope]:
+    """The work item's own events (its SLA clock's events share the ID, not the type)."""
     rows = await world.sql(
-        "SELECT envelope FROM outbox_events WHERE aggregate_id = $1 ORDER BY id", item_id
+        "SELECT envelope FROM outbox_events WHERE aggregate_id = $1"
+        " AND aggregate_type <> 'sla_record' ORDER BY id",
+        item_id,
     )
     return [EventEnvelope.model_validate(json.loads(r["envelope"])) for r in rows]
 

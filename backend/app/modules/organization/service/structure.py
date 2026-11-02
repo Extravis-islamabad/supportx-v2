@@ -39,6 +39,7 @@ from app.modules.organization.infra.models import (
     SupportGroup,
 )
 from app.modules.organization.service import units
+from app.modules.organization.service.calendars import calendar_usable
 from app.modules.organization.service.usage import UnitType, usage
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
@@ -77,6 +78,7 @@ FIELD_PROBLEMS = frozenset(
         "desk_not_found",
         "site_inactive",
         "default_cannot_be_inactive",
+        "calendar_not_found",
     }
 )
 
@@ -316,6 +318,7 @@ async def save_site(
     """Add or change a site; `disabled` makes it inactive (never the default site)."""
     cleaned, problems = _clean(values, SITE_FIELDS)
     changes = dict(cleaned)
+    problems += await _calendar(session, values, changes)
     if site_id is not None and "disabled" in values:
         current = await _get(session, Site, site_id, "site_not_found")
         if values["disabled"] and current.is_default:
@@ -415,6 +418,19 @@ async def group_detail(session: AsyncSession, group_id: uuid.UUID) -> GroupDetai
     return GroupDetail(group, sorted(sites), sorted(members))
 
 
+async def _calendar(
+    session: AsyncSession, values: Mapping[str, Any], changes: dict[str, Any]
+) -> list[tuple[str, str]]:
+    """`calendar_id` into `changes` when sent; one the sla module does not know is refused."""
+    if "calendar_id" not in values:
+        return []
+    calendar_id = values["calendar_id"]
+    changes["calendar_id"] = calendar_id
+    if calendar_id is not None and not await calendar_usable(session, calendar_id):
+        return [("calendar_id", "calendar_not_found")]
+    return []
+
+
 async def save_group(  # noqa: C901 - one rule per setting, flat
     session: AsyncSession,
     group_id: uuid.UUID | None,
@@ -425,6 +441,7 @@ async def save_group(  # noqa: C901 - one rule per setting, flat
     """Add or change a group: details, lead, sites served, desk; `disabled` makes it inactive."""
     cleaned, problems = _clean(values, GROUP_FIELDS)
     changes = dict(cleaned)
+    problems += await _calendar(session, values, changes)
     if "lead_id" in values:
         changes["lead_id"] = values["lead_id"]
     if "desk_id" in values and values["desk_id"] is not None:

@@ -108,6 +108,9 @@ OPERATORS: Mapping[FieldType, frozenset[Op]] = {
 _NO_VALUE = {Op.IS_NULL, Op.IS_NOT_NULL} | (_RELATIVE - {Op.LAST_N_DAYS, Op.NEXT_N_DAYS})
 _LIST = {Op.IN, Op.NOT_IN}
 MAX_RELATIVE_DAYS = 3650
+# Public names for the in-memory evaluator (filter_eval.py), which must group operators the same.
+LIST_OPERATORS = frozenset(_LIST)
+NO_VALUE_OPERATORS = frozenset(_NO_VALUE)
 # Every field-error code the DSL and list parameters can return (labels: errors.field.<code>).
 FIELD_ERROR_CODES = frozenset(
     {

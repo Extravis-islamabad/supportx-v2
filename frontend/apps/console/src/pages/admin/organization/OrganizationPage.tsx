@@ -22,6 +22,7 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 
 import {
   ApiError,
+  useSlaCalendars,
   useStructure,
   useStructureChange,
   useUsers,
@@ -54,7 +55,16 @@ type Row = {
 } & Record<string, unknown>;
 
 type FieldKind =
-  'text' | 'textarea' | 'language' | 'timezone' | 'site' | 'sites' | 'person' | 'parent' | 'desk';
+  | 'text'
+  | 'textarea'
+  | 'language'
+  | 'timezone'
+  | 'site'
+  | 'sites'
+  | 'person'
+  | 'parent'
+  | 'desk'
+  | 'calendar';
 
 interface FieldSpec {
   name: string;
@@ -71,6 +81,7 @@ const FIELDS: Record<StructureKind, FieldSpec[]> = {
     { name: 'description', kind: 'textarea', max: 2000 },
     { name: 'region', kind: 'text', max: 100 },
     { name: 'time_zone', kind: 'timezone' },
+    { name: 'calendar_id', kind: 'calendar' },
     { name: 'default_language', kind: 'language' },
     { name: 'address', kind: 'textarea', max: 1000 },
     { name: 'phone', kind: 'text', max: 50 },
@@ -81,6 +92,7 @@ const FIELDS: Record<StructureKind, FieldSpec[]> = {
     { name: 'description', kind: 'textarea', max: 2000 },
     { name: 'lead_id', kind: 'person' },
     { name: 'site_ids', kind: 'sites' },
+    { name: 'calendar_id', kind: 'calendar' },
     { name: 'email', kind: 'text', max: 320 },
     { name: 'sender_name', kind: 'text', max: 200 },
     { name: 'desk_id', kind: 'desk' },
@@ -385,6 +397,12 @@ function UnitEditor({
 }) {
   const t = useLabel();
   const { can } = useAccess();
+  const licence = useLicence();
+  // The working calendar (WP-025) only for people who may see SLA set-up; never sent otherwise,
+  // so saving a site cannot clear a calendar someone else chose.
+  const fields = FIELDS[kind].filter(
+    (field) => field.kind !== 'calendar' || (licence.has('sla') && can('sla.view')),
+  );
   const me = useSession().data?.user.id;
   const { message } = App.useApp();
   const { create, update } = useStructureChange(kind);
@@ -409,7 +427,7 @@ function UnitEditor({
 
   const body = (values: Record<string, unknown>) => {
     const out: Record<string, unknown> = {};
-    for (const field of FIELDS[kind]) {
+    for (const field of fields) {
       if (row !== undefined && field.createOnly) continue;
       const value = values[field.name];
       out[field.name] = typeof value === 'string' && value.trim() === '' ? null : (value ?? null);
@@ -492,7 +510,7 @@ function UnitEditor({
           save(values);
         }}
       >
-        {FIELDS[kind]
+        {fields
           .filter((field) => row === undefined || !field.createOnly)
           .map((field) => (
             <Form.Item
@@ -590,6 +608,7 @@ function FieldInput({
   const sites = useStructure('sites', ['site', 'sites'].includes(field.kind));
   const departments = useStructure('departments', field.kind === 'parent');
   const desks = useStructure('desks', field.kind === 'desk');
+  const calendars = useSlaCalendars(field.kind === 'calendar');
   const [search, setSearch] = useState('');
   const people = useUsers({ q: search, limit: 20 }, field.kind === 'person');
   const common = { value: value ?? undefined, onChange, 'data-testid': `unit-${field.name}` };
@@ -665,6 +684,20 @@ function FieldInput({
           options={(desks.data ?? []).map((d) => ({
             value: d.id,
             label: d.labels.en ?? t(`desk.${d.code}`),
+          }))}
+        />
+      );
+    case 'calendar':
+      return (
+        <Select
+          {...common}
+          allowClear
+          showSearch
+          optionFilterProp="label"
+          placeholder={t('sla.calendar.none')}
+          options={(calendars.data ?? []).map((c) => ({
+            value: c.id,
+            label: c.system_key === null ? c.name : t(`sla_calendar.${c.system_key}`),
           }))}
         />
       );
