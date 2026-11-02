@@ -42,11 +42,6 @@ def test_openapi_export_writes_and_checks(tmp_path: Path) -> None:
     assert export_openapi.main([]) == 2
 
 
-def test_committed_openapi_matches_the_code() -> None:
-    committed = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/openapi.json"
-    assert export_openapi.main(["--check", str(committed)]) == 0
-
-
 def _clashing_schema() -> dict[str, Any]:
     """Two modules' `SettingsOut` in one app: FastAPI falls back to module-path names."""
     first = create_model("SettingsOut", __module__="app.modules.one.api", flag=(bool, True))

@@ -41,6 +41,9 @@ class MissingLabelError(LookupError):
 
 @cache
 def _dictionary() -> dict[str, dict[str, str]]:
+    if not _FILE.exists():  # generated, never committed (D-127)
+        msg = f"{_FILE.name} is missing: run `make generated-backend` (or `make setup`)"
+        raise FileNotFoundError(msg)
     loaded: dict[str, dict[str, str]] = json.loads(_FILE.read_text(encoding="utf-8"))
     return loaded
 

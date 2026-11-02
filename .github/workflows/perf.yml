@@ -81,6 +81,7 @@ jobs:
           done
           curl -fsS 'http://127.0.0.1:8222/healthz?js-enabled-only=true' # fail the job if never up
       - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/generated
       - name: Create roles and database (same code as the test fixtures)
         working-directory: backend
         run: uv run python -m tooling.db_bootstrap --database supportx

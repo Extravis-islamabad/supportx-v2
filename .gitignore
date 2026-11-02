@@ -63,3 +63,8 @@ deploy/helm/*/charts/*.tgz
 
 # Rendered docs (make decisions, make progress-log; D-123)
 docs/_build/
+
+# Generated, never committed (D-127): `make generated` (also run by `make setup`, CI and images).
+backend/app/shared/labels/resources.json
+frontend/packages/api-client/openapi.json
+frontend/packages/api-client/src/schema.ts
