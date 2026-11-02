@@ -3175,6 +3175,8 @@ export const ar: LabelResource = {
   'kb_link_source.link': 'مرتبطة',
   'kb_link_source.insert': 'استُخدمت في رد',
   'kb_link_source.created_from': 'أُنشئت من هذا السجل',
+  'kb_link_source.suggestion': 'اختيرت من الاقتراحات',
+  'kb_link_source.report': 'أُبلغ عنها من المقالة',
   'kb_personal_data.email': 'عنوان بريد إلكتروني',
   'kb_personal_data.phone': 'رقم هاتف',
   'kb_personal_data.account_number': 'رقم حساب',

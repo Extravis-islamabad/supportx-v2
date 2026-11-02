@@ -3156,6 +3156,8 @@ export const en = {
   'kb_link_source.link': 'Linked',
   'kb_link_source.insert': 'Used in a reply',
   'kb_link_source.created_from': 'Made from this record',
+  'kb_link_source.suggestion': 'Picked from suggestions',
+  'kb_link_source.report': 'Reported from the article',
   'kb_personal_data.email': 'An e-mail address',
   'kb_personal_data.phone': 'A phone number',
   'kb_personal_data.account_number': 'An account number',

@@ -2751,6 +2751,8 @@ export const ur: LabelResource = {
   'kb_link_source.link': 'جڑا ہوا',
   'kb_link_source.insert': 'جواب میں استعمال ہوا',
   'kb_link_source.created_from': 'اس ریکارڈ سے بنا',
+  'kb_link_source.suggestion': 'تجاویز سے منتخب',
+  'kb_link_source.report': 'مضمون سے رپورٹ کیا گیا',
   'kb_personal_data.email': 'ای میل پتہ',
   'kb_personal_data.phone': 'فون نمبر',
   'kb_personal_data.account_number': 'اکاؤنٹ نمبر',
