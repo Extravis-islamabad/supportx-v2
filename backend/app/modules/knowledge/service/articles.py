@@ -79,7 +79,7 @@ RECORD_TYPE = "kb_article"
 REVIEW_SOON_DAYS = 15  # "review due" includes the next 15 days (REQ-KB-034)
 KEYWORD_MAX = 60
 OPEN = (VersionStatus.DRAFT, VersionStatus.IN_REVIEW)
-POPULAR_DAYS = 90  # "popular": helpful votes and record links of the last 90 days (D-123 Q1)
+POPULAR_DAYS = 90  # "popular": helpful votes and record links of the last 90 days (D-125 Q1)
 
 
 # --- settings and types (first use) ---------------------------------------------------------------
@@ -675,7 +675,7 @@ async def list_articles(  # noqa: PLR0913 - the list's filters, explicit
 
     Search (REQ-KB-053): every word must match (`any_word` for suggestions: any word, ranked by
     how many). `audience`: `requesters` (some requesters may read it) or `staff_only`; updated
-    between two dates; `featured`. `order`: `recent` or `popular` (D-123 Q1: only articles with
+    between two dates; `featured`. `order`: `recent` or `popular` (D-125 Q1: only articles with
     helpful votes or record links in the last 90 days, the most first).
     """
     reader = await reader_predicate(session, subject)
@@ -779,7 +779,7 @@ def _narrowing(given: ListFilters) -> list[ColumnElement[bool]]:
 
 
 def _popularity() -> Subquery:
-    """Per article: helpful votes plus live record links of the last 90 days (D-123 Q1)."""
+    """Per article: helpful votes plus live record links of the last 90 days (D-125 Q1)."""
     since = func.now() - timedelta(days=POPULAR_DAYS)
     votes = select(KbVote.article_id.label("article_id"), literal(1).label("point")).where(
         KbVote.helpful.is_(True), KbVote.updated_at >= since

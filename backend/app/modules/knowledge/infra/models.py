@@ -166,7 +166,7 @@ class KbArticle(TenantEntity):
     withdrawn_at: Mapped[datetime | None]
     # The review date the owner was last reminded of, so each date reminds once (REQ-KB-086).
     review_reminded_on: Mapped[date | None]
-    # Featured in the portal by its editors (D-123 Q3).
+    # Featured in the portal by its editors (D-125 Q3).
     featured: Mapped[bool] = mapped_column(Boolean, server_default="false")
 
 

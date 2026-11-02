@@ -196,7 +196,7 @@ class ArticlePatch(BaseModel):
     req_departments: list[uuid.UUID] | None = Field(default=None, max_length=200)
     review_on: date | None = None
     expires_on: date | None = None
-    featured: bool | None = Field(default=None, description="Featured in the portal (D-123).")
+    featured: bool | None = Field(default=None, description="Featured in the portal (D-125).")
 
 
 class DraftPatch(BaseModel):

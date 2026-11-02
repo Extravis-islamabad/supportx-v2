@@ -1,8 +1,8 @@
-"""Knowledge search, suggestions and votes (WP-034 session 1, D-123).
+"""Knowledge search, suggestions and votes (WP-034 session 1, D-125).
 
 - `kb_votes`: "Did this help?" (REQ-KB-069). One vote per person and article version, changed in
   place, so a new version starts at zero and the old one keeps its score. Tenant-scoped with RLS.
-- `kb_articles.featured`: articles the editors feature in the portal (D-123 Q3).
+- `kb_articles.featured`: articles the editors feature in the portal (D-125 Q3).
 - `kb_settings.suggest_on_technician_form` and `portal_search` (REQ-KB-062 AC3, REQ-KB-082 AC2).
 - `kb_record_links.source` may also be `suggestion` (linked from the create form's suggestions)
   and `report` (an issue reported from a "not helpful" vote, session 2).
