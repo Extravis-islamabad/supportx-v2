@@ -113,10 +113,12 @@ async def test_mail_becomes_an_incident_and_the_requesters_replies_land_on_it(
         events = await world.sql(
             "SELECT envelope->'payload'->>'automatic' AS automatic FROM outbox_events"
             " WHERE tenant_id = $1 AND event_type = 'work_items.conversation.added'"
-            " ORDER BY id",
+            " AND envelope->'payload'->>'work_item_id' = $2 ORDER BY id",
             world.a.tenant,
+            str(made["id"]),
         )
-        assert [e["automatic"] for e in events][-2:] == ["false", "true"]
+        # Only this record's entries: other tests in the tenant add conversation events too.
+        assert [e["automatic"] for e in events] == ["false", "true"]
 
         # A technician's mail on the record is not a requester reply: held, they use the console.
         staff = await _email(world, world.a.tech_a)

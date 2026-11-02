@@ -399,9 +399,14 @@ describe('Reports', () => {
       fireEvent.mouseDown(chartType.querySelector('.ant-select-selector') ?? chartType);
       const option = await screen.findByTitle('Stacked bar');
       const content = option.querySelector('.ant-select-item-option-content') ?? option;
-      // One rule for the whole product (AppearanceProvider), not a prop per list.
+      // One rule for the whole product (AppearanceProvider), not a prop per list: lists grow to
+      // fit (dropdownFit), text wraps between words only, and a single word too long for the
+      // list ends in an ellipsis with the whole label as the option's tooltip (2026-10-28).
       expect(getComputedStyle(content).whiteSpace).toBe('normal');
-      expect(getComputedStyle(content).textOverflow).toBe('clip');
+      expect(getComputedStyle(content).wordBreak).toBe('normal');
+      expect(getComputedStyle(content).overflowWrap).toBe('normal');
+      expect(getComputedStyle(content).textOverflow).toBe('ellipsis');
+      expect(option.getAttribute('title')).toBe('Stacked bar');
     });
 
     it('BUG-08: a changed built-in report says so, with Reset and Save as my report', async () => {

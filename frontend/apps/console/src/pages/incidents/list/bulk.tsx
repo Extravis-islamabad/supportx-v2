@@ -38,7 +38,7 @@ import {
 import { BULK_ACTIONS, BULK_MAX, skipReason, type Selection } from './model';
 
 import { CategoryCascade } from '../CategoryCascade';
-import { closureCodeLabel, listValueLabel, scaleLabel } from '../labels';
+import { closureCodeChoices, listValueLabel, scaleLabel } from '../labels';
 import { GroupPicker, SitePicker } from '../pickers';
 
 // Select across pages and bulk changes (REQ-INC-119, 120). Up to 1,000 records run as a background
@@ -416,12 +416,7 @@ export function BulkDialog({
             onChange={(v: string | undefined) => {
               setClosureCode(v ?? null);
             }}
-            options={(catalogue.data?.closure_codes ?? [])
-              .filter((c) => !c.disabled)
-              .map((c) => ({
-                value: c.code,
-                label: closureCodeLabel(t, catalogue.data, c.code, locale),
-              }))}
+            options={closureCodeChoices(t, catalogue.data, locale)}
             data-testid="inc-bulk-closure-code"
           />
         )}

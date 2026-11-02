@@ -25,6 +25,7 @@ from app.modules.work_items.service import (
     bulk,
     inbound_mail,
     notifications,
+    parts,
     report_names,
     resolution,
 )
@@ -38,7 +39,7 @@ from app.modules.work_items.service.closing import (
     unregister_open_work,
     unregister_requester_channel,
 )
-from app.modules.work_items.service.conversations import add_requester_reply
+from app.modules.work_items.service.conversations import RequesterReply, add_requester_reply
 from app.modules.work_items.service.file_access import FILE_ACCESS
 from app.modules.work_items.service.realtime import CHANNELS, ROUTES
 from app.modules.work_items.service.reporting import register_sources, unregister_sources
@@ -47,8 +48,21 @@ from app.shared.files.ports import register_owner_access, unregister_owner_acces
 from app.shared.schedules import ScheduleSpec
 
 
+def _register_parts() -> None:
+    """Open tasks are the record's open work (WP-020f port).
+
+    Workers close records too (bulk), so this runs at import as well as at app startup (after a
+    test unregistered it).
+    """
+    register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
+
+
+_register_parts()
+
+
 async def _startup(app: FastAPI) -> None:
     del app
+    _register_parts()
     register_owner_access(FILE_ACCESS)
     register_sources()  # again after a shutdown (tests start and stop the app)
 
@@ -72,6 +86,8 @@ report_names.register()
 notifications.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
+# Who may reach work item files: at import too, since mail attachments upload in the worker.
+register_owner_access(FILE_ACCESS)
 
 module = ModuleSpec(
     name="work_items",
@@ -95,6 +111,7 @@ module = ModuleSpec(
 __all__ = [
     "OpenItem",
     "OpenWorkKind",
+    "RequesterReply",
     "add_requester_reply",
     "module",
     "register_open_work",

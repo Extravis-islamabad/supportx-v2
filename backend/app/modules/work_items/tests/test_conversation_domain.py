@@ -1,5 +1,7 @@
 """Conversation rules without I/O (WP-020b; REQ-INC-061, 063, 065)."""
 
+import uuid
+
 from app.modules.work_items.domain.conversation import (
     DEFAULT_FIRST_RESPONSE,
     MENTIONS_MAX,
@@ -11,6 +13,7 @@ from app.modules.work_items.domain.conversation import (
     delivery_for,
     first_response_action,
     mentioned_ids,
+    reply_is_inbound,
     stamps_first_response,
 )
 
@@ -51,12 +54,29 @@ def test_req_inc_065_ac3_once_and_never_by_the_requester() -> None:
 
 
 def test_replies_wait_for_the_email_channel_and_say_why() -> None:
-    assert delivery_for(EntryKind.REPLY, email_channel=False) == (
+    assert delivery_for(EntryKind.REPLY, inbound=False, email_channel=False) == (
         DeliveryState.NOT_SENT,
         DeliveryReason.EMAIL_CHANNEL_NOT_CONFIGURED,
     )
-    assert delivery_for(EntryKind.REPLY, email_channel=True) == (DeliveryState.QUEUED, None)
-    assert delivery_for(EntryKind.NOTE, email_channel=False) == (None, None)
+    assert delivery_for(EntryKind.REPLY, inbound=False, email_channel=True) == (
+        DeliveryState.QUEUED,
+        None,
+    )
+    assert delivery_for(EntryKind.NOTE, inbound=False, email_channel=False) == (None, None)
+
+
+def test_bug_01_a_reply_the_requester_sends_in_is_received() -> None:
+    requester, tech = uuid.UUID(USER), uuid.UUID(OTHER)
+    side = {requester, None}
+    for source in ("portal", "email", "api"):
+        assert reply_is_inbound(requester, side, source), source
+    # Staff in the console write outbound replies, even on a record they requested themselves.
+    assert not reply_is_inbound(requester, side, "ui")
+    assert not reply_is_inbound(tech, side, "portal")
+    assert delivery_for(EntryKind.REPLY, inbound=True, email_channel=False) == (
+        DeliveryState.RECEIVED,
+        None,
+    )
 
 
 def test_req_inc_063_mentions_read_from_the_editor_markup() -> None:

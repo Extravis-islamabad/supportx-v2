@@ -66,3 +66,16 @@ Contrast in those languages is covered by:
   `rtl-contrast.spec.ts` runs it on key screens in Arabic and Urdu. Use it on new right-to-left
   screens that bring their own colours.
 - `expectToastsAccessible`: toasts held open, as `expectAccessible` waits until toasts have gone.
+
+## Counts and lookups in database tests (2026-10-29)
+
+All tests in one process share one migrated database (`migrated_db` is session-scoped), so other
+tests' rows are always present. A database test that counts or picks rows therefore filters on
+its **own tenant(s)** (or its own record IDs): `outbox_events`, `processed_events`,
+`field_changes`, `audit_entries`, users found by e-mail, and every other shared table. Inside a
+tenant session RLS does this for you; raw SQL through the admin connection (`world.sql`,
+`asyncpg.connect(db.admin_url)`) does not.
+
+Why: an unscoped count passes alone and under `-n` sharding, then fails in a single-process run
+(`make check`) because another test wrote the same event type. Found in WP-020e's task test
+(5 events counted where its own 3 were expected).
