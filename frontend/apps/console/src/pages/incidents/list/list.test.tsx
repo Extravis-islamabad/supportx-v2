@@ -250,9 +250,10 @@ describe('Incident list (WP-020d)', () => {
     await screen.findByTestId('inc-row-INC-7');
     fireEvent.click(screen.getByTestId('inc-columns'));
     fireEvent.change(await screen.findByTestId('inc-columns-search'), {
-      target: { value: 'created' },
+      target: { value: 'updated' },
     });
-    fireEvent.click(await screen.findByTestId('inc-column-add-created_at'));
+    // Created is a default column (D-124); Updated is the one added here.
+    fireEvent.click(await screen.findByTestId('inc-column-add-updated_at'));
     await waitFor(() => {
       expect(fake.find('PUT', '/api/v1/incidents/list-settings/open')).toHaveLength(1);
     });
@@ -260,7 +261,7 @@ describe('Incident list (WP-020d)', () => {
       columns: { key: string }[];
       page_size: number;
     };
-    expect(saved.columns.map((c) => c.key).at(-1)).toBe('created_at');
+    expect(saved.columns.map((c) => c.key).at(-1)).toBe('updated_at');
     expect(saved.page_size).toBe(50);
     expect(fake.find('PUT', '/api/v1/incidents/list-settings/my_open')).toHaveLength(0);
   });
@@ -297,7 +298,9 @@ describe('Incident list (WP-020d)', () => {
     const fake = api({ routes: routes() });
     render(<App />);
     await screen.findByTestId('inc-row-INC-7');
-    const preset = screen.getByTestId('inc-time-preset');
+    // The time range is in the Filters drawer (D-124).
+    fireEvent.click(screen.getByTestId('inc-filterbar-filters'));
+    const preset = await screen.findByTestId('inc-time-preset');
     fireEvent.mouseDown(preset.querySelector('.ant-select-selector') ?? preset);
     fireEvent.click(await screen.findByTitle('This week'));
     await waitFor(() => {

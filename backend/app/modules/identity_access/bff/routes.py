@@ -348,7 +348,7 @@ async def _describe(request: Request, session: Session) -> MeResponse:
                     ).where(User.id == session.user_uuid)
                 )
             ).first()
-        described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.TOP
+        described["user"]["nav_layout"] = (row.nav_layout if row else None) or NavLayout.SIDE
         described["user"]["form_density"] = (
             row.form_density if row else None
         ) or FormDensity.COMFORTABLE

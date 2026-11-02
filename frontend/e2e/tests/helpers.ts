@@ -200,3 +200,34 @@ export async function openSelect(page: Page, testId: string) {
   await expect(dropdown).not.toHaveClass(/ant-slide-up-(appear|enter)/);
   return dropdown;
 }
+
+/**
+ * Run a record action (D-124): its button when it has one, else its entry in "More actions".
+ * `bar`: the action bar's test id.
+ */
+export async function clickAction(
+  page: Page,
+  testId: string,
+  bar = 'inc-operations',
+): Promise<void> {
+  await expect(page.getByTestId(`${bar}-more`)).toBeVisible();
+  const button = page.getByTestId(testId);
+  if (await button.isVisible()) {
+    await button.click();
+    return;
+  }
+  await page.getByTestId(`${bar}-more`).click();
+  await page.getByTestId(`${testId}-menu`).click();
+}
+
+/** An action's entry in "More actions", with the menu open (to read its state and reason). */
+export async function actionEntry(
+  page: Page,
+  testId: string,
+  bar = 'inc-operations',
+): Promise<Locator> {
+  await page.getByTestId(`${bar}-more`).click();
+  const entry = page.getByTestId(`${testId}-menu`);
+  await expect(entry).toBeVisible();
+  return entry;
+}

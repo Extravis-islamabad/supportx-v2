@@ -31,7 +31,7 @@ DECLARE t uuid;
 BEGIN
     FOR t IN SELECT id FROM tenants LOOP
         PERFORM set_config('app.tenant_id', t::text, true);
-        UPDATE users SET nav_layout = '{to}' WHERE nav_layout = '{source}';
+        UPDATE users SET nav_layout = '{to}' WHERE tenant_id = t AND nav_layout = '{source}';
     END LOOP;
     PERFORM set_config('app.tenant_id', '', true);
 END $$;
