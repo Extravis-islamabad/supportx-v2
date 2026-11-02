@@ -14,23 +14,31 @@ from typing import Any, NoReturn
 from sqlalchemy import (
     BigInteger,
     ColumnElement,
+    DateTime,
     Float,
     Select,
+    and_,
     case,
     cast,
+    column,
     func,
     literal,
+    or_,
+    select,
     true,
+    values,
 )
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 
 from app.core.errors import FieldError, ValidationFailed
 from app.modules.analytics.domain.definition import (
     AGE_BUCKETS,
     DateBucket,
+    FlowSpec,
     ReportDefinition,
     ResultOrder,
 )
-from app.modules.analytics.domain.measures import MeasureKind, MeasureSpec, measures_of
+from app.modules.analytics.domain.measures import FLOW, MeasureKind, MeasureSpec, measures_of
 from app.shared.api.filters import FieldType, compile_filter
 from app.shared.reporting import Dimension, DimensionKind, ReportingSource
 
@@ -176,6 +184,144 @@ def _groups(definition: ReportDefinition, source: ReportingSource) -> list[Compi
     return groups
 
 
+# A flow report reads these fields; an entity without them has no flow report (D-114).
+FLOW_FIELDS = ("created_at", "resolved_at", "closed_at", "status_category", "status_changed_at")
+
+
+def flow_buckets(flow: FlowSpec, now: datetime, week_start: str) -> list[tuple[datetime, datetime]]:
+    """Wall-clock starts of the flow's buckets in `now`'s zone, oldest first, with their ends.
+
+    The current (unfinished) bucket is the last; a bucket ends where the next one starts, so a
+    daylight-saving change gives a 23- or 25-hour day (REQ-DSH-044 AC3).
+    """
+    local = now.replace(tzinfo=None)
+    today = local.replace(hour=0, minute=0, second=0, microsecond=0)
+    first_day = today - timedelta(days=flow.days - 1)
+    if flow.bucket == "day":
+        start, step = first_day, "day"
+    elif flow.bucket == "week":
+        weekday = first_day.weekday() if week_start == "monday" else (first_day.weekday() + 1) % 7
+        start, step = first_day - timedelta(days=weekday), "week"
+    else:
+        start, step = first_day.replace(day=1), "month"
+    out: list[tuple[datetime, datetime]] = []
+    while start <= local:
+        if step == "day":
+            end = start + timedelta(days=1)
+        elif step == "week":
+            end = start + timedelta(days=7)
+        else:
+            index = start.year * 12 + start.month
+            end = start.replace(year=index // 12, month=index % 12 + 1)
+        out.append((start, end))
+        start = end
+    return out
+
+
+def compile_flow(
+    definition: ReportDefinition,
+    source: ReportingSource,
+    *,
+    now: datetime,
+    week_start: str = "monday",
+) -> CompiledReport:
+    """Per bucket: created, resolved and the backlog at its end, over the viewer's own rows."""
+    flow = definition.flow
+    if flow is None:  # pragma: no cover - compile_report() routes only flow reports here
+        _invalid("flow", "flow_required")
+    if definition.group_by:
+        _invalid("group_by", "flow_without_groupings")
+    for index, code in enumerate(definition.measures):
+        if code not in FLOW:
+            _invalid(f"measures[{index}]", "unknown_measure")
+    if len(set(definition.measures)) != len(definition.measures):
+        _invalid("measures", "duplicate_measure")
+    fields = source.fields.fields
+    if any(name not in fields for name in FLOW_FIELDS):
+        _invalid("flow", "flow_not_available")
+    zone = now.tzinfo
+    buckets = flow_buckets(flow, now, week_start)
+    # Wall-clock start (the grouping key the UI shows and drills by) and the bucket's UTC bounds.
+    bounds = values(
+        column("k", DateTime()),
+        column("s", DateTime(timezone=True)),
+        column("e", DateTime(timezone=True)),
+        name="flow_buckets",
+    ).data([(k, k.replace(tzinfo=zone), e.replace(tzinfo=zone)) for k, e in buckets])
+    created = fields["created_at"].column
+    resolved = fields["resolved_at"].column
+    left = func.least(
+        resolved,
+        fields["closed_at"].column,
+        case(
+            (fields["status_category"].column == "canceled", fields["status_changed_at"].column),
+            else_=None,
+        ),
+    )
+    first, last = buckets[0][0].replace(tzinfo=zone), buckets[-1][1].replace(tzinfo=zone)
+    where = (
+        compile_filter(definition.filter_json(), source.fields, now=now)
+        if definition.filter is not None
+        else true()
+    )
+    rows = (
+        source.rows.where(where, created < last, or_(left.is_(None), left >= first))
+        .with_only_columns(
+            created.label("c"), resolved.label("r"), left.label("l"), maintain_column_froms=True
+        )
+        .subquery("flow_rows")
+    )
+    measure_sql = {
+        "flow_created": func.count(rows.c.c).filter(
+            and_(rows.c.c >= bounds.c.s, rows.c.c < bounds.c.e)
+        ),
+        "flow_resolved": func.count(rows.c.r).filter(
+            and_(rows.c.r >= bounds.c.s, rows.c.r < bounds.c.e)
+        ),
+        "flow_backlog": func.count(rows.c.c).filter(
+            and_(rows.c.c < bounds.c.e, or_(rows.c.l.is_(None), rows.c.l >= bounds.c.e))
+        ),
+    }
+    grouped = (
+        select(
+            bounds.c.k.label("k0"),
+            *[measure_sql[code].label(f"m{i}") for i, code in enumerate(definition.measures)],
+        )
+        .select_from(bounds)
+        .outerjoin(rows, true())
+        .group_by(bounds.c.k)
+        .order_by(bounds.c.k)
+    )
+    # Totals: created and resolved over the whole range; the backlog as it is at the end.
+    per_bucket = grouped.subquery("flow_per_bucket")
+    totals = select(
+        *[
+            (
+                func.array_agg(aggregate_order_by(per_bucket.c[f"m{i}"], per_bucket.c.k0.desc()))[1]
+                if code == "flow_backlog"
+                else func.sum(per_bucket.c[f"m{i}"])
+            )
+            for i, code in enumerate(definition.measures)
+        ]
+    )
+    group = CompiledGroup("created_at", source.dimensions["created_at"], DateBucket(flow.bucket))
+    specs = tuple(FLOW[code] for code in definition.measures)
+    return CompiledReport(grouped, where, totals, (group,), specs)
+
+
+def _specs(definition: ReportDefinition, source: ReportingSource) -> list[MeasureSpec]:
+    available = available_measures(source)
+    specs: list[MeasureSpec] = []
+    for index, code in enumerate(definition.measures):
+        spec = available.get(code)
+        if spec is None:
+            _invalid(f"measures[{index}]", "unknown_measure")
+        specs.append(spec)
+    if len(set(definition.measures)) != len(definition.measures):
+        _invalid("measures", "duplicate_measure")
+    return specs
+
+
 def compile_report(
     definition: ReportDefinition,
     source: ReportingSource,
@@ -187,15 +333,9 @@ def compile_report(
     """Validate `definition` against `source` and build its queries (422 invalid_report)."""
     if definition.entity != source.entity:  # the caller picked the source by entity
         _invalid("entity", "unknown_entity")
-    measures_available = available_measures(source)
-    specs: list[MeasureSpec] = []
-    for index, code in enumerate(definition.measures):
-        spec = measures_available.get(code)
-        if spec is None:
-            _invalid(f"measures[{index}]", "unknown_measure")
-        specs.append(spec)
-    if len(set(definition.measures)) != len(definition.measures):
-        _invalid("measures", "duplicate_measure")
+    if definition.flow is not None:
+        return compile_flow(definition, source, now=now, week_start=week_start)
+    specs = _specs(definition, source)
     groups = _groups(definition, source)
     _check_records(definition, source)
 

@@ -73,9 +73,15 @@ async def follow(
 
 
 async def events_of(world: World, aggregate_type: str) -> list[EventEnvelope]:
+    """This world's events of one aggregate type, oldest first.
+
+    Its own tenants only: every test in a process shares the database (testing guide).
+    """
     rows = await world.sql(
-        "SELECT envelope FROM outbox_events WHERE envelope->>'aggregate_type' = $1 ORDER BY id",
+        "SELECT envelope FROM outbox_events"
+        " WHERE envelope->>'aggregate_type' = $1 AND tenant_id = ANY($2::uuid[]) ORDER BY id",
         aggregate_type,
+        [world.a.tenant, world.b.tenant],
     )
     return [EventEnvelope.model_validate(json.loads(r["envelope"])) for r in rows]
 

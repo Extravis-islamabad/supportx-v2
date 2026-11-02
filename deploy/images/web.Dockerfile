@@ -24,7 +24,7 @@ LABEL org.opencontainers.image.title="supportx-web" \
       org.opencontainers.image.vendor="Extravis" \
       org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.revision="${REVISION}" \
-      org.opencontainers.image.source="https://github.com/devhat-pm/supportx-v2" \
+      org.opencontainers.image.source="https://github.com/Extravis-islamabad/supportx-v2" \
       com.extravis.supportx.distribution="internal-dev-only"
 # Security fixes published after the base image (e.g. brotli-libs CVE-2026-111497), then back to
 # the unprivileged user below. The image gate fails on fixable HIGH/CRITICAL findings.

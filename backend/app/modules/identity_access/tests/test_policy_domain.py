@@ -6,9 +6,12 @@ from types import MappingProxyType
 import pytest
 
 from app.core.authorization import PermissionSpec, Scope
+from app.modules.identity_access.domain.mfa import default_mode
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
+    KNOWLEDGE_MANAGER,
     RESERVED_PERMISSIONS,
+    SYSTEM_ROLES,
     Catalogue,
     CatalogueError,
     covers,
@@ -264,3 +267,14 @@ def test_subject_cache_round_trip() -> None:
         groups=frozenset({GROUP}),
     )
     assert Subject.from_dict(subject.to_dict()) == subject
+
+
+def test_a_module_can_give_the_knowledge_manager_role_its_grants() -> None:
+    """D-108, WP-033 session 2: identity owns the role's key, knowledge declares its grants."""
+    knowledge = PermissionSpec(
+        "knowledge.publish", scopes=("all",), defaults=((KNOWLEDGE_MANAGER, "all"),)
+    )
+    catalogue = Catalogue.build([*CATALOGUE.permissions.values(), knowledge], FEATURES)
+    assert catalogue.get("knowledge.publish") is not None
+    assert KNOWLEDGE_MANAGER in SYSTEM_ROLES
+    assert default_mode(KNOWLEDGE_MANAGER) == "required"  # publishes to every requester

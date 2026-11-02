@@ -12,6 +12,7 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
@@ -23,6 +24,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_record_routes,
 )
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
@@ -56,12 +58,13 @@ from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
-from app.modules.work_items.service.closing import MoveInput, requester_channels
+from app.modules.work_items.service.closing import MoveInput, requester_channel_states
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
+from app.shared.labels import strip_isolates
 
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
@@ -537,9 +540,22 @@ class WorkItemClosureOut(BaseModel):
     complete_open_work: bool
     auto_close_days: int | None = Field(description="Business days; null: off.")
     reopen_window_days: int
-    requester_channels: list[str] = Field(
-        description="Channels that can tell requesters; auto-close needs one."
+    task_owner_access: bool = Field(
+        description="A task's owner may work on it without access to the record (D-112)."
     )
+    requester_channels: list[str] = Field(
+        description="Channels that reach this tenant's requesters now; auto-close needs one."
+    )
+    requester_channel_states: list["RequesterChannelOut"] = Field(
+        description="Every channel that can tell requesters, and why one does not reach now."
+    )
+
+
+class RequesterChannelOut(BaseModel):
+    """A channel that can tell requesters, for this tenant now."""
+
+    channel: str
+    reason: str | None = Field(description="Null: it reaches; else why not (a labelled code).")
 
 
 class WorkItemTransitionOut(BaseModel):
@@ -628,8 +644,9 @@ class WorkItemCatalogueOut(BaseModel):
     next_number: int = Field(description="The display number the next record gets.")
 
     @classmethod
-    def of(cls, cat: Catalogue) -> "WorkItemCatalogueOut":
-        """From the loaded catalogue."""
+    async def of(cls, session: AsyncSession, cat: Catalogue) -> "WorkItemCatalogueOut":
+        """From the loaded catalogue and the tenant's requester channels (BUG-02)."""
+        channels = await requester_channel_states(session)
         return cls(
             prefix=cat.prefix,
             default_priority=Priority(cat.default_priority),
@@ -701,7 +718,11 @@ class WorkItemCatalogueOut(BaseModel):
                 complete_open_work=cat.closure.complete_open_work,
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
-                requester_channels=sorted(requester_channels()),
+                task_owner_access=cat.closure.task_owner_access,
+                requester_channels=sorted(n for n, reason in channels.items() if reason is None),
+                requester_channel_states=[
+                    RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
+                ],
             ),
             next_number=cat.last_number + 1,
         )
@@ -720,6 +741,7 @@ class WorkItemClosurePatch(BaseModel):
         default=None, description="1 to 30 business days; null switches auto-close off."
     )
     reopen_window_days: int | None = None
+    task_owner_access: bool | None = None
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -986,7 +1008,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             wtype,
             policy,
             group_id=group_id,
-            search=(search or "").strip() or None,
+            search=strip_isolates(search or "").strip() or None,  # a pasted name may carry marks
             limit=limit,
         )
         return [
@@ -1021,7 +1043,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             session,
             subject,
             wtype,
-            (q or "").strip() or None,
+            strip_isolates(q or "").strip() or None,  # a pasted ID or name may carry marks
             status_categories={c.value for c in status_category},
             requester_id=requester_id,
             ids=ids,
@@ -1050,7 +1072,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         del subject
         cat = await settings_service.get_catalogue(session, wtype)
         set_etag(response, cat.settings_version)
-        return WorkItemCatalogueOut.of(cat)
+        return await WorkItemCatalogueOut.of(session, cat)
 
     @router.patch("/settings", summary=f"Change {name} settings", responses=CONFLICT)
     async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -1079,7 +1101,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             user_id=subject.user_id,
         )
         set_etag(response, cat.settings_version)
-        return WorkItemCatalogueOut.of(cat)
+        return await WorkItemCatalogueOut.of(session, cat)
 
     @router.patch(
         "/settings/closure", summary=f"Change how {name}s resolve and close", responses=CONFLICT
@@ -1107,7 +1129,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             user_id=subject.user_id,
         )
         set_etag(response, cat.settings_version)
-        return WorkItemCatalogueOut.of(cat)
+        return await WorkItemCatalogueOut.of(session, cat)
 
     @router.get("/categories", summary="Category tree")
     async def categories(session: TenantSession, subject: View) -> list[WorkItemCategoryOut]:
@@ -1174,6 +1196,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return WorkItemCategoryOut.of(node)
 
     add_list_routes(router, wtype)
+    add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
@@ -1444,4 +1467,5 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
 
     add_record_routes(router, wtype)
+    add_parts_routes(router, wtype)
     return router

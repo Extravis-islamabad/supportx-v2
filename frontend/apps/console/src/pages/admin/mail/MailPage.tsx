@@ -276,7 +276,9 @@ export function MailPage() {
                   <Typography.Text type="secondary">
                     {mailbox.last_fetch_at == null
                       ? t('mail.never_fetched')
-                      : t('mail.last_fetch', { when: dates.format(mailbox.last_fetch_at) })}
+                      : t('mail.last_fetch', {
+                          when: dates.format(mailbox.last_fetch_at),
+                        })}
                   </Typography.Text>
                 </Flex>
               }

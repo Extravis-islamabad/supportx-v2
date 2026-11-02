@@ -11,7 +11,7 @@ Expand only (D-113: a merged migration is never edited):
   mail ID (a send attempt's end finds its rows).
 
 Revision ID: 0043
-Revises: 0042 (lane A's 0040 and lane C's 0041 come first at merge)
+Revises: 0042
 Created: 2026-10-29
 """
 

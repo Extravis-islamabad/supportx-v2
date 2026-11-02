@@ -21,6 +21,8 @@ from email.utils import getaddresses, parseaddr
 MAX_TEXT = 200_000  # characters of a body kept; the rest is cut (the original stays on the server)
 
 # A display ID in a subject: "[INC-123]" (case-insensitive, any record prefix).
+# Directional isolates (U+2066..U+2069), as app.shared.labels.strip_isolates removes them.
+_ISOLATES = re.compile("[\u2066-\u2069]")
 TOKEN = re.compile(r"\[([A-Z]{2,10}-\d{1,12})\]", re.IGNORECASE)
 
 
@@ -68,7 +70,8 @@ class InboundMessage:
     @property
     def tokens(self) -> tuple[str, ...]:
         """Record display IDs named in the subject, uppercased (e.g. ("INC-12",))."""
-        return tuple(match.upper() for match in TOKEN.findall(self.subject))
+        # Without directional marks: a token copied from a screen may carry them.
+        return tuple(match.upper() for match in TOKEN.findall(_ISOLATES.sub("", self.subject)))
 
     @property
     def thread_ids(self) -> tuple[str, ...]:
@@ -193,6 +196,28 @@ def reply_text(text: str) -> str:
             break
         if stripped.startswith(">"):
             continue
+        kept.append(line)
+    result = "\n".join(kept).strip()
+    return result or text.strip()
+
+
+def request_text(text: str) -> str:
+    """A new request's text: the signature block removed, everything else kept (REQ-INC-023).
+
+    Unlike a reply, a new mail's quoted or forwarded part is often the request itself ("see
+    below"), so only the lines from a signature separator up to the next quoted or forwarded part
+    go. Nothing a person wrote is lost: a mail that is only a signature is kept whole.
+    """
+    kept: list[str] = []
+    in_signature = False
+    for line in text.replace("\r\n", "\n").split("\n"):
+        stripped = line.strip()
+        if _SIGNATURE.match(line) or _MOBILE_SIGNATURES.match(stripped):
+            in_signature = True
+            continue
+        if in_signature and not any(pattern.match(stripped) for pattern in _QUOTE_STARTS):
+            continue
+        in_signature = False
         kept.append(line)
     result = "\n".join(kept).strip()
     return result or text.strip()

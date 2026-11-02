@@ -48,6 +48,7 @@ from app.modules.work_items.events import (
 from app.modules.work_items.infra.models import WorkItem, WorkItemConversation, WorkItemFollower
 from app.modules.work_items.service import catalogue
 from app.modules.work_items.service import work_items as items
+from app.modules.work_items.service.closing import resolution_notified
 from app.modules.work_items.service.file_access import sees_private
 from app.modules.work_items.service.realtime import RECORD_KIND
 from app.shared.events import EventEnvelope, record_event
@@ -223,6 +224,11 @@ def _conversation_events(payload: Mapping[str, object]) -> tuple[str, ...]:
     if payload.get("mentioned_ids"):
         codes.append("incident.mentioned")
     return tuple(codes)
+
+
+# The notice that tells the requester of a resolution, and the roles that count as telling them.
+RESOLUTION_NOTICE = "incident.resolved"
+REQUESTER_SIDE = frozenset({"requester", "on_behalf_of"})
 
 
 class IncidentNotifications:
@@ -442,6 +448,27 @@ class IncidentNotifications:
             own = people is not None and user_id in (people.requester_id, people.on_behalf_of_id)
             return RecordAccess.PUBLIC if own else RecordAccess.NONE
         return RecordAccess.FULL if sees_private(subject, INCIDENT) else RecordAccess.PUBLIC
+
+    async def delivered(  # noqa: PLR0913 - the delivery's facts, explicit
+        self,
+        session: AsyncSession,
+        *,
+        event_code: str,
+        record_id: uuid.UUID,
+        user_id: uuid.UUID,
+        reasons: tuple[str, ...],
+        event_at: datetime,
+        at: datetime,
+    ) -> None:
+        """The resolution notice reached the requester: auto-close may count from now (BUG-02).
+
+        Only the resolution notice, and only when it went to the requester or the person it is
+        for; a copy to an assignee or a follower tells the requester nothing.
+        """
+        del user_id  # the reasons say in which role this person was told
+        if event_code != RESOLUTION_NOTICE or not set(reasons) & REQUESTER_SIDE:
+            return
+        await resolution_notified(session, record_id, event_at=event_at, at=at)
 
 
 # The states the engine may move a reply out of, named one by one (lane A's review): never

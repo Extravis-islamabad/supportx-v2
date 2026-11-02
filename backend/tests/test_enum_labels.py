@@ -38,6 +38,13 @@ ENUM_PREFIXES: dict[str, str] = {
     "SecretType": "secret_type",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
+    # Tasks, worklogs and links (WP-020e)
+    "TaskStatus": "task_status",
+    "TaskPriority": "task_priority",
+    "WorklogType": "worklog_type",
+    "LinkKind": "link_kind",
+    "WorkItemLinkOut.relation": "link_relation",
+    "WorkItemTaskMoveIn.direction": "task_move_direction",
     # Incident lists and bulk jobs (WP-020d)
     "BulkAction": "bulk_action",
     "BulkOutcome": "bulk_outcome",
@@ -46,6 +53,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
+    # Dashboard widgets, decision D-114
+    "FlowSpec.bucket": "report_bucket",
+    "RecordsSpec-Input.sort": "dashboard_records_sort",
+    "RecordsSpec-Output.sort": "dashboard_records_sort",
     # Knowledge (WP-033)
     "ArticleIn.language": "locale",
     "ArticleIn.requesters": "kb_requesters",

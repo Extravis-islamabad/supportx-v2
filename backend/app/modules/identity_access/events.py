@@ -7,6 +7,8 @@ session ID ever goes into an event. Consumers that need more ask identity_access
 import uuid
 from typing import ClassVar, Literal
 
+from pydantic import Field
+
 from app.shared.events import DomainEvent
 
 ClientApp = Literal["console", "portal"]
@@ -37,6 +39,9 @@ class UserUpdated(DomainEvent):
 
     user_id: uuid.UUID
     changed_fields: list[str]
+    # The manager before and after, when the manager changed: both recount their "direct
+    # reports" (WP-020d QA BUG-01). Empty otherwise.
+    managers: list[uuid.UUID] = Field(default_factory=list)
 
 
 class UserLoggedIn(DomainEvent):

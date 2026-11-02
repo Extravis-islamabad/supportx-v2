@@ -72,6 +72,7 @@ export const queryKeys = {
     list: ['dashboards', 'list'] as const,
     detail: (ref: string) => ['dashboards', 'detail', ref] as const,
     roleHomes: ['dashboards', 'role-homes'] as const,
+    catalogue: ['dashboards', 'catalogue'] as const,
   },
   incidents: {
     all: ['incidents'] as const,
@@ -98,6 +99,10 @@ export const queryKeys = {
     listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
     bulkJobs: ['incidents', 'bulk-jobs'] as const,
     bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,
+    tasks: (id: string) => ['incidents', 'tasks', id] as const,
+    myTasks: ['incidents', 'my-tasks'] as const,
+    worklogs: (id: string) => ['incidents', 'worklogs', id] as const,
+    links: (id: string) => ['incidents', 'links', id] as const,
   },
   customFields: {
     all: ['custom-fields'] as const,

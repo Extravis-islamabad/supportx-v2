@@ -390,8 +390,24 @@ async def test_mail_attachments_go_through_the_files_path_and_refusals_are_named
     )
     fake.deliver(ADDRESS, reply)
     assert await _fetch(world, created["id"], stored) == 1
+    # The reply's file goes on the requester's own reply (lane A's RequesterReply), in their name.
+    entry = await world.sql(
+        "SELECT id, created_by FROM work_item_conversations"
+        " WHERE tenant_id = $1 AND work_item_id = $2 AND kind = 'reply'",
+        world.a.tenant,
+        incident["id"],
+    )
+    assert len(entry) == 1
+    assert entry[0]["created_by"] == world.a.requester
+    on_entry = await world.sql(
+        "SELECT f.name FROM files f JOIN file_links l ON l.file_id = f.id"
+        " WHERE f.tenant_id = $1 AND l.owner_type = 'conversation_entry' AND l.owner_id = $2",
+        world.a.tenant,
+        entry[0]["id"],
+    )
+    assert [r["name"] for r in on_entry] == ["photo.txt"]
     names = [name for name, _ in await _files_of(world, incident["id"])]
-    assert names == ["notes.txt", "photo.txt"]
+    assert names == ["notes.txt", "photo.txt"]  # all of the record's files, entries' included
 
 
 async def test_without_file_storage_attachments_are_named_not_lost(

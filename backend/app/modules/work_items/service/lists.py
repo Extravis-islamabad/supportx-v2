@@ -34,9 +34,11 @@ from app.modules.work_items.domain.lists import (
     view_key_valid,
     width_valid,
 )
+from app.modules.work_items.domain.templates import PickList
 from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import WorkItemListSettingsChanged, WorkItemViewChanged
 from app.modules.work_items.infra.models import WorkItemListSetting, WorkItemView
+from app.modules.work_items.service import catalogue as config
 from app.modules.work_items.service import work_items as items
 from app.modules.work_items.service.access import FIELDS
 from app.modules.work_items.service.reporting import DIMENSIONS
@@ -127,12 +129,23 @@ class ListField:
     dimension: Dimension | None
 
 
+# Built-in fields whose codes come from the tenant's pick lists: the list offers them as choices
+# named like the record does, never as free text (WP-020f QA BUG-05).
+PICK_LIST_FIELDS = {"level": PickList.LEVEL, "closure_code": PickList.CLOSURE_CODE}
+
+
 async def list_fields(
     session: AsyncSession, subject: Subject, wtype: WorkItemType
 ) -> list[ListField]:
     """Every field the list filters, sorts or shows, with the tenant's custom fields."""
     _require_view(subject, wtype)
     allowed = await allowed_fields(session, wtype)
+    cat = await config.load(session, wtype)
+    # Retired codes too: old records keep them and a filter must still find those records.
+    picked = {
+        name: [v.code for v in cat.list_values(pick_list)]
+        for name, pick_list in PICK_LIST_FIELDS.items()
+    }
     found: list[ListField] = []
     for name, spec in allowed.fields.items():
         if not spec.filterable:
@@ -144,7 +157,7 @@ async def list_fields(
             ListField(
                 name=name,
                 type=str(spec.type.value),
-                values=sorted(spec.values),
+                values=picked.get(name) or sorted(spec.values),
                 multiple=spec.array,
                 sortable=spec.sortable,
                 dimension=dimension,

@@ -197,6 +197,110 @@ describe('Reports', () => {
     expect(call?.headers.get('If-Match')).toBe('"4"');
   });
 
+  it('QA WP-036 sweep: a schedule someone else changed first meets the conflict dialog; Keep mine pauses it', async () => {
+    window.history.pushState({}, '', '/reports');
+    const schedule = {
+      id: '01900000-0000-7000-8000-00000000s001',
+      owner_id: '01900000-0000-7000-8000-000000000101',
+      title: 'Weekly open incidents',
+      report_ref: 'builtin:incidents_open_by_priority',
+      frequency: 'weekly',
+      at_time: '07:00:00',
+      time_zone: 'Asia/Riyadh',
+      start_date: '2026-10-01',
+      end_date: null,
+      weekdays: [0],
+      day_of_month: null,
+      recipient_users: [],
+      recipient_groups: [],
+      format: 'xlsx',
+      content: 'summary',
+      message: null,
+      status: 'active',
+      paused_reason: null,
+      next_run_at: '2026-11-02T04:00:00Z',
+      last_run_at: '2026-10-26T04:00:00Z',
+      last_result: 'attachment_too_large',
+      last_sent: 0,
+      last_failed: 3,
+      version: 4,
+    };
+    let calls = 0;
+    const fake = api({
+      me: fakeSession({ roles: ['tenant_admin', 'technician'] }),
+      routes: routes({
+        'GET /api/v1/reports/schedules': { body: { mail_configured: true, items: [schedule] } },
+        [`POST /api/v1/reports/schedules/${schedule.id}/pause`]: () => {
+          calls += 1;
+          return calls === 1
+            ? {
+                status: 409,
+                body: problem(409, 'version_conflict', {
+                  params: { expected_version: 4, current_version: 5, changed_by: 'Sara Admin' },
+                }),
+              }
+            : { body: { ...schedule, status: 'paused', version: 6 } };
+        },
+      }),
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('report-schedules'));
+    fireEvent.click(await screen.findByTestId(`schedule-pause-${schedule.id}`));
+    const dialog = await screen.findByText('Someone else changed this');
+    expect(document.body.textContent).toContain('Sara Admin');
+    fireEvent.click(
+      within(dialog.closest<HTMLElement>('.ant-modal') ?? document.body).getByRole('button', {
+        name: 'Keep my changes',
+      }),
+    );
+    await waitFor(() => {
+      expect(fake.find('POST', `/api/v1/reports/schedules/${schedule.id}/pause`)).toHaveLength(2);
+    });
+    const again = fake.find('POST', `/api/v1/reports/schedules/${schedule.id}/pause`)[1];
+    expect(again?.headers.get('If-Match')).toBe('"5"');
+  });
+
+  it('QA WP-036 sweep: saving a report someone else saved first meets the conflict dialog', async () => {
+    const saved = {
+      id: '01900000-0000-7000-8000-00000000r001',
+      name: 'My open by priority',
+      description: null,
+      folder_id: null,
+      owner_id: '01900000-0000-7000-8000-000000000101',
+      copied_from: null,
+      can_edit: true,
+      definition: BUILTIN.definition,
+      updated_at: '2026-10-29T07:00:00Z',
+      version: 2,
+    };
+    window.history.pushState({}, '', `/reports/${saved.id}`);
+    const fake = api({
+      me: fakeSession({ roles: ['tenant_admin', 'technician'] }),
+      routes: routes({
+        [`GET /api/v1/reports/${saved.id}`]: { body: saved, headers: { ETag: '"2"' } },
+        [`PATCH /api/v1/reports/${saved.id}`]: {
+          status: 409,
+          body: problem(409, 'version_conflict', {
+            params: { expected_version: 2, current_version: 3, changed_by: 'Sara Admin' },
+          }),
+        },
+      }),
+    });
+    render(<App />);
+    const chartType = await screen.findByTestId('report-chart-type');
+    fireEvent.mouseDown(chartType.querySelector('.ant-select-selector') ?? chartType);
+    fireEvent.click(await screen.findByTitle('Bar'));
+    fireEvent.click(await screen.findByTestId('report-save'));
+    await waitFor(() => {
+      expect(fake.find('PATCH', `/api/v1/reports/${saved.id}`)).toHaveLength(1);
+    });
+    expect(fake.find('PATCH', `/api/v1/reports/${saved.id}`)[0]?.headers.get('If-Match')).toBe(
+      '"2"',
+    );
+    expect(await screen.findByText('Someone else changed this')).toBeDefined();
+    expect(document.body.textContent).toContain('Sara Admin');
+  });
+
   describe('viewer', () => {
     beforeEach(() => {
       window.history.pushState({}, '', '/reports/builtin/incidents_open_by_priority');
@@ -399,9 +503,14 @@ describe('Reports', () => {
       fireEvent.mouseDown(chartType.querySelector('.ant-select-selector') ?? chartType);
       const option = await screen.findByTitle('Stacked bar');
       const content = option.querySelector('.ant-select-item-option-content') ?? option;
-      // One rule for the whole product (AppearanceProvider), not a prop per list.
+      // One rule for the whole product (AppearanceProvider), not a prop per list: lists grow to
+      // fit (dropdownFit), text wraps between words only, and a single word too long for the
+      // list ends in an ellipsis with the whole label as the option's tooltip (2026-10-28).
       expect(getComputedStyle(content).whiteSpace).toBe('normal');
-      expect(getComputedStyle(content).textOverflow).toBe('clip');
+      expect(getComputedStyle(content).wordBreak).toBe('normal');
+      expect(getComputedStyle(content).overflowWrap).toBe('normal');
+      expect(getComputedStyle(content).textOverflow).toBe('ellipsis');
+      expect(option.getAttribute('title')).toBe('Stacked bar');
     });
 
     it('BUG-08: a changed built-in report says so, with Reset and Save as my report', async () => {
