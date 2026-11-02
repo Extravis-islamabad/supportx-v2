@@ -196,6 +196,13 @@ export const routes: RouteObject[] = [
                 .IntegrationsPage,
             }),
           },
+          {
+            path: 'integrations/directories',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/DirectoriesPage'))
+                .DirectoriesPage,
+            }),
+          },
         ],
       },
       {

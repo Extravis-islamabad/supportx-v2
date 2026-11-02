@@ -85,6 +85,17 @@ class ConnectorRecovered(DomainEvent):
     instance_id: uuid.UUID
 
 
+class DirectoryChanged(DomainEvent):
+    """A directory connector was added, changed or removed, or a sync run finished (WP-040)."""
+
+    event_type: ClassVar[str] = "integrations.directory.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "directory_connector"
+
+    directory_id: uuid.UUID
+    change: Literal["added", "changed", "removed", "synced"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     MailboxChanged,
     MailboxFailing,
@@ -92,4 +103,5 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     MailboxMailHeld,
     ConnectorFailing,
     ConnectorRecovered,
+    DirectoryChanged,
 )

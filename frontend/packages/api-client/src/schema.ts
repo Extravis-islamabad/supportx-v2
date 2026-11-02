@@ -3188,6 +3188,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/directories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Directory connectors
+         * @description Every directory connector with its last run.
+         */
+        get: operations["list_directories_api_v1_integrations_directories_get"];
+        put?: never;
+        /**
+         * Add a directory connector
+         * @description Send an Idempotency-Key: a retried request returns the same 201. Syncs within a minute.
+         */
+        post: operations["create_directory_api_v1_integrations_directories_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/directories/{directory_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A directory connector
+         * @description One connector; its ETag is the version to send back.
+         */
+        get: operations["get_directory_api_v1_integrations_directories__directory_id__get"];
+        /**
+         * Change a directory connector
+         * @description If-Match: the version you read. Changing who is synced reads everyone again next run.
+         */
+        put: operations["update_directory_api_v1_integrations_directories__directory_id__put"];
+        post?: never;
+        /**
+         * Remove a directory connector
+         * @description Stop syncing. Its people stay, and SupportX keeps them from now on.
+         */
+        delete: operations["remove_directory_api_v1_integrations_directories__directory_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/directories/{directory_id}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Find directory groups by name
+         * @description Up to 25 groups whose name starts with `q`, asked of the directory with the sync app.
+         */
+        get: operations["find_groups_api_v1_integrations_directories__directory_id__groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/directories/{directory_id}/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sync now
+         * @description Runs within a minute instead of at its interval; the page updates live when it ends.
+         */
+        post: operations["sync_now_api_v1_integrations_directories__directory_id__sync_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/mailboxes": {
         parameters: {
             query?: never;
@@ -7149,6 +7241,126 @@ export interface components {
             } | null;
         };
         /**
+         * DirectoryGroupIn
+         * @description A directory group: its Graph object ID and the name shown.
+         */
+        DirectoryGroupIn: {
+            /** External Id */
+            external_id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+        };
+        /**
+         * DirectoryGroupOut
+         * @description A directory group found by name.
+         */
+        DirectoryGroupOut: {
+            /** External Id */
+            external_id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * DirectoryIn
+         * @description Every setting of a directory connector (create and replace).
+         */
+        DirectoryIn: {
+            /**
+             * Client Id
+             * @description The sync app's ID.
+             */
+            client_id: string;
+            /**
+             * Credential
+             * @description Client secret or PEM certificate; required on create, kept when left out.
+             */
+            credential?: string | null;
+            credential_kind: components["schemas"]["CredentialKind"];
+            /**
+             * Directory Tenant
+             * @description Entra tenant ID, or its primary domain.
+             */
+            directory_tenant: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["GroupMappingIn"][];
+            /**
+             * Interval Minutes
+             * @default 30
+             */
+            interval_minutes: number;
+            mapping?: components["schemas"]["MappingIn"];
+            /** Name */
+            name: string;
+            /** @default all_users */
+            scope: components["schemas"]["SyncScope"];
+            /** Scope Groups */
+            scope_groups?: components["schemas"]["DirectoryGroupIn"][];
+        };
+        /**
+         * DirectoryOut
+         * @description A directory connector as its page shows it.
+         */
+        DirectoryOut: {
+            /** Client Id */
+            client_id: string;
+            credential_kind: components["schemas"]["CredentialKind"];
+            /** Directory Tenant */
+            directory_tenant: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Mappings */
+            group_mappings: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Interval Minutes */
+            interval_minutes: number;
+            /**
+             * Last Skips
+             * @description Last run's skipped by reason code.
+             */
+            last_skips: {
+                [key: string]: number;
+            };
+            /** Last Synced At */
+            last_synced_at: string | null;
+            /** Mapping */
+            mapping: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+            /** Next Sync At */
+            next_sync_at: string | null;
+            /**
+             * People
+             * @description People this directory keeps.
+             */
+            people: number;
+            scope: components["schemas"]["SyncScope"];
+            /** Scope Groups */
+            scope_groups: {
+                [key: string]: unknown;
+            }[];
+            secret: components["schemas"]["SecretOut"] | null;
+            /** Source */
+            source: string;
+            /** Version */
+            version: number;
+        };
+        /**
          * Disposition
          * @description Open in the browser (images, PDFs) or save as a file.
          * @enum {string}
@@ -7260,6 +7472,12 @@ export interface components {
             /** Scopes */
             scopes: ("all" | "site" | "group" | "own")[];
         };
+        /**
+         * EmailFrom
+         * @description Which Graph attribute is the person's address.
+         * @enum {string}
+         */
+        EmailFrom: "mail" | "user_principal_name";
         /**
          * EntitlementState
          * @description Derived licence state (see module docstring).
@@ -7675,6 +7893,24 @@ export interface components {
             sender_name?: string | null;
             /** Site Ids */
             site_ids?: string[];
+        };
+        /**
+         * GroupMappingIn
+         * @description A directory group whose members fill a SupportX group.
+         */
+        GroupMappingIn: {
+            /** External Id */
+            external_id: string;
+            /**
+             * Group Id
+             * Format: uuid
+             */
+            group_id: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
         };
         /**
          * GroupOut
@@ -8603,6 +8839,29 @@ export interface components {
          * @enum {string}
          */
         MailboxState: "not_set_up" | "working" | "failing";
+        /**
+         * MappingIn
+         * @description Where person fields come from (defaults: mail, department, officeLocation).
+         */
+        MappingIn: {
+            /**
+             * Department From
+             * @default department
+             */
+            department_from: string;
+            /** @default mail */
+            email_from: components["schemas"]["EmailFrom"];
+            /**
+             * Include Guests
+             * @default false
+             */
+            include_guests: boolean;
+            /**
+             * Site From
+             * @default officeLocation
+             */
+            site_from: string;
+        };
         /**
          * MatrixCellIn
          * @description One cell.
@@ -10573,6 +10832,24 @@ export interface components {
             } | null;
         };
         /**
+         * SecretOut
+         * @description What may be said about the stored secret: never its value.
+         */
+        SecretOut: {
+            /**
+             * Ending
+             * @description Last four characters, for display only.
+             */
+            ending: string | null;
+            /** Secret Type */
+            secret_type: string;
+            /**
+             * Set At
+             * Format: date-time
+             */
+            set_at: string;
+        };
+        /**
          * SecretType
          * @description What kind of credential the secrets store holds (REQ-INT-003).
          * @enum {string}
@@ -11017,6 +11294,12 @@ export interface components {
              */
             tenant_id: string;
         };
+        /**
+         * SyncScope
+         * @description Everyone in the directory, or only members of chosen groups.
+         * @enum {string}
+         */
+        SyncScope: "all_users" | "groups";
         /**
          * TaskPriority
          * @description How urgent a task is, relative to the record's other tasks.
@@ -11607,6 +11890,11 @@ export interface components {
              * @description Only for `users.manage`.
              */
             description?: string | null;
+            /**
+             * Directory Source
+             * @description The directory that keeps this person (its fields are read-only here).
+             */
+            directory_source?: ("entra" | "ldap") | null;
             /** Display Name */
             display_name: string;
             /**
@@ -27278,6 +27566,506 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_directories_api_v1_integrations_directories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_directory_api_v1_integrations_directories_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_directory_api_v1_integrations_directories__directory_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                directory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_directory_api_v1_integrations_directories__directory_id__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                directory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DirectoryIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    remove_directory_api_v1_integrations_directories__directory_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                directory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    find_groups_api_v1_integrations_directories__directory_id__groups_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path: {
+                directory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryGroupOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    sync_now_api_v1_integrations_directories__directory_id__sync_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                directory_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DirectoryOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.manage_identity). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such directory (directory_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */

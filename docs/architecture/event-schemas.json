@@ -1739,6 +1739,34 @@
         "type": "object"
       }
     },
+    "integrations.directory.changed": {
+      "1": {
+        "description": "A directory connector was added, changed or removed, or a sync run finished (WP-040).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed",
+              "synced"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "directory_id": {
+            "format": "uuid",
+            "title": "Directory Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory_id",
+          "change"
+        ],
+        "title": "DirectoryChanged",
+        "type": "object"
+      }
+    },
     "integrations.mailbox.changed": {
       "1": {
         "description": "A mailbox was added, changed or removed, or a fetch changed its state or its mail.",

@@ -1,5 +1,6 @@
 import {
   Alert,
+  ConfigProvider,
   App,
   Button,
   Checkbox,
@@ -301,8 +302,19 @@ function PersonForm({
   const help = (name: string) =>
     problems[name] === undefined ? {} : { validateStatus: 'error' as const, help: problems[name] };
 
+  const managed = user?.directory_source != null;
   return (
     <>
+      {managed && (
+        <Alert
+          type="info"
+          showIcon
+          data-testid="person-managed"
+          message={t('directory.managed_by')}
+          description={t('people.managed_by_directory')}
+          style={{ marginBottom: 16 }}
+        />
+      )}
       {stale && (
         <Alert
           type="warning"
@@ -330,40 +342,46 @@ function PersonForm({
         }}
         data-testid="person-form"
       >
-        <Flex gap={12} wrap>
+        {/* A directory keeps these (WP-040 session 2): read-only here, the server refuses too. */}
+        <ConfigProvider componentDisabled={managed}>
+          <Flex gap={12} wrap>
+            <Form.Item
+              name="first_name"
+              label={t('people.field.first_name')}
+              required
+              style={{ flex: 1, minWidth: 200 }}
+              {...help('first_name')}
+            >
+              <Input
+                count={lengthLimit(LENGTHS.first_name ?? 100)}
+                data-testid="person-first-name"
+              />
+            </Form.Item>
+            <Form.Item
+              name="last_name"
+              label={t('people.field.last_name')}
+              style={{ flex: 1, minWidth: 200 }}
+              {...help('last_name')}
+            >
+              <Input count={lengthLimit(LENGTHS.last_name ?? 100)} data-testid="person-last-name" />
+            </Form.Item>
+          </Flex>
           <Form.Item
-            name="first_name"
-            label={t('people.field.first_name')}
-            required
-            style={{ flex: 1, minWidth: 200 }}
-            {...help('first_name')}
+            name="display_name"
+            label={t('people.field.display_name')}
+            extra={t('people.field.display_name.help')}
+            {...help('display_name')}
           >
-            <Input count={lengthLimit(LENGTHS.first_name ?? 100)} data-testid="person-first-name" />
+            <Input count={lengthLimit(LENGTHS.display_name ?? 200)} />
           </Form.Item>
-          <Form.Item
-            name="last_name"
-            label={t('people.field.last_name')}
-            style={{ flex: 1, minWidth: 200 }}
-            {...help('last_name')}
-          >
-            <Input count={lengthLimit(LENGTHS.last_name ?? 100)} data-testid="person-last-name" />
+          <Form.Item name="email" label={t('people.field.email')} {...help('email')}>
+            <Input
+              type="email"
+              count={lengthLimit(LENGTHS.email ?? 254)}
+              data-testid="person-email"
+            />
           </Form.Item>
-        </Flex>
-        <Form.Item
-          name="display_name"
-          label={t('people.field.display_name')}
-          extra={t('people.field.display_name.help')}
-          {...help('display_name')}
-        >
-          <Input count={lengthLimit(LENGTHS.display_name ?? 200)} />
-        </Form.Item>
-        <Form.Item name="email" label={t('people.field.email')} {...help('email')}>
-          <Input
-            type="email"
-            count={lengthLimit(LENGTHS.email ?? 254)}
-            data-testid="person-email"
-          />
-        </Form.Item>
+        </ConfigProvider>
         {user === undefined && (
           <Flex gap={24} wrap>
             <Form.Item name="user_type" label={t('people.field.user_type')}>
@@ -384,53 +402,55 @@ function PersonForm({
             </Form.Item>
           </Flex>
         )}
-        <Flex gap={12} wrap>
-          <Form.Item
-            name="employee_id"
-            label={t('people.field.employee_id')}
-            style={{ flex: 1, minWidth: 160 }}
-            {...help('employee_id')}
-          >
-            <Input count={lengthLimit(LENGTHS.employee_id ?? 50)} />
-          </Form.Item>
-          <Form.Item
-            name="job_title"
-            label={t('people.field.job_title')}
-            style={{ flex: 2, minWidth: 200 }}
-            {...help('job_title')}
-          >
-            <Input count={lengthLimit(LENGTHS.job_title ?? 200)} />
-          </Form.Item>
-        </Flex>
-        <Flex gap={12} wrap>
-          <Form.Item
-            name="phone"
-            label={t('people.field.phone')}
-            style={{ flex: 1, minWidth: 160 }}
-            {...help('phone')}
-          >
-            <Input
-              dir="ltr"
-              // Inline: Ant Design's RTL stylesheet sets `direction: rtl` on inputs, which
-              // beats the attribute and showed numbers reversed in Arabic (QA BUG-05).
-              styles={{ input: { direction: 'ltr' } }}
-              count={lengthLimit(LENGTHS.phone ?? 50)}
-            />
-          </Form.Item>
-          <Form.Item
-            name="mobile"
-            label={t('people.field.mobile')}
-            style={{ flex: 1, minWidth: 160 }}
-            {...help('mobile')}
-          >
-            <Input
-              dir="ltr"
-              styles={{ input: { direction: 'ltr' } }}
-              count={lengthLimit(LENGTHS.mobile ?? 50)}
-            />
-          </Form.Item>
-        </Flex>
-        <PlacementFields user={user} help={help} />
+        <ConfigProvider componentDisabled={managed}>
+          <Flex gap={12} wrap>
+            <Form.Item
+              name="employee_id"
+              label={t('people.field.employee_id')}
+              style={{ flex: 1, minWidth: 160 }}
+              {...help('employee_id')}
+            >
+              <Input count={lengthLimit(LENGTHS.employee_id ?? 50)} />
+            </Form.Item>
+            <Form.Item
+              name="job_title"
+              label={t('people.field.job_title')}
+              style={{ flex: 2, minWidth: 200 }}
+              {...help('job_title')}
+            >
+              <Input count={lengthLimit(LENGTHS.job_title ?? 200)} />
+            </Form.Item>
+          </Flex>
+          <Flex gap={12} wrap>
+            <Form.Item
+              name="phone"
+              label={t('people.field.phone')}
+              style={{ flex: 1, minWidth: 160 }}
+              {...help('phone')}
+            >
+              <Input
+                dir="ltr"
+                // Inline: Ant Design's RTL stylesheet sets `direction: rtl` on inputs, which
+                // beats the attribute and showed numbers reversed in Arabic (QA BUG-05).
+                styles={{ input: { direction: 'ltr' } }}
+                count={lengthLimit(LENGTHS.phone ?? 50)}
+              />
+            </Form.Item>
+            <Form.Item
+              name="mobile"
+              label={t('people.field.mobile')}
+              style={{ flex: 1, minWidth: 160 }}
+              {...help('mobile')}
+            >
+              <Input
+                dir="ltr"
+                styles={{ input: { direction: 'ltr' } }}
+                count={lengthLimit(LENGTHS.mobile ?? 50)}
+              />
+            </Form.Item>
+          </Flex>
+          <PlacementFields user={user} help={help} />
+        </ConfigProvider>
         <Flex gap={24} wrap>
           <Form.Item name="vip" label={t('people.field.vip')} valuePropName="checked">
             <Switch data-testid="person-vip" />
