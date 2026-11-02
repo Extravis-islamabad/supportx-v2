@@ -120,7 +120,12 @@ async def test_d114_new_key_numbers(reports: World) -> None:
     late = await world.create(a, a.admin, group_id=str(a.ga))
     await _at(world, late, resolution_due_at=_noon(1))
     soon = await world.create(a, a.admin, group_id=str(a.ga))
-    await _at(world, soon, resolution_due_at=datetime.now(UTC) + timedelta(minutes=5))
+    now = datetime.now(UTC)
+    soon_due = now + timedelta(minutes=5)
+    await _at(world, soon, resolution_due_at=soon_due)
+    # Fell due at midnight today: overdue only, never also "due today" (D-111, lane A on #126).
+    fell_due = await world.create(a, a.admin, group_id=str(a.ga))
+    await _at(world, fell_due, resolution_due_at=now.replace(hour=0, minute=0, second=0))
     result = await ran(
         world,
         a,
@@ -129,9 +134,10 @@ async def test_d114_new_key_numbers(reports: World) -> None:
         chart="table",
     )
     overdue, due_today, awaiting = result["totals"]
-    assert overdue == 1
-    assert due_today >= 1  # "today" in UTC; the soon one is due within minutes
-    assert awaiting == 2  # nobody has answered either yet
+    assert overdue == 2
+    # "today" in UTC: the soon one counts unless five minutes from now is already tomorrow.
+    assert due_today == (1 if soon_due.date() == now.date() else 0)
+    assert awaiting == 3  # nobody has answered any of them yet
 
 
 # --- records widgets ------------------------------------------------------------------------------

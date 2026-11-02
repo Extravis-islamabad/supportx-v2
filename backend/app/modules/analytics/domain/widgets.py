@@ -43,7 +43,15 @@ _UNASSIGNED = {
     ]
 }
 _OVERDUE = {"and": [_OPEN, {"field": "resolution_due_at", "op": "before_now"}]}
-_DUE_TODAY = {"and": [_OPEN, {"field": "resolution_due_at", "op": "today"}]}
+# Not yet due, due today: one that fell due earlier today is overdue only, as in the incident
+# list's "Due today" view (D-111).
+_DUE_TODAY = {
+    "and": [
+        _OPEN,
+        {"field": "resolution_due_at", "op": "after_now"},
+        {"field": "resolution_due_at", "op": "today"},
+    ]
+}
 
 
 @dataclass(frozen=True)

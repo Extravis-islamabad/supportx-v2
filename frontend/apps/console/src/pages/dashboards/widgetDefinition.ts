@@ -97,6 +97,22 @@ export function widgetDefinition(
   return { ...own, filter: filter as ReportDefinition['filter'] };
 }
 
+const OPEN_CATEGORIES = new Set(['open', 'paused']);
+
+/** The filter requires open records: a condition on status_category, alone or inside an AND. */
+export function requiresOpen(filter: unknown): boolean {
+  if (filter === null || typeof filter !== 'object') return false;
+  const node = filter as { and?: unknown[]; field?: string; op?: string; value?: unknown };
+  if (Array.isArray(node.and)) return node.and.some(requiresOpen);
+  return (
+    node.field === 'status_category' &&
+    node.op === 'in' &&
+    Array.isArray(node.value) &&
+    node.value.length > 0 &&
+    node.value.every((value) => OPEN_CATEGORIES.has(String(value)))
+  );
+}
+
 // The list's sort for each records-widget order (D-114).
 const RECORD_SORTS: Record<NonNullable<DashboardRecords['sort']>, string> = {
   updated: '-updated_at',
@@ -117,7 +133,11 @@ export function recordsQuery(
   if (records.filter) parts.push(withViewer(records.filter, userId));
   if (filters.site_id) parts.push({ field: 'site_id', op: 'eq', value: filters.site_id });
   if (filters.group_id) parts.push({ field: 'group_id', op: 'eq', value: filters.group_id });
-  if (filters.days) parts.push({ field: 'created_at', op: 'last_n_days', value: filters.days });
+  // A list of what is open now (overdue, due today, my open work) shows all of it, however old
+  // (D-119): the bar's "created in the last N days" would hide the oldest, most urgent records.
+  if (filters.days && !requiresOpen(records.filter)) {
+    parts.push({ field: 'created_at', op: 'last_n_days', value: filters.days });
+  }
   const filter = parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : { and: parts };
   return {
     filter: filter as IncidentsQuery['filter'],

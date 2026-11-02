@@ -91,7 +91,14 @@ INCIDENT_MEASURES: tuple[MeasureSpec, ...] = (
         MeasureKind.COUNT_WHERE,
         Unit.COUNT,
         Better.DOWN,
-        where={"and": [_OPEN, {"field": "resolution_due_at", "op": "today"}]},
+        # Not yet due (after_now): never counted in both overdue_count and this (D-111).
+        where={
+            "and": [
+                _OPEN,
+                {"field": "resolution_due_at", "op": "after_now"},
+                {"field": "resolution_due_at", "op": "today"},
+            ]
+        },
     ),
     MeasureSpec(
         "awaiting_response_count",

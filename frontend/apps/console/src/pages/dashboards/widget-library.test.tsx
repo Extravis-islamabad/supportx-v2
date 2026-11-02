@@ -184,6 +184,16 @@ describe('widget library rules (D-114)', () => {
     expect(JSON.stringify(query.filter)).toContain('"g1"');
     expect(JSON.stringify(query.filter)).not.toContain('@me');
   });
+
+  it('an open-now list ignores the time filter; a recently-updated list keeps it (D-119)', () => {
+    const open = recordsQuery(MINE_LIST.records as never, { userId: 'u1', filters: { days: 7 } });
+    expect(JSON.stringify(open.filter)).not.toContain('last_n_days');
+    const recent = recordsQuery(
+      { entity: 'incident', filter: null, sort: 'updated', limit: 5 } as never,
+      { userId: 'u1', filters: { days: 7 } },
+    );
+    expect(JSON.stringify(recent.filter)).toContain('last_n_days');
+  });
 });
 
 describe('widget library on screen (D-114)', () => {
