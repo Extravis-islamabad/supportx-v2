@@ -72,6 +72,8 @@ report_names.register()
 notifications.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
+# Who may reach work item files: at import too, since mail attachments upload in the worker.
+register_owner_access(FILE_ACCESS)
 
 module = ModuleSpec(
     name="work_items",
