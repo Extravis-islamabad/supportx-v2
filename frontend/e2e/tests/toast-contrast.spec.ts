@@ -24,7 +24,16 @@ async function arabic(page: Page): Promise<void> {
 
 async function showToasts(page: Page): Promise<void> {
   await page.goto('/dev/components');
-  await page.getByTestId('dev-toasts').click();
+  const button = page.getByTestId('dev-toasts');
+  // The component page exists only in dev builds (`import.meta.env.DEV`, router.tsx): the k3d
+  // nightly serves production bundles, which leave it out. Stack-smoke runs this against the dev
+  // servers, so the check still runs on every full-ci PR and every night.
+  const shown = await button.waitFor({ timeout: 15_000 }).then(
+    () => true,
+    () => false,
+  );
+  test.skip(!shown, 'the dev component page exists only in dev builds (stack-smoke runs this)');
+  await button.click();
 }
 
 test.beforeEach(async ({ page }) => {
