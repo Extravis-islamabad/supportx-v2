@@ -23,7 +23,7 @@ from app.modules.integrations.domain.mailboxes import (
     SECRET_FALLBACK,
     connector_status,
 )
-from app.modules.integrations.infra.models import Mailbox
+from app.modules.integrations.infra.models import DirectoryConnector, Mailbox
 from app.modules.integrations.service.mailboxes import LEGACY_MANAGE
 from app.modules.integrations.service.runs import InstanceHealth, health_of
 from app.modules.licensing import has_feature
@@ -137,3 +137,62 @@ MAILBOX_KIND = ConnectorKind(
 def register() -> None:
     """Put mailboxes in the catalogue (called when the module loads)."""
     register_connector(MAILBOX_KIND, MailboxConnectors())
+
+
+class DirectoryConnectors:
+    """Directory connectors as catalogue instances (WP-040 session 2)."""
+
+    async def instances(self, session: AsyncSession) -> Sequence[ConnectorInstance]:
+        """Every directory connector, by name; its standing comes from its runs."""
+        rows = list(
+            await session.scalars(
+                select(DirectoryConnector)
+                .where(DirectoryConnector.deleted_at.is_(None))
+                .order_by(DirectoryConnector.name)
+            )
+        )
+        health = await health_of(session, DIRECTORY, [row.id for row in rows])
+        return [_directory(row, health.get(row.id)) for row in rows]
+
+
+def _directory(row: DirectoryConnector, health: InstanceHealth | None) -> ConnectorInstance:
+    """The instance's status from its runs (failing per D-118; a new one is active).
+
+    Paused when off; failed once failing; degraded after a failed run that is not yet failing.
+    """
+    reason = health.last_error_code if health is not None else None
+    if not row.enabled:
+        status, reason = ConnectorStatus.PAUSED, None
+    elif health is not None and health.failing:
+        status = ConnectorStatus.FAILED
+    elif (
+        health is not None
+        and health.last_error_at is not None
+        and (health.last_success_at is None or health.last_error_at > health.last_success_at)
+    ):
+        status = ConnectorStatus.DEGRADED
+    else:
+        status, reason = ConnectorStatus.ACTIVE, None
+    return ConnectorInstance(
+        id=row.id,
+        name=row.name,
+        status=status,
+        reason=reason,
+        last_success_at=row.last_synced_at,
+        next_run_at=row.next_sync_at if row.enabled else None,
+    )
+
+
+DIRECTORY = "directory"
+DIRECTORY_KIND = ConnectorKind(
+    code=DIRECTORY,
+    category=ConnectorCategory.IDENTITY,
+    page="/admin/integrations/directories",
+    reason_labels="directory_reason",
+    keywords=("connector_keyword.entra", "connector_keyword.azure_ad", "connector_keyword.sync"),
+)
+
+
+def register_directories() -> None:
+    """Put directory connectors in the catalogue (called when the module loads)."""
+    register_connector(DIRECTORY_KIND, DirectoryConnectors())

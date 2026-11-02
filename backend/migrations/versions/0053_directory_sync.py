@@ -90,6 +90,12 @@ def upgrade() -> None:
         sa.Column("next_sync_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_synced_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(
+            "last_skips",
+            postgresql.JSONB(astext_type=sa.Text()),
+            server_default=sa.text("'{}'::jsonb"),
+            nullable=False,
+        ),
+        sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
         sa.Column(

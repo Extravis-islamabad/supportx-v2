@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import undefer
 
+from app.core.database import SESSION_TENANT_KEY
 from app.core.logging import get_logger
 from app.modules.integrations.domain.mailboxes import CredentialKind, MailboxProtocol
 from app.modules.integrations.infra.imap import MailboxUnavailableError
@@ -266,3 +267,78 @@ async def credential_info(
         )
     )
     return {r[0]: SecretInfo(r[1], r[2], r[3], r[4]) for r in rows}
+
+
+# --- Connectors with no old columns (directory sync, WP-040 session 2): the store only. -------
+
+
+async def put_owned(  # noqa: PLR0913 - the owner, the role and the value, explicit
+    session: AsyncSession,
+    ring: KeyRing,
+    *,
+    owner_kind: str,
+    owner_id: uuid.UUID,
+    role: str,
+    secret_type: str,
+    value: str,
+) -> uuid.UUID:
+    """Store (or rotate, same row) one secret of a connector; the row's ID is its reference."""
+    tenant_id = session.info[SESSION_TENANT_KEY].tenant_id
+    purpose = f"{owner_kind}.{role}"
+    key_id, sealed = seal(ring, tenant_id, purpose, value)
+    now = datetime.now(UTC)
+    row = await session.scalar(
+        select(ConnectorSecret).where(
+            ConnectorSecret.owner_kind == owner_kind,
+            ConnectorSecret.owner_id == owner_id,
+            ConnectorSecret.role == role,
+            ConnectorSecret.deleted_at.is_(None),
+        )
+    )
+    if row is None:
+        row = ConnectorSecret(
+            id=new_id(),
+            tenant_id=tenant_id,
+            name=f"{owner_kind}.{owner_id}.{role}",
+            owner_kind=owner_kind,
+            owner_id=owner_id,
+            role=role,
+        )
+        session.add(row)
+    row.secret_type, row.purpose, row.key_id, row.sealed = secret_type, purpose, key_id, sealed
+    row.set_at = row.updated_at = now
+    row.last_four = last_four(secret_type, value)
+    await session.flush()
+    return row.id
+
+
+async def read_owned(session: AsyncSession, ring: KeyRing, ref: uuid.UUID | None) -> str | None:
+    """A connector's secret by reference; None when there is none or it no longer opens."""
+    row = await _stored(session, ref) if ref is not None else None
+    if row is None:
+        return None
+    try:
+        return _open(ring, row.tenant_id, row.purpose, row.key_id, row.sealed)
+    except KeyRingError:
+        # Codes and IDs only: never the value or the key.
+        log.warning("connector_secret_unreadable", secret_id=str(row.id))
+        return None
+
+
+async def drop_owned(session: AsyncSession, *, owner_kind: str, owner_id: uuid.UUID) -> None:
+    """Forget every secret of a removed connector (soft-deleted, never shown again)."""
+    now = datetime.now(UTC)
+    for row in await session.scalars(
+        select(ConnectorSecret).where(
+            ConnectorSecret.owner_kind == owner_kind,
+            ConnectorSecret.owner_id == owner_id,
+            ConnectorSecret.deleted_at.is_(None),
+        )
+    ):
+        row.deleted_at = row.updated_at = now
+
+
+async def credential_info_of(session: AsyncSession, ref: uuid.UUID | None) -> SecretInfo | None:
+    """What may be shown about one stored secret, by reference (never its value)."""
+    row = await _stored(session, ref) if ref is not None else None
+    return None if row is None else SecretInfo(row.name, row.secret_type, row.last_four, row.set_at)

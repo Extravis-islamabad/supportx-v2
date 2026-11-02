@@ -21,6 +21,8 @@ import httpx
 
 from app.modules.integrations.domain.directory import PAGE_SIZE
 from app.modules.integrations.infra.oauth import (
+    OAUTH_CERTIFICATE_INVALID,
+    OAUTH_CLIENT_REJECTED,
     OAUTH_CONSENT_REVOKED,
     OAUTH_NOT_ALLOWED,
     OAUTH_UNREACHABLE,
@@ -45,7 +47,12 @@ class DirectoryUnavailableError(Exception):
     @property
     def auth_failure(self) -> bool:
         """Whether the directory refused the app itself (failing at once, D-118 defaults)."""
-        return self.code in {OAUTH_CONSENT_REVOKED, OAUTH_NOT_ALLOWED}
+        return self.code in {
+            OAUTH_CONSENT_REVOKED,
+            OAUTH_NOT_ALLOWED,
+            OAUTH_CLIENT_REJECTED,
+            OAUTH_CERTIFICATE_INVALID,
+        }
 
 
 @dataclass

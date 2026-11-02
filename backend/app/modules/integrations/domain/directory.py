@@ -59,6 +59,9 @@ class SkipReason(StrEnum):
     UNKNOWN_DEPARTMENT = "unknown_department"
     UNKNOWN_SITE = "unknown_site"
     UNKNOWN_MANAGER = "unknown_manager"
+    DISABLED = "disabled_in_directory"  # never made: a disabled account is not a new person
+    REFUSED = "refused"  # a person rule refused it (a taken employee ID, a manager loop, ...)
+    LAST_ADMIN = "last_admin_kept"  # the last active administrator is never deactivated
 
 
 @dataclass(frozen=True)
@@ -226,3 +229,75 @@ def leaves(change: Change) -> bool:
     return isinstance(change, DirectoryRemoval) or (
         isinstance(change, DirectoryPerson) and change.enabled is False
     )
+
+
+@dataclass(frozen=True)
+class DirectoryGroup:
+    """A directory group as chosen on the connector (its ID and the name shown)."""
+
+    external_id: str
+    name: str
+
+
+@dataclass(frozen=True)
+class GroupMapping:
+    """A directory group whose members fill a SupportX user group."""
+
+    external_id: str
+    name: str
+    group_id: str  # the SupportX group (a UUID as text, as stored in JSON)
+
+
+def mapping_from_json(value: Mapping[str, object]) -> AttributeMapping:
+    """The stored mapping; unknown or missing keys take the defaults (Appendix A)."""
+    default = AttributeMapping()
+    email_from = value.get("email_from")
+    department_from, site_from = value.get("department_from"), value.get("site_from")
+    return AttributeMapping(
+        email_from=EmailFrom(email_from)
+        if isinstance(email_from, str) and email_from in set(EmailFrom)
+        else default.email_from,
+        department_from=department_from
+        if isinstance(department_from, str) and department_from in ATTRIBUTES
+        else default.department_from,
+        site_from=site_from
+        if isinstance(site_from, str) and site_from in ATTRIBUTES
+        else default.site_from,
+        include_guests=value.get("include_guests") is True,
+    )
+
+
+def mapping_to_json(mapping: AttributeMapping) -> dict[str, object]:
+    """What is stored for a mapping."""
+    return {
+        "email_from": mapping.email_from.value,
+        "department_from": mapping.department_from,
+        "site_from": mapping.site_from,
+        "include_guests": mapping.include_guests,
+    }
+
+
+def groups_from_json(value: object) -> list[DirectoryGroup]:
+    """The stored scope groups (malformed entries are ignored)."""
+    items = value if isinstance(value, list) else []
+    return [
+        DirectoryGroup(str(i["external_id"]), str(i.get("name") or ""))
+        for i in items
+        if isinstance(i, Mapping) and isinstance(i.get("external_id"), str)
+    ]
+
+
+def group_mappings_from_json(value: object) -> list[GroupMapping]:
+    """The stored group mappings (malformed entries are ignored)."""
+    items = value if isinstance(value, list) else []
+    return [
+        GroupMapping(str(i["external_id"]), str(i.get("name") or ""), str(i["group_id"]))
+        for i in items
+        if isinstance(i, Mapping)
+        and isinstance(i.get("external_id"), str)
+        and isinstance(i.get("group_id"), str)
+    ]
+
+
+# The Graph user attributes a department or site may be read from (the mapping screen's choices).
+ATTRIBUTES = frozenset({"department", "officeLocation", "city", "companyName", "state", "country"})

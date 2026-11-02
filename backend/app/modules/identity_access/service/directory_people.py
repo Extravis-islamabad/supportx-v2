@@ -14,12 +14,12 @@ a loop): a value they refuse is the sync's to count, never written half.
 """
 
 import uuid
-from collections.abc import Awaitable, Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict
@@ -115,7 +115,7 @@ async def directory_leaver(
             directory=directory,
         )
     except Conflict as refused:
-        if refused.code != "last_tenant_admin":
+        if refused.instance_code != "last_tenant_admin":
             raise
         return LeaverOutcome.LAST_ADMIN_KEPT
     return LeaverOutcome.LEFT
@@ -138,3 +138,11 @@ async def directory_returner(
         directory=directory,
     )
     return True
+
+
+async def release_from_directory(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> None:
+    """Their directory connector was removed: SupportX keeps these people from now on."""
+    if user_ids:
+        await session.execute(
+            update(User).where(User.id.in_(list(user_ids))).values(directory_source=None)
+        )

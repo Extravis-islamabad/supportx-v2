@@ -366,6 +366,9 @@ class DirectoryConnector(TenantEntity):
     groups_delta_link: Mapped[str | None] = mapped_column(Text, deferred=True)
     next_sync_at: Mapped[datetime | None]
     last_synced_at: Mapped[datetime | None]
+    # The last run's skipped people and values by reason code ({"unknown_site": 3}), shown on
+    # the connector page: never names or addresses.
+    last_skips: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
 
 
 class DirectoryPersonLink(TenantKeyed, Base):

@@ -71,6 +71,7 @@ from app.modules.identity_access.service.directory_people import (
     SyncedPerson,
     directory_leaver,
     directory_returner,
+    release_from_directory,
     sync_directory_person,
 )
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
@@ -329,6 +330,7 @@ __all__ = [
     "people_matching",
     "person_by_email",
     "person_placement",
+    "release_from_directory",
     "require",
     "role_names",
     "scope_filter",
