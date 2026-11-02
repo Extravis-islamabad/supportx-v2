@@ -864,8 +864,23 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     screens and imports cannot make, change or retype one (`PersonType` input,
     409 `service_identity_managed`). Its history says "integration". `identity_access.user.created`
     v3 carries `service` and `integration`. The downgrade keeps every row (disabled requesters).
-  - [ ] Entra ID sync, AD/LDAP through Keycloak federation (D-118), leavers, mapping screens,
-    tenant-editable defaults (D-041).
+  - [x] Entra ID sync (REQ-INT-063), migration 0053, on `feat/wp-040-entra`: a separate
+    least-privilege sync app (User.Read.All, GroupMember.Read.All) by client credentials, its
+    secret sealed in the store; `/users/delta` and `/groups/delta` (throttling honoured, an
+    expired link starts over, Graph-only links); everyone or chosen groups; attribute mapping
+    (address, names, job, employee ID, phones, department and site by name or code, never
+    created; manager after the round); skips counted by reason and shown; an address match
+    adopts the person (no duplicate); `users.directory_source`, directory-owned fields
+    read-only in the API and the drawer ("managed by the directory"), imports leave them alone;
+    mapped groups follow their directory groups; acts as its own service identity; every 30
+    minutes (15 to 1440, per connector) plus "sync now"; catalogue entry; Admin › Integrations
+    › Directories; labels in en/ar/ur.
+  - [x] Leavers (REQ-INT-064): removed or disabled, or out of every scope group → deactivated,
+    never deleted; their sessions and live screens end from the worker; `UserStatusChanged`
+    with `reason="directory"`, `source="entra"`; the last administrator is never deactivated by
+    a sync (counted as `last_admin_kept`); enabled again → reactivated with what they held.
+  - [ ] AD/LDAP through Keycloak federation (D-118): next.
+  - [ ] Tenant-editable connector defaults (D-041) screen: with AD/LDAP.
 
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first
