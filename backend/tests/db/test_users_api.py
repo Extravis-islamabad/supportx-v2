@@ -246,11 +246,20 @@ async def test_cursor_cannot_be_reused_elsewhere(
         assert (response.status_code, response.json()["code"]) == (400, "invalid_cursor"), label
 
 
-@pytest.mark.parametrize("limit", ["0", "201", "-5", "100000", "abc"])
+@pytest.mark.parametrize("limit", ["0", "-5", "abc"])
 async def test_page_size_abuse_is_refused(directory: Directory, limit: str) -> None:
     response = await directory.list(limit=limit)
     assert response.status_code == 422
     assert response.json()["code"] in {"invalid_page_size", "validation_failed"}
+
+
+@pytest.mark.parametrize("limit", ["201", "100000"])
+async def test_req_int_024_ac3_a_page_size_above_the_cap_is_reduced_and_said(
+    directory: Directory, limit: str
+) -> None:
+    response = await directory.list(limit=limit)
+    assert response.status_code == 200, response.text
+    assert response.headers["X-Page-Size-Capped"] == "200"
 
 
 # --- filter attacks over HTTP: always a 422, never a 500 or a heavy query -------------------------
