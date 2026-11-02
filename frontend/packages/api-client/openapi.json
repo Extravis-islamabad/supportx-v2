@@ -14420,6 +14420,14 @@
             "title": "Name",
             "type": "string"
           },
+          "special_hours": {
+            "description": "Other hours for date ranges, by first day.",
+            "items": {
+              "$ref": "#/components/schemas/SlaSpecialHoursOut"
+            },
+            "title": "Special Hours",
+            "type": "array"
+          },
           "system_key": {
             "anyOf": [
               {
@@ -14476,6 +14484,7 @@
           "fixed",
           "can_manage",
           "delete_refusal",
+          "special_hours",
           "version"
         ],
         "title": "SlaCalendarOut",
@@ -14926,6 +14935,155 @@
           "reason"
         ],
         "title": "SlaSkippedHoliday",
+        "type": "object"
+      },
+      "SlaSpecialHoursIn": {
+        "additionalProperties": false,
+        "description": "New special hours for a date range (e.g. Ramadan, with a Friday prayer break).",
+        "properties": {
+          "ends_on": {
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "week": {
+            "items": {
+              "$ref": "#/components/schemas/SlaWorkingPeriod"
+            },
+            "maxItems": 28,
+            "title": "Week",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "starts_on",
+          "ends_on"
+        ],
+        "title": "SlaSpecialHoursIn",
+        "type": "object"
+      },
+      "SlaSpecialHoursOut": {
+        "description": "Special working hours for a date range: inside it, this week replaces the calendar's.",
+        "properties": {
+          "calendar_id": {
+            "format": "uuid",
+            "title": "Calendar Id",
+            "type": "string"
+          },
+          "ends_on": {
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "week": {
+            "description": "A weekday without periods is closed.",
+            "items": {
+              "$ref": "#/components/schemas/SlaWorkingPeriod"
+            },
+            "title": "Week",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "calendar_id",
+          "name",
+          "starts_on",
+          "ends_on",
+          "week",
+          "version"
+        ],
+        "title": "SlaSpecialHoursOut",
+        "type": "object"
+      },
+      "SlaSpecialHoursPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent).",
+        "properties": {
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SlaWorkingPeriod"
+                },
+                "maxItems": 28,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "title": "SlaSpecialHoursPatch",
         "type": "object"
       },
       "SlaWorkingPeriod": {
@@ -48207,6 +48365,363 @@
           }
         },
         "summary": "Change a working calendar",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/calendars/{calendar_id}/special-hours": {
+      "post": {
+        "description": "Needs `sla.manage`. Ranges of one calendar never overlap (422).",
+        "operationId": "add_special_hours_api_v1_sla_calendars__calendar_id__special_hours_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "calendar_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Calendar Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaSpecialHoursIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSpecialHoursOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add special hours for a date range",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}": {
+      "delete": {
+        "description": "Needs `sla.manage`. The calendar's normal week applies on those dates again.",
+        "operationId": "delete_special_hours_api_v1_sla_calendars__calendar_id__special_hours__special_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "calendar_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Calendar Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "special_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Special Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match or in use."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove special hours",
+        "tags": [
+          "sla"
+        ]
+      },
+      "patch": {
+        "description": "Needs `sla.manage` and If-Match.",
+        "operationId": "update_special_hours_api_v1_sla_calendars__calendar_id__special_hours__special_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "calendar_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Calendar Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "special_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Special Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaSpecialHoursPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSpecialHoursOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match or in use."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change special hours",
         "tags": [
           "sla"
         ]

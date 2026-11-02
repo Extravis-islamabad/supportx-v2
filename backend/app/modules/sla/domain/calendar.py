@@ -32,6 +32,7 @@ DAYS_PER_WEEK = 7
 # The furthest any calculation looks (ten years): a calendar with almost no working time cannot
 # loop for ever, and a target that does not fit is an error, never a silent wrong date.
 HORIZON_DAYS = 3660
+MAX_RANGE_DAYS = 366  # a date range of special hours is at most a year
 _ONE_SECOND = timedelta(seconds=1)
 NO_WORKING_TIME = "no_working_time"
 
@@ -124,13 +125,44 @@ def zone_or_none(name: str) -> ZoneInfo | None:
 
 
 @dataclass(frozen=True)
+class SpecialHours:
+    """Other working hours for a date range (Ramadan 09:00-14:00, with a Friday prayer break).
+
+    (rule: special date-range hours) Inside the range its own week replaces the normal week, so a
+    break is the gap between two periods and a weekday without periods is closed. Precedence:
+    holiday > special date-range hours > weekly schedule; a half day halves the range's hours.
+    The one place this rule lives (`Calendar._week_on`); named cases in the business-time table.
+    """
+
+    starts_on: date
+    ends_on: date
+    periods: tuple[Period, ...] = ()
+
+
+def special_hours_problems(ranges: Sequence[SpecialHours]) -> list[str]:
+    """Codes for date-range hours that cannot be used: bad ranges, weeks, or overlaps."""
+    errors: list[str] = []
+    for item in ranges:
+        if item.ends_on < item.starts_on:
+            errors.append("exception_range_order")
+        elif (item.ends_on - item.starts_on).days >= MAX_RANGE_DAYS:
+            errors.append("exception_range_too_long")
+        errors.extend(period_errors(item.periods))
+    ordered = sorted(ranges, key=lambda r: r.starts_on)
+    if any(b.starts_on <= a.ends_on for a, b in itertools.pairwise(ordered)):
+        errors.append("exception_ranges_overlap")
+    return sorted(set(errors))
+
+
+@dataclass(frozen=True)
 class Calendar:
-    """A working calendar ready for maths: zone, week and holidays (by local date)."""
+    """A working calendar ready for maths: zone, week, date-range hours and holidays."""
 
     zone: ZoneInfo
     kind: CalendarKind = CalendarKind.HOURS
     periods: tuple[Period, ...] = ()
     holidays: Mapping[date, HolidayPart] = field(default_factory=dict)
+    special: tuple[SpecialHours, ...] = ()
 
     @classmethod
     def around_the_clock(cls) -> "Calendar":
@@ -142,10 +174,17 @@ class Calendar:
         """Whether every second is business time."""
         return self.kind is CalendarKind.AROUND_THE_CLOCK
 
-    def _by_weekday(self) -> dict[int, list[Period]]:
+    def _by_weekday(self, periods: Sequence[Period] | None = None) -> dict[int, list[Period]]:
         week: dict[int, list[Period]] = {}
-        for period in sorted(self.periods):
+        for period in sorted(self.periods if periods is None else periods):
             week.setdefault(period.weekday, []).append(period)
+        return week
+
+    def _week_on(self, day: date, week: Mapping[int, list[Period]]) -> Mapping[int, list[Period]]:
+        """(rule: special date-range hours) The range's week on its dates, else the normal one."""
+        for item in self.special:
+            if item.starts_on <= day <= item.ends_on:
+                return self._by_weekday(item.periods)
         return week
 
     def _local_instant(self, day: date, minute: int) -> datetime:
@@ -165,7 +204,7 @@ class Calendar:
         (rule: holiday by start date) A holiday removes the periods that start on its date; the
         one place this rule lives (docs/architecture/sla-business-time.md, named cases).
         """
-        week = self._by_weekday() if week is None else week
+        week = self._week_on(day, self._by_weekday() if week is None else week)
         part = self.holidays.get(day)
         if part is HolidayPart.FULL:
             return []
@@ -187,15 +226,20 @@ class Calendar:
     ) -> Iterator[tuple[datetime, datetime]]:
         """Working intervals in time order from the one containing or following `start`."""
         week = self._by_weekday()
-        if not week:
+        if not week and not any(item.periods for item in self.special):
             return
         start = start.astimezone(UTC)  # results are UTC whatever zone the caller used
         # A period from the day before can still be running (it may cross midnight).
         first = start.astimezone(self.zone).date() - timedelta(days=1)
+        last_end = start
         for offset in range(horizon_days + 1):
-            for begin, end in self.day_intervals(first + timedelta(days=offset), week):
-                if end > start:
-                    yield max(begin, start), end
+            for opens, end in self.day_intervals(first + timedelta(days=offset), week):
+                # A night period of one schedule may run into the next day's other schedule
+                # (a range starts or ends): time is counted once, never twice.
+                begin = max(opens, last_end)
+                if end > begin:
+                    yield begin, end
+                    last_end = end
 
     def working_at(self, instant: datetime) -> bool:
         """Whether `instant` is business time."""

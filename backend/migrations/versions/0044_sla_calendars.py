@@ -1,6 +1,7 @@
 """SLA calendars (WP-025 session 1): working calendars, holiday lists, holidays, their links.
 
-Tenant-scoped with RLS. Calendars, holiday lists and holidays are soft deleted; the link from a
+Tenant-scoped with RLS. Calendars, their special date-range hours, holiday lists and holidays
+are soft deleted; the link from a
 calendar to its holiday lists is replaced on edit (DELETE granted). Sites and support groups
 name their calendar (`calendar_id`, REQ-ADM-040, D-115 D3) through a same-tenant foreign key.
 Every tenant's two system calendars ("around the clock" and the default operating hours) are
@@ -185,7 +186,48 @@ def upgrade() -> None:
         "ix_sla_calendar_holidays_tenant_list", "sla_calendar_holidays", ["tenant_id", "list_id"]
     )
 
-    for table in ("sla_calendars", "sla_holiday_lists", "sla_holidays"):
+    # Special working hours for a date range (Ramadan, a Friday prayer break; product owner
+    # 2026-11-02): inside the range its own week replaces the calendar's week. Ranges of one
+    # calendar never overlap (checked by the service under a lock on the calendar).
+    op.create_table(
+        "sla_calendar_exceptions",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("tenant_id", sa.Uuid(), nullable=False),
+        sa.Column("calendar_id", sa.Uuid(), nullable=False),
+        sa.Column("name", sa.String(length=200), nullable=False),
+        sa.Column("starts_on", sa.Date(), nullable=False),
+        sa.Column("ends_on", sa.Date(), nullable=False),
+        sa.Column("week", postgresql.JSONB(), server_default="[]", nullable=False),
+        *_timestamps(),
+        _tenant_fk("sla_calendar_exceptions"),
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "calendar_id"],
+            ["sla_calendars.tenant_id", "sla_calendars.id"],
+            name="fk_sla_calendar_exceptions_calendar",
+        ),
+        sa.CheckConstraint(
+            "ends_on >= starts_on", name=op.f("ck_sla_calendar_exceptions_range_order")
+        ),
+        sa.CheckConstraint(
+            "ends_on - starts_on < 366", name=op.f("ck_sla_calendar_exceptions_range_length")
+        ),
+        sa.CheckConstraint(
+            "length(btrim(name)) BETWEEN 1 AND 200",
+            name=op.f("ck_sla_calendar_exceptions_name_length"),
+        ),
+        sa.CheckConstraint(
+            "jsonb_typeof(week) = 'array'", name=op.f("ck_sla_calendar_exceptions_week_array")
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_sla_calendar_exceptions")),
+    )
+    op.create_index(
+        "ix_sla_calendar_exceptions_tenant_calendar",
+        "sla_calendar_exceptions",
+        ["tenant_id", "calendar_id", "starts_on"],
+        postgresql_where=sa.text("deleted_at IS NULL"),
+    )
+
+    for table in ("sla_calendars", "sla_holiday_lists", "sla_holidays", "sla_calendar_exceptions"):
         enable_tenant_rls(table)
         enable_actor_audit(table)
         grant_app(table, ("SELECT", "INSERT", "UPDATE"))
@@ -215,6 +257,7 @@ def downgrade() -> None:
         op.drop_index(f"ix_{table}_tenant_id_calendar_id", table_name=table)
         op.drop_constraint(f"fk_{table}_calendar", table, type_="foreignkey")
         op.drop_column(table, "calendar_id")
+    op.drop_table("sla_calendar_exceptions")
     op.drop_table("sla_calendar_holidays")
     op.drop_table("sla_holidays")
     op.drop_table("sla_holiday_lists")

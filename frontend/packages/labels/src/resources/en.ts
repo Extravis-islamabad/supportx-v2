@@ -4132,6 +4132,26 @@ export const en = {
   'event_delivery_state.stalled': 'Stalled',
   'incidents.bulk.select_page': 'Select every incident on this page',
   // SLA set-up: calendars and holidays (WP-025 session 1)
+  'sla.special.title': 'Special hours for dates',
+  'sla.special.explain':
+    'Other working hours for a date range, such as Ramadan. Inside the range they replace the working week; a holiday still wins.',
+  'sla.special.add': 'Add special hours',
+  'sla.special.edit': 'Edit special hours',
+  'sla.special.remove': 'Remove special hours',
+  'sla.special.empty': 'No special hours.',
+  'sla.special.field.name': 'Name',
+  'sla.special.field.starts_on': 'First day',
+  'sla.special.field.ends_on': 'Last day',
+  'sla.special.field.week': 'Working hours in this range',
+  'sla.special.break_hint':
+    'Give a day two periods to leave a break between them, such as Friday prayer.',
+  'sla.special.save_first': 'Save the calendar first, then add special hours.',
+  'errors.special_hours_not_found': 'These special hours do not exist or were removed.',
+  'errors.field.exception_range_order': 'The last day must be on or after the first day.',
+  'errors.field.exception_range_too_long': 'Special hours can cover at most one year.',
+  'errors.field.exception_ranges_overlap':
+    'These dates overlap other special hours of this calendar. Change the dates or edit the other range.',
+  'audit.action.sla.special_hours_changed': 'Special hours changed',
   'nav.admin_sla': 'SLA',
   'sla.calendars.title': 'Working calendars',
   'sla.calendars.explain':

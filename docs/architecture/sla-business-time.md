@@ -14,14 +14,22 @@ maths that breaks a row fails CI. Add a row whenever a bug is found.
 - Each period becomes real time on its own date, so daylight saving is right on the day it
   changes: a 22:00-06:00 night is 7 hours on a spring-forward night and 9 hours on a fall-back
   night.
-The three rules below marked **(rule: ...)** are product choices awaiting the product owner's
-confirmation (2026-11-02). Each lives in one place in the code and has named cases here, so a
-different answer is one change plus its rows.
+The rules marked **(rule: ...)** are product choices, confirmed by the product owner on
+2026-11-02. Each lives in one place in the code and has named cases here, so a change is one
+function plus its rows.
+
+- **(rule: special date-range hours)** a calendar may hold other hours for a date range (Ramadan
+  09:00-14:00, a Friday prayer break 12:30-14:00). Inside the range its own week replaces the
+  normal week: a break is the gap between two periods, a weekday without periods is closed.
+  Precedence: holiday > special date-range hours > weekly schedule; a half day halves the
+  range's hours. Ranges on one calendar never overlap (refused, `exception_ranges_overlap`);
+  code: `Calendar._week_on`.
 
 - **(rule: holiday by start date)** see the second bullet above; code: `Calendar.day_intervals`.
 - **(rule: daylight-saving gap)** a local time inside a spring-forward gap takes the offset from
   before the change (02:30 becomes 03:30); code: `Calendar._local_instant`.
-- **(rule: half day)** a half-day holiday (`morning` or `afternoon`) takes the first or second half of that day's
+- **(rule: half day)** a half day keeps the first half of the day's working time (`afternoon`
+  off, the default choice); `morning` off keeps the second half. It takes the first or second half of that day's
   **working time**: 09:00-18:00 splits at 13:30; 08:00-12:00 + 13:00-17:00 splits at the lunch break; code: `_half`.
 - Adding time that ends exactly at the end of a period gives that end (17:00), never the next
   morning. Adding zero gives the start itself, even outside working hours.
@@ -32,22 +40,25 @@ different answer is one change plus its rows.
 
 Week syntax: days (`Mon-Fri`, `Sun-Thu`, `Sun`), then periods, several separated by commas;
 groups separated by `;`. Holidays are a date, optionally followed by `morning` or `afternoon`.
+Special hours: `first..last: week` (the same week syntax); several ranges separated by ` + `.
 
-| Code | Time zone | Week | Holidays |
-|---|---|---|---|
-| K-MF | Asia/Karachi | Mon-Fri 09:00-18:00 | 2026-02-05; 2026-03-23; 2026-08-14; 2026-12-24 afternoon; 2026-12-25 |
-| R-ST | Asia/Riyadh | Sun-Thu 08:00-17:00 | |
-| L-SPLIT | Europe/London | Mon-Fri 08:00-12:00, 13:00-17:00 | 2026-12-24 morning; 2026-12-25; 2026-12-28 |
-| NY-NIGHT | America/New_York | Mon-Sun 22:00-06:00 | |
-| K-NIGHT | Asia/Karachi | Mon-Fri 22:00-06:00 | |
-| K-MS | Asia/Karachi | Mon-Sat 09:00-18:00 | |
-| U-LEAP | UTC | Mon-Fri 09:00-17:00 | |
-| ATC | UTC | around the clock | |
-| K-HALF | Asia/Karachi | Mon-Fri 09:00-18:00 | 2026-11-04 morning; 2026-11-05 afternoon |
-| U-LATE | UTC | Mon-Fri 16:00-24:00 | |
-| U-SUNNIGHT | UTC | Sun 20:00-02:00 | |
-| NY-NIGHT-H | America/New_York | Mon-Sun 22:00-06:00 | 2026-11-03 |
-| NY-GAP | America/New_York | Sun 02:30-05:00 | |
+| Code | Time zone | Week | Holidays | Special hours |
+|---|---|---|---|---|
+| K-MF | Asia/Karachi | Mon-Fri 09:00-18:00 | 2026-02-05; 2026-03-23; 2026-08-14; 2026-12-24 afternoon; 2026-12-25 | |
+| R-ST | Asia/Riyadh | Sun-Thu 08:00-17:00 | | |
+| L-SPLIT | Europe/London | Mon-Fri 08:00-12:00, 13:00-17:00 | 2026-12-24 morning; 2026-12-25; 2026-12-28 | |
+| NY-NIGHT | America/New_York | Mon-Sun 22:00-06:00 | | |
+| K-NIGHT | Asia/Karachi | Mon-Fri 22:00-06:00 | | |
+| K-MS | Asia/Karachi | Mon-Sat 09:00-18:00 | | |
+| U-LEAP | UTC | Mon-Fri 09:00-17:00 | | |
+| ATC | UTC | around the clock | | |
+| K-HALF | Asia/Karachi | Mon-Fri 09:00-18:00 | 2026-11-04 morning; 2026-11-05 afternoon | |
+| U-LATE | UTC | Mon-Fri 16:00-24:00 | | |
+| U-SUNNIGHT | UTC | Sun 20:00-02:00 | | |
+| NY-NIGHT-H | America/New_York | Mon-Sun 22:00-06:00 | 2026-11-03 | |
+| NY-GAP | America/New_York | Sun 02:30-05:00 | | |
+| K-RAM | Asia/Karachi | Mon-Fri 09:00-18:00 | 2027-03-01; 2027-02-11 afternoon | 2027-02-08..2027-03-09: Mon-Thu 09:00-14:00; Fri 09:00-12:30, 14:00-15:00 |
+| K-MID | Asia/Karachi | Mon-Fri 09:00-18:00 | | 2027-02-10..2027-02-11: Wed-Thu 10:00-12:00 |
 
 ## Cases
 
@@ -135,3 +146,17 @@ business time from **From** to **To**; `working` says whether **From** is busine
 | 77 | NY-GAP | between | 2026-03-07 12:00 | 2026-03-08 12:00 | 1h 30m | rule: daylight-saving gap; 02:30 does not exist, so the period starts 03:30 |
 | 78 | NY-GAP | between | 2026-03-14 12:00 | 2026-03-15 12:00 | 2h 30m | rule: daylight-saving gap; an ordinary Sunday |
 | 79 | NY-GAP | working | 2026-03-08 03:00 | - | no | rule: daylight-saving gap; before the shifted start |
+| 80 | K-RAM | working | 2027-02-08 13:00 | - | yes | rule: special date-range hours; inside the range's hours |
+| 81 | K-RAM | working | 2027-02-08 15:00 | - | no | rule: special date-range hours; the range closes at 14:00 |
+| 82 | K-RAM | working | 2027-02-05 15:00 | - | yes | rule: special date-range hours; the Friday before the range keeps the normal week |
+| 83 | K-RAM | working | 2027-02-12 13:00 | - | no | rule: special date-range hours; Friday prayer break |
+| 84 | K-RAM | between | 2027-02-12 00:00 | 2027-02-13 00:00 | 4h 30m | rule: special date-range hours; a Friday with a break |
+| 85 | K-RAM | add | 2027-02-12 14:30 | 2h | 2027-02-15 10:30 | rule: special date-range hours; over a weekend inside the range |
+| 86 | K-RAM | between | 2027-03-01 00:00 | 2027-03-02 00:00 | 0 | rule: special date-range hours; a holiday beats the range |
+| 87 | K-RAM | working | 2027-03-01 10:00 | - | no | rule: special date-range hours; holiday inside the range |
+| 88 | K-RAM | between | 2027-02-11 00:00 | 2027-02-12 00:00 | 2h 30m | rule: special date-range hours; a half day halves the range's hours |
+| 89 | K-RAM | add | 2027-02-05 16:00 | 4h | 2027-02-08 11:00 | rule: special date-range hours; an SLA that starts before the range ends inside it |
+| 90 | K-RAM | between | 2027-03-09 00:00 | 2027-03-10 00:00 | 5h | rule: special date-range hours; the range's last day (a Tuesday) |
+| 91 | K-RAM | between | 2027-03-10 00:00 | 2027-03-11 00:00 | 9h | rule: special date-range hours; the day after, the normal week again |
+| 92 | K-MID | between | 2027-02-08 00:00 | 2027-02-13 00:00 | 31h | rule: special date-range hours; a range from Wednesday to Thursday |
+| 93 | K-MID | working | 2027-02-10 15:00 | - | no | rule: special date-range hours; mid-week range closes at 12:00 |

@@ -29,11 +29,13 @@ import {
   useSlaHolidayListChange,
   useSlaHolidayLists,
   useSlaHolidays,
+  useSlaSpecialHoursChange,
   type SlaCalendar,
   type SlaHoliday,
   type SlaHolidayImport,
   type SlaHolidayList,
   type SlaHolidayPart,
+  type SlaSpecialHours,
   type SlaWeekPreset,
   type SlaWorkingPeriod,
 } from '@supportx/api-client';
@@ -57,7 +59,8 @@ import { minutes, weekMinutes } from './week';
 type Translate = ReturnType<typeof useLabel>;
 const SECTIONS = ['calendars', 'holidays'] as const;
 const PRESETS: SlaWeekPreset[] = ['mon_fri', 'sun_thu', 'mon_sat'];
-const PARTS: SlaHolidayPart[] = ['full', 'morning', 'afternoon'];
+// A half day keeps the first half by default (product owner, 2026-11-02): "afternoon off" first.
+const PARTS: SlaHolidayPart[] = ['full', 'afternoon', 'morning'];
 const ZONES: string[] =
   typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
 // Quarter-hour steps; a period may end at 24:00 (midnight).
@@ -474,6 +477,14 @@ function CalendarEditor({
             </Form.Item>
           </>
         )}
+        {!fixed &&
+          (row === undefined ? (
+            <Typography.Paragraph type="secondary">
+              {t('sla.special.save_first')}
+            </Typography.Paragraph>
+          ) : (
+            <SpecialHoursSection calendar={latest ?? row} />
+          ))}
         {row !== undefined && <UsedBy calendar={latest ?? row} />}
         <FormProblem problem={problem} />
         <Button
@@ -498,6 +509,209 @@ function CalendarEditor({
           if (latest === undefined) return;
           setVersion(latest.version);
           save(form.getFieldsValue(), latest.version);
+        }}
+      />
+    </Drawer>
+  );
+}
+
+/** Special hours for date ranges (Ramadan, a Friday prayer break), inside the calendar editor. */
+function SpecialHoursSection({ calendar }: { calendar: SlaCalendar }) {
+  const t = useLabel();
+  const [editing, setEditing] = useState<SlaSpecialHours | 'new'>();
+  return (
+    <Form.Item label={t('sla.special.title')} extra={t('sla.special.explain')}>
+      <List<SlaSpecialHours>
+        size="small"
+        bordered
+        dataSource={calendar.special_hours}
+        locale={{ emptyText: t('sla.special.empty') }}
+        data-testid="sla-special-hours"
+        renderItem={(item) => (
+          <List.Item
+            style={{ cursor: 'pointer' }}
+            onClick={() => {
+              setEditing(item);
+            }}
+            data-testid={`sla-special-${item.id}`}
+          >
+            <Flex vertical>
+              <bdi>{item.name}</bdi>
+              <Typography.Text type="secondary">
+                <bdi dir="ltr">
+                  {item.starts_on} – {item.ends_on}
+                </bdi>{' '}
+                ·{' '}
+                {item.week.length === 0
+                  ? t('sla.week.closed')
+                  : t('sla.calendar.hours_per_week', {
+                      hours: Math.round((weekMinutes(item.week) / 60) * 10) / 10,
+                    })}
+              </Typography.Text>
+            </Flex>
+          </List.Item>
+        )}
+      />
+      <Button
+        icon={<PlusOutlined />}
+        style={{ marginTop: 8 }}
+        onClick={() => {
+          setEditing('new');
+        }}
+        data-testid="sla-special-add"
+      >
+        {t('sla.special.add')}
+      </Button>
+      <SpecialHoursEditor
+        calendarId={calendar.id}
+        row={editing === 'new' ? undefined : editing}
+        open={editing !== undefined}
+        onClose={() => {
+          setEditing(undefined);
+        }}
+      />
+    </Form.Item>
+  );
+}
+
+function SpecialHoursEditor({
+  calendarId,
+  row,
+  open,
+  onClose,
+}: {
+  calendarId: string;
+  row: SlaSpecialHours | undefined;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const t = useLabel();
+  const { message } = App.useApp();
+  const { create, update, remove } = useSlaSpecialHoursChange(calendarId);
+  const problem = useFormProblem();
+  const [problems, setProblems] = useState<Record<string, string>>({});
+  const [conflict, setConflict] = useState<unknown>();
+  const [name, setName] = useState(row?.name ?? '');
+  const [startsOn, setStartsOn] = useState<string | null>(row?.starts_on ?? null);
+  const [endsOn, setEndsOn] = useState<string | null>(row?.ends_on ?? null);
+  const [week, setWeek] = useState<SlaWorkingPeriod[]>(row?.week ?? []);
+  const [key] = useState(() => crypto.randomUUID());
+  const [opened, setOpened] = useState(row?.id);
+  if (row?.id !== opened) {
+    setOpened(row?.id);
+    setName(row?.name ?? '');
+    setStartsOn(row?.starts_on ?? null);
+    setEndsOn(row?.ends_on ?? null);
+    setWeek(row?.week ?? []);
+    setProblems({});
+    problem.clear();
+  }
+  const failed = (error: unknown) => {
+    if (error instanceof ApiError && error.isConflict && error.code === 'version_conflict') {
+      setConflict(error);
+      return;
+    }
+    if (error instanceof ApiError && error.status === 422 && error.fieldErrors.length > 0) {
+      markHandled(error);
+      setProblems(fieldProblems(error, t));
+      return;
+    }
+    problem.show(error);
+  };
+  const done = () => {
+    void message.success(t('common.saved'));
+    onClose();
+  };
+  const help = (field: string) =>
+    problems[field] === undefined
+      ? {}
+      : { validateStatus: 'error' as const, help: problems[field] };
+  const save = () => {
+    setProblems({});
+    problem.clear();
+    const body = { name, starts_on: startsOn ?? '', ends_on: endsOn ?? startsOn ?? '', week };
+    if (row === undefined) {
+      create.mutate({ body, key }, { onSuccess: done, onError: failed });
+    } else {
+      update.mutate(
+        { id: row.id, version: row.version, body },
+        { onSuccess: done, onError: failed },
+      );
+    }
+  };
+  return (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      width={600}
+      destroyOnHidden
+      title={row === undefined ? t('sla.special.add') : t('sla.special.edit')}
+      data-testid="sla-special-editor"
+    >
+      <Form layout="vertical" onFinish={save}>
+        <Form.Item label={t('sla.special.field.name')} required {...help('name')}>
+          <Input
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+            }}
+            count={lengthLimit(200)}
+            data-testid="sla-special-name"
+          />
+        </Form.Item>
+        <Flex gap={16} wrap>
+          <Form.Item label={t('sla.special.field.starts_on')} required {...help('starts_on')}>
+            <DateField value={startsOn} onChange={setStartsOn} testId="sla-special-starts" />
+          </Form.Item>
+          <Form.Item label={t('sla.special.field.ends_on')} required {...help('ends_on')}>
+            <DateField value={endsOn} onChange={setEndsOn} testId="sla-special-ends" />
+          </Form.Item>
+        </Flex>
+        <Form.Item
+          label={t('sla.special.field.week')}
+          extra={t('sla.special.break_hint')}
+          {...help('week')}
+        >
+          <WeekEditor value={week} onChange={setWeek} />
+        </Form.Item>
+        <FormProblem problem={problem} />
+        <Flex gap={8} wrap>
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={create.isPending || update.isPending}
+            data-testid="sla-special-save"
+          >
+            {t('actions.save')}
+          </Button>
+          {row !== undefined && (
+            <Button
+              danger
+              loading={remove.isPending}
+              onClick={() => {
+                remove.mutate(
+                  { id: row.id, version: row.version },
+                  { onSuccess: done, onError: failed },
+                );
+              }}
+              data-testid="sla-special-remove"
+            >
+              {t('sla.special.remove')}
+            </Button>
+          )}
+        </Flex>
+      </Form>
+      <ConflictDialog
+        open={conflict !== undefined}
+        error={conflict}
+        fieldLabel={(field) => t(`sla.special.field.${field}`)}
+        onReload={() => {
+          setConflict(undefined);
+          onClose();
+        }}
+        onKeepMine={() => {
+          setConflict(undefined);
+          onClose();
         }}
       />
     </Drawer>

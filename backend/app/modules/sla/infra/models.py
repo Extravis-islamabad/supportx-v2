@@ -69,6 +69,39 @@ class SlaCalendar(TenantEntity):
     system_key: Mapped[str | None] = mapped_column(String(30))
 
 
+class SlaCalendarException(TenantEntity):
+    """Special working hours for a date range of one calendar (Ramadan, a Friday prayer break).
+
+    `week` has the calendar's week format; inside the range it replaces the calendar's week.
+    """
+
+    __tablename__ = "sla_calendar_exceptions"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "calendar_id"],
+            ["sla_calendars.tenant_id", "sla_calendars.id"],
+            name="fk_sla_calendar_exceptions_calendar",
+        ),
+        CheckConstraint("ends_on >= starts_on", name="range_order"),
+        CheckConstraint("ends_on - starts_on < 366", name="range_length"),
+        CheckConstraint("length(btrim(name)) BETWEEN 1 AND 200", name="name_length"),
+        CheckConstraint("jsonb_typeof(week) = 'array'", name="week_array"),
+        Index(
+            "ix_sla_calendar_exceptions_tenant_calendar",
+            "tenant_id",
+            "calendar_id",
+            "starts_on",
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
+
+    calendar_id: Mapped[uuid.UUID]
+    name: Mapped[str] = mapped_column(String(200))
+    starts_on: Mapped[date] = mapped_column(Date)
+    ends_on: Mapped[date] = mapped_column(Date)
+    week: Mapped[list[dict[str, Any]]] = mapped_column(JSONB, server_default="[]")
+
+
 class SlaHolidayList(TenantEntity):
     """A named list of holidays, attached to calendars (REQ-SLA-012)."""
 

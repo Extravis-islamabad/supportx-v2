@@ -362,3 +362,44 @@ def test_fuzz_line_level_mutations_never_crash() -> None:
             continue
         for holiday in result.holidays:
             assert holiday.starts_on <= holiday.ends_on
+
+
+# --- special date-range hours ------------------------------------------------------------------
+
+
+def test_special_hours_ranges_never_overlap_and_are_checked() -> None:
+    from app.modules.sla.domain.calendar import Period, SpecialHours, special_hours_problems  # noqa: PLC0415
+
+    ramadan = SpecialHours(date(2027, 2, 8), date(2027, 3, 9), (Period(0, 540, 840),))
+    eid_week = SpecialHours(date(2027, 3, 9), date(2027, 3, 12), ())
+    later = SpecialHours(date(2027, 3, 10), date(2027, 3, 12), ())
+    assert special_hours_problems([ramadan, later]) == []
+    assert special_hours_problems([ramadan, eid_week]) == ["exception_ranges_overlap"]
+    backwards = SpecialHours(date(2027, 3, 9), date(2027, 2, 8), ())
+    assert special_hours_problems([backwards]) == ["exception_range_order"]
+    too_long = SpecialHours(date(2027, 1, 1), date(2028, 1, 2), ())
+    assert special_hours_problems([too_long]) == ["exception_range_too_long"]
+    clash = SpecialHours(
+        date(2027, 2, 8), date(2027, 2, 9), (Period(0, 540, 840), Period(0, 600, 660))
+    )
+    assert special_hours_problems([clash]) == ["periods_overlap"]
+
+
+def test_a_built_calendar_uses_its_special_hours() -> None:
+    from app.modules.sla.domain.setup import SpecialRange  # noqa: PLC0415
+
+    calendar = build_calendar(
+        kind="hours",
+        time_zone="UTC",
+        week=preset_week(WeekPreset.MON_FRI),
+        holidays=[],
+        special=[
+            SpecialRange(
+                date(2027, 2, 8),
+                date(2027, 2, 12),
+                [{"weekday": d, "start": "09:00", "end": "14:00"} for d in range(5)],
+            )
+        ],
+    )
+    monday = datetime(2027, 2, 8, 0, tzinfo=UTC)
+    assert calendar.between(monday, datetime(2027, 2, 9, tzinfo=UTC)) == 5 * 3600
