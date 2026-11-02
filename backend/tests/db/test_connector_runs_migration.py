@@ -1,4 +1,4 @@
-"""Migration 0046: a tenant's mailbox failure rule carries over to connector.failing, and back.
+"""Migration 0049: a tenant's mailbox failure rule carries over to connector.failing, and back.
 
 An admin who switched the mailbox notice off (or sent it to other people) keeps that choice when
 the notice moves to the connector events. The downgrade removes only the copy (D-113).
@@ -50,7 +50,7 @@ def test_a_saved_mailbox_rule_carries_over_and_the_downgrade_removes_only_the_co
         b = asyncio.run(create_tenant(database.migrator_url))  # kept the default: no rule
         asyncio.run(_seed_rule(database.admin_url, a))
         before = asyncio.run(_rules(database.admin_url))
-        db_testing.migrate(database.migrator_url, "0046")
+        db_testing.migrate(database.migrator_url, "0049")
         after = asyncio.run(_rules(database.admin_url))
         assert (a, "connector.failing", False, ["connector_admins"], ["email"]) in after
         assert not [r for r in after if r[0] == b]

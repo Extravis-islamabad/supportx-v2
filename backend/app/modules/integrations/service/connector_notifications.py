@@ -2,7 +2,7 @@
 
 One notification source for every kind (record type "connector"). The people told are those who
 may set up the kind's category (REQ-INT-013): for mailboxes, `mailboxes.manage`, as before.
-`connector.failing` replaces `mailbox.failing` (migration 0046 copied each tenant's rule);
+`connector.failing` replaces `mailbox.failing` (migration 0049 copied each tenant's rule);
 the mailbox source still handles old `mailbox.failing` events until the contract step.
 """
 

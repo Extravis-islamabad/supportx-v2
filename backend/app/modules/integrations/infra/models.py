@@ -1,6 +1,6 @@
 """Mailboxes, the ledger of fetched mail and the secrets store (WP-024, WP-040).
 
-Migrations 0037 and 0042 (mailboxes), 0045 (connector secrets), 0046 (connector runs, health).
+Migrations 0037 and 0042 (mailboxes), 0045 (connector secrets), 0049 (connector runs, health).
 
 Both tenant-scoped with RLS. A mailbox's password is stored sealed with the installation key ring
 (AES-256-GCM, bound to the tenant and to the purpose "mailbox"), never in clear. The ledger has
@@ -229,7 +229,7 @@ class ConnectorSecret(TenantEntity):
 
 
 class ConnectorHealth(TenantKeyed, Base):
-    """One connector instance's standing between runs (WP-040, REQ-INT-004/005; migration 0046).
+    """One connector instance's standing between runs (WP-040, REQ-INT-004/005; migration 0049).
 
     Any kind's instance: `kind` is the catalogue code, `instance_id` the owner's own ID (a
     mailbox). Written only by `service.runs.record_run`, in the run's own transaction.
@@ -249,7 +249,7 @@ class ConnectorHealth(TenantKeyed, Base):
 
 
 class ConnectorRun(TenantKeyed, Base):
-    """One run of a connector and its counts (kept RUN_RETENTION_DAYS; migration 0046)."""
+    """One run of a connector and its counts (kept RUN_RETENTION_DAYS; migration 0049)."""
 
     __tablename__ = "connector_runs"
     __table_args__ = (

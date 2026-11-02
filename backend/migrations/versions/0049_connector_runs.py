@@ -9,8 +9,8 @@ WP-040 session 1, expand only (D-113):
   its rule stays, until the contract step. The downgrade removes only the copies it made
   (`connector.*` rules), never a mailbox rule.
 
-Revision ID: 0046
-Revises: 0045
+Revision ID: 0049
+Revises: 0045 (lane A's 0047 and lane C's 0046 and 0048 come first at merge; down_revision is re-pointed when queued)
 Created: 2026-11-02
 """
 
@@ -25,7 +25,7 @@ from migrations.helpers import enable_tenant_rls, grant_app
 if TYPE_CHECKING:
     from datetime import datetime
 
-revision: str = "0046"
+revision: str = "0049"
 down_revision: str | None = "0045"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
