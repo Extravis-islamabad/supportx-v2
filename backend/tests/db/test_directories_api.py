@@ -153,7 +153,8 @@ async def test_removing_it_keeps_its_people_and_frees_them(
 
     await _sync(world, uuid.UUID(out["id"]))
     person = await world.sql(
-        "SELECT id, directory_source FROM users WHERE tenant_id = $1 AND email = 'ada@alpha.test'",
+        "SELECT id, version, directory_source FROM users"
+        " WHERE tenant_id = $1 AND email = 'ada@alpha.test'",
         world.a.tenant,
     )
     assert person[0]["directory_source"] == "entra"
@@ -166,8 +167,18 @@ async def test_removing_it_keeps_its_people_and_frees_them(
     )
     assert gone.status_code == 204, gone.text
     after = await world.sql(
-        "SELECT status, deleted_at, directory_source FROM users WHERE id = $1", person[0]["id"]
+        "SELECT status, deleted_at, directory_source, version FROM users WHERE id = $1",
+        person[0]["id"],
     )
+    # A save (lane A's review): the version moves and the drawer hears it live.
+    assert after[0]["version"] == person[0]["version"] + 1
+    updated = await world.sql(
+        "SELECT 1 FROM outbox_events WHERE event_type = 'identity_access.user.updated'"
+        " AND aggregate_id = $1 AND (envelope->>'aggregate_version')::int = $2",
+        str(person[0]["id"]),
+        after[0]["version"],
+    )
+    assert len(updated) == 1
     assert (after[0]["status"], after[0]["deleted_at"], after[0]["directory_source"]) == (
         "active",
         None,

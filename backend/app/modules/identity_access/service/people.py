@@ -180,6 +180,20 @@ async def get_person(session: AsyncSession, user_id: uuid.UUID) -> User:
     return await _person(session, user_id)
 
 
+async def set_directory_source(
+    session: AsyncSession, user_id: uuid.UUID, directory: Literal["entra", "ldap"] | None
+) -> User:
+    """Mark who keeps the person (a directory, or SupportX when None), as a save.
+
+    A save bumps the version and emits `UserUpdated`, so an open drawer locks or unlocks live
+    (lane A's review of #168), and the history names the integration.
+    """
+    current = await _person(session, user_id)
+    return await _save(
+        session, current, current.version, {"directory_source": directory}, "integration"
+    )
+
+
 async def _live(session: AsyncSession, user_id: uuid.UUID) -> bool:
     found = await session.scalar(
         select(User.id).where(User.id == user_id, User.deleted_at.is_(None))

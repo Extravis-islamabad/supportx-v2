@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.database import AFTER_COMMIT_KEY, Database
-from app.core.errors import Conflict, NotFound, ValidationFailed
+from app.core.errors import AppError, Conflict, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.modules.identity_access import (
@@ -357,9 +357,21 @@ class _Sync:
         elif synced.changed:
             self.run.counts["updated"] += 1
         if change.enabled is True:
-            await directory_returner(session, synced.user_id, directory="entra")
+            await self._return(session, synced.user_id)
         elif change.enabled is False:
             await self._leave(session, synced.user_id)
+
+    async def _return(self, session: AsyncSession, user_id: uuid.UUID) -> None:
+        """Reactivate; a refusal (no technician seat left) is counted, never the run's end."""
+        try:
+            async with session.begin_nested():
+                await directory_returner(session, user_id, directory="entra")
+        except AppError as refused:
+            self.run.counts["failed"] += 1
+            self.run.skip(SkipReason.REFUSED)
+            log.info(
+                "directory_return_refused", connector_id=str(self.config.id), code=_codes(refused)
+            )
 
     async def _leave(self, session: AsyncSession, user_id: uuid.UUID) -> None:
         outcome = await directory_leaver(

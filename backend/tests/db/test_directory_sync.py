@@ -344,3 +344,35 @@ async def test_a_people_import_leaves_synced_people_alone(
                 s, world.a.admin, {"email": "ada@alpha.test", "job_title": "Other"}, "email"
             )
     assert refused.value.code == "managed_by_directory"
+
+
+async def test_a_returner_without_a_seat_is_counted_and_the_run_goes_on(
+    world: World, fake: FakeDirectory
+) -> None:
+    from tests.db.test_auth_bff import set_technician_seats  # noqa: PLC0415 - one test
+
+    ada = fake.add_user(**_ada())
+    bob = fake.add_user(displayName="Bob", mail="bob@alpha.test")
+    directory_id = await _create(world, fake)
+    await _sync(world, directory_id)
+    tech = (await _person(world, directory_id, ada))["id"]
+    await world.sql("UPDATE users SET user_type = 'technician' WHERE id = $1", tech)
+    fake.change_user(ada, accountEnabled=False)
+    await _sync(world, directory_id)
+    seats = await world.sql(
+        "SELECT count(*) AS n FROM users WHERE tenant_id = $1 AND user_type = 'technician'"
+        " AND status = 'active'",
+        world.a.tenant,
+    )
+    await set_technician_seats(world.db, world.a.tenant, seats[0]["n"])  # every seat taken
+    await world.app.state.entitlements.invalidate(world.a.tenant)  # the plan changed under it
+    fake.change_user(ada, accountEnabled=True)
+    fake.change_user(bob, jobTitle="Clerk")
+    counts = await _sync(world, directory_id)
+    assert counts.failed == 1
+    assert (await _person(world, directory_id, ada))["status"] == "disabled"
+    assert (await _person(world, directory_id, bob))["job_title"] == "Clerk"  # the run went on
+    health = await world.sql(
+        "SELECT failing FROM connector_health WHERE instance_id = $1", directory_id
+    )
+    assert health[0]["failing"] is False

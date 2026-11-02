@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Literal
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict
@@ -89,8 +89,7 @@ async def sync_directory_person(
             )
     changed = created or bool(changes)
     if person.directory_source != directory:
-        person.directory_source = directory  # bookkeeping, not a person field: no version bump
-        await session.flush()
+        await people.set_directory_source(session, person.id, directory)
     return SyncedPerson(user_id=person.id, created=created, changed=changed)
 
 
@@ -142,7 +141,5 @@ async def directory_returner(
 
 async def release_from_directory(session: AsyncSession, user_ids: Sequence[uuid.UUID]) -> None:
     """Their directory connector was removed: SupportX keeps these people from now on."""
-    if user_ids:
-        await session.execute(
-            update(User).where(User.id.in_(list(user_ids))).values(directory_source=None)
-        )
+    for user_id in user_ids:
+        await people.set_directory_source(session, user_id, None)
