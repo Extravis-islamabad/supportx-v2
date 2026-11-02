@@ -10,6 +10,7 @@ between storing it and marking it on the server (REQ-ADM-067 AC2).
 
 import uuid
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import (
     Boolean,
@@ -19,6 +20,7 @@ from sqlalchemy import (
     Integer,
     LargeBinary,
     String,
+    Text,
     UniqueConstraint,
     func,
     text,
@@ -313,3 +315,101 @@ class ConnectorError(TenantKeyed, Base):
     instance_id: Mapped[uuid.UUID]
     occurred_at: Mapped[datetime]
     code: Mapped[str] = mapped_column(String(60))
+
+
+class DirectoryConnector(TenantEntity):
+    """A directory SupportX takes its people from (WP-040 session 2; REQ-INT-063; migration 0053).
+
+    The customer's own least-privilege sync app (`client_id`, secret in `connector_secrets`),
+    who is synced (`scope`: everyone or `scope_groups`), how attributes map (`mapping`) and which
+    directory groups fill which SupportX groups (`group_mappings`). The delta links say where the
+    next round starts; Graph keeps them for about a week, then a round starts again.
+    """
+
+    __tablename__ = "directory_connectors"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_directory_connectors_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "secret_ref"],
+            ["connector_secrets.tenant_id", "connector_secrets.id"],
+            name="fk_directory_connectors_secret_ref",
+        ),
+        Index(
+            "uq_directory_connectors_tenant_name",
+            "tenant_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint("source IN ('entra')", name="source_code"),
+        CheckConstraint("scope IN ('all_users', 'groups')", name="scope_code"),
+        CheckConstraint(
+            "credential_kind IN ('secret', 'certificate')", name="credential_kind_code"
+        ),
+        CheckConstraint("interval_minutes BETWEEN 15 AND 1440", name="interval_range"),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))
+    source: Mapped[str] = mapped_column(String(20), server_default="entra")
+    directory_tenant: Mapped[str] = mapped_column(String(200))  # Entra tenant ID or domain
+    client_id: Mapped[str] = mapped_column(String(200))
+    credential_kind: Mapped[str] = mapped_column(String(20))
+    secret_ref: Mapped[uuid.UUID | None]
+    scope: Mapped[str] = mapped_column(String(20), server_default="all_users")
+    # Any: JSON lists and objects, read through the domain's types.
+    scope_groups: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    mapping: Mapped[dict[str, Any]] = mapped_column(JSONB, server_default=text("'{}'::jsonb"))
+    group_mappings: Mapped[list[Any]] = mapped_column(JSONB, server_default=text("'[]'::jsonb"))
+    interval_minutes: Mapped[int] = mapped_column(Integer, server_default="30")
+    enabled: Mapped[bool] = mapped_column(Boolean, server_default=text("true"))
+    users_delta_link: Mapped[str | None] = mapped_column(Text, deferred=True)
+    groups_delta_link: Mapped[str | None] = mapped_column(Text, deferred=True)
+    next_sync_at: Mapped[datetime | None]
+    last_synced_at: Mapped[datetime | None]
+
+
+class DirectoryPersonLink(TenantKeyed, Base):
+    """Which SupportX person a directory person is (one each way; migration 0053)."""
+
+    __tablename__ = "directory_people"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "connector_id"],
+            ["directory_connectors.tenant_id", "directory_connectors.id"],
+            name="fk_directory_people_connector",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_directory_people_user",
+        ),
+        UniqueConstraint("tenant_id", "user_id", name="uq_directory_people_tenant_user"),
+    )
+
+    connector_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    manager_external_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class DirectoryMembership(TenantKeyed, Base):
+    """A directory person in a directory group the connector reads (migration 0053).
+
+    Bookkeeping of the sync, not people data: a person leaves the scope when they are in none of
+    the scope groups, and a mapped SupportX group follows its directory group.
+    """
+
+    __tablename__ = "directory_memberships"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "connector_id"],
+            ["directory_connectors.tenant_id", "directory_connectors.id"],
+            name="fk_directory_memberships_connector",
+        ),
+    )
+
+    connector_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    group_external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    external_id: Mapped[str] = mapped_column(String(64), primary_key=True)
