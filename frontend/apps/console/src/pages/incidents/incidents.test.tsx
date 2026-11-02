@@ -12,6 +12,7 @@ import { consoleApi, fakeSession, problem } from '../../test/api';
 import { duplicateNames } from './labels';
 import { previewPriority } from './form';
 import { rememberTab } from './tabs';
+import { actionOrder, clickAction, isDisabled } from '../../test/actions';
 
 // The fake session's user (api-client testing fixtures).
 const SESSION_USER = '01900000-0000-7000-8000-000000000101';
@@ -123,9 +124,8 @@ describe('One incident', () => {
     api({ routes: { ...COMMON, [`GET ${PATH}`]: { body: ITEM, headers: { ETag: '"1"' } } } });
     render(<App />);
     expect((await screen.findByTestId('inc-heading')).textContent).toBe('Mail is down');
-    const order = within(screen.getByTestId('inc-actions'))
-      .getAllByRole('button')
-      .map((b) => b.getAttribute('data-testid'));
+    // Every move in "More actions", in one fixed order (D-124); unavailable ones say why.
+    const order = (await actionOrder()).filter((id) => id.startsWith('inc-action-'));
     expect(order).toEqual([
       'inc-action-start_work',
       'inc-action-wait_requester',
@@ -134,12 +134,13 @@ describe('One incident', () => {
       'inc-action-resolve',
       'inc-action-close',
       'inc-action-reopen',
-      'inc-action-cancel',
       'inc-action-undo_cancel',
+      // Destructive moves sit apart, last (REQ-WI-010 AC4).
+      'inc-action-cancel',
     ]);
-    expect(screen.getByTestId('inc-action-close-reason').getAttribute('data-reason')).toBe(
-      'not_from_status',
-    );
+    const close = screen.getByTestId('inc-action-close-menu');
+    expect(isDisabled(close)).toBe(true);
+    expect(close.textContent).toContain('Not possible in the current status.');
     // Delete is not offered at all without the permission (it is set apart from everyday work).
     expect(screen.queryByTestId('inc-op-delete')).toBeNull();
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
@@ -159,7 +160,7 @@ describe('One incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-action-cancel'));
+    await clickAction('inc-action-cancel');
     fireEvent.click(await screen.findByTestId('inc-reason-confirm'));
     expect((await screen.findByTestId('inc-reason-code-error')).textContent).toBe(
       'Choose a reason.',
@@ -206,7 +207,7 @@ describe('One incident', () => {
       },
     });
     render(<App />);
-    fireEvent.click(await screen.findByTestId('inc-op-assign'));
+    await clickAction('inc-op-assign');
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-assign-group')));
     fireEvent.click(await screen.findByTitle('Service Desk'));
     fireEvent.click(screen.getByTestId('inc-assign-confirm'));

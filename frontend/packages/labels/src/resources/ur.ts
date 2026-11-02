@@ -2,6 +2,14 @@ import type { LabelResource } from './en';
 
 // Urdu skeleton: mandatory from Stage 2 (D-006). Missing keys fall back to English.
 export const ur: LabelResource = {
+  'layout.more_actions': 'مزید اقدامات',
+  'layout.alerts_count_one': '{{count}} انتباہ',
+  'layout.alerts_count_other': '{{count}} انتباہات',
+  'layout.view': 'دیکھیں',
+  'layout.hide': 'چھپائیں',
+  'layout.filters': 'فلٹرز',
+  'layout.done': 'ہو گیا',
+  'layout.properties': 'خصوصیات',
   'product.name': 'SupportX',
   'appearance.language': 'زبان',
   'locale.en': 'English',
@@ -452,6 +460,11 @@ export const ur: LabelResource = {
   'incidents.tab.details': 'تفصیلات',
   'incidents.tab.history': 'تاریخ ({{count}})',
   'incidents.properties': 'خصوصیات',
+  'incidents.panel.sla': 'سروس لیول',
+  'incidents.panel.sla_state': 'حالت',
+  'incidents.panel.resolve_by': 'حل کی آخری تاریخ',
+  'incidents.panel.assignment': 'تفویض',
+  'incidents.panel.followers': 'فالوورز',
   'incidents.created_at': 'درج ہونے کا وقت',
   'incidents.edit_field': '{{field}} میں ترمیم',
   'incidents.saved': 'محفوظ ہو گیا۔',

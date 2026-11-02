@@ -82,7 +82,7 @@ class UserOut(BaseModel):
     user_type: UserType
     roles: list[str]
     nav_layout: NavLayout = Field(
-        default=NavLayout.TOP, description="The user's navigation layout preference."
+        default=NavLayout.SIDE, description="The user's navigation layout preference."
     )
     form_density: FormDensity = Field(
         default=FormDensity.COMFORTABLE, description="The user's record form layout preference."

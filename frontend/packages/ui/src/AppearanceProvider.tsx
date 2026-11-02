@@ -16,6 +16,7 @@ import {
   type BrandingSource,
   type Direction,
 } from './appearance';
+import type { Density } from './density';
 import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
 
 const ANT_LOCALES: Record<Locale, AntLocale> = { en: enUS, ar: arEG, ur: urPK };
@@ -27,6 +28,8 @@ export interface AppearanceProviderProps {
   initialLocale?: Locale;
   /** Per-tenant branding (WP-017); the Extravis default otherwise. */
   branding?: Partial<Branding>;
+  /** Staff screens are compact (D-124); the portal keeps the comfortable default. */
+  density?: Density;
 }
 
 /** Remembered choice, else the OS preference. Storage may be unavailable (private mode). */
@@ -92,6 +95,7 @@ export function AppearanceProvider({
   initialMode,
   initialLocale = 'en',
   branding,
+  density = 'comfortable',
 }: AppearanceProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(() => initialMode ?? preferredMode());
   const [locale, setLocaleState] = useState<Locale>(initialLocale);
@@ -142,7 +146,10 @@ export function AppearanceProvider({
     }),
     [mode, direction, locale, brand, setBranding],
   );
-  const themeConfig = useMemo(() => buildTheme(mode, brand, locale), [mode, brand, locale]);
+  const themeConfig = useMemo(
+    () => buildTheme(mode, brand, locale, density),
+    [mode, brand, locale, density],
+  );
 
   return (
     <AppearanceContext.Provider value={appearance}>

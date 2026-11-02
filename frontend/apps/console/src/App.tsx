@@ -32,7 +32,7 @@ export function App({ navigate }: AppProps) {
   const [router] = useState(createRouter);
   return (
     <QueryClientProvider client={queryClient}>
-      <AppearanceProvider>
+      <AppearanceProvider density="compact">
         <AddressBranding />
         <ErrorBoundary>
           <ErrorReporterProvider>

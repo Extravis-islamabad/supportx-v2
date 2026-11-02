@@ -9,6 +9,7 @@ import {
 
 import { App } from '../../App';
 import { consoleApi, problem } from '../../test/api';
+import { actionItem } from '../../test/actions';
 
 // WP-029-FIX: the WP-029 QA report's findings on the incident screens, named after their IDs.
 
@@ -185,11 +186,11 @@ describe('WP-029 QA: a move limited to certain people', () => {
       },
     });
     render(<App />);
-    const reason = await screen.findByTestId('inc-action-resolve-reason');
-    fireEvent.mouseEnter(reason.firstElementChild ?? reason);
-    const tip = await screen.findByRole('tooltip');
-    expect(tip.textContent).toBe(
-      'Only these may do this on this record: Tenant administrator, Night shift, members of Network, and the requester.',
+    // The reason is the disabled entry's second line in "More actions" (D-124).
+    const resolve = await actionItem('inc-action-resolve');
+    expect(resolve.textContent).toBe(
+      'Resolve' +
+        'Only these may do this on this record: Tenant administrator, Night shift, members of Network, and the requester.',
     );
   });
 });
