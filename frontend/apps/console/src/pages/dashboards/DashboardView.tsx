@@ -41,12 +41,19 @@ import { DrillDrawer, type Drill } from '../reports/DrillDrawer';
 import { useLiveReportRefresh } from '../reports/liveRefresh';
 import { AddWidget } from './AddWidget';
 import { RecordsWidget } from './RecordsWidget';
-import { unusableFilters, widgetDefinition } from './widgetDefinition';
+import {
+  appliedFilters,
+  isOpenNow,
+  nowFilters,
+  unusableFilters,
+  widgetDefinition,
+} from './widgetDefinition';
 import {
   adjust,
   COLUMNS,
   normalBody,
   readingOrder,
+  settle,
   ROW_PX,
   widgetTitle,
   type Body,
@@ -102,12 +109,11 @@ export function DashboardView({
     setDraft(next);
   };
   const moveWidget = (id: string, place: Partial<Place>) => {
-    change({
-      ...draft,
-      widgets: draft.widgets.map((w) =>
-        w.id === id ? { ...w, place: adjust(w.place, place) } : w,
-      ),
-    });
+    // Keyboard moves follow the free grid's rules: nothing is left on top of anything.
+    const next = draft.widgets.map((w) =>
+      w.id === id ? { ...w, place: adjust(w.place, place) } : w,
+    );
+    change({ ...draft, widgets: settle(next, id) });
   };
   const userId = session?.user.id ?? '';
   const ordered = narrow ? readingOrder(body.widgets) : body.widgets;
@@ -122,26 +128,40 @@ export function DashboardView({
     [body.widgets, userId, filters, library.data?.builtin, fields],
   );
 
-  const renderWidget = (widget: DashboardWidget, handle: boolean) =>
-    widget.records ? (
-      <RecordsWidget
-        widget={widget}
-        userId={userId}
-        filters={filters}
-        onDrill={setDrill}
-        toolbar={editing ? toolbar(widget) : undefined}
-        dragHandle={handle}
-      />
-    ) : (
+  const renderWidget = (widget: DashboardWidget, handle: boolean) => {
+    if (widget.records) {
+      return (
+        <RecordsWidget
+          widget={widget}
+          userId={userId}
+          filters={filters}
+          onDrill={setDrill}
+          toolbar={editing ? toolbar(widget) : undefined}
+          dragHandle={handle}
+        />
+      );
+    }
+    const definition = definitions.get(widget.id) ?? null;
+    const now = isOpenNow(definition);
+    const notes = nowFilters(
+      now,
+      filters,
+      appliedFilters(filters, fields),
+      unusableFilters(filters, fields),
+    );
+    return (
       <Widget
         widget={widget}
-        definition={definitions.get(widget.id) ?? null}
-        unfiltered={unusableFilters(filters, fields)}
+        definition={definition}
+        now={now}
+        unfiltered={notes.unfiltered}
+        filtered={notes.filtered}
         onDrill={setDrill}
         toolbar={editing ? toolbar(widget) : undefined}
         dragHandle={handle}
       />
     );
+  };
 
   const toolbar = (widget: DashboardWidget) => {
     const name = widgetTitle(widget, t);
