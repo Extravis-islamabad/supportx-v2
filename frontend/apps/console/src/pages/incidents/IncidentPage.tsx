@@ -358,7 +358,9 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             <span key="people" data-testid="inc-people">
               {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
             </span>,
-            <span key="created">{dates.format(item.created_at)}</span>,
+            <span key="created">
+              {t('incidents.created_on', { date: dates.format(item.created_at) })}
+            </span>,
             ...(statusReason === null ? [] : [statusReason]),
           ]}
           extra={

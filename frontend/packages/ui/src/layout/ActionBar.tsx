@@ -3,6 +3,7 @@ import { App, Button, Dropdown, Flex, Typography, type MenuProps } from 'antd';
 import type { ReactNode } from 'react';
 
 import { useLabel } from '../appearance';
+import { useLicence } from '../licence/context';
 import { SPACE, TYPE } from '../density';
 
 /** One action on a record, in the record type's fixed order (REQ-WI-010, D-124). */
@@ -25,6 +26,9 @@ export interface RecordAction {
    * its own dialog (a cancel asks for its reason), so nobody is asked twice.
    */
   confirm?: string;
+  /** The confirmation's buttons; by default the action's label and "Cancel". */
+  confirmOk?: string;
+  confirmCancel?: string;
   icon?: ReactNode;
   loading?: boolean;
   testId?: string;
@@ -45,9 +49,14 @@ export interface ActionBarProps {
  * now (at most four), and "More actions" listing every action in one fixed order, unavailable
  * ones disabled with their reason, so nothing moves there; destructive ones last, confirmed.
  */
-export function ActionBar({ actions, max = 4, extra, testId }: ActionBarProps) {
+export function ActionBar({ actions: given, max = 4, extra, testId }: ActionBarProps) {
   const t = useLabel();
   const { modal } = App.useApp();
+  const { writable } = useLicence();
+  // The read-only licence state disables every action, with its reason (WriteButton's rule).
+  const actions = writable
+    ? given
+    : given.map((a) => ({ ...a, allowed: false, whyNot: t('licence.read_only_action') }));
   const candidates = actions.filter((a) => a.primary === true && a.allowed && a.danger !== true);
   // The most useful ones get a button, shown in the record's fixed order.
   const chosen = new Set(
@@ -57,15 +66,17 @@ export function ActionBar({ actions, max = 4, extra, testId }: ActionBarProps) {
       .map((a) => a.key),
   );
   const buttons = candidates.filter((a) => chosen.has(a.key));
+  // The most useful one is the primary button; placement keeps the fixed order.
+  const main = [...buttons].sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50))[0]?.key;
 
   const run = (action: RecordAction) => {
     if (!action.allowed) return;
     if (action.danger === true && action.confirm !== undefined) {
       modal.confirm({
         title: action.confirm,
-        okText: action.label,
+        okText: action.confirmOk ?? action.label,
         okButtonProps: { danger: true },
-        cancelText: t('actions.cancel'),
+        cancelText: action.confirmCancel ?? t('actions.cancel'),
         onOk: () => {
           action.onClick();
         },
@@ -105,10 +116,10 @@ export function ActionBar({ actions, max = 4, extra, testId }: ActionBarProps) {
 
   return (
     <Flex gap={SPACE.xs} wrap align="center" data-testid={testId} style={{ marginBlock: SPACE.xs }}>
-      {buttons.map((action, index) => (
+      {buttons.map((action) => (
         <Button
           key={action.key}
-          type={index === 0 ? 'primary' : 'default'}
+          type={action.key === main ? 'primary' : 'default'}
           icon={action.icon}
           loading={action.loading}
           onClick={() => {

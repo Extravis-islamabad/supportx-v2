@@ -876,6 +876,7 @@ export const en = {
   'incidents.restored': 'Restored.',
   'incidents.status_reason': 'Reason',
   'incidents.requested_by': 'Requested by {{name}}',
+  'incidents.created_on': 'Created {{date}}',
   'incidents.unassigned': 'Not taken yet',
   'incidents.assigned_to': 'Assigned to {{name}}',
   'incidents.delete_confirm': 'Move {{id}} to the trash?',

@@ -897,6 +897,7 @@ export const ar: LabelResource = {
   'incidents.restored': 'تمت الاستعادة.',
   'incidents.status_reason': 'السبب',
   'incidents.requested_by': 'مقدم الطلب: {{name}}',
+  'incidents.created_on': 'أُنشئ في {{date}}',
   'incidents.unassigned': 'لم يتولّها أحد بعد',
   'incidents.assigned_to': 'مسندة إلى {{name}}',
   'incidents.delete_confirm': 'نقل {{id}} إلى سلة المحذوفات؟',

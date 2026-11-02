@@ -454,6 +454,7 @@ export const ur: LabelResource = {
   'incidents.restored': 'بحال ہو گیا۔',
   'incidents.status_reason': 'وجہ',
   'incidents.requested_by': 'درخواست گزار: {{name}}',
+  'incidents.created_on': 'بنایا گیا {{date}}',
   'incidents.unassigned': 'ابھی کسی نے نہیں لیا',
   'incidents.assigned_to': '{{name}} کو تفویض',
   'incidents.delete_confirm': '{{id}} کو ردی کی ٹوکری میں ڈالیں؟',

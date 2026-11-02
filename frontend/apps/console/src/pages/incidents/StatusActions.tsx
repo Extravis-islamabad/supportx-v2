@@ -40,8 +40,8 @@ const RANK: Record<string, number> = {
   reopen: 4,
   resume: 5,
   close: 6,
-  wait_for_requester: 7,
-  wait_for_third_party: 8,
+  wait_requester: 7,
+  wait_third_party: 8,
 };
 
 interface Pending {
@@ -157,6 +157,16 @@ export function useStatusActions(
       primary: !DESTRUCTIVE.has(action),
       rank: RANK[action] ?? 50,
       danger: DESTRUCTIVE.has(action),
+      // Asked exactly once: by its reason dialog, by the admin's confirmation, or else here.
+      confirm:
+        DESTRUCTIVE.has(action) &&
+        state.reason_mode === 'none' &&
+        state.confirmation?.[locale] === undefined &&
+        state.confirmation?.en === undefined
+          ? t('incidents.cancel_title')
+          : undefined,
+      confirmOk: t('incidents.cancel_confirm'),
+      confirmCancel: t('incidents.cancel_keep'),
       loading: act.isPending && act.variables.action === action,
       testId: `inc-action-${action}`,
       onClick: () => {
