@@ -322,7 +322,13 @@ async def _save(
     )
     await record_event(
         session,
-        UserUpdated(user_id=current.id, changed_fields=changed),
+        UserUpdated(
+            user_id=current.id,
+            changed_fields=changed,
+            managers=[m for m in (before.get("manager_id"), values.get("manager_id")) if m]
+            if "manager_id" in changed
+            else [],
+        ),
         aggregate_id=current.id,
         aggregate_version=updated.version,
     )

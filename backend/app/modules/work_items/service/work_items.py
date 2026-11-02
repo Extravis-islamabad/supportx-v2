@@ -810,7 +810,14 @@ async def view_counts(
 
 # Fields whose history values are user IDs: the page names them (QA BUG-03).
 PERSON_FIELDS = frozenset(
-    {"requester_id", "on_behalf_of_id", "technician_id", "follower", "follower_access"}
+    {
+        "requester_id",
+        "on_behalf_of_id",
+        "technician_id",
+        "follower",
+        "follower_access",
+        "task.owner_id",  # WP-020e
+    }
 )
 
 
@@ -841,6 +848,15 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if c.field in PERSON_FIELDS or is_custom(c.field)
         for value in (c.old, c.new)
         if isinstance(value, str) and (c.field in PERSON_FIELDS or _is_uuid(value))
+    }
+    # A worklog's value names its owner (WP-020e).
+    named |= {
+        str(value["owner_id"])
+        for e in entries
+        for c in e.changes
+        if c.field == "worklog"
+        for value in (c.old, c.new)
+        if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
 
@@ -1976,8 +1992,14 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     source: Source,
     rule: str = REQUESTER_REPLY,
     given: closing.MoveInput | None = None,
+    by_requester: bool = True,
 ) -> WorkItem:
-    """A move the requester makes (a reply, a confirmation); history names the rule."""
+    """A move made for the requester's act (a reply, a confirmation) or by the system.
+
+    The requester's own acts (reply, confirm, reject) are theirs, never automation (WP-020f
+    BUG-03): history keeps them as the person, from their channel, with `requester_action`
+    saying what they did. Only the system's own moves (auto-close) are automatic.
+    """
     target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
@@ -1993,10 +2015,20 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         action,
         source=source,
         reason=None,
-        automatic=True,
+        automatic=not by_requester,
         rule=rule,
+        extra=[Change("requester_action", None, requester_action(rule, action))]
+        if by_requester
+        else (),
     )
     return updated
+
+
+def requester_action(rule: str, action: WorkItemAction) -> str:
+    """What the requester did, as history words it: a reply that reopened or resumed."""
+    if rule == REQUESTER_REPLY:
+        return f"{rule}_reopened" if action == WorkItemAction.REOPEN else f"{rule}_resumed"
+    return rule
 
 
 async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, explicit
@@ -2067,6 +2099,11 @@ async def _follow_up(  # noqa: PLR0913 - the reply and its context, explicit
             follow = await _update(
                 session, created.record, created.record.version, {"follows_id": record.id}
             )
+            # WP-020e: the follow-up is also a `follows` link, shown on both records. Imported
+            # here because the parts service builds on this one.
+            from app.modules.work_items.service import parts  # noqa: PLC0415
+
+            await parts.add_follows(session, follow, record, source=source)
     except (ValidationFailed, PermissionDenied, Conflict):
         await record_changes(
             session,

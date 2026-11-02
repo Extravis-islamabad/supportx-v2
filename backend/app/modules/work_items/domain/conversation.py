@@ -12,6 +12,7 @@ Pure domain code, no I/O. The rules here decide:
 """
 
 import re
+import uuid
 from collections.abc import Collection
 from enum import StrEnum
 
@@ -44,11 +45,13 @@ class ReplyMode(StrEnum):
 
 
 class DeliveryState(StrEnum):
-    """Where an outbound reply is (REQ-INC-059). Notes have none.
+    """Where a reply is (REQ-INC-059): outbound ones are sent, incoming ones were received.
 
-    The notification engine moves it as the e-mail to the requester goes (WP-024 session 3).
+    Notes have none. The notification engine moves an outbound reply as its e-mail to the
+    requester goes (WP-024 session 3).
     """
 
+    RECEIVED = "received"  # the requester's own words, sent in (portal, e-mail): nothing to send
     NOT_SENT = "not_sent"  # legacy (before WP-024 s3): saved, nothing could send it
     WAITING = "waiting"  # outgoing mail is not set up; sent once it is (REQ-INC-060)
     QUEUED = "queued"  # handed to the email channel (WP-024)
@@ -126,10 +129,29 @@ def stamps_first_response(
     return first_response_action(kind, visibility) in counted
 
 
-def delivery_for(kind: EntryKind, *, email_channel: bool) -> tuple[str | None, str | None]:
-    """(state, reason) of a new entry: a reply is queued, or waits while mail is not set up."""
+def reply_is_inbound(
+    author_id: uuid.UUID, requester_side: Collection[uuid.UUID | None], source: str
+) -> bool:
+    """Whether a reply came in from the requester rather than going out to them (BUG-01).
+
+    The one place this is decided: the requester (or the person the record is for) writing from
+    outside the console (portal, e-mail, the API) sends words in. Staff in the console write
+    outbound replies, even on a record they requested themselves.
+    """
+    return author_id in requester_side and source != "ui"
+
+
+def delivery_for(
+    kind: EntryKind, *, inbound: bool, email_channel: bool
+) -> tuple[str | None, str | None]:
+    """(state, reason) of a new entry.
+
+    Incoming replies are received; an outbound one is queued, or waits while mail is not set up.
+    """
     if kind == EntryKind.NOTE:
         return None, None
+    if inbound:
+        return DeliveryState.RECEIVED, None
     if not email_channel:
         return DeliveryState.WAITING, DeliveryReason.MAIL_NOT_CONFIGURED
     return DeliveryState.QUEUED, None

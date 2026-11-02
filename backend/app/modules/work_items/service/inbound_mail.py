@@ -192,7 +192,7 @@ class IncidentsFromMail:
             return Replied(entry_id=None)
         subject = await subject_for(session, _tenant(session), author_id)
         async with _refusals():
-            follow_up = await add_requester_reply(
+            replied = await add_requester_reply(
                 session,
                 INCIDENT,
                 row,
@@ -202,12 +202,12 @@ class IncidentsFromMail:
                 subject=subject,
                 holders=worker_policy(),
             )
-        # add_requester_reply does not name its entry yet, so the reply's attachments go on the
-        # record (entry_id None) until it does.
+        # The reply's attachments go on its entry (WP-024 session 2).
+        follow_up = replied.follow_up
         if follow_up is None:
-            return Replied(entry_id=None)
+            return Replied(entry_id=replied.entry_id)
         return Replied(
-            entry_id=None,
+            entry_id=replied.entry_id,
             follow_up=CreatedRecord(RECORD_TYPE, follow_up.id, follow_up.display_id),
         )
 

@@ -6,7 +6,7 @@ password); the refresh token and a pending consent are sealed the same way. The 
 is stored only as a SHA-256 hash.
 
 Revision ID: 0042
-Revises: 0038 (0040 is lane A's, 0041 lane C's: rebased onto the head at merge)
+Revises: 0040
 Created: 2026-10-29
 """
 
@@ -17,7 +17,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0042"
-down_revision: str | None = "0038"
+down_revision: str | None = "0040"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

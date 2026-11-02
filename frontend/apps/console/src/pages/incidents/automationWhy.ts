@@ -53,9 +53,29 @@ export function useAutomationWhy(): (
   };
 }
 
+/** What the requester did, from history's `requester_action` change (WP-020f QA BUG-03). */
+export const REQUESTER_ACTIONS = new Set([
+  'requester_reply_resumed',
+  'requester_reply_reopened',
+  'requester_confirmed',
+  'requester_rejected',
+]);
+
 /**
- * A status move the system made (WP-020f): the requester replied, confirmed or rejected the fix,
- * nobody answered (auto-close), or the incident was assigned (REQ-INC-051, 096, 098).
+ * Why the requester's own act moved the record (REQ-INC-051, 096, 098). It is theirs, not
+ * automation, so history shows it as a person's change with this line (QA BUG-03).
+ */
+export function useRequesterActionWhy(): (action: unknown) => string {
+  const t = useLabel();
+  return (action) =>
+    typeof action === 'string' && REQUESTER_ACTIONS.has(action)
+      ? t(`automation.why.${action}`)
+      : '';
+}
+
+/**
+ * A status move the system made (WP-020f): nobody answered (auto-close) or the incident was
+ * assigned (REQ-INC-096, D-107). Entries before the BUG-03 fix filed the requester's acts here too.
  */
 function autoMove(t: ReturnType<typeof useLabel>, rule: string, action: string): string {
   switch (rule) {

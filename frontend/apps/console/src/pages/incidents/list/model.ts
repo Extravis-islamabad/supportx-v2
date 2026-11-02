@@ -1,3 +1,4 @@
+import { stripIsolates } from '@supportx/labels';
 import { useQueryClient } from '@tanstack/react-query';
 
 import {
@@ -47,6 +48,7 @@ const CHIP_FIELDS = [
   'urgency',
   'channel',
   'level',
+  'closure_code', // REQ-INC-093, QA BUG-05
 ] as const;
 
 /** Chips as one condition each; the same field twice means either value. */
@@ -71,7 +73,8 @@ export function chipSuggestions(
   t: (key: string, params?: Record<string, string>) => string,
   taken: SearchChip[],
 ): SearchChip[] {
-  const needle = text.trim().toLocaleLowerCase();
+  // A pasted value may carry directional marks from a screen (isolation rule).
+  const needle = stripIsolates(text).trim().toLocaleLowerCase();
   if (needle === '') return [];
   const found: SearchChip[] = [];
   const byName = new Map(fields.map((f) => [f.name, f]));
@@ -187,12 +190,18 @@ export function builderFields(
   return fields
     .filter((f) => f.dimension?.reference !== 'user') // people are views ("my open"), not ids
     .filter((f) => f.type !== 'uuid' || f.dimension !== null) // a bare id is never typed
-    .map((f) => ({
-      name: f.name,
-      type: TYPES.find((known) => known === f.type) ?? 'string',
-      label: words.field(f.name),
-      choices: words.choices(asReportField(f)),
-    }))
+    .map((f) => {
+      const choices = words.choices(asReportField(f));
+      const type = TYPES.find((known) => known === f.type) ?? 'string';
+      return {
+        name: f.name,
+        // Codes kept as text (level, closure code) are picked by name like any choice: the API
+        // takes `in` on text too (WP-020f QA BUG-05).
+        type: type === 'string' && choices !== undefined ? 'enum' : type,
+        label: words.field(f.name),
+        choices,
+      };
+    })
     .sort(
       (a, b) =>
         Number(a.name.startsWith('custom.')) - Number(b.name.startsWith('custom.')) ||

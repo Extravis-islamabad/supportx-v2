@@ -88,6 +88,9 @@ export function useIncidentViews(enabled = true) {
     queryKey: queryKeys.incidents.views,
     queryFn: () => call(api.GET('/api/v1/incidents/views')),
     enabled,
+    // Overdue, due today and created today change with the clock, not only with events
+    // (WP-020d QA BUG-01).
+    refetchInterval: 60_000,
   });
 }
 

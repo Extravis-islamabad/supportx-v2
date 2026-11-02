@@ -143,7 +143,15 @@ describe('One incident', () => {
     // Delete is not offered at all without the permission (it is set apart from everyday work).
     expect(screen.queryByTestId('inc-op-delete')).toBeNull();
     const tabs = screen.getAllByRole('tab').map((tab) => tab.textContent);
-    expect(tabs).toEqual(['Conversation (0)', 'Details', 'History (1)', 'Automation']);
+    expect(tabs).toEqual([
+      'Conversation (0)',
+      'Details',
+      'Tasks',
+      'Worklogs',
+      'Links',
+      'History (1)',
+      'Automation',
+    ]);
     const description = await screen.findByTestId('inc-description');
     expect(description.innerHTML).toBe('<p>Since <strong>9:00</strong>.</p>');
     expect(description.getAttribute('dir')).toBe('auto');
