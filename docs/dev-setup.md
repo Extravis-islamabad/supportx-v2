@@ -329,13 +329,37 @@ Run `sudo sysctl -w vm.max_map_count=262144`. Docker Desktop on Mac and Windows 
 
 ## Merging
 
-`main` takes changes through GitHub's merge queue: when a pull request's required checks pass,
-`gh pr merge <number> --merge` adds it to the queue (no catching up with `main` by hand). The
-queue tests it on top of `main` and the pull requests ahead of it, with the same required checks
-(the workflows also trigger on `merge_group`; docs-only groups take the fast path), and merges it
-when they pass. A failing entry leaves the queue and the ones behind it are tested again without
-it. Two pull requests that each pass alone but break together (two migrations with the same
-number, for example) fail in the queue, not on `main`.
+`main` takes changes only through GitHub's merge queue (the `main` ruleset: pull request required,
+the 8 required checks below, merge queue with the merge method "merge", no force push, no
+deletion, nobody can bypass it).
+
+Required checks: `backend`, `frontend`, `pre-commit`, `chart`, `core profile, integration and e2e`,
+`dependency audit (pip-audit, pnpm audit)`, `filesystem scan (Trivy)`, `secret scan (gitleaks)`.
+Their workflows (`ci.yml`, `security.yml`, `stack-smoke.yml`) trigger on `merge_group` as well as
+`pull_request`; a required check without that trigger would stall the queue
+(`backend/tests/test_ci_triggers.py` guards it). Docs-only groups take the fast path.
+
+How to merge a pull request:
+
+1. Merge the latest `main` into the branch if it conflicts or needs a renumber (migrations,
+   decision numbers); being merely behind `main` is fine, the queue tests on top of it.
+2. `gh pr merge <number> --auto`. Auto-merge waits for the pull request's own required checks,
+   then adds it to the queue. The queue picks the merge method; don't pass `--squash` or
+   `--rebase`.
+3. The queue builds the pull request on top of `main` and the entries ahead of it (up to 2 groups
+   at once, up to 3 merged together, after waiting up to 5 minutes for company), runs the same
+   required checks on a `gh-readonly-queue/main/...` branch and merges it as a merge commit when
+   they pass. A check that has not reported after 60 minutes fails the entry.
+4. A failing entry leaves the queue (auto-merge is turned off) and the entries behind it are tested
+   again without it. Fix the branch and run step 2 again. Two pull requests that each pass alone
+   but break together (two migrations with the same number, for example) fail in the queue, not
+   on `main`.
+
+Useful commands: `gh pr view <number> --json autoMergeRequest,mergeStateStatus` (waiting for
+checks), the queue page at https://github.com/Extravis-islamabad/supportx-v2/queue/main (position
+and the group's runs), `gh pr merge <number> --disable-auto` (take a pull request out again).
+Never `--admin` and never force-push: the ruleset refuses both, and asking for a bypass is a
+product owner decision.
 
 ## Tool versions
 
