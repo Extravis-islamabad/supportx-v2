@@ -40,6 +40,7 @@ import {
   useConflict,
   useFormProblem,
   WriteButton,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { DashboardView } from './DashboardView';
@@ -273,6 +274,15 @@ export function DashboardPage({ dashboardRef, home }: { dashboardRef: string; ho
   );
   const [pending, setPending] = useState<DashboardBody>();
   const dashboard = found.data;
+  // On Home the section says it all; elsewhere "Dashboards › <name>".
+  usePageCrumbs(
+    home === true || !dashboard
+      ? null
+      : [
+          { label: t('nav.dashboards'), path: '/dashboards' },
+          { label: dashboardName(dashboard, t, locale) },
+        ],
+  );
 
   if (found.isError) {
     // Deleted, or no longer shared with this viewer (REQ-DSH-028 AC2): say so, keep them going.

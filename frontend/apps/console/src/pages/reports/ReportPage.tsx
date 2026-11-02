@@ -68,6 +68,7 @@ import {
   useFormProblem,
   useDateTime,
   WriteButton,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { useDebounced } from '../../useDebounced';
@@ -145,6 +146,9 @@ export function ReportPage() {
     const report = saved.data;
     return report ? savedBase(report) : null;
   }, [code, library.data, saved.data, t]);
+  usePageCrumbs(
+    base === null ? null : [{ label: t('nav.reports'), path: '/reports' }, { label: base.name }],
+  );
 
   if (!allowed) return <NoAccess titleKey="nav.reports" />;
   const loading = code !== undefined ? library.isPending : saved.isPending;

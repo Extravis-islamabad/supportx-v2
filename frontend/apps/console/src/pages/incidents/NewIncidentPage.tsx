@@ -51,6 +51,7 @@ import {
   useLabel,
   WriteButton,
   lengthLimit,
+  usePageCrumbs,
 } from '@supportx/ui';
 
 import { CustomFormField } from '../customFields/fields';
@@ -162,6 +163,7 @@ function startOf(
  */
 export function NewIncidentPage() {
   const t = useLabel();
+  usePageCrumbs([{ label: t('nav.incidents'), path: '/incidents' }, { label: t('incidents.new') }]);
   const listFormat = useListFormat();
   const { locale } = useAppearance();
   const navigate = useNavigate();

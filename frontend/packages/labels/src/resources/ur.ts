@@ -10,6 +10,7 @@ export const ur: LabelResource = {
   'layout.filters': 'فلٹرز',
   'layout.done': 'ہو گیا',
   'layout.properties': 'خصوصیات',
+  'app.console.name': 'SupportX',
   'product.name': 'SupportX',
   'appearance.language': 'زبان',
   'locale.en': 'English',
@@ -3754,4 +3755,5 @@ export const ur: LabelResource = {
   'mailbox_answer.follow_up.body':
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
+  'shell.breadcrumbs': 'آپ یہاں ہیں',
 };

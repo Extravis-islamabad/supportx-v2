@@ -52,6 +52,8 @@ import {
   useAppearance,
   useDateTime,
   useLabel,
+  useLicence,
+  usePageCrumbs,
   WriteButton,
   lengthLimit,
   ActionBar,
@@ -83,6 +85,7 @@ import { CategoryCascade } from './CategoryCascade';
 import {
   categoryPath,
   closureCodeLabel,
+  labelled,
   levelLabel,
   listValueLabel,
   personName,
@@ -127,11 +130,14 @@ export function IncidentPage() {
     );
   }
   return (
-    <IncidentDetail
-      key={item.id}
-      item={item}
-      reload={async () => (await incident.refetch()).data}
-    />
+    <>
+      <IncidentCrumbs item={item} />
+      <IncidentDetail
+        key={item.id}
+        item={item}
+        reload={async () => (await incident.refetch()).data}
+      />
+    </>
   );
 }
 
@@ -1242,4 +1248,22 @@ function Description({
       />
     </Space>
   );
+}
+
+/**
+ * Where the user is: "IT Service Desk › Incidents › INC-42" (the desk only with ESM; product
+ * owner, 2026-10-28), in the header and the browser tab.
+ */
+function IncidentCrumbs({ item }: { item: Incident }) {
+  const t = useLabel();
+  const { locale } = useAppearance();
+  const esm = useLicence().has('esm');
+  const desks = useStructure('desks', esm, true);
+  const desk = esm ? desks.data?.find((d) => d.id === item.desk_id) : undefined;
+  usePageCrumbs([
+    ...(desk ? [{ label: labelled(desk.labels, locale, () => t(`desk.${desk.code}`)) }] : []),
+    { label: t('nav.incidents'), path: '/incidents' },
+    { label: item.display_id },
+  ]);
+  return null;
 }
