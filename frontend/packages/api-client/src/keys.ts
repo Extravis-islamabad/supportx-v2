@@ -145,6 +145,10 @@ export const queryKeys = {
   connectors: {
     catalogue: ['connectors', 'catalogue'] as const,
   },
+  directories: {
+    all: ['directories'] as const,
+    groups: (id: string, query: string) => ['directories', 'groups', id, query] as const,
+  },
   mailboxes: {
     all: ['mailboxes'] as const,
     waiting: (id: string) => ['mailboxes', 'waiting', id] as const,

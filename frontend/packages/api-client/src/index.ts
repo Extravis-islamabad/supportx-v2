@@ -558,4 +558,15 @@ export {
   type WaitingMail,
 } from './mailboxes';
 export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
+export {
+  useCreateDirectory,
+  useDirectories,
+  useDirectoryGroups,
+  useRemoveDirectory,
+  useSyncDirectoryNow,
+  useUpdateDirectory,
+  type Directory,
+  type DirectoryGroup,
+  type DirectoryInput,
+} from './directories';
 export { useEventDelivery, type Readiness } from './system';
