@@ -15054,6 +15054,21 @@
         "title": "SlaManualOut",
         "type": "object"
       },
+      "SlaOpenRecordsOut": {
+        "description": "How many records a calendar change would reach.",
+        "properties": {
+          "count": {
+            "description": "Records with an open target on this calendar.",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "SlaOpenRecordsOut",
+        "type": "object"
+      },
       "SlaPolicyIn": {
         "additionalProperties": false,
         "description": "A new policy: placed above the default policy, last among the others.",
@@ -51625,6 +51640,90 @@
           }
         },
         "summary": "Change a working calendar",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/calendars/{calendar_id}/open-records": {
+      "get": {
+        "description": "REQ-SLA-010 AC3: shown before saving; the change reaches them at their next recalculation.",
+        "operationId": "calendar_open_records_api_v1_sla_calendars__calendar_id__open_records_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "calendar_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Calendar Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaOpenRecordsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Open records on a calendar",
         "tags": [
           "sla"
         ]

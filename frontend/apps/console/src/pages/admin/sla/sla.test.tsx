@@ -117,6 +117,22 @@ describe('Admin › SLA › Working calendars', () => {
     expect(document.body.textContent).not.toMatch(/operating_hours|around_the_clock|in_use/);
   });
 
+  it('REQ-SLA-010 AC3: the editor says how many open incidents a change reaches', async () => {
+    window.history.pushState({}, '', '/admin/sla/calendars');
+    api({
+      me: ADMIN,
+      routes: {
+        ...ROUTES,
+        [`GET ${CALENDARS}/cal-riyadh/open-records`]: { body: { count: 12 } },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sla-calendar-row-cal-riyadh'));
+    expect((await screen.findByTestId('sla-calendar-open-records')).textContent).toBe(
+      '12 open incidents use this calendar. A change reaches them at their next recalculation.',
+    );
+  });
+
   it('says why a calendar cannot be deleted instead of offering it', async () => {
     window.history.pushState({}, '', '/admin/sla/calendars');
     api({ me: ADMIN, routes: ROUTES });

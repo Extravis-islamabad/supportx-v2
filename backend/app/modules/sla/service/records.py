@@ -9,7 +9,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.sla.infra.models import SlaApplication, SlaCalendar, SlaPolicy, SlaTarget
@@ -110,3 +110,20 @@ async def record_sla(session: AsyncSession, record_id: uuid.UUID) -> SlaRecordVi
         applied_at=application.applied_at if has_sla and application else None,
         targets=targets,
     )
+
+
+OPEN_STATES = ("running", "paused", "breached")
+
+
+async def open_records_on_calendar(session: AsyncSession, calendar_id: uuid.UUID) -> int:
+    """How many records have an open target on this calendar (REQ-SLA-010 AC3).
+
+    A calendar change reaches them at their next recalculation; the admin sees the number
+    before saving.
+    """
+    count = await session.scalar(
+        select(func.count(func.distinct(SlaTarget.record_id))).where(
+            SlaTarget.calendar_id == calendar_id, SlaTarget.state.in_(OPEN_STATES)
+        )
+    )
+    return int(count or 0)

@@ -361,3 +361,18 @@ export function useSlaSettingsChange(recordType: string) {
     onSuccess: refresh,
   });
 }
+
+/** How many records have an open target on a calendar (REQ-SLA-010 AC3), shown before saving. */
+export function useSlaCalendarOpenRecords(calendarId: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.sla.openRecords(calendarId ?? ''),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/sla/calendars/{calendar_id}/open-records', {
+          params: { path: { calendar_id: calendarId ?? '' } },
+        }),
+      ),
+    enabled: calendarId !== undefined,
+    meta: { silent: true },
+  });
+}

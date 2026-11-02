@@ -4580,4 +4580,15 @@ export const ar: LabelResource = {
   'sla.settings.priority_rule': 'عند تغيير الأولوية',
   'sla.settings.reopen_rule': 'عند إعادة فتح حادثة محلولة',
   'report_field.first_response_due_at': 'الاستجابة قبل',
+  'sla.calendar.open_records_zero': 'لا توجد حوادث مفتوحة تستخدم هذا التقويم.',
+  'sla.calendar.open_records_one':
+    'حادثة مفتوحة واحدة تستخدم هذا التقويم. يصلها التغيير عند إعادة الحساب التالية.',
+  'sla.calendar.open_records_two':
+    'حادثتان مفتوحتان تستخدمان هذا التقويم. يصلهما التغيير عند إعادة الحساب التالية.',
+  'sla.calendar.open_records_few':
+    '{{count}} حوادث مفتوحة تستخدم هذا التقويم. يصلها التغيير عند إعادة الحساب التالية.',
+  'sla.calendar.open_records_many':
+    '{{count}} حادثة مفتوحة تستخدم هذا التقويم. يصلها التغيير عند إعادة الحساب التالية.',
+  'sla.calendar.open_records_other':
+    '{{count}} حادثة مفتوحة تستخدم هذا التقويم. يصلها التغيير عند إعادة الحساب التالية.',
 };

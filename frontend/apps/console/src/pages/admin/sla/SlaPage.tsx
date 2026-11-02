@@ -24,6 +24,7 @@ import { Navigate, useNavigate, useParams } from 'react-router';
 import {
   ApiError,
   useSlaCalendarChange,
+  useSlaCalendarOpenRecords,
   useSlaCalendars,
   useSlaHolidayChange,
   useSlaHolidayListChange,
@@ -341,6 +342,8 @@ function CalendarEditor({
   }
   const fixed = row?.fixed === true;
   const stale = latest !== undefined && version !== undefined && latest.version !== version;
+  // REQ-SLA-010 AC3: the admin knows how many open records the change reaches before saving.
+  const reach = useSlaCalendarOpenRecords(open && row !== undefined && !fixed ? row.id : undefined);
 
   const failed = (error: unknown) => {
     if (error instanceof ApiError && error.isConflict && error.code === 'version_conflict') {
@@ -418,6 +421,15 @@ function CalendarEditor({
           showIcon
           style={{ marginBottom: 16 }}
           message={t('sla.calendar.fixed')}
+        />
+      )}
+      {reach.data !== undefined && reach.data.count > 0 && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={t('sla.calendar.open_records', { count: reach.data.count })}
+          data-testid="sla-calendar-open-records"
         />
       )}
       <Form<CalendarValues>

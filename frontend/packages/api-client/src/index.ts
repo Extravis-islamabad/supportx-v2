@@ -355,6 +355,7 @@ export {
 export { queryKeys } from './keys';
 export {
   useSlaCalendarChange,
+  useSlaCalendarOpenRecords,
   useSlaCalendars,
   useSlaHolidayChange,
   useSlaHolidayListChange,

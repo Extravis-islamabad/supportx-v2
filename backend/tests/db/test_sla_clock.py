@@ -374,3 +374,20 @@ async def test_req_sla_038_the_panel_shows_policy_targets_calendar_and_who_set_a
     # Out of reach: another tenant gets 404.
     other = await world.call("GET", f"/incidents/{item['id']}/sla", world.b, world.b.admin)
     assert other.status_code == 404, other.text
+
+
+async def test_req_sla_010_ac3_the_admin_sees_how_many_open_records_a_calendar_reaches(
+    world: World,
+) -> None:
+    a = world.a
+    item = await _p1(world, a)
+    calendar_id = (await _targets(world, item))["resolution:1"]["calendar_id"]
+    path = f"/sla/calendars/{calendar_id}/open-records"
+    before = (await world.call("GET", path, a, a.admin)).json()["count"]
+    assert before >= 1
+    await world.act(a, a.tech_a, item, "cancel", "duplicate", "Same as another")
+    after = (await world.call("GET", path, a, a.admin)).json()["count"]
+    assert after == before - 1  # a canceled record's clocks are stopped
+    # Another tenant's calendar ID is not found there.
+    other = await world.call("GET", path, world.b, world.b.admin)
+    assert other.status_code == 404, other.text

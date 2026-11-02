@@ -4517,6 +4517,10 @@ export const en = {
   'sla.settings.priority_rule': 'When the priority changes',
   'sla.settings.reopen_rule': 'When a resolved incident is reopened',
   'report_field.first_response_due_at': 'Respond by',
+  'sla.calendar.open_records_one':
+    '{{count}} open incident uses this calendar. A change reaches it at its next recalculation.',
+  'sla.calendar.open_records_other':
+    '{{count}} open incidents use this calendar. A change reaches them at their next recalculation.',
 } as const;
 
 export type LabelKey = keyof typeof en;

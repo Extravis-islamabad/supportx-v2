@@ -4119,4 +4119,8 @@ export const ur: LabelResource = {
   'sla.settings.priority_rule': 'جب ترجیح بدلے',
   'sla.settings.reopen_rule': 'جب حل شدہ واقعہ دوبارہ کھولا جائے',
   'report_field.first_response_due_at': 'جواب کی آخری حد',
+  'sla.calendar.open_records_one':
+    '{{count}} کھلا واقعہ یہ کیلنڈر استعمال کرتا ہے۔ تبدیلی اس کے اگلے حساب پر اس تک پہنچتی ہے۔',
+  'sla.calendar.open_records_other':
+    '{{count}} کھلے واقعات یہ کیلنڈر استعمال کرتے ہیں۔ تبدیلی ان کے اگلے حساب پر ان تک پہنچتی ہے۔',
 };

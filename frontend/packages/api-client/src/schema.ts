@@ -4664,6 +4664,26 @@ export interface paths {
         patch: operations["update_calendar_api_v1_sla_calendars__calendar_id__patch"];
         trace?: never;
     };
+    "/api/v1/sla/calendars/{calendar_id}/open-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Open records on a calendar
+         * @description REQ-SLA-010 AC3: shown before saving; the change reaches them at their next recalculation.
+         */
+        get: operations["calendar_open_records_api_v1_sla_calendars__calendar_id__open_records_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sla/calendars/{calendar_id}/special-hours": {
         parameters: {
             query?: never;
@@ -10981,6 +11001,17 @@ export interface components {
             due_at: string;
             /** Reason */
             reason: string | null;
+        };
+        /**
+         * SlaOpenRecordsOut
+         * @description How many records a calendar change would reach.
+         */
+        SlaOpenRecordsOut: {
+            /**
+             * Count
+             * @description Records with an open target on this calendar.
+             */
+            count: number;
         };
         /**
          * SlaPolicyIn
@@ -34898,6 +34929,73 @@ export interface operations {
             };
             /** @description Stale If-Match or in use. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    calendar_open_records_api_v1_sla_calendars__calendar_id__open_records_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaOpenRecordsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

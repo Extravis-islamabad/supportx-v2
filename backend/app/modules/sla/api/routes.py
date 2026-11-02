@@ -27,7 +27,7 @@ from app.modules.sla.domain.policy import (
 )
 from app.modules.sla.domain.setup import WeekPreset
 from app.modules.sla.infra.models import SlaCalendarException, SlaHoliday, SlaSettings
-from app.modules.sla.service import calendars, holidays, policies, special_hours
+from app.modules.sla.service import calendars, holidays, policies, records, special_hours
 from app.modules.sla.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -376,6 +376,21 @@ async def get_calendar(
     view = await calendars.get_calendar(session, subject, calendar_id)
     set_etag(response, view.calendar.version)
     return SlaCalendarOut.of(view)
+
+
+class SlaOpenRecordsOut(BaseModel):
+    """How many records a calendar change would reach."""
+
+    count: int = Field(description="Records with an open target on this calendar.")
+
+
+@router.get("/calendars/{calendar_id}/open-records", summary="Open records on a calendar")
+async def calendar_open_records(
+    calendar_id: uuid.UUID, session: TenantSession, subject: Viewer
+) -> SlaOpenRecordsOut:
+    """REQ-SLA-010 AC3: shown before saving; the change reaches them at their next recalculation."""
+    await calendars.get_calendar(session, subject, calendar_id)  # 404 when it is not there
+    return SlaOpenRecordsOut(count=await records.open_records_on_calendar(session, calendar_id))
 
 
 @router.patch(
