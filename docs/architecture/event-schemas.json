@@ -1916,6 +1916,174 @@
         "type": "object"
       }
     },
+    "knowledge.article.workflow": {
+      "1": {
+        "description": "A step of an article's review life (D-108 (5)), for notifications and live screens.\n\nSteps: submitted, approved, rejected, withdrawn, reviewed (\"still correct\"), deleted, restored.",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "author_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "language": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Language"
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "readers_affected": {
+            "title": "Readers Affected",
+            "type": "boolean"
+          },
+          "step": {
+            "title": "Step",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "version_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Number"
+          }
+        },
+        "required": [
+          "article_id",
+          "topic_id",
+          "owner_id",
+          "step",
+          "language",
+          "version_number",
+          "author_id",
+          "readers_affected"
+        ],
+        "title": "KbArticleWorkflow",
+        "type": "object"
+      }
+    },
+    "knowledge.link.removed": {
+      "1": {
+        "description": "An article's link to a record was removed (D-121).",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "link_id": {
+            "format": "uuid",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "article_id",
+          "record_type",
+          "record_id"
+        ],
+        "title": "KbLinkRemoved",
+        "type": "object"
+      }
+    },
+    "knowledge.link.saved": {
+      "1": {
+        "description": "An article was linked to a record (REQ-KB-064): by hand, by an insert, or made from it.",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "link_id": {
+            "format": "uuid",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "article_id",
+          "record_type",
+          "record_id",
+          "source"
+        ],
+        "title": "KbLinkSaved",
+        "type": "object"
+      }
+    },
+    "knowledge.settings.changed": {
+      "1": {
+        "description": "The tenant's knowledge settings changed (the settings page and the editor refetch).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "KbSettingsChanged",
+        "type": "object"
+      }
+    },
     "knowledge.topic.deleted": {
       "1": {
         "description": "A topic went to the trash; its articles moved to `moved_to` (REQ-KB-004 AC2).",
@@ -1973,6 +2141,35 @@
           "changed_fields"
         ],
         "title": "KbTopicSaved",
+        "type": "object"
+      }
+    },
+    "knowledge.type.saved": {
+      "1": {
+        "description": "An article type was added or changed: names, review interval, retired (D-120).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "created",
+          "changed_fields"
+        ],
+        "title": "KbTypeSaved",
         "type": "object"
       }
     },

@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Computed,
@@ -34,7 +35,7 @@ class KbSettings(TenantKeyed, Base):
     __table_args__ = (CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),)
 
     prefix: Mapped[str] = mapped_column(String(6), server_default="KB")
-    self_approval: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-120 (4)
     requesters_enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
@@ -57,6 +58,10 @@ class KbType(TenantKeyed, Base):
     builtin: Mapped[bool] = mapped_column(Boolean, server_default="false")
     sort_order: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     retired_at: Mapped[datetime | None]
+    # Admins change a type with If-Match (rule g; 0046).
+    version: Mapped[int] = mapped_column(BigInteger, server_default="1")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    updated_by: Mapped[uuid.UUID | None]
 
 
 class KbTopic(TenantEntity):
@@ -156,6 +161,8 @@ class KbArticle(TenantEntity):
     expires_on: Mapped[date | None]
     withdrawn_reason: Mapped[str | None] = mapped_column(Text)
     withdrawn_at: Mapped[datetime | None]
+    # The review date the owner was last reminded of, so each date reminds once (REQ-KB-086).
+    review_reminded_on: Mapped[date | None]
 
 
 class KbArticleVersion(TenantEntity):
@@ -247,3 +254,58 @@ class KbArticleVersion(TenantEntity):
     search_title: Unmapped[str] = unmapped_column(
         Text, Computed("sx_search_normalize(title)", persisted=True)
     )
+
+
+class KbReview(TenantEntity):
+    """One "still correct" review: checked, review date moved forward, no new version.
+
+    REQ-KB-034: the history of who checked an article and when.
+    """
+
+    __tablename__ = "kb_reviews"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "article_id"],
+            ["kb_articles.tenant_id", "kb_articles.id"],
+            name="fk_kb_reviews_article",
+        ),
+        Index(None, "tenant_id", "article_id", "created_at"),
+    )
+
+    article_id: Mapped[uuid.UUID]
+    reviewed_by: Mapped[uuid.UUID]
+    next_review_on: Mapped[date]
+
+
+class KbRecordLink(TenantEntity):
+    """An article linked to a record (an incident; REQ-KB-064, D-121).
+
+    `source`: linked by hand, inserted into a reply, or the article was made from the record.
+    An unlink is a soft delete. One live link per article and record.
+    """
+
+    __tablename__ = "kb_record_links"
+    __table_args__ = (
+        CheckConstraint("source IN ('link', 'insert', 'created_from')", name="source"),
+        CheckConstraint("record_type ~ '^[a-z][a-z_]{1,29}$'", name="record_type"),
+        ForeignKeyConstraint(
+            ["tenant_id", "article_id"],
+            ["kb_articles.tenant_id", "kb_articles.id"],
+            name="fk_kb_record_links_article",
+        ),
+        Index(
+            "uq_kb_record_links_live",
+            "tenant_id",
+            "article_id",
+            "record_type",
+            "record_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(None, "tenant_id", "record_type", "record_id"),
+    )
+
+    article_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(30))
+    record_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20))

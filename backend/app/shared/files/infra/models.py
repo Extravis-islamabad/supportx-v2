@@ -39,8 +39,8 @@ from app.shared.db.models import (
 )
 
 STATES = ("scanning", "clean", "infected", "scan_failed", "not_scanned", "deleted")
-OWNER_TYPES = ("work_item", "conversation_entry", "draft", "branding")
-SOURCES = ("ui", "api", "email", "portal")
+OWNER_TYPES = ("work_item", "conversation_entry", "draft", "branding", "kb_article")
+SOURCES = ("ui", "api", "email", "portal", "knowledge")  # knowledge: copies (D-121)
 
 
 class StoredFile(TenantEntity):
@@ -66,6 +66,8 @@ class StoredFile(TenantEntity):
     thumb_size: Mapped[int | None]
     source: Mapped[str] = mapped_column(String(10))
     purge_after: Mapped[datetime | None]
+    # The file this one was copied from (an article image put into a reply; D-121, lane B).
+    copied_from: Mapped[uuid.UUID | None]
 
     __table_args__ = (
         CheckConstraint(f"state IN {STATES}", name="state"),

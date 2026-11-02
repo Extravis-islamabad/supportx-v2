@@ -20,6 +20,7 @@ import {
 
 import { useIncidentFieldName } from './conflict';
 import { closureCodeChoices, labelled } from './labels';
+import { useKnowledgeTools } from './knowledgeSlot';
 
 const REASON_MAX = 500;
 // The dialog's own fields: a refusal naming one of these is shown at that field.
@@ -90,6 +91,8 @@ export function MoveDialog({
   const { locale } = useAppearance();
   const fieldName = useIncidentFieldName();
   const me = useSession().data?.user.id;
+  // Knowledge in the resolution (D-121): the requester reads it.
+  const knowledgeTools = useKnowledgeTools('public');
   const [code, setCode] = useState<string>();
   const [text, setText] = useState('');
   const [resolution, setResolution] = useState('');
@@ -248,6 +251,7 @@ export function MoveDialog({
               placeholder={t('incidents.closing.resolution_placeholder')}
               testId="inc-resolution-editor"
               imageOwnerId={me}
+              extraTools={knowledgeTools}
               autoFocus
             />
             {resolutionError.length > 0 && (

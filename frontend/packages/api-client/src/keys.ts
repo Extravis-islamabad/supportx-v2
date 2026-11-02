@@ -1,6 +1,7 @@
 import type { AnnouncementsQuery } from './announcements';
 import type { AuditEntriesQuery } from './audit';
 import type { IncidentSearchQuery, IncidentsQuery } from './incidents';
+import type { KnowledgeQuery } from './knowledge';
 import type { ReportDefinition } from './reports';
 import type { UsersQuery } from './users';
 
@@ -172,6 +173,19 @@ export const queryKeys = {
     status: ['notifications', 'status'] as const,
     deliveries: (recordType: string, recordId: string) =>
       ['notifications', 'deliveries', recordType, recordId] as const,
+  },
+  knowledge: {
+    all: ['knowledge'] as const,
+    topics: ['knowledge', 'topics'] as const,
+    types: ['knowledge', 'types'] as const,
+    list: (query: KnowledgeQuery) => ['knowledge', 'list', query] as const,
+    detail: (id: string) => ['knowledge', 'detail', id] as const,
+    versions: (id: string) => ['knowledge', 'versions', id] as const,
+    history: (id: string) => ['knowledge', 'history', id] as const,
+    approvals: ['knowledge', 'approvals'] as const,
+    settings: ['knowledge', 'settings'] as const,
+    links: (id: string) => ['knowledge', 'links', id] as const,
+    recordArticles: (type: string, id: string) => ['knowledge', 'record', type, id] as const,
   },
   organization: {
     all: ['organization'] as const,
