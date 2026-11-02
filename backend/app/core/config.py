@@ -101,6 +101,10 @@ class Settings(BaseSettings):
     # policy is saved but not applied (`password_policy_not_configured`).
     keycloak_realm_client_id: str = "supportx-realm"
     keycloak_realm_client_secret: SecretStr | None = None
+    # On-prem AD/LDAP (WP-040, D-118): `supportx-federation`, manage-realm only. The chart gives
+    # the secret to the consumers worker alone, and only where LDAP is on (never on SaaS).
+    keycloak_federation_client_id: str = "supportx-federation"
+    keycloak_federation_client_secret: SecretStr | None = None
     # Single sign-on checks fetch the provider's discovery document or SAML metadata. Loopback
     # addresses are refused (server-side request forgery) unless allowed: dev and CI only, where
     # the test identity provider runs on the same machine.

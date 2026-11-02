@@ -221,9 +221,84 @@ class KeycloakAdmin:
             timeout=settings.oidc_timeout_seconds,
         )
 
+    @classmethod
+    def federation_from_settings(cls, settings: Settings) -> "KeycloakAdmin | None":
+        """The directory-federation client (`supportx-federation`), or None when LDAP is off.
+
+        Its service account holds manage-realm for the AD/LDAP component only; the chart gives
+        the secret to the consumers worker alone, and only on an install with LDAP on (D-118).
+        """
+        found = admin_base(settings)
+        secret = settings.keycloak_federation_client_secret
+        if found is None or secret is None or not secret.get_secret_value():
+            return None
+        base, realm = found
+        return cls(
+            base,
+            realm,
+            client_id=settings.keycloak_federation_client_id,
+            client_secret=secret.get_secret_value(),
+            timeout=settings.oidc_timeout_seconds,
+        )
+
     async def close(self) -> None:
         """Close the HTTP connection pool."""
         await self._http.aclose()
+
+    # --- directory federation (supportx-federation only; WP-040, D-118) -----------------------
+
+    async def realm_id(self) -> str:
+        """The realm's internal ID (the parent of a user-federation component)."""
+        body = await self._json("GET", "")
+        return str(body["id"])
+
+    async def federation_component(
+        self, name: str
+    ) -> dict[str, Any] | None:  # Any: Keycloak's JSON
+        """The user-federation component SupportX made under `name`, if any."""
+        found = await self._json(
+            "GET",
+            "/components",
+            params={"type": "org.keycloak.storage.UserStorageProvider", "name": name},
+        )
+        return next((c for c in found or [] if c.get("name") == name), None)
+
+    async def put_federation_component(self, body: dict[str, Any]) -> str:  # Any: Keycloak's JSON
+        """Create or replace the component (matched by its name); its ID."""
+        current = await self.federation_component(str(body["name"]))
+        if current is None:
+            response = await self._call("POST", "/components", json=body)
+            assert response is not None  # noqa: S101 - _call returns None only with missing_ok
+            location = str(response.headers.get("Location", ""))
+            return location.rstrip("/").rsplit("/", 1)[-1]
+        await self._call("PUT", f"/components/{current['id']}", json={**body, "id": current["id"]})
+        return str(current["id"])
+
+    async def replace_federation_mappers(
+        self,
+        component_id: str,
+        mappers: list[dict[str, Any]],  # Any: Keycloak's JSON
+    ) -> None:
+        """The component's mappers become exactly `mappers` (SupportX owns them all)."""
+        current = await self._json("GET", "/components", params={"parent": component_id}) or []
+        for mapper in current:
+            await self._call("DELETE", f"/components/{mapper['id']}", missing_ok=True)
+        for mapper in mappers:
+            await self._call("POST", "/components", json=mapper)
+
+    async def sync_federation(
+        self, component_id: str, *, full: bool
+    ) -> dict[str, Any]:  # Any: Keycloak's JSON
+        """Ask Keycloak to import now (changed people, or everyone): its counts."""
+        action = "triggerFullSync" if full else "triggerChangedUsersSync"
+        found = await self._json(
+            "POST", f"/user-storage/{component_id}/sync", params={"action": action}
+        )
+        return dict(found or {})
+
+    async def delete_federation_component(self, component_id: str) -> None:
+        """Remove the component (Keycloak drops the people it imported, never SupportX's)."""
+        await self._call("DELETE", f"/components/{component_id}", missing_ok=True)
 
     async def _bearer(self) -> str:
         now = time.monotonic()
