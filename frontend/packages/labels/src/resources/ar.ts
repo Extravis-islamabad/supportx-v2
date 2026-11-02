@@ -4731,4 +4731,6 @@ export const ar: LabelResource = {
   'directory_attribute.companyName': 'اسم الشركة',
   'directory_attribute.state': 'الولاية أو المقاطعة',
   'directory_attribute.country': 'البلد',
+  'people.managed_by_directory':
+    'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
 };

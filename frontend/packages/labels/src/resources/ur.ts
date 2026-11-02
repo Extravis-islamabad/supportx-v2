@@ -4293,4 +4293,6 @@ export const ur: LabelResource = {
   'directory_attribute.companyName': 'کمپنی کا نام',
   'directory_attribute.state': 'ریاست یا صوبہ',
   'directory_attribute.country': 'ملک',
+  'people.managed_by_directory':
+    'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
 };

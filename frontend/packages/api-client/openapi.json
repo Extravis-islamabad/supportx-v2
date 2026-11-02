@@ -17854,6 +17854,22 @@
             "description": "Only for `users.manage`.",
             "title": "Description"
           },
+          "directory_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "entra",
+                  "ldap"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The directory that keeps this person (its fields are read-only here).",
+            "title": "Directory Source"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"

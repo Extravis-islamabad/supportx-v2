@@ -11890,6 +11890,11 @@ export interface components {
              * @description Only for `users.manage`.
              */
             description?: string | null;
+            /**
+             * Directory Source
+             * @description The directory that keeps this person (its fields are read-only here).
+             */
+            directory_source?: ("entra" | "ldap") | null;
             /** Display Name */
             display_name: string;
             /**

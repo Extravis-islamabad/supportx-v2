@@ -4686,6 +4686,8 @@ export const en = {
   'directory_attribute.companyName': 'Company name',
   'directory_attribute.state': 'State or province',
   'directory_attribute.country': 'Country',
+  'people.managed_by_directory':
+    'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
 } as const;
 
 export type LabelKey = keyof typeof en;
