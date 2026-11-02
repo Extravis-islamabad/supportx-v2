@@ -21,6 +21,8 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
+from app.core.scopes import scope_of
+
 PREFIX = "sxk"
 # Crockford base32 without padding, lowercase: 26 characters for 128 bits.
 _B32 = "0123456789abcdefghjkmnpqrstvwxyz"
@@ -34,8 +36,6 @@ MAX_LIFETIME = timedelta(days=366)
 NAME_MAX = 100
 ALLOWLIST_MAX = 20
 LAST_USED_EVERY = timedelta(minutes=1)  # writes of last_used_at, at most this often per key
-
-READ_ACTIONS = frozenset({"view", "read", "export", "search", "list"})
 
 
 def _encode(value: uuid.UUID) -> str:
@@ -105,13 +105,6 @@ def secret_matches(server_key: bytes, key_id: uuid.UUID, secret: str, stored: by
 
 
 # --- scopes ----------------------------------------------------------------------------------
-
-
-def scope_of(permission: str) -> str:
-    """`incidents.view` → `incidents:read`; `incidents.create` → `incidents:write`."""
-    area, _, action = permission.partition(".")
-    kind = "read" if action.split("_", 1)[0] in READ_ACTIONS else "write"
-    return f"{area}:{kind}"
 
 
 def scopes_for(permissions: Iterable[str]) -> list[str]:

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from app.core.scopes import scope_of
 from app.modules.identity_access.domain import api_keys as keys
 
 TENANT = uuid.UUID("01900000-0000-7000-8000-00000000de30")
@@ -55,10 +56,10 @@ def test_the_hash_is_keyed_bound_to_the_key_id_and_compared_in_constant_time() -
 
 
 def test_scopes_come_from_the_permission_catalogue() -> None:
-    assert keys.scope_of("incidents.view") == "incidents:read"
-    assert keys.scope_of("reports.export") == "reports:read"
-    assert keys.scope_of("incidents.create") == "incidents:write"
-    assert keys.scope_of("knowledge.edit_any") == "knowledge:write"
+    assert scope_of("incidents.view") == "incidents:read"
+    assert scope_of("reports.export") == "reports:read"
+    assert scope_of("incidents.create") == "incidents:write"
+    assert scope_of("knowledge.edit_any") == "knowledge:write"
     assert keys.scopes_for(["incidents.view", "incidents.create", "knowledge.view"]) == [
         "incidents:read",
         "incidents:write",

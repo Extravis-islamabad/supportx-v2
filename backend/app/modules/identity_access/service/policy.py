@@ -30,6 +30,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
+from app.core.scopes import scope_of
 from app.core.tenancy import TenantContext
 from app.modules.identity_access.domain import api_keys
 from app.modules.identity_access.domain.identity import UserType
@@ -548,7 +549,7 @@ class PolicyService:
         if any(p in beyond for p in permissions):
             # The owner may, the key may not: say which scope the key needs (REQ-INT-021 AC1).
             raise PermissionDenied(
-                code="api_scope_missing", params={"scope": api_keys.scope_of(permissions[0])}
+                code="api_scope_missing", params={"scope": scope_of(permissions[0])}
             )
         reason = (
             "not_entitled"
