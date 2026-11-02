@@ -8,8 +8,8 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** WP-020d e2e and QA round (built, draft #114), then WP-020e (tasks,
-  worklogs and links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** lane A: WP-025 session 2 (session 1 built, #148); WP-020d/e QA joins the
+  next batched QA round. Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
@@ -828,6 +828,39 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
+### [~] WP-025 — SLA v1 on Temporal (lane A; D-115, ADR-037; session 1 of 4 built 2026-11-02)
+
+Plan: ~/Desktop/wp-025-plan.md (approved). Four sessions (D-115 D1).
+
+- [x] **Session 1 — calendars and business time** (#148, stacked on #144; migration 0044):
+  - the `sla` module (feature `sla`, permissions `sla.view` for technicians, `sla.manage`);
+  - one business-time service (`sla/domain/calendar.py`): any working week in a time zone,
+    split shifts, periods across midnight (one period, owned by the day it starts), full and
+    half-day holidays, daylight saving right on its day, around the clock;
+  - the published table `docs/architecture/sla-business-time.md` (73 cases, read by a test)
+    and a seeded property test `between(a, add(a, s)) == s`;
+  - calendars, holiday lists and holidays (REQ-SLA-010, 012): two system calendars on first use
+    (around the clock; Monday-Friday 09:00-18:00 in the default site's zone, D-115 D2),
+    presets, iCalendar import with a skip report (size, line, event and day limits; byte,
+    line and structured fuzz tests, and 46 hostile uploads over HTTP that answer 201 or 422),
+    copy to next year flagged for review;
+  - sites and support groups name their calendar (REQ-ADM-040, D-115 D3): organization stores
+    `calendar_id` and asks the sla module through a check sla registers at import
+    (`register_calendar_check`), so the packages never import each other in a loop; a
+    calendar in use cannot be deleted and its page lists its users;
+  - every write permission-checked, versioned (If-Match, 409 naming who), in history,
+    audited (9 new actions), on the outbox; screens live via `sla.setup.changed`;
+  - Admin › SLA screens (calendars, week editor, holidays, import, copy a year) and the
+    calendar picker on the site and group forms; en, ar (all plural forms), ur;
+  - tests: 130+ domain, 22 API/DB (RLS for every new table and for the site and group links),
+    11 console.
+  - **Not yet in session 1:** auto-close on the business-time service (waits for #140, which
+    changes the same code); REQ-SLA-010 AC3 (how many open records a calendar change affects)
+    needs the per-record SLA state of session 2; the e2e journey is in session 4.
+- [ ] Session 2 — policies and due dates without timers.
+- [ ] Session 3 — Temporal: server, `sla_timers` worker, warnings, breaches, escalations.
+- [ ] Session 4 — live panel and list columns, e2e (en, ar, axe, 390 px), load test, docs, QA.
+
 ### [~] WP-036 — Home page and live dashboards (lane C; sessions 1-2 of 2 built 2026-10-28)
 Built on WP-035's engine: every widget is a report definition run through `POST /reports/run`, so
 its numbers equal the report's and each viewer sees their own scope (REQ-DSH-028).
@@ -1147,6 +1180,21 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-11-02 — WP-025 session 1: calendars, holidays and business time (lane A)
+
+- Re-oriented after the laptop shutdown; all lane A PRs green and marked ready (#120, #140-#144,
+  #146; #145 stays a draft until #120). Cross-lane reviews posted on #126, #135 and #138.
+- Built WP-025 session 1 on `feat/wp-025-s1` (#148, stacked on #144): see the WP-025 section.
+  Migration 0044 (lane B holds 0042/0043, lane C 0041; the queue settles the chain).
+- Choices made inside the approved plan (for the product owner to confirm, see the PR): a half
+  day off splits the day's **working time** in half (09:00-18:00 at 13:30); a holiday removes
+  the periods that **start** on its date (a night shift starting the evening before still runs);
+  a local time inside a spring-forward gap takes the offset from before the change.
+- Checks: SLA domain 130+ and API/DB 22 tests pass; console 336, api-client 12, labels 37;
+  migration and RLS guard pass; ruff, mypy, import-linter (sla contract added), tsc, ESLint,
+  Prettier clean. Full `make check` not run (rule: CI and the queue run it).
+- Next: auto-close on business time after #140 lands; then session 2.
 
 ### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
 
