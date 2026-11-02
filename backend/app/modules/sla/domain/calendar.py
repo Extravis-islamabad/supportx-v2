@@ -152,6 +152,7 @@ class Calendar:
         """The UTC instant of `minute` past local midnight on `day` (1440 = next midnight)."""
         extra, minute = divmod(minute, MINUTES_PER_DAY)
         wall = datetime.combine(day + timedelta(days=extra), time(minute // 60, minute % 60))
+        # (rule: daylight-saving gap) The one place it lives; named cases in the case table.
         # fold=0 (PEP 495): an ambiguous autumn time is its first occurrence, and a time inside a
         # spring-forward gap takes the offset from before the change (02:30 becomes 03:30).
         return wall.replace(tzinfo=self.zone).astimezone(UTC)
@@ -159,7 +160,11 @@ class Calendar:
     def day_intervals(
         self, day: date, week: Mapping[int, list[Period]] | None = None
     ) -> list[tuple[datetime, datetime]]:
-        """The UTC working intervals of the periods that start on local `day`, holidays applied."""
+        """The UTC working intervals of the periods that start on local `day`, holidays applied.
+
+        (rule: holiday by start date) A holiday removes the periods that start on its date; the
+        one place this rule lives (docs/architecture/sla-business-time.md, named cases).
+        """
         week = self._by_weekday() if week is None else week
         part = self.holidays.get(day)
         if part is HolidayPart.FULL:
@@ -255,7 +260,10 @@ class Calendar:
 def _half(
     intervals: list[tuple[datetime, datetime]], *, keep_first: bool
 ) -> list[tuple[datetime, datetime]]:
-    """The first or second half of a day's intervals, split at half of their working time."""
+    """The first or second half of a day's intervals, split at half of their working time.
+
+    (rule: half day) The one place this rule lives; named cases in the business-time table.
+    """
     total = sum((end - begin for begin, end in intervals), timedelta())
     half = total / 2
     first: list[tuple[datetime, datetime]] = []

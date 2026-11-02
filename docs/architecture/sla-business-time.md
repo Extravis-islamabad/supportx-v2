@@ -14,8 +14,15 @@ maths that breaks a row fails CI. Add a row whenever a bug is found.
 - Each period becomes real time on its own date, so daylight saving is right on the day it
   changes: a 22:00-06:00 night is 7 hours on a spring-forward night and 9 hours on a fall-back
   night.
-- A half-day holiday (`morning` or `afternoon`) takes the first or second half of that day's
-  **working time**: 09:00-18:00 splits at 13:30; 08:00-12:00 + 13:00-17:00 splits at the lunch break.
+The three rules below marked **(rule: ...)** are product choices awaiting the product owner's
+confirmation (2026-11-02). Each lives in one place in the code and has named cases here, so a
+different answer is one change plus its rows.
+
+- **(rule: holiday by start date)** see the second bullet above; code: `Calendar.day_intervals`.
+- **(rule: daylight-saving gap)** a local time inside a spring-forward gap takes the offset from
+  before the change (02:30 becomes 03:30); code: `Calendar._local_instant`.
+- **(rule: half day)** a half-day holiday (`morning` or `afternoon`) takes the first or second half of that day's
+  **working time**: 09:00-18:00 splits at 13:30; 08:00-12:00 + 13:00-17:00 splits at the lunch break; code: `_half`.
 - Adding time that ends exactly at the end of a period gives that end (17:00), never the next
   morning. Adding zero gives the start itself, even outside working hours.
 - A period's start is working time, its end is not.
@@ -39,6 +46,8 @@ groups separated by `;`. Holidays are a date, optionally followed by `morning` o
 | K-HALF | Asia/Karachi | Mon-Fri 09:00-18:00 | 2026-11-04 morning; 2026-11-05 afternoon |
 | U-LATE | UTC | Mon-Fri 16:00-24:00 | |
 | U-SUNNIGHT | UTC | Sun 20:00-02:00 | |
+| NY-NIGHT-H | America/New_York | Mon-Sun 22:00-06:00 | 2026-11-03 |
+| NY-GAP | America/New_York | Sun 02:30-05:00 | |
 
 ## Cases
 
@@ -61,7 +70,7 @@ business time from **From** to **To**; `working` says whether **From** is busine
 | 12 | K-MF | add | 2026-02-04 17:00 | 2h | 2026-02-06 10:00 | skips a Thursday holiday |
 | 13 | K-MF | add | 2026-03-20 17:00 | 2h | 2026-03-24 10:00 | weekend then a Monday holiday |
 | 14 | K-MF | add | 2026-08-13 17:30 | 1h | 2026-08-17 09:30 | Friday holiday then weekend |
-| 15 | K-MF | add | 2026-12-24 10:00 | 4h | 2026-12-28 09:30 | afternoon off, holiday, weekend |
+| 15 | K-MF | add | 2026-12-24 10:00 | 4h | 2026-12-28 09:30 | rule: half day; afternoon off, holiday, weekend |
 | 16 | K-MF | between | 2026-11-02 08:00 | 2026-11-02 19:00 | 9h | only the open hours count |
 | 17 | K-MF | between | 2026-11-06 17:00 | 2026-11-09 10:00 | 2h | across a weekend |
 | 18 | K-MF | between | 2026-11-02 09:00 | 2026-11-09 09:00 | 45h | one calendar week |
@@ -84,9 +93,9 @@ business time from **From** to **To**; `working` says whether **From** is busine
 | 35 | L-SPLIT | add | 2026-03-27 16:00 | 2h | 2026-03-30 09:00 | over the spring change |
 | 36 | L-SPLIT | between | 2026-03-27 16:00 | 2026-03-30 09:00 | 2h | spring change, business time intact |
 | 37 | L-SPLIT | add | 2026-10-23 16:00 | 2h | 2026-10-26 09:00 | over the autumn change |
-| 38 | L-SPLIT | add | 2026-12-23 16:00 | 2h | 2026-12-24 14:00 | morning off: afternoon only |
+| 38 | L-SPLIT | add | 2026-12-23 16:00 | 2h | 2026-12-24 14:00 | rule: half day; morning off: afternoon only |
 | 39 | L-SPLIT | add | 2026-12-24 16:00 | 2h | 2026-12-29 09:00 | two holidays and a weekend |
-| 40 | L-SPLIT | between | 2026-12-24 00:00 | 2026-12-25 00:00 | 4h | half day of a split day |
+| 40 | L-SPLIT | between | 2026-12-24 00:00 | 2026-12-25 00:00 | 4h | rule: half day; half day of a split day |
 | 41 | NY-NIGHT | between | 2026-03-07 21:00 | 2026-03-08 07:00 | 7h | spring-forward night is shorter |
 | 42 | NY-NIGHT | between | 2026-10-31 21:00 | 2026-11-01 07:00 | 9h | fall-back night is longer |
 | 43 | NY-NIGHT | between | 2026-11-01 21:00 | 2026-11-02 07:00 | 8h | an ordinary night |
@@ -109,14 +118,20 @@ business time from **From** to **To**; `working` says whether **From** is busine
 | 60 | U-LEAP | add | 2026-12-31 16:30 | 1h | 2027-01-01 09:30 | New Year's Day is not a holiday here |
 | 61 | ATC | add | 2026-11-07 23:00 | 2h | 2026-11-08 01:00 | every second counts |
 | 62 | ATC | between | 2026-03-07 21:00 | 2026-03-08 07:00 | 10h | no daylight saving in UTC |
-| 63 | K-HALF | working | 2026-11-04 12:00 | - | no | morning off |
-| 64 | K-HALF | working | 2026-11-04 14:00 | - | yes | afternoon works (from 13:30) |
-| 65 | K-HALF | working | 2026-11-05 13:00 | - | yes | morning works (to 13:30) |
-| 66 | K-HALF | working | 2026-11-05 14:00 | - | no | afternoon off |
-| 67 | K-HALF | add | 2026-11-03 17:00 | 2h | 2026-11-04 14:30 | next day opens at 13:30 |
-| 68 | K-HALF | between | 2026-11-04 00:00 | 2026-11-06 00:00 | 9h | two half days |
+| 63 | K-HALF | working | 2026-11-04 12:00 | - | no | rule: half day; morning off |
+| 64 | K-HALF | working | 2026-11-04 14:00 | - | yes | rule: half day; afternoon works (from 13:30) |
+| 65 | K-HALF | working | 2026-11-05 13:00 | - | yes | rule: half day; morning works (to 13:30) |
+| 66 | K-HALF | working | 2026-11-05 14:00 | - | no | rule: half day; afternoon off |
+| 67 | K-HALF | add | 2026-11-03 17:00 | 2h | 2026-11-04 14:30 | rule: half day; next day opens at 13:30 |
+| 68 | K-HALF | between | 2026-11-04 00:00 | 2026-11-06 00:00 | 9h | rule: half day; two half days |
 | 69 | U-LATE | add | 2026-11-02 23:00 | 2h | 2026-11-03 17:00 | a period ending at midnight |
 | 70 | U-LATE | working | 2026-11-03 00:00 | - | no | midnight is the end, not working |
 | 71 | U-SUNNIGHT | working | 2026-11-09 01:00 | - | yes | Sunday night into Monday |
 | 72 | U-SUNNIGHT | add | 2026-11-07 12:00 | 7h | 2026-11-15 21:00 | one night a week |
 | 73 | K-MF | add | 2026-11-02 09:00 | 27h | 2026-11-04 18:00 | three business days |
+| 74 | NY-NIGHT-H | working | 2026-11-03 03:00 | - | yes | rule: holiday by start date; Monday's night runs into the holiday |
+| 75 | NY-NIGHT-H | working | 2026-11-03 23:00 | - | no | rule: holiday by start date; the night that starts on the holiday is off |
+| 76 | NY-NIGHT-H | between | 2026-11-03 00:00 | 2026-11-04 07:00 | 6h | rule: holiday by start date; only Monday night's last six hours |
+| 77 | NY-GAP | between | 2026-03-07 12:00 | 2026-03-08 12:00 | 1h 30m | rule: daylight-saving gap; 02:30 does not exist, so the period starts 03:30 |
+| 78 | NY-GAP | between | 2026-03-14 12:00 | 2026-03-15 12:00 | 2h 30m | rule: daylight-saving gap; an ordinary Sunday |
+| 79 | NY-GAP | working | 2026-03-08 03:00 | - | no | rule: daylight-saving gap; before the shifted start |
