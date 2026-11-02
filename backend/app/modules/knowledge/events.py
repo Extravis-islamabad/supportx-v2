@@ -93,6 +93,33 @@ class KbTypeSaved(DomainEvent):
     changed_fields: list[str]
 
 
+class KbLinkSaved(DomainEvent):
+    """An article was linked to a record (REQ-KB-064): by hand, by an insert, or made from it."""
+
+    event_type: ClassVar[str] = "knowledge.link.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "kb_article"
+
+    link_id: uuid.UUID
+    article_id: uuid.UUID
+    record_type: str
+    record_id: uuid.UUID
+    source: str
+
+
+class KbLinkRemoved(DomainEvent):
+    """An article's link to a record was removed (D-121)."""
+
+    event_type: ClassVar[str] = "knowledge.link.removed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "kb_article"
+
+    link_id: uuid.UUID
+    article_id: uuid.UUID
+    record_type: str
+    record_id: uuid.UUID
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     KbTopicSaved,
     KbTopicDeleted,
@@ -100,4 +127,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     KbArticleWorkflow,
     KbSettingsChanged,
     KbTypeSaved,
+    KbLinkSaved,
+    KbLinkRemoved,
 )

@@ -8,6 +8,7 @@ Channels this module decides about:
     t:{tenant}:kb:{article}         the article page (session 3): IDs, changed step and version for
                                     whoever may read the article now (`get_article`, the same rule
                                     as the page); its files and delivery log are announced here too
+    t:{tenant}:wi:{record}          a record's page, for its linked articles (D-121): IDs only
     t:{tenant}:broadcast            "knowledge changed", no IDs: something readers see changed
                                     (published, withdrawn, trashed, restored, a topic, a type,
                                     the settings), or an
@@ -28,6 +29,7 @@ from app.modules.knowledge.infra.models import KbArticle, KbTopic
 from app.modules.knowledge.service.access import VIEW, article_audience
 from app.modules.knowledge.service.articles import get_article
 from app.shared.events import EventEnvelope
+from app.shared.files.ports import record_channel_kind
 from app.shared.realtime import (
     ChannelAccess,
     ChannelRequest,
@@ -124,9 +126,43 @@ async def _topic_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
     )
 
 
+async def _link_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A link between an article and a record (D-121): both pages refetch their lists.
+
+    The article page's subscribers passed the reader rule; the record's passed its owner's rule.
+    Each screen then reads the links through the API, which shows only what both rules allow.
+    """
+    del session
+    tenant, payload = envelope.tenant_id, envelope.payload
+    article_id = uuid.UUID(str(payload["article_id"]))
+    record_id = uuid.UUID(str(payload["record_id"]))
+    publications = [
+        Publication(
+            record(tenant, RECORD_KIND, article_id),
+            envelope.event_type,
+            ids=(str(article_id),),
+            fields=("links",),
+            actor_id=_actor(envelope),
+        )
+    ]
+    kind = record_channel_kind(str(payload["record_type"]))
+    if kind is not None:
+        publications.append(
+            Publication(
+                record(tenant, kind, record_id),
+                envelope.event_type,
+                ids=(str(record_id),),
+                fields=("knowledge",),
+                actor_id=_actor(envelope),
+            )
+        )
+    return RealtimeEffects(publications=publications)
+
+
 CHANNELS = [LIST.spec(), ChannelSpec(kind=RECORD_KIND, authorize=_record_channel)]
 ROUTES = [
     RealtimeRoute(("knowledge.article.saved", "knowledge.article.workflow"), _article_changed),
+    RealtimeRoute(("knowledge.link.saved", "knowledge.link.removed"), _link_changed),
     # Topics, types and settings: every knowledge screen refetches (no IDs; D-120).
     RealtimeRoute(
         (

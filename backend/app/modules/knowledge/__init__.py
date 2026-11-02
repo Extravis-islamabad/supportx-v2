@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from app.core.authorization import PermissionSpec, Scope
 from app.core.modules import ModuleSpec
+from app.modules.knowledge.api import links as _links  # noqa: F401 - mounts its routes
 from app.modules.knowledge.api.routes import router
 from app.modules.knowledge.events import EVENTS
 from app.modules.knowledge.service import notifications

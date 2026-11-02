@@ -275,3 +275,37 @@ class KbReview(TenantEntity):
     article_id: Mapped[uuid.UUID]
     reviewed_by: Mapped[uuid.UUID]
     next_review_on: Mapped[date]
+
+
+class KbRecordLink(TenantEntity):
+    """An article linked to a record (an incident; REQ-KB-064, D-121).
+
+    `source`: linked by hand, inserted into a reply, or the article was made from the record.
+    An unlink is a soft delete. One live link per article and record.
+    """
+
+    __tablename__ = "kb_record_links"
+    __table_args__ = (
+        CheckConstraint("source IN ('link', 'insert', 'created_from')", name="source"),
+        CheckConstraint("record_type ~ '^[a-z][a-z_]{1,29}$'", name="record_type"),
+        ForeignKeyConstraint(
+            ["tenant_id", "article_id"],
+            ["kb_articles.tenant_id", "kb_articles.id"],
+            name="fk_kb_record_links_article",
+        ),
+        Index(
+            "uq_kb_record_links_live",
+            "tenant_id",
+            "article_id",
+            "record_type",
+            "record_id",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(None, "tenant_id", "record_type", "record_id"),
+    )
+
+    article_id: Mapped[uuid.UUID]
+    record_type: Mapped[str] = mapped_column(String(30))
+    record_id: Mapped[uuid.UUID]
+    source: Mapped[str] = mapped_column(String(20))
