@@ -16,8 +16,10 @@ from app.modules.sla.domain.calendar import (
     CalendarKind,
     HolidayPart,
     Period,
+    SpecialHours,
     parse_hhmm,
     period_errors,
+    special_hours_problems,
     zone_or_none,
 )
 
@@ -45,27 +47,45 @@ def _days(spec: str) -> list[int]:
     return [(start + i) % 7 for i in range((end - start) % 7 + 1)]
 
 
-def _calendar(zone_name: str, week: str, holidays: str) -> Calendar:
-    zone = zone_or_none(zone_name)
-    assert zone is not None, zone_name
-    if week == "around the clock":
-        return Calendar(zone=zone, kind=CalendarKind.AROUND_THE_CLOCK)
+def _periods(week: str) -> list[Period]:
     periods: list[Period] = []
     for group in week.split(";"):
         days, _, times = group.strip().partition(" ")
         for span in times.split(","):
             start, end = (parse_hhmm(t) for t in span.strip().split("-"))
             periods.extend(Period(day, start, end) for day in _days(days))
+    return periods
+
+
+def _special(text: str) -> tuple[SpecialHours, ...]:
+    ranges = []
+    for item in filter(None, (r.strip() for r in text.split(" + "))):
+        dates, _, week = item.partition(": ")
+        first, _, last = dates.partition("..")
+        ranges.append(
+            SpecialHours(date.fromisoformat(first), date.fromisoformat(last), tuple(_periods(week)))
+        )
+    assert special_hours_problems(ranges) == [], text
+    return tuple(ranges)
+
+
+def _calendar(zone_name: str, week: str, holidays: str, special: str) -> Calendar:
+    zone = zone_or_none(zone_name)
+    assert zone is not None, zone_name
+    if week == "around the clock":
+        return Calendar(zone=zone, kind=CalendarKind.AROUND_THE_CLOCK)
+    periods = _periods(week)
     assert period_errors(periods) == [], week
     marked: dict[date, HolidayPart] = {}
     for entry in filter(None, (h.strip() for h in holidays.split(";"))):
         day, _, part = entry.partition(" ")
         marked[date.fromisoformat(day)] = HolidayPart(part or "full")
-    return Calendar(zone=zone, periods=tuple(periods), holidays=marked)
+    return Calendar(zone=zone, periods=tuple(periods), holidays=marked, special=_special(special))
 
 
 CALENDARS = {
-    code: _calendar(zone, week, holidays) for code, zone, week, holidays in _rows("Calendars")
+    code: _calendar(zone, week, holidays, special)
+    for code, zone, week, holidays, special in _rows("Calendars")
 }
 CASES = _rows("Cases")
 

@@ -17,6 +17,7 @@ from app.modules.sla.domain.calendar import (
     CalendarKind,
     HolidayPart,
     Period,
+    SpecialHours,
     format_hhmm,
     parse_hhmm,
     period_errors,
@@ -137,19 +138,34 @@ def holiday_map(holidays: Iterable[HolidayDates]) -> dict[date, HolidayPart]:
     return days
 
 
+@dataclass(frozen=True)
+class SpecialRange:
+    """Stored special date-range hours: first and last day and their week (stored form)."""
+
+    starts_on: date
+    ends_on: date
+    week: Sequence[Mapping[str, Any]]
+
+
 def build_calendar(
     *,
     kind: str,
     time_zone: str,
     week: Iterable[Mapping[str, Any]],
     holidays: Iterable[HolidayDates],
+    special: Iterable[SpecialRange] = (),
 ) -> Calendar:
-    """The maths calendar of a stored calendar and the holidays of its lists."""
+    """The maths calendar of a stored calendar, its date-range hours and its holidays."""
     if kind == CalendarKind.AROUND_THE_CLOCK:
         return Calendar.around_the_clock()
     zone = zone_or_none(time_zone) or zone_or_none(DEFAULT_ZONE)
     assert zone is not None  # noqa: S101 - UTC always exists (tzdata ships, D-115)
-    return Calendar(zone=zone, periods=periods_of(week), holidays=holiday_map(holidays))
+    return Calendar(
+        zone=zone,
+        periods=periods_of(week),
+        holidays=holiday_map(holidays),
+        special=tuple(SpecialHours(r.starts_on, r.ends_on, periods_of(r.week)) for r in special),
+    )
 
 
 def next_year(day: date) -> date:
