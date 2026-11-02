@@ -879,6 +879,35 @@ async def test_bug_01_sending_again_stops_the_earlier_link(world: World) -> None
     assert second_account in world.admin.accounts
 
 
+async def test_earlier_links_work_says_whether_an_earlier_link_still_works(world: World) -> None:
+    """Product owner 2026-10-28: Keycloak cannot withdraw one link (proved on 26.8.1), so for an
+    account that existed before the invitation the screen states the earlier links still work."""
+    made = await _invite(world, await _person(world))
+    assert made["earlier_links_work"] is False  # one link so far
+    again = await world.call(
+        "POST",
+        f"/identity/invitations/{made['id']}/resend",
+        world.a,
+        headers={"If-Match": f'"{made["version"]}"'},
+    )
+    assert again.json()["earlier_links_work"] is False  # made afresh: the earlier link is dead
+
+    existing = KeycloakUser(
+        id="kc-existing", email="nadia@acme.test", enabled=True, has_password=False
+    )
+    world.admin.accounts[existing.id] = existing  # e.g. made by hand before the invitation
+    invited = await _invite(world, await _person(world, "nadia@acme.test", "en"))
+    resent = await world.call(
+        "POST",
+        f"/identity/invitations/{invited['id']}/resend",
+        world.a,
+        headers={"If-Match": f'"{invited["version"]}"'},
+    )
+    assert resent.status_code == 200, resent.text
+    assert resent.json()["earlier_links_work"] is True
+    assert existing.id in world.admin.accounts  # not ours to delete
+
+
 async def test_expired_and_accepted_invitations(world: World) -> None:
     """REQ-SEC-020 AC1 (expired shows as such) and AC3 (the first sign-in accepts it)."""
     first = await _invite(world, await _person(world))
@@ -1344,9 +1373,11 @@ async def test_my_account_shows_how_i_sign_in_and_recent_sign_ins(world: World) 
         world, "UPDATE users SET external_subject = 'kc-req' WHERE id = $1", world.a.requester
     )
     world.admin.credentials_of["kc-req"] = [Credential("p", "password"), Credential("o", "otp")]
+    # Within the last week, counted from now: fixed timestamps aged out of the window (2026-11-02).
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
     world.admin.events = [
-        LoginEvent("LOGIN", 1_793_000_000_000, None, None, "kc-req"),
-        LoginEvent("LOGIN_ERROR", 1_792_999_000_000, "invalid_user_credentials", None, "kc-req"),
+        LoginEvent("LOGIN", now_ms - 3_600_000, None, None, "kc-req"),
+        LoginEvent("LOGIN_ERROR", now_ms - 7_200_000, "invalid_user_credentials", None, "kc-req"),
     ]
     found = await world.call("GET", "/account/security", world.a, world.a.requester)
     assert found.status_code == 200, found.text
