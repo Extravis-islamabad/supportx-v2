@@ -60,6 +60,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/generated
       - name: Volume test
         working-directory: backend
         env:

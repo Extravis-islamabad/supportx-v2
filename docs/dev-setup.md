@@ -20,6 +20,13 @@ Apple Silicon (M1–M4) Macs are fully supported: every image used is multi-arch
 
 ## 2. First-time setup
 
+**Generated files (D-127).** The OpenAPI contract, the TypeScript API types
+(`frontend/packages/api-client/openapi.json`, `src/schema.ts`) and the backend's label dictionary
+(`backend/app/shared/labels/resources.json`) are generated, never committed. `make setup` writes
+them; after pulling or changing an API or a label, run `make generated` (the frontend's lint,
+typecheck, test and build scripts also write them when they are missing). They are never merged by
+hand: on a conflict there is nothing to merge, just regenerate.
+
 ```bash
 make dev-init     # creates deploy/compose/.env with random passwords (never overwrites it)
 make dev-up       # starts the core services and waits until all are healthy (~1 min first time)

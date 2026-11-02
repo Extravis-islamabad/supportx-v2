@@ -59,6 +59,9 @@ COPY --chown=root:root backend/app ./app
 COPY --chown=root:root backend/workers ./workers
 COPY --chown=root:root backend/migrations ./migrations
 COPY --chown=root:root backend/tooling ./tooling
+# The label dictionary is generated, never committed (D-127): `make generated` before the build.
+RUN test -f app/shared/labels/resources.json \
+ || { echo "resources.json missing: run make generated before building images (D-127)" >&2; exit 1; }
 RUN python -m compileall -q app workers migrations tooling
 USER 10001:10001
 EXPOSE 9464
@@ -96,6 +99,9 @@ COPY --chown=root:root backend/app ./app
 COPY --chown=root:root backend/workers ./workers
 COPY --chown=root:root backend/migrations ./migrations
 COPY --chown=root:root backend/tooling ./tooling
+# The label dictionary is generated, never committed (D-127): `make generated` before the build.
+RUN test -f app/shared/labels/resources.json \
+ || { echo "resources.json missing: run make generated before building images (D-127)" >&2; exit 1; }
 # Byte-compile at build time: the root filesystem is read-only at run time.
 RUN python -m compileall -q app workers migrations tooling
 USER 10001:10001

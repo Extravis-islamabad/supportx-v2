@@ -91,7 +91,8 @@ Copy `api/routes.py`.
 - [ ] Create: `Idempotency` + `Created(body, headers={"Location", "ETag"})`, status 201.
 - [ ] Update and actions: `ExpectedVersion` (If-Match, 428 without it) and `set_etag`.
 - [ ] Pass `source_of(request)` to the service. Bodies use `extra="forbid"`.
-- [ ] `make openapi` regenerates `openapi.json` and the TypeScript schema.
+- [ ] `make openapi` regenerates `openapi.json` and the TypeScript schema (generated, never
+  committed: D-127).
 
 ## 6. Events and realtime
 
