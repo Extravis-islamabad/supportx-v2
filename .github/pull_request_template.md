@@ -13,7 +13,7 @@ Tick each item, or strike it through and explain why it does not apply.
 - [ ] Tests at the right layers (domain, service with Testcontainers, RLS and outbox where relevant, e2e for critical journeys)
 - [ ] Dashboards/alerts exist for new services; user docs updated
 - [ ] `make check` is green locally (ruff, mypy, tsc, ESLint, Prettier, import-linter, tests)
-- [ ] `docs/PROGRESS.md` updated
+- [ ] `docs/PROGRESS.md` updated (WP status), session log as a new `docs/progress-log/` file, decisions as new `docs/decisions/D-NNN.md` files (D-123)
 
 ## Non-negotiable rules touched (CLAUDE.md §5)
 
