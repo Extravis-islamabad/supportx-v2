@@ -8,6 +8,7 @@ import { scriptedRealtime } from '@supportx/realtime/testing';
 import { App } from '../../App';
 import { consoleApi, fakeSession, problem } from '../../test/api';
 import { adjust, settle, type Place } from './layout';
+import { isOpenNow, widgetDefinition } from './widgetDefinition';
 
 // WP-036 QA round (~/Desktop/qa-wp036/QA-REPORT.md): one failing test per bug ID, then the fix.
 
@@ -354,6 +355,24 @@ describe('WP-036 QA fixes', () => {
       expect(open.length).toBeGreaterThan(0);
       expect(open.some((body) => body.includes('last_n_days'))).toBe(false);
     });
+  });
+
+  it('D-119 with D-114: overdue, due today and awaiting response are numbers of now; a flow keeps its range', () => {
+    for (const measure of ['overdue_count', 'due_today_count', 'awaiting_response_count']) {
+      const report = { schema_version: 1, entity: 'incident', measures: [measure], chart: 'kpi' };
+      expect(isOpenNow(report as never)).toBe(true);
+      const run = widgetDefinition(
+        { id: 'k', report, place: { x: 0, y: 0, w: 3, h: 2 } } as never,
+        {
+          userId: 'u1',
+          filters: { days: 7 },
+          builtin: [],
+        },
+      );
+      expect(JSON.stringify(run?.filter ?? null)).not.toContain('last_n_days');
+    }
+    const trend = { schema_version: 1, entity: 'incident', measures: ['count'], chart: 'kpi' };
+    expect(isOpenNow(trend as never)).toBe(false);
   });
 
   it('BUG-04: every control of Add widget is named by its label (screen readers)', async () => {

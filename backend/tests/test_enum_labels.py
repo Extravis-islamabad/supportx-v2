@@ -38,6 +38,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
+    # Dashboard widgets, decision D-114
+    "FlowSpec.bucket": "report_bucket",
+    "RecordsSpec-Input.sort": "dashboard_records_sort",
+    "RecordsSpec-Output.sort": "dashboard_records_sort",
     # Knowledge (WP-033)
     "ArticleIn.language": "locale",
     "ArticleIn.requesters": "kb_requesters",

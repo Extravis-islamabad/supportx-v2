@@ -2,7 +2,9 @@ import {
   DASHBOARD_ME,
   type BuiltinReport,
   type DashboardFilters,
+  type DashboardRecords,
   type DashboardWidget,
+  type IncidentsQuery,
   type ReportDefinition,
   type ReportField,
 } from '@supportx/api-client';
@@ -42,11 +44,18 @@ export function unusableFilters(
   );
 }
 
-const NOW_MEASURES = new Set(['open_count', 'unassigned_open_count']);
+// Measures that count only open records (D-119; overdue, due today and awaiting response: D-114).
+const NOW_MEASURES = new Set([
+  'open_count',
+  'unassigned_open_count',
+  'overdue_count',
+  'due_today_count',
+  'awaiting_response_count',
+]);
 const OPEN_CATEGORIES = new Set(['open', 'paused']);
 
 /** The filter requires open records: a condition on status_category, alone or inside an AND. */
-function requiresOpen(filter: unknown): boolean {
+export function requiresOpen(filter: unknown): boolean {
   if (filter === null || typeof filter !== 'object') return false;
   const node = filter as { and?: unknown[]; field?: string; op?: string; value?: unknown };
   if (Array.isArray(node.and)) return node.and.some(requiresOpen);
@@ -94,6 +103,7 @@ export function widgetDefinition(
     fields?: ReportField[];
   },
 ): ReportDefinition | null {
+  if (widget.records) return null; // a list of records: recordsQuery()
   let base: ReportDefinition | null | undefined = widget.report;
   if (!base && widget.report_ref?.startsWith('builtin:')) {
     const code = widget.report_ref.slice('builtin:'.length);
@@ -111,7 +121,9 @@ export function widgetDefinition(
   if (filters.group_id && !skip.has('group_id')) {
     extra.push({ field: 'group_id', op: 'eq', value: filters.group_id });
   }
-  if (filters.days && !skip.has('days') && !isOpenNow(own)) {
+  // Not for a created-vs-resolved report, which has its own range (D-114), nor for an open-now
+  // widget, which counts what is open however old (D-119).
+  if (filters.days && !skip.has('days') && !own.flow && !isOpenNow(own)) {
     extra.push({ field: 'created_at', op: 'last_n_days', value: filters.days });
   }
   if (extra.length === 0) return own;
@@ -151,4 +163,37 @@ export function appliedFilters(
   return (Object.keys(FILTER_FIELDS) as DashboardFilterKey[]).filter(
     (key) => filters[key] != null && !unusable.has(key),
   );
+}
+
+// The list's sort for each records-widget order (D-114).
+const RECORD_SORTS: Record<NonNullable<DashboardRecords['sort']>, string> = {
+  updated: '-updated_at',
+  created: '-created_at',
+  due: 'resolution_due_at',
+  priority: 'priority',
+};
+
+/**
+ * The list query of a records widget for one viewer: its filter with "me" as the viewer and the
+ * dashboard's filters added, its order and its size. The list applies the viewer's scope.
+ */
+export function recordsQuery(
+  records: DashboardRecords,
+  { userId, filters }: { userId: string; filters: DashboardFilters },
+): IncidentsQuery {
+  const parts: unknown[] = [];
+  if (records.filter) parts.push(withViewer(records.filter, userId));
+  if (filters.site_id) parts.push({ field: 'site_id', op: 'eq', value: filters.site_id });
+  if (filters.group_id) parts.push({ field: 'group_id', op: 'eq', value: filters.group_id });
+  // A list of what is open now (overdue, due today, my open work) shows all of it, however old
+  // (D-119): the bar's "created in the last N days" would hide the oldest, most urgent records.
+  if (filters.days && !requiresOpen(records.filter)) {
+    parts.push({ field: 'created_at', op: 'last_n_days', value: filters.days });
+  }
+  const filter = parts.length === 0 ? undefined : parts.length === 1 ? parts[0] : { and: parts };
+  return {
+    filter: filter as IncidentsQuery['filter'],
+    sort: RECORD_SORTS[records.sort],
+    limit: records.limit,
+  };
 }

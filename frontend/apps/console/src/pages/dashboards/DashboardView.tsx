@@ -40,6 +40,7 @@ import { useRealtimeStatus } from '@supportx/realtime';
 import { DrillDrawer, type Drill } from '../reports/DrillDrawer';
 import { useLiveReportRefresh } from '../reports/liveRefresh';
 import { AddWidget } from './AddWidget';
+import { RecordsWidget } from './RecordsWidget';
 import {
   appliedFilters,
   isOpenNow,
@@ -128,6 +129,18 @@ export function DashboardView({
   );
 
   const renderWidget = (widget: DashboardWidget, handle: boolean) => {
+    if (widget.records) {
+      return (
+        <RecordsWidget
+          widget={widget}
+          userId={userId}
+          filters={filters}
+          onDrill={setDrill}
+          toolbar={editing ? toolbar(widget) : undefined}
+          dragHandle={handle}
+        />
+      );
+    }
     const definition = definitions.get(widget.id) ?? null;
     const now = isOpenNow(definition);
     const notes = nowFilters(
