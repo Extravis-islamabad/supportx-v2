@@ -263,3 +263,84 @@ async def test_sla_clock_tables_are_isolated_by_rls(world: World) -> None:
                 ),
                 {"id": uuid.uuid4(), "other": a.tenant},
             )
+
+
+# --- due dates set by hand (REQ-SLA-028, D-115 D11) --------------------------------------------
+
+
+async def _set_due(
+    world: World,
+    org: Org,
+    user: uuid.UUID,
+    item: dict[str, Any],
+    kind: str,
+    due_at: datetime | None,
+    reason: str = "Agreed with the requester",
+) -> Any:  # noqa: ANN401 - the httpx response
+    return await world.call(
+        "PUT",
+        f"/incidents/{item['id']}/due-dates/{kind}",
+        org,
+        user,
+        json={"due_at": due_at.isoformat() if due_at else None, "reason": reason},
+        headers={**CONSOLE, "If-Match": f'"{item["version"]}"'},
+    )
+
+
+async def test_req_sla_028_a_due_date_set_by_hand_stays_until_cleared(world: World) -> None:
+    a = world.a
+    item = await _p1(world, a)
+    calculated = (await _targets(world, item))["resolution:1"]["due_at"]
+    wanted = calculated + timedelta(days=2)
+    response = await _set_due(world, a, a.admin, item, "resolution", wanted)
+    assert response.status_code == 200, response.text
+    item = response.json()
+    assert _iso(item["resolution_due_at"]) == wanted
+    row = (await _targets(world, item))["resolution:1"]
+    assert (row["manual_due_at"], row["manual_by"], row["manual_reason"]) == (
+        wanted,
+        a.admin,
+        "Agreed with the requester",
+    )
+    assert row["warning_at"] is None  # a date set by hand has no business-time share
+    assert "sla.target.set_by_hand" in await _events(world, item)
+    entry = (await world.history(a, item))[0]
+    assert entry["reason"] == "Agreed with the requester"
+    assert [c["field"] for c in entry["changes"]] == ["resolution_due_at"]
+    # AC1: a priority change does not move it.
+    changed = await world.patch(a, a.admin, item, priority="p2", priority_reason="Narrower")
+    assert changed.status_code == 200, changed.text
+    assert _iso(changed.json()["resolution_due_at"]) == wanted
+    # AC2: clearing recalculates from the record's SLA (now P2: 8 business hours).
+    cleared = await _set_due(world, a, a.admin, changed.json(), "resolution", None, "Back to SLA")
+    assert cleared.status_code == 200, cleared.text
+    row = (await _targets(world, item))["resolution:1"]
+    assert row["manual_due_at"] is None
+    assert row["manual_by"] is None
+    assert row["target_seconds"] == 8 * 3600
+    assert _iso(cleared.json()["resolution_due_at"]) == row["due_at"] != wanted
+
+
+async def test_due_dates_by_hand_need_the_permission_a_reason_and_a_future_moment(
+    world: World,
+) -> None:
+    a = world.a
+    item = await _p1(world, a)
+    later = datetime.fromisoformat(item["resolution_due_at"]) + timedelta(hours=1)
+    # D-115 D11: technicians do not hold it by default.
+    refused = await _set_due(world, a, a.tech_a, item, "resolution", later)
+    assert refused.status_code == 403, refused.text
+    blank = await _set_due(world, a, a.admin, item, "resolution", later, reason="  ")
+    assert blank.status_code == 422, blank.text
+    past = await _set_due(world, a, a.admin, item, "resolution", later - timedelta(days=30))
+    assert past.status_code == 422, past.text
+    assert past.json()["errors"][0]["code"] == "due_in_past"
+    stale = await _set_due(world, a, a.admin, {**item, "version": 0}, "resolution", later)
+    assert stale.status_code == 409, stale.text
+    resolved = await world.act(a, a.tech_a, item, "resolve")
+    done = await _set_due(world, a, a.admin, resolved.json(), "resolution", later)
+    assert done.status_code == 409, done.text
+    assert done.json()["code"] == "sla_target_done"
+    # Another tenant's admin cannot reach it (404, never a hint it exists).
+    other = await _set_due(world, world.b, world.b.admin, item, "resolution", later)
+    assert other.status_code == 404, other.text

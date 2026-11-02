@@ -4045,4 +4045,12 @@ export const ur: LabelResource = {
   'role.knowledge_manager': 'نالج مینیجر',
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
+  'permission.incidents.edit_due_dates': 'مقررہ تاریخیں ہاتھ سے طے کریں',
+  'permission.incidents.edit_due_dates.description':
+    'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',
+  'event_type.sla.target.set_by_hand': 'SLA کی مقررہ تاریخ ہاتھ سے طے کی گئی',
+  'errors.sla_target_not_found': 'اس واقعے کا ایسا کوئی SLA ہدف نہیں ہے۔',
+  'errors.sla_target_done':
+    'یہ SLA ہدف پورا ہو چکا ہے یا رک چکا ہے، اس لیے اس کی مقررہ تاریخ اب نہیں بدل سکتی۔',
+  'errors.field.due_in_past': 'مستقبل کا کوئی وقت منتخب کریں۔',
 };

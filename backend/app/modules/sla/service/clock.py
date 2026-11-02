@@ -23,7 +23,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import SESSION_TENANT_KEY
-from app.core.errors import NotFound
+from app.core.errors import Conflict, NotFound
 from app.modules import organization
 from app.modules.sla.domain import policy as clocks
 from app.modules.sla.domain.calendar import Calendar
@@ -47,6 +47,7 @@ from app.modules.sla.events import (
     SlaPaused,
     SlaRecalculated,
     SlaResumed,
+    SlaSetByHand,
     SlaStopped,
 )
 from app.modules.sla.infra.models import SlaApplication, SlaPause, SlaPolicy, SlaTarget
@@ -455,6 +456,7 @@ _EVENTS: dict[str, Any] = {
     "met": SlaMet,
     "stopped": SlaStopped,
     "recalculated": SlaRecalculated,
+    "set_by_hand": SlaSetByHand,
 }
 
 
@@ -550,6 +552,51 @@ async def on_change(  # noqa: PLR0913 - the save, explicit
             entry.events += ("met",)
     await _store(run, code, current, settings.warning_percent)
     return _stamp(applied, current)
+
+
+async def set_due_by_hand(  # noqa: PLR0913 - the change and who makes it, explicit
+    session: AsyncSession,
+    code: str,
+    record_id: uuid.UUID,
+    kind: str,
+    due_at: datetime | None,
+    *,
+    reason: str,
+    now: datetime,
+    actor: uuid.UUID | None = None,
+) -> SlaStamp:
+    """A due date set by hand, or cleared with `due_at` None (REQ-SLA-028, D-115 D11).
+
+    The caller checks the permission. A date set by hand stays through priority and policy
+    changes until cleared; clearing recalculates from the targets the record already has.
+    """
+    rtype = record_type(code)
+    if rtype is None:
+        raise NotFound(code="sla_record_type_not_found", params={"record_type": code})
+    actor = actor or session.info[SESSION_TENANT_KEY].user_id
+    application, current = await _current(session, record_id)
+    entry = current.get(TargetKind(kind)) if kind in {k.value for k in TargetKind} else None
+    if entry is None or entry.row is None:
+        raise NotFound(code="sla_target_not_found", params={"kind": kind})
+    if not entry.clock.open:
+        raise Conflict(code="sla_target_done", params={"kind": kind})
+    run = _Run(session, rtype, record_id, {}, now, actor)
+    calendar = await run.calendar(entry.calendar_id)
+    entry.clock = clocks.set_by_hand(entry.clock, due_at, calendar)
+    entry.events += ("set_by_hand",)
+    settings = await settings_of(session, code)
+    await _store(run, code, {TargetKind(kind): entry}, settings.warning_percent)
+    by_hand = due_at is not None
+    await session.execute(
+        update(SlaTarget)
+        .where(SlaTarget.id == entry.row.id)
+        .values(
+            manual_by=actor if by_hand else None,
+            manual_reason=reason if by_hand else None,
+            manual_at=now if by_hand else None,
+        )
+    )
+    return _stamp(application, current)
 
 
 async def _pausing(session: AsyncSession, application: SlaApplication | None) -> list[str]:

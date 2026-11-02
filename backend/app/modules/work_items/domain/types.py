@@ -198,6 +198,7 @@ FIELD_PROBLEMS = frozenset(
         "group_not_yours",
         "group_required",
         "invalid_prefix",
+        "due_in_past",  # a due date set by hand (REQ-SLA-028)
         "english_label_required",
         "unknown_language",
         "too_deep",

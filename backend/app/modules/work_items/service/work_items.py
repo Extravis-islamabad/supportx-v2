@@ -2370,6 +2370,78 @@ async def take(  # noqa: PLR0913 - the record and its context, explicit
     )
 
 
+# --- due dates set by hand (REQ-SLA-028, REQ-INC-012, D-115 D11) -------------------------------
+
+
+async def set_due_date(  # noqa: PLR0913 - the record, the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    kind: str,
+    due_at: datetime | None,
+    reason: str,
+    expected_version: int,
+    source: Source,
+) -> WorkItemView:
+    """Set a target's due date by hand, or clear it (`due_at` None); always with a reason.
+
+    The date then stays through priority and policy changes until cleared; clearing
+    recalculates it from the record's SLA (REQ-SLA-028 AC1, AC2).
+    """
+    record = await _for_action(session, subject, wtype, "edit_due_dates", record_id)
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    if not sla_glue.has_sla(record) or kind not in sla_glue.DUE_COLUMNS:
+        raise NotFound(code="sla_target_not_found", params={"kind": kind})
+    now = _now()
+    problems: list[tuple[str, str]] = []
+    if not reason.strip():
+        problems.append(("reason", "required"))
+    if due_at is not None and due_at <= now:
+        problems.append(("due_at", "due_in_past"))
+    if problems:
+        raise _errors(problems)
+    audience_before = _audience(record)
+    columns = await sla_glue.set_due(
+        session, record, kind, due_at, reason=reason.strip(), now=now, actor=subject.user_id
+    )
+    change = sla_glue.due_change(record, kind, columns)
+    changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
+    try:
+        updated = await WorkItemRepository(session).update(
+            record.id, expected_version=expected_version, changes=changed
+        )
+    except Conflict as error:
+        raise await _conflict(session, error, record.id) from error
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[change],
+        source=source,
+        reason=reason.strip(),
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted({change.field, *changed}),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return await _view(session, subject, wtype, updated)
+
+
 # --- trash ----------------------------------------------------------------------------------------
 
 

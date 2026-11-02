@@ -4507,4 +4507,12 @@ export const ar: LabelResource = {
   'antd.transfer.select_invert': 'عكس تحديد الصفحة الحالية',
   'role.knowledge_manager': 'مدير المعرفة',
   'role.knowledge_manager.description': 'يكتب مقالات المعرفة ويراجعها وينشرها للمؤسسة بأكملها.',
+  'permission.incidents.edit_due_dates': 'تعيين مواعيد الاستحقاق يدويًا',
+  'permission.incidents.edit_due_dates.description':
+    'تعيين موعد استحقاق الاستجابة أو الحل لحادثة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
+  'event_type.sla.target.set_by_hand': 'عُيّن موعد استحقاق اتفاقية مستوى الخدمة يدويًا',
+  'errors.sla_target_not_found': 'لا يوجد لهذه الحادثة هدف اتفاقية مستوى خدمة كهذا.',
+  'errors.sla_target_done':
+    'تحقق هدف اتفاقية مستوى الخدمة هذا أو توقف، لذا لم يعد بالإمكان تغيير موعد استحقاقه.',
+  'errors.field.due_in_past': 'اختر وقتًا في المستقبل.',
 };

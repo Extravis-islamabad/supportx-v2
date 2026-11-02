@@ -4442,6 +4442,14 @@ export const en = {
   'role.knowledge_manager': 'Knowledge manager',
   'role.knowledge_manager.description':
     'Writes, reviews and publishes knowledge articles for the whole organisation.',
+  'permission.incidents.edit_due_dates': 'Set due dates by hand',
+  'permission.incidents.edit_due_dates.description':
+    "Set or clear an incident's response or resolution due date by hand, with a reason. The date then stays until cleared.",
+  'event_type.sla.target.set_by_hand': 'SLA due date set by hand',
+  'errors.sla_target_not_found': 'This incident has no such SLA target.',
+  'errors.sla_target_done':
+    'This SLA target is already met or stopped, so its due date can no longer change.',
+  'errors.field.due_in_past': 'Choose a moment in the future.',
 } as const;
 
 export type LabelKey = keyof typeof en;

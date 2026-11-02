@@ -122,3 +122,30 @@ async def record_sla_history(
             changes=[Change(k, _plain(before.get(k)), _plain(v)) for k, v in columns.items()],
             source="sla",
         )
+
+
+# The record column that shows each target's due moment (REQ-SLA-028).
+DUE_COLUMNS = {"first_response": "first_response_due_at", "resolution": "resolution_due_at"}
+
+
+async def set_due(  # noqa: PLR0913 - the change and who makes it, explicit
+    session: AsyncSession,
+    record: WorkItem,
+    kind: str,
+    due_at: datetime | None,
+    *,
+    reason: str,
+    now: datetime,
+    actor: uuid.UUID,
+) -> dict[str, Any]:
+    """Set or clear a due date by hand in sla; returns the record's SLA columns after it."""
+    stamp = await sla.set_due_by_hand(
+        session, record.type, record.id, kind, due_at, reason=reason, now=now, actor=actor
+    )
+    return stamp.columns()
+
+
+def due_change(record: WorkItem, kind: str, columns: Mapping[str, Any]) -> Change:
+    """The history line of a due date set or cleared by hand."""
+    column = DUE_COLUMNS[kind]
+    return Change(column, _plain(getattr(record, column)), _plain(columns.get(column)))

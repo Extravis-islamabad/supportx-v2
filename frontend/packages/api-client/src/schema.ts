@@ -2798,6 +2798,26 @@ export interface paths {
         patch: operations["visibility_api_v1_incidents__record_id__conversation__entry_id__patch"];
         trace?: never;
     };
+    "/api/v1/incidents/{record_id}/due-dates/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set or clear a due date by hand
+         * @description REQ-SLA-028: the date stays through priority and policy changes until cleared.
+         */
+        put: operations["set_due_date_api_v1_incidents__record_id__due_dates__kind__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/{record_id}/followers": {
         parameters: {
             query?: never;
@@ -12687,6 +12707,19 @@ export interface components {
             resolve_requires?: string[] | null;
             /** Task Owner Access */
             task_owner_access?: boolean | null;
+        };
+        /**
+         * WorkItemDueDateIn
+         * @description A due date set by hand (null clears it and the SLA calculates it again), and why.
+         */
+        WorkItemDueDateIn: {
+            /**
+             * Due At
+             * @description The new due moment (UTC); null clears it.
+             */
+            due_at: string | null;
+            /** Reason */
+            reason: string;
         };
         /**
          * WorkItemFieldChangeOut
@@ -25974,6 +26007,90 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    set_due_date_api_v1_incidents__record_id__due_dates__kind__put: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_id: string;
+                kind: "first_response" | "resolution";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkItemDueDateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -176,6 +176,9 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
     ("add_note", ALL_SCOPES, _TECH),
     ("reply", ALL_SCOPES, _TECH),
     ("manage_followers", ALL_SCOPES, _TECH),
+    # WP-025: due dates set by hand (D-115 D11): not for technicians by default (least
+    # privilege). Admins hold every permission; a group lead gets it through a role.
+    ("edit_due_dates", ALL_SCOPES, ()),
 )
 
 

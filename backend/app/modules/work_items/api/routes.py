@@ -235,6 +235,15 @@ class WorkItemAssignIn(BaseModel):
     )
 
 
+class WorkItemDueDateIn(BaseModel):
+    """A due date set by hand (null clears it and the SLA calculates it again), and why."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    due_at: datetime | None = Field(description="The new due moment (UTC); null clears it.")
+    reason: str = Field(min_length=1, max_length=500)
+
+
 class WorkItemTakeIn(BaseModel):
     """Which of your groups, when it has none and you are in several."""
 
@@ -935,6 +944,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Edit = Annotated[Subject, Depends(require_permission(perm("edit")))]  # noqa: N806 - type alias
     Assign = Annotated[Subject, Depends(require_permission(perm("assign")))]  # noqa: N806 - type alias
     Take = Annotated[Subject, Depends(require_permission(perm("take")))]  # noqa: N806 - type alias
+    DueDates = Annotated[Subject, Depends(require_permission(perm("edit_due_dates")))]  # noqa: N806 - type alias
     Delete = Annotated[Subject, Depends(require_permission(perm("delete")))]  # noqa: N806 - type alias
     Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
@@ -1387,6 +1397,39 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             group_id=body.group_id if body else None,
             source=source_of(request),
             holders=policy,
+        )
+        set_etag(response, view.record.version)
+        return WorkItemOut.of(view)
+
+    @router.put(
+        "/{record_id}/due-dates/{kind}",
+        summary="Set or clear a due date by hand",
+        responses=CONFLICT,
+        dependencies=[
+            audited(f"{name}.due_date_changed", object_type=name, object_param="record_id")
+        ],
+    )
+    async def set_due_date(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        kind: Literal["first_response", "resolution"],
+        body: WorkItemDueDateIn,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: DueDates,
+        response: Response,
+        request: Request,
+    ) -> WorkItemOut:
+        """REQ-SLA-028: the date stays through priority and policy changes until cleared."""
+        view = await service.set_due_date(
+            session,
+            subject,
+            wtype,
+            record_id,
+            kind=kind,
+            due_at=body.due_at,
+            reason=body.reason,
+            expected_version=version,
+            source=source_of(request),
         )
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)

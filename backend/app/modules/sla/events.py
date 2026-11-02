@@ -159,6 +159,12 @@ class SlaRecalculated(_ClockEvent):
     event_type: ClassVar[str] = "sla.target.recalculated"
 
 
+class SlaSetByHand(_ClockEvent):
+    """A person set the due date by hand, or cleared it (REQ-SLA-028; who and why on the target)."""
+
+    event_type: ClassVar[str] = "sla.target.set_by_hand"
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     SlaCalendarSaved,
     SlaCalendarDeleted,
@@ -173,5 +179,6 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SlaResumed,
     SlaMet,
     SlaStopped,
+    SlaSetByHand,
     SlaRecalculated,
 )

@@ -2553,6 +2553,33 @@
         "type": "object"
       }
     },
+    "sla.target.set_by_hand": {
+      "1": {
+        "description": "A person set the due date by hand, or cleared it (REQ-SLA-028; who and why on the target).",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaSetByHand",
+        "type": "object"
+      }
+    },
     "sla.target.stopped": {
       "1": {
         "description": "Closed or canceled before the target was met; never a breach by itself.",
