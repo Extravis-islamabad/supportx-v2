@@ -102,7 +102,13 @@ async def link(  # noqa: PLR0913 - which article, which record, how, explicit
     if existing is not None:
         return existing, False
     row = KbRecordLink(
-        article_id=article_id, record_type=record_type, record_id=record_id, source=how
+        tenant_id=subject.tenant_id,
+        article_id=article_id,
+        record_type=record_type,
+        record_id=record_id,
+        source=how,
+        created_by=subject.user_id,
+        updated_by=subject.user_id,
     )
     session.add(row)
     await session.flush()

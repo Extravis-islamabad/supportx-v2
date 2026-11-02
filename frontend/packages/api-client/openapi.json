@@ -944,6 +944,139 @@
         "title": "AnnouncementVisibility",
         "type": "string"
       },
+      "AppliedOut": {
+        "description": "What goes into the editor: content with copied images, or the article's title for a link.",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "fallback": {
+            "description": "The wanted language is not published: the other one.",
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "html": {
+            "description": "Sanitised; empty for a link.",
+            "title": "Html",
+            "type": "string"
+          },
+          "images_not_copied": {
+            "items": {
+              "$ref": "#/components/schemas/NotCopiedOut"
+            },
+            "title": "Images Not Copied",
+            "type": "array"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visible_to_requester": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Visible To Requester"
+          }
+        },
+        "required": [
+          "article_id",
+          "display_id",
+          "title",
+          "language",
+          "fallback",
+          "html",
+          "visible_to_requester",
+          "images_not_copied"
+        ],
+        "title": "AppliedOut",
+        "type": "object"
+      },
+      "ApplyCheckOut": {
+        "description": "The composer's warning, decided by the server (D-108 (3)).",
+        "properties": {
+          "visible_to_requester": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "False: the people the record is for cannot read this article. None: a private note, read by staff only.",
+            "title": "Visible To Requester"
+          }
+        },
+        "required": [
+          "visible_to_requester"
+        ],
+        "title": "ApplyCheckOut",
+        "type": "object"
+      },
+      "ApplyIn": {
+        "additionalProperties": false,
+        "description": "Insert an article into a reply (REQ-KB-063).",
+        "properties": {
+          "audience": {
+            "enum": [
+              "public",
+              "private"
+            ],
+            "title": "Audience",
+            "type": "string"
+          },
+          "language": {
+            "default": "en",
+            "enum": [
+              "en",
+              "ar"
+            ],
+            "title": "Language",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "content",
+              "link"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "pattern": "^[a-z][a-z_]{1,29}$",
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "audience",
+          "mode"
+        ],
+        "title": "ApplyIn",
+        "type": "object"
+      },
       "ApprovalCountOut": {
         "description": "A number for a menu badge.",
         "properties": {
@@ -1100,6 +1233,28 @@
           "title"
         ],
         "title": "ArticleIn",
+        "type": "object"
+      },
+      "ArticleLinksOut": {
+        "description": "An article's links that you may see, and how many others.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedRecordOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "restricted": {
+            "title": "Restricted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "restricted"
+        ],
+        "title": "ArticleLinksOut",
         "type": "object"
       },
       "ArticleOut": {
@@ -6746,6 +6901,35 @@
         "title": "FilterOr",
         "type": "object"
       },
+      "FindingOut": {
+        "description": "Something that looks like personal data: where, and what kind.",
+        "properties": {
+          "field": {
+            "enum": [
+              "title",
+              "body"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "email",
+              "phone",
+              "account_number",
+              "password"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "field",
+          "kind"
+        ],
+        "title": "FindingOut",
+        "type": "object"
+      },
       "FirstResponseAction": {
         "description": "Actions an admin may count as the first response (REQ-INC-065).",
         "enum": [
@@ -6863,6 +7047,61 @@
         ],
         "title": "FormDensity",
         "type": "string"
+      },
+      "FromRecordIn": {
+        "additionalProperties": false,
+        "description": "Save a record's resolution as knowledge (REQ-KB-016).",
+        "properties": {
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "pattern": "^[a-z][a-z_]{1,29}$",
+            "title": "Record Type",
+            "type": "string"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "type_code": {
+            "default": "how_to",
+            "maxLength": 40,
+            "title": "Type Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "topic_id"
+        ],
+        "title": "FromRecordIn",
+        "type": "object"
+      },
+      "FromRecordOut": {
+        "description": "The new article and draft, and what the author should look at before submitting.",
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleOut"
+          },
+          "personal_data": {
+            "items": {
+              "$ref": "#/components/schemas/FindingOut"
+            },
+            "title": "Personal Data",
+            "type": "array"
+          }
+        },
+        "required": [
+          "article",
+          "personal_data"
+        ],
+        "title": "FromRecordOut",
+        "type": "object"
       },
       "GrantIO": {
         "description": "One permission of a role.",
@@ -8380,6 +8619,88 @@
         "title": "LinkOut",
         "type": "object"
       },
+      "LinkedArticleOut": {
+        "description": "An article linked to a record, as a line of the record's Knowledge card.",
+        "properties": {
+          "article": {
+            "$ref": "#/components/schemas/ArticleOut"
+          },
+          "link_id": {
+            "format": "uuid",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "linked_at": {
+            "format": "date-time",
+            "title": "Linked At",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "source",
+          "linked_at",
+          "article"
+        ],
+        "title": "LinkedArticleOut",
+        "type": "object"
+      },
+      "LinkedRecordOut": {
+        "description": "A record linked to an article, as a line of its Links tab.",
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "link_id": {
+            "format": "uuid",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "linked_at": {
+            "format": "date-time",
+            "title": "Linked At",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status_category": {
+            "title": "Status Category",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "source",
+          "linked_at",
+          "record_type",
+          "record_id",
+          "display_id",
+          "subject",
+          "status_category"
+        ],
+        "title": "LinkedRecordOut",
+        "type": "object"
+      },
       "ListColumn": {
         "description": "One column of the list: a field key (`custom.<key>` for custom fields) and its width.",
         "properties": {
@@ -9637,6 +9958,26 @@
         ],
         "title": "NavLayout",
         "type": "string"
+      },
+      "NotCopiedOut": {
+        "description": "An image of the article that was left out, and why.",
+        "properties": {
+          "file_id": {
+            "format": "uuid",
+            "title": "File Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file_id",
+          "reason"
+        ],
+        "title": "NotCopiedOut",
+        "type": "object"
       },
       "NotificationCategory": {
         "description": "Groups events for personal preferences (REQ-NTF-016).",
@@ -11227,6 +11568,50 @@
           "cc"
         ],
         "title": "RecipientsOut",
+        "type": "object"
+      },
+      "RecordArticlesOut": {
+        "description": "A record's linked articles that you may read, and how many others.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LinkedArticleOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "restricted": {
+            "title": "Restricted",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "restricted"
+        ],
+        "title": "RecordArticlesOut",
+        "type": "object"
+      },
+      "RecordRef": {
+        "additionalProperties": false,
+        "description": "A record: its type (the work-item type code, `incident`) and id.",
+        "properties": {
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "pattern": "^[a-z][a-z_]{1,29}$",
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id"
+        ],
+        "title": "RecordRef",
         "type": "object"
       },
       "RecordSort": {
@@ -39692,6 +40077,108 @@
         ]
       }
     },
+    "/api/v1/knowledge/articles/from-record": {
+      "post": {
+        "description": "Needs `knowledge.create` and sight of the record; it must have a resolution.",
+        "operationId": "create_from_record_api_v1_knowledge_articles_from_record_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FromRecordIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FromRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Save a resolution as knowledge",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/knowledge/articles/{article_id}": {
       "delete": {
         "description": "Restorable; nothing is deleted for good here (GDPR erasure jobs only).",
@@ -39994,6 +40481,217 @@
           }
         },
         "summary": "Change an article",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/articles/{article_id}/apply": {
+      "post": {
+        "description": "Content (its images copied into your drafts) or a link; the link to the record is kept.",
+        "operationId": "apply_article_api_v1_knowledge_articles__article_id__apply_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppliedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Insert an article into a reply",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/articles/{article_id}/apply-check": {
+      "get": {
+        "description": "Before inserting into a reply; changes nothing.",
+        "operationId": "apply_check_api_v1_knowledge_articles__article_id__apply_check_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "audience",
+            "required": true,
+            "schema": {
+              "enum": [
+                "public",
+                "private"
+              ],
+              "title": "Audience",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApplyCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "May the requester read it?",
         "tags": [
           "knowledge"
         ]
@@ -40748,6 +41446,287 @@
         ]
       }
     },
+    "/api/v1/knowledge/articles/{article_id}/links": {
+      "get": {
+        "description": "The records you may open; the others are only counted.",
+        "operationId": "list_article_links_api_v1_knowledge_articles__article_id__links_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleLinksOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "An article's linked records",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "post": {
+        "description": "Staff who may read the article and open the record. Linking twice changes nothing.",
+        "operationId": "create_link_api_v1_knowledge_articles__article_id__links_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordRef"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkedRecordOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Link an article to a record",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/articles/{article_id}/links/{link_id}": {
+      "delete": {
+        "description": "Needs edit rights on the article and sight of the record.",
+        "operationId": "delete_link_api_v1_knowledge_articles__article_id__links__link_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "link_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Link Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a link",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/knowledge/articles/{article_id}/restore": {
       "post": {
         "description": "Back into its topic (409 kb_topic_in_trash while the topic is in the trash).",
@@ -41177,6 +42156,100 @@
           }
         },
         "summary": "Withdraw",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/records/{record_type}/{record_id}/articles": {
+      "get": {
+        "description": "The articles you may read; the others are only counted. 404 without sight of the record.",
+        "operationId": "list_record_articles_api_v1_knowledge_records__record_type___record_id__articles_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordArticlesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "A record's linked articles",
         "tags": [
           "knowledge"
         ]

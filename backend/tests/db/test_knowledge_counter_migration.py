@@ -110,3 +110,31 @@ def test_0046_articles_keep_their_ids_and_the_counter_continues(
     counters, ids = asyncio.run(_state(at_0041.admin_url, with_articles))
     assert counters == {"KB": 3}
     assert ids == ["KB-1", "KB-2", "KB-3"]
+
+
+def test_0048_adds_record_links_and_copied_from_and_reverses(
+    db_config: db_testing.DbTestConfig,
+) -> None:
+    database = db_testing.create(db_config, migrate_to="0048")
+    try:
+
+        async def columns(table: str) -> set[str]:
+            conn = await asyncpg.connect(database.admin_url)
+            try:
+                rows = await conn.fetch(
+                    "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
+                    table,
+                )
+            finally:
+                await conn.close()
+            return {r["column_name"] for r in rows}
+
+        assert {"article_id", "record_type", "record_id", "source"} <= asyncio.run(
+            columns("kb_record_links")
+        )
+        assert "copied_from" in asyncio.run(columns("files"))
+        db_testing.downgrade(database.migrator_url, "0046")
+        assert asyncio.run(columns("kb_record_links")) == set()
+        assert "copied_from" not in asyncio.run(columns("files"))
+    finally:
+        db_testing.destroy(db_config, database)

@@ -1778,6 +1778,79 @@
         "type": "object"
       }
     },
+    "knowledge.link.removed": {
+      "1": {
+        "description": "An article's link to a record was removed (D-121).",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "link_id": {
+            "format": "uuid",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "article_id",
+          "record_type",
+          "record_id"
+        ],
+        "title": "KbLinkRemoved",
+        "type": "object"
+      }
+    },
+    "knowledge.link.saved": {
+      "1": {
+        "description": "An article was linked to a record (REQ-KB-064): by hand, by an insert, or made from it.",
+        "properties": {
+          "article_id": {
+            "format": "uuid",
+            "title": "Article Id",
+            "type": "string"
+          },
+          "link_id": {
+            "format": "uuid",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "article_id",
+          "record_type",
+          "record_id",
+          "source"
+        ],
+        "title": "KbLinkSaved",
+        "type": "object"
+      }
+    },
     "knowledge.settings.changed": {
       "1": {
         "description": "The tenant's knowledge settings changed (the settings page and the editor refetch).",

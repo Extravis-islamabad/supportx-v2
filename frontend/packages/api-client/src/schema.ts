@@ -3136,6 +3136,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/articles/from-record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Save a resolution as knowledge
+         * @description Needs `knowledge.create` and sight of the record; it must have a resolution.
+         */
+        post: operations["create_from_record_api_v1_knowledge_articles_from_record_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/knowledge/articles/{article_id}": {
         parameters: {
             query?: never;
@@ -3162,6 +3182,46 @@ export interface paths {
          * @description Topic, type, owner, its own audience and dates. Needs If-Match.
          */
         patch: operations["update_article_api_v1_knowledge_articles__article_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Insert an article into a reply
+         * @description Content (its images copied into your drafts) or a link; the link to the record is kept.
+         */
+        post: operations["apply_article_api_v1_knowledge_articles__article_id__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}/apply-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * May the requester read it?
+         * @description Before inserting into a reply; changes nothing.
+         */
+        get: operations["apply_check_api_v1_knowledge_articles__article_id__apply_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/knowledge/articles/{article_id}/drafts/{language}": {
@@ -3268,6 +3328,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/articles/{article_id}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * An article's linked records
+         * @description The records you may open; the others are only counted.
+         */
+        get: operations["list_article_links_api_v1_knowledge_articles__article_id__links_get"];
+        put?: never;
+        /**
+         * Link an article to a record
+         * @description Staff who may read the article and open the record. Linking twice changes nothing.
+         */
+        post: operations["create_link_api_v1_knowledge_articles__article_id__links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}/links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a link
+         * @description Needs edit rights on the article and sight of the record.
+         */
+        delete: operations["delete_link_api_v1_knowledge_articles__article_id__links__link_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/knowledge/articles/{article_id}/restore": {
         parameters: {
             query?: never;
@@ -3342,6 +3446,26 @@ export interface paths {
          * @description Off every reader path at once; approving a new version brings it back.
          */
         post: operations["withdraw_article_api_v1_knowledge_articles__article_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/records/{record_type}/{record_id}/articles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A record's linked articles
+         * @description The articles you may read; the others are only counted. 404 without sight of the record.
+         */
+        get: operations["list_record_articles_api_v1_knowledge_records__record_type___record_id__articles_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5216,6 +5340,77 @@ export interface components {
          */
         AnnouncementVisibility: "hidden" | "scheduled" | "live" | "ended";
         /**
+         * AppliedOut
+         * @description What goes into the editor: content with copied images, or the article's title for a link.
+         */
+        AppliedOut: {
+            /**
+             * Article Id
+             * Format: uuid
+             */
+            article_id: string;
+            /** Display Id */
+            display_id: string;
+            /**
+             * Fallback
+             * @description The wanted language is not published: the other one.
+             */
+            fallback: boolean;
+            /**
+             * Html
+             * @description Sanitised; empty for a link.
+             */
+            html: string;
+            /** Images Not Copied */
+            images_not_copied: components["schemas"]["NotCopiedOut"][];
+            /** Language */
+            language: string;
+            /** Title */
+            title: string;
+            /** Visible To Requester */
+            visible_to_requester: boolean | null;
+        };
+        /**
+         * ApplyCheckOut
+         * @description The composer's warning, decided by the server (D-108 (3)).
+         */
+        ApplyCheckOut: {
+            /**
+             * Visible To Requester
+             * @description False: the people the record is for cannot read this article. None: a private note, read by staff only.
+             */
+            visible_to_requester: boolean | null;
+        };
+        /**
+         * ApplyIn
+         * @description Insert an article into a reply (REQ-KB-063).
+         */
+        ApplyIn: {
+            /**
+             * Audience
+             * @enum {string}
+             */
+            audience: "public" | "private";
+            /**
+             * Language
+             * @default en
+             * @enum {string}
+             */
+            language: "en" | "ar";
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "content" | "link";
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
+        };
+        /**
          * ApprovalCountOut
          * @description A number for a menu badge.
          */
@@ -5281,6 +5476,16 @@ export interface components {
             topic_id: string;
             /** Type Code */
             type_code: string;
+        };
+        /**
+         * ArticleLinksOut
+         * @description An article's links that you may see, and how many others.
+         */
+        ArticleLinksOut: {
+            /** Items */
+            items: components["schemas"]["LinkedRecordOut"][];
+            /** Restricted */
+            restricted: number;
         };
         /**
          * ArticleOut
@@ -7404,6 +7609,22 @@ export interface components {
             or: (components["schemas"]["FilterCondition"] | components["schemas"]["FilterAnd-Output"] | components["schemas"]["FilterOr-Output"])[];
         };
         /**
+         * FindingOut
+         * @description Something that looks like personal data: where, and what kind.
+         */
+        FindingOut: {
+            /**
+             * Field
+             * @enum {string}
+             */
+            field: "title" | "body";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "email" | "phone" | "account_number" | "password";
+        };
+        /**
          * FirstResponseAction
          * @description Actions an admin may count as the first response (REQ-INC-065).
          * @enum {string}
@@ -7481,6 +7702,38 @@ export interface components {
          * @enum {string}
          */
         FormDensity: "comfortable" | "compact";
+        /**
+         * FromRecordIn
+         * @description Save a record's resolution as knowledge (REQ-KB-016).
+         */
+        FromRecordIn: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /**
+             * Type Code
+             * @default how_to
+             */
+            type_code: string;
+        };
+        /**
+         * FromRecordOut
+         * @description The new article and draft, and what the author should look at before submitting.
+         */
+        FromRecordOut: {
+            article: components["schemas"]["ArticleOut"];
+            /** Personal Data */
+            personal_data: components["schemas"]["FindingOut"][];
+        };
         /**
          * GrantIO
          * @description One permission of a role.
@@ -8120,6 +8373,56 @@ export interface components {
             url: string;
         };
         /**
+         * LinkedArticleOut
+         * @description An article linked to a record, as a line of the record's Knowledge card.
+         */
+        LinkedArticleOut: {
+            article: components["schemas"]["ArticleOut"];
+            /**
+             * Link Id
+             * Format: uuid
+             */
+            link_id: string;
+            /**
+             * Linked At
+             * Format: date-time
+             */
+            linked_at: string;
+            /** Source */
+            source: string;
+        };
+        /**
+         * LinkedRecordOut
+         * @description A record linked to an article, as a line of its Links tab.
+         */
+        LinkedRecordOut: {
+            /** Display Id */
+            display_id: string;
+            /**
+             * Link Id
+             * Format: uuid
+             */
+            link_id: string;
+            /**
+             * Linked At
+             * Format: date-time
+             */
+            linked_at: string;
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
+            /** Source */
+            source: string;
+            /** Status Category */
+            status_category: string;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * ListColumn
          * @description One column of the list: a field key (`custom.<key>` for custom fields) and its width.
          */
@@ -8568,6 +8871,19 @@ export interface components {
          * @enum {string}
          */
         NavLayout: "top" | "side" | "side_compact";
+        /**
+         * NotCopiedOut
+         * @description An image of the article that was left out, and why.
+         */
+        NotCopiedOut: {
+            /**
+             * File Id
+             * Format: uuid
+             */
+            file_id: string;
+            /** Reason */
+            reason: string;
+        };
         /**
          * NotificationCategory
          * @description Groups events for personal preferences (REQ-NTF-016).
@@ -9204,6 +9520,29 @@ export interface components {
             cc: string[];
             /** To */
             to: string[];
+        };
+        /**
+         * RecordArticlesOut
+         * @description A record's linked articles that you may read, and how many others.
+         */
+        RecordArticlesOut: {
+            /** Items */
+            items: components["schemas"]["LinkedArticleOut"][];
+            /** Restricted */
+            restricted: number;
+        };
+        /**
+         * RecordRef
+         * @description A record: its type (the work-item type code, `incident`) and id.
+         */
+        RecordRef: {
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
         };
         /**
          * RecordSort
@@ -26482,6 +26821,78 @@ export interface operations {
             };
         };
     };
+    create_from_record_api_v1_knowledge_articles_from_record_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FromRecordIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FromRecordOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     get_article_api_v1_knowledge_articles__article_id__get: {
         parameters: {
             query?: never;
@@ -26682,6 +27093,148 @@ export interface operations {
             };
             /** @description Stale If-Match. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    apply_article_api_v1_knowledge_articles__article_id__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppliedOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    apply_check_api_v1_knowledge_articles__article_id__apply_check_get: {
+        parameters: {
+            query: {
+                record_type: string;
+                record_id: string;
+                audience: "public" | "private";
+            };
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyCheckOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -27189,6 +27742,213 @@ export interface operations {
             };
         };
     };
+    list_article_links_api_v1_knowledge_articles__article_id__links_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleLinksOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_link_api_v1_knowledge_articles__article_id__links_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordRef"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkedRecordOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_link_api_v1_knowledge_articles__article_id__links__link_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     restore_article_api_v1_knowledge_articles__article_id__restore_post: {
         parameters: {
             query?: never;
@@ -27470,6 +28230,74 @@ export interface operations {
             };
             /** @description Stale If-Match. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_record_articles_api_v1_knowledge_records__record_type___record_id__articles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_type: string;
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordArticlesOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

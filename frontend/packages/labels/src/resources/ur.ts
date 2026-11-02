@@ -2451,6 +2451,13 @@ export const ur: LabelResource = {
   'reports.or': 'یا',
   'reports.total': 'کل',
   'errors.kb_article_not_found': 'یہ مضمون موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.kb_record_not_found': 'یہ ریکارڈ موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.kb_link_not_found': 'یہ ربط اب موجود نہیں۔',
+  'errors.kb_article_not_published': 'اس مضمون کا ابھی کوئی شائع شدہ ورژن نہیں جو شامل کیا جا سکے۔',
+  'errors.kb_record_has_no_resolution': 'اس ریکارڈ کا ابھی کوئی حل نہیں جسے نالج بنایا جا سکے۔',
+  'errors.too_many_files': 'ایک ساتھ بہت زیادہ فائلیں: زیادہ سے زیادہ {{max}}۔',
+  'errors.insert_too_large':
+    'مضمون کی تصاویر ایک ساتھ شامل کرنے کے لیے بہت بڑی ہیں: زیادہ سے زیادہ {{limit_mb}} MB۔',
   'errors.kb_type_not_found': 'مضمون کی یہ قسم موجود نہیں۔',
   'errors.field.builtin_type_names': 'پہلے سے موجود قسم کے نام نہیں بدلتے۔',
   'errors.kb_article_not_editable':
@@ -2473,6 +2480,8 @@ export const ur: LabelResource = {
   'errors.field.wider_than_topic': 'مضمون اپنے موضوع کے سامعین کو صرف محدود کر سکتا ہے، وسیع نہیں۔',
   'event_type.knowledge.topic.saved': 'نالج موضوع محفوظ ہوا',
   'event_type.knowledge.topic.deleted': 'نالج موضوع حذف ہوا',
+  'event_type.knowledge.link.saved': 'نالج مضمون ریکارڈ سے جوڑا گیا',
+  'event_type.knowledge.link.removed': 'نالج مضمون کا ریکارڈ سے ربط ہٹایا گیا',
   'event_type.knowledge.type.saved': 'نالج مضمون کی قسم محفوظ ہوئی',
   'event_type.knowledge.settings.changed': 'نالج کی ترتیبات بدلیں',
   'event_type.knowledge.article.saved': 'نالج مضمون محفوظ ہوا',

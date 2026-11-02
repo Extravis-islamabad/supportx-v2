@@ -2853,6 +2853,13 @@ export const en = {
   'reports.or': 'or',
   'reports.total': 'Total',
   'errors.kb_article_not_found': 'This article does not exist or is not shared with you.',
+  'errors.kb_record_not_found': 'This record does not exist or is not shared with you.',
+  'errors.kb_link_not_found': 'This link no longer exists.',
+  'errors.kb_article_not_published': 'This article has no published version to insert yet.',
+  'errors.kb_record_has_no_resolution': 'This record has no resolution to save as knowledge yet.',
+  'errors.too_many_files': 'Too many files at once: at most {{max}}.',
+  'errors.insert_too_large':
+    "The article's images are too large to insert together: at most {{limit_mb}} MB.",
   'errors.kb_type_not_found': 'This article type does not exist.',
   'errors.field.builtin_type_names': 'A built-in type keeps its names.',
   'errors.kb_article_not_editable':
@@ -2876,6 +2883,8 @@ export const en = {
     "An article can only narrow its topic's audience, never widen it.",
   'event_type.knowledge.topic.saved': 'Knowledge topic saved',
   'event_type.knowledge.topic.deleted': 'Knowledge topic deleted',
+  'event_type.knowledge.link.saved': 'Knowledge article linked to a record',
+  'event_type.knowledge.link.removed': 'Knowledge article unlinked from a record',
   'event_type.knowledge.type.saved': 'Knowledge article type saved',
   'event_type.knowledge.settings.changed': 'Knowledge settings changed',
   'event_type.knowledge.article.saved': 'Knowledge article saved',
