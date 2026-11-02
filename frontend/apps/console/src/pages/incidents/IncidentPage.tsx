@@ -74,6 +74,7 @@ import { FollowButton, FollowersCard } from './IncidentFollowers';
 import { KnowledgeCard } from '../knowledge/KnowledgeCard';
 import { KnowledgePicker } from '../knowledge/KnowledgePicker';
 import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
+import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
@@ -751,6 +752,9 @@ function Details({
               </Descriptions.Item>
             ))}
           </Descriptions>
+        </Card>
+        <Card title={t('incidents.sla.title')} data-testid="inc-sla-card">
+          <IncidentSla item={item} />
         </Card>
         <FollowersCard item={item} me={me} />
         <KnowledgeCard

@@ -130,6 +130,9 @@ FIELDS = ResourceFields(
         "resolution_due_at": FilterField(
             WorkItem.resolution_due_at, FieldType.DATETIME, sortable=True, simple=False
         ),
+        "first_response_due_at": FilterField(
+            WorkItem.first_response_due_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
         # Reporting needs these too (WP-035, D-100 D9); they filter the list just the same.
         "first_responded_at": FilterField(
             WorkItem.first_responded_at, FieldType.DATETIME, sortable=True, simple=False
@@ -176,6 +179,9 @@ _ACTIONS: tuple[tuple[str, tuple[Scope, ...], tuple[tuple[str, Scope], ...]], ..
     ("add_note", ALL_SCOPES, _TECH),
     ("reply", ALL_SCOPES, _TECH),
     ("manage_followers", ALL_SCOPES, _TECH),
+    # WP-025: due dates set by hand (D-115 D11): not for technicians by default (least
+    # privilege). Admins hold every permission; a group lead gets it through a role.
+    ("edit_due_dates", ALL_SCOPES, ()),
 )
 
 

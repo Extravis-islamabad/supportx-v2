@@ -8,7 +8,8 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** WP-020d/e e2e and QA round (built: #114, #120), then WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** lane A: WP-025 session 3 (sessions 1-2 built, #152); WP-020d/e QA joins
+  the next batched QA round. Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Speed mode (D-122, until the MVP):** only the fast checks gate merges; e2e, the cluster, PDF and
@@ -66,7 +67,21 @@ decisions D1-D13 (D-038).
    Free plan. Upgrade to Pro (or move to an Extravis org on Team) to keep it, or accept
    unprotected `main`.
 3. **Dependabot PR #3 (jsdom 27 → 30, test helper)** awaits review; majors for TypeScript, Ant
-. **`sr-only` is not defined** (lane C, 2026-10-29): screen-reader-only column titles in Admin
+   Design and React are ignored per D-014, ADR-002 and CLAUDE.md §3 (PRs #2, #4, #5, #6 closed).
+4. **Lane A's part of WP-040 (agreed with lane B, 2026-10-29), after #131–#134 and lane A's
+   queue:**
+   - Identity keeps one event, `identity_access.user.status_changed` (v1), with two defaulted
+     fields: `reason` (`admin` | `directory` | `erasure`, default `admin`) and `source`
+     (`entra` | `ldap` | none).
+   - work_items consumes it idempotently (by event ID):
+     - `disabled` sets `assignee_inactive_since` on that tenant's open incidents assigned to
+       the person, per tenant under RLS, through the service (outbox events, live lists);
+     - `active` clears the flag only where they are still the assignee;
+     - any reassignment clears it in the normal save path.
+   - A built-in view "needs reassignment" with a live count, and a record banner "the assignee
+     is no longer active", in en/ar/ur.
+   - Pending approvals wait for WP-030.
+5. **`sr-only` is not defined** (lane C, 2026-10-29): screen-reader-only column titles in Admin
    › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
    class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
    lane C's header branch lands; check with axe and a screenshot.
@@ -905,6 +920,72 @@ Playwright `branding-admin.spec.ts` for the contrast bugs).
   when refused; the server still checks on save.
 - Housekeeping: the 8 QA uploads in scan_failed purged through the files service's own purge;
   the shared dev Keycloak recreated (timing agreed with lane A), so its sign-in page is branded.
+### [~] WP-025 — SLA v1 on Temporal (lane A; D-115, ADR-037; sessions 1-2 of 4 built 2026-11-02)
+
+Plan: ~/Desktop/wp-025-plan.md (approved). Four sessions (D-115 D1).
+
+- [x] **Session 1 — calendars and business time** (#148, stacked on #144; migration 0044):
+  - the `sla` module (feature `sla`, permissions `sla.view` for technicians, `sla.manage`);
+  - one business-time service (`sla/domain/calendar.py`): any working week in a time zone,
+    split shifts, periods across midnight (one period, owned by the day it starts), full and
+    half-day holidays, daylight saving right on its day, around the clock;
+  - the published table `docs/architecture/sla-business-time.md` (73 cases, read by a test)
+    and a seeded property test `between(a, add(a, s)) == s`;
+  - **special working hours for a date range** (product owner 2026-11-02, MVP for Pakistan and
+    the Gulf; REQ-SLA-011 brought forward): e.g. Ramadan 09:00-14:00 with a Friday prayer break;
+    inside the range its own week replaces the calendar's; holiday > range > week; ranges of one
+    calendar never overlap (`exception_ranges_overlap`); table `sla_calendar_exceptions` in 0044;
+    14 named rows in the case table (93 cases); the three business-time rules confirmed;
+  - calendars, holiday lists and holidays (REQ-SLA-010, 012): two system calendars on first use
+    (around the clock; Monday-Friday 09:00-18:00 in the default site's zone, D-115 D2),
+    presets, iCalendar import with a skip report (size, line, event and day limits; byte,
+    line and structured fuzz tests, and 46 hostile uploads over HTTP that answer 201 or 422),
+    copy to next year flagged for review;
+  - sites and support groups name their calendar (REQ-ADM-040, D-115 D3): organization stores
+    `calendar_id` and asks the sla module through a check sla registers at import
+    (`register_calendar_check`), so the packages never import each other in a loop; a
+    calendar in use cannot be deleted and its page lists its users;
+  - every write permission-checked, versioned (If-Match, 409 naming who), in history,
+    audited (9 new actions), on the outbox; screens live via `sla.setup.changed`;
+  - Admin › SLA screens (calendars, week editor, holidays, import, copy a year) and the
+    calendar picker on the site and group forms; en, ar (all plural forms), ur;
+  - tests: 130+ domain, 22 API/DB (RLS for every new table and for the site and group links),
+    11 console.
+  - **Not yet in session 1:** auto-close on the business-time service (waits for #140, which
+    changes the same code); REQ-SLA-010 AC3 (how many open records a calendar change affects)
+    needs the per-record SLA state of session 2; the e2e journey is in session 4.
+- [x] **Session 2 — policies and due dates without timers** (#152; migration 0047, after 0044
+  which now follows main's 0040):
+  - policies, ordered targets by priority and kind, calendar source per target, settings
+    (warning point, priority-change and reopen rules), the default policy seeded and always
+    last (D-074); API with audit, outbox, If-Match and Idempotency-Key; "never matches" flag
+    (REQ-SLA-001); conditions in the filter DSL on the incident fields minus SLA fields and
+    timestamps, evaluated in memory;
+  - the SLA on every incident save, in the same transaction (REQ-SLA-015..020, 029): apply on
+    create, choose again when a condition field changes, recalculate or restart on a priority
+    change, pause and resume by status category, met (on time, late, at resolution, D-115 D8),
+    stopped on close or cancel, reopen resume or restart (a new round), a new site or group
+    moves open clocks to its calendar; targets snapshotted on apply (D-115 D7); the record
+    stamps its policy and due moments, with history (source `sla`) and events
+    `sla.record.applied` and `sla.target.*`;
+  - due dates set by hand (REQ-SLA-028, D-115 D11): `PUT /incidents/{id}/due-dates/{kind}`,
+    permission `incidents.edit_due_dates` (not for technicians by default; admins hold it; there
+    is no built-in group-lead role, so leads get it through a role), a reason, a future moment,
+    who and why on the target, kept through priority and policy changes until cleared;
+  - the record's SLA panel (`GET /incidents/{id}/sla`, REQ-SLA-038): policy, why, each target's
+    state, due, paused, met, overdue, calendar, and "set by hand" with who and why; live under
+    the record's history query; a card beside the properties until #159 gives it its section;
+  - Admin › SLA › Policies (ordered list, up/down reordering, editor with the shared filter
+    builder and the target table) and Settings; "Respond by" as a list field; the views
+    "overdue" and "without SLA" read the stamped columns;
+  - REQ-SLA-010 AC3: the calendar editor says how many open incidents a change reaches;
+  - tests: SLA clock and API 22 DB tests (RLS for every new table), console 269 in the incident
+    and admin areas.
+  - **Moved to session 3:** "about to breach" and "breached" views and filters, which need the
+    warning and breach stamps the timers set; the countdown column.
+- [ ] Session 3 — Temporal: server, `sla_timers` worker, warnings, breaches, escalations.
+- [ ] Session 4 — live panel and list columns, e2e (en, ar, axe, 390 px), load test, docs, QA.
+
 ### [~] WP-036 — Home page and live dashboards (lane C; sessions 1-2 of 2 built 2026-10-28)
 Built on WP-035's engine: every widget is a report definition run through `POST /reports/run`, so
 its numbers equal the report's and each viewer sees their own scope (REQ-DSH-028).
