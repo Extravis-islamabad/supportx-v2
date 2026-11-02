@@ -24,6 +24,7 @@ import {
   ConnectivityBanner,
   MfaReminder,
   LicenceBanners,
+  NoticeStack,
   reportError,
   useCommandPaletteShortcut,
   useAccess,
@@ -216,7 +217,8 @@ export function ConsoleLayout() {
         />
       )}
       banners={
-        <>
+        // One notice at a time, the others behind "N more notices · View" (D-124).
+        <NoticeStack testId="shell-notices">
           <ConnectivityBanner />
           <EventDeliveryBanner />
           {pathname !== '/profile' && <MfaReminder />}
@@ -230,7 +232,7 @@ export function ConsoleLayout() {
             enabled={licence.has('incident')}
             onOpen={(id) => void navigate(`/announcements/${id}`)}
           />
-        </>
+        </NoticeStack>
       }
     >
       {session.user.nav_layout === 'top' && crumbs.length > 1 && (

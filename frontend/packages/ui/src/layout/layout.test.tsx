@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderUi } from '../test/render';
 import { ActionBar, type RecordAction } from './ActionBar';
 import { AlertStrip } from './AlertStrip';
+import { NoticeStack } from './NoticeStack';
 
 // D-124: buttons for the available everyday actions (at most four, the most useful ones),
 // every action in "More actions" in its fixed order, destructive ones last and confirmed.
@@ -99,6 +100,36 @@ describe('ActionBar', () => {
     expect(entry.textContent).toContain('Not available in read-only mode.');
     fireEvent.click(entry);
     expect(assign.onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('NoticeStack', () => {
+  const Notice = ({ text }: { text: string | null }) =>
+    text === null ? null : <div role="status">{text}</div>;
+
+  it('one notice shows alone; several keep the first and say how many more', () => {
+    const one = renderUi(
+      <NoticeStack testId="notices">
+        <Notice text="Offline" />
+        <Notice text={null} />
+      </NoticeStack>,
+    );
+    expect(screen.queryByTestId('notices-toggle')).toBeNull();
+    one.unmount();
+    renderUi(
+      <NoticeStack testId="notices">
+        <Notice text={null} />
+        <Notice text="Scanner down" />
+        <Notice text="Choose visibility" />
+        <Notice text="MFA due" />
+      </NoticeStack>,
+    );
+    expect(screen.getByTestId('notices').textContent).toContain('2 more notices');
+    const hidden = screen.getByText('Choose visibility').closest('[data-notices-collapsed]');
+    expect(hidden?.getAttribute('data-notices-collapsed')).toBe('true');
+    fireEvent.click(screen.getByTestId('notices-toggle'));
+    expect(screen.getByTestId('notices').textContent).toContain('3 notices');
+    expect(hidden?.getAttribute('data-notices-collapsed')).toBe('false');
   });
 });
 

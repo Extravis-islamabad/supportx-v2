@@ -10,6 +10,7 @@ export {
   type KpiTileProps,
   type ListPageProps,
 } from './ListPage';
+export { NoticeStack } from './NoticeStack';
 export { PageHeader, type PageHeaderProps } from './PageHeader';
 export {
   PropertiesPanel,
