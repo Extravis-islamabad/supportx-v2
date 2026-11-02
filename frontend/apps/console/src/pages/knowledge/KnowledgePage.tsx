@@ -146,18 +146,27 @@ export function KnowledgePage() {
         <Typography.Title level={1} style={{ margin: 0 }}>
           {t('knowledge.title')}
         </Typography.Title>
-        {can('knowledge.create') && (
-          <WriteButton
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() =>
-              void navigate(`/knowledge/articles/new${topicId ? `?topic=${topicId}` : ''}`)
-            }
-            data-testid="kb-new-article"
-          >
-            {t('knowledge.new_article')}
-          </WriteButton>
-        )}
+        <Space wrap>
+          {can('knowledge.approve') && (
+            <Link to="/knowledge/approvals" data-testid="kb-open-inbox">
+              <Badge count={awaiting} size="small" offset={[8, 0]}>
+                {t('knowledge.inbox.title')}
+              </Badge>
+            </Link>
+          )}
+          {can('knowledge.create') && (
+            <WriteButton
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() =>
+                void navigate(`/knowledge/articles/new${topicId ? `?topic=${topicId}` : ''}`)
+              }
+              data-testid="kb-new-article"
+            >
+              {t('knowledge.new_article')}
+            </WriteButton>
+          )}
+        </Space>
       </Flex>
       <Flex gap={16} wrap align="start">
         <Card

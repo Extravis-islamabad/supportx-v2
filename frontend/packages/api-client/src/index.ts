@@ -562,4 +562,10 @@ export {
   type KbVersion,
   type KbView,
   type KnowledgeQuery,
+  useUpdateKbSettings,
+  useCreateKbType,
+  useUpdateKbType,
+  type KbSettingsPatch,
+  type KbArticleTypeInput,
+  type KbArticleTypePatch,
 } from './knowledge';

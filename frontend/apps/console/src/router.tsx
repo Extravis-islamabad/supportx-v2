@@ -103,6 +103,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'approvals',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ApprovalInboxPage')).ApprovalInboxPage,
+            }),
+          },
+          {
             path: 'articles/new',
             lazy: async () => ({
               Component: (await import('./pages/knowledge/ArticleEditorPage')).NewArticlePage,
@@ -217,6 +223,13 @@ export const routes: RouteObject[] = [
             path: 'mail',
             lazy: async () => ({
               Component: (await import('./pages/admin/mail/MailPage')).MailPage,
+            }),
+          },
+          {
+            path: 'knowledge',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/knowledge/KnowledgeSettingsPage'))
+                .KnowledgeSettingsPage,
             }),
           },
         ],

@@ -18,6 +18,9 @@ export type KbVersion = components['schemas']['VersionOut'];
 export type KbDraftPatch = components['schemas']['DraftPatch'];
 export type KbHistoryEntry = components['schemas']['KbHistoryEntryOut'];
 export type KbSettings = components['schemas']['KnowledgeSettingsOut'];
+export type KbSettingsPatch = components['schemas']['KnowledgeSettingsPatch'];
+export type KbArticleTypeInput = components['schemas']['ArticleTypeIn'];
+export type KbArticleTypePatch = components['schemas']['ArticleTypePatch'];
 export type KbLanguage = 'en' | 'ar';
 
 /** The list views (REQ-KB-077). */
@@ -148,6 +151,73 @@ export function useKbSettings(enabled = true) {
     queryKey: queryKeys.knowledge.settings,
     queryFn: () => call(api.GET('/api/v1/knowledge/settings')),
     enabled,
+  });
+}
+
+/** Knowledge settings with If-Match (REQ-KB-090; prefix and next number, D-120). */
+export function useUpdateKbSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ changes, version }: { changes: KbSettingsPatch; version: number }) =>
+      call(
+        api.PATCH('/api/v1/knowledge/settings', {
+          params: { header: ifMatch(version) },
+          body: changes,
+        }),
+      ),
+    onSuccess: (saved) => {
+      queryClient.setQueryData(queryKeys.knowledge.settings, saved);
+    },
+    onError: (error) => {
+      if (error instanceof ApiError && error.isConflict) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.settings });
+      }
+    },
+  });
+}
+
+/** A new custom article type (D-120). */
+export function useCreateKbType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, key }: { body: KbArticleTypeInput; key: string }) =>
+      call(
+        api.POST('/api/v1/knowledge/types', {
+          params: { header: { 'Idempotency-Key': key } },
+          body,
+        }),
+      ),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.types });
+    },
+  });
+}
+
+/** Change, retire or restore an article type with If-Match (D-120). */
+export function useUpdateKbType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      code,
+      changes,
+      version,
+    }: {
+      code: string;
+      changes: KbArticleTypePatch;
+      version: number;
+    }) =>
+      call(
+        api.PATCH('/api/v1/knowledge/types/{code}', {
+          params: { path: { code }, header: ifMatch(version) },
+          body: changes,
+        }),
+      ),
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.types });
+    },
   });
 }
 

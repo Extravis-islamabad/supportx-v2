@@ -16,6 +16,13 @@ const TABS = [
   { key: 'security', labelKey: 'nav.admin_security', permission: 'identity.manage' },
   { key: 'notifications', labelKey: 'nav.admin_notifications', permission: 'notifications.manage' },
   { key: 'mail', labelKey: 'nav.admin_mail', permission: 'mailboxes.manage' },
+  // Knowledge settings or its article types (D-120): either permission opens the tab.
+  {
+    key: 'knowledge',
+    labelKey: 'nav.admin_knowledge',
+    permission: 'knowledge.manage_settings',
+    also: 'knowledge.manage_types',
+  },
 ] as const;
 
 export function AdminLayout() {
@@ -23,7 +30,7 @@ export function AdminLayout() {
   const { can } = useAccess();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const tabs = TABS.filter((tab) => can(tab.permission));
+  const tabs = TABS.filter((tab) => can(tab.permission) || ('also' in tab && can(tab.also)));
   const active = pathname.split('/')[2];
   const first = tabs[0];
 

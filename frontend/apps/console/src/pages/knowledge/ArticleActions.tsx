@@ -31,10 +31,16 @@ export function ArticleActions({
   article,
   language,
   onEdit,
+  only,
+  onDecided,
 }: {
   article: KbArticle;
   language: KbLanguage;
   onEdit: () => void;
+  /** Show only these actions (the approval inbox: approve and send back). */
+  only?: readonly (KbStep | 'edit' | 'delete')[];
+  /** After a step went through (the inbox moves to the next article). */
+  onDecided?: (step: KbStep) => void;
 }) {
   const t = useLabel();
   const navigate = useNavigate();
@@ -54,6 +60,7 @@ export function ArticleActions({
           setAsking(null);
           setText('');
           void message.success(t(`knowledge.done.${which}`));
+          onDecided?.(which);
         },
         onError: (error) => {
           if (
@@ -87,6 +94,7 @@ export function ArticleActions({
   };
 
   const button = (which: KbStep | 'edit' | 'delete', onClick: () => void, primary = false) => {
+    if (only !== undefined && !only.includes(which)) return null;
     const why = stepBlocked(which, article, language);
     const control = (
       <WriteButton
@@ -183,7 +191,7 @@ export function ArticleActions({
           data-testid="kb-step-text"
         />
       </Modal>
-      {article.withdrawn && (
+      {article.withdrawn && only === undefined && (
         <Button
           onClick={() => {
             void navigate(`/knowledge/articles/${article.id}/edit/${language}`);

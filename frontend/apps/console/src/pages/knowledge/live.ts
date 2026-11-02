@@ -10,6 +10,9 @@ export function useKnowledgeLive(enabled: boolean) {
     refreshList(queryClient, [...queryKeys.knowledge.all, 'list']);
     refreshList(queryClient, queryKeys.knowledge.topics);
     refreshList(queryClient, queryKeys.knowledge.approvals);
+    // Types and settings (D-120): the editor's type picker and the settings page.
+    refreshList(queryClient, queryKeys.knowledge.types);
+    refreshList(queryClient, queryKeys.knowledge.settings);
   };
   useListChannel(enabled ? 'knowledge' : null, refresh);
   useTenantChannel((message) => {
