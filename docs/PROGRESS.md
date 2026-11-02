@@ -721,6 +721,15 @@ WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom field
 WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-run setup must offer
 "technicians see all incidents" vs the group default.
 
+**WP-028 follow-up (2026-10-29, coordinator; from `fix/requester-file-access`):** requesters may
+not join the staff record channel `t:{tenant}:wi:{id}` (correct: it carries private-note and
+internal events), so today they get no live updates on their own incident. The portal needs a
+requester-scoped live channel per record, joined only by its requester or the person it is for,
+that publishes **public-entry events only**: public replies and their files, status and
+resolution changes the requester may see; never private notes, internal fields or their files.
+Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
+it with no reload (rule c). Not built yet.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
@@ -1202,6 +1211,18 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   for tasks, worklogs and links; three record tabs, history in words, the task-owner setting on
   Admin › Incidents › Closing. Draft PR #120 (stacked on #114); e2e and QA next.
 - Lane C's dashboards took D-110, so WP-020d's defaults moved to D-111.
+
+### 2026-10-28 — Invitation links after "Send again" (lane B, #113)
+- Product owner: "Send again" stops the earlier link where Keycloak allows it, and otherwise the
+  screen says so. A private Keycloak 26.8.1 with GreenMail showed that Keycloak cannot withdraw
+  one link, even after ending the user's sessions. Only an account made afresh stops it, which
+  #104 does for accounts made by the invitation. `tests/integration/test_keycloak_links.py`
+  pins both.
+- For an account that existed before the invitation, `earlier_links_work` is shown on the
+  invitations list and in the "sent again" message (en/ar/ur). Tests cover the API and the
+  console.
+- CI note (#112, verified with #117): every PR gets all 8 required checks. Docs-only PRs finish
+  the heavy jobs at once ("skipped: docs-only change"), and a new push cancels its PR's older runs.
 
 ### 2026-10-28 — WP-020d: views, columns, bulk and export (lane A)
 

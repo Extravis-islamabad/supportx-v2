@@ -1473,6 +1473,8 @@ export const en = {
   'file_warning.files_not_scanned': 'Some files were stored without a malware scan.',
   'file_warning.files_scan_failed': 'Some files could not be checked.',
   'errors.file_not_found': 'This file does not exist or you cannot see it.',
+  'errors.file_staff_only':
+    "Only the service desk can remove files or add them to someone else's message.",
   'errors.file_owner_not_found': 'What you are attaching to does not exist or you cannot see it.',
   'errors.file_owner_not_allowed': 'Files cannot be attached there.',
   'errors.file_not_ready': 'This file is not ready to open.',
@@ -3857,6 +3859,10 @@ export const en = {
   'notification_preferences.locked': 'Required by your organization: it cannot be switched off.',
   'notification_preferences.dnd_help':
     'No pop-ups and no e-mail except urgent and required ones; everything still lands in your notifications.',
+  'security.invitations.earlier_links_work':
+    'Links sent earlier also still work until they expire.',
+  'security.invitations.resent_earlier_work':
+    'Invitation sent again. This person had an account before the invitation, so links sent earlier also still work until they expire.',
   // WP-020d: the incident list's columns, views, time range, chips, bulk and export.
   'incidents.columns.button': 'Columns',
   'incidents.columns.title': 'Choose columns',
