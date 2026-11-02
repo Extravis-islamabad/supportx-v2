@@ -3858,6 +3858,27 @@ export const ur: LabelResource = {
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   // WP-040: the connector catalogue.
+  'secret_type.password': 'پاس ورڈ',
+  'secret_type.client_secret': 'کلائنٹ سیکرٹ',
+  'secret_type.certificate': 'سرٹیفکیٹ',
+  'secret_type.refresh_token': 'سائن اِن ٹوکن',
+  'secret.ending': 'آخر میں …{{ending}}',
+  'event_type.integrations.connector.failing': 'کنیکٹر ناکام',
+  'event_type.integrations.connector.recovered': 'کنیکٹر بحال',
+  'notification_event.connector.failing': 'کنیکٹر نے کام کرنا چھوڑ دیا',
+  'notification_event.connector.recovered': 'کنیکٹر دوبارہ کام کر رہا ہے',
+  'notification_recipient.connector_admins': 'وہ لوگ جو یہ کنیکٹر سیٹ اپ کرتے ہیں',
+  'notification_variable.connector.name': 'کنیکٹر › نام',
+  'notification_variable.connector.reason': 'کنیکٹر › وجہ',
+  'notification_template.connector.failing.in_app':
+    '{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}',
+  'notification_template.connector.failing.subject': '{{ record.title }} نے کام کرنا چھوڑ دیا',
+  'notification_template.connector.failing.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} نے کام کرنا چھوڑ دیا: {{ connector.reason }}۔\n\nآپ کو ہر کوشش پر نہیں بلکہ ایک بار بتایا جائے گا، اور دوبارہ جب یہ کام کرنے لگے۔ اسے دیکھنے کے لیے ایڈمن › انٹیگریشنز کھولیں۔',
+  'notification_template.connector.recovered.in_app': '{{ record.title }} دوبارہ کام کر رہا ہے',
+  'notification_template.connector.recovered.subject': '{{ record.title }} دوبارہ کام کر رہا ہے',
+  'notification_template.connector.recovered.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.title }} دوبارہ کام کر رہا ہے۔ مزید کچھ کرنے کی ضرورت نہیں۔',
   'mailbox_reason.secret_store_fallback':
     'رازوں کا ذخیرہ پڑھا نہیں جا سکا، اس لیے میل باکس اپنی اسناد کی پچھلی نقل استعمال کر رہا ہے۔ اسے ٹھیک کرنے کے لیے اسناد دوبارہ محفوظ کریں۔',
   'permission_module.integrations': 'انٹیگریشنز',

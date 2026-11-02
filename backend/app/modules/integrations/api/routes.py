@@ -35,6 +35,7 @@ from app.modules.integrations.service import mailboxes as service
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
+from app.shared.connectors.ports import SecretType
 
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
@@ -124,6 +125,20 @@ class MailboxPatch(MailboxFields):
     client_secret: str | None = Field(default=None, min_length=1, max_length=SECRET_MAX)
 
 
+class StoredSecretOut(BaseModel):
+    """A stored secret as anyone may see it: never its value (REQ-INT-003 AC1)."""
+
+    name: str = Field(description="Its stable name; exports carry {{secret:<name>}} instead.")
+    secret_type: SecretType
+    last_four: str | None = Field(
+        description=(
+            'For display only ("ending in ..."): long random secrets show their last four'
+            " characters, a certificate its thumbprint's; a password never shows any."
+        )
+    )
+    set_at: datetime = Field(description="When it was saved: its age.")
+
+
 class MailboxOut(BaseModel):
     """A mailbox as the mail page shows it."""
 
@@ -137,6 +152,7 @@ class MailboxOut(BaseModel):
     allow_plain: bool
     username: str | None
     has_password: bool = Field(description="A password or client secret is stored.")
+    credential: StoredSecretOut | None = Field(description="The stored credential, if any.")
     auth_model: AuthModel | None
     client_id: str | None
     directory_id: str | None
@@ -182,6 +198,16 @@ class MailboxOut(BaseModel):
             allow_plain=row.allow_plain,
             username=row.username,
             has_password=view.has_password,
+            credential=(
+                StoredSecretOut(
+                    name=view.credential.name,
+                    secret_type=SecretType(view.credential.secret_type),
+                    last_four=view.credential.last_four,
+                    set_at=view.credential.set_at,
+                )
+                if view.credential is not None
+                else None
+            ),
             auth_model=AuthModel(row.auth_model) if row.auth_model else None,
             client_id=row.client_id,
             directory_id=row.directory_id,

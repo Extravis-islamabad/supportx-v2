@@ -66,7 +66,12 @@ def kinds(monkeypatch: pytest.MonkeyPatch) -> Iterator[dict[str, FakeSource]]:
         assert tenant_id == TENANT
         return feature != "paid"
 
+    async def no_health(session: AsyncSession, kind: str, ids: object) -> dict[uuid.UUID, object]:
+        del session, kind, ids
+        return {}
+
     monkeypatch.setattr(catalogue, "has_feature", has_feature)
+    monkeypatch.setattr(catalogue, "health_of", no_health)
     yield sources
     for code in sources:
         unregister_connector(code)

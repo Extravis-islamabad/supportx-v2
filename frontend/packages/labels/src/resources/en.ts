@@ -4252,6 +4252,27 @@ export const en = {
   'event_delivery_state.stalled': 'Stalled',
   'incidents.bulk.select_page': 'Select every incident on this page',
   // WP-040: the connector catalogue.
+  'secret_type.password': 'Password',
+  'secret_type.client_secret': 'Client secret',
+  'secret_type.certificate': 'Certificate',
+  'secret_type.refresh_token': 'Sign-in token',
+  'secret.ending': 'ending in …{{ending}}',
+  'event_type.integrations.connector.failing': 'Connector failing',
+  'event_type.integrations.connector.recovered': 'Connector recovered',
+  'notification_event.connector.failing': 'Connector stopped working',
+  'notification_event.connector.recovered': 'Connector works again',
+  'notification_recipient.connector_admins': 'People who set up this connector',
+  'notification_variable.connector.name': 'Connector › Name',
+  'notification_variable.connector.reason': 'Connector › Reason',
+  'notification_template.connector.failing.in_app':
+    '{{ record.title }} stopped working: {{ connector.reason }}',
+  'notification_template.connector.failing.subject': '{{ record.title }} stopped working',
+  'notification_template.connector.failing.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} stopped working: {{ connector.reason }}.\n\nYou are told once, not at every attempt, and again when it works. Open Admin › Integrations to see it.',
+  'notification_template.connector.recovered.in_app': '{{ record.title }} works again',
+  'notification_template.connector.recovered.subject': '{{ record.title }} works again',
+  'notification_template.connector.recovered.body':
+    'Hello {{ recipient.name }},\n\n{{ record.title }} works again. Nothing else is needed.',
   'mailbox_reason.secret_store_fallback':
     'The secrets store could not be read, so the mailbox uses its earlier copy of the credential. Save the credential again to fix it.',
   'permission_module.integrations': 'Integrations',

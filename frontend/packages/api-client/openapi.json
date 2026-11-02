@@ -4111,6 +4111,14 @@
       "ConnectorInstanceOut": {
         "description": "One configured connector and its health.",
         "properties": {
+          "counts_24h": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Last 24 hours: runs, failed_runs, read, created, updated, skipped, failed.",
+            "title": "Counts 24H",
+            "type": "object"
+          },
           "credential_expires_at": {
             "anyOf": [
               {
@@ -4123,10 +4131,47 @@
             ],
             "title": "Credential Expires At"
           },
+          "failing_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it turned failing (notified).",
+            "title": "Failing Since"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last error (a label code).",
+            "title": "Last Error Code"
           },
           "last_success_at": {
             "anyOf": [
@@ -4180,7 +4225,11 @@
           "reason",
           "last_success_at",
           "next_run_at",
-          "credential_expires_at"
+          "credential_expires_at",
+          "failing_since",
+          "last_error_at",
+          "last_error_code",
+          "counts_24h"
         ],
         "title": "ConnectorInstanceOut",
         "type": "object"
@@ -9069,6 +9118,17 @@
           "creates": {
             "$ref": "#/components/schemas/MailboxCreates"
           },
+          "credential": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoredSecretOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored credential, if any."
+          },
           "credential_expires_at": {
             "anyOf": [
               {
@@ -9271,6 +9331,7 @@
           "allow_plain",
           "username",
           "has_password",
+          "credential",
           "auth_model",
           "client_id",
           "directory_id",
@@ -14389,6 +14450,17 @@
         "title": "ScaleValuePatch",
         "type": "object"
       },
+      "SecretType": {
+        "description": "What kind of credential the secrets store holds (REQ-INT-003).",
+        "enum": [
+          "password",
+          "client_secret",
+          "certificate",
+          "refresh_token"
+        ],
+        "title": "SecretType",
+        "type": "string"
+      },
       "SettingsIn": {
         "additionalProperties": false,
         "description": "New settings.",
@@ -15476,6 +15548,45 @@
           }
         },
         "title": "StatusPatch",
+        "type": "object"
+      },
+      "StoredSecretOut": {
+        "description": "A stored secret as anyone may see it: never its value (REQ-INT-003 AC1).",
+        "properties": {
+          "last_four": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For display only (\"ending in ...\"): long random secrets show their last four characters, a certificate its thumbprint's; a password never shows any.",
+            "title": "Last Four"
+          },
+          "name": {
+            "description": "Its stable name; exports carry {{secret:<name>}} instead.",
+            "title": "Name",
+            "type": "string"
+          },
+          "secret_type": {
+            "$ref": "#/components/schemas/SecretType"
+          },
+          "set_at": {
+            "description": "When it was saved: its age.",
+            "format": "date-time",
+            "title": "Set At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "secret_type",
+          "last_four",
+          "set_at"
+        ],
+        "title": "StoredSecretOut",
         "type": "object"
       },
       "SubscriptionTokenRequest": {

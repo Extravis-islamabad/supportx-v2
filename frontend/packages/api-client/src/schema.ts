@@ -6281,13 +6281,32 @@ export interface components {
          * @description One configured connector and its health.
          */
         ConnectorInstanceOut: {
+            /**
+             * Counts 24H
+             * @description Last 24 hours: runs, failed_runs, read, created, updated, skipped, failed.
+             */
+            counts_24h: {
+                [key: string]: number;
+            };
             /** Credential Expires At */
             credential_expires_at: string | null;
+            /**
+             * Failing Since
+             * @description When it turned failing (notified).
+             */
+            failing_since: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Last Error At */
+            last_error_at: string | null;
+            /**
+             * Last Error Code
+             * @description The last error (a label code).
+             */
+            last_error_code: string | null;
             /** Last Success At */
             last_success_at: string | null;
             /**
@@ -8194,6 +8213,8 @@ export interface components {
             /** Client Id */
             client_id: string | null;
             creates: components["schemas"]["MailboxCreates"];
+            /** @description The stored credential, if any. */
+            credential: components["schemas"]["StoredSecretOut"] | null;
             /** Credential Expires At */
             credential_expires_at: string | null;
             credential_kind: components["schemas"]["CredentialKind"] | null;
@@ -10237,6 +10258,12 @@ export interface components {
             } | null;
         };
         /**
+         * SecretType
+         * @description What kind of credential the secrets store holds (REQ-INT-003).
+         * @enum {string}
+         */
+        SecretType: "password" | "client_secret" | "certificate" | "refresh_token";
+        /**
          * SettingsIn
          * @description New settings.
          */
@@ -10632,6 +10659,29 @@ export interface components {
              * @description Paused statuses: a requester reply moves the record to in progress (051).
              */
             resume_on_requester_reply?: boolean | null;
+        };
+        /**
+         * StoredSecretOut
+         * @description A stored secret as anyone may see it: never its value (REQ-INT-003 AC1).
+         */
+        StoredSecretOut: {
+            /**
+             * Last Four
+             * @description For display only ("ending in ..."): long random secrets show their last four characters, a certificate its thumbprint's; a password never shows any.
+             */
+            last_four: string | null;
+            /**
+             * Name
+             * @description Its stable name; exports carry {{secret:<name>}} instead.
+             */
+            name: string;
+            secret_type: components["schemas"]["SecretType"];
+            /**
+             * Set At
+             * Format: date-time
+             * @description When it was saved: its age.
+             */
+            set_at: string;
         };
         /**
          * SubscriptionTokenRequest

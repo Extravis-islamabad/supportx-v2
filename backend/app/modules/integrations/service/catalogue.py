@@ -10,16 +10,22 @@ its category's permission (REQ-INT-013); without it the entry is read-only and s
 console never guesses (AC1).
 """
 
-from collections.abc import Sequence
-from dataclasses import dataclass
+import uuid
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
-from app.modules.integrations.domain.mailboxes import SECRET_FALLBACK, connector_status
+from app.modules.integrations.domain.mailboxes import (
+    CONNECTOR_KIND,
+    SECRET_FALLBACK,
+    connector_status,
+)
 from app.modules.integrations.infra.models import Mailbox
 from app.modules.integrations.service.mailboxes import MANAGE as MAILBOXES_MANAGE
+from app.modules.integrations.service.runs import InstanceHealth, health_of
 from app.modules.licensing import has_feature
 from app.shared.connectors.ports import (
     ConnectorCategory,
@@ -31,7 +37,7 @@ from app.shared.connectors.ports import (
 )
 
 VIEW = "integrations.view"
-MAILBOX = "mailbox"
+MAILBOX = CONNECTOR_KIND
 
 
 def manage_permission(category: ConnectorCategory) -> str:
@@ -54,6 +60,7 @@ class CatalogueEntry:
     can_manage: bool
     manage_reason: str | None  # why not: "not_in_edition" or "no_permission"
     instances: Sequence[ConnectorInstance]
+    health: Mapping[uuid.UUID, InstanceHealth] = field(default_factory=dict)
 
 
 async def catalogue(session: AsyncSession, subject: Subject) -> list[CatalogueEntry]:
@@ -70,7 +77,10 @@ async def catalogue(session: AsyncSession, subject: Subject) -> list[CatalogueEn
         )
         # A kind outside the edition has nothing to show; its old instances stay in its module.
         instances = await registered.source.instances(session) if available else ()
-        entries.append(CatalogueEntry(kind, available, available and allowed, reason, instances))
+        health = await health_of(session, kind.code, (i.id for i in instances))
+        entries.append(
+            CatalogueEntry(kind, available, available and allowed, reason, instances, health)
+        )
     return entries
 
 

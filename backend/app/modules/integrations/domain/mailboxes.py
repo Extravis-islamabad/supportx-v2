@@ -97,6 +97,22 @@ class MailboxState(StrEnum):
     FAILING = "failing"
 
 
+CONNECTOR_KIND = "mailbox"  # the catalogue's code for mailboxes (WP-040)
+# The provider refused the credential, or there is none: failing at once, not after 3 runs.
+AUTH_FAILURES = frozenset(
+    {
+        "imap_login_failed",
+        "mailbox_no_password",
+        "mailbox_secret_unreadable",
+        "mailbox_key_ring_missing",
+        "oauth_certificate_invalid",
+        "oauth_client_rejected",
+        "oauth_consent_revoked",
+        "oauth_not_allowed",
+        "oauth_not_connected",
+        "oauth_wrong_account",
+    }
+)
 SECRET_FALLBACK = "secret_store_fallback"  # noqa: S105 - a reason code (degraded), no secret
 
 

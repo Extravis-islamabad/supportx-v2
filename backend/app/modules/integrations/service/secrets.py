@@ -11,6 +11,7 @@ which the catalogue shows as degraded until a read from the store works again.
 """
 
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 
@@ -23,6 +24,7 @@ from app.core.logging import get_logger
 from app.modules.integrations.domain.mailboxes import CredentialKind, MailboxProtocol
 from app.modules.integrations.infra.imap import MailboxUnavailableError
 from app.modules.integrations.infra.models import ConnectorSecret, Mailbox
+from app.modules.integrations.infra.oauth import load_certificate
 from app.modules.integrations.service.connections import (
     SECRET_PURPOSE,
     TOKEN_PURPOSE,
@@ -71,6 +73,26 @@ def _secret_type(mailbox: Mailbox, role: SecretRole) -> str:
     return "client_secret"
 
 
+ENDING_MIN_LENGTH = 16  # shorter values are not "long random secrets": no ending is shown
+
+
+def last_four(secret_type: str, value: str) -> str | None:
+    """The ending shown as "ending in ..a3f9" (display only, never used to verify anything).
+
+    Product owner, 2026-11-02: only long random secrets (client secrets, refresh tokens) show
+    their last four characters; a certificate shows its public thumbprint's end, never its key;
+    a password shows nothing.
+    """
+    if secret_type == "certificate":  # noqa: S105 - a type code, not a password
+        try:
+            return load_certificate(value).thumbprint[-4:]
+        except MailboxUnavailableError:
+            return None
+    if secret_type in {"client_secret", "refresh_token"} and len(value) >= ENDING_MIN_LENGTH:
+        return value[-4:]
+    return None
+
+
 def _ref(mailbox: Mailbox, role: SecretRole) -> uuid.UUID | None:
     return mailbox.secret_ref if role is SecretRole.CREDENTIAL else mailbox.token_ref
 
@@ -95,8 +117,8 @@ async def _stored(session: AsyncSession, ref: uuid.UUID) -> ConnectorSecret | No
 
 async def _read(
     session: AsyncSession, mailbox: Mailbox, ring: KeyRing, role: SecretRole
-) -> tuple[str | None, Fallback | None]:
-    """The value and, when the old column had to be used, why."""
+) -> tuple[str | None, Fallback | None, ConnectorSecret | None]:
+    """The value, why the old column had to be used (if so), and the store row it came from."""
     purpose = _PURPOSES[role]
     ref = _ref(mailbox, role)
     old_key, old_sealed = _old(mailbox, role)
@@ -107,20 +129,22 @@ async def _read(
             fallback = Fallback.MISSING
         else:
             try:
-                return _open(ring, mailbox.tenant_id, row.purpose, row.key_id, row.sealed), None
+                value = _open(ring, mailbox.tenant_id, row.purpose, row.key_id, row.sealed)
             except KeyRingError:
                 fallback = Fallback.UNREADABLE
+            else:
+                return value, None, row
     elif old_key is not None and old_sealed is not None:
         fallback = Fallback.NOT_MOVED
     if old_key is None or old_sealed is None:
         if fallback is not None:
             raise MailboxUnavailableError(UNREADABLE)  # nothing left to try: the mailbox fails
-        return None, None
+        return None, None, None
     try:
         value = _open(ring, mailbox.tenant_id, purpose, old_key, old_sealed)
     except KeyRingError as exc:
         raise MailboxUnavailableError(UNREADABLE) from exc
-    return value, fallback
+    return value, fallback, None
 
 
 async def credentials(
@@ -132,8 +156,12 @@ async def credentials(
     secret came from the store. A connection test passes `mark=False`: it saves nothing
     (REQ-INT-002 AC1), though the fallback is still counted and logged.
     """
-    secret, secret_fallback = await _read(session, mailbox, ring, SecretRole.CREDENTIAL)
-    token, token_fallback = await _read(session, mailbox, ring, SecretRole.REFRESH_TOKEN)
+    secret, secret_fallback, secret_row = await _read(session, mailbox, ring, SecretRole.CREDENTIAL)
+    token, token_fallback, token_row = await _read(session, mailbox, ring, SecretRole.REFRESH_TOKEN)
+    if mark:  # copied by migration 0045 without being opened: their ending is filled now
+        for row, value in ((secret_row, secret), (token_row, token)):
+            if row is not None and value is not None and row.last_four is None:
+                row.last_four = last_four(row.secret_type, value)
     fell_back = [f for f in (secret_fallback, token_fallback) if f is not None]
     for code in fell_back:
         _fallbacks.add(1, {"code": code.value})
@@ -175,6 +203,7 @@ async def put(
         session.add(row)
     row.secret_type = _secret_type(mailbox, role)
     row.purpose, row.key_id, row.sealed, row.set_at = purpose, key_id, sealed, now
+    row.last_four = last_four(row.secret_type, value)
     row.updated_at = now
     await session.flush()
     if role is SecretRole.CREDENTIAL:
@@ -204,3 +233,36 @@ async def clear(session: AsyncSession, mailbox: Mailbox, role: SecretRole) -> No
     else:
         mailbox.token_key_id = mailbox.token_sealed = mailbox.token_ref = None
     await _drop_owner_role(session, mailbox.id, role)
+
+
+@dataclass(frozen=True)
+class SecretInfo:
+    """What may be shown about a stored secret (REQ-INT-003 AC1): never its value."""
+
+    name: str
+    secret_type: str
+    last_four: str | None
+    set_at: datetime
+
+
+async def credential_info(
+    session: AsyncSession, mailbox_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, SecretInfo]:
+    """Each mailbox's stored credential as the API shows it (one query)."""
+    if not mailbox_ids:
+        return {}
+    rows = await session.execute(
+        select(
+            ConnectorSecret.owner_id,
+            ConnectorSecret.name,
+            ConnectorSecret.secret_type,
+            ConnectorSecret.last_four,
+            ConnectorSecret.set_at,
+        ).where(
+            ConnectorSecret.owner_kind == OWNER_MAILBOX,
+            ConnectorSecret.owner_id.in_(mailbox_ids),
+            ConnectorSecret.role == SecretRole.CREDENTIAL.value,
+            ConnectorSecret.deleted_at.is_(None),
+        )
+    )
+    return {r[0]: SecretInfo(r[1], r[2], r[3], r[4]) for r in rows}

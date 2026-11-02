@@ -46,6 +46,15 @@ class ConnectorStatus(StrEnum):
     PAUSED = "paused"
 
 
+class SecretType(StrEnum):
+    """What kind of credential the secrets store holds (REQ-INT-003)."""
+
+    PASSWORD = "password"  # noqa: S105 - a type code
+    CLIENT_SECRET = "client_secret"  # noqa: S105 - a type code
+    CERTIFICATE = "certificate"
+    REFRESH_TOKEN = "refresh_token"  # noqa: S105 - a type code
+
+
 @dataclass(frozen=True)
 class ConnectorInstance:
     """One configured connector (a mailbox, a directory). Codes and times only, never secrets."""

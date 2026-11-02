@@ -35,6 +35,7 @@ ENUM_PREFIXES: dict[str, str] = {
     # Connector catalogue (WP-040)
     "ConnectorCategory": "connector_category",
     "ConnectorStatus": "connector_status",
+    "SecretType": "secret_type",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
     # Incident lists and bulk jobs (WP-020d)

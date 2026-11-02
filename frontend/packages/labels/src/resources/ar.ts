@@ -4315,6 +4315,27 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'incidents.bulk.select_page': 'تحديد كل الحوادث في هذه الصفحة',
   // WP-040: the connector catalogue.
+  'secret_type.password': 'كلمة المرور',
+  'secret_type.client_secret': 'سر العميل',
+  'secret_type.certificate': 'شهادة',
+  'secret_type.refresh_token': 'رمز تسجيل الدخول',
+  'secret.ending': 'ينتهي بـ …{{ending}}',
+  'event_type.integrations.connector.failing': 'تعطل موصل',
+  'event_type.integrations.connector.recovered': 'تعافي موصل',
+  'notification_event.connector.failing': 'توقف الموصل عن العمل',
+  'notification_event.connector.recovered': 'عاد الموصل إلى العمل',
+  'notification_recipient.connector_admins': 'الأشخاص الذين يُعدّون هذا الموصل',
+  'notification_variable.connector.name': 'الموصل › الاسم',
+  'notification_variable.connector.reason': 'الموصل › السبب',
+  'notification_template.connector.failing.in_app':
+    'توقف {{ record.title }} عن العمل: {{ connector.reason }}',
+  'notification_template.connector.failing.subject': 'توقف {{ record.title }} عن العمل',
+  'notification_template.connector.failing.body':
+    'مرحبًا {{ recipient.name }}،\n\nتوقف {{ record.title }} عن العمل: {{ connector.reason }}.\n\nستُبلَّغ مرة واحدة لا عند كل محاولة، ومرة أخرى عندما يعود إلى العمل. افتح الإدارة › التكاملات لرؤيته.',
+  'notification_template.connector.recovered.in_app': 'عاد {{ record.title }} إلى العمل',
+  'notification_template.connector.recovered.subject': 'عاد {{ record.title }} إلى العمل',
+  'notification_template.connector.recovered.body':
+    'مرحبًا {{ recipient.name }}،\n\nعاد {{ record.title }} إلى العمل. لا حاجة إلى أي إجراء آخر.',
   'mailbox_reason.secret_store_fallback':
     'تعذّرت قراءة مخزن الأسرار، لذا يستخدم صندوق البريد نسخته السابقة من بيانات الاعتماد. احفظ بيانات الاعتماد مرة أخرى لإصلاح ذلك.',
   'permission_module.integrations': 'التكاملات',

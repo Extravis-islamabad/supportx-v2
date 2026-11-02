@@ -94,6 +94,7 @@ class MailboxView:
     has_password: bool  # the IMAP password, or the OAuth app's secret or certificate
     held: int  # messages kept for an admin (refused, flooding, not the requester)
     flooding: bool = False  # mail held because a sender went over the flood limit
+    credential: "secrets.SecretInfo | None" = None  # name, type, ending, age (never the value)
 
 
 # Every code `_problems` can give (labels errors.field.<code>; tests/test_error_labels.py reads
@@ -176,8 +177,15 @@ async def changed(session: AsyncSession, row: Mailbox, change: Change) -> None:
     )
 
 
-def _view(row: Mailbox, held: Mapping[uuid.UUID, int]) -> MailboxView:
-    return MailboxView(row, row.secret_sealed is not None, held.get(row.id, 0), row.flooding)
+def _view(
+    row: Mailbox,
+    held: Mapping[uuid.UUID, int],
+    credentials: Mapping[uuid.UUID, "secrets.SecretInfo"] | None = None,
+) -> MailboxView:
+    credential = (credentials or {}).get(row.id)
+    return MailboxView(
+        row, row.secret_sealed is not None, held.get(row.id, 0), row.flooding, credential
+    )
 
 
 async def list_mailboxes(session: AsyncSession) -> list[MailboxView]:
@@ -186,7 +194,9 @@ async def list_mailboxes(session: AsyncSession) -> list[MailboxView]:
     rows = await session.scalars(
         select(Mailbox).where(Mailbox.deleted_at.is_(None)).order_by(Mailbox.address)
     )
-    return [_view(row, held) for row in rows]
+    found = list(rows)
+    credentials = await secrets.credential_info(session, [row.id for row in found])
+    return [_view(row, held, credentials) for row in found]
 
 
 async def get_mailbox(session: AsyncSession, mailbox_id: uuid.UUID) -> MailboxView:
@@ -194,7 +204,8 @@ async def get_mailbox(session: AsyncSession, mailbox_id: uuid.UUID) -> MailboxVi
     row = await session.get(Mailbox, mailbox_id)
     if row is None or row.deleted_at is not None:
         raise NotFound(code="mailbox_not_found")
-    return _view(row, await _held_counts(session))
+    credentials = await secrets.credential_info(session, [row.id])
+    return _view(row, await _held_counts(session), credentials)
 
 
 def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:
@@ -246,7 +257,7 @@ async def create_mailbox(
         await _store_secret(session, row, ring, password)
         await session.flush()
     await changed(session, row, "added")
-    return _view(row, {})
+    return _view(row, {}, await secrets.credential_info(session, [row.id]))
 
 
 async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the change, explicit

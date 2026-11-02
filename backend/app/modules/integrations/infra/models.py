@@ -1,6 +1,6 @@
 """Mailboxes, the ledger of fetched mail and the secrets store (WP-024, WP-040).
 
-Migrations 0037 and 0042 (mailboxes), 0045 (connector secrets).
+Migrations 0037 and 0042 (mailboxes), 0045 (connector secrets), 0046 (connector runs, health).
 
 Both tenant-scoped with RLS. A mailbox's password is stored sealed with the installation key ring
 (AES-256-GCM, bound to the tenant and to the purpose "mailbox"), never in clear. The ledger has
@@ -207,6 +207,10 @@ class ConnectorSecret(TenantEntity):
             "secret_type IN ('password', 'client_secret', 'certificate', 'refresh_token')",
             name="secret_type_code",
         ),
+        # A password never shows any of its characters (product owner, 2026-11-02).
+        CheckConstraint(
+            "secret_type <> 'password' OR last_four IS NULL", name="no_password_ending"
+        ),
     )
 
     name: Mapped[str] = mapped_column(String(200))  # stable; exports carry {{secret:<name>}}
@@ -218,3 +222,71 @@ class ConnectorSecret(TenantEntity):
     key_id: Mapped[str] = mapped_column(String(32))
     sealed: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
     set_at: Mapped[datetime]  # its age (REQ-INT-003 AC3)
+    # "ending in ..a3f9", for display only, never for verification, and only for long random
+    # secrets (product owner, 2026-11-02): client secrets and refresh tokens; for a certificate
+    # its public thumbprint's end. Never for a password.
+    last_four: Mapped[str | None] = mapped_column(String(4))
+
+
+class ConnectorHealth(TenantKeyed, Base):
+    """One connector instance's standing between runs (WP-040, REQ-INT-004/005; migration 0046).
+
+    Any kind's instance: `kind` is the catalogue code, `instance_id` the owner's own ID (a
+    mailbox). Written only by `service.runs.record_run`, in the run's own transaction.
+    """
+
+    __tablename__ = "connector_health"
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    instance_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    failing: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    consecutive_failures: Mapped[int] = mapped_column(Integer, server_default="0")
+    failing_since: Mapped[datetime | None]
+    last_success_at: Mapped[datetime | None]
+    last_error_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(60))  # a label code
+    updated_at: Mapped[datetime]
+
+
+class ConnectorRun(TenantKeyed, Base):
+    """One run of a connector and its counts (kept RUN_RETENTION_DAYS; migration 0046)."""
+
+    __tablename__ = "connector_runs"
+    __table_args__ = (
+        Index(
+            "ix_connector_runs_tenant_instance_finished", "tenant_id", "instance_id", "finished_at"
+        ),
+        Index("ix_connector_runs_tenant_finished", "tenant_id", "finished_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    instance_id: Mapped[uuid.UUID]
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime]
+    ok: Mapped[bool] = mapped_column(Boolean)
+    read: Mapped[int] = mapped_column(Integer, server_default="0")
+    created: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated: Mapped[int] = mapped_column(Integer, server_default="0")
+    skipped: Mapped[int] = mapped_column(Integer, server_default="0")
+    failed: Mapped[int] = mapped_column(Integer, server_default="0")
+    error_code: Mapped[str | None] = mapped_column(String(60))
+
+
+class ConnectorError(TenantKeyed, Base):
+    """One failure of a connector, for its error list (kept ERROR_RETENTION_DAYS, REQ-INT-005 AC3).
+
+    A code and when, never the outside system's message text (it may carry personal data).
+    """
+
+    __tablename__ = "connector_errors"
+    __table_args__ = (
+        Index("ix_connector_errors_tenant_instance_at", "tenant_id", "instance_id", "occurred_at"),
+        Index("ix_connector_errors_tenant_at", "tenant_id", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    instance_id: Mapped[uuid.UUID]
+    occurred_at: Mapped[datetime]
+    code: Mapped[str] = mapped_column(String(60))

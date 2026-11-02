@@ -3,7 +3,9 @@
 Expand only (D-113; the contract step that drops the mailbox columns comes once the store is
 proven):
 - connector_secrets (RLS, FORCE): one sealed credential per (owner, role), its name, type, sealing
-  purpose and age. No last characters are stored (held for the product owner, 2026-11-02).
+  purpose and age, and `last_four` for display (product owner, 2026-11-02: long random secrets
+  only, never a password; a certificate shows its public thumbprint's end). Copied rows get it
+  the next time the application opens them.
 - mailboxes: `secret_ref`, `token_ref` (to the store) and `secret_fallback_at` (the store's copy
   could not be read and the old column was used; shown as degraded).
 - Data, per tenant under FORCE RLS: every live mailbox's credential and refresh token is copied
@@ -105,6 +107,7 @@ def upgrade() -> None:
         sa.Column("key_id", sa.String(length=32), nullable=False),
         sa.Column("sealed", sa.LargeBinary(), nullable=False),
         sa.Column("set_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("last_four", sa.String(length=4), nullable=True),
         sa.Column(
             "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
         ),
@@ -118,6 +121,10 @@ def upgrade() -> None:
         sa.CheckConstraint(
             "secret_type IN ('password', 'client_secret', 'certificate', 'refresh_token')",
             name=op.f("ck_connector_secrets_secret_type_code"),
+        ),
+        sa.CheckConstraint(
+            "secret_type <> 'password' OR last_four IS NULL",
+            name=op.f("ck_connector_secrets_no_password_ending"),
         ),
         sa.ForeignKeyConstraint(
             ["tenant_id"],

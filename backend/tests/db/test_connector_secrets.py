@@ -218,3 +218,56 @@ async def test_the_secrets_store_is_isolated_by_rls(world: World) -> None:
         assert changed.rowcount == 0
     (row,) = await _store(world, created["id"])
     assert row["deleted_at"] is None
+
+
+# --- "ending in ..." (product owner, 2026-11-02: display only, never for a password) ----------
+
+LONG_SECRET = "Q8~kz1rT0vYp4Lm2Xc7Wn9Bf3a"
+
+
+async def test_a_password_never_shows_any_of_its_characters(world: World) -> None:
+    with_key_ring(world)
+    created = await add(world)
+    credential = created.json()["credential"]
+    assert (credential["secret_type"], credential["last_four"]) == ("password", None)
+    (row,) = await _store(world, created.json()["id"])
+    with pytest.raises(Exception, match="no_password_ending"):  # the table refuses it too
+        await world.sql("UPDATE connector_secrets SET last_four = 'imap' WHERE id = $1", row["id"])
+
+
+async def test_a_long_client_secret_shows_only_its_last_four(
+    world: World, fake: FakeProviders
+) -> None:
+    del fake
+    _configure(world)
+    created = await _add(world, GMAIL | {"client_secret": LONG_SECRET})
+    assert created.status_code == 201, created.text
+    assert created.json()["credential"]["last_four"] == "Bf3a"
+    assert LONG_SECRET not in created.text
+    listed = await world.call("GET", BASE, world.a, world.a.admin)
+    assert LONG_SECRET not in listed.text
+    assert listed.json()[0]["credential"]["name"].endswith(".credential")
+
+
+async def test_a_moved_secret_gets_its_ending_when_next_used(
+    world: World, fake: FakeProviders
+) -> None:
+    ring = _configure(world)
+    fake.client_secret = LONG_SECRET  # the provider knows the app by this secret
+    created = (await _add(world, GMAIL | {"client_secret": LONG_SECRET})).json()
+    _back(await _sign_in(world, fake, created["id"], ADDRESS))
+    await world.sql(  # as migration 0045 left it: copied, never opened
+        "UPDATE connector_secrets SET last_four = NULL WHERE owner_id = $1",
+        uuid.UUID(created["id"]),
+    )
+    await _fetch(world, created["id"], ring)
+    endings = {
+        r["role"]: r["last_four"]
+        for r in await world.sql(
+            "SELECT role, last_four FROM connector_secrets WHERE owner_id = $1",
+            uuid.UUID(created["id"]),
+        )
+    }
+    assert endings["credential"] == "Bf3a"
+    (refresh,) = fake.refresh_tokens
+    assert endings["refresh_token"] == (refresh[-4:] if len(refresh) >= 16 else None)

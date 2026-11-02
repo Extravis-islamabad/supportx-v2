@@ -794,6 +794,7 @@ export function fakeMailbox(
     signed_in: false,
     flooding: false,
     degraded_reason: null,
+    credential: null,
     host: 'imap.acme.test',
     port: 993,
     security: 'tls',

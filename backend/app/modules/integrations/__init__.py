@@ -14,7 +14,7 @@ from app.modules.integrations.api.catalogue import catalogue_router
 from app.modules.integrations.api.routes import oauth_router, router
 from app.modules.integrations.events import EVENTS
 from app.modules.integrations.infra import models  # noqa: F401 - tables known to Alembic
-from app.modules.integrations.service import catalogue, notifications
+from app.modules.integrations.service import catalogue, connector_notifications, notifications, runs
 from app.modules.integrations.service.fetching import fetch_schedule
 from app.modules.integrations.service.mailboxes import MANAGE
 from app.modules.integrations.service.realtime import ROUTES
@@ -22,6 +22,7 @@ from app.shared.schedules import ScheduleSpec
 
 notifications.register()  # mail admins hear about failing mailboxes (WP-024 session 2)
 catalogue.register()  # mailboxes are the catalogue's first connectors (WP-040)
+connector_notifications.register()  # failing and recovered connectors (WP-040)
 
 module = ModuleSpec(
     name="integrations",
@@ -32,7 +33,10 @@ module = ModuleSpec(
         # Technicians see the catalogue read-only (REQ-INT-013 AC1); set-up is per category.
         PermissionSpec(catalogue.VIEW, defaults=(("technician", "all"),)),
     ),
-    schedules=[ScheduleSpec("integrations__mail_fetch", 60, fetch_schedule)],
+    schedules=[
+        ScheduleSpec("integrations__mail_fetch", 60, fetch_schedule),
+        ScheduleSpec("integrations__connector_purge", 86400, runs.purge_schedule),
+    ],
     events=EVENTS,
     realtime=ROUTES,
 )

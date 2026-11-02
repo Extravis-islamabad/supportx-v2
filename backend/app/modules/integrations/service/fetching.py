@@ -22,7 +22,10 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.domain.mailboxes import (
+    AUTH_FAILURES,
+    CONNECTOR_KIND,
     POLL_SECONDS,
     AfterFetch,
     MailboxState,
@@ -31,11 +34,10 @@ from app.modules.integrations.domain.mailboxes import (
 from app.modules.integrations.events import (
     MailboxChanged,
     MailboxCredentialExpiring,
-    MailboxFailing,
 )
 from app.modules.integrations.infra.imap import MailboxReader, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox
-from app.modules.integrations.service import secrets
+from app.modules.integrations.service import runs, secrets
 from app.modules.integrations.service.connections import (
     Credentials,
     key_ring,
@@ -57,27 +59,32 @@ def own_addresses(settings: Settings, mailboxes: list[Mailbox]) -> tuple[str, ..
     return tuple(a.lower() for a in addresses)
 
 
-async def _set_state(
+async def _set_state(  # noqa: PLR0913 - one fetch's outcome, explicit
     session: AsyncSession,
     mailbox_id: uuid.UUID,
     state: MailboxState,
     reason: str | None,
     *,
     handled: int,
+    started_at: datetime | None = None,
 ) -> None:
     mailbox = await session.get(Mailbox, mailbox_id)
     if mailbox is None:
         return
     now = datetime.now(UTC)
     moved = (mailbox.state, mailbox.state_reason) != (state.value, reason)
-    if moved and state is MailboxState.FAILING and reason is not None:
-        # Its admins are told once per new reason, not at every poll (never silent, D-109 (3)).
-        await record_event(
-            session,
-            MailboxFailing(mailbox_id=mailbox.id, reason=reason),
-            aggregate_id=mailbox.id,
-            aggregate_version=mailbox.version,
-        )
+    # Every fetch is a connector run: its admins are told once when it turns failing (at once
+    # when the provider refused the credential, else after 3 failed runs) and once when it
+    # recovers (WP-040, REQ-INT-005; replaces the per-reason mailbox.failing notice).
+    await runs.record_run(
+        session,
+        CONNECTOR_KIND,
+        mailbox.id,
+        started_at=started_at or now,
+        counts=RunCounts(read=handled, created=handled),
+        error_code=reason if state is MailboxState.FAILING else None,
+        auth_failure=reason in AUTH_FAILURES,
+    )
     if mailbox.flooding and await flood_over(session, mailbox.id):
         # Back under the limit: the warning goes away by itself, live (held mail still waits).
         mailbox.flooding = False
@@ -118,6 +125,7 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
         except MailboxUnavailableError as exc:
             stored = exc
     handled = 0
+    started = datetime.now(UTC)
     try:
         if isinstance(stored, MailboxUnavailableError):
             raise stored
@@ -148,10 +156,19 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
     except MailboxUnavailableError as exc:
         log.warning("mailbox_fetch_failed", mailbox_id=str(mailbox_id), reason=exc.reason)
         async with database.tenant_session(TenantContext(tenant)) as session:
-            await _set_state(session, mailbox_id, MailboxState.FAILING, exc.reason, handled=handled)
+            await _set_state(
+                session,
+                mailbox_id,
+                MailboxState.FAILING,
+                exc.reason,
+                handled=handled,
+                started_at=started,
+            )
         return handled
     async with database.tenant_session(TenantContext(tenant)) as session:
-        await _set_state(session, mailbox_id, MailboxState.WORKING, None, handled=handled)
+        await _set_state(
+            session, mailbox_id, MailboxState.WORKING, None, handled=handled, started_at=started
+        )
     return handled
 
 

@@ -17,6 +17,7 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.identity_access import Subject
 from app.modules.integrations.service import catalogue as service
+from app.modules.integrations.service.runs import InstanceHealth
 from app.shared.api.ratelimit import rate_limit
 from app.shared.connectors.ports import ConnectorCategory, ConnectorInstance, ConnectorStatus
 
@@ -42,16 +43,26 @@ class ConnectorInstanceOut(BaseModel):
     last_success_at: datetime | None
     next_run_at: datetime | None
     credential_expires_at: datetime | None
+    failing_since: datetime | None = Field(description="When it turned failing (notified).")
+    last_error_at: datetime | None
+    last_error_code: str | None = Field(description="The last error (a label code).")
+    counts_24h: dict[str, int] = Field(
+        description="Last 24 hours: runs, failed_runs, read, created, updated, skipped, failed."
+    )
 
     @classmethod
-    def of(cls, instance: ConnectorInstance) -> "ConnectorInstanceOut":
-        """From the registry's instance."""
+    def of(cls, instance: ConnectorInstance, health: InstanceHealth) -> "ConnectorInstanceOut":
+        """From the registry's instance and its recorded runs."""
         return cls(
+            failing_since=health.failing_since,
+            last_error_at=health.last_error_at,
+            last_error_code=health.last_error_code,
+            counts_24h=health.counts_24h,
             id=instance.id,
             name=instance.name,
             status=instance.status,
             reason=instance.reason,
-            last_success_at=instance.last_success_at,
+            last_success_at=instance.last_success_at or health.last_success_at,
             next_run_at=instance.next_run_at,
             credential_expires_at=instance.credential_expires_at,
         )
@@ -86,7 +97,10 @@ class ConnectorKindOut(BaseModel):
             available=entry.available,
             can_manage=entry.can_manage,
             manage_reason=entry.manage_reason,
-            instances=[ConnectorInstanceOut.of(i) for i in entry.instances],
+            instances=[
+                ConnectorInstanceOut.of(i, entry.health.get(i.id, InstanceHealth()))
+                for i in entry.instances
+            ],
         )
 
 
