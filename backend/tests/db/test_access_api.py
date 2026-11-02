@@ -165,6 +165,7 @@ async def test_roles_lifecycle_with_etags(world: World) -> None:
         "requester",
         "auditor",
         "security_admin",  # WP-039 session 3 (Appendix A)
+        "knowledge_manager",  # WP-033 session 2 (D-108): its grants come from knowledge
     }
 
     created = await world.create_role(

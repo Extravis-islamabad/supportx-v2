@@ -30,7 +30,10 @@ REQUESTER = "requester"
 AUDITOR = "auditor"
 # Sign-in, MFA, sessions and the people they apply to; no record access (Appendix A, D-089 D7).
 SECURITY_ADMIN = "security_admin"
-SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR, SECURITY_ADMIN)
+# Writes, reviews and publishes knowledge (D-108, WP-033 session 2). Its knowledge permissions
+# come from the knowledge module (PermissionSpec.defaults); identity only gives the role its key.
+KNOWLEDGE_MANAGER = "knowledge_manager"
+SYSTEM_ROLES = (TENANT_ADMIN, TECHNICIAN, REQUESTER, AUDITOR, SECURITY_ADMIN, KNOWLEDGE_MANAGER)
 
 ALL = ALL_SCOPES
 OWN_ONLY: tuple[Scope, ...] = ("own",)
@@ -125,6 +128,7 @@ SYSTEM_ROLE_GRANTS: Mapping[str, tuple[tuple[str, Scope], ...]] = MappingProxyTy
             ("roles.view", "all"),
             ("identity.manage", "all"),
         ),
+        KNOWLEDGE_MANAGER: (("profile.edit", "own"),),
     }
 )
 
