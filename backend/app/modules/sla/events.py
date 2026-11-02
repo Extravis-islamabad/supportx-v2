@@ -59,9 +59,59 @@ class SlaHolidayListDeleted(DomainEvent):
     calendar_ids: list[uuid.UUID]
 
 
+class SlaPolicySaved(DomainEvent):
+    """A policy was created or changed (conditions, targets, enabled, name)."""
+
+    event_type: ClassVar[str] = "sla.policy.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sla_policy"
+
+    policy_id: uuid.UUID
+    record_type: str
+    created: bool
+    changed_fields: list[str]
+
+
+class SlaPolicyDeleted(DomainEvent):
+    """A policy went to the trash (never the fallback)."""
+
+    event_type: ClassVar[str] = "sla.policy.deleted"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sla_policy"
+
+    policy_id: uuid.UUID
+    record_type: str
+
+
+class SlaPoliciesReordered(DomainEvent):
+    """The order of a record type's policies changed (first match wins)."""
+
+    event_type: ClassVar[str] = "sla.policies.reordered"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sla_policy"
+
+    record_type: str
+    policy_ids: list[uuid.UUID]
+
+
+class SlaSettingsSaved(DomainEvent):
+    """A record type's SLA settings changed (warning point, priority-change or reopen rule)."""
+
+    event_type: ClassVar[str] = "sla.settings.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sla_settings"
+
+    record_type: str
+    changed_fields: list[str]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     SlaCalendarSaved,
     SlaCalendarDeleted,
     SlaHolidayListSaved,
     SlaHolidayListDeleted,
+    SlaPolicySaved,
+    SlaPolicyDeleted,
+    SlaPoliciesReordered,
+    SlaSettingsSaved,
 )

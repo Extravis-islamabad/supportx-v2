@@ -15,7 +15,12 @@ CHANGED = "sla.setup.changed"
 
 def _ids(envelope: EventEnvelope) -> tuple[str, ...]:
     payload = envelope.payload
-    found = [payload.get("calendar_id"), payload.get("list_id"), *payload.get("calendar_ids", [])]
+    found = [
+        payload.get("calendar_id"),
+        payload.get("list_id"),
+        payload.get("policy_id"),
+        *payload.get("calendar_ids", []),
+    ]
     return tuple(dict.fromkeys(str(i) for i in found if i))
 
 
@@ -33,6 +38,10 @@ ROUTES = [
             "sla.calendar.deleted",
             "sla.holiday_list.saved",
             "sla.holiday_list.deleted",
+            "sla.policy.saved",
+            "sla.policy.deleted",
+            "sla.policies.reordered",
+            "sla.settings.saved",
         ),
         _changed,
     )
