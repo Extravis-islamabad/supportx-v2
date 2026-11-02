@@ -64,6 +64,7 @@ jobs:
           done
           curl -s -o /dev/null http://127.0.0.1:8333 # fail the job if never up
       - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/generated
       - name: Volume test
         working-directory: backend
         env:
