@@ -11,6 +11,10 @@ WORKDIR /src
 RUN corepack enable
 COPY frontend/ ./frontend/
 COPY tsconfig.base.json .prettierrc.json ./
+# The API types are generated, never committed (D-127): `make generated` before the build (CI
+# and `make images` do). The build stays offline: nothing is generated or fetched here.
+RUN test -f frontend/packages/api-client/src/schema.ts \
+ || { echo "schema.ts missing: run make generated before building images (D-127)" >&2; exit 1; }
 WORKDIR /src/frontend
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     CI=true pnpm install --frozen-lockfile \

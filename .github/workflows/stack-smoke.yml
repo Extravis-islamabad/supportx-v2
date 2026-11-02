@@ -86,6 +86,10 @@ jobs:
         run: make keycloak-identity
       - uses: ./.github/actions/setup-frontend
         if: ${{ steps.changes.outputs.run == 'true' }}
+      - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        with:
+          frontend: "true"
       - name: Configure, migrate and seed the dev database; RLS guard
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make backend-env db-migrate db-seed db-guard

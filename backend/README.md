@@ -7,6 +7,7 @@ Layout and rules: architecture.md §6 and `CLAUDE.md`. The module contract and r
 ```bash
 make backend-env             # backend/.env from the dev stack's secrets (after make dev-init)
 make backend-dev             # API with auto-reload on http://127.0.0.1:8000 (docs: /api/v1/docs)
+make generated               # write the generated files (never committed, D-127): labels, OpenAPI, API types
 make openapi                 # export the OpenAPI contract to frontend/packages/api-client
 make db-migrate db-seed      # migrate the dev database, add the demo tenant (docs/dev-setup.md)
 make db-guard                # tenant-isolation (RLS) check of every table

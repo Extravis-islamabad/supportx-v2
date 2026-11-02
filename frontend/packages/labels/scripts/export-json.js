@@ -5,9 +5,10 @@
  *   node packages/labels/scripts/export-json.js <output.json>
  *
  * Plain JavaScript; Node's built-in type stripping loads the TypeScript resources it imports.
- * `src/export.test.ts` fails when the committed JSON is out of date.
+ * The JSON is generated, never committed (D-127): `make generated-backend` writes it.
  */
 import { writeFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 
 import { ar } from '../src/resources/ar.ts';
 import { en } from '../src/resources/en.ts';
@@ -25,7 +26,8 @@ export function dictionary() {
   return { en: sorted(en), ar: sorted(ar), ur: sorted(ur) };
 }
 
+// Writes only when run as a script (an import, as by the test, never writes).
 const target = process.argv[2];
-if (target) {
+if (target && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   writeFileSync(target, `${JSON.stringify(dictionary(), null, 1)}\n`, 'utf8');
 }
