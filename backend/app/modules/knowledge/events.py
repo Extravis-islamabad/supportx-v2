@@ -71,9 +71,33 @@ class KbArticleWorkflow(DomainEvent):
     readers_affected: bool
 
 
+class KbSettingsChanged(DomainEvent):
+    """The tenant's knowledge settings changed (the settings page and the editor refetch)."""
+
+    event_type: ClassVar[str] = "knowledge.settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "kb_settings"
+
+    changed_fields: list[str]
+
+
+class KbTypeSaved(DomainEvent):
+    """An article type was added or changed: names, review interval, retired (D-120)."""
+
+    event_type: ClassVar[str] = "knowledge.type.saved"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "kb_type"
+
+    code: str
+    created: bool
+    changed_fields: list[str]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     KbTopicSaved,
     KbTopicDeleted,
     KbArticleSaved,
     KbArticleWorkflow,
+    KbSettingsChanged,
+    KbTypeSaved,
 )

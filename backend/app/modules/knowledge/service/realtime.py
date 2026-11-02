@@ -9,7 +9,8 @@ Channels this module decides about:
                                     whoever may read the article now (`get_article`, the same rule
                                     as the page); its files and delivery log are announced here too
     t:{tenant}:broadcast            "knowledge changed", no IDs: something readers see changed
-                                    (published, withdrawn, trashed, restored, a topic), or an
+                                    (published, withdrawn, trashed, restored, a topic, a type,
+                                    the settings), or an
                                     article open to every technician; screens refetch and the
                                     API applies who sees what, so nobody outside an audience
                                     ever learns an article's ID (REQ-KB-048 AC3)
@@ -116,7 +117,7 @@ async def _article_changed(envelope: EventEnvelope, session: AsyncSession) -> Re
 
 
 async def _topic_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """The topic tree changed: every knowledge screen refetches it (no IDs)."""
+    """Topics, types or settings changed: every knowledge screen refetches (no IDs)."""
     del session
     return RealtimeEffects(
         publications=[Publication(broadcast(envelope.tenant_id), CHANGED, coalesce=True)]
@@ -126,5 +127,14 @@ async def _topic_changed(envelope: EventEnvelope, session: AsyncSession) -> Real
 CHANNELS = [LIST.spec(), ChannelSpec(kind=RECORD_KIND, authorize=_record_channel)]
 ROUTES = [
     RealtimeRoute(("knowledge.article.saved", "knowledge.article.workflow"), _article_changed),
-    RealtimeRoute(("knowledge.topic.saved", "knowledge.topic.deleted"), _topic_changed),
+    # Topics, types and settings: every knowledge screen refetches (no IDs; D-120).
+    RealtimeRoute(
+        (
+            "knowledge.topic.saved",
+            "knowledge.topic.deleted",
+            "knowledge.type.saved",
+            "knowledge.settings.changed",
+        ),
+        _topic_changed,
+    ),
 ]

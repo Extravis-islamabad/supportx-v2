@@ -195,14 +195,21 @@ async def test_req_kb_028_self_approval_follows_the_setting(world: World) -> Non
     a = world.a
     settings = await world.call("GET", SETTINGS, a, a.admin)
     assert settings.status_code == 200, settings.text
-    assert settings.json()["self_approval"] is True
+    assert settings.json()["self_approval"] is False  # off by default (D-120 (4))
+    assert settings.json()["defaults"]["self_approval"] is False
+
+    topic = await _topic(world, a)
+    own = await _article(world, a, a.admin, topic)
+    await _submit(world, a, a.admin, own)
+    assert problem(await _approve(world, a, a.admin, own)) == (403, "kb_self_approval_off")
+
     # REQ-KB-090: If-Match, and only settings managers.
     tech = await world.call(
         "PATCH",
         SETTINGS,
         a,
         a.tech_a,
-        json={"self_approval": False},
+        json={"self_approval": True},
         headers=_match(settings.json()["version"]),
     )
     assert problem(tech)[0] == 403
@@ -211,35 +218,21 @@ async def test_req_kb_028_self_approval_follows_the_setting(world: World) -> Non
         SETTINGS,
         a,
         a.admin,
-        json={"self_approval": False},
+        json={"self_approval": True},
         headers=_match(settings.json()["version"]),
     )
     assert changed.status_code == 200, changed.text
-    assert changed.json()["self_approval"] is False
+    assert changed.json()["self_approval"] is True
     stale = await world.call(
         "PATCH",
         SETTINGS,
         a,
         a.admin,
-        json={"self_approval": True},
+        json={"self_approval": False},
         headers=_match(settings.json()["version"]),
     )
     assert problem(stale) == (409, "version_conflict")
 
-    topic = await _topic(world, a)
-    own = await _article(world, a, a.admin, topic)
-    await _submit(world, a, a.admin, own)
-    assert problem(await _approve(world, a, a.admin, own)) == (403, "kb_self_approval_off")
-
-    back = await world.call(
-        "PATCH",
-        SETTINGS,
-        a,
-        a.admin,
-        json={"self_approval": True},
-        headers=_match(changed.json()["version"]),
-    )
-    assert back.status_code == 200, back.text
     assert (await _approve(world, a, a.admin, own)).status_code == 200
     flag = await world.sql(
         "SELECT self_approved FROM kb_article_versions WHERE article_id = $1",
@@ -591,8 +584,9 @@ async def test_kb_reviews_are_isolated_by_rls(world: World) -> None:
 async def test_req_kb_048_ac3_live_updates_carry_ids_only_to_the_audience(world: World) -> None:
     a = world.a
     finance = await _topic(world, a, "Finance", tech_all=False, tech_groups=[str(a.gb)])
-    article = await _article(world, a, a.admin, finance, title="Expense claims")
-    await _submit(world, a, a.admin, article)
+    # tech_b (group GB) writes it and the admin approves: self-approval is off (D-120 (4)).
+    article = await _article(world, a, a.tech_b, finance, title="Expense claims")
+    await _submit(world, a, a.tech_b, article)
     assert (await _approve(world, a, a.admin, article)).status_code == 200
     rows = await world.sql(
         "SELECT envelope FROM outbox_events WHERE tenant_id = $1 AND aggregate_id = $2"

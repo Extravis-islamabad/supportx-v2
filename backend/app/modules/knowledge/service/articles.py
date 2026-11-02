@@ -24,6 +24,7 @@ from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, Va
 from app.modules.identity_access import Subject, person_placement
 from app.modules.knowledge.domain.knowledge import (
     BUILTIN_TYPES,
+    COUNTER_KEY,
     ID_PREFIX,
     KbLanguage,
     VersionStatus,
@@ -65,7 +66,7 @@ from app.modules.knowledge.service.topics import (
     get_topic,
 )
 from app.shared.clock import system_clock
-from app.shared.db.display_ids import next_display_id
+from app.shared.db.display_ids import format_display_id, next_display_number
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
 from app.shared.richtext import sanitize_html
@@ -354,7 +355,9 @@ async def create_article(
     settings = await settings_row(session)
     language = KbLanguage(values.get("language", "en"))
     article = KbArticle(
-        display_id=await next_display_id(session, settings.prefix or ID_PREFIX),
+        display_id=format_display_id(
+            settings.prefix or ID_PREFIX, await next_display_number(session, COUNTER_KEY)
+        ),
         topic_id=topic.id,
         type_code=kind.code,
         owner_id=subject.user_id,

@@ -18,8 +18,10 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
 from app.modules.identity_access import Subject, user_names
-from app.modules.knowledge.infra.models import KbArticleVersion, KbTopic, KbType
+from app.modules.knowledge.domain.knowledge import ID_PREFIX
+from app.modules.knowledge.infra.models import KbArticleVersion, KbSettings, KbTopic, KbType
 from app.modules.knowledge.service import articles, review, topics
+from app.modules.knowledge.service import types as kb_types
 from app.modules.knowledge.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -147,6 +149,7 @@ class ArticleTypeOut(BaseModel):
     review_months: int
     builtin: bool
     retired: bool
+    version: int
 
     @classmethod
     def of(cls, kind: KbType) -> "ArticleTypeOut":
@@ -157,6 +160,7 @@ class ArticleTypeOut(BaseModel):
             review_months=kind.review_months,
             builtin=kind.builtin,
             retired=kind.retired_at is not None,
+            version=kind.version,
         )
 
 
@@ -418,6 +422,87 @@ async def list_types(session: TenantSession, subject: Viewer) -> list[ArticleTyp
     """The organisation's article types (file 08 Appendix A defaults on first use)."""
     del subject
     return [ArticleTypeOut.of(t) for t in await articles.article_types(session)]
+
+
+class TypeNames(BaseModel):
+    """A custom type's names: English and Arabic required, Urdu optional (rule d)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    en: str = Field(default="", max_length=200)
+    ar: str = Field(default="", max_length=200)
+    ur: str = Field(default="", max_length=200)
+
+
+class ArticleTypeIn(BaseModel):
+    """A new custom article type (D-120)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    names: TypeNames
+    review_months: int = Field(ge=1, le=60)
+
+
+class ArticleTypePatch(BaseModel):
+    """Change a type (If-Match): a built-in type keeps its names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    names: TypeNames | None = None
+    review_months: int | None = Field(default=None, ge=1, le=60)
+    retired: bool | None = None
+
+
+@router.post(
+    "/types",
+    summary="Add an article type",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ArticleTypeOut,
+    dependencies=[audited("knowledge.type_created", object_type="kb_type")],
+)
+async def create_type(
+    body: ArticleTypeIn,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    idempotency: Idempotency,
+) -> Response:
+    """Needs `knowledge.manage_types`."""
+
+    async def go() -> Created:
+        kind = await kb_types.create_type(
+            session, subject, body.model_dump(), source=source_of(request)
+        )
+        out = ArticleTypeOut.of(kind)
+        return Created(body=out, headers={"ETag": f'"{out.version}"'})
+
+    return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+@router.patch(
+    "/types/{code}",
+    summary="Change an article type",
+    responses=CONFLICT,
+    dependencies=[audited("knowledge.type_changed", object_type="kb_type")],
+)
+async def update_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    code: Annotated[str, Field(max_length=40)],
+    body: ArticleTypePatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleTypeOut:
+    """Needs `knowledge.manage_types` and If-Match. Retired types stay on their articles."""
+    values = {name: getattr(body, name) for name in body.model_fields_set}
+    if isinstance(values.get("names"), TypeNames):
+        values["names"] = values["names"].model_dump()
+    kind = await kb_types.update_type(
+        session, subject, code, values, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, kind.version)
+    return ArticleTypeOut.of(kind)
 
 
 # --- articles -------------------------------------------------------------------------------------
@@ -891,20 +976,43 @@ async def approvals_count(session: TenantSession, subject: Viewer) -> ApprovalCo
     return ApprovalCountOut(count=await review.awaiting_count(session, subject))
 
 
+class KnowledgeSettingsDefaults(BaseModel):
+    """What each setting is before anyone changes it (the page's "reset")."""
+
+    prefix: str = ID_PREFIX
+    self_approval: bool = False  # D-120 (4)
+    requesters_enabled: bool = True
+
+
 class KnowledgeSettingsOut(BaseModel):
-    """Knowledge settings (REQ-KB-090)."""
+    """Knowledge settings (REQ-KB-090; prefix and next number, D-120)."""
 
     prefix: str
+    next_number: int = Field(description="The number the next new article gets.")
     self_approval: bool
     requesters_enabled: bool
     version: int
+    defaults: KnowledgeSettingsDefaults = Field(default_factory=KnowledgeSettingsDefaults)
+
+    @classmethod
+    async def of(cls, session: AsyncSession, found: KbSettings) -> "KnowledgeSettingsOut":
+        """From the row and the article counter."""
+        return cls(
+            prefix=found.prefix,
+            next_number=await review.next_article_number(session),
+            self_approval=found.self_approval,
+            requesters_enabled=found.requesters_enabled,
+            version=found.version,
+        )
 
 
 class KnowledgeSettingsPatch(BaseModel):
-    """Change knowledge settings (If-Match)."""
+    """Change knowledge settings (If-Match). A new prefix applies to new articles only."""
 
     model_config = ConfigDict(extra="forbid")
 
+    prefix: str | None = Field(default=None, max_length=6)
+    next_number: int | None = Field(default=None, ge=1, le=999_999_999)
     self_approval: bool | None = None
     requesters_enabled: bool | None = None
 
@@ -917,12 +1025,7 @@ async def get_settings(
     del subject
     found = await articles.settings_row(session)
     set_etag(response, found.version)
-    return KnowledgeSettingsOut(
-        prefix=found.prefix,
-        self_approval=found.self_approval,
-        requesters_enabled=found.requesters_enabled,
-        version=found.version,
-    )
+    return await KnowledgeSettingsOut.of(session, found)
 
 
 @router.patch(
@@ -945,9 +1048,4 @@ async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         session, subject, values, expected_version=version, source=source_of(request)
     )
     set_etag(response, found.version)
-    return KnowledgeSettingsOut(
-        prefix=found.prefix,
-        self_approval=found.self_approval,
-        requesters_enabled=found.requesters_enabled,
-        version=found.version,
-    )
+    return await KnowledgeSettingsOut.of(session, found)

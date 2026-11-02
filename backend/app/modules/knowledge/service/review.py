@@ -28,9 +28,17 @@ from typing import Any
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, ValidationFailed
+from app.core.errors import (
+    Conflict,
+    FieldError,
+    NotFound,
+    ParamValue,
+    PermissionDenied,
+    ValidationFailed,
+)
 from app.modules.identity_access import Subject, user_names
 from app.modules.knowledge.domain.knowledge import (
+    COUNTER_KEY,
     VersionStatus,
     WorkflowStep,
     add_months,
@@ -38,7 +46,7 @@ from app.modules.knowledge.domain.knowledge import (
     self_approval_problem,
     submit_problem,
 )
-from app.modules.knowledge.events import KbArticleWorkflow
+from app.modules.knowledge.events import KbArticleWorkflow, KbSettingsChanged
 from app.modules.knowledge.infra.models import (
     KbArticle,
     KbArticleVersion,
@@ -69,6 +77,8 @@ from app.modules.knowledge.service.repos import (
     VersionRepository,
 )
 from app.shared.clock import system_clock
+from app.shared.db.display_ids import NumberAlreadyUsedError, last_number, set_next_number
+from app.shared.domain import prefix_problems
 from app.shared.events import record_event
 from app.shared.history import Change, HistoryEntry, Source, history_page, record_changes
 
@@ -513,7 +523,12 @@ async def update_settings(
     expected_version: int,
     source: Source,
 ) -> KbSettings:
-    """Change knowledge settings with If-Match (REQ-KB-090)."""
+    """Change knowledge settings with If-Match (REQ-KB-090; prefix and next number, D-120).
+
+    All or nothing: every value is checked first and each problem is named at its field. A new
+    prefix applies to new articles only; existing ones keep their IDs. The next number never goes
+    back, so an ID is never handed out twice.
+    """
     require(subject, MANAGE_SETTINGS)
     current = await settings_row(session)
     if current.version != expected_version:
@@ -521,9 +536,31 @@ async def update_settings(
             code="version_conflict",
             params={"expected_version": expected_version, "current_version": current.version},
         )
+    values = dict(values)
+    problems: list[FieldError] = []
+    if "prefix" in values:
+        values["prefix"] = str(values["prefix"] or "").strip().upper()
+        if prefix_problems(values["prefix"]):
+            problems.append(_field_problem("prefix", "invalid_prefix"))
+    last = await last_number(session, COUNTER_KEY)
+    next_number = values.pop("next_number", None)
+    if next_number is not None and next_number <= last:
+        problems.append(_field_problem("next_number", "number_already_used", minimum=last + 1))
+    if problems:
+        raise ValidationFailed(errors=problems)
     changes = [
         Change(k, getattr(current, k), v) for k, v in values.items() if getattr(current, k) != v
     ]
+    if next_number is not None and next_number != last + 1:
+        try:
+            await set_next_number(session, COUNTER_KEY, next_number)
+        except NumberAlreadyUsedError as error:  # an article was created since we read it
+            raise ValidationFailed(
+                errors=[
+                    _field_problem("next_number", "number_already_used", minimum=next_number + 1)
+                ]
+            ) from error
+        changes.append(Change("next_number", last + 1, next_number))
     for key, value in values.items():
         setattr(current, key, value)
     if changes:
@@ -538,8 +575,25 @@ async def update_settings(
             changes=changes,
             source=source,
         )
+        await record_event(
+            session,
+            KbSettingsChanged(changed_fields=sorted(c.field for c in changes)),
+            aggregate_id=current.tenant_id,
+            aggregate_version=current.version,
+        )
     await session.flush()
     return current
+
+
+async def next_article_number(session: AsyncSession) -> int:
+    """The number the next new article gets (the settings page shows it)."""
+    return await last_number(session, COUNTER_KEY) + 1
+
+
+def _field_problem(field: str, code: str, **params: ParamValue) -> FieldError:
+    return FieldError(
+        field=f"body.{field}", code=code, message_key=f"errors.field.{code}", params=params
+    )
 
 
 # --- history (REQ-KB-080) -------------------------------------------------------------------------

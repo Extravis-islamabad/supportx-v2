@@ -14,6 +14,8 @@ from enum import StrEnum
 
 MAX_TOPIC_DEPTH = 6  # REQ-KB-003 AC3
 ID_PREFIX = "KB"  # D-108 (8): KB-1, KB-2 ...
+# Articles count on their own counter, so a renamed prefix continues the numbering (D-120 (3)).
+COUNTER_KEY = "KB_ARTICLE"
 
 
 class KbLanguage(StrEnum):

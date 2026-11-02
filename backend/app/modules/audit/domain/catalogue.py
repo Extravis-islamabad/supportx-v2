@@ -217,6 +217,8 @@ ACTIONS: dict[str, Action] = _actions(
     ("knowledge.article_deleted", AuditCategory.RECORDS, "knowledge"),
     ("knowledge.article_restored", AuditCategory.RECORDS, "knowledge"),
     ("knowledge.settings_changed", AuditCategory.CONFIGURATION, "knowledge"),
+    ("knowledge.type_created", AuditCategory.CONFIGURATION, "knowledge"),
+    ("knowledge.type_changed", AuditCategory.CONFIGURATION, "knowledge"),
     # licence
     ("licence.read_only_entered", AuditCategory.LICENCE, "licensing"),
     # sensitive reads (REQ-AUD-004): one action per read category

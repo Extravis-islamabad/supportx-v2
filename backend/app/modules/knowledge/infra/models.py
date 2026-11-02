@@ -5,6 +5,7 @@ from datetime import date, datetime
 from typing import Any
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Computed,
@@ -34,7 +35,7 @@ class KbSettings(TenantKeyed, Base):
     __table_args__ = (CheckConstraint("prefix ~ '^[A-Z]{2,6}$'", name="prefix_format"),)
 
     prefix: Mapped[str] = mapped_column(String(6), server_default="KB")
-    self_approval: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    self_approval: Mapped[bool] = mapped_column(Boolean, server_default="false")  # D-120 (4)
     requesters_enabled: Mapped[bool] = mapped_column(Boolean, server_default="true")
     version: Mapped[int] = mapped_column(Integer, server_default="1")
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
@@ -57,6 +58,10 @@ class KbType(TenantKeyed, Base):
     builtin: Mapped[bool] = mapped_column(Boolean, server_default="false")
     sort_order: Mapped[int] = mapped_column(SmallInteger, server_default="0")
     retired_at: Mapped[datetime | None]
+    # Admins change a type with If-Match (rule g; 0046).
+    version: Mapped[int] = mapped_column(BigInteger, server_default="1")
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
+    updated_by: Mapped[uuid.UUID | None]
 
 
 class KbTopic(TenantEntity):
