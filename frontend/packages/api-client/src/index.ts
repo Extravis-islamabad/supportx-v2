@@ -584,6 +584,7 @@ export {
   useMailboxes,
   useReleaseMail,
   useRemoveMailbox,
+  useStartMailboxSignIn,
   useTestMailbox,
   useUpdateMailbox,
   useWaitingMail,

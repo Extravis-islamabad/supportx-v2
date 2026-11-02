@@ -3255,6 +3255,26 @@ export interface paths {
         patch: operations["update_mailbox_api_v1_integrations_mailboxes__mailbox_id__patch"];
         trace?: never;
     };
+    "/api/v1/integrations/mailboxes/{mailbox_id}/sign-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in as the mailbox (consent)
+         * @description Gmail, and Microsoft 365 with delegated permission. Valid ten minutes, for you only.
+         */
+        post: operations["start_sign_in_api_v1_integrations_mailboxes__mailbox_id__sign_in_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
         parameters: {
             query?: never;
@@ -3329,6 +3349,28 @@ export interface paths {
          * @description Without the flood check; held again, with the new reason, if it still cannot be taken in.
          */
         post: operations["release_mail_api_v1_integrations_mailboxes__mailbox_id__waiting_release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/integrations/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Microsoft or Google sends the admin back here
+         * @description Stores the sign-in and returns to Admin > Mail, which shows the result.
+         *
+         *     The authorization code and state are never logged (see app.core.logging's query redaction).
+         */
+        get: operations["sign_in_callback_api_v1_integrations_oauth_callback_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3507,6 +3549,26 @@ export interface paths {
          * @description Newest first (at most 200); for people who may see the record in full.
          */
         get: operations["deliveries_api_v1_notifications_deliveries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/mail-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether replies can go out by e-mail
+         * @description For staff who reply on records (any `*.reply` permission); others get 403.
+         */
+        get: operations["mail_status_api_v1_notifications_mail_status_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6372,6 +6434,12 @@ export interface components {
             sealed_entries: number;
         };
         /**
+         * AuthModel
+         * @description How an API mailbox signs in (docs/guides/mail-oauth-apps.md).
+         * @enum {string}
+         */
+        AuthModel: "app" | "delegated";
+        /**
          * AutomationRunOut
          * @description One automation step on the record: names, codes and outcomes, never values.
          */
@@ -6765,9 +6833,11 @@ export interface components {
         ConnectionSecurity: "tls" | "starttls" | "none";
         /**
          * ConnectionTestIn
-         * @description Settings to try (a new password, or the stored one when left out).
+         * @description A new password or client secret to try, or the stored one when left out.
          */
         ConnectionTestIn: {
+            /** Client Secret */
+            client_secret?: string | null;
             /** Password */
             password?: string | null;
         };
@@ -6842,8 +6912,13 @@ export interface components {
             /** Created By */
             created_by: string | null;
             delivery_reason: components["schemas"]["DeliveryReason"] | null;
-            /** @description Replies only. not_sent: saved, but nothing could send it (see the reason). */
+            /** @description Replies only: waiting (mail not set up), queued, retrying, sent or failed (see the reason; a failed reply can be resent). not_sent is legacy. */
             delivery_state: components["schemas"]["DeliveryState"] | null;
+            /**
+             * Delivery Updated At
+             * @description When the delivery state last moved.
+             */
+            delivery_updated_at: string | null;
             /**
              * First Response
              * @description This entry stamped the first response.
@@ -6895,6 +6970,12 @@ export interface components {
             /** Counter */
             counter: string;
         };
+        /**
+         * CredentialKind
+         * @description What proves the customer's OAuth app (client) to Microsoft or Google.
+         * @enum {string}
+         */
+        CredentialKind: "secret" | "certificate";
         /**
          * CustomFieldChoiceIO
          * @description One choice. Send `code` for an existing one; a new one gets a code from its name.
@@ -7200,16 +7281,19 @@ export interface components {
         DateBucket: "day" | "week" | "month" | "quarter" | "year" | "age";
         /**
          * DeliveryReason
-         * @description Why a reply is not (yet) sent.
+         * @description Why a reply is not (yet) sent: a code the timeline shows as its label.
          * @enum {string}
          */
-        DeliveryReason: "email_channel_not_configured";
+        DeliveryReason: "email_channel_not_configured" | "mail_not_configured" | "not_sent_in_time" | "no_address" | "mail_refused" | "not_notified" | "recipient_refused" | "recipient_deferred" | "message_refused" | "authentication_failed" | "server_unavailable" | "server_busy" | "gave_up";
         /**
          * DeliveryState
-         * @description Where a reply is: outbound ones are sent, incoming ones were received. Notes have none.
+         * @description Where a reply is (REQ-INC-059): outbound ones are sent, incoming ones were received.
+         *
+         *     Notes have none. The notification engine moves an outbound reply as its e-mail to the
+         *     requester goes (WP-024 session 3).
          * @enum {string}
          */
-        DeliveryState: "received" | "not_sent" | "queued" | "sent" | "failed";
+        DeliveryState: "received" | "not_sent" | "waiting" | "queued" | "retrying" | "sent" | "failed";
         /**
          * DepartmentIn
          * @description A new department.
@@ -8551,6 +8635,37 @@ export interface components {
             triggers: string[];
         };
         /**
+         * MailFixerOut
+         * @description A person by name only (no address: this is shown to every technician).
+         */
+        MailFixerOut: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
+        /**
+         * MailStatusOut
+         * @description For the reply composer (REQ-INC-060): whether a reply can go out by e-mail now.
+         */
+        MailStatusOut: {
+            /** Mail Configured */
+            mail_configured: boolean;
+            /**
+             * Waiting
+             * @description E-mails waiting for outgoing mail in this organisation.
+             */
+            waiting: number;
+            /**
+             * Who Can Fix
+             * @description People who can set mail up (names only).
+             */
+            who_can_fix: components["schemas"]["MailFixerOut"][];
+        };
+        /**
          * MailboxCreates
          * @description What a new (non-reply) message to the mailbox becomes.
          * @enum {string}
@@ -8558,7 +8673,7 @@ export interface components {
         MailboxCreates: "incident" | "nothing";
         /**
          * MailboxIn
-         * @description A new mailbox.
+         * @description A new mailbox: IMAP (server, account, password) or Microsoft 365 / Gmail (OAuth app).
          */
         MailboxIn: {
             /** Address */
@@ -8571,7 +8686,27 @@ export interface components {
             allow_plain?: boolean | null;
             /** Allowed Domains */
             allowed_domains?: string[] | null;
+            /** @description Microsoft 365: app (no one signs in) or delegated. Gmail: delegated. */
+            auth_model?: components["schemas"]["AuthModel"] | null;
+            /** Client Id */
+            client_id?: string | null;
+            /**
+             * Client Secret
+             * @description The OAuth app's secret, or its certificate and private key (PEM). Sealed.
+             */
+            client_secret?: string | null;
             creates?: components["schemas"]["MailboxCreates"] | null;
+            /**
+             * Credential Expires At
+             * @description When the client secret expires (read from a certificate); warned ahead.
+             */
+            credential_expires_at?: string | null;
+            credential_kind?: components["schemas"]["CredentialKind"] | null;
+            /**
+             * Directory Id
+             * @description Microsoft Entra tenant ID.
+             */
+            directory_id?: string | null;
             /** Display Name */
             display_name?: string | null;
             /** Enabled */
@@ -8581,23 +8716,25 @@ export interface components {
             /** Group Id */
             group_id?: string | null;
             /** Host */
-            host: string;
+            host?: string | null;
             /** Move To */
             move_to?: string | null;
             /**
              * Password
-             * @description Stored sealed; never shown.
+             * @description IMAP. Stored sealed; never shown.
              */
-            password: string;
+            password?: string | null;
             /**
              * Port
-             * @default 993
+             * @description IMAP: 993 when left out.
              */
-            port: number;
+            port?: number | null;
+            /** @default imap */
+            protocol: components["schemas"]["MailboxProtocol"];
             security?: components["schemas"]["ConnectionSecurity"] | null;
             unknown_senders?: components["schemas"]["UnknownSenders"] | null;
             /** Username */
-            username: string;
+            username?: string | null;
         };
         /**
          * MailboxOut
@@ -8611,16 +8748,32 @@ export interface components {
             allow_plain: boolean;
             /** Allowed Domains */
             allowed_domains: string[];
+            auth_model: components["schemas"]["AuthModel"] | null;
+            /** Client Id */
+            client_id: string | null;
             creates: components["schemas"]["MailboxCreates"];
+            /** Credential Expires At */
+            credential_expires_at: string | null;
+            credential_kind: components["schemas"]["CredentialKind"] | null;
+            /** Directory Id */
+            directory_id: string | null;
             /** Display Name */
             display_name: string | null;
             /** Enabled */
             enabled: boolean;
+            /**
+             * Flooding
+             * @description A sender went over the flood limit; their mail waits in the review queue.
+             */
+            flooding: boolean;
             /** Folder */
             folder: string;
             /** Group Id */
             group_id: string | null;
-            /** Has Password */
+            /**
+             * Has Password
+             * @description A password or client secret is stored.
+             */
             has_password: boolean;
             /**
              * Held
@@ -8628,7 +8781,7 @@ export interface components {
              */
             held: number;
             /** Host */
-            host: string;
+            host: string | null;
             /**
              * Id
              * Format: uuid
@@ -8638,9 +8791,20 @@ export interface components {
             last_fetch_at: string | null;
             /** Move To */
             move_to: string | null;
+            /**
+             * Needs Sign In
+             * @description Someone must sign in as the mailbox (consent).
+             */
+            needs_sign_in: boolean;
             /** Port */
-            port: number;
+            port: number | null;
+            protocol: components["schemas"]["MailboxProtocol"];
             security: components["schemas"]["ConnectionSecurity"];
+            /**
+             * Signed In
+             * @description A sign-in (refresh token) is stored.
+             */
+            signed_in: boolean;
             state: components["schemas"]["MailboxState"];
             /**
              * State Reason
@@ -8649,13 +8813,13 @@ export interface components {
             state_reason: string | null;
             unknown_senders: components["schemas"]["UnknownSenders"];
             /** Username */
-            username: string;
+            username: string | null;
             /** Version */
             version: number;
         };
         /**
          * MailboxPatch
-         * @description Fields to change; a password replaces the stored one.
+         * @description Fields to change; a password or client secret replaces the stored one.
          */
         MailboxPatch: {
             after_fetch?: components["schemas"]["AfterFetch"] | null;
@@ -8666,7 +8830,24 @@ export interface components {
             allow_plain?: boolean | null;
             /** Allowed Domains */
             allowed_domains?: string[] | null;
+            /** @description Microsoft 365: app (no one signs in) or delegated. Gmail: delegated. */
+            auth_model?: components["schemas"]["AuthModel"] | null;
+            /** Client Id */
+            client_id?: string | null;
+            /** Client Secret */
+            client_secret?: string | null;
             creates?: components["schemas"]["MailboxCreates"] | null;
+            /**
+             * Credential Expires At
+             * @description When the client secret expires (read from a certificate); warned ahead.
+             */
+            credential_expires_at?: string | null;
+            credential_kind?: components["schemas"]["CredentialKind"] | null;
+            /**
+             * Directory Id
+             * @description Microsoft Entra tenant ID.
+             */
+            directory_id?: string | null;
             /** Display Name */
             display_name?: string | null;
             /** Enabled */
@@ -8687,6 +8868,20 @@ export interface components {
             unknown_senders?: components["schemas"]["UnknownSenders"] | null;
             /** Username */
             username?: string | null;
+        };
+        /**
+         * MailboxProtocol
+         * @description How a mailbox is read.
+         * @enum {string}
+         */
+        MailboxProtocol: "imap" | "graph" | "gmail";
+        /**
+         * MailboxSignInOut
+         * @description Where to send the browser: Microsoft's or Google's sign-in, for the mailbox's account.
+         */
+        MailboxSignInOut: {
+            /** Authorize Url */
+            authorize_url: string;
         };
         /**
          * MailboxState
@@ -28426,6 +28621,82 @@ export interface operations {
             };
         };
     };
+    start_sign_in_api_v1_integrations_mailboxes__mailbox_id__sign_in_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mailbox_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailboxSignInOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (mailboxes.manage). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such mailbox (mailbox_not_found). */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match, or taken. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     test_mailbox_api_v1_integrations_mailboxes__mailbox_id__test_post: {
         parameters: {
             query?: never;
@@ -28701,6 +28972,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    sign_in_callback_api_v1_integrations_oauth_callback_get: {
+        parameters: {
+            query?: {
+                state?: string;
+                code?: string | null;
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -29641,6 +29952,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    mail_status_api_v1_notifications_mail_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MailStatusOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Not staff (mail_status_staff_only). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

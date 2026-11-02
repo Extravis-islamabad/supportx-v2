@@ -18,10 +18,11 @@ out; the `notifications__mail_waiting` schedule hands the waiting ones over once
 import uuid
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -60,7 +61,9 @@ from app.shared.mail import (
     with_token,
     wrap_html,
 )
+from app.shared.mail.events import MailStateChanged
 from app.shared.notifications.ports import (
+    DeliveryChange,
     LabelRef,
     Localised,
     NotificationChannel,
@@ -77,6 +80,10 @@ from app.shared.notifications.ports import (
 log = get_logger(__name__)
 LANGUAGES: tuple[Language, ...] = ("en", "ar", "ur")
 WAITING_BATCH = 200
+# An e-mail that waited this long for outgoing mail is never sent late (REQ-INC-060; D-116).
+WAITING_DAYS = 7
+NOT_SENT_IN_TIME = "not_sent_in_time"
+REQUESTER = "requester"  # the recipient kind whose e-mail a reply's delivery state follows
 
 
 # --- rules and preferences -------------------------------------------------------------------
@@ -255,12 +262,19 @@ async def _record(  # noqa: PLR0913 - one delivery row, explicit
         language=language,
         notification_id=notification_id,
         mail_id=mail_id,
+        entry_id=context.entry_id if channel is NotificationChannel.EMAIL else None,
         subject=waiting.subject if waiting else None,
         text_body=waiting.body if waiting else None,
         html_body=html if waiting else None,
     )
     session.add(delivery)
     await session.flush()
+    if delivery.entry_id is not None and REQUESTER in recipient.reasons:
+        moved = _entry_state(state, reason)
+        if moved is not None:
+            await entry_changed(
+                session, source, delivery, state=moved[0], reason=moved[1], at=datetime.now(UTC)
+            )
     await record_event(
         session,
         DeliveryRecorded(
@@ -326,6 +340,70 @@ async def _email(
         await _record(*common, DeliveryState.SUPPRESSED, reason=SuppressedReason.MAIL_REFUSED)
         return
     await _record(*common, DeliveryState.QUEUED, language=message.language, mail_id=mail_id)
+
+
+def _entry_state(state: DeliveryState, reason: str | None) -> tuple[str, str | None] | None:
+    """The reply's delivery state for a requester e-mail's first state (None: no change)."""
+    if state is DeliveryState.WAITING:
+        return "waiting", "mail_not_configured"
+    if state is DeliveryState.QUEUED:
+        return "queued", None
+    if state is DeliveryState.SUPPRESSED:
+        known = {SuppressedReason.NO_ADDRESS.value, SuppressedReason.MAIL_REFUSED.value}
+        return "failed", reason if reason in known else "not_notified"
+    return None
+
+
+async def entry_changed(  # noqa: PLR0913 - the change, explicit
+    session: AsyncSession,
+    source: RecordSource,
+    delivery: NotificationDelivery,
+    *,
+    state: str,
+    reason: str | None,
+    at: datetime,
+) -> None:
+    """Tell the record's module how the e-mail carrying one of its entries went (REQ-INC-059)."""
+    hook = getattr(source, "delivery_changed", None)
+    if hook is None or delivery.entry_id is None:
+        return
+    await cast("DeliveryChange", source).delivery_changed(
+        session,
+        record_id=delivery.record_id,
+        entry_id=delivery.entry_id,
+        state=state,
+        reason=reason,
+        at=at,
+    )
+
+
+async def mail_changed(session: AsyncSession, envelope: EventEnvelope) -> int:
+    """A send attempt ended: the delivery log and the carried entry follow; how many rows."""
+    payload = envelope.payload
+    mail_id = uuid.UUID(str(payload["mail_id"]))
+    state, failure = str(payload["state"]), payload.get("failure")
+    at = datetime.fromisoformat(str(payload["at"]))
+    rows = list(
+        await session.scalars(
+            select(NotificationDelivery).where(NotificationDelivery.mail_id == mail_id)
+        )
+    )
+    for row in rows:
+        if state == "sent":
+            row.state, row.reason = DeliveryState.SENT.value, None
+        elif state == "failed":
+            row.state, row.reason = DeliveryState.FAILED.value, str(failure or "gave_up")
+        row.updated_at = datetime.now(UTC)
+        if row.entry_id is not None and REQUESTER in row.reasons:
+            await entry_changed(
+                session,
+                record_source(row.record_type),
+                row,
+                state=state,
+                reason=None if state == "sent" else str(failure or "gave_up"),
+                at=at,
+            )
+    return len(rows)
 
 
 async def _in_app(session: AsyncSession, target: Target, message: Message) -> None:
@@ -470,6 +548,9 @@ async def notify(  # noqa: C901 - the pipeline of one event, in order
 
 async def dispatch(session: AsyncSession, settings: Settings, envelope: EventEnvelope) -> int:
     """Every notification a committed domain event raises; how many deliveries."""
+    if envelope.event_type == MailStateChanged.event_type:
+        await mail_changed(session, envelope)
+        return 0
     total = 0
     for source in record_sources():
         if envelope.event_type in source.event_types:
@@ -479,7 +560,9 @@ async def dispatch(session: AsyncSession, settings: Settings, envelope: EventEnv
 
 
 def accepts(envelope: EventEnvelope) -> bool:
-    """Whether any record source reads this event type (others are acknowledged unread)."""
+    """Whether any record source reads this event type, or it is a send attempt's end."""
+    if envelope.event_type == MailStateChanged.event_type:
+        return True
     return any(envelope.event_type in source.event_types for source in record_sources())
 
 
@@ -559,17 +642,64 @@ async def send_waiting(session: AsyncSession, settings: Settings) -> int:
     return sent
 
 
+async def expire_waiting(
+    session: AsyncSession, now: datetime | None = None, *, retention_days: int = 30
+) -> int:
+    """E-mails that waited `WAITING_DAYS` for outgoing mail fail, visibly; never sent late.
+
+    Their rendered text stays for a resend (REQ-INC-059 AC3) until the mail retention period
+    (`mail_content_retention_days`) has passed, like any other sent or failed e-mail.
+    """
+    moment = now or datetime.now(UTC)
+    await session.execute(
+        update(NotificationDelivery)
+        .where(
+            NotificationDelivery.state == DeliveryState.FAILED.value,
+            NotificationDelivery.reason == NOT_SENT_IN_TIME,
+            NotificationDelivery.text_body.is_not(None),
+            NotificationDelivery.updated_at < moment - timedelta(days=retention_days),
+        )
+        .values(subject=None, text_body=None, html_body=None)
+    )
+    rows = list(
+        await session.scalars(
+            select(NotificationDelivery)
+            .where(
+                NotificationDelivery.state == DeliveryState.WAITING.value,
+                NotificationDelivery.created_at < moment - timedelta(days=WAITING_DAYS),
+            )
+            .limit(WAITING_BATCH)
+            .with_for_update(skip_locked=True)
+        )
+    )
+    for row in rows:
+        row.state, row.reason = DeliveryState.FAILED.value, NOT_SENT_IN_TIME
+        row.updated_at = moment
+        if row.entry_id is not None and REQUESTER in row.reasons:
+            await entry_changed(
+                session,
+                record_source(row.record_type),
+                row,
+                state="failed",
+                reason=NOT_SENT_IN_TIME,
+                at=moment,
+            )
+    return len(rows)
+
+
 async def waiting_schedule(database: Database, settings: Settings) -> None:
-    """Every minute: once outgoing mail is set up, send what waited for it (all tenants)."""
-    if not mail_configured(settings):
-        return
+    """Every minute: give up on what waited too long, then (mail set up) send what waited."""
     async with database.platform_session() as platform:
         tenants = list((await platform.scalars(text("SELECT audit_tenant_ids()"))).all())
+    configured = mail_configured(settings)
     for tenant in tenants:
         async with database.tenant_session(TenantContext(tenant)) as session:
-            sent = await send_waiting(session, settings)
-        if sent:
-            log.info("notifications_waiting_sent", tenant_id=str(tenant), count=sent)
+            expired = await expire_waiting(
+                session, retention_days=settings.mail_content_retention_days
+            )
+            sent = await send_waiting(session, settings) if configured else 0
+        if sent or expired:
+            log.info("notifications_waiting", tenant_id=str(tenant), sent=sent, expired=expired)
 
 
 async def waiting_count(session: AsyncSession) -> int:
@@ -592,7 +722,9 @@ __all__ = [
     "accepts",
     "compose",
     "dispatch",
+    "expire_waiting",
     "localise",
+    "mail_changed",
     "notify",
     "rule_for",
     "send_waiting",

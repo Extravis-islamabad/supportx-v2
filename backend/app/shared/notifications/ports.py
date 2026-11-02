@@ -125,6 +125,31 @@ class RecordContext:
     # The event actually raised when only the record can tell (a public reply written by the
     # requester is "requester replied"); None keeps the code `events_for` gave.
     event_code: str | None = None
+    # The part of the record the message carries (a reply's conversation entry): the source's
+    # `delivery_changed` hears how the e-mail to the requester went (REQ-INC-059).
+    entry_id: uuid.UUID | None = None
+
+
+class DeliveryChange(Protocol):
+    """Optional on a RecordSource: how the e-mail carrying an entry to the requester is going.
+
+    `state` is waiting, queued, retrying, sent or failed; `reason` a code (labels
+    `delivery_reason.<code>`). `at` orders the changes: an older one never overwrites a newer
+    one, and a sent entry never moves back (WP-024 session 3, agreed with lane A).
+    """
+
+    async def delivery_changed(  # noqa: PLR0913 - the change, explicit
+        self,
+        session: AsyncSession,
+        *,
+        record_id: uuid.UUID,
+        entry_id: uuid.UUID,
+        state: str,
+        reason: str | None,
+        at: datetime,
+    ) -> None:
+        """Move the entry's delivery state (the source's own rules)."""
+        ...
 
 
 class RecordSource(Protocol):
