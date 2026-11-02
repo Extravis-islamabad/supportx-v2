@@ -21,6 +21,12 @@ export type KbSettings = components['schemas']['KnowledgeSettingsOut'];
 export type KbSettingsPatch = components['schemas']['KnowledgeSettingsPatch'];
 export type KbArticleTypeInput = components['schemas']['ArticleTypeIn'];
 export type KbArticleTypePatch = components['schemas']['ArticleTypePatch'];
+export type KbArticleLinks = components['schemas']['ArticleLinksOut'];
+export type KbRecordArticles = components['schemas']['RecordArticlesOut'];
+export type KbApplied = components['schemas']['AppliedOut'];
+export type KbFromRecord = components['schemas']['FromRecordOut'];
+/** Where knowledge goes into: a reply or note everyone on the record reads, or staff only. */
+export type KbAudience = 'public' | 'private';
 export type KbLanguage = 'en' | 'ar';
 
 /** The list views (REQ-KB-077). */
@@ -467,5 +473,185 @@ export function useDeleteKbTopic() {
         }),
       ),
     onSuccess: saved,
+  });
+}
+
+// --- knowledge on records (WP-033 s4, D-121) -----------------------------------------------------
+
+/** An article's linked records you may open, and how many others (REQ-KB-064). */
+export function useKbArticleLinks(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.knowledge.links(id),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/knowledge/articles/{article_id}/links', {
+          params: { path: { article_id: id } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** A record's linked articles you may read, and how many others. */
+export function useKbRecordArticles(recordType: string, recordId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.knowledge.recordArticles(recordType, recordId),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/knowledge/records/{record_type}/{record_id}/articles', {
+          params: { path: { record_type: recordType, record_id: recordId } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+function useLinksChanged() {
+  const queryClient = useQueryClient();
+  return (articleId: string, recordType: string, recordId: string) => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.links(articleId) });
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.knowledge.recordArticles(recordType, recordId),
+    });
+  };
+}
+
+/** Link an article to a record (once; linking again changes nothing). */
+export function useLinkKbArticle() {
+  const changed = useLinksChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      articleId,
+      recordType,
+      recordId,
+      key,
+    }: {
+      articleId: string;
+      recordType: string;
+      recordId: string;
+      key: string;
+    }) =>
+      call(
+        api.POST('/api/v1/knowledge/articles/{article_id}/links', {
+          params: { path: { article_id: articleId }, header: { 'Idempotency-Key': key } },
+          body: { record_type: recordType, record_id: recordId },
+        }),
+      ),
+    onSuccess: (_, v) => {
+      changed(v.articleId, v.recordType, v.recordId);
+    },
+  });
+}
+
+/** Remove a link (needs edit rights on the article). */
+export function useUnlinkKbArticle() {
+  const changed = useLinksChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      articleId,
+      linkId,
+    }: {
+      articleId: string;
+      linkId: string;
+      recordType: string;
+      recordId: string;
+    }) =>
+      call(
+        api.DELETE('/api/v1/knowledge/articles/{article_id}/links/{link_id}', {
+          params: { path: { article_id: articleId, link_id: linkId } },
+        }),
+      ),
+    onSuccess: (_, v) => {
+      changed(v.articleId, v.recordType, v.recordId);
+    },
+  });
+}
+
+/** Before inserting: whether the people the record is for may read the article (the server decides). */
+export async function kbApplyCheck(
+  articleId: string,
+  recordType: string,
+  recordId: string,
+  audience: KbAudience,
+) {
+  return call(
+    api.GET('/api/v1/knowledge/articles/{article_id}/apply-check', {
+      params: {
+        path: { article_id: articleId },
+        query: { record_type: recordType, record_id: recordId, audience },
+      },
+    }),
+  );
+}
+
+/** Insert an article into a reply: its content (images copied into your drafts) or its link. */
+export function useApplyKbArticle() {
+  const changed = useLinksChanged();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      articleId,
+      recordType,
+      recordId,
+      audience,
+      mode,
+      language,
+    }: {
+      articleId: string;
+      recordType: string;
+      recordId: string;
+      audience: KbAudience;
+      mode: 'content' | 'link';
+      language: KbLanguage;
+    }) =>
+      call(
+        api.POST('/api/v1/knowledge/articles/{article_id}/apply', {
+          params: { path: { article_id: articleId } },
+          body: { record_type: recordType, record_id: recordId, audience, mode, language },
+        }),
+      ),
+    onSuccess: (_, v) => {
+      changed(v.articleId, v.recordType, v.recordId);
+    },
+  });
+}
+
+/** Save a record's resolution as a new knowledge draft (REQ-KB-016). */
+export function useKbFromRecord() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      recordType,
+      recordId,
+      topicId,
+      typeCode,
+      key,
+    }: {
+      recordType: string;
+      recordId: string;
+      topicId: string;
+      typeCode: string;
+      key: string;
+    }) =>
+      call(
+        api.POST('/api/v1/knowledge/articles/from-record', {
+          params: { header: { 'Idempotency-Key': key } },
+          body: {
+            record_type: recordType,
+            record_id: recordId,
+            topic_id: topicId,
+            type_code: typeCode,
+          },
+        }),
+      ),
+    onSuccess: (_, v) => {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.knowledge.recordArticles(v.recordType, v.recordId),
+      });
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.knowledge.all, 'list'] });
+    },
   });
 }

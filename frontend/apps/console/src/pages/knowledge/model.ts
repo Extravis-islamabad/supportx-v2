@@ -206,3 +206,6 @@ export function stepBlocked(
       return null; // the server checks knowledge.delete and answers with the reason
   }
 }
+
+/** Where a requester reads an article (the portal's knowledge page, WP-034). */
+export const portalArticlePath = (id: string) => `/portal/knowledge/articles/${id}`;

@@ -41,6 +41,7 @@ import {
 } from '@supportx/ui';
 
 import { ArticleActions } from './ArticleActions';
+import { ArticleLinks } from './ArticleLinks';
 import { ArticleSettings } from './ArticleSettings';
 import { AudienceSummary } from './AudienceFields';
 import { useKnowledgeLive } from './live';
@@ -106,6 +107,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
     }
     void reload();
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.versions(article.id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.links(article.id) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.knowledge.history(article.id) });
   });
 
@@ -264,7 +266,7 @@ function ArticleView({ article, reload }: { article: KbArticle; reload: () => Pr
               {
                 key: 'links',
                 label: t('knowledge.tab.links'),
-                children: <EmptyText>{t('knowledge.links_later')}</EmptyText>,
+                children: <ArticleLinks article={article} />,
               },
               {
                 key: 'comments',

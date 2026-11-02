@@ -87,6 +87,7 @@ export default function RichTextEditor({
   autoFocus = false,
   imageOwnerId,
   callouts = false,
+  extraTools,
 }: RichTextFieldProps) {
   const t = useLabel();
   const [fullScreen, setFullScreen] = useState(false);
@@ -201,6 +202,7 @@ export default function RichTextEditor({
           editor={editor}
           templates={templates}
           callouts={callouts}
+          extraTools={extraTools}
           onManageTemplates={onManageTemplates}
           fullScreen={fullScreen}
           onFullScreen={() => {
@@ -304,6 +306,7 @@ type HeadingChoice = 'paragraph' | '2' | '3' | '4';
 function Toolbar({
   editor,
   callouts,
+  extraTools,
   templates,
   onManageTemplates,
   fullScreen,
@@ -311,6 +314,7 @@ function Toolbar({
 }: {
   editor: Editor;
   callouts: boolean;
+  extraTools: RichTextFieldProps['extraTools'];
   templates: RichTextTemplate[] | undefined;
   onManageTemplates: (() => void) | undefined;
   fullScreen: boolean;
@@ -680,6 +684,9 @@ function Toolbar({
           </Button>
         </Dropdown>
       )}
+      {extraTools?.((html) => {
+        editor.chain().focus().insertContent(html).run();
+      })}
       <span style={{ flex: 1 }} />
       <Tool
         title={t(fullScreen ? 'richtext.exit_full_screen' : 'richtext.full_screen')}

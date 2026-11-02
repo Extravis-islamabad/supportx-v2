@@ -161,6 +161,8 @@ export const queryKeys = {
     history: (id: string) => ['knowledge', 'history', id] as const,
     approvals: ['knowledge', 'approvals'] as const,
     settings: ['knowledge', 'settings'] as const,
+    links: (id: string) => ['knowledge', 'links', id] as const,
+    recordArticles: (type: string, id: string) => ['knowledge', 'record', type, id] as const,
   },
   organization: {
     all: ['organization'] as const,
