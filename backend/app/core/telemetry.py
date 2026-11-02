@@ -19,8 +19,10 @@ from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProces
 from app import __version__
 from app.core.config import Settings
 
-# Probes are hit every few seconds by orchestrators; tracing them is noise.
-EXCLUDED_URLS = "api/v1/health,api/v1/ready"
+# Probes are hit every few seconds by orchestrators; tracing them is noise. OAuth callbacks
+# carry an authorization code and state in the query, which a span would keep (§11: secrets
+# never in logs).
+EXCLUDED_URLS = "api/v1/health,api/v1/ready,api/v1/auth/callback,api/v1/integrations/oauth/callback"
 
 
 def build_tracer_provider(settings: Settings) -> TracerProvider:

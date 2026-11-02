@@ -73,9 +73,15 @@ async def follow(
 
 
 async def events_of(world: World, aggregate_type: str) -> list[EventEnvelope]:
+    """This world's events of one aggregate type, oldest first.
+
+    Its own tenants only: every test in a process shares the database (testing guide).
+    """
     rows = await world.sql(
-        "SELECT envelope FROM outbox_events WHERE envelope->>'aggregate_type' = $1 ORDER BY id",
+        "SELECT envelope FROM outbox_events"
+        " WHERE envelope->>'aggregate_type' = $1 AND tenant_id = ANY($2::uuid[]) ORDER BY id",
         aggregate_type,
+        [world.a.tenant, world.b.tenant],
     )
     return [EventEnvelope.model_validate(json.loads(r["envelope"])) for r in rows]
 
@@ -119,9 +125,9 @@ async def test_req_inc_058_reply_saved_not_sent_without_email_channel(world: Wor
     reply = await say(world, a, a.tech_a, item, kind="reply", body="<p>Hello</p>")
     assert reply.status_code == 201, reply.text
     entry = reply.json()["entry"]
-    # Never silent (WP-024 sends): saved, marked not sent, with the reason.
-    assert entry["delivery_state"] == "not_sent"
-    assert entry["delivery_reason"] == "email_channel_not_configured"
+    # Saved and waiting for outgoing mail, never refused and never pretending (WP-024 s3).
+    assert entry["delivery_state"] == "waiting"
+    assert entry["delivery_reason"] == "mail_not_configured"
     requester = (await world.get(a, a.admin, item)).json()["people"][str(a.requester)]
     assert entry["recipients"] == {"to": [requester["email"].lower()], "cc": []}
     forward = await say(world, a, a.tech_a, item, kind="reply", reply_mode="forward")

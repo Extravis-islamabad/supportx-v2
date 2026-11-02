@@ -16,6 +16,7 @@ from app.modules.notifications.events import EVENTS
 from app.modules.notifications.service.admin import MANAGE
 from app.modules.notifications.service.engine import DISPATCH, waiting_schedule
 from app.modules.notifications.service.realtime import ROUTES
+from app.modules.notifications.service.resend import resend_entry
 from app.modules.notifications.service.threads import records_for_mail
 from app.shared.schedules import ScheduleSpec
 
@@ -30,4 +31,4 @@ module = ModuleSpec(
     schedules=[ScheduleSpec("notifications__mail_waiting", 60, waiting_schedule)],
 )
 
-__all__ = ["module", "records_for_mail"]
+__all__ = ["module", "records_for_mail", "resend_entry"]

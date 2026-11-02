@@ -12,10 +12,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
-from app.core.errors import ProblemDetail
+from app.core.errors import AppError, ProblemDetail
 from app.core.tenancy import TenantContext, resolve_tenant
-from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _validator
-from app.modules.analytics.domain.dashboard import DashboardBody
+from app.modules.analytics.api.routes import CONFLICT, RESPONSES, _source, _validator
+from app.modules.analytics.domain.builtin import BUILTIN as BUILTIN_REPORTS
+from app.modules.analytics.domain.dashboard import DashboardBody, Widget
+from app.modules.analytics.domain.widgets import CATALOGUE, SECTIONS, WidgetTemplate
 from app.modules.analytics.service import dashboards
 from app.modules.analytics.service.library import VIEW
 from app.modules.audit import audited
@@ -232,6 +234,70 @@ async def create_dashboard(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         )
 
     return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+class WidgetCatalogueEntryOut(BaseModel):
+    """One widget you may add (D-114); its description label is `<title_key>.description`."""
+
+    code: str
+    module: str = Field(description="Report folder code: `report_folder.<module>`.")
+    section: str = Field(description="Section code: `widget_section.<section>`.")
+    title_key: str
+    widget: Widget = Field(description="The widget to add, at x 0 / y 0 in its default size.")
+    coming_with: str | None = Field(
+        description="Not available yet: arrives with this package (`widget_coming.<code>`)."
+    )
+
+
+class WidgetCatalogueOut(BaseModel):
+    """The "Add widget" catalogue: sections in their order, and the entries."""
+
+    sections: list[str]
+    entries: list[WidgetCatalogueEntryOut]
+
+
+def _entity(template: WidgetTemplate) -> str:
+    source = template.source
+    if "report" in source:
+        return str(source["report"]["entity"])
+    if "records" in source:
+        return str(source["records"]["entity"])
+    return BUILTIN_REPORTS[str(source["report_ref"]).removeprefix("builtin:")].definition.entity
+
+
+@router.get("/widgets", summary="The widget catalogue")
+async def widget_catalogue(
+    session: TenantSession, subject: Viewer, context: Tenant, request: Request
+) -> WidgetCatalogueOut:
+    """Every widget you may add, by module and section (D-114).
+
+    Only widgets over entities you may report on (permission and licence); each still shows only
+    the records you may see.
+    """
+    allowed: dict[str, bool] = {}
+    entries: list[WidgetCatalogueEntryOut] = []
+    for template in CATALOGUE.values():
+        entity = _entity(template)
+        if entity not in allowed:
+            try:
+                await _source(request, session, context, subject, entity)
+                allowed[entity] = True
+            except AppError:
+                allowed[entity] = False
+        if not allowed[entity]:
+            continue
+        widget = template.widget(template.code[:40].rstrip("_-"), 0, 0)
+        entries.append(
+            WidgetCatalogueEntryOut(
+                code=template.code,
+                module=template.module,
+                section=template.section,
+                title_key=widget.title_key or "",
+                widget=widget,
+                coming_with=template.coming_with,
+            )
+        )
+    return WidgetCatalogueOut(sections=list(SECTIONS), entries=entries)
 
 
 @router.get("/{ref}", summary="Get a dashboard")

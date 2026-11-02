@@ -16,15 +16,20 @@ viewer's id in before running, and saving checks the definition with the saver's
 """
 
 import uuid
-from collections.abc import Mapping
-from types import MappingProxyType
-from typing import Any
+from collections.abc import Collection
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.modules.analytics.domain.definition import ReportDefinition
+from app.shared.api.filters import FilterNode
 
 ME = "@me"
+# The viewer's groups (D-114), for `{"field": "group_id", "op": "in", "value": "@my_groups"}`.
+# Resolved on the server from the signed-in session, so a browser cannot claim other groups.
+MY_GROUPS = "@my_groups"
+# Stands in for "no groups": `in` needs a value, and no record has this group.
+NO_GROUP = "00000000-0000-0000-0000-000000000000"
 GRID_COLUMNS = 12
 MAX_WIDGETS = 24
 BUILTIN_PREFIX = "builtin:"
@@ -49,6 +54,28 @@ class Placement(BaseModel):
         return self
 
 
+class RecordsSpec(BaseModel):
+    """A short list of records (D-114), read through the entity's own list in the viewer's scope.
+
+    Its filter may say `@me` (the console puts the viewer in); `@my_groups` is for report
+    widgets, which the server resolves.
+    """
+
+    model_config = ConfigDict(extra="forbid", title="DashboardRecords")
+
+    entity: str = Field(max_length=40)
+    filter: FilterNode | None = None
+    # Newest change first, newest first, soonest due first, or highest priority first.
+    sort: Literal["updated", "created", "due", "priority"] = "updated"
+    limit: int = Field(default=8, ge=1, le=20)
+
+    def filter_json(self) -> Any:  # noqa: ANN401 - the filter DSL's JSON tree
+        """The filter as the DSL reads it."""
+        if self.filter is None:
+            return None
+        return self.filter.model_dump(by_alias=True, exclude_none=False)
+
+
 class Widget(BaseModel):
     """One widget: a report definition (or a report reference) shown on the dashboard."""
 
@@ -60,11 +87,13 @@ class Widget(BaseModel):
     title_key: str | None = Field(default=None, max_length=80)
     report: ReportDefinition | None = None
     report_ref: str | None = Field(default=None, max_length=100)
+    records: RecordsSpec | None = None
     place: Placement
 
     @model_validator(mode="after")
     def _one_source(self) -> "Widget":
-        if (self.report is None) == (self.report_ref is None):
+        sources = [self.report, self.report_ref, self.records]
+        if sum(source is not None for source in sources) != 1:
             message = "report_or_report_ref"
             raise ValueError(message)
         return self
@@ -98,156 +127,21 @@ class DashboardBody(BaseModel):
         return widgets
 
 
-def with_viewer(value: Any, user_id: uuid.UUID) -> Any:  # noqa: ANN401 - a filter DSL tree
-    """`value` with every `ME` replaced by the viewer's id (for checking and running)."""
+def with_viewer(
+    value: Any,  # noqa: ANN401 - a filter DSL tree
+    user_id: uuid.UUID,
+    group_ids: Collection[uuid.UUID] = (),
+) -> Any:  # noqa: ANN401 - a filter DSL tree
+    """`value` with `ME` as the viewer's id and `MY_GROUPS` as their groups (checking, running)."""
     if value == ME:
         return str(user_id)
+    if value == MY_GROUPS:
+        return sorted(str(g) for g in group_ids) or [NO_GROUP]
     if isinstance(value, list):
-        return [with_viewer(v, user_id) for v in value]
+        return [with_viewer(v, user_id, group_ids) for v in value]
     if isinstance(value, dict):
-        return {k: with_viewer(v, user_id) for k, v in value.items()}
+        return {k: with_viewer(v, user_id, group_ids) for k, v in value.items()}
     return value
-
-
-# --- built-in dashboards ----------------------------------------------------------------------
-
-_OPEN = {"field": "status_category", "op": "in", "value": ["open", "paused"]}
-_MINE = {"field": "technician_id", "op": "eq", "value": ME}
-
-
-def _report(**definition: Any) -> dict[str, Any]:  # noqa: ANN401 - definition fields
-    return {"entity": "incident", **definition}
-
-
-def _widget(
-    code: str,
-    place: tuple[int, int, int, int],
-    **definition: Any,  # noqa: ANN401 - fields
-) -> dict[str, Any]:
-    x, y, w, h = place
-    return {
-        "id": code,
-        "title_key": f"dashboard_widget.{code}",
-        "report": _report(**definition),
-        "place": {"x": x, "y": y, "w": w, "h": h},
-    }
-
-
-def _kpi(code: str, place: tuple[int, int, int, int], measure: str, **rest: Any) -> dict[str, Any]:  # noqa: ANN401 - definition fields
-    return _widget(code, place, measures=[measure], chart="kpi", **rest)
-
-
-# The service desk dashboard (REQ-DSH-003): open work and its flow. SLA widgets (breaches by
-# technician, approaching breach) join with SLA (WP-025, lane A).
-_SERVICE_DESK = {
-    "widgets": [
-        _kpi("open", (0, 0, 3, 2), "open_count"),
-        _kpi("unassigned_open", (3, 0, 3, 2), "unassigned_open_count"),
-        _kpi(
-            "received_today",
-            (6, 0, 3, 2),
-            "count",
-            filter={"field": "created_at", "op": "last_n_days", "value": 1},
-        ),
-        _kpi(
-            "resolved_today",
-            (9, 0, 3, 2),
-            "count",
-            filter={"field": "resolved_at", "op": "last_n_days", "value": 1},
-        ),
-        _widget(
-            "open_by_technician",
-            (0, 2, 6, 4),
-            filter=_OPEN,
-            group_by=[{"field": "technician_id"}, {"field": "status_category"}],
-            order="value_desc",
-            chart="stacked_bar",
-        ),
-        _widget(
-            "open_by_priority",
-            (6, 2, 3, 4),
-            filter=_OPEN,
-            group_by=[{"field": "priority"}],
-            chart="doughnut",
-        ),
-        _widget(
-            "open_by_channel",
-            (9, 2, 3, 4),
-            filter=_OPEN,
-            group_by=[{"field": "channel"}],
-            chart="doughnut",
-        ),
-        _widget(
-            "received_per_day",
-            (0, 6, 6, 4),
-            filter={"field": "created_at", "op": "last_n_days", "value": 20},
-            group_by=[{"field": "created_at", "bucket": "day"}],
-            chart="line",
-        ),
-        _widget(
-            "resolved_per_day",
-            (6, 6, 6, 4),
-            filter={"field": "resolved_at", "op": "last_n_days", "value": 20},
-            group_by=[{"field": "resolved_at", "bucket": "day"}],
-            chart="line",
-        ),
-        _widget(
-            "unassigned_by_site",
-            (0, 10, 12, 4),
-            filter={
-                "and": [
-                    _OPEN,
-                    {"field": "group_id", "op": "is_null"},
-                    {"field": "technician_id", "op": "is_null"},
-                ]
-            },
-            group_by=[{"field": "site_id"}],
-            order="value_desc",
-            chart="bar",
-        ),
-    ],
-}
-
-# "My work": a technician's own queue (the technician role's home by default, REQ-DSH-002).
-_MY_WORK = {
-    "widgets": [
-        _kpi("my_open", (0, 0, 4, 2), "open_count", filter=_MINE),
-        _kpi(
-            "my_resolved_week",
-            (4, 0, 4, 2),
-            "count",
-            filter={"and": [_MINE, {"field": "resolved_at", "op": "last_n_days", "value": 7}]},
-        ),
-        _kpi("unassigned_open", (8, 0, 4, 2), "unassigned_open_count"),
-        _widget(
-            "my_open_by_priority",
-            (0, 2, 6, 4),
-            filter={"and": [_OPEN, _MINE]},
-            group_by=[{"field": "priority"}],
-            chart="doughnut",
-        ),
-        _widget(
-            "my_open_ageing",
-            (6, 2, 6, 4),
-            filter={"and": [_OPEN, _MINE]},
-            group_by=[{"field": "created_at", "bucket": "age"}],
-            chart="bar",
-        ),
-    ],
-}
-
-BUILTIN_DASHBOARDS: Mapping[str, DashboardBody] = MappingProxyType(
-    {
-        "service_desk": DashboardBody.model_validate(_SERVICE_DESK),
-        "my_work": DashboardBody.model_validate(_MY_WORK),
-    }
-)
-
-# Home dashboards of the built-in roles until an admin sets others (REQ-DSH-002 AC1).
-ROLE_HOMES: Mapping[str, str] = MappingProxyType(
-    {"tenant_admin": "service_desk", "technician": "my_work"}
-)
-FALLBACK_HOME = "my_work"
 
 
 def builtin_ref(code: str) -> str:

@@ -7,7 +7,7 @@ from a viewer's audience as well as add it where it arrived.
 """
 
 import uuid
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, Field
 
@@ -138,6 +138,20 @@ class WorkItemConversationVisibilityChanged(_ConversationEvent):
     from_visibility: str
 
 
+class WorkItemConversationDeliveryChanged(_ConversationEvent):
+    """A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).
+
+    Raised when the notification engine learns how the e-mail to the requester went; the timeline
+    refetches the entry (codes only, never an address or the server's text).
+    """
+
+    event_type: ClassVar[str] = "work_items.conversation.delivery_changed"
+    schema_version: ClassVar[int] = 1
+
+    delivery_state: str
+    delivery_reason: str | None = None
+
+
 class _FollowerEvent(DomainEvent):
     aggregate_type: ClassVar[str] = "work_item_follower"
 
@@ -212,6 +226,22 @@ class WorkItemBulkJobProgressed(DomainEvent):
     total: int
 
 
+class WorkItemPartChanged(DomainEvent):
+    """A task, worklog or link of a record was added, changed or removed (WP-020e).
+
+    The record's screens refresh that part; IDs only, never the part's content.
+    """
+
+    event_type: ClassVar[str] = "work_items.part.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item"
+
+    work_item_id: uuid.UUID
+    part: Literal["task", "worklog", "link"]
+    part_id: uuid.UUID
+    change: Literal["added", "changed", "removed"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -222,10 +252,12 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemSettingsChanged,
     WorkItemConversationAdded,
     WorkItemConversationVisibilityChanged,
+    WorkItemConversationDeliveryChanged,
     WorkItemFollowerAdded,
     WorkItemFollowerRemoved,
     WorkItemReplyTemplatesChanged,
     WorkItemViewChanged,
     WorkItemListSettingsChanged,
     WorkItemBulkJobProgressed,
+    WorkItemPartChanged,
 )

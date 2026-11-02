@@ -19,7 +19,7 @@ import {
 } from '@supportx/ui';
 
 import { useIncidentFieldName } from './conflict';
-import { labelled, listValueLabel } from './labels';
+import { closureCodeChoices, labelled } from './labels';
 
 const REASON_MAX = 500;
 // The dialog's own fields: a refusal naming one of these is shown at that field.
@@ -107,13 +107,7 @@ export function MoveDialog({
       const label = labelled(r.labels, locale, () => t(`reason.${r.list}.${r.code}`));
       return { value: r.code, label, 'aria-label': label };
     });
-  // Retired closure codes stay on old records but are not offered (REQ-INC-093).
-  const closureOptions = (catalogue?.closure_codes ?? [])
-    .filter((v) => !v.disabled)
-    .map((v) => {
-      const label = listValueLabel(t, 'closure_code', v, locale);
-      return { value: v.code, label, 'aria-label': label };
-    });
+  const closureOptions = closureCodeChoices(t, catalogue, locale);
   const required = state.reason_mode === 'required';
   // Resolve asks for the resolution, close for the closure code; either also asks for the other
   // when this move's rules require it and the record has none (they are not record fields).

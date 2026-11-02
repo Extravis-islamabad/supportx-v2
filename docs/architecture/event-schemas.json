@@ -1574,6 +1574,14 @@
             "title": "Changed Fields",
             "type": "array"
           },
+          "managers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Managers",
+            "type": "array"
+          },
           "user_id": {
             "format": "uuid",
             "title": "User Id",
@@ -1645,6 +1653,73 @@
           "change"
         ],
         "title": "MailboxChanged",
+        "type": "object"
+      }
+    },
+    "integrations.mailbox.credential_expiring": {
+      "1": {
+        "description": "The OAuth app's secret or certificate expires within the warning period (REQ-INT-050).",
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "expires_at"
+        ],
+        "title": "MailboxCredentialExpiring",
+        "type": "object"
+      }
+    },
+    "integrations.mailbox.failing": {
+      "1": {
+        "description": "A mailbox stopped working, or fails for a new reason: its admins are told (never silent).",
+        "properties": {
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "reason"
+        ],
+        "title": "MailboxFailing",
+        "type": "object"
+      }
+    },
+    "integrations.mailbox.mail_held": {
+      "1": {
+        "description": "A sender went over the flood limit: their mail waits in the review queue (REQ-NTF-023).\n\nRaised once per flood (the first message held for it in the hour), so admins are told once,\nnot per message. No address in the payload: the review queue shows who it is.",
+        "properties": {
+          "mailbox_id": {
+            "format": "uuid",
+            "title": "Mailbox Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mailbox_id",
+          "reason"
+        ],
+        "title": "MailboxMailHeld",
         "type": "object"
       }
     },
@@ -2311,6 +2386,56 @@
         "type": "object"
       }
     },
+    "system.mail.state_changed": {
+      "1": {
+        "description": "A send attempt ended: sent, failed for good, or to be tried again (REQ-INC-059).\n\nThe notification engine moves the delivery log and the record's message along with it.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "failure": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Failure"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "mail_id": {
+            "format": "uuid",
+            "title": "Mail Id",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "sent",
+              "retrying",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mail_id",
+          "kind",
+          "state",
+          "at"
+        ],
+        "title": "MailStateChanged",
+        "type": "object"
+      }
+    },
     "work_items.bulk_job.progressed": {
       "1": {
         "description": "A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only).",
@@ -2421,6 +2546,56 @@
           "visibility"
         ],
         "title": "WorkItemConversationAdded",
+        "type": "object"
+      }
+    },
+    "work_items.conversation.delivery_changed": {
+      "1": {
+        "description": "A reply's e-mail moved: waiting, queued, retrying, sent or failed (REQ-INC-059).\n\nRaised when the notification engine learns how the e-mail to the requester went; the timeline\nrefetches the entry (codes only, never an address or the server's text).",
+        "properties": {
+          "delivery_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Delivery Reason"
+          },
+          "delivery_state": {
+            "title": "Delivery State",
+            "type": "string"
+          },
+          "entry_id": {
+            "format": "uuid",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "entry_id",
+          "kind",
+          "visibility",
+          "delivery_state"
+        ],
+        "title": "WorkItemConversationDeliveryChanged",
         "type": "object"
       }
     },
@@ -2552,6 +2727,49 @@
           "view_key"
         ],
         "title": "WorkItemListSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.part.changed": {
+      "1": {
+        "description": "A task, worklog or link of a record was added, changed or removed (WP-020e).\n\nThe record's screens refresh that part; IDs only, never the part's content.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChanged",
         "type": "object"
       }
     },

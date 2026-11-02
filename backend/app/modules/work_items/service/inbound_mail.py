@@ -34,6 +34,7 @@ from app.shared.mail.ports import (
     CreatedRecord,
     FoundRecord,
     InboundRefused,
+    Replied,
     register_inbound_target,
     unregister_inbound_target,
 )
@@ -183,15 +184,15 @@ class IncidentsFromMail:
         body_html: str,
         automatic: bool,
         message_id: str,
-    ) -> CreatedRecord | None:
+    ) -> Replied:
         """The requester's reply; the follow-up incident when the record was closed too long."""
         del message_id  # the ledger keeps it; the entry is the reply itself
         row = await session.get(WorkItem, record.record_id)
         if row is None:  # pragma: no cover - found in this transaction
-            return None
+            return Replied(entry_id=None)
         subject = await subject_for(session, _tenant(session), author_id)
         async with _refusals():
-            follow_up = await add_requester_reply(
+            replied = await add_requester_reply(
                 session,
                 INCIDENT,
                 row,
@@ -201,9 +202,14 @@ class IncidentsFromMail:
                 subject=subject,
                 holders=worker_policy(),
             )
+        # The reply's attachments go on its entry (WP-024 session 2).
+        follow_up = replied.follow_up
         if follow_up is None:
-            return None
-        return CreatedRecord(RECORD_TYPE, follow_up.id, follow_up.display_id)
+            return Replied(entry_id=replied.entry_id)
+        return Replied(
+            entry_id=replied.entry_id,
+            follow_up=CreatedRecord(RECORD_TYPE, follow_up.id, follow_up.display_id),
+        )
 
 
 TARGET = IncidentsFromMail()

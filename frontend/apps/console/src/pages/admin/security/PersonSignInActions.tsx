@@ -123,7 +123,11 @@ export function PersonSignInActions({ user }: { user: UserDetail }) {
     act.mutate(
       { id: row.id, version, action: 'resend' },
       {
-        onSuccess: () => {
+        onSuccess: (saved) => {
+          if (saved.earlier_links_work) {
+            void message.warning(t('security.invitations.resent_earlier_work'));
+            return;
+          }
           void message.success(t('security.invitations.resent'));
         },
         onError: (error) => {

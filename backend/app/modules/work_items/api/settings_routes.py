@@ -15,6 +15,7 @@ from typing import Annotated, Any, Protocol, Self
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
@@ -236,8 +237,8 @@ class CatalogueModel(Protocol):
     """The catalogue response model (defined with the record routes)."""
 
     @classmethod
-    def of(cls, cat: Catalogue) -> Self:
-        """From a loaded catalogue."""
+    async def of(cls, session: AsyncSession, cat: Catalogue) -> Self:
+        """From a loaded catalogue (and the tenant's requester channels)."""
         ...
 
 
@@ -253,9 +254,9 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
     ]
     response_model: Any = catalogue_model
 
-    def done(cat: Catalogue, response: Response) -> Any:  # noqa: ANN401 - the response model
+    async def done(session: AsyncSession, cat: Catalogue, response: Response) -> Any:  # noqa: ANN401 - the response model
         set_etag(response, cat.settings_version)
-        return catalogue_model.of(cat)
+        return await catalogue_model.of(session, cat)
 
     @router.patch(
         "/settings/statuses/{code}",
@@ -283,7 +284,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.patch(
         "/settings/transitions/{from_status}/{action}",
@@ -313,7 +314,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.patch(
         "/settings/scales/{scale}/{code}",
@@ -347,7 +348,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.put(
         "/settings/matrix",
@@ -373,7 +374,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.post(
         "/settings/lists/{list_name}/values",
@@ -404,7 +405,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
         )
         note.details = {"list": list_name, "value": code, "change": "added"}
         response.headers["Location"] = f"{request.url.path}/{code}"
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.patch(
         "/settings/lists/{list_name}/values/{code}",
@@ -438,7 +439,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.put(
         "/settings/lists/{list_name}/order",
@@ -466,7 +467,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     @router.put(
         "/settings/numbering",
@@ -492,7 +493,7 @@ def add_settings_routes(  # noqa: C901, PLR0915 - one route per operation
             source=source_of(request),
             user_id=subject.user_id,
         )
-        return done(cat, response)
+        return await done(session, cat, response)
 
     # --- templates --------------------------------------------------------------------------------
 
