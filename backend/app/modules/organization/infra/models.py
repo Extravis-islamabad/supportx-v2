@@ -109,6 +109,17 @@ class Site(TenantEntity):
             unique=True,
             postgresql_where=text("is_default AND deleted_at IS NULL"),
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "calendar_id"],
+            ["sla_calendars.tenant_id", "sla_calendars.id"],
+            name="fk_sites_calendar",
+        ),
+        Index(
+            "ix_sites_tenant_id_calendar_id",
+            "tenant_id",
+            "calendar_id",
+            postgresql_where=text("calendar_id IS NOT NULL"),
+        ),
     )
 
     name: Mapped[str]
@@ -120,6 +131,8 @@ class Site(TenantEntity):
     phone: Mapped[str | None] = mapped_column(String(50))
     email: Mapped[str | None] = mapped_column(String(320))
     is_default: Mapped[bool] = mapped_column(server_default="false")
+    # Its working calendar (REQ-ADM-040), checked through the sla module's interface (D-115 D3).
+    calendar_id: Mapped[uuid.UUID | None]
     # Inactive: kept on the people and records that use it, not offered for new ones.
     disabled_at: Mapped[datetime | None]
 
@@ -193,6 +206,17 @@ class SupportGroup(TenantEntity):
             unique=True,
             postgresql_where=text("deleted_at IS NULL"),
         ),
+        ForeignKeyConstraint(
+            ["tenant_id", "calendar_id"],
+            ["sla_calendars.tenant_id", "sla_calendars.id"],
+            name="fk_support_groups_calendar",
+        ),
+        Index(
+            "ix_support_groups_tenant_id_calendar_id",
+            "tenant_id",
+            "calendar_id",
+            postgresql_where=text("calendar_id IS NOT NULL"),
+        ),
     )
 
     name: Mapped[str]
@@ -202,6 +226,8 @@ class SupportGroup(TenantEntity):
     email: Mapped[str | None] = mapped_column(String(320))
     sender_name: Mapped[str | None] = mapped_column(String(200))
     desk_id: Mapped[uuid.UUID]
+    # Its working calendar for follow-the-sun teams (REQ-SLA-013, REQ-ADM-040; D-115 D3).
+    calendar_id: Mapped[uuid.UUID | None]
     disabled_at: Mapped[datetime | None]
 
 

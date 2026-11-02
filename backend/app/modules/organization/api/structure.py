@@ -49,6 +49,7 @@ class SiteOut(BaseModel):
     phone: str | None
     email: str | None
     is_default: bool
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     disabled: bool = Field(description="Inactive: kept where used, not offered for new ones.")
     member_ids: list[uuid.UUID]
     version: int = Field(description="Send back as If-Match to change it.")
@@ -69,6 +70,7 @@ class SiteIn(BaseModel):
     address: str | None = Field(default=None, max_length=1000)
     phone: str | None = Field(default=None, max_length=50)
     email: str | None = Field(default=None, max_length=320)
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
 
 
 class SitePatch(BaseModel):
@@ -84,6 +86,7 @@ class SitePatch(BaseModel):
     address: str | None = Field(default=None, max_length=1000)
     phone: str | None = Field(default=None, max_length=50)
     email: str | None = Field(default=None, max_length=320)
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     disabled: bool | None = None
 
 
@@ -99,6 +102,7 @@ def _site_out(row: Site, member_ids: list[uuid.UUID]) -> SiteOut:
         phone=row.phone,
         email=row.email,
         is_default=row.is_default,
+        calendar_id=row.calendar_id,
         disabled=row.disabled_at is not None,
         member_ids=member_ids,
         version=row.version,
@@ -204,6 +208,7 @@ class GroupOut(BaseModel):
     email: str | None = Field(description="The group's own address (notifications, mail).")
     sender_name: str | None
     desk_id: uuid.UUID
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     site_ids: list[uuid.UUID] = Field(description="The sites it serves (one or many).")
     disabled: bool
     member_ids: list[uuid.UUID]
@@ -221,6 +226,7 @@ class GroupIn(BaseModel):
     email: str | None = Field(default=None, max_length=320)
     sender_name: str | None = Field(default=None, min_length=1, max_length=200)
     desk_id: uuid.UUID | None = Field(default=None, description="Default: the IT desk.")
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     site_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
 
 
@@ -235,6 +241,7 @@ class GroupPatch(BaseModel):
     email: str | None = Field(default=None, max_length=320)
     sender_name: str | None = Field(default=None, min_length=1, max_length=200)
     desk_id: uuid.UUID | None = None
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     site_ids: list[uuid.UUID] | None = Field(default=None, max_length=500)
     disabled: bool | None = None
 
@@ -249,6 +256,7 @@ def _group_out(detail: structure.GroupDetail) -> GroupOut:
         email=group.email,
         sender_name=group.sender_name,
         desk_id=group.desk_id,
+        calendar_id=group.calendar_id,
         site_ids=detail.site_ids,
         disabled=group.disabled_at is not None,
         member_ids=detail.member_ids,

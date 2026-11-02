@@ -79,6 +79,7 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
@@ -98,7 +99,7 @@ import {
 import { DepartmentPicker, SitePicker, UserPicker } from './pickers';
 import { IMPACT_DETAILS_MAX, SUBJECT_MAX } from './form';
 import { useStatusActions } from './StatusActions';
-import { PriorityTag, SlaTag, StatusTag } from './tags';
+import { PriorityTag, StatusTag } from './tags';
 import { TagsInput } from './TagsInput';
 
 const IMPACTS = ['one_person', 'team', 'department_or_site', 'organisation'] as const;
@@ -437,19 +438,11 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
               key: 'sla',
               title: t('incidents.panel.sla'),
               testId: 'inc-panel-sla',
+              // Lane A's SLA card (WP-025, #152) in the panel section kept for it.
               children: (
-                <>
-                  <PropertyRow label={t('incidents.panel.sla_state')}>
-                    <SlaTag
-                      policyId={item.sla_policy_id}
-                      dueAt={item.resolution_due_at}
-                      format={dates.format}
-                    />
-                  </PropertyRow>
-                  <PropertyRow label={t('incidents.panel.resolve_by')}>
-                    {item.resolution_due_at === null ? '' : dates.format(item.resolution_due_at)}
-                  </PropertyRow>
-                </>
+                <div data-testid="inc-sla-card">
+                  <IncidentSla item={item} />
+                </div>
               ),
             },
             {

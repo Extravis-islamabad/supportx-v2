@@ -66,7 +66,7 @@ async def _default(url: str) -> str:
 def test_0051_moves_top_to_side_in_every_tenant_and_reverses(
     db_config: db_testing.DbTestConfig,
 ) -> None:
-    database = db_testing.create(db_config, migrate_to="0053")
+    database = db_testing.create(db_config, migrate_to="0047")
     try:
         first = asyncio.run(_tenant_with_users(database.admin_url))
         second = asyncio.run(_tenant_with_users(database.admin_url))
@@ -78,7 +78,7 @@ def test_0051_moves_top_to_side_in_every_tenant_and_reverses(
         assert [after[first[1]], after[second[1]]] == ["side_compact", "side_compact"]
         assert "side" in asyncio.run(_default(database.admin_url))
 
-        db_testing.downgrade(database.migrator_url, "0053")
+        db_testing.downgrade(database.migrator_url, "0047")
         back = asyncio.run(_layouts(database.admin_url, users))
         assert [back[first[0]], back[second[0]]] == ["top", "top"]
         assert [back[first[1]], back[second[1]]] == ["side_compact", "side_compact"]
