@@ -8,13 +8,18 @@ from typing import Any
 import pytest
 
 from tooling import openapi_diff
+from tooling.export_openapi import build_schema
 
-COMMITTED = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/openapi.json"
+
+@pytest.fixture(scope="module")
+def _contract() -> dict[str, Any]:
+    # Built from the code: the file is generated, never committed (D-127).
+    return build_schema()
 
 
 @pytest.fixture
-def base() -> dict[str, Any]:
-    document: dict[str, Any] = json.loads(COMMITTED.read_text(encoding="utf-8"))
+def base(_contract: dict[str, Any]) -> dict[str, Any]:
+    document: dict[str, Any] = json.loads(json.dumps(_contract))  # a copy each test may change
     return document
 
 
