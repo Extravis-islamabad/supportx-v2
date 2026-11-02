@@ -81,6 +81,10 @@ const CUSTOM = 'custom:';
 const LISTS_CHANGED = 'work_items.lists_changed';
 const VIEWS_CHANGED = 'work_items.views_changed';
 const SETTINGS_CHANGED = 'work_items.list_settings_changed';
+// On my own channel, what changes only my counts (WP-020d QA BUG-01): a follow or a reply by
+// someone else, a direct report gained or lost, a group joined or left. Someone who sees every
+// incident follows only the shared list channel, which never hears about these.
+const MY_COUNTS_CHANGED = new Set([LISTS_CHANGED, 'users.reports_changed', 'access.changed']);
 const ID_PATTERN = /^([A-Za-z]{2,6}-)?\d{1,18}$/;
 
 /** Subject words, or a display ID ("INC-12", "12"), in one search box. */
@@ -226,6 +230,7 @@ export function IncidentsPage() {
     if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
   });
   usePersonalChannel((message) => {
+    if (MY_COUNTS_CHANGED.has(message.type)) refreshLists();
     if (message.type === VIEWS_CHANGED) refreshList(queryClient, queryKeys.incidents.savedViews);
     if (message.type === SETTINGS_CHANGED && message.ids.includes(settingKey)) {
       refreshList(queryClient, queryKeys.incidents.listSetting(settingKey));
@@ -319,10 +324,15 @@ export function IncidentsPage() {
           }}
         />
       )}
-      <Flex gap={12} wrap>
+      {/* Two rows, each narrower than a desktop screen (WP-020d QA BUG-02): what to look at
+          (view and search, whose chips add height only), then how to narrow and show it. One
+          row of everything was wider than the screen, so items wrapped wherever they fell. */}
+      <Flex gap={12} wrap align="start" data-testid="inc-toolbar-find">
         {!trash && (
-          // Wraps on narrow screens: the selector and its buttons never widen the page.
-          <Flex gap={8} wrap style={{ minWidth: 0, maxWidth: '100%' }}>
+          // Straight in the row, not a wrapping box of their own: Chrome sizes such a box to its
+          // widest child, which pushed "New view" under the selector (BUG-02). The row still
+          // wraps them on a phone.
+          <>
             <Select
               aria-label={t('incidents.view')}
               // Many views: searchable by name.
@@ -370,7 +380,7 @@ export function IncidentsPage() {
                     ]
                   : []),
               ]}
-              style={{ minWidth: 'min(260px, 100%)' }}
+              style={{ width: 'min(260px, 100%)' }}
               data-testid="inc-view"
             />
             {saved?.mine === true && (
@@ -391,7 +401,7 @@ export function IncidentsPage() {
             >
               {t('incidents.views.new')}
             </Button>
-          </Flex>
+          </>
         )}
         <SearchChips
           text={search}
@@ -401,6 +411,8 @@ export function IncidentsPage() {
           fields={fields}
           words={words}
         />
+      </Flex>
+      <Flex gap={12} wrap align="center" data-testid="inc-toolbar-narrow">
         <Select
           aria-label={t('work_item.field.priority')}
           prefix={`${t('work_item.field.priority')}:`}

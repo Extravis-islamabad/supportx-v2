@@ -1574,6 +1574,14 @@
             "title": "Changed Fields",
             "type": "array"
           },
+          "managers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Managers",
+            "type": "array"
+          },
           "user_id": {
             "format": "uuid",
             "title": "User Id",
