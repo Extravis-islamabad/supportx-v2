@@ -24,8 +24,6 @@ DESCRIPTION_MAX = 100_000  # sanitised HTML, characters
 TAG_MAX = 40
 TAGS_MAX = 20
 _TAG = re.compile(r"^[\w][\w .\-]{0,39}$", re.UNICODE)
-PREFIX_PATTERN = r"^[A-Z]{2,6}$"
-_PREFIX = re.compile(PREFIX_PATTERN)
 
 
 class WorkItemTypeCode(StrEnum):
@@ -115,11 +113,6 @@ TYPES: Mapping[WorkItemTypeCode, WorkItemType] = {INCIDENT.code: INCIDENT}
 
 
 # --- value rules shared by every type -------------------------------------------------------------
-
-
-def prefix_problems(prefix: str) -> list[str]:
-    """Codes for an invalid display prefix (2-6 capital letters)."""
-    return [] if _PREFIX.fullmatch(prefix) else ["invalid_prefix"]
 
 
 def clean_subject(value: str) -> tuple[str, list[str]]:

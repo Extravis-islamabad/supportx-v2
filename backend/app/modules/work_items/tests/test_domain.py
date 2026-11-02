@@ -48,7 +48,6 @@ from app.modules.work_items.domain.types import (
     clean_subject,
     clean_tags,
     parse_display_id,
-    prefix_problems,
 )
 from app.shared.domain import InvalidTransition
 
@@ -222,9 +221,6 @@ def test_type_fields_and_values() -> None:
     assert clean_tags(["vpn", "VPN", " wifi "]) == (["vpn", "wifi"], [])
     assert clean_tags(["<script>"])[1] == ["invalid_tag"]
     assert clean_tags([f"t{i}" for i in range(21)])[1] == ["too_many_items"]
-    assert prefix_problems("INC") == []
-    assert prefix_problems("inc") == ["invalid_prefix"]
-    assert prefix_problems("TOOLONGX") == ["invalid_prefix"]
 
 
 def test_req_inc_005_ac3_only_phone_and_walk_up_are_chosen() -> None:
