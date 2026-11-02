@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { fakeIncident, fakeIncidentCatalogue, fakeSession } from '@supportx/api-client/testing';
@@ -126,5 +126,12 @@ describe('BUG-02: the toolbar keeps its place when chips are added', () => {
     const search = screen.getByTestId('inc-search-group');
     expect(search.style.width).toBe('min(320px, 100%)');
     expect(search.classList.contains('ant-flex-vertical')).toBe(true);
+    // Sort and page size are not lost: they are in the filters drawer (lane A, #159 review).
+    expect(screen.queryByTestId('inc-sort')).toBeNull();
+    fireEvent.click(screen.getByTestId('inc-filterbar-filters'));
+    const drawer = await screen.findByTestId('inc-filters');
+    for (const id of ['inc-sort', 'inc-page-size']) {
+      expect(drawer.contains(within(drawer).getByTestId(id)), id).toBe(true);
+    }
   });
 });
