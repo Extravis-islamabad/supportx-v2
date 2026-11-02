@@ -331,6 +331,7 @@ export {
   useSlaHolidayListChange,
   useSlaHolidayLists,
   useSlaHolidays,
+  useSlaSpecialHoursChange,
   type SlaCalendar,
   type SlaCalendarIn,
   type SlaCalendarPatch,
@@ -340,6 +341,9 @@ export {
   type SlaHolidayList,
   type SlaHolidayPart,
   type SlaHolidayPatch,
+  type SlaSpecialHours,
+  type SlaSpecialHoursIn,
+  type SlaSpecialHoursPatch,
   type SlaWeekPreset,
   type SlaWorkingPeriod,
 } from './sla';

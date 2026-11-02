@@ -7,8 +7,9 @@ requirement they prove (REQ-SLA-*, REQ-ADM-040).
 
 import random
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from sqlalchemy import text
@@ -23,7 +24,13 @@ world = test_incidents_api.world  # the incident world fixture, reused
 
 CALENDARS = "/sla/calendars"
 LISTS = "/sla/holiday-lists"
-TABLES = ("sla_calendars", "sla_holiday_lists", "sla_holidays", "sla_calendar_holidays")
+TABLES = (
+    "sla_calendars",
+    "sla_holiday_lists",
+    "sla_holidays",
+    "sla_calendar_holidays",
+    "sla_calendar_exceptions",
+)
 SUN_THU = [{"weekday": d, "start": "08:00", "end": "17:00"} for d in (6, 0, 1, 2, 3)]
 
 
@@ -569,6 +576,25 @@ async def test_sla_tables_are_isolated_by_rls(world: World) -> None:
     holidays = await _list(world, a)
     await _holiday(world, a, holidays, name="Day", starts_on="2026-11-03")
     calendar = await _calendar(world, a, holiday_list_ids=[holidays["id"]])
+    special = await world.call(
+        "POST",
+        f"{CALENDARS}/{calendar['id']}/special-hours",
+        a,
+        a.admin,
+        json={"name": "Ramadan", "starts_on": "2027-02-08", "ends_on": "2027-03-09", "week": []},
+        headers=_new(),
+    )
+    assert special.status_code == 201, special.text
+    # B cannot add special hours to A's calendar.
+    theirs = await world.call(
+        "POST",
+        f"{CALENDARS}/{calendar['id']}/special-hours",
+        b,
+        b.admin,
+        json={"name": "X", "starts_on": "2027-01-01", "ends_on": "2027-01-02"},
+        headers=_new(),
+    )
+    assert problem(theirs) == (404, "calendar_not_found")
     async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
         for table in TABLES:
             count = await session.scalar(
@@ -580,6 +606,7 @@ async def test_sla_tables_are_isolated_by_rls(world: World) -> None:
             "UPDATE sla_calendars SET name = 'x'",
             "UPDATE sla_holiday_lists SET name = 'x'",
             "UPDATE sla_holidays SET name = 'x'",
+            "UPDATE sla_calendar_exceptions SET name = 'x'",
             "DELETE FROM sla_calendar_holidays",
         ):
             assert (await session.execute(text(statement))).rowcount == 0, statement
@@ -669,3 +696,127 @@ async def test_rls_sites_and_groups_cannot_point_at_another_tenants_calendar(wor
                 {"a": a.tenant},
             )
             assert seen == 0, table
+
+
+# --- special date-range hours (product owner, 2026-11-02) ----------------------------------------
+
+RAMADAN_WEEK = [
+    *({"weekday": d, "start": "09:00", "end": "14:00"} for d in range(4)),
+    {"weekday": 4, "start": "09:00", "end": "12:30"},
+    {"weekday": 4, "start": "14:00", "end": "15:00"},  # after Friday prayer
+]
+
+
+async def _special(world: World, org: Org, calendar: dict[str, Any], **body: Any) -> Any:  # noqa: ANN401 - JSON / response
+    return await world.call(
+        "POST",
+        f"{CALENDARS}/{calendar['id']}/special-hours",
+        org,
+        org.admin,
+        json=body,
+        headers=_new(),
+    )
+
+
+async def test_special_hours_replace_the_week_for_their_dates_and_holidays_still_win(
+    world: World,
+) -> None:
+    a = world.a
+    holidays = await _list(world, a)
+    assert (
+        await _holiday(world, a, holidays, name="Day off", starts_on="2027-03-01")
+    ).status_code == 201
+    calendar = await _calendar(
+        world,
+        a,
+        "Karachi",
+        time_zone="Asia/Karachi",
+        preset="mon_fri",
+        week=None,
+        holiday_list_ids=[holidays["id"]],
+    )
+    added = await _special(
+        world,
+        a,
+        calendar,
+        name="Ramadan",
+        starts_on="2027-02-08",
+        ends_on="2027-03-09",
+        week=RAMADAN_WEEK,
+    )
+    assert added.status_code == 201, added.text
+    page = (await world.call("GET", f"{CALENDARS}/{calendar['id']}", a, a.tech_a)).json()
+    assert [x["name"] for x in page["special_hours"]] == ["Ramadan"]
+    assert len(page["special_hours"][0]["week"]) == 6
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        maths = await sla.calendar_for_maths(session, uuid.UUID(calendar["id"]))
+    karachi = ZoneInfo("Asia/Karachi")
+    friday = datetime(2027, 2, 12, tzinfo=karachi)
+    assert maths.between(friday, friday + timedelta(days=1)) == int(4.5 * 3600)  # the break
+    holiday = datetime(2027, 3, 1, tzinfo=karachi)
+    assert maths.between(holiday, holiday + timedelta(days=1)) == 0  # holiday > range
+    # An SLA that starts before the range (Friday 16:00) ends inside it (Monday 11:00).
+    due = maths.add(datetime(2027, 2, 5, 16, tzinfo=karachi), 4 * 3600)
+    assert due == datetime(2027, 2, 8, 11, tzinfo=karachi)
+
+
+async def test_special_hours_ranges_of_one_calendar_never_overlap(world: World) -> None:
+    a = world.a
+    calendar = await _calendar(world, a)
+    first = await _special(
+        world, a, calendar, name="Ramadan", starts_on="2027-02-08", ends_on="2027-03-09", week=[]
+    )
+    assert first.status_code == 201, first.text
+    clash = await _special(
+        world, a, calendar, name="Eid week", starts_on="2027-03-09", ends_on="2027-03-12", week=[]
+    )
+    assert field_codes(clash) == {"starts_on": "exception_ranges_overlap"}
+    backwards = await _special(
+        world, a, calendar, name="Bad", starts_on="2027-04-09", ends_on="2027-04-01", week=[]
+    )
+    assert field_codes(backwards) == {"ends_on": "exception_range_order"}
+    # The same dates on another calendar are fine.
+    other = await _calendar(world, a, "Other office")
+    assert (
+        await _special(
+            world, a, other, name="Ramadan", starts_on="2027-02-08", ends_on="2027-03-09"
+        )
+    ).status_code == 201
+
+
+async def test_special_hours_edits_need_if_match_and_around_the_clock_has_none(
+    world: World,
+) -> None:
+    a = world.a
+    calendar = await _calendar(world, a)
+    row = (
+        await _special(
+            world, a, calendar, name="Ramadan", starts_on="2027-02-08", ends_on="2027-03-09"
+        )
+    ).json()
+    path = f"{CALENDARS}/{calendar['id']}/special-hours/{row['id']}"
+    changed = await world.call(
+        "PATCH", path, a, a.admin, json={"ends_on": "2027-03-10"}, headers=_match(row["version"])
+    )
+    assert changed.status_code == 200, changed.text
+    stale = await world.call(
+        "PATCH", path, a, a.admin, json={"name": "Late"}, headers=_match(row["version"])
+    )
+    assert problem(stale) == (409, "version_conflict")
+    technician = await world.call(
+        "DELETE", path, a, a.tech_a, headers=_match(changed.json()["version"])
+    )
+    assert problem(technician) == (403, "permission_denied")
+    gone = await world.call("DELETE", path, a, a.admin, headers=_match(changed.json()["version"]))
+    assert gone.status_code == 204, gone.text
+    around = (await world.call("GET", CALENDARS, a, a.admin)).json()[0]
+    refused = await _special(
+        world, a, around, name="X", starts_on="2027-02-08", ends_on="2027-02-09"
+    )
+    assert field_codes(refused) == {"calendar_id": "system_calendar_fixed"}
+    audit = await world.sql(
+        "SELECT count(*) AS n FROM audit_entries WHERE tenant_id = $1"
+        " AND action = 'sla.special_hours_changed'",
+        a.tenant,
+    )
+    assert audit[0]["n"] >= 2

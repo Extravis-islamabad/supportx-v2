@@ -17,6 +17,9 @@ export type SlaHolidayIn = components['schemas']['SlaHolidayIn'];
 export type SlaHolidayPatch = components['schemas']['SlaHolidayPatch'];
 export type SlaHolidayPart = components['schemas']['HolidayPart'];
 export type SlaHolidayImport = components['schemas']['SlaHolidayImportOut'];
+export type SlaSpecialHours = components['schemas']['SlaSpecialHoursOut'];
+export type SlaSpecialHoursIn = components['schemas']['SlaSpecialHoursIn'];
+export type SlaSpecialHoursPatch = components['schemas']['SlaSpecialHoursPatch'];
 
 function ifMatch(version: number) {
   return { 'If-Match': `"${String(version)}"` };
@@ -211,4 +214,51 @@ export function useSlaHolidayChange(listId: string) {
     onSuccess: refresh,
   });
   return { create, update, remove, importFile, copyYear };
+}
+
+/** Special hours for date ranges of one calendar (Ramadan, a Friday prayer break). */
+export function useSlaSpecialHoursChange(calendarId: string) {
+  const refresh = useRefresh();
+  const path = { calendar_id: calendarId };
+  const create = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, key }: { body: SlaSpecialHoursIn; key: string }) =>
+      call(
+        api.POST('/api/v1/sla/calendars/{calendar_id}/special-hours', {
+          params: { path, header: idempotent(key) },
+          body,
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const update = useMutation({
+    meta: { silent: true },
+    mutationFn: ({
+      id,
+      version,
+      body,
+    }: {
+      id: string;
+      version: number;
+      body: SlaSpecialHoursPatch;
+    }) =>
+      call(
+        api.PATCH('/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}', {
+          params: { path: { ...path, special_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.DELETE('/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}', {
+          params: { path: { ...path, special_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  return { create, update, remove };
 }

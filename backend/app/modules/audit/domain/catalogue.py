@@ -115,6 +115,7 @@ ACTIONS: dict[str, Action] = _actions(
     ("sla.calendar_created", AuditCategory.CONFIGURATION, "sla"),
     ("sla.calendar_changed", AuditCategory.CONFIGURATION, "sla"),
     ("sla.calendar_deleted", AuditCategory.CONFIGURATION, "sla"),
+    ("sla.special_hours_changed", AuditCategory.CONFIGURATION, "sla"),
     ("sla.holiday_list_created", AuditCategory.CONFIGURATION, "sla"),
     ("sla.holiday_list_changed", AuditCategory.CONFIGURATION, "sla"),
     ("sla.holiday_list_deleted", AuditCategory.CONFIGURATION, "sla"),

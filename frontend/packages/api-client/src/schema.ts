@@ -4444,6 +4444,50 @@ export interface paths {
         patch: operations["update_calendar_api_v1_sla_calendars__calendar_id__patch"];
         trace?: never;
     };
+    "/api/v1/sla/calendars/{calendar_id}/special-hours": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add special hours for a date range
+         * @description Needs `sla.manage`. Ranges of one calendar never overlap (422).
+         */
+        post: operations["add_special_hours_api_v1_sla_calendars__calendar_id__special_hours_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/calendars/{calendar_id}/special-hours/{special_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove special hours
+         * @description Needs `sla.manage`. The calendar's normal week applies on those dates again.
+         */
+        delete: operations["delete_special_hours_api_v1_sla_calendars__calendar_id__special_hours__special_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change special hours
+         * @description Needs `sla.manage` and If-Match.
+         */
+        patch: operations["update_special_hours_api_v1_sla_calendars__calendar_id__special_hours__special_id__patch"];
+        trace?: never;
+    };
     "/api/v1/sla/holiday-lists": {
         parameters: {
             query?: never;
@@ -10360,6 +10404,11 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Special Hours
+             * @description Other hours for date ranges, by first day.
+             */
+            special_hours: components["schemas"]["SlaSpecialHoursOut"][];
+            /**
              * System Key
              * @description `sla_calendar.<key>`: a calendar every tenant has.
              */
@@ -10560,6 +10609,75 @@ export interface components {
             name: string | null;
             /** Reason */
             reason: string;
+        };
+        /**
+         * SlaSpecialHoursIn
+         * @description New special hours for a date range (e.g. Ramadan, with a Friday prayer break).
+         */
+        SlaSpecialHoursIn: {
+            /**
+             * Ends On
+             * Format: date
+             */
+            ends_on: string;
+            /** Name */
+            name: string;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /** Week */
+            week?: components["schemas"]["SlaWorkingPeriod"][];
+        };
+        /**
+         * SlaSpecialHoursOut
+         * @description Special working hours for a date range: inside it, this week replaces the calendar's.
+         */
+        SlaSpecialHoursOut: {
+            /**
+             * Calendar Id
+             * Format: uuid
+             */
+            calendar_id: string;
+            /**
+             * Ends On
+             * Format: date
+             */
+            ends_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /** Version */
+            version: number;
+            /**
+             * Week
+             * @description A weekday without periods is closed.
+             */
+            week: components["schemas"]["SlaWorkingPeriod"][];
+        };
+        /**
+         * SlaSpecialHoursPatch
+         * @description What to change (only what is sent).
+         */
+        SlaSpecialHoursPatch: {
+            /** Ends On */
+            ends_on?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Starts On */
+            starts_on?: string | null;
+            /** Week */
+            week?: components["schemas"]["SlaWorkingPeriod"][] | null;
         };
         /**
          * SlaWorkingPeriod
@@ -32721,6 +32839,242 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SlaCalendarOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    add_special_hours_api_v1_sla_calendars__calendar_id__special_hours_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                calendar_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlaSpecialHoursIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaSpecialHoursOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_special_hours_api_v1_sla_calendars__calendar_id__special_hours__special_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                calendar_id: string;
+                special_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_special_hours_api_v1_sla_calendars__calendar_id__special_hours__special_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                calendar_id: string;
+                special_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlaSpecialHoursPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaSpecialHoursOut"];
                 };
             };
             /** @description Not signed in. */

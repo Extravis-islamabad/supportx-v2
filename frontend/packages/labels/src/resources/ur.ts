@@ -3736,6 +3736,26 @@ export const ur: LabelResource = {
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   // SLA set-up: calendars and holidays (WP-025 session 1)
+  'sla.special.title': 'مخصوص تاریخوں کے اوقات',
+  'sla.special.explain':
+    'تاریخوں کی کسی مدت کے لیے کام کے دوسرے اوقات، جیسے رمضان۔ اس مدت میں یہ کام کے ہفتے کی جگہ لیتے ہیں؛ تعطیل پھر بھی مقدم رہتی ہے۔',
+  'sla.special.add': 'مخصوص اوقات شامل کریں',
+  'sla.special.edit': 'مخصوص اوقات میں ترمیم کریں',
+  'sla.special.remove': 'مخصوص اوقات ہٹائیں',
+  'sla.special.empty': 'کوئی مخصوص اوقات نہیں۔',
+  'sla.special.field.name': 'نام',
+  'sla.special.field.starts_on': 'پہلا دن',
+  'sla.special.field.ends_on': 'آخری دن',
+  'sla.special.field.week': 'اس مدت میں کام کے اوقات',
+  'sla.special.break_hint': 'کسی دن کو دو دورانیے دیں تاکہ ان کے درمیان وقفہ رہے، جیسے نمازِ جمعہ۔',
+  'sla.special.save_first': 'پہلے کیلنڈر محفوظ کریں، پھر مخصوص اوقات شامل کریں۔',
+  'errors.special_hours_not_found': 'یہ مخصوص اوقات موجود نہیں یا ہٹا دیے گئے ہیں۔',
+  'errors.field.exception_range_order': 'آخری دن پہلے دن کے برابر یا اس کے بعد ہونا چاہیے۔',
+  'errors.field.exception_range_too_long':
+    'مخصوص اوقات زیادہ سے زیادہ ایک سال پر محیط ہو سکتے ہیں۔',
+  'errors.field.exception_ranges_overlap':
+    'یہ تاریخیں اس کیلنڈر کے دوسرے مخصوص اوقات سے ٹکراتی ہیں۔ تاریخیں بدلیں یا دوسری مدت میں ترمیم کریں۔',
+  'audit.action.sla.special_hours_changed': 'مخصوص اوقات بدلے گئے',
   'nav.admin_sla': 'ایس ایل اے',
   'sla.calendars.title': 'کام کے کیلنڈر',
   'sla.calendars.explain':

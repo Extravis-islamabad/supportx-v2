@@ -19,8 +19,8 @@ from app.modules.identity_access import Subject
 from app.modules.sla.domain.calendar import HolidayPart
 from app.modules.sla.domain.ical import MAX_BYTES
 from app.modules.sla.domain.setup import WeekPreset
-from app.modules.sla.infra.models import SlaHoliday
-from app.modules.sla.service import calendars, holidays
+from app.modules.sla.infra.models import SlaCalendarException, SlaHoliday
+from app.modules.sla.service import calendars, holidays, special_hours
 from app.modules.sla.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -65,6 +65,53 @@ class SlaCalendarUser(BaseModel):
     name: str
 
 
+class SlaSpecialHoursOut(BaseModel):
+    """Special working hours for a date range: inside it, this week replaces the calendar's."""
+
+    id: uuid.UUID
+    calendar_id: uuid.UUID
+    name: str
+    starts_on: date
+    ends_on: date
+    week: list[SlaWorkingPeriod] = Field(description="A weekday without periods is closed.")
+    version: int
+
+    @classmethod
+    def of(cls, row: SlaCalendarException) -> "SlaSpecialHoursOut":
+        """The API form of a range."""
+        return cls(
+            id=row.id,
+            calendar_id=row.calendar_id,
+            name=row.name,
+            starts_on=row.starts_on,
+            ends_on=row.ends_on,
+            week=[SlaWorkingPeriod.model_validate(p) for p in row.week],
+            version=row.version,
+        )
+
+
+class SlaSpecialHoursIn(BaseModel):
+    """New special hours for a date range (e.g. Ramadan, with a Friday prayer break)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    starts_on: date
+    ends_on: date
+    week: list[SlaWorkingPeriod] = Field(default_factory=list, max_length=28)
+
+
+class SlaSpecialHoursPatch(BaseModel):
+    """What to change (only what is sent)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    starts_on: date | None = None
+    ends_on: date | None = None
+    week: list[SlaWorkingPeriod] | None = Field(default=None, max_length=28)
+
+
 class SlaCalendarOut(BaseModel):
     """A working calendar, who uses it and what you may do with it."""
 
@@ -81,6 +128,9 @@ class SlaCalendarOut(BaseModel):
     fixed: bool = Field(description="Around the clock: only the name can change.")
     can_manage: bool
     delete_refusal: str | None = Field(description="`action_reason.<code>` when it cannot go.")
+    special_hours: list[SlaSpecialHoursOut] = Field(
+        description="Other hours for date ranges, by first day."
+    )
     version: int
 
     @classmethod
@@ -101,6 +151,7 @@ class SlaCalendarOut(BaseModel):
             fixed=view.fixed,
             can_manage=view.can_manage,
             delete_refusal=view.delete_refusal,
+            special_hours=[SlaSpecialHoursOut.of(x) for x in view.special],
             version=row.version,
         )
 
@@ -369,6 +420,101 @@ async def delete_calendar(
     """Needs `sla.manage`. Refused (409) for a system calendar and one a site or group uses."""
     await calendars.delete_calendar(
         session, subject, calendar_id, expected_version=version, source=source_of(request)
+    )
+
+
+# --- special date-range hours ---------------------------------------------------------------
+
+
+@router.post(
+    "/calendars/{calendar_id}/special-hours",
+    summary="Add special hours for a date range",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SlaSpecialHoursOut,
+)
+async def add_special_hours(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    calendar_id: uuid.UUID,
+    body: SlaSpecialHoursIn,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    idempotency: Idempotency,
+    note: Annotated[
+        AuditNote,
+        audited(
+            "sla.special_hours_changed", object_type="sla_calendar", object_param="calendar_id"
+        ),
+    ],
+) -> Response:
+    """Needs `sla.manage`. Ranges of one calendar never overlap (422)."""
+    del note
+
+    async def go() -> Created:
+        row = await special_hours.add_special_hours(
+            session, subject, calendar_id, _sent(body), source=source_of(request)
+        )
+        return Created(body=SlaSpecialHoursOut.of(row), headers={"ETag": f'"{row.version}"'})
+
+    return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+@router.patch(
+    "/calendars/{calendar_id}/special-hours/{special_id}",
+    summary="Change special hours",
+    responses=CONFLICT,
+    dependencies=[
+        audited("sla.special_hours_changed", object_type="sla_calendar", object_param="calendar_id")
+    ],
+)
+async def update_special_hours(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    calendar_id: uuid.UUID,
+    special_id: uuid.UUID,
+    body: SlaSpecialHoursPatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> SlaSpecialHoursOut:
+    """Needs `sla.manage` and If-Match."""
+    row = await special_hours.update_special_hours(
+        session,
+        subject,
+        calendar_id,
+        special_id,
+        _sent(body),
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, row.version)
+    return SlaSpecialHoursOut.of(row)
+
+
+@router.delete(
+    "/calendars/{calendar_id}/special-hours/{special_id}",
+    summary="Remove special hours",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=CONFLICT,
+    dependencies=[
+        audited("sla.special_hours_changed", object_type="sla_calendar", object_param="calendar_id")
+    ],
+)
+async def delete_special_hours(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    calendar_id: uuid.UUID,
+    special_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+) -> None:
+    """Needs `sla.manage`. The calendar's normal week applies on those dates again."""
+    await special_hours.delete_special_hours(
+        session,
+        subject,
+        calendar_id,
+        special_id,
+        expected_version=version,
+        source=source_of(request),
     )
 
 

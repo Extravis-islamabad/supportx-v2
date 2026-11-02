@@ -26,6 +26,7 @@ from app.modules.sla.domain.setup import (
     DEFAULT_PRESET,
     DEFAULT_ZONE,
     HolidayDates,
+    SpecialRange,
     SystemCalendar,
     WeekPreset,
     build_calendar,
@@ -36,6 +37,7 @@ from app.modules.sla.domain.setup import (
 from app.modules.sla.events import SlaCalendarDeleted, SlaCalendarSaved
 from app.modules.sla.infra.models import (
     SlaCalendar,
+    SlaCalendarException,
     SlaCalendarHoliday,
     SlaHoliday,
     SlaHolidayList,
@@ -88,6 +90,7 @@ class CalendarView:
     holiday_list_ids: list[uuid.UUID] = field(default_factory=list)
     users: organization.CalendarUsers = field(default_factory=organization.CalendarUsers)
     can_manage: bool = False
+    special: list[SlaCalendarException] = field(default_factory=list)
 
     @property
     def delete_refusal(self) -> str | None:
@@ -192,7 +195,29 @@ async def _views(
     links = await _links(session, ids)
     users = await organization.calendar_users(session, ids)
     manage = subject.holds(MANAGE)
-    return [CalendarView(row, links[row.id], users[row.id], manage) for row in rows]
+    special = await special_of(session, ids)
+    return [
+        CalendarView(row, links[row.id], users[row.id], manage, special[row.id]) for row in rows
+    ]
+
+
+async def special_of(
+    session: AsyncSession, ids: Sequence[uuid.UUID]
+) -> dict[uuid.UUID, list[SlaCalendarException]]:
+    """Each calendar's live special date-range hours, by first day."""
+    found: dict[uuid.UUID, list[SlaCalendarException]] = {i: [] for i in ids}
+    if ids:
+        rows = await session.scalars(
+            select(SlaCalendarException)
+            .where(
+                SlaCalendarException.calendar_id.in_(ids),
+                SlaCalendarException.deleted_at.is_(None),
+            )
+            .order_by(SlaCalendarException.starts_on)
+        )
+        for row in rows:
+            found[row.calendar_id].append(row)
+    return found
 
 
 async def list_calendars(session: AsyncSession, subject: Subject) -> list[CalendarView]:
@@ -251,11 +276,13 @@ async def calendar_for_maths(session: AsyncSession, calendar_id: uuid.UUID) -> C
             .where(SlaCalendarHoliday.calendar_id == row.id, SlaHoliday.deleted_at.is_(None))
         )
     ).all()
+    special = (await special_of(session, [row.id]))[row.id]
     return build_calendar(
         kind=row.kind,
         time_zone=row.time_zone,
         week=row.week,
         holidays=[HolidayDates(s, e, HolidayPart(p)) for s, e, p in holidays],
+        special=[SpecialRange(x.starts_on, x.ends_on, x.week) for x in special],
     )
 
 

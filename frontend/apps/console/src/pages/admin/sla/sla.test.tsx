@@ -36,6 +36,7 @@ function calendar(overrides: Partial<SlaCalendar> = {}): SlaCalendar {
     fixed: false,
     can_manage: true,
     delete_refusal: 'system_calendar',
+    special_hours: [],
     version: 1,
     ...overrides,
   };
@@ -355,5 +356,86 @@ describe('Admin › SLA › Holidays', () => {
     expect(
       await within(editor).findByText('A morning or afternoon off is one day only.'),
     ).toBeTruthy();
+  });
+});
+
+describe('Admin › SLA › Special hours for dates', () => {
+  afterEach(() => {
+    restore();
+  });
+
+  const RAMADAN = {
+    id: 'sp-1',
+    calendar_id: 'cal-riyadh',
+    name: 'Ramadan',
+    starts_on: '2027-02-08',
+    ends_on: '2027-03-09',
+    week: [
+      ...[0, 1, 2, 3].map((weekday) => ({ weekday, start: '09:00', end: '14:00' })),
+      { weekday: 4, start: '09:00', end: '12:30' },
+      { weekday: 4, start: '14:00', end: '15:00' },
+    ],
+    version: 1,
+  };
+
+  it('lists a calendar’s date ranges with their hours, and refuses an overlap under the date', async () => {
+    window.history.pushState({}, '', '/admin/sla/calendars');
+    const withRange = { ...RIYADH, special_hours: [RAMADAN] };
+    const fake = api({
+      me: ADMIN,
+      routes: {
+        ...ROUTES,
+        [`GET ${CALENDARS}`]: { body: [AROUND, calendar(), withRange] },
+        [`POST ${CALENDARS}/cal-riyadh/special-hours`]: {
+          status: 422,
+          body: problem(422, 'validation_failed', {
+            errors: [
+              {
+                field: 'body.starts_on',
+                code: 'exception_ranges_overlap',
+                message_key: 'errors.field.exception_ranges_overlap',
+                params: {},
+              },
+            ],
+          }),
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sla-calendar-row-cal-riyadh'));
+    const editor = await screen.findByTestId('sla-calendar-editor');
+    const range = within(editor).getByTestId('sla-special-sp-1');
+    expect(range.textContent).toContain('Ramadan');
+    expect(range.textContent).toContain('2027-02-08');
+    expect(range.textContent).toContain('24.5 working hours a week'); // 4 × 5 h + 4.5 h
+    fireEvent.click(within(editor).getByTestId('sla-special-add'));
+    const special = await screen.findByTestId('sla-special-editor');
+    expect(
+      within(special).getByText(
+        'Give a day two periods to leave a break between them, such as Friday prayer.',
+      ),
+    ).toBeTruthy();
+    fireEvent.change(within(special).getByTestId('sla-special-name'), {
+      target: { value: 'Eid week' },
+    });
+    fireEvent.click(within(special).getByTestId('sla-special-save'));
+    expect(
+      await within(special).findByText(
+        'These dates overlap other special hours of this calendar. Change the dates or edit the other range.',
+      ),
+    ).toBeTruthy();
+    expect(fake.find('POST', `${CALENDARS}/cal-riyadh/special-hours`)).toHaveLength(1);
+  });
+
+  it('a new calendar asks to be saved before special hours are added', async () => {
+    window.history.pushState({}, '', '/admin/sla/calendars');
+    api({ me: ADMIN, routes: ROUTES });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('sla-calendar-add'));
+    const editor = await screen.findByTestId('sla-calendar-editor');
+    expect(
+      within(editor).getByText('Save the calendar first, then add special hours.'),
+    ).toBeTruthy();
+    expect(within(editor).queryByTestId('sla-special-add')).toBeNull();
   });
 });

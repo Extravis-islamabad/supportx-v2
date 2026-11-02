@@ -839,6 +839,11 @@ Plan: ~/Desktop/wp-025-plan.md (approved). Four sessions (D-115 D1).
     half-day holidays, daylight saving right on its day, around the clock;
   - the published table `docs/architecture/sla-business-time.md` (73 cases, read by a test)
     and a seeded property test `between(a, add(a, s)) == s`;
+  - **special working hours for a date range** (product owner 2026-11-02, MVP for Pakistan and
+    the Gulf; REQ-SLA-011 brought forward): e.g. Ramadan 09:00-14:00 with a Friday prayer break;
+    inside the range its own week replaces the calendar's; holiday > range > week; ranges of one
+    calendar never overlap (`exception_ranges_overlap`); table `sla_calendar_exceptions` in 0044;
+    14 named rows in the case table (93 cases); the three business-time rules confirmed;
   - calendars, holiday lists and holidays (REQ-SLA-010, 012): two system calendars on first use
     (around the clock; Monday-Friday 09:00-18:00 in the default site's zone, D-115 D2),
     presets, iCalendar import with a skip report (size, line, event and day limits; byte,
