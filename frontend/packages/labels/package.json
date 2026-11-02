@@ -23,7 +23,7 @@
     "@testing-library/dom": "catalog:"
   },
   "dependencies": {
-    "i18next": "^26.5.11",
+    "i18next": "^26.5.12",
     "react-i18next": "^17.1.9"
   },
   "peerDependencies": {
