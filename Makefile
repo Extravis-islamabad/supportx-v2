@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help decisions progress-log setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
-	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
+	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed showcase-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
@@ -73,6 +73,14 @@ db-current: ## Show the database's current migration
 
 db-seed: ## Create the dev tenants and their plans if missing (idempotent, never deletes or updates)
 	$(BACKEND) uv run python -m tooling.seed_dev
+
+showcase-seed: $(DEV_ENV) ## Fill Showcase Company (slug showcase) for demos; idempotent, never touches demo or other (D-124)
+	@env_value() { grep "^$$1=" $(CURDIR)/$(DEV_ENV) | cut -d= -f2-; }; \
+	cd backend && SUPPORTX_KEYCLOAK_URL="http://localhost:$$(env_value KEYCLOAK_PORT || echo 28080)" \
+	SUPPORTX_KEYCLOAK_ADMIN_USER="$$(env_value KEYCLOAK_ADMIN_USER)" \
+	SUPPORTX_KEYCLOAK_ADMIN_PASSWORD="$$(env_value KEYCLOAK_ADMIN_PASSWORD)" \
+	SUPPORTX_SHOWCASE_PASSWORD="$$(env_value SHOWCASE_PASSWORD)" \
+	uv run python -m tooling.showcase_seed showcase
 
 custom-field-indexes: ## One index pass now, as the index worker does (CONCURRENTLY; D-088)
 	$(BACKEND) uv run python -m tooling.custom_field_indexes

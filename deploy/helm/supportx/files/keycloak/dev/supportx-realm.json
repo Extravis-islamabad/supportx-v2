@@ -305,6 +305,39 @@
       "realmRoles": [
         "requester"
       ]
+    },
+    {
+      "username": "admin@showcase.test",
+      "email": "admin@showcase.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Sana",
+      "lastName": "Malik",
+      "attributes": {
+        "locale": [
+          "en"
+        ]
+      },
+      "realmRoles": [
+        "tenant_admin",
+        "technician"
+      ]
+    },
+    {
+      "username": "tech@showcase.test",
+      "email": "tech@showcase.test",
+      "emailVerified": true,
+      "enabled": true,
+      "firstName": "Omar",
+      "lastName": "Farooq",
+      "attributes": {
+        "locale": [
+          "en"
+        ]
+      },
+      "realmRoles": [
+        "technician"
+      ]
     }
   ],
   "organizations": [
@@ -366,6 +399,33 @@
         },
         {
           "username": "multi@demo.test",
+          "membershipType": "UNMANAGED"
+        }
+      ]
+    },
+    {
+      "name": "Showcase Company",
+      "alias": "showcase",
+      "enabled": true,
+      "description": "Showcase tenant for demos (SupportX showcase seed)",
+      "attributes": {
+        "tenant_id": [
+          "01900000-0000-7000-8000-00000005ca5e"
+        ]
+      },
+      "domains": [
+        {
+          "name": "showcase.test",
+          "verified": false
+        }
+      ],
+      "members": [
+        {
+          "username": "admin@showcase.test",
+          "membershipType": "UNMANAGED"
+        },
+        {
+          "username": "tech@showcase.test",
           "membershipType": "UNMANAGED"
         }
       ]
