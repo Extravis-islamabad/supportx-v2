@@ -15,11 +15,21 @@ export interface PageHeaderProps {
   extra?: ReactNode;
   /** A line under the title (help or context), secondary text. */
   description?: ReactNode;
+  /** 2 when the page sits inside another page that owns the h1 (a dashboard on Home). */
+  level?: 1 | 2;
   testId?: string;
 }
 
 /** The one page header of the console (docs/architecture/console-design.md, D-124). */
-export function PageHeader({ title, count, back, extra, description, testId }: PageHeaderProps) {
+export function PageHeader({
+  title,
+  count,
+  back,
+  extra,
+  description,
+  level = 1,
+  testId,
+}: PageHeaderProps) {
   const { direction } = useAppearance();
   return (
     <header style={{ marginBottom: SPACE.sm }} data-testid={testId}>
@@ -35,8 +45,8 @@ export function PageHeader({ title, count, back, extra, description, testId }: P
             />
           )}
           <Typography.Title
-            level={1}
-            style={{ margin: 0, fontSize: TYPE.page, lineHeight: 1.4 }}
+            level={level}
+            style={{ margin: 0, fontSize: level === 1 ? TYPE.page : TYPE.record, lineHeight: 1.4 }}
             ellipsis
           >
             {title}

@@ -467,6 +467,8 @@ describe('WP-026 QA findings', () => {
       },
     });
     open('/incidents');
+    // The custom-field filter is in the filters drawer (D-124).
+    fireEvent.click(await screen.findByTestId('inc-filterbar-filters'));
     fireEvent.mouseDown(selectorOf(await screen.findByTestId('inc-filter-custom-field')));
     const group = await screen.findByText('Retired fields', {
       selector: '.ant-select-item-group',
