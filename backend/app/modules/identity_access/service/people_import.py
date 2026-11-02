@@ -237,6 +237,9 @@ async def apply_row(
         existing = await session.scalar(
             select(User).where(column == wanted, User.deleted_at.is_(None))
         )
+    if existing is not None and existing.directory_source is not None:
+        # A directory keeps this person (WP-040 session 2): the import leaves them alone.
+        raise RowProblem(field="row", code="managed_by_directory")
     await _suggest_site(session, fields, existing)
     try:
         if existing is None:

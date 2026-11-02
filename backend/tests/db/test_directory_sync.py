@@ -325,3 +325,22 @@ async def test_another_tenant_never_sees_a_directory_or_its_people(
 
 def _count(table: str) -> TextClause:
     return text(f"SELECT count(*) FROM {table}")  # noqa: S608 - fixed table names
+
+
+async def test_a_people_import_leaves_synced_people_alone(
+    world: World, fake: FakeDirectory
+) -> None:
+    from app.modules.identity_access.service.people_import import (  # noqa: PLC0415 - one test
+        RowProblem,
+        apply_row,
+    )
+
+    fake.add_user(**_ada())
+    directory_id = await _create(world, fake)
+    await _sync(world, directory_id)
+    async with world.app.state.db.tenant_session(TenantContext(world.a.tenant, world.a.admin)) as s:
+        with pytest.raises(RowProblem) as refused:
+            await apply_row(
+                s, world.a.admin, {"email": "ada@alpha.test", "job_title": "Other"}, "email"
+            )
+    assert refused.value.code == "managed_by_directory"
