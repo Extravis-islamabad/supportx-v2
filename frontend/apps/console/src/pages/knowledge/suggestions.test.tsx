@@ -121,6 +121,31 @@ describe('Suggestions on the new incident form (REQ-INC-021)', () => {
     });
   });
 
+  it('a creator who can no longer see the record is told the articles were not linked', async () => {
+    const fake = open(true, {
+      'POST /api/v1/incidents': { status: 201, body: { ...ITEM, visible: false } },
+      'GET /api/v1/incidents': {
+        body: { items: [], has_more: false, next_cursor: null, estimated_total: 0, people: {} },
+      },
+    });
+    render(<App />);
+    fireEvent.change(await screen.findByTestId('inc-subject'), {
+      target: { value: 'printer jammed' },
+    });
+    fireEvent.click(
+      await screen.findByTestId(`kb-suggestion-link-${ARTICLE_ID}`, {}, { timeout: 3000 }),
+    );
+    fireEvent.mouseDown(selectorOf(screen.getByTestId('inc-requester')));
+    fireEvent.click(await screen.findByText('rana@demo.test'));
+    fireEvent.click(screen.getByTestId('inc-save'));
+    expect(
+      await screen.findByText(
+        'The chosen articles were not linked: you can no longer see this incident.',
+      ),
+    ).toBeDefined();
+    expect(fake.find('POST', `/api/v1/knowledge/articles/${ARTICLE_ID}/links`)).toHaveLength(0);
+  });
+
   it('AC3: switched off in Admin › Knowledge, the form has no suggestions', async () => {
     const fake = open(false);
     render(<App />);

@@ -2629,6 +2629,7 @@ export const ur: LabelResource = {
   'knowledge.suggest.none': 'ابھی کوئی شائع شدہ مضمون مماثل نہیں۔',
   'knowledge.suggest.link': 'منسلک کریں',
   'knowledge.suggest.linked': 'منسلک کیا جائے گا',
+  'knowledge.suggest.not_linked': 'منتخب مضامین منسلک نہیں ہوئے: آپ اب یہ واقعہ نہیں دیکھ سکتے۔',
   'knowledge.vote.question': 'کیا یہ مضمون مددگار تھا؟',
   'knowledge.vote.yes': 'ہاں',
   'knowledge.vote.no': 'نہیں',

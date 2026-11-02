@@ -3044,6 +3044,7 @@ export const ar: LabelResource = {
   'knowledge.suggest.none': 'لا توجد مقالة منشورة مطابقة بعد.',
   'knowledge.suggest.link': 'ربط',
   'knowledge.suggest.linked': 'سيُربط',
+  'knowledge.suggest.not_linked': 'لم تُربط المقالات المختارة: لم يعد بإمكانك رؤية هذا الحادث.',
   'knowledge.vote.question': 'هل أفادتك هذه المقالة؟',
   'knowledge.vote.yes': 'نعم',
   'knowledge.vote.no': 'لا',

@@ -3033,6 +3033,8 @@ export const en = {
   'knowledge.suggest.none': 'No published article matches yet.',
   'knowledge.suggest.link': 'Link',
   'knowledge.suggest.linked': 'Will be linked',
+  'knowledge.suggest.not_linked':
+    'The chosen articles were not linked: you can no longer see this incident.',
   'knowledge.vote.question': 'Did this article help?',
   'knowledge.vote.yes': 'Yes',
   'knowledge.vote.no': 'No',

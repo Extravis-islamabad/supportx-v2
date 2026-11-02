@@ -390,15 +390,27 @@ export function NewIncidentPage() {
         onSuccess: (saved) => {
           draft.discard();
           setHandover(null);
-          // Articles picked from the suggestions are linked now that the record exists.
-          for (const articleId of chosenArticles) {
-            linkArticle.mutate({
-              articleId,
-              recordType: 'incident',
-              recordId: saved.id,
-              key: crypto.randomUUID(),
-              how: 'suggestion',
-            });
+          // Articles picked from the suggestions are linked now that the record exists. Someone
+          // who can no longer see the record cannot link to it: say so rather than fail quietly.
+          if (chosenArticles.size > 0 && !saved.visible) {
+            void message.warning(t('knowledge.suggest.not_linked'));
+          } else {
+            for (const articleId of chosenArticles) {
+              linkArticle.mutate(
+                {
+                  articleId,
+                  recordType: 'incident',
+                  recordId: saved.id,
+                  key: crypto.randomUUID(),
+                  how: 'suggestion',
+                },
+                {
+                  onError: (error) => {
+                    reportError(error); // silent by default: the form reports it (lane A, #158)
+                  },
+                },
+              );
+            }
           }
           setChosenArticles(new Set());
           void message.success(t('incidents.created', { id: saved.display_id }));
