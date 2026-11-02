@@ -429,6 +429,7 @@ export {
 } from './reports';
 export {
   DASHBOARD_ME,
+  DASHBOARD_MY_GROUPS,
   useCreateDashboard,
   useDashboard,
   useDashboards,
@@ -438,6 +439,7 @@ export {
   useSetRoleHome,
   useStarDashboard,
   useUpdateDashboard,
+  useWidgetCatalogue,
   type Dashboard,
   type DashboardBody,
   type DashboardFilters,
@@ -445,7 +447,10 @@ export {
   type DashboardInput,
   type DashboardList,
   type DashboardPatch,
+  type DashboardRecords,
   type DashboardWidget,
+  type WidgetCatalogue,
+  type WidgetCatalogueEntry,
 } from './dashboards';
 export {
   fetchConnectionToken,

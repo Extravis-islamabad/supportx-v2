@@ -1275,6 +1275,23 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   migration and RLS guard pass; ruff, mypy, import-linter (sla contract added), tsc, ESLint,
   Prettier clean. Full `make check` not run (rule: CI and the queue run it).
 - Next: auto-close on business time after #140 lands; then session 2.
+### 2026-10-29 — WP-036 QA round and WP-036-FIX (lane C)
+
+- QA (~/Desktop/qa-wp036/QA-REPORT.md): live updates for a second user in 0.37–0.47 s, scope,
+  drill-down, free grid, Arabic and 390 px pass; 7 bugs and 2 cosmetic notes.
+- Fixes, one failing test per ID first (~/Desktop/qa-wp036/FIX-REPORT.md):
+  - a concurrent edit was silently lost: the edit now keeps its starting version, so the second
+    save meets the conflict dialog;
+  - sharing's "Keep my changes" did nothing;
+  - keyboard moves could overlap widgets;
+  - shipped widget names were stored in the adder's language;
+  - Add widget labels and the widget scroll region were not accessible;
+  - widgets now say which dashboard filters apply;
+  - narrow doughnuts cut their labels, and widget titles were cut by the chart-type text.
+- Conflict sweep across lane C's editable records: all send If-Match and open the shared dialog;
+  missing console tests added.
+- The 390 px header findings (BUG-06/07) move to the header fix.
+
 ### 2026-10-29 — WP-020f QA fix round (lane A)
 
 - QA report ~/Desktop/qa-wp020f/QA-REPORT.md (6 bugs). Branch `fix/wp-020f-qa` on
@@ -1411,6 +1428,20 @@ and the held-mail review queue as MVP.
   - Plus 14 unit tests, probe tests and a `/ready` test.
 - Also: `GET /notifications/status` reads the app's settings, never a fresh `backend/.env`
   (found by lane A).
+### 2026-10-28 — Dashboard widget library (D-114, lane C)
+
+- Product owner request after using the dashboards: "Add widget" opens a searchable catalogue
+  by module and section (43 curated widgets plus every built-in report); SLA and approval widgets
+  appear under "coming later" with the package that brings them.
+- Engine: flow report (created, resolved, backlog per day/week/month), `@my_groups` and `@me`
+  resolved on the server for every run, records widgets (short lists through the entity's own
+  list API), four new measures (overdue, due today, awaiting first response, reopened).
+- Built-in Service desk (17 widgets) and My work (9) are placed from the catalogue.
+- Tests: 8 DB tests (flow numbers per day and per viewer, `@my_groups`, records checks, every
+  catalogue widget runs in a technician's scope), 5 Vitest, one e2e journey; label tests cover
+  every widget, section and measure in en/ar/ur.
+- Backlog per bucket uses each record's own timestamps (no history replay); a cancellation
+  counts from its last status change. Recorded in D-114.
 
 ### 2026-10-28 — WP-039-FIX: the five WP-039 QA findings (lane B)
 One test per finding, named after it (~/Desktop/qa-wp039/QA-REPORT.md):

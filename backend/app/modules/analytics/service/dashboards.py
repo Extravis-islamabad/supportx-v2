@@ -13,6 +13,7 @@ Home (REQ-DSH-002): the person's own choice (while they can still see it), else 
 default (an admin's choice, else the built-in role home), else "my work".
 """
 
+import json
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
@@ -26,15 +27,14 @@ from app.core.errors import Conflict, FieldError, NotFound, PermissionDenied, Va
 from app.modules.analytics.domain.builtin import BUILTIN as BUILTIN_REPORTS
 from app.modules.analytics.domain.builtin import BUILTIN_PREFIX as REPORT_BUILTIN_PREFIX
 from app.modules.analytics.domain.dashboard import (
-    BUILTIN_DASHBOARDS,
     BUILTIN_PREFIX,
-    FALLBACK_HOME,
-    ROLE_HOMES,
+    MY_GROUPS,
     DashboardBody,
     builtin_ref,
     with_viewer,
 )
 from app.modules.analytics.domain.definition import ReportDefinition
+from app.modules.analytics.domain.widgets import BUILTIN_DASHBOARDS, FALLBACK_HOME, ROLE_HOMES
 from app.modules.analytics.events import DashboardDeleted, DashboardHomeChanged, DashboardSaved
 from app.modules.analytics.infra.models import Dashboard, DashboardPreference, DashboardRoleDefault
 from app.modules.analytics.service.library import VIEW, get_report
@@ -147,6 +147,12 @@ async def get_dashboard(session: AsyncSession, subject: Subject, ref: str) -> Da
     return _row_view(subject, record)
 
 
+def for_viewer(definition: ReportDefinition, subject: Subject) -> ReportDefinition:
+    """`definition` with `@me` and `@my_groups` as `subject` (D-114: always on the server)."""
+    raw = definition.model_dump(mode="json", by_alias=True)
+    return ReportDefinition.model_validate(with_viewer(raw, subject.user_id, subject.group_ids))
+
+
 async def _check_body(
     session: AsyncSession, subject: Subject, body: DashboardBody, validate: Validator
 ) -> None:
@@ -154,8 +160,24 @@ async def _check_body(
     for index, widget in enumerate(body.widgets):
         path = f"body.body.widgets.{index}"
         if widget.report is not None:
-            raw = with_viewer(widget.report.model_dump(mode="json", by_alias=True), subject.user_id)
-            await validate(ReportDefinition.model_validate(raw))
+            await validate(for_viewer(widget.report, subject))
+            continue
+        if widget.records is not None:
+            # The list's own filter fields and scope: checked as a report over the same filter.
+            if MY_GROUPS in json.dumps(widget.records.filter_json()):
+                raise ValidationFailed(
+                    errors=[
+                        FieldError(
+                            field=f"{path}.records.filter",
+                            code="my_groups_in_records",
+                            message_key="errors.field.my_groups_in_records",
+                        )
+                    ]
+                )
+            records = ReportDefinition.model_validate(
+                {"entity": widget.records.entity, "filter": widget.records.filter_json()}
+            )
+            await validate(for_viewer(records, subject))
             continue
         ref = widget.report_ref or ""
         if ref.startswith(REPORT_BUILTIN_PREFIX):
