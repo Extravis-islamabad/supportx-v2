@@ -22,7 +22,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.errors import Conflict, FieldError, NotFound, ValidationFailed
+from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
 from app.modules.identity_access import release_from_directory
 from app.modules.integrations.domain.connector_health import SYNC_MINUTES
 from app.modules.integrations.domain.directory import (
@@ -33,13 +33,18 @@ from app.modules.integrations.domain.directory import (
     groups_from_json,
     mapping_from_json,
 )
-from app.modules.integrations.domain.mailboxes import CredentialKind
+from app.modules.integrations.domain.mailboxes import CredentialKind, MailboxProtocol
 from app.modules.integrations.events import DirectoryChanged
+from app.modules.integrations.infra.graph_directory import (
+    GRAPH_SCOPE,
+    DirectoryUnavailableError,
+    GraphDirectory,
+)
 from app.modules.integrations.infra.imap import MailboxUnavailableError
 from app.modules.integrations.infra.models import DirectoryConnector, DirectoryPersonLink
-from app.modules.integrations.infra.oauth import load_certificate
+from app.modules.integrations.infra.oauth import Client, load_certificate
 from app.modules.integrations.service import identities, secrets
-from app.modules.integrations.service.connections import key_ring
+from app.modules.integrations.service.connections import key_ring, oauth_for
 from app.modules.integrations.service.directory_sync import CONNECTOR_KIND, SECRET_ROLE
 from app.modules.integrations.service.mailboxes import KeyRingMissing
 from app.modules.organization import existing_unit_ids
@@ -309,3 +314,39 @@ async def get_directory(session: AsyncSession, directory_id: uuid.UUID) -> Direc
     if row is None or row.deleted_at is not None:
         raise NotFound(code="directory_not_found")
     return await _view(session, row)
+
+
+async def find_groups(
+    session: AsyncSession, settings: Settings, directory_id: uuid.UUID, query: str
+) -> list[tuple[str, str]]:
+    """Directory groups by name, asked with the connector's own sync app (for the screens)."""
+    row = await session.get(DirectoryConnector, directory_id)
+    if row is None or row.deleted_at is not None:
+        raise NotFound(code="directory_not_found")
+    secret = await secrets.read_owned(session, _ring(settings), row.secret_ref)
+    if secret is None:
+        raise Conflict(code="directory_secret_missing")
+    client = Client(
+        protocol=MailboxProtocol.GRAPH,
+        client_id=row.client_id,
+        credential_kind=CredentialKind(row.credential_kind),
+        credential=secret,
+        directory_id=row.directory_tenant,
+    )
+    oauth = oauth_for(settings)
+    try:
+        tokens = await oauth.app_token(client, (GRAPH_SCOPE,))
+        graph = GraphDirectory(oauth.http(), oauth.endpoints.graph, tokens.access_token)
+        try:
+            return await graph.group_names(query)
+        finally:
+            await graph.close()
+    except (MailboxUnavailableError, DirectoryUnavailableError) as exc:
+        code = exc.reason if isinstance(exc, MailboxUnavailableError) else exc.code
+        raise DirectoryRefused(params={"reason": code}) from exc
+
+
+class DirectoryRefused(ServiceUnavailable):
+    """The directory refused or did not answer; `reason` says what an admin can do."""
+
+    code = "directory_unavailable"

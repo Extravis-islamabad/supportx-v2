@@ -4181,4 +4181,63 @@ export const ur: LabelResource = {
   'role.knowledge_manager': 'نالج مینیجر',
   'role.knowledge_manager.description':
     'پوری تنظیم کے لیے نالج کے مضامین لکھتا، ان کا جائزہ لیتا اور انہیں شائع کرتا ہے۔',
+  // WP-040 session 2: directory sync.
+  'errors.managed_by_directory': 'یہ فیلڈ آپ کی ڈائریکٹری رکھتی ہے۔ اسے وہیں تبدیل کریں۔',
+  'errors.directory_tenant_invalid': 'ڈائریکٹری کی ٹیننٹ آئی ڈی یا اس کا بنیادی ڈومین درج کریں۔',
+  'errors.client_id_invalid': 'سنک ایپ کی ایپلیکیشن (کلائنٹ) آئی ڈی درج کریں۔',
+  'errors.directory_groups_required': 'سنک کرنے کے لیے کم از کم ایک گروپ منتخب کریں۔',
+  'errors.directory_group_invalid':
+    'ڈائریکٹری کا ایک گروپ درست نہیں۔ اسے فہرست سے دوبارہ منتخب کریں۔',
+  'errors.directory_name_taken': 'اس نام کی ایک اور ڈائریکٹری پہلے سے موجود ہے۔',
+  'errors.directory_disabled': 'یہ ڈائریکٹری بند ہے۔ سنک کے لیے اسے آن کریں۔',
+  'errors.directory_not_found': 'ڈائریکٹری نہیں ملی۔',
+  'errors.directory_secret_missing':
+    'کوئی کارآمد کلائنٹ سیکرٹ یا سرٹیفکیٹ محفوظ نہیں۔ اسے دوبارہ درج کریں۔',
+  'errors.directory_unavailable':
+    'ڈائریکٹری نے جواب نہیں دیا یا سنک ایپ کو مسترد کر دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'errors.required': 'یہ فیلڈ لازمی ہے۔',
+  'errors.certificate_invalid':
+    'سرٹیفکیٹ پڑھا نہیں جا سکا۔ PEM کو اس کی پرائیویٹ کی کے ساتھ پیسٹ کریں۔',
+  'errors.out_of_range': 'یہ قدر اجازت شدہ حد سے باہر ہے۔',
+  'event_type.integrations.directory.changed': 'ڈائریکٹری کنیکٹر تبدیل ہوا',
+  'audit.action.directory.created': 'ڈائریکٹری شامل کی',
+  'audit.action.directory.changed': 'ڈائریکٹری تبدیل کی',
+  'audit.action.directory.removed': 'ڈائریکٹری ہٹائی',
+  'audit.action.directory.sync_requested': 'ڈائریکٹری سنک شروع کیا',
+  'connector_kind.directory': 'Microsoft Entra ID',
+  'connector_kind.directory.description':
+    'لوگوں، شعبوں، سائٹس اور گروپس کو اپنی ڈائریکٹری کے ساتھ ہم آہنگ رکھیں۔',
+  'connector_keyword.entra': 'Entra',
+  'connector_keyword.azure_ad': 'Azure AD',
+  'connector_keyword.sync': 'سنک',
+  'sync_scope.all_users': 'ڈائریکٹری میں سب',
+  'sync_scope.groups': 'منتخب گروپس کے ارکان',
+  'email_from.mail': 'میل ایڈریس (ورنہ سائن اِن نام)',
+  'email_from.user_principal_name': 'سائن اِن نام (یوزر پرنسپل نیم)',
+  'directory_skip.no_address': 'کوئی قابلِ استعمال ای میل ایڈریس نہیں',
+  'directory_skip.guest': 'ڈائریکٹری کا مہمان',
+  'directory_skip.too_long': 'محفوظ کرنے کے لیے بہت لمبی قدر',
+  'directory_skip.not_an_email': 'ای میل ایڈریس نہیں',
+  'directory_skip.unknown_department': 'شعبہ SupportX میں نہیں',
+  'directory_skip.unknown_site': 'سائٹ SupportX میں نہیں',
+  'directory_skip.unknown_manager': 'مینیجر سنک نہیں ہوا',
+  'directory_skip.disabled_in_directory': 'ڈائریکٹری میں غیر فعال',
+  'directory_skip.refused': 'فرد کے اصول نے مسترد کیا',
+  'directory_skip.last_admin_kept': 'آخری ایڈمنسٹریٹر فعال رکھا گیا',
+  'directory_reason.oauth_client_rejected':
+    'ڈائریکٹری نے سنک ایپ کا سیکرٹ یا سرٹیفکیٹ مسترد کیا۔ نیا درج کریں۔',
+  'directory_reason.oauth_not_allowed':
+    'سنک ایپ کے پاس User.Read.All یا GroupMember.Read.All یا ایڈمن کی منظوری نہیں۔',
+  'directory_reason.oauth_consent_revoked':
+    'ڈائریکٹری اب سنک ایپ کو قبول نہیں کرتی۔ دوبارہ منظوری دیں۔',
+  'directory_reason.oauth_unreachable':
+    'ڈائریکٹری تک رسائی نہیں ہو سکی۔ اگلی بار دوبارہ کوشش ہوگی۔',
+  'directory_reason.oauth_certificate_invalid':
+    'سنک ایپ کا سرٹیفکیٹ استعمال نہیں ہو سکا۔ اسے دوبارہ درج کریں۔',
+  'directory_reason.directory_delta_expired':
+    'ڈائریکٹری نے مکمل ریڈ مانگی۔ اگلی بار سب کو دوبارہ پڑھا جائے گا۔',
+  'directory_reason.directory_group_not_found':
+    'منتخب گروپس میں سے ایک اب ڈائریکٹری میں موجود نہیں۔',
+  'directory_reason.directory_secret_missing': 'کوئی کارآمد کلائنٹ سیکرٹ یا سرٹیفکیٹ محفوظ نہیں۔',
+  'directory.managed_by': 'ڈائریکٹری کے زیرِ انتظام',
 };

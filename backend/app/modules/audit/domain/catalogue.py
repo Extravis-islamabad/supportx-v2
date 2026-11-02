@@ -181,6 +181,10 @@ ACTIONS: dict[str, Action] = _actions(
     ("mailbox.consent_started", AuditCategory.CONFIGURATION, "integrations"),
     ("mailbox.connected", AuditCategory.CONFIGURATION, "integrations"),
     ("mailbox.mail_discarded", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.created", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.changed", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.removed", AuditCategory.CONFIGURATION, "integrations"),
+    ("directory.sync_requested", AuditCategory.CONFIGURATION, "integrations"),
     # record actions (REQ-WI-021)
     ("incident.deleted", AuditCategory.RECORDS, "work_items"),
     ("incident.restored", AuditCategory.RECORDS, "work_items"),
