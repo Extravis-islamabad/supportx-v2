@@ -145,8 +145,14 @@ class ChangesSince:
 
 
 def source_of(request: Request) -> Source:
-    """`ui` for our own apps (they send X-SupportX-Client), else `api`."""
+    """`portal` for the requester portal, `ui` for the console and mobile app, else `api`.
+
+    Our own apps send X-SupportX-Client. The portal is told apart from the console: a requester
+    acting in the portal is a person sending words in, not staff working (WP-020f BUG-01/03).
+    """
     client = request.headers.get(CLIENT_HEADER, "").strip().lower()
+    if client == "portal":
+        return "portal"
     return "ui" if client in _UI_CLIENTS else "api"
 
 

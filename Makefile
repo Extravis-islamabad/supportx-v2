@@ -121,8 +121,9 @@ dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | 
 backend-test-pdf: ## PDF export tests (D-100 D8): needs `uv sync --group pdf` and Pango (macOS: brew install pango)
 	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=$(PDF_LIBS) SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
 
-labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034)
+labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034), and the RTL ranges for the console
 	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json
+	$(BACKEND) uv run python -m tooling.rtl_ranges ../frontend/packages/labels/src/rtl-ranges.json
 
 events-schemas: ## Export every event schema to docs/architecture/event-schemas.json
 	$(BACKEND) uv run python -m tooling.event_schemas write $(EVENT_SCHEMAS)

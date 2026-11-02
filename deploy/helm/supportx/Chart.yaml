@@ -8,7 +8,7 @@ type: application
 version: 0.1.0
 appVersion: "0.1.0"
 kubeVersion: ">=1.35.0-0"
-home: https://github.com/devhat-pm/supportx-v2
+home: https://github.com/Extravis-islamabad/supportx-v2
 maintainers:
   - name: Extravis
 dependencies:

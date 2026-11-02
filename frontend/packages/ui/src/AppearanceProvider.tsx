@@ -1,8 +1,4 @@
 import { App as AntApp, ConfigProvider } from 'antd';
-import type { Locale as AntLocale } from 'antd/es/locale';
-import arEG from 'antd/locale/ar_EG';
-import enUS from 'antd/locale/en_US';
-import urPK from 'antd/locale/ur_PK';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ar';
 import 'dayjs/locale/ur';
@@ -10,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 
 import { isRtlLocale, LabelsProvider, type Locale } from '@supportx/labels';
 
+import { ANT_LOCALES } from './antdLocales';
 import {
   AppearanceContext,
   type Appearance,
@@ -17,9 +14,9 @@ import {
   type Direction,
 } from './appearance';
 import type { Density } from './density';
+import { useDropdownFit } from './dropdownFit';
 import { buildTheme, DEFAULT_BRANDING, THEME_MODES, type Branding, type ThemeMode } from './theme';
 
-const ANT_LOCALES: Record<Locale, AntLocale> = { en: enUS, ar: arEG, ur: urPK };
 const MODE_STORAGE_KEY = 'supportx.theme_mode';
 
 export interface AppearanceProviderProps {
@@ -83,11 +80,14 @@ const PAGE_CSS =
   '.sx-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; ' +
   'clip: rect(0 0 0 0); white-space: nowrap; } ' +
   '.ant-table-content { overflow-x: auto; } ' +
-  // Every option shows its whole label, wrapping when the list is narrow, never cut to
-  // "Stacked ..." (QA WP-035 BUG-07). Lists keep the box's width, so long lists stay virtual
-  // (fast, and every option keeps its accessible name).
+  // Dropdown lists grow to fit their options in code (dropdownFit.ts: Ant Design's lists are
+  // virtual, so CSS cannot size them by content); they never pass the screen.
+  '.ant-select-dropdown { max-width: calc(100vw - 16px); } ' +
+  // Option text wraps only between words ("Stacked bar", never "Sta / cked"); a single word
+  // too long for the list ends in an ellipsis, its full text in the option's tooltip (title).
   '.ant-select-dropdown .ant-select-item-option .ant-select-item-option-content ' +
-  '{ white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }';
+  '{ white-space: normal; word-break: normal; overflow-wrap: normal; overflow: hidden; ' +
+  'text-overflow: ellipsis; }';
 
 /**
  * Theme (light / dark / high contrast, brand seeds), text direction and language for everything
@@ -126,6 +126,7 @@ export function AppearanceProvider({
   }, []);
 
   useFavicon(brand);
+  useDropdownFit();
   const appearance = useMemo<Appearance>(
     () => ({
       mode,

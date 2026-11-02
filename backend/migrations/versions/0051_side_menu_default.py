@@ -11,7 +11,7 @@ Reversible: the downgrade restores the `top` default and moves everyone on `side
 same dev data).
 
 Revision ID: 0051
-Revises: 0038 (re-pointed onto the head of main only if the merge queue rejects it)
+Revises: 0040 (re-pointed onto the head of main at merge)
 Created: 2026-11-02
 """
 
@@ -20,7 +20,7 @@ from collections.abc import Sequence
 from alembic import op
 
 revision: str = "0051"
-down_revision: str | None = "0038"
+down_revision: str | None = "0040"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

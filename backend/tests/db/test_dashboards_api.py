@@ -12,7 +12,8 @@ import pytest
 from sqlalchemy import text
 
 from app.core.tenancy import TenantContext
-from app.modules.analytics.domain.dashboard import BUILTIN_DASHBOARDS, ME, with_viewer
+from app.modules.analytics.domain.dashboard import ME, with_viewer
+from app.modules.analytics.domain.widgets import BUILTIN_DASHBOARDS
 from app.shared.events import EventEnvelope
 from tests.db import test_reports_api
 from tests.db.test_incidents_api import CONSOLE, Org, World
@@ -88,6 +89,12 @@ async def test_req_dsh_003_ac1_builtin_dashboards_run_for_every_viewer(reports: 
     for user in (a.admin, a.tech_a):
         for dashboard in builtin:
             for widget in dashboard["body"]["widgets"]:
+                if widget["report"] is None:  # a records list (D-114): the entity's own list
+                    tree = with_viewer(widget["records"]["filter"], user)
+                    query = {"limit": 5} | ({"filter": json.dumps(tree)} if tree else {})
+                    listed = await world.call("GET", "/incidents", a, user, params=query)
+                    assert listed.status_code == 200, (dashboard["builtin"], widget["id"])
+                    continue
                 definition = with_viewer(widget["report"], user)
                 run = await world.call(
                     "POST",
