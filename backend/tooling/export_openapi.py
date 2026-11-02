@@ -4,6 +4,11 @@
 TypeScript client (WP-010). `make openapi-check` (run in CI) fails when the committed file is out
 of date, so an API change cannot merge without its contract.
 
+Both modes also refuse a document where two models share a class name: FastAPI then names the
+schemas by their full module path (`app__modules__knowledge__api__routes__SettingsOut`), and the
+generated client silently changes the type an existing `components["schemas"]["SettingsOut"]`
+points at. Rename one of the models instead (e.g. `KnowledgeSettingsOut`).
+
 Usage: python -m tooling.export_openapi [--check] <output.json>
 """
 
@@ -24,6 +29,12 @@ def build_schema() -> dict[str, Any]:
     return create_app(settings).openapi()
 
 
+def name_clashes(schema: dict[str, Any]) -> list[str]:
+    """Schemas FastAPI renamed by module path because two models share a class name."""
+    names = schema.get("components", {}).get("schemas", {})
+    return sorted(name for name in names if "__" in name)
+
+
 def render(schema: dict[str, Any]) -> str:
     """Stable, diff-friendly JSON (sorted keys, trailing newline)."""
     return json.dumps(schema, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
@@ -37,7 +48,15 @@ def main(argv: list[str]) -> int:
         sys.stderr.write("usage: python -m tooling.export_openapi [--check] <output.json>\n")
         return 2
     target = Path(paths[0])
-    rendered = render(build_schema())
+    schema = build_schema()
+    clashes = name_clashes(schema)
+    if clashes:
+        sys.stderr.write(
+            "Two API models share a class name; rename one so each schema name is unique:\n"
+            + "".join(f"  {name}\n" for name in clashes)
+        )
+        return 1
+    rendered = render(schema)
     if check:
         current = target.read_text(encoding="utf-8") if target.exists() else ""
         if current != rendered:

@@ -1574,6 +1574,14 @@
             "title": "Changed Fields",
             "type": "array"
           },
+          "managers": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Managers",
+            "type": "array"
+          },
           "user_id": {
             "format": "uuid",
             "title": "User Id",
@@ -2749,6 +2757,49 @@
           "view_key"
         ],
         "title": "WorkItemListSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.part.changed": {
+      "1": {
+        "description": "A task, worklog or link of a record was added, changed or removed (WP-020e).\n\nThe record's screens refresh that part; IDs only, never the part's content.",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "part": {
+            "enum": [
+              "task",
+              "worklog",
+              "link"
+            ],
+            "title": "Part",
+            "type": "string"
+          },
+          "part_id": {
+            "format": "uuid",
+            "title": "Part Id",
+            "type": "string"
+          },
+          "work_item_id": {
+            "format": "uuid",
+            "title": "Work Item Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "work_item_id",
+          "part",
+          "part_id",
+          "change"
+        ],
+        "title": "WorkItemPartChanged",
         "type": "object"
       }
     },

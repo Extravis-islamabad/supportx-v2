@@ -57,6 +57,7 @@ interface Draft {
   close: string[];
   openWork: Record<string, string>;
   complete: boolean;
+  taskOwners: boolean;
   autoClose: boolean;
   autoCloseDays: number | null;
   reopenDays: number | null;
@@ -78,6 +79,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     close: [...closure.close_requires],
     openWork: { ...OPEN_WORK_DEFAULTS, ...closure.open_work },
     complete: closure.complete_open_work,
+    taskOwners: closure.task_owner_access,
     autoClose: closure.auto_close_days !== null,
     autoCloseDays: closure.auto_close_days ?? AUTO_CLOSE_DEFAULT,
     reopenDays: closure.reopen_window_days,
@@ -89,6 +91,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
     draftState.reset();
   };
   const noChannel = closure.requester_channels.length === 0;
+  const blocked = closure.requester_channel_states.filter((state) => state.reason !== null);
   const fieldOptions = [
     ...BUILT_IN.map((name) => ({ value: name, label: t(`work_item.field.${name}`) })),
     ...(customFields.data ?? [])
@@ -111,6 +114,7 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
       close_requires: draft.close,
       open_work: draft.openWork,
       complete_open_work: draft.complete,
+      task_owner_access: draft.taskOwners,
       reopen_window_days: draft.reopenDays,
     };
     // Only sent when it changes: the server refuses switching it on without a channel.
@@ -207,6 +211,23 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
               </Typography.Text>
             </label>
           </Flex>
+          <Flex gap={12} align="start">
+            <Switch
+              id="settings-task-owner-access"
+              checked={draft.taskOwners}
+              onChange={(checked) => {
+                edit({ ...draft, taskOwners: checked });
+              }}
+              data-testid="settings-task-owner-access"
+            />
+            <label htmlFor="settings-task-owner-access">
+              <Typography.Text strong>{t('settings.closing.task_owner_access')}</Typography.Text>
+              <br />
+              <Typography.Text type="secondary">
+                {t('settings.closing.task_owner_access_help')}
+              </Typography.Text>
+            </label>
+          </Flex>
         </fieldset>
         <Flex gap={12} align="start" style={{ marginBottom: 8 }}>
           <Switch
@@ -234,6 +255,24 @@ export function ClosingTab({ catalogue }: { catalogue: IncidentCatalogue }) {
             role="note"
             style={{ marginBottom: 12 }}
             message={t('settings.closing.auto_close_needs_notifications')}
+            // Why each channel cannot tell requesters yet, so the admin knows what to fix (QA BUG-02).
+            description={
+              blocked.length > 0 && (
+                <ul
+                  style={{ margin: 0, paddingInlineStart: 20 }}
+                  data-testid="settings-requester-channels"
+                >
+                  {blocked.map((state) => (
+                    <li key={state.channel}>
+                      {t('settings.closing.channel_state', {
+                        channel: t(`notification_channel.${state.channel}`),
+                        reason: t(`requester_channel_reason.${state.reason ?? ''}`),
+                      })}
+                    </li>
+                  ))}
+                </ul>
+              )
+            }
             data-testid="settings-auto-close-needs"
           />
         )}
