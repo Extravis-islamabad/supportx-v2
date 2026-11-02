@@ -330,6 +330,9 @@ class ArticleRowOut(BaseModel):
     expired: bool
     withdrawn: bool
     review_due: bool
+    # Who wrote the version shown (the approval inbox names it; D-120).
+    author_id: uuid.UUID | None = None
+    author_name: str | None = None
 
 
 # --- topics ---------------------------------------------------------------------------------------
@@ -551,6 +554,9 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
         only_language=only_language,
     )
     today = system_clock.now().date()
+    authors = await user_names(
+        session, sorted({str(r.version.created_by) for r in rows if r.version.created_by})
+    )
     return [
         ArticleRowOut(
             id=r.article.id,
@@ -566,6 +572,8 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
             expired=r.article.expires_on is not None and r.article.expires_on <= today,
             withdrawn=r.article.withdrawn_at is not None,
             review_due=r.article.review_on is not None and r.article.review_on <= today,
+            author_id=r.version.created_by,
+            author_name=(authors.get(str(r.version.created_by)) if r.version.created_by else None),
         )
         for r in rows
     ]

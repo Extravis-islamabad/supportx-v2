@@ -3066,6 +3066,7 @@ export const ar: LabelResource = {
   'knowledge.inbox.decided_by_you': 'تم. غادرت هذه المقالة صندوقك.',
   'knowledge.inbox.next': 'المقالة التالية',
   'knowledge.inbox.owner': 'المالك: {{name}}',
+  'knowledge.inbox.by': 'بقلم {{name}}',
   'knowledge.inbox.unknown': 'غير معروف',
   'knowledge.inbox.note': 'ملاحظة من الكاتب',
   'knowledge.inbox.title_changed': 'يتغيّر العنوان. يرى القرّاء الآن «{{before}}».',

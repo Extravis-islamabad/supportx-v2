@@ -5394,6 +5394,10 @@ export interface components {
          * @description One line of the knowledge list.
          */
         ArticleRowOut: {
+            /** Author Id */
+            author_id?: string | null;
+            /** Author Name */
+            author_name?: string | null;
             /** Display Id */
             display_id: string;
             /** Expired */

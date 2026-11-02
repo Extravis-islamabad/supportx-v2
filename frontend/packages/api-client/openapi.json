@@ -1437,6 +1437,29 @@
       "ArticleRowOut": {
         "description": "One line of the knowledge list.",
         "properties": {
+          "author_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Id"
+          },
+          "author_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Name"
+          },
           "display_id": {
             "title": "Display Id",
             "type": "string"

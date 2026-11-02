@@ -48,6 +48,8 @@ const row = (article: typeof IN_REVIEW, title: string) => ({
   review_on: null,
   updated_at: '2026-11-02T08:00:00Z',
   owner_id: article.owner_id,
+  author_id: article.owner_id,
+  author_name: 'Tariq Technician',
   expired: false,
   withdrawn: false,
   review_due: false,
@@ -120,6 +122,10 @@ describe('Approval inbox (D-120)', () => {
     const queue = await screen.findByTestId('kb-inbox-queue');
     expect(await within(queue).findByText('Waiting for you (2)')).toBeDefined();
     expect(within(queue).getByText(/KB-1 · Network/)).toBeDefined();
+    // Who wrote it (D-120): the author, in the queue itself.
+    expect(within(queue).getAllByTestId('kb-inbox-author')[0]?.textContent).toBe(
+      'By Tariq Technician',
+    );
     expect(queue.textContent).not.toMatch(/in_review|how_to/);
 
     const preview = await openItem('KB-1');

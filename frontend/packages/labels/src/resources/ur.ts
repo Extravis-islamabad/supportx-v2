@@ -2650,6 +2650,7 @@ export const ur: LabelResource = {
   'knowledge.inbox.decided_by_you': 'ہو گیا۔ یہ مضمون آپ کے ان باکس سے نکل گیا۔',
   'knowledge.inbox.next': 'اگلا مضمون',
   'knowledge.inbox.owner': 'مالک: {{name}}',
+  'knowledge.inbox.by': 'از {{name}}',
   'knowledge.inbox.unknown': 'معلوم نہیں',
   'knowledge.inbox.note': 'مصنف کا نوٹ',
   'knowledge.inbox.title_changed': 'عنوان بدل رہا ہے۔ قارئین ابھی “{{before}}” دیکھتے ہیں۔',

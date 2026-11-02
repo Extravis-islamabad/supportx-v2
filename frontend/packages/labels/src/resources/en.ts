@@ -3054,6 +3054,7 @@ export const en = {
   'knowledge.inbox.decided_by_you': 'Done. This article has left your inbox.',
   'knowledge.inbox.next': 'Next article',
   'knowledge.inbox.owner': 'Owner: {{name}}',
+  'knowledge.inbox.by': 'By {{name}}',
   'knowledge.inbox.unknown': 'Not known',
   'knowledge.inbox.note': 'Note from the author',
   'knowledge.inbox.title_changed': 'The title changes. Readers see “{{before}}” now.',

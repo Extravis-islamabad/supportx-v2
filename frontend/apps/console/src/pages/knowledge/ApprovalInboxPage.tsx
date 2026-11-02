@@ -141,6 +141,11 @@ export function ApprovalInboxPage() {
                       ...topicPath(topics.data ?? [], item.topic_id, language),
                     ].join(' · ')}
                   </Typography.Text>
+                  {item.author_name != null && (
+                    <Typography.Text type="secondary" data-testid="kb-inbox-author">
+                      {t('knowledge.inbox.by', { name: item.author_name })}
+                    </Typography.Text>
+                  )}
                   <Space size={4}>
                     <Tag>{t(`knowledge.language.${item.language}`)}</Tag>
                     <Typography.Text type="secondary">

@@ -213,3 +213,27 @@ async def test_d120_a_builtin_type_keeps_its_names(world: World) -> None:
         a.tenant,
     )
     assert len(events) == 1
+
+
+async def test_d120_the_approval_inbox_names_who_wrote_the_version(world: World) -> None:
+    a = world.a
+    topic = await _topic(world, a)
+    article = await _article(world, a, a.tech_a, topic)
+    draft = (await world.call("GET", f"/knowledge/articles/{article['id']}", a, a.tech_a)).json()
+    submitted = await world.call(
+        "POST",
+        f"/knowledge/articles/{article['id']}/drafts/en/submit",
+        a,
+        a.tech_a,
+        json={"note": "Ready"},
+        headers=_match(draft["drafts"]["en"]["version"]),
+    )
+    assert submitted.status_code == 200, submitted.text
+    listed = await world.call(
+        "GET", "/knowledge/articles", a, a.admin, params={"view": "awaiting_approval"}
+    )
+    assert listed.status_code == 200, listed.text
+    row = next(r for r in listed.json() if r["id"] == article["id"])
+    name = await world.sql("SELECT display_name FROM users WHERE id = $1", a.tech_a)
+    assert row["author_id"] == str(a.tech_a)  # the writer, not the approver reading the list
+    assert row["author_name"] == name[0]["display_name"]

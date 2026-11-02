@@ -1173,8 +1173,8 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
     on main.
 - Not yet: the knowledge-manager role grants (wait for lane B's #131 on main); Arabic contrast
   measured directly (with lane A's contrast helper, #145) in the e2e round.
-- Deviation from the plan: the queue rows show the owner in the preview, not the queue (the list
-  rows carry no author); a follow-up if QA asks.
+- List rows now carry `author_id` and `author_name` (who wrote the version shown), so the inbox
+  queue says who wrote each article (coordinator, 2026-11-02).
 - Follow-up (lane A's note on #138): knowledge DB tests reuse lane A's incident test world; a
   knowledge-owned fixture later.
 
