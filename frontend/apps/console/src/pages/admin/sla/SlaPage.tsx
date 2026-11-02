@@ -59,7 +59,8 @@ import { minutes, weekMinutes } from './week';
 type Translate = ReturnType<typeof useLabel>;
 const SECTIONS = ['calendars', 'holidays'] as const;
 const PRESETS: SlaWeekPreset[] = ['mon_fri', 'sun_thu', 'mon_sat'];
-const PARTS: SlaHolidayPart[] = ['full', 'morning', 'afternoon'];
+// A half day keeps the first half by default (product owner, 2026-11-02): "afternoon off" first.
+const PARTS: SlaHolidayPart[] = ['full', 'afternoon', 'morning'];
 const ZONES: string[] =
   typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
 // Quarter-hour steps; a period may end at 24:00 (midnight).
