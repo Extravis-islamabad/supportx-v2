@@ -42,6 +42,7 @@ from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
+    KNOWLEDGE_MANAGER,
     RESERVED_PERMISSIONS,
     Catalogue,
 )
@@ -283,6 +284,7 @@ AUTHZ_CACHE_TTL_SECONDS = 300
 register_people_usage()
 
 __all__ = [
+    "KNOWLEDGE_MANAGER",
     "FieldRule",
     "MailRecipient",
     "NotifiablePerson",

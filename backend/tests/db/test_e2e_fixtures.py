@@ -204,6 +204,9 @@ async def _suite_records(database: db_testing.ThrowawayDatabase) -> None:
         "announcements": 1,
         "work_item_conversations": 0,  # with their incidents (WP-020b)
         "work_item_followers": 0,
+        "work_item_tasks": 0,  # with their incidents too (WP-020e)
+        "work_item_worklogs": 0,
+        "work_item_links": 0,
         "work_items": 0,  # incidents: covered by the e2e run (none may remain afterwards)
         "work_item_templates": 1,
         "custom_fields": 1,

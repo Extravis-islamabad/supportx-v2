@@ -12,6 +12,7 @@ Pure domain code, no I/O. The rules here decide:
 """
 
 import re
+import uuid
 from collections.abc import Collection
 from enum import StrEnum
 
@@ -44,8 +45,9 @@ class ReplyMode(StrEnum):
 
 
 class DeliveryState(StrEnum):
-    """Where an outbound reply is. Notes have none."""
+    """Where a reply is: outbound ones are sent, incoming ones were received. Notes have none."""
 
+    RECEIVED = "received"  # the requester's own words, sent in (portal, e-mail): nothing to send
     NOT_SENT = "not_sent"  # saved, nothing could send it (the reason says why)
     QUEUED = "queued"  # handed to the email channel (WP-024)
     SENT = "sent"
@@ -104,10 +106,29 @@ def stamps_first_response(
     return first_response_action(kind, visibility) in counted
 
 
-def delivery_for(kind: EntryKind, *, email_channel: bool) -> tuple[str | None, str | None]:
-    """(state, reason) of a new entry: replies wait for the email channel (WP-024)."""
+def reply_is_inbound(
+    author_id: uuid.UUID, requester_side: Collection[uuid.UUID | None], source: str
+) -> bool:
+    """Whether a reply came in from the requester rather than going out to them (BUG-01).
+
+    The one place this is decided: the requester (or the person the record is for) writing from
+    outside the console (portal, e-mail, the API) sends words in. Staff in the console write
+    outbound replies, even on a record they requested themselves.
+    """
+    return author_id in requester_side and source != "ui"
+
+
+def delivery_for(
+    kind: EntryKind, *, inbound: bool, email_channel: bool
+) -> tuple[str | None, str | None]:
+    """(state, reason) of a new entry.
+
+    Incoming replies are received; outbound ones wait for the email channel (WP-024).
+    """
     if kind == EntryKind.NOTE:
         return None, None
+    if inbound:
+        return DeliveryState.RECEIVED, None
     if not email_channel:
         return DeliveryState.NOT_SENT, DeliveryReason.EMAIL_CHANNEL_NOT_CONFIGURED
     return DeliveryState.QUEUED, None

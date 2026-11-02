@@ -80,6 +80,28 @@ export function closureCodeLabel(
     : listValueLabel(t, 'closure_code', value, locale);
 }
 
+/** Set only by the requester's confirmation (or auto-close), never chosen (D-107, QA BUG-04). */
+export const REQUESTER_ONLY_CLOSURE_CODE = 'confirmed_by_requester';
+
+/**
+ * The closure codes a technician may choose (REQ-INC-093): retired ones are not offered, and the
+ * requester's own code shows as unavailable with the reason, as the server refuses it (QA BUG-04).
+ */
+export function closureCodeChoices(
+  t: Translate,
+  catalogue: IncidentCatalogue | undefined,
+  locale: string,
+): { value: string; label: string; title: string; 'aria-label': string; disabled: boolean }[] {
+  return (catalogue?.closure_codes ?? [])
+    .filter((v) => !v.disabled)
+    .map((v) => {
+      const name = listValueLabel(t, 'closure_code', v, locale);
+      const requesterOnly = v.code === REQUESTER_ONLY_CLOSURE_CODE;
+      const label = requesterOnly ? t('incidents.closure_code_requester_only', { name }) : name;
+      return { value: v.code, label, title: label, 'aria-label': label, disabled: requesterOnly };
+    });
+}
+
 /**
  * A reason code as people read it: the admin's labels, else the shipped label of its list.
  * A code no list has any more reads "Unknown value", never the code itself (rule d).

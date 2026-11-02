@@ -197,6 +197,47 @@ describe('Admin › Mail', () => {
     expect(reason.textContent).not.toContain('custom.asset_tag');
   });
 
+  it('BUG-02: in Arabic the sender and the time keep their order inside the sentence', async () => {
+    // QA WP-024 BUG-02: "من 29 · 2026/10/e2e.tech@demo.test" (the date split around the address).
+    window.history.pushState({}, '', '/admin/mail');
+    const box = fakeMailbox({ held: 1 });
+    api({
+      me: fakeSession({ roles: ['tenant_admin', 'technician'], locale: 'ar' }),
+      routes: {
+        [`GET ${BASE}`]: { body: [box] },
+        [`GET ${BASE}/${box.id}/waiting`]: {
+          body: [
+            {
+              message_id: 'm@acme.test',
+              sender: 'e2e.tech@demo.test',
+              subject: 'Re: [INC-7] x',
+              outcome: 'held',
+              reason: 'not_requester',
+              reason_params: {},
+              received_at: '2026-10-29T03:52:00Z',
+              releasable: false,
+            },
+          ],
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-review'));
+    const from = await screen.findByTestId('mail-waiting-from');
+    expect(from.textContent).toContain('\u2068e2e.tech@demo.test\u2069');
+    expect(from.textContent).toMatch(/\u2068[^\u2069]*2026[^\u2069]*\u2069/); // the time, whole
+  });
+
+  it("BUG-03: the editor's switches keep their own size", async () => {
+    // QA WP-024 BUG-03: the field column stretched each switch into a full-width bar.
+    window.history.pushState({}, '', '/admin/mail');
+    api({ me: ADMIN, routes: { [`GET ${BASE}`]: { body: [] } } });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('mailbox-add'));
+    const editor = await screen.findByTestId('mailbox-editor');
+    expect(within(editor).getByTestId('mailbox-enabled').style.alignSelf).toBe('flex-start');
+  });
+
   it('technicians do not see the tab', async () => {
     window.history.pushState({}, '', '/admin/users');
     api({ routes: {} });

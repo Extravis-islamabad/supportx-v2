@@ -4,7 +4,10 @@ description: >-
   (a required check that never reports blocks the merge forever); this first step decides, from
   the changed files, whether to do the work or finish at once with a stated reason. Pull
   requests: the PR's files. Merge queue: the group's files against main. Anything else
-  (nightly, push, manual): always run.
+  (nightly, manual): always run. In the queue, a group that was already dropped (its temporary
+  branch is gone) finishes at once, so a superseded group frees its runners. Heavy jobs are not
+  decided here: in speed mode (D-122) their job-level `if:` runs them nightly, manually and on
+  PRs labelled full-ci only.
 inputs:
   light:
     description: Paths that never need the heavy work (ERE on each changed file's path).
@@ -30,12 +33,30 @@ runs:
         PR: ${{ github.event.pull_request.number }}
         QUEUE_BASE: ${{ github.event.merge_group.base_sha }}
         QUEUE_HEAD: ${{ github.event.merge_group.head_sha }}
+        QUEUE_REF: ${{ github.event.merge_group.head_ref }}
         REPO: ${{ github.repository }}
         LIGHT: ${{ inputs.light }}
         NEEDS: ${{ inputs.needs }}
         SKIPPED: ${{ inputs.skipped }}
       run: |
         set -euo pipefail
+        finish() {
+          echo "run=false" >> "$GITHUB_OUTPUT"
+          echo "::notice title=${GITHUB_JOB}::$1"
+          { echo "### $1"; echo; echo "$2"; } >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        }
+        if [ "$EVENT" = "merge_group" ]; then
+          # Only a definite "not found" counts: any other error runs the work, so a flaky API
+          # can never let an untested group merge (the full suite gates every merge).
+          if ! answer=$(gh api "repos/$REPO/git/ref/${QUEUE_REF#refs/}" 2>&1); then
+            if grep -q "HTTP 404" <<< "$answer"; then
+              finish "skipped: merge group superseded" \
+                "The queue dropped this group (its branch is gone), so its work would test nothing."
+            fi
+            echo "Could not check the queue branch; running the work: $answer"
+          fi
+        fi
         # Both names of a renamed file count. The APIs list at most so many files (pull request:
         # 3000; compare: 300): a change that big always runs.
         case "$EVENT" in

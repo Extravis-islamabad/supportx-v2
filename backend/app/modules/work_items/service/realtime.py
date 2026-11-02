@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import authorize_stored
 from app.modules.work_items.domain.types import INCIDENT, TYPES, WorkItemType, WorkItemTypeCode
-from app.modules.work_items.infra.models import WorkItem, WorkItemFollower
+from app.modules.work_items.infra.models import WorkItem, WorkItemFollower, WorkItemTask
 from app.modules.work_items.service.access import RESOURCE
 from app.shared.events import EventEnvelope
 from app.shared.realtime import (
@@ -55,6 +55,8 @@ BULK_PROGRESS = "work_items.bulk_progress"
 LISTS_CHANGED = "work_items.lists_changed"
 # Correlation ID of a bulk job's events (service/bulk.py): lists refresh once per batch instead.
 BULK_PREFIX = "bulk:"
+PART_CHANGED = "work_items.part_changed"
+MY_TASKS_CHANGED = "work_items.my_tasks_changed"
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -170,20 +172,44 @@ async def _followers_with_access(session: AsyncSession, record_id: uuid.UUID) ->
 
 
 async def _conversation_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
-    """A reply or note was added or changed visibility: open timelines refetch it."""
-    del session
+    """A reply or note was added or changed visibility: open timelines refetch it.
+
+    Its technician and followers also recount: "updated by others" counts entries by someone
+    else on records they own or follow (WP-020d QA BUG-01). The writer's own count does not change.
+    """
     payload = envelope.payload
     record_id = uuid.UUID(str(payload["work_item_id"]))
-    return RealtimeEffects(
-        publications=[
-            Publication(
-                record(envelope.tenant_id, RECORD_KIND, record_id),
-                CONVERSATION_CHANGED,
-                ids=(str(payload["entry_id"]),),
-                actor_id=_actor(envelope),
+    publications = [
+        Publication(
+            record(envelope.tenant_id, RECORD_KIND, record_id),
+            CONVERSATION_CHANGED,
+            ids=(str(payload["entry_id"]),),
+            actor_id=_actor(envelope),
+        )
+    ]
+    if envelope.event_type == "work_items.conversation.added":
+        technician = await session.scalar(
+            select(WorkItem.technician_id).where(WorkItem.id == record_id)
+        )
+        followers = await session.scalars(
+            select(WorkItemFollower.user_id).where(
+                WorkItemFollower.work_item_id == record_id, WorkItemFollower.deleted_at.is_(None)
             )
+        )
+        people = {u for u in (technician, *followers) if u} - {_uuid(_actor(envelope))}
+        publications += [
+            _lists_changed(envelope.tenant_id, u, record_id) for u in sorted(people, key=str)
         ]
-    )
+    return RealtimeEffects(publications=publications)
+
+
+def _lists_changed(tenant: uuid.UUID, user: uuid.UUID, record_id: uuid.UUID) -> Publication:
+    """One person's own lists and counts changed (follows, replies by others): they recount.
+
+    On the person's own channel, because someone who sees every record follows only the shared
+    list channel, which never hears about personal changes (WP-020d QA BUG-01).
+    """
+    return Publication(personal(tenant, user), LISTS_CHANGED, ids=(str(record_id),), coalesce=True)
 
 
 async def _followers_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
@@ -204,7 +230,8 @@ async def _followers_changed(envelope: EventEnvelope, session: AsyncSession) -> 
             FOLLOWERS_CHANGED,
             ids=(str(user_id),),
             actor_id=_actor(envelope),
-        )
+        ),
+        _lists_changed(tenant, user_id, record_id),  # "Followed by me", "Shared with me"
     ]
     if live is not None and payload.get("grants_access"):
         publications += live.publications(
@@ -292,6 +319,36 @@ async def _bulk_progressed(envelope: EventEnvelope, session: AsyncSession) -> Re
     return RealtimeEffects(publications=publications)
 
 
+async def _part_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A task, worklog or link changed: the record's screens, and a task owner's own list."""
+    payload = envelope.payload
+    record_id = uuid.UUID(str(payload["work_item_id"]))
+    part_id = uuid.UUID(str(payload["part_id"]))
+    publications = [
+        Publication(
+            record(envelope.tenant_id, RECORD_KIND, record_id),
+            PART_CHANGED,
+            ids=(str(part_id),),
+            fields=(str(payload["part"]),),
+            actor_id=_actor(envelope),
+        )
+    ]
+    if payload["part"] == "task":
+        owner = await session.scalar(
+            select(WorkItemTask.owner_id).where(WorkItemTask.id == part_id)
+        )
+        if owner is not None:
+            publications.append(
+                Publication(
+                    personal(envelope.tenant_id, owner),
+                    MY_TASKS_CHANGED,
+                    ids=(str(part_id),),
+                    actor_id=_actor(envelope),
+                )
+            )
+    return RealtimeEffects(publications=publications)
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -314,4 +371,5 @@ ROUTES = [
     RealtimeRoute(("work_items.view.changed",), _view_changed),
     RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
     RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
+    RealtimeRoute(("work_items.part.changed",), _part_changed),
 ]
