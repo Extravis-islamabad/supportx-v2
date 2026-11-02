@@ -25670,7 +25670,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25733,7 +25733,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25810,7 +25810,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25893,7 +25893,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -25969,7 +25969,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -26049,7 +26049,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -26116,7 +26116,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -26185,7 +26185,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -26265,7 +26265,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;

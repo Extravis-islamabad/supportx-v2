@@ -3411,7 +3411,7 @@ export const ur: LabelResource = {
   'permission_module.mailboxes': 'میل باکس',
   'permission.mailboxes.manage': 'میل باکس کا انتظام کریں',
   'permission.mailboxes.manage.description':
-    'سپورٹ میل باکس جوڑیں اور منتخب کریں کہ ان کی میل کیا بنے۔',
+    'اس کی جگہ «ای میل کنیکٹر سیٹ اپ کریں» آ گئی ہے؛ ہٹائے جانے تک یہ کام کرتی رہے گی۔',
   'audit.action.mailbox.created': 'میل باکس شامل کیا',
   'audit.action.mailbox.changed': 'میل باکس تبدیل کیا',
   'audit.action.mailbox.removed': 'میل باکس ہٹایا',
@@ -3858,6 +3858,12 @@ export const ur: LabelResource = {
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   // WP-040: the connector catalogue.
+  'permission.integrations.manage_identity': 'ڈائریکٹری کنیکٹر سیٹ اپ کریں',
+  'permission.integrations.manage_identity.description':
+    'Microsoft Entra ID یا Active Directory جوڑیں اور منتخب کریں کہ کون ہم آہنگ ہو۔',
+  'permission.integrations.manage_email': 'ای میل کنیکٹر سیٹ اپ کریں',
+  'permission.integrations.manage_email.description':
+    'سپورٹ میل باکس جوڑیں اور منتخب کریں کہ ان کی میل کیا بنے۔',
   'secret_type.password': 'پاس ورڈ',
   'secret_type.client_secret': 'کلائنٹ سیکرٹ',
   'secret_type.certificate': 'سرٹیفکیٹ',

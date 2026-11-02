@@ -24,7 +24,7 @@ from app.modules.integrations.domain.mailboxes import (
     connector_status,
 )
 from app.modules.integrations.infra.models import Mailbox
-from app.modules.integrations.service.mailboxes import MANAGE as MAILBOXES_MANAGE
+from app.modules.integrations.service.mailboxes import LEGACY_MANAGE
 from app.modules.integrations.service.runs import InstanceHealth, health_of
 from app.modules.licensing import has_feature
 from app.shared.connectors.ports import (
@@ -41,14 +41,23 @@ MAILBOX = CONNECTOR_KIND
 
 
 def manage_permission(category: ConnectorCategory) -> str:
-    """The set-up permission of one category (REQ-INT-013).
+    """The set-up permission of one category (REQ-INT-013): `integrations.manage_<category>`."""
+    return f"integrations.manage_{category.value}"
 
-    Mailboxes predate the catalogue: the email category keeps `mailboxes.manage` until the
-    permission moves to `integrations.manage_email` by expand/contract (D-118).
+
+def set_up_keys(category: ConnectorCategory) -> tuple[str, ...]:
+    """Every key that grants a category's set-up now.
+
+    Email also takes `mailboxes.manage`, accepted until the contract step (expand phase, D-118).
     """
     if category == ConnectorCategory.EMAIL:
-        return MAILBOXES_MANAGE
-    return f"integrations.manage_{category.value}"
+        return (manage_permission(category), LEGACY_MANAGE)
+    return (manage_permission(category),)
+
+
+def may_set_up(subject: Subject, category: ConnectorCategory) -> bool:
+    """Whether the person may set up connectors of this category."""
+    return any(subject.holds(key) for key in set_up_keys(category))
 
 
 @dataclass(frozen=True)
@@ -69,7 +78,7 @@ async def catalogue(session: AsyncSession, subject: Subject) -> list[CatalogueEn
     for registered in registered_connectors():
         kind = registered.kind
         available = kind.feature is None or await has_feature(subject.tenant_id, kind.feature)
-        allowed = subject.holds(manage_permission(kind.category))
+        allowed = may_set_up(subject, kind.category)
         reason = (
             None
             if available and allowed

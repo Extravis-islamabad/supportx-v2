@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,7 +53,21 @@ from app.modules.integrations.service.fetching import own_addresses
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
 
-MANAGE = "mailboxes.manage"
+if TYPE_CHECKING:
+    from app.modules.identity_access import Subject
+
+# Set-up right of the email connectors (REQ-INT-013, WP-040). `mailboxes.manage` is still
+# accepted until the contract step; migration 0049 gave the new key to every role holding it.
+MANAGE = "integrations.manage_email"
+LEGACY_MANAGE = "mailboxes.manage"
+MANAGE_KEYS = (MANAGE, LEGACY_MANAGE)
+
+
+def may_manage(subject: "Subject") -> bool:
+    """Whether the person may set up mailboxes (either key, during the expand phase)."""
+    return any(subject.holds(key) for key in MANAGE_KEYS)
+
+
 Change = Literal["added", "changed", "removed", "fetched"]
 FIELDS = (
     "address",

@@ -96,6 +96,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['identity.manage', 'all'],
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
+  ['integrations.manage_email', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],

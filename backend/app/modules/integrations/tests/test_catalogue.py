@@ -107,7 +107,10 @@ def test_kinds_come_in_category_order(kinds: dict[str, FakeSource]) -> None:
 
 
 def test_email_keeps_the_mailbox_permission_until_it_moves() -> None:
-    assert catalogue.manage_permission(ConnectorCategory.EMAIL) == "mailboxes.manage"
+    assert catalogue.set_up_keys(ConnectorCategory.EMAIL) == (
+        "integrations.manage_email",
+        "mailboxes.manage",
+    )
     assert catalogue.manage_permission(ConnectorCategory.IDENTITY) == "integrations.manage_identity"
 
 

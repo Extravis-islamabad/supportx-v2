@@ -1,7 +1,8 @@
 """Connector admins hear when a connector fails and when it recovers (WP-040; REQ-INT-005).
 
 One notification source for every kind (record type "connector"). The people told are those who
-may set up the kind's category (REQ-INT-013): for mailboxes, `mailboxes.manage`, as before.
+may set up the kind's category (REQ-INT-013): for mailboxes `integrations.manage_email`, or
+`mailboxes.manage` until the contract step.
 `connector.failing` replaces `mailbox.failing` (migration 0049 copied each tenant's rule);
 the mailbox source still handles old `mailbox.failing` events until the contract step.
 """
@@ -16,7 +17,7 @@ from app.core.database import SESSION_TENANT_KEY
 from app.modules.identity_access import subject_for, worker_policy
 from app.modules.integrations.events import ConnectorFailing, ConnectorRecovered
 from app.modules.integrations.infra.models import ConnectorHealth
-from app.modules.integrations.service.catalogue import manage_permission
+from app.modules.integrations.service.catalogue import may_set_up, set_up_keys
 from app.shared.connectors.ports import Registered, registered_connectors
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
@@ -95,8 +96,12 @@ class ConnectorNotifications:
         if instance is None:
             return None  # removed since: nothing to fix
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        permission = manage_permission(registered.kind.category)
-        admins = await worker_policy().holders(session, tenant, permission, limit=ADMINS_LIMIT)
+        admins: dict[uuid.UUID, str] = {}
+        for key in set_up_keys(registered.kind.category):
+            for user_id, name in await worker_policy().holders(
+                session, tenant, key, limit=ADMINS_LIMIT
+            ):
+                admins.setdefault(user_id, name)
         values: dict[str, VariableValue] = {
             "record.title": instance.name,
             "record.link": registered.kind.page,
@@ -110,7 +115,7 @@ class ConnectorNotifications:
             link=registered.kind.page,
             variables=values,
             public_variables=values,
-            relatives={CONNECTOR_ADMINS: frozenset(user_id for user_id, _ in admins)},
+            relatives={CONNECTOR_ADMINS: frozenset(admins)},
             conditions={},
             event_code=event_code,
         )
@@ -127,7 +132,7 @@ class ConnectorNotifications:
             return RecordAccess.NONE
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         subject = await subject_for(session, tenant, user_id)
-        allowed = subject.holds(manage_permission(registered.kind.category))
+        allowed = may_set_up(subject, registered.kind.category)
         return RecordAccess.FULL if allowed else RecordAccess.NONE
 
 

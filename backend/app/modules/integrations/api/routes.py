@@ -1,6 +1,7 @@
 """Mailboxes HTTP API under /api/v1/integrations/mailboxes (WP-024). No business logic here.
 
-Everything needs `mailboxes.manage`. Passwords go in, never come out (`has_password` says whether
+Everything needs `integrations.manage_email` (or `mailboxes.manage`, accepted until the
+contract step, WP-040). Passwords go in, never come out (`has_password` says whether
 one is stored). Changes use If-Match and are audited; create takes an Idempotency-Key.
 """
 
@@ -40,7 +41,7 @@ from app.shared.connectors.ports import SecretType
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
     401: {"model": ProblemDetail, "description": "Not signed in."},
-    403: {"model": ProblemDetail, "description": "Missing permission (mailboxes.manage)."},
+    403: {"model": ProblemDetail, "description": "Missing permission (integrations.manage_email)."},
     404: {"model": ProblemDetail, "description": "No such mailbox (mailbox_not_found)."},
 }
 CONFLICT: Responses = {409: {"model": ProblemDetail, "description": "Stale If-Match, or taken."}}
@@ -51,7 +52,7 @@ router = APIRouter(
     dependencies=[Depends(rate_limit("integrations"))],
     responses=RESPONSES,
 )
-Manage = Annotated[Subject, Depends(require_permission(service.MANAGE))]
+Manage = Annotated[Subject, Depends(require_permission(*service.MANAGE_KEYS))]
 
 
 def _app_settings(request: Request) -> Settings:

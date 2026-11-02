@@ -4018,7 +4018,7 @@ export const en = {
   'permission_module.mailboxes': 'Mailboxes',
   'permission.mailboxes.manage': 'Manage mailboxes',
   'permission.mailboxes.manage.description':
-    'Connect support mailboxes and choose what their mail becomes.',
+    'Replaced by "Set up email connectors"; still works until it is removed.',
   'audit.action.mailbox.created': 'Added a mailbox',
   'audit.action.mailbox.changed': 'Changed a mailbox',
   'audit.action.mailbox.removed': 'Removed a mailbox',
@@ -4252,6 +4252,12 @@ export const en = {
   'event_delivery_state.stalled': 'Stalled',
   'incidents.bulk.select_page': 'Select every incident on this page',
   // WP-040: the connector catalogue.
+  'permission.integrations.manage_identity': 'Set up directory connectors',
+  'permission.integrations.manage_identity.description':
+    'Connect Microsoft Entra ID or Active Directory and choose who is synchronised.',
+  'permission.integrations.manage_email': 'Set up email connectors',
+  'permission.integrations.manage_email.description':
+    'Connect support mailboxes and choose what their mail becomes.',
   'secret_type.password': 'Password',
   'secret_type.client_secret': 'Client secret',
   'secret_type.certificate': 'Certificate',

@@ -1,4 +1,4 @@
-"""Connector runs, errors and health; mailbox failure notices move to the connector events.
+"""Connector runs, errors and health; mailbox notices and set-up rights move to the connectors.
 
 WP-040 session 1, expand only (D-113):
 - connector_health, connector_runs, connector_errors (RLS, FORCE): any connector kind's
@@ -8,6 +8,9 @@ WP-040 session 1, expand only (D-113):
   off, other channels, extra people) carries over. `mailbox.failing` stays a known event, and
   its rule stays, until the contract step. The downgrade removes only the copies it made
   (`connector.*` rules), never a mailbox rule.
+- Data, per tenant: every role holding `mailboxes.manage` also gets `integrations.manage_email`
+  at the same scope (REQ-INT-013: set-up rights per connector category). The old key stays and
+  is still accepted until the contract step; the downgrade removes the copies.
 
 Revision ID: 0049
 Revises: 0045 (lane A's 0047 and lane C's 0046 and 0048 come first at merge; down_revision is re-pointed when queued)
@@ -62,6 +65,23 @@ COPY_RULE = _per_tenant(
           FROM notification_rules r
          WHERE r.tenant_id = t AND r.event_code = 'mailbox.failing' AND r.deleted_at IS NULL
         ON CONFLICT (tenant_id, event_code) DO NOTHING;
+"""
+)
+COPY_GRANT = _per_tenant(
+    """
+        INSERT INTO role_permissions (tenant_id, role_id, permission, scope, condition)
+        SELECT p.tenant_id, p.role_id, 'integrations.manage_email', p.scope, p.condition
+          FROM role_permissions p
+         WHERE p.tenant_id = t AND p.permission = 'mailboxes.manage'
+        ON CONFLICT DO NOTHING;
+"""
+)
+DROP_GRANT_COPIES = _per_tenant(
+    """
+        DELETE FROM role_permissions n
+         USING role_permissions o
+         WHERE n.tenant_id = t AND o.tenant_id = t AND n.role_id = o.role_id
+           AND n.permission = 'integrations.manage_email' AND o.permission = 'mailboxes.manage';
 """
 )
 DROP_COPIES = _per_tenant(
@@ -152,9 +172,11 @@ def upgrade() -> None:
     grant_app("connector_runs", ("SELECT", "INSERT", "DELETE"))
     grant_app("connector_errors", ("SELECT", "INSERT", "DELETE"))
     op.execute(COPY_RULE)
+    op.execute(COPY_GRANT)
 
 
 def downgrade() -> None:
+    op.execute(DROP_GRANT_COPIES)
     op.execute(DROP_COPIES)
     op.drop_table("connector_errors")
     op.drop_table("connector_runs")

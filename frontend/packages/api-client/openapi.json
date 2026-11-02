@@ -38867,7 +38867,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -38957,7 +38957,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39062,7 +39062,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39182,7 +39182,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39276,7 +39276,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39380,7 +39380,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39468,7 +39468,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39555,7 +39555,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -39659,7 +39659,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {

@@ -4078,7 +4078,8 @@ export const ar: LabelResource = {
   'view_visibility.everyone': 'كل من يرى الحوادث',
   'permission_module.mailboxes': 'صناديق البريد',
   'permission.mailboxes.manage': 'إدارة صناديق البريد',
-  'permission.mailboxes.manage.description': 'ربط صناديق بريد الدعم واختيار ما يتحول إليه بريدها.',
+  'permission.mailboxes.manage.description':
+    'استُبدلت بـ «إعداد موصلات البريد الإلكتروني»؛ ما زالت تعمل حتى تُزال.',
   'audit.action.mailbox.created': 'أضاف صندوق بريد',
   'audit.action.mailbox.changed': 'غيّر صندوق بريد',
   'audit.action.mailbox.removed': 'أزال صندوق بريد',
@@ -4315,6 +4316,12 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'incidents.bulk.select_page': 'تحديد كل الحوادث في هذه الصفحة',
   // WP-040: the connector catalogue.
+  'permission.integrations.manage_identity': 'إعداد موصلات الأدلة',
+  'permission.integrations.manage_identity.description':
+    'ربط Microsoft Entra ID أو Active Directory واختيار من تتم مزامنتهم.',
+  'permission.integrations.manage_email': 'إعداد موصلات البريد الإلكتروني',
+  'permission.integrations.manage_email.description':
+    'ربط صناديق بريد الدعم واختيار ما يتحول إليه بريدها.',
   'secret_type.password': 'كلمة المرور',
   'secret_type.client_secret': 'سر العميل',
   'secret_type.certificate': 'شهادة',

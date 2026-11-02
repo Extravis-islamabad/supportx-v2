@@ -16,8 +16,9 @@ from app.modules.integrations.events import EVENTS
 from app.modules.integrations.infra import models  # noqa: F401 - tables known to Alembic
 from app.modules.integrations.service import catalogue, connector_notifications, notifications, runs
 from app.modules.integrations.service.fetching import fetch_schedule
-from app.modules.integrations.service.mailboxes import MANAGE
+from app.modules.integrations.service.mailboxes import LEGACY_MANAGE, MANAGE
 from app.modules.integrations.service.realtime import ROUTES
+from app.shared.connectors.ports import ConnectorCategory
 from app.shared.schedules import ScheduleSpec
 
 notifications.register()  # mail admins hear about failing mailboxes (WP-024 session 2)
@@ -30,6 +31,9 @@ module = ModuleSpec(
     # Tenant admins hold every permission; mailboxes are theirs (and custom roles').
     permissions=(
         PermissionSpec(MANAGE),
+        PermissionSpec(LEGACY_MANAGE),  # replaced by MANAGE; kept until the contract step
+        # Directory sync (WP-040 session 2). A category gets its key when its first kind comes.
+        PermissionSpec(catalogue.manage_permission(ConnectorCategory.IDENTITY)),
         # Technicians see the catalogue read-only (REQ-INT-013 AC1); set-up is per category.
         PermissionSpec(catalogue.VIEW, defaults=(("technician", "all"),)),
     ),

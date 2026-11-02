@@ -19,7 +19,7 @@ from app.modules.integrations.events import (
     MailboxMailHeld,
 )
 from app.modules.integrations.infra.models import Mailbox
-from app.modules.integrations.service.mailboxes import MANAGE
+from app.modules.integrations.service.mailboxes import MANAGE_KEYS, may_manage
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import (
     EventDefault,
@@ -45,6 +45,15 @@ _VARIABLES = (
     Variable("record.link", "notification_variable.record.link"),
     Variable("recipient.name", "notification_variable.recipient.name"),
 )
+
+
+async def _holders(session: AsyncSession, tenant: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
+    """Everyone holding either mailbox key (expand phase), once each."""
+    seen: dict[uuid.UUID, tuple[uuid.UUID, str]] = {}
+    for key in MANAGE_KEYS:
+        for holder in await worker_policy().holders(session, tenant, key, limit=ADMINS_LIMIT):
+            seen.setdefault(holder[0], holder)
+    return list(seen.values())
 
 
 class MailboxNotifications:
@@ -97,7 +106,7 @@ class MailboxNotifications:
         if mailbox is None or mailbox.deleted_at is not None:
             return None
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
-        admins = await worker_policy().holders(session, tenant, MANAGE, limit=ADMINS_LIMIT)
+        admins = await _holders(session, tenant)
         values: dict[str, VariableValue] = {
             "record.title": mailbox.address,
             "record.link": "/admin/mail",
@@ -124,7 +133,7 @@ class MailboxNotifications:
         del record_id
         tenant = session.info[SESSION_TENANT_KEY].tenant_id
         subject = await subject_for(session, tenant, user_id)
-        return RecordAccess.FULL if subject.holds(MANAGE) else RecordAccess.NONE
+        return RecordAccess.FULL if may_manage(subject) else RecordAccess.NONE
 
 
 SOURCE = MailboxNotifications()
