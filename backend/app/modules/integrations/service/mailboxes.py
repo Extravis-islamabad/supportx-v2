@@ -12,7 +12,7 @@ import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
 from app.modules.integrations.domain.mailboxes import (
+    CONNECTOR_KIND,
     WAITING,
     AfterFetch,
     AuthModel,
@@ -37,25 +38,37 @@ from app.modules.integrations.domain.mailboxes import (
 from app.modules.integrations.events import MailboxChanged
 from app.modules.integrations.infra.imap import MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
-from app.modules.integrations.service import inbound
+from app.modules.integrations.service import identities, inbound, secrets
 from app.modules.integrations.service.connections import (
     CONSENT_DECLINED,
     CONSENT_EXPIRED,
-    SECRET_PURPOSE,
     ConsentRefusedError,
     credential_expiry,
     finish_consent,
     key_ring,
     open_reader,
     pending_consent,
-    seal,
     start_consent,
 )
 from app.modules.integrations.service.fetching import own_addresses
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
 
-MANAGE = "mailboxes.manage"
+if TYPE_CHECKING:
+    from app.modules.identity_access import Subject
+
+# Set-up right of the email connectors (REQ-INT-013, WP-040). `mailboxes.manage` is still
+# accepted until the contract step; migration 0049 gave the new key to every role holding it.
+MANAGE = "integrations.manage_email"
+LEGACY_MANAGE = "mailboxes.manage"
+MANAGE_KEYS = (MANAGE, LEGACY_MANAGE)
+
+
+def may_manage(subject: "Subject") -> bool:
+    """Whether the person may set up mailboxes (either key, during the expand phase)."""
+    return any(subject.holds(key) for key in MANAGE_KEYS)
+
+
 Change = Literal["added", "changed", "removed", "fetched"]
 FIELDS = (
     "address",
@@ -96,6 +109,7 @@ class MailboxView:
     has_password: bool  # the IMAP password, or the OAuth app's secret or certificate
     held: int  # messages kept for an admin (refused, flooding, not the requester)
     flooding: bool = False  # mail held because a sender went over the flood limit
+    credential: "secrets.SecretInfo | None" = None  # name, type, ending, age (never the value)
 
 
 # Every code `_problems` can give (labels errors.field.<code>; tests/test_error_labels.py reads
@@ -178,8 +192,15 @@ async def changed(session: AsyncSession, row: Mailbox, change: Change) -> None:
     )
 
 
-def _view(row: Mailbox, held: Mapping[uuid.UUID, int]) -> MailboxView:
-    return MailboxView(row, row.secret_sealed is not None, held.get(row.id, 0), row.flooding)
+def _view(
+    row: Mailbox,
+    held: Mapping[uuid.UUID, int],
+    credentials: Mapping[uuid.UUID, "secrets.SecretInfo"] | None = None,
+) -> MailboxView:
+    credential = (credentials or {}).get(row.id)
+    return MailboxView(
+        row, row.secret_sealed is not None, held.get(row.id, 0), row.flooding, credential
+    )
 
 
 async def list_mailboxes(session: AsyncSession) -> list[MailboxView]:
@@ -188,7 +209,9 @@ async def list_mailboxes(session: AsyncSession) -> list[MailboxView]:
     rows = await session.scalars(
         select(Mailbox).where(Mailbox.deleted_at.is_(None)).order_by(Mailbox.address)
     )
-    return [_view(row, held) for row in rows]
+    found = list(rows)
+    credentials = await secrets.credential_info(session, [row.id for row in found])
+    return [_view(row, held, credentials) for row in found]
 
 
 async def get_mailbox(session: AsyncSession, mailbox_id: uuid.UUID) -> MailboxView:
@@ -196,7 +219,8 @@ async def get_mailbox(session: AsyncSession, mailbox_id: uuid.UUID) -> MailboxVi
     row = await session.get(Mailbox, mailbox_id)
     if row is None or row.deleted_at is not None:
         raise NotFound(code="mailbox_not_found")
-    return _view(row, await _held_counts(session))
+    credentials = await secrets.credential_info(session, [row.id])
+    return _view(row, await _held_counts(session), credentials)
 
 
 def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:
@@ -206,7 +230,7 @@ def _apply(row: Mailbox, values: Mapping[str, Any]) -> None:
             setattr(row, name, value.lower() if name == "address" else value)
 
 
-def _store_secret(row: Mailbox, ring: KeyRing, secret: str) -> None:
+async def _store_secret(session: AsyncSession, row: Mailbox, ring: KeyRing, secret: str) -> None:
     """Seal the password or OAuth credential; a certificate's own expiry is announced ahead."""
     kind = CredentialKind(row.credential_kind) if row.credential_kind else None
     if row.protocol != MailboxProtocol.IMAP.value and kind is CredentialKind.CERTIFICATE:
@@ -215,7 +239,7 @@ def _store_secret(row: Mailbox, ring: KeyRing, secret: str) -> None:
         except MailboxUnavailableError as exc:
             raise ValidationFailed(errors=[_field_error("client_secret", exc.reason)]) from exc
         row.credential_warned_at = None
-    row.secret_key_id, row.secret_sealed = seal(ring, row.tenant_id, SECRET_PURPOSE, secret)
+    await secrets.put(session, row, ring, secrets.SecretRole.CREDENTIAL, secret)
 
 
 async def create_mailbox(
@@ -242,12 +266,15 @@ async def create_mailbox(
         raise Conflict(code="mailbox_address_taken")
     row = Mailbox(tenant_id=tenant_id, state=MailboxState.NOT_SET_UP.value)
     _apply(row, values)
-    if password:  # required for every kind (_problems)
-        _store_secret(row, ring, password)
     session.add(row)
-    await session.flush()
+    await session.flush()  # the store's row names the mailbox
+    if password:  # required for every kind (_problems)
+        await _store_secret(session, row, ring, password)
+        await session.flush()
+    # Acts in its own name from the start (REQ-INT-012).
+    await identities.ensure_identity(session, CONNECTOR_KIND, row.id, name=row.address)
     await changed(session, row, "added")
-    return _view(row, {})
+    return _view(row, {}, await secrets.credential_info(session, [row.id]))
 
 
 async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the change, explicit
@@ -272,13 +299,14 @@ async def update_mailbox(  # noqa: PLR0913 - the mailbox, its version and the ch
     signed_in = {"protocol", "auth_model", "client_id", "directory_id", "address"}
     if any(name in values and values[name] != getattr(row, name) for name in signed_in):
         # Another app, model or mailbox: the earlier sign-in no longer applies.
-        row.token_key_id = row.token_sealed = row.connected_account = None
+        await secrets.clear(session, row, secrets.SecretRole.REFRESH_TOKEN)
+        row.connected_account = None
     _apply(row, values)
     if password:
         ring = key_ring(settings)
         if ring is None:
             raise KeyRingMissing
-        _store_secret(row, ring, password)
+        await _store_secret(session, row, ring, password)
     connection = {"host", "port", "security", "username", "folder"} | signed_in
     if password or connection & set(values):
         row.state, row.state_reason, row.next_fetch_at = MailboxState.NOT_SET_UP.value, None, None
@@ -301,6 +329,10 @@ async def remove_mailbox(
         )
     now = datetime.now(UTC)
     row.deleted_at, row.updated_at, row.enabled = now, now, False
+    for role in secrets.SecretRole:  # a removed mailbox keeps no credential
+        await secrets.clear(session, row, role)
+    # Its identity may do nothing more; history keeps naming it.
+    await identities.set_identity_active(session, CONNECTOR_KIND, row.id, active=False)
     row.version += 1
     await session.flush()
     await changed(session, row, "removed")
@@ -369,7 +401,7 @@ async def discard_mail(
 
 
 async def try_connection(
-    mailbox: Mailbox, settings: Settings, *, secret: str | None = None
+    session: AsyncSession, mailbox: Mailbox, settings: Settings, *, secret: str | None = None
 ) -> str | None:
     """Connect and look for new mail, changing nothing; None when it works, else a reason code.
 
@@ -379,7 +411,8 @@ async def try_connection(
     if ring is None:
         return "mailbox_key_ring_missing"
     try:
-        opened = await open_reader(mailbox, ring, settings, secret=secret)
+        stored = await secrets.credentials(session, mailbox, ring, mark=False)
+        opened = await open_reader(mailbox, ring, settings, secret=secret, stored=stored)
     except MailboxUnavailableError as exc:
         return exc.reason
     try:
@@ -405,7 +438,10 @@ async def start_sign_in(
     if ring is None:
         raise KeyRingMissing
     try:
-        return start_consent(row, ring, settings, admin_id=admin_id, origin=origin)
+        stored = await secrets.credentials(session, row, ring)
+        return start_consent(
+            row, ring, settings, admin_id=admin_id, origin=origin, secret=stored.secret
+        )
     except ConsentRefusedError as exc:  # IMAP, or Microsoft 365 with application permission
         raise Conflict(code="mailbox_sign_in_not_needed") from exc
     except MailboxUnavailableError as exc:  # no credential stored, or it cannot be unsealed
@@ -440,9 +476,15 @@ async def complete_sign_in(  # noqa: PLR0913 - the callback's facts, explicit
             row.oauth_state_hash = row.oauth_pending_key_id = None
             row.oauth_pending_sealed = row.oauth_pending_until = None
             raise ConsentRefusedError(CONSENT_DECLINED, row.id)  # noqa: TRY301 - one refusal path
-        await finish_consent(row, ring, settings, code=code, admin_id=admin_id, origin=origin)
+        stored = await secrets.credentials(session, row, ring)
+        token = await finish_consent(
+            row, ring, settings, code=code, admin_id=admin_id, origin=origin, secret=stored.secret
+        )
     except ConsentRefusedError as exc:
         return SignInResult(row.id, exc.reason)
+    except MailboxUnavailableError as exc:  # the credential cannot be read: say so on the page
+        return SignInResult(row.id, exc.reason)
+    await secrets.put(session, row, ring, secrets.SecretRole.REFRESH_TOKEN, token)
     row.version += 1
     row.updated_at = datetime.now(UTC)
     await session.flush()

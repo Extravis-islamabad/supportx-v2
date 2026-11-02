@@ -1452,6 +1452,42 @@
         ],
         "title": "UserCreatedV2",
         "type": "object"
+      },
+      "3": {
+        "description": "As UserCreatedV2, with service identities: a connector's own identity (WP-040).\n\n`service` and `integration` are new allowed values, so a new schema version; v1 and v2 stay\nregistered. A service identity never signs in and is never in people lists.",
+        "properties": {
+          "source": {
+            "enum": [
+              "admin",
+              "import",
+              "email",
+              "integration"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "user_type": {
+            "enum": [
+              "technician",
+              "requester",
+              "service"
+            ],
+            "title": "User Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "user_type",
+          "source"
+        ],
+        "title": "UserCreatedV3",
+        "type": "object"
       }
     },
     "identity_access.user.logged_in": {
@@ -1539,8 +1575,34 @@
     },
     "identity_access.user.status_changed": {
       "1": {
-        "description": "A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.",
+        "description": "A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.\n\nWP-040 (agreed with lane A, 2026-10-29) adds two defaulted fields, so the contract stays v1\nand older events still read: `reason` says who made the change (an admin, the directory sync\nor a privacy erasure) and `source` which directory, when it was the sync. Lane A's\n\"needs reassignment\" view flags a leaver's open incidents from `reason = \"directory\"`.",
         "properties": {
+          "reason": {
+            "default": "admin",
+            "enum": [
+              "admin",
+              "directory",
+              "erasure"
+            ],
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "entra",
+                  "ldap"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source"
+          },
           "status": {
             "enum": [
               "active",
@@ -1625,6 +1687,83 @@
           "change"
         ],
         "title": "UserRoleChanged",
+        "type": "object"
+      }
+    },
+    "integrations.connector.failing": {
+      "1": {
+        "description": "A connector turned failing: its admins are told once per failure (REQ-INT-005, WP-040).\n\nReplaces `integrations.mailbox.failing` for mailboxes (kept, and still handled, until the\ncontract step).",
+        "properties": {
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "instance_id",
+          "reason"
+        ],
+        "title": "ConnectorFailing",
+        "type": "object"
+      }
+    },
+    "integrations.connector.recovered": {
+      "1": {
+        "description": "A failing connector works again: its admins are told once (REQ-INT-005 AC2).",
+        "properties": {
+          "instance_id": {
+            "format": "uuid",
+            "title": "Instance Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "instance_id"
+        ],
+        "title": "ConnectorRecovered",
+        "type": "object"
+      }
+    },
+    "integrations.directory.changed": {
+      "1": {
+        "description": "A directory connector was added, changed or removed, or a sync run finished (WP-040).",
+        "properties": {
+          "change": {
+            "enum": [
+              "added",
+              "changed",
+              "removed",
+              "synced"
+            ],
+            "title": "Change",
+            "type": "string"
+          },
+          "directory_id": {
+            "format": "uuid",
+            "title": "Directory Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "directory_id",
+          "change"
+        ],
+        "title": "DirectoryChanged",
         "type": "object"
       }
     },

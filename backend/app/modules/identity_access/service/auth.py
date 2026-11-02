@@ -82,7 +82,8 @@ def _client_app(session: Session) -> AppName:
     return "portal" if session.client == "portal" else "console"
 
 
-def _user_key(tenant_id: str, user_id: str) -> str:
+def user_key(tenant_id: str, user_id: str) -> str:
+    """The session store's key for a person in a tenant."""
     return f"{tenant_id}:{user_id}"
 
 
@@ -435,7 +436,7 @@ class AuthService:
         if session.expiry(now, idle=self.idle, absolute=self.absolute) is not None:
             await self.store.delete_session(session_id)
             raise Unauthenticated(code="session_expired")
-        ended = await self.store.user_sessions_ended(_user_key(session.tenant_id, session.user_id))
+        ended = await self.store.user_sessions_ended(user_key(session.tenant_id, session.user_id))
         if ended is not None and session.created_at <= ended:
             # Deactivated or sign-in turned off since (REQ-ADM-010 AC1): over at once.
             await self.store.delete_session(session_id)
@@ -458,7 +459,7 @@ class AuthService:
         shared by every tenant they belong to (D-094), and signing in again here is refused.
         """
         await self.store.end_user_sessions(
-            _user_key(str(tenant_id), str(user_id)), self.clock.now(), MAX_SESSION
+            user_key(str(tenant_id), str(user_id)), self.clock.now(), MAX_SESSION
         )
         if self.end_realtime is not None:
             await self.end_realtime(tenant_id, user_id)

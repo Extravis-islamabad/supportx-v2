@@ -827,6 +827,62 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   end to end by hand against Keycloak as the customer's provider; CI runs the SAML journey (in
   Compose, Keycloak cannot call itself on the browser's address, which OIDC would need).
 
+### [ ] WP-040 — Connector framework and directory sync (lane B; D-118; session 1 of 2 built 2026-11-02, draft #150)
+- **Plan:** ~/Desktop/wp-040-plan.md (approved 2026-10-29; decision 1 by the product owner, D-118).
+- **Session 1 (built, draft #150, stacked on #134):**
+  - [x] Connector registry `app.shared.connectors` and catalogue `GET /integrations/catalogue`
+    (REQ-INT-001): categories, live status, edition through `has_feature` only, keywords;
+    read-only with a reason without set-up rights (REQ-INT-013 AC1).
+  - [x] Secrets store `connector_secrets` (REQ-INT-003, REQ-SEC-042), migration 0045 (expand):
+    mailbox secrets copied sealed, never opened; old columns kept and still written; a store
+    copy that cannot be read falls back, counted (`supportx_connector_secret_fallback`), logged by
+    code and shown as degraded. "Ending in …" for display only, long random secrets and
+    certificate thumbprints, never a password (product owner, 2026-11-02; enforced by the table).
+  - [x] Runs, health and error list (REQ-INT-004, REQ-INT-005), migration 0049: failing after 3
+    failed runs or at once on a refused credential; `connector.failing` / `connector.recovered`
+    once each; runs kept 7 days, errors 90; mailbox fetches are runs; each tenant's
+    `mailbox.failing` rule copied to `connector.failing` (alias kept until the contract step).
+  - [x] Set-up rights per category `integrations.manage_<category>` (REQ-INT-013): permission keys
+    are two-part, so not `integrations.<category>.manage` as the plan said (coordinator,
+    2026-11-02). `mailboxes.manage` → `integrations.manage_email` by expand/contract (0049 copies
+    every grant); `integrations.manage_identity` registered for session 2.
+  - [x] Console: Admin › Integrations (catalogue by category, search by keyword, live status on
+    `integrations.connectors_changed`, Arabic RTL); Admin › Mail uses the new key.
+  - **Moved to session 2 (coordinator, 2026-11-02):** service identities (REQ-INT-012), built with
+    directory sync, their first real user. Session 2 tests: kept out of pickers, seat counts
+    (entitlement interface only) and sign-in; history tagged "integration".
+  - **Later:** tenant-editable defaults (sync interval, rotation reminder, retention, failing
+    threshold; D-041) with the session 2 settings screen; generalising the 14-day credential
+    warning to every kind; the contract step (drop the mailbox secret columns, `mailbox.failing`,
+    `mailboxes.manage`) once the store is proven.
+- **Session 2 (in progress on #150):**
+  - [x] `identity_access.user.status_changed` gains `reason` and `source` (defaulted, still v1;
+    agreed with lane A).
+  - [x] Service identities (REQ-INT-012), migration 0052: user type `service`, one per connector
+    instance in `connector_identities` (RLS), made with the instance or at its next run, disabled
+    (never deleted) when it is removed. A database check keeps it from ever signing in; it takes
+    no seat, is left out of people lists, search, pickers and permission holders, and the people
+    screens and imports cannot make, change or retype one (`PersonType` input,
+    409 `service_identity_managed`). Its history says "integration". `identity_access.user.created`
+    v3 carries `service` and `integration`. The downgrade keeps every row (disabled requesters).
+  - [x] Entra ID sync (REQ-INT-063), migration 0053, on `feat/wp-040-entra`: a separate
+    least-privilege sync app (User.Read.All, GroupMember.Read.All) by client credentials, its
+    secret sealed in the store; `/users/delta` and `/groups/delta` (throttling honoured, an
+    expired link starts over, Graph-only links); everyone or chosen groups; attribute mapping
+    (address, names, job, employee ID, phones, department and site by name or code, never
+    created; manager after the round); skips counted by reason and shown; an address match
+    adopts the person (no duplicate); `users.directory_source`, directory-owned fields
+    read-only in the API and the drawer ("managed by the directory"), imports leave them alone;
+    mapped groups follow their directory groups; acts as its own service identity; every 30
+    minutes (15 to 1440, per connector) plus "sync now"; catalogue entry; Admin › Integrations
+    › Directories; labels in en/ar/ur.
+  - [x] Leavers (REQ-INT-064): removed or disabled, or out of every scope group → deactivated,
+    never deleted; their sessions and live screens end from the worker; `UserStatusChanged`
+    with `reason="directory"`, `source="entra"`; the last administrator is never deactivated by
+    a sync (counted as `last_admin_kept`); enabled again → reactivated with what they held.
+  - [ ] AD/LDAP through Keycloak federation (D-118): next.
+  - [ ] Tenant-editable connector defaults (D-041) screen: with AD/LDAP.
+
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first
 (Vitest `admin/branding/branding.test.tsx` "WP-017-FIX", `tests/test_keycloak_theme.py`, the

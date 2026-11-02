@@ -226,6 +226,20 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'integrations',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/IntegrationsPage'))
+                .IntegrationsPage,
+            }),
+          },
+          {
+            path: 'integrations/directories',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/DirectoriesPage'))
+                .DirectoriesPage,
+            }),
+          },
+          {
             path: 'knowledge',
             lazy: async () => ({
               Component: (await import('./pages/admin/knowledge/KnowledgeSettingsPage'))

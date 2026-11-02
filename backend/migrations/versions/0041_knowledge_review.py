@@ -8,7 +8,7 @@
   expand-only, as 0022 did for branding.
 
 Revision ID: 0041
-Revises: 0043 (main's 0039, 0040, 0042 and 0043 come first)
+Revises: 0053 (main's migrations up to 0053 come first)
 Created: 2026-10-29
 """
 
@@ -20,7 +20,7 @@ from alembic import op
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0041"
-down_revision: str | None = "0043"
+down_revision: str | None = "0053"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -22,7 +22,12 @@ from sqlalchemy import false, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.modules.identity_access.domain.identity import FormDensity, NavLayout, UserType
+from app.modules.identity_access.domain.identity import (
+    PERSON_TYPES,
+    FormDensity,
+    NavLayout,
+    UserType,
+)
 from app.modules.identity_access.domain.policy import RecordFacts, Subject
 from app.modules.identity_access.events import UserUpdated
 from app.modules.identity_access.infra.models import User
@@ -63,7 +68,7 @@ USER_FIELDS = ResourceFields(
         "email": FilterField(User.email, FieldType.STRING, sortable=True),
         "display_name": FilterField(User.display_name, FieldType.STRING, sortable=True),
         "user_type": FilterField(
-            User.user_type, FieldType.ENUM, values=frozenset(t.value for t in UserType)
+            User.user_type, FieldType.ENUM, values=frozenset(t.value for t in PERSON_TYPES)
         ),
         "status": FilterField(
             User.status, FieldType.ENUM, values=frozenset({"active", "disabled"})
@@ -126,7 +131,9 @@ async def list_users(
     page keeps the requested sort, so paging stays stable.
     """
     visible_rows = select(User).where(
-        User.deleted_at.is_(None), scope_filter(subject, "users.view", USERS)
+        User.deleted_at.is_(None),
+        User.user_type != UserType.SERVICE.value,  # connectors' own identities: not people
+        scope_filter(subject, "users.view", USERS),
     )
     if text:
         found = await ENGINE.match(session, PEOPLE, text)
@@ -146,7 +153,7 @@ async def people_matching(session: AsyncSession, text: str, *, limit: int = 200)
         return []
     rows = await session.scalars(
         select(User.id)
-        .where(User.deleted_at.is_(None), found.predicate)
+        .where(User.deleted_at.is_(None), User.user_type != UserType.SERVICE.value, found.predicate)
         .order_by(found.rank.desc(), User.id)
         .limit(limit)
     )

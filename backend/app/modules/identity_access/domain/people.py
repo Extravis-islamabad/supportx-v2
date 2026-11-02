@@ -26,6 +26,23 @@ TEXT_FIELDS = frozenset(LENGTHS)
 UUID_FIELDS = frozenset({"site_id", "department_id", "manager_id"})
 # What an admin edits on the person record (the user's own preferences stay in directory.py).
 PERSON_FIELDS = TEXT_FIELDS | UUID_FIELDS | {"vip", "locale", "time_zone", "request_visibility"}
+# What a directory sync keeps for a synced person (WP-040 session 2): read-only in SupportX,
+# shown as "managed by the directory". VIP, language, time zone and the description stay local.
+DIRECTORY_FIELDS = frozenset(
+    {
+        "first_name",
+        "last_name",
+        "display_name",
+        "email",
+        "employee_id",
+        "job_title",
+        "phone",
+        "mobile",
+        "site_id",
+        "department_id",
+        "manager_id",
+    }
+)
 
 Problem = tuple[str, str, dict[str, str | int | float | bool | None]]  # (field, code, params)
 

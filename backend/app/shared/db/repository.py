@@ -117,6 +117,8 @@ class Repository[EntityT]:
         # (a worker writing in someone's name, e.g. a requester's reply by e-mail).
         if self.context.user_id is not None or record.created_by is None:
             record.created_by = record.updated_by = self.context.user_id
+        elif record.updated_by is None:  # only the author was named: they also last changed it
+            record.updated_by = record.created_by
         record.version = 1
         record.deleted_at = None
         self.session.add(entity)
