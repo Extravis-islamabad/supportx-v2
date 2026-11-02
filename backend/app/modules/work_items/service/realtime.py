@@ -38,6 +38,7 @@ from app.shared.realtime import (
     RealtimeEffects,
     RealtimeRoute,
     broadcast,
+    personal,
     record,
 )
 
@@ -48,6 +49,12 @@ CONVERSATION_CHANGED = "work_items.conversation_changed"
 FOLLOWERS_CHANGED = "work_items.followers_changed"
 TYPING = "work_items.typing"
 TEMPLATES_CHANGED = "work_items.reply_templates_changed"
+VIEWS_CHANGED = "work_items.views_changed"
+LIST_SETTINGS_CHANGED = "work_items.list_settings_changed"
+BULK_PROGRESS = "work_items.bulk_progress"
+LISTS_CHANGED = "work_items.lists_changed"
+# Correlation ID of a bulk job's events (service/bulk.py): lists refresh once per batch instead.
+BULK_PREFIX = "bulk:"
 LISTS: dict[WorkItemTypeCode, LiveList] = {
     code: LiveList(wtype.path, wtype.permission("view"), unassigned_by_site=True)
     for code, wtype in TYPES.items()
@@ -125,15 +132,18 @@ async def _work_item_changed(envelope: EventEnvelope, session: AsyncSession) -> 
         fields = ("status",)
     elif "technician_id" in payload and "changed_fields" not in payload:
         fields = ("group_id", "technician_id")
+    own = Publication(
+        record(tenant, RECORD_KIND, record_id),
+        CHANGED,
+        ids=(str(record_id),),
+        fields=fields,
+        version=envelope.aggregate_version,
+        actor_id=_actor(envelope),
+    )
+    if (envelope.correlation_id or "").startswith(BULK_PREFIX):  # the batch refreshes lists
+        return RealtimeEffects(publications=[own])
     publications = [
-        Publication(
-            record(tenant, RECORD_KIND, record_id),
-            CHANGED,
-            ids=(str(record_id),),
-            fields=fields,
-            version=envelope.aggregate_version,
-            actor_id=_actor(envelope),
-        ),
+        own,
         *live.publications(
             tenant,
             CHANGED,
@@ -221,6 +231,67 @@ async def _settings_changed(envelope: EventEnvelope, session: AsyncSession) -> R
     )
 
 
+async def _view_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A saved view changed: everyone's view menu for a shared one, else its owner's.
+
+    A view shared with groups also goes to the tenant channel: the payload holds IDs only and
+    each menu refetches through the API, which lists only the views its reader may use.
+    """
+    del session
+    payload = envelope.payload
+    owner = uuid.UUID(str(payload["owner_id"]))
+    shared = (
+        payload.get("visibility") != "private"
+    )  # groups or everyone: menus refetch, the API filters
+    channel = broadcast(envelope.tenant_id) if shared else personal(envelope.tenant_id, owner)
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                channel, VIEWS_CHANGED, ids=(str(payload["view_id"]),), actor_id=_actor(envelope)
+            )
+        ]
+    )
+
+
+async def _list_settings_changed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A user's list settings changed: their other windows reload them."""
+    del session
+    payload = envelope.payload
+    user = uuid.UUID(str(payload["user_id"]))
+    return RealtimeEffects(
+        publications=[
+            Publication(
+                personal(envelope.tenant_id, user),
+                LIST_SETTINGS_CHANGED,
+                ids=(str(payload["view_key"]),),
+                actor_id=_actor(envelope),
+            )
+        ]
+    )
+
+
+async def _bulk_progressed(envelope: EventEnvelope, session: AsyncSession) -> RealtimeEffects:
+    """A bulk job moved on: its requester's progress, and one list refresh per batch."""
+    del session
+    payload = envelope.payload
+    publications = [
+        Publication(
+            broadcast(envelope.tenant_id), LISTS_CHANGED, ids=(str(payload["type"]),), coalesce=True
+        )
+    ]
+    if requester := _uuid(payload.get("requested_by")):
+        publications.insert(
+            0,
+            Publication(
+                personal(envelope.tenant_id, requester),
+                BULK_PROGRESS,
+                ids=(str(payload["job_id"]),),
+                version=envelope.aggregate_version,
+            ),
+        )
+    return RealtimeEffects(publications=publications)
+
+
 ROUTES = [
     RealtimeRoute(
         (
@@ -240,4 +311,7 @@ ROUTES = [
     ),
     RealtimeRoute(("work_items.follower.added", "work_items.follower.removed"), _followers_changed),
     RealtimeRoute(("work_items.reply_templates.changed",), _templates_changed),
+    RealtimeRoute(("work_items.view.changed",), _view_changed),
+    RealtimeRoute(("work_items.list_settings.changed",), _list_settings_changed),
+    RealtimeRoute(("work_items.bulk_job.progressed",), _bulk_progressed),
 ]

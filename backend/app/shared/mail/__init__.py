@@ -4,6 +4,7 @@ Every module sends through this (identity, notifications WP-023, scheduled repor
 never a second sender. Interface and rules: docs/architecture/mail.md.
 """
 
+from app.shared.mail.domain.inbound import with_token
 from app.shared.mail.domain.layout import MailBrand, wrap_html
 from app.shared.mail.domain.message import (
     MAX_ATTACHMENT_BYTES,
@@ -17,6 +18,7 @@ from app.shared.mail.service.outgoing import (
     MailState,
     mail_configured,
     mail_states,
+    mails_with_message_ids,
     queue_mail,
 )
 
@@ -31,6 +33,8 @@ __all__ = [
     "OutgoingMail",
     "mail_configured",
     "mail_states",
+    "mails_with_message_ids",
     "queue_mail",
+    "with_token",
     "wrap_html",
 ]

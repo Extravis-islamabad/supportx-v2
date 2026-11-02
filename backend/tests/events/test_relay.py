@@ -314,6 +314,30 @@ async def test_heartbeats_drive_the_readiness_probe(event_bus: bus.Bus, nats_ser
         await probe("relay").check(2.0)
     assert old.value.reason is FailureReason.STALE_HEARTBEAT
 
+    # Running, but cut off from PostgreSQL or NATS: event delivery is stalled (must-fix).
+    now = datetime.now(UTC).isoformat()
+    cut_off = {"at": now, "stats": {"connected": False, "unavailable": ["database"]}}
+    await event_bus.heartbeats.put(heartbeat.key, json.dumps(cut_off).encode())
+    with pytest.raises(ProbeFailedError) as disconnected:
+        await probe("relay").check(2.0)
+    assert disconnected.value.reason is FailureReason.DISCONNECTED
+
+    # The relay runs and is connected, but events wait too long to be published.
+    waiting = {"at": now, "stats": {"connected": True, "oldest_unpublished_age_seconds": 300}}
+    await event_bus.heartbeats.put(heartbeat.key, json.dumps(waiting).encode())
+    backlog = WorkerHeartbeatProbe(
+        nats_server,
+        name="relay",
+        bucket=event_bus.names.heartbeat_bucket,
+        kind="relay",
+        stale_after_s=20,
+        backlog_after_s=120,
+    )
+    with pytest.raises(ProbeFailedError) as behind:
+        await backlog.check(2.0)
+    assert behind.value.reason is FailureReason.BACKLOG
+    await probe("relay").check(2.0)  # no backlog limit: fine
+
     stop = asyncio.Event()
     stop.set()
     await heartbeat.run(stop)  # a stopping worker removes its key at once

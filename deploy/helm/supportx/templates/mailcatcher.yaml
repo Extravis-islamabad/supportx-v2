@@ -1,0 +1,103 @@
+{{- if .Values.mailCatcher.enabled }}
+{{- $c := dict "root" . "component" "mailcatcher" -}}
+# DEV ONLY (values-dev.yaml): Mailpit, the Compose stack's mail catcher, takes every e-mail the API,
+# the workers and Keycloak send and delivers none, so the e2e suite reads invitations, password
+# links, notifications and scheduled reports (product owner, 2026-10-29). Messages live in memory
+# and go with the pod. Never enabled in a SaaS or on-prem profile.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "supportx.selector" $c | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "supportx.labels" $c | nindent 8 }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "supportx.pullSecrets" . | nindent 6 }}
+      {{- include "supportx.podSecurityContext" . | nindent 6 }}
+      containers:
+        - name: mailpit
+          image: {{ include "supportx.thirdPartyImage" (dict "root" . "image" .Values.images.mailpit) }}
+          env:
+            - {name: MP_MAX_MESSAGES, value: "2000"}
+            # Our senders log in only where a password is set; accept any login over plain SMTP.
+            - {name: MP_SMTP_AUTH_ACCEPT_ANY, value: "true"}
+            - {name: MP_SMTP_AUTH_ALLOW_INSECURE, value: "true"}
+          ports:
+            - {name: smtp, containerPort: 1025}
+            - {name: http, containerPort: 8025}
+          readinessProbe:
+            httpGet: {path: /readyz, port: http}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /livez, port: http}
+            periodSeconds: 10
+          {{- include "supportx.containerSecurityContext" . | nindent 10 }}
+          resources:
+            {{- toYaml .Values.mailCatcher.resources | nindent 12 }}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 64Mi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "supportx.name" $c }}
+  labels:
+    {{- include "supportx.labels" $c | nindent 4 }}
+spec:
+  {{- if .Values.mailCatcher.devNodePort }}
+  # The web UI and API on a NodePort for the e2e suite on the host (deploy/k3d/cluster.yaml).
+  type: NodePort
+  {{- end }}
+  selector:
+    {{- include "supportx.selector" $c | nindent 4 }}
+  ports:
+    - {name: smtp, port: 1025, targetPort: smtp}
+    {{- if .Values.mailCatcher.devNodePort }}
+    - {name: http, port: 8025, targetPort: http, nodePort: {{ .Values.mailCatcher.devNodePort }}}
+    {{- else }}
+    - {name: http, port: 8025, targetPort: http}
+    {{- end }}
+{{- if .Values.networkPolicies.enabled }}
+---
+# SMTP from our own pods (API, workers, Keycloak); the web UI from the node only (the NodePort,
+# bound to 127.0.0.1 by k3d), as for the dev PostgreSQL NodePort.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-mailcatcher-ingress
+  labels:
+    {{- include "supportx.labels" (dict "root" . "component" "network") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: mailcatcher
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: supportx
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      ports:
+        - {port: 1025, protocol: TCP}
+    {{- if .Values.mailCatcher.devNodePort }}
+    - from:
+        - ipBlock: {cidr: 0.0.0.0/0}
+      ports:
+        - {port: 8025, protocol: TCP}
+    {{- end }}
+{{- end }}
+{{- end }}

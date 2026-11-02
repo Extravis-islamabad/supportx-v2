@@ -10,11 +10,17 @@ from workers import bus, runtime
 from workers.heartbeat import Heartbeat
 from workers.metrics import RelayMetrics
 from workers.outbox_relay.relay import OutboxRelay
+from workers.resilience import Connectivity
 
 log = get_logger("workers.outbox_relay")
 
 
-def build_relay(settings: Settings, connected: bus.Bus, metrics: RelayMetrics) -> OutboxRelay:
+def build_relay(
+    settings: Settings,
+    connected: bus.Bus,
+    metrics: RelayMetrics,
+    connectivity: Connectivity | None = None,
+) -> OutboxRelay:
     """A relay configured from settings."""
     if settings.relay_database_url is None:
         msg = "SUPPORTX_RELAY_DATABASE_URL is not set (make backend-env)"
@@ -30,23 +36,31 @@ def build_relay(settings: Settings, connected: bus.Bus, metrics: RelayMetrics) -
         purge_interval=settings.outbox_purge_interval_seconds,
         processed_retention=timedelta(days=settings.processed_events_retention_days),
         metrics=metrics,
+        connectivity=connectivity,
     )
 
 
 async def main(stop: asyncio.Event) -> None:
-    """Relay + heartbeat until `stop`."""
+    """Relay + heartbeat until `stop`; rides out PostgreSQL and NATS restarts."""
     settings = runtime.load_settings("supportx-outbox-relay")
     provider, meter = runtime.meter(settings)
     started = asyncio.Event()
-    ops = await runtime.start_ops(settings, ready=lambda: started.is_set() and not stop.is_set())
+    connectivity = Connectivity(give_up_after=settings.worker_give_up_seconds)
+    ops = await runtime.start_ops(
+        settings,
+        ready=lambda: started.is_set() and not stop.is_set() and connectivity.connected,
+    )
     metrics = RelayMetrics()
     metrics.bind(meter)
-    connected = await bus.connect(settings, "outbox-relay")
-    relay = build_relay(settings, connected, metrics)
+    connected = await bus.connect_until_ready(settings, "outbox-relay", connectivity, stop)
+    if connected is None:
+        await runtime.stop_ops(ops)
+        return
+    relay = build_relay(settings, connected, metrics, connectivity)
     started.set()
 
-    def stats() -> dict[str, float | int]:
-        return metrics.snapshot()
+    def stats() -> dict[str, object]:
+        return {**metrics.snapshot(), **connectivity.snapshot()}
 
     async def heartbeat_loop() -> None:
         heartbeat = Heartbeat(
@@ -54,6 +68,7 @@ async def main(stop: asyncio.Event) -> None:
         )
         beat = asyncio.create_task(heartbeat.run(stop))
         while not stop.is_set():
+            bus.watch_bus(connected, connectivity)
             await relay.refresh_backlog_age()
             await runtime.pause(stop, settings.heartbeat_interval_seconds)
         await beat

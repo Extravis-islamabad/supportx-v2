@@ -36,6 +36,7 @@ images:
   postgres: ghcr.io/cloudnative-pg/postgresql:16.15-202610190958-standard-trixie
   seaweedfs: chrislusf/seaweedfs:4.48
   clamav: clamav/clamav:1.5.4-debian
+  mailpit: axllent/mailpit:v1.31.6   # dev profile only (mailCatcher)
 
 # --- secrets (never in values) ---------------------------------------------------------------------
 # Created before install by deploy/scripts/secrets.sh (random values, never overwritten), later
@@ -296,6 +297,17 @@ mail:
   smtpUsername: ""
   fromAddress: ""
   fromName: SupportX
+
+# DEV ONLY: a mail catcher (Mailpit, as in the Compose stack) that takes every e-mail and sends
+# none, so the e2e suite can read invitations, password links, notifications and scheduled
+# reports. Off by default; values-dev.yaml turns it on and points `mail` at it. Never enable it
+# in a SaaS or on-prem profile: real mail goes to the customer's own server.
+mailCatcher:
+  enabled: false
+  devNodePort: 0                    # >0: the web UI and API on this NodePort (dev, for the e2e suite)
+  resources:
+    requests: {cpu: 10m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
 
 # --- routing (D2: Gateway API, plain Ingress as the supported fallback) ----------------------------
 routing:

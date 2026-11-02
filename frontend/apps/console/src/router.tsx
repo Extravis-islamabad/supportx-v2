@@ -183,6 +183,12 @@ export const routes: RouteObject[] = [
                 .NotificationRulesPage,
             }),
           },
+          {
+            path: 'mail',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/mail/MailPage')).MailPage,
+            }),
+          },
         ],
       },
       {

@@ -16,6 +16,9 @@ ports:
   # on the first reset connection, which made the suite flaky.
   - port: 127.0.0.1:25433:30432
     nodeFilters: [server:0]
+  # Dev only: the mail catcher's web UI and API for the e2e suite (values-dev.yaml mailCatcher).
+  - port: 127.0.0.1:28025:30825
+    nodeFilters: [server:0]
 options:
   k3s:
     extraArgs:

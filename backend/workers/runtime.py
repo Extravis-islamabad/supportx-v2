@@ -12,6 +12,7 @@ from app.core.config import Settings
 from app.core.logging import configure_logging, get_logger
 from app.core.ops_server import OpsServer
 from workers.metrics import METER_NAME, build_meter_provider
+from workers.resilience import WorkerUnrecoverable
 
 log = get_logger(__name__)
 
@@ -55,7 +56,11 @@ async def pause(stop: asyncio.Event, seconds: float) -> None:
 
 
 def run(main: Callable[[asyncio.Event], Awaitable[None]]) -> int:
-    """Run `main(stop)` until it returns; SIGINT/SIGTERM set `stop` for a clean shutdown."""
+    """Run `main(stop)` until it returns; SIGINT/SIGTERM set `stop` for a clean shutdown.
+
+    Exit code 1 when the worker gave up on a dependency (WorkerUnrecoverable) or failed in any
+    other way, so the orchestrator restarts it: a worker never lingers doing nothing.
+    """
 
     async def _runner() -> None:
         stop = asyncio.Event()
@@ -64,6 +69,13 @@ def run(main: Callable[[asyncio.Event], Awaitable[None]]) -> int:
             loop.add_signal_handler(sig, stop.set)
         await main(stop)
 
-    asyncio.run(_runner())
+    try:
+        asyncio.run(_runner())
+    except WorkerUnrecoverable as exc:
+        log.error("worker_gave_up", reason=str(exc))  # noqa: TRY400 - expected, no traceback
+        return 1
+    except Exception:
+        log.exception("worker_failed")
+        return 1
     log.info("worker_stopped")
     return 0

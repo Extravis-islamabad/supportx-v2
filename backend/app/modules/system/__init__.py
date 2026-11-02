@@ -88,6 +88,7 @@ def _worker_probes(settings: Settings) -> list[DependencyProbe]:
             bucket=bucket,
             kind=kind,
             stale_after_s=settings.heartbeat_stale_seconds,
+            backlog_after_s=settings.event_backlog_stalled_seconds if kind == "relay" else None,
         )
         for name, kind in (
             ("outbox_relay", "relay"),

@@ -197,6 +197,12 @@ export function IncidentHistory({ id }: { id: string }) {
                     {/* A real space after each tag: the tag's margin is not a word gap (QA C5). */}{' '}
                   </>
                 )}
+                {entry.bulk_job_id != null && (
+                  <>
+                    {/* REQ-INC-120 AC4: a bulk change names its job. */}
+                    <Tag data-testid="inc-history-bulk">{t('incidents.history.bulk')}</Tag>{' '}
+                  </>
+                )}
                 {entry.automation !== null && whyText(entry.automation) !== '' && (
                   <Typography.Paragraph
                     type="secondary"

@@ -12,11 +12,11 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission, require_signed_in
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
 from app.modules.audit import audited
@@ -49,7 +49,15 @@ router = APIRouter(
 
 SignedIn = Annotated[Subject, Depends(require_signed_in())]
 Manage = Annotated[Subject, Depends(require_permission(admin.MANAGE))]
-AppSettings = Annotated[Settings, Depends(get_settings)]
+
+
+def _app_settings(request: Request) -> Settings:
+    # The app's own settings (tests pass theirs), never a fresh read of backend/.env.
+    settings: Settings = request.app.state.settings
+    return settings
+
+
+AppSettings = Annotated[Settings, Depends(_app_settings)]
 
 
 # --- the centre ------------------------------------------------------------------------------

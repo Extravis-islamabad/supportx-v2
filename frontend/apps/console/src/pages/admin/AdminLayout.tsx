@@ -15,6 +15,7 @@ const TABS = [
   { key: 'branding', labelKey: 'nav.admin_branding', permission: 'branding.manage' },
   { key: 'security', labelKey: 'nav.admin_security', permission: 'identity.manage' },
   { key: 'notifications', labelKey: 'nav.admin_notifications', permission: 'notifications.manage' },
+  { key: 'mail', labelKey: 'nav.admin_mail', permission: 'mailboxes.manage' },
 ] as const;
 
 export function AdminLayout() {

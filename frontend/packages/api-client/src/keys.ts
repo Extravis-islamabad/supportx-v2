@@ -15,6 +15,7 @@ export const queryKeys = {
   session: ['auth', 'me'] as const,
   entitlements: ['entitlements'] as const,
   health: ['system', 'health'] as const,
+  eventDelivery: ['system', 'event-delivery'] as const,
   // The server version for the About dialog (same endpoint as health, different data shape).
   version: ['system', 'version'] as const,
   access: {
@@ -91,6 +92,12 @@ export const queryKeys = {
     counters: ['incidents', 'counters'] as const,
     replyTemplates: ['incidents', 'reply-templates'] as const,
     templates: ['incidents', 'templates'] as const,
+    listFields: ['incidents', 'list-fields'] as const,
+    viewFilters: ['incidents', 'views', 'filters'] as const,
+    savedViews: ['incidents', 'saved-views'] as const,
+    listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
+    bulkJobs: ['incidents', 'bulk-jobs'] as const,
+    bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,
   },
   customFields: {
     all: ['custom-fields'] as const,
@@ -129,6 +136,10 @@ export const queryKeys = {
     triggers: (recordType: string) => ['automation', 'triggers', recordType] as const,
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
+  },
+  mailboxes: {
+    all: ['mailboxes'] as const,
+    waiting: (id: string) => ['mailboxes', 'waiting', id] as const,
   },
   notifications: {
     all: ['notifications'] as const,

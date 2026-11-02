@@ -32,7 +32,7 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
-from app.modules.identity_access.events import UserCreated, UserStatusChanged, UserUpdated
+from app.modules.identity_access.events import UserCreatedV2, UserStatusChanged, UserUpdated
 from app.modules.identity_access.infra.models import Role, User, UserRole
 from app.modules.identity_access.service.directory import (
     USER_RECORD_TYPE,
@@ -205,7 +205,7 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     *,
     user_type: UserType = UserType.REQUESTER,
     can_sign_in: bool = True,
-    source: Literal["admin", "import"] = "admin",
+    source: Literal["admin", "import", "email"] = "admin",
     now: datetime | None = None,
 ) -> User:
     """Add a person (REQ-ADM-002). Technicians take a seat; sign-in needs an email address."""
@@ -241,11 +241,11 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
         version=person.version,
         kind="created",
         changes=[],
-        source="import" if source == "import" else "ui",
+        source="import" if source == "import" else "email" if source == "email" else "ui",
     )
     await record_event(
         session,
-        UserCreated(user_id=person.id, user_type=user_type.value, source=source),
+        UserCreatedV2(user_id=person.id, user_type=user_type.value, source=source),
         aggregate_id=person.id,
         aggregate_version=person.version,
     )
@@ -529,3 +529,36 @@ def register_people_usage() -> None:
     """A site or department people sit at cannot be removed (organization asks here)."""
     register_usage("site", "people", _people_at_site)
     register_usage("department", "people", _people_in_department)
+
+
+async def person_by_email(session: AsyncSession, email: str) -> uuid.UUID | None:
+    """The tenant's active person with this address (WP-024 mail senders), or None."""
+    found: uuid.UUID | None = await session.scalar(
+        select(User.id).where(
+            func.lower(User.email) == email.strip().lower(),
+            User.status == "active",
+            User.deleted_at.is_(None),
+        )
+    )
+    return found
+
+
+async def create_requester_from_mail(session: AsyncSession, *, email: str, name: str) -> uuid.UUID:
+    """A requester made from the sender of a mail (REQ-INC-027 AC1), with no sign-in yet.
+
+    They can be invited later like anyone; until then they reply by mail. Recorded with the
+    source "email" in the person's history.
+    """
+    first, _, last = (name.strip() or email.split("@", 1)[0]).partition(" ")
+    person = await create_person(
+        session,
+        {
+            "email": email.strip().lower(),
+            "first_name": first[:100],
+            "last_name": last[:100] or None,
+        },
+        user_type=UserType.REQUESTER,
+        can_sign_in=False,
+        source="email",
+    )
+    return person.id

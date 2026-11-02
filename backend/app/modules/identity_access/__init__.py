@@ -57,6 +57,7 @@ from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATIO
 from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
+    direct_reports,
     display_names,
     mail_recipients,
     notifiable_people,
@@ -67,6 +68,8 @@ from app.modules.identity_access.service.directory import (
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
     Placement,
+    create_requester_from_mail,
+    person_by_email,
     person_placement,
     register_people_usage,
 )
@@ -128,6 +131,14 @@ def _worker_policy() -> PolicyService:
         entitled_features=entitled_features,
         resources={"users": directory.USERS},
     )
+
+
+def worker_policy() -> PolicyService:
+    """The policy service for code without the app (workers, jobs), as the API decides.
+
+    For example the `holders` of an incident made from mail (WP-024).
+    """
+    return _worker_policy()
 
 
 async def subject_for(session: AsyncSession, tenant_id: uuid.UUID, user_id: uuid.UUID) -> Subject:
@@ -285,12 +296,15 @@ __all__ = [
     "UserType",
     "authorize",
     "authorize_stored",
+    "create_requester_from_mail",
+    "direct_reports",
     "display_names",
     "get_policy",
     "mail_recipients",
     "module",
     "notifiable_people",
     "people_matching",
+    "person_by_email",
     "person_placement",
     "require",
     "role_names",
@@ -299,4 +313,5 @@ __all__ = [
     "user_contacts",
     "user_names",
     "visible",
+    "worker_policy",
 ]

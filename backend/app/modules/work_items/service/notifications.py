@@ -206,6 +206,8 @@ def _excerpt(body: str) -> str:
 
 
 def _conversation_events(payload: Mapping[str, object]) -> tuple[str, ...]:
+    if payload.get("automatic"):  # an out-of-office by mail: recorded, notifies nobody (WP-024)
+        return ()
     if payload.get("kind") == EntryKind.NOTE:
         private = payload.get("visibility") == Visibility.PRIVATE
         codes = ["incident.private_note" if private else "incident.public_note"]

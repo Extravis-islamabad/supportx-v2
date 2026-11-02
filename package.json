@@ -1,0 +1,5 @@
+{
+  "//": "Repo-root pin so Corepack picks this pnpm anywhere in the repo (not the newest release). The frontend workspace is frontend/; keep this equal to frontend/package.json (backend/tests/test_tool_pins.py).",
+  "private": true,
+  "packageManager": "pnpm@12.15.0"
+}

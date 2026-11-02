@@ -5,7 +5,8 @@ Modules register their notification events and record sources through
 and e-mails (through the one mail sender, `app.shared.mail`), with rules, recipients, access at
 send time, personal preferences and a delivery log. A core module: every edition has it.
 
-Public interface for other modules: none; they use the port.
+Public interface for other modules: `records_for_mail` (which record a reply answers, for the
+email channel, WP-024); otherwise they use the port.
 """
 
 from app.core.authorization import PermissionSpec
@@ -15,6 +16,7 @@ from app.modules.notifications.events import EVENTS
 from app.modules.notifications.service.admin import MANAGE
 from app.modules.notifications.service.engine import DISPATCH, waiting_schedule
 from app.modules.notifications.service.realtime import ROUTES
+from app.modules.notifications.service.threads import records_for_mail
 from app.shared.schedules import ScheduleSpec
 
 module = ModuleSpec(
@@ -28,4 +30,4 @@ module = ModuleSpec(
     schedules=[ScheduleSpec("notifications__mail_waiting", 60, waiting_schedule)],
 )
 
-__all__ = ["module"]
+__all__ = ["module", "records_for_mail"]

@@ -186,6 +186,11 @@ class Settings(BaseSettings):
     consumer_ack_wait_seconds: float = Field(default=30.0, ge=1)
     heartbeat_interval_seconds: float = Field(default=5.0, gt=0, le=60)
     heartbeat_stale_seconds: float = Field(default=20.0, gt=0, le=600)
+    # Event workers ride out PostgreSQL / NATS restarts; past this they exit non-zero so the
+    # orchestrator restarts them (workers/resilience.py).
+    worker_give_up_seconds: float = Field(default=300.0, gt=0, le=3600)
+    # The relay's oldest unpublished event older than this: /ready says event delivery is stalled.
+    event_backlog_stalled_seconds: float = Field(default=120.0, gt=0, le=3600)
     # Dev-only consumer that logs every event. None = on in the dev profile only; never in
     # production, whatever this says.
     dev_event_logger: bool | None = None

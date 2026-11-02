@@ -35,6 +35,7 @@ from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
 from app.shared.events import BusNames, ConsumerSpec, EventEnvelope, claim
 from workers.metrics import ConsumerMetrics
+from workers.resilience import Connectivity, Dependency, database_reachable, unavailable
 
 log = get_logger(__name__)
 tracer = trace.get_tracer("supportx.consumers")
@@ -88,6 +89,7 @@ class ConsumerRunner:
         retry: RetryPolicy,
         ack_wait: float,
         metrics: ConsumerMetrics | None = None,
+        connectivity: Connectivity | None = None,
     ) -> None:
         if spec.transactional and database is None:
             msg = f"consumer {spec.name} is transactional but no database is configured"
@@ -99,7 +101,9 @@ class ConsumerRunner:
         self.retry = retry
         self.ack_wait = spec.ack_wait_seconds or ack_wait
         self.metrics = metrics or ConsumerMetrics()
+        self.connectivity = connectivity or Connectivity(give_up_after=float("inf"))
         self._subscription: JetStreamContext.PullSubscription | None = None
+        self._stop = asyncio.Event()  # the run's stop; also ends a wait for a dependency
 
     @property
     def name(self) -> str:
@@ -137,10 +141,17 @@ class ConsumerRunner:
         )
 
     async def run(self, stop: asyncio.Event) -> None:
-        """Fetch and handle messages until `stop` is set."""
-        if self._subscription is None:
-            await self.ensure()
-            await self.subscribe()
+        """Fetch and handle messages until `stop` is set, riding out NATS and database restarts."""
+        self._stop = stop
+        while self._subscription is None and not stop.is_set():
+            try:
+                await self.ensure()
+                await self.subscribe()
+            except (nats.errors.Error, OSError) as exc:
+                self.connectivity.down("bus", exc)
+                await self.connectivity.wait("bus", stop)
+        if stop.is_set():
+            return
         subscription = self._subscription
         if subscription is None:  # pragma: no cover - subscribe() just set it
             raise RuntimeError
@@ -150,12 +161,20 @@ class ConsumerRunner:
                 messages = await subscription.fetch(FETCH_BATCH, timeout=FETCH_TIMEOUT_SECONDS)
             except (nats.errors.TimeoutError, TimeoutError):
                 continue
-            except nats.errors.Error:
+            except (nats.errors.Error, OSError) as exc:
                 log.warning("consumer_fetch_failed", consumer=self.name, exc_info=True)
-                await asyncio.sleep(1)
+                self.connectivity.down("bus", exc)
+                await self.connectivity.wait("bus", stop)
                 continue
+            self.connectivity.up("bus")
             for message in messages:
-                await self.handle(message)
+                try:
+                    await self.handle(message)
+                except (nats.errors.Error, OSError) as exc:
+                    # Acknowledging failed: NATS is away. The message comes back after ack_wait,
+                    # finds its claim (if it was applied) and is acknowledged then.
+                    self.connectivity.down("bus", exc)
+                    break
         with contextlib.suppress(nats.errors.Error):
             await subscription.unsubscribe()
         self._subscription = None  # a later run() binds afresh
@@ -177,7 +196,7 @@ class ConsumerRunner:
                     "supportx.event_id": str(envelope.event_id),
                 },
             ):
-                applied = await self.process(envelope)
+                applied = await self._process_through_outages(message, envelope)
         except Exception as exc:  # noqa: BLE001 - any handler failure is retried, then dead-lettered
             if self.retry.exhausted(attempt):
                 await self.dead_letter(message, envelope, exc, attempt)
@@ -199,6 +218,39 @@ class ConsumerRunner:
         await message.ack()
         counter = self.metrics.processed if applied else self.metrics.duplicates
         ConsumerMetrics.bump(counter, self.name)
+
+    async def _away(self, error: BaseException) -> Dependency | None:
+        """The dependency a failure came from, if it is away (asks the database if unsure)."""
+        found = unavailable(error)
+        if found is not None or self.database is None:
+            return found
+        if isinstance(error, (OSError, TimeoutError)) and not await database_reachable(
+            self.database.engine
+        ):
+            return "database"
+        return None
+
+    async def _process_through_outages(self, message: Msg, envelope: EventEnvelope) -> bool:
+        """`process`, retried while the database or the bus is away (never counted as attempts).
+
+        The message is held meanwhile ("in progress" keeps JetStream from redelivering it), so
+        an outage never moves an event towards the dead-letter stream. Ordinary failures go
+        back to `handle`, which retries and dead-letters them as before.
+        """
+        while True:
+            try:
+                applied = await self.process(envelope)
+            except Exception as exc:
+                dependency = await self._away(exc)
+                if dependency is None or self._stop.is_set():
+                    raise
+                self.connectivity.down(dependency, exc)
+                with contextlib.suppress(nats.errors.Error, OSError):
+                    await message.in_progress()
+                await self.connectivity.wait(dependency, self._stop)
+                continue
+            self.connectivity.up("database")
+            return applied
 
     async def process(self, envelope: EventEnvelope) -> bool:
         """Run the handler once in effect. False when the event was already processed."""

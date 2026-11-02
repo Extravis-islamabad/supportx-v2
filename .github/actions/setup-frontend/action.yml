@@ -10,9 +10,13 @@ runs:
         node-version-file: .nvmrc
         # pnpm is not on PATH yet at this point; the store is cached explicitly below.
         package-manager-cache: false
-    - name: Enable corepack (pnpm)
+    - name: Enable corepack (pnpm, exactly the pinned version)
       shell: bash
-      run: corepack enable
+      run: |
+        # Never fall back to the newest pnpm where no packageManager is visible (2026-10-28).
+        echo "COREPACK_DEFAULT_TO_LATEST=0" >> "$GITHUB_ENV"
+        corepack enable
+        corepack install
     - name: Locate pnpm store
       id: pnpm-store
       shell: bash
