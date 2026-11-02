@@ -5,9 +5,10 @@ moments, so time never has to pass. P1 targets of the default policy run around 
 (4 hours to resolve, warning at 75 %), so every moment follows from the stored rows.
 """
 
+import asyncio
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import httpx
@@ -342,3 +343,40 @@ async def test_req_sla_019_ac2_the_about_to_breach_and_breached_views(world: Wor
         found = await ids(world, a, a.admin, query)
         assert warned["id"] in found
         assert calm["id"] not in found
+
+
+async def test_req_sla_037_ac2_two_wakers_at_once_run_each_level_once(world: World) -> None:
+    """A restarted worker and the safety net waking together: the record lock serialises them."""
+    a = world.a
+    await _levels(
+        world,
+        a,
+        [
+            {"kind": "resolution", "offset_seconds": 0, "recipients": [{"kind": "assignee"}]},
+            {"kind": "resolution", "offset_seconds": 60, "recipients": [{"kind": "assignee"}]},
+        ],
+    )
+    item = await _p1(world, a)
+    due = (await _targets(world, item))["resolution:1"]["due_at"]
+    at = due + timedelta(minutes=5)
+    results = await asyncio.gather(*(_fire_all(world, a, item, at) for _ in range(4)))
+    escalated = [f for fired in results for f in fired if f.startswith("escalated")]
+    assert sorted(escalated) == ["escalated:resolution:1", "escalated:resolution:2"]
+    assert (await _events(world, item)).count("sla.target.escalated") == 2
+    assert (await _events(world, item)).count("sla.target.breached") == 2  # one per target
+    runs = await _runs(world, item)
+    assert {r["state"] for r in runs.values()} == {"ran"}
+
+
+async def test_auto_close_counts_business_days_on_the_records_own_calendar(world: World) -> None:
+    """WP-020f D4 on WP-025: a P1 resolves around the clock; others on the operating hours."""
+    a = world.a
+    p1 = await _p1(world, a)
+    p3 = await world.create(a, a.admin)  # the default P3: its targets follow the site calendar
+    saturday = datetime(2026, 11, 7, 10, 0, tzinfo=UTC)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        around = await sla.record_calendar(session, uuid.UUID(p1["id"]))
+        office = await sla.record_calendar(session, uuid.UUID(p3["id"]))
+    assert around.add_working_days(saturday, 1) == saturday + timedelta(days=1)
+    # Monday to Friday by default (wp-025-plan.md §2): Saturday + 1 working day is Monday.
+    assert office.add_working_days(saturday, 1).astimezone(office.zone).weekday() == 0

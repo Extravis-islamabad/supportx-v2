@@ -12,6 +12,8 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.sla.domain.calendar import Calendar
+from app.modules.sla.domain.setup import SystemCalendar
 from app.modules.sla.infra.models import (
     SlaApplication,
     SlaCalendar,
@@ -19,6 +21,7 @@ from app.modules.sla.infra.models import (
     SlaPolicy,
     SlaTarget,
 )
+from app.modules.sla.service.calendars import calendar_for_maths, system_calendar_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,3 +173,23 @@ async def open_records_on_calendar(session: AsyncSession, calendar_id: uuid.UUID
         )
     )
     return int(count or 0)
+
+
+async def record_calendar(session: AsyncSession, record_id: uuid.UUID) -> Calendar:
+    """The calendar a record's own "business days" use (auto-close, WP-020f D4 on WP-025).
+
+    Its resolution target's calendar (latest round), else the tenant's operating hours.
+    """
+    calendar_id = await session.scalar(
+        select(SlaTarget.calendar_id)
+        .where(
+            SlaTarget.record_id == record_id,
+            SlaTarget.kind == "resolution",
+            SlaTarget.calendar_id.is_not(None),
+        )
+        .order_by(SlaTarget.round.desc())
+        .limit(1)
+    )
+    if calendar_id is None:
+        calendar_id = await system_calendar_id(session, SystemCalendar.OPERATING_HOURS)
+    return await calendar_for_maths(session, calendar_id)

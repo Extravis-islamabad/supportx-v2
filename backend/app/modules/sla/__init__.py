@@ -11,7 +11,8 @@ Public interface for other modules: `calendar_for_maths` (a calendar ready for b
 maths), `system_calendar_id`, `SystemCalendar`, `Calendar` (its `add`, `between`,
 `working_at`); `SlaRecordType`, `register_record_type`, `on_change`, `set_due_by_hand` and
 `SlaStamp`, for a module whose records have SLAs (it calls `on_change` inside every save);
-`record_sla` (with `SlaRecordView`, `SlaTargetView`) for the record page's SLA panel. Sites and
+`record_sla` (with `SlaRecordView`, `SlaTargetView`) for the record page's SLA panel;
+`record_calendar` for a record's own business-day rules (auto-close). Sites and
 support groups name their calendar through organization, which asks this module whether an
 ID is usable (`register_calendar_check`, registered at import).
 
@@ -26,7 +27,7 @@ from app.core.authorization import PermissionSpec
 from app.core.modules import ModuleSpec
 from app.modules import organization
 from app.modules.sla.api.routes import router
-from app.modules.sla.domain.calendar import Calendar
+from app.modules.sla.domain.calendar import Calendar, CalendarError
 from app.modules.sla.domain.escalation import Action, ActionKind, Level, Recipient, RecipientKind
 from app.modules.sla.domain.setup import SystemCalendar
 from app.modules.sla.events import EVENTS, SlaBreached, SlaEscalated, SlaWarning
@@ -38,7 +39,12 @@ from app.modules.sla.service.calendars import (
 )
 from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
 from app.modules.sla.service.realtime import ROUTES
-from app.modules.sla.service.records import SlaRecordView, SlaTargetView, record_sla
+from app.modules.sla.service.records import (
+    SlaRecordView,
+    SlaTargetView,
+    record_calendar,
+    record_sla,
+)
 from app.modules.sla.service.registry import Fired, SlaRecordType, register_record_type
 from app.modules.sla.service.scheduler import SCHEDULER
 from app.modules.sla.service.timers import escalation_run, fire, next_wake, safety_net
@@ -72,6 +78,7 @@ __all__ = [
     "Action",
     "ActionKind",
     "Calendar",
+    "CalendarError",
     "Fired",
     "Level",
     "Recipient",
@@ -90,6 +97,7 @@ __all__ = [
     "module",
     "next_wake",
     "on_change",
+    "record_calendar",
     "record_sla",
     "register_record_type",
     "set_due_by_hand",
