@@ -160,6 +160,7 @@ export const ar: LabelResource = {
   'feature.custom_functions': 'الدوال المخصصة',
   'feature.local_ai_runtime': 'تشغيل الذكاء الاصطناعي محليًا',
   'feature.compliance_packs': 'حزم الامتثال',
+  'feature.directory_federation': 'تسجيل الدخول عبر الدليل (AD/LDAP)',
   // Shell, errors, users, profile (WP-010)
   'product.short_name': 'SX',
   'nav.main': 'التنقل الرئيسي',

@@ -4901,4 +4901,5 @@ export const ur: LabelResource = {
   'directory_attribute.country': 'ملک',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'feature.directory_federation': 'ڈائریکٹری سائن اِن (AD/LDAP)',
 };

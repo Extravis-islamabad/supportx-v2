@@ -166,6 +166,7 @@ export const en = {
   'feature.custom_functions': 'Custom Functions',
   'feature.local_ai_runtime': 'On-Premises AI Runtime',
   'feature.compliance_packs': 'Compliance Packs',
+  'feature.directory_federation': 'Directory Sign-in (AD/LDAP)',
   // Shell, errors, users, profile (WP-010)
   'product.short_name': 'SX',
   'nav.main': 'Main navigation',
