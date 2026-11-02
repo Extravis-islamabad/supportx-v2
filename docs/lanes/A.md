@@ -9,11 +9,11 @@ Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-02
 
 ## Current WP
 
-WP-020f merged (#100, #105, #107), 0034 fix (#116), entry points (#110), list format (this PR); WP-020d merged (#114); WP-020e (#120) waits for the move; WP-020f QA fix round built (0040); WP-025 plan next
+WP-020e merged (#120); **WP-025 sessions 1-2 built (#152)**, session 3 next (Temporal timers, warnings, breaches) with auto-close on business time; polish PR #156 queued; WP-020e and WP-025 QA in the next batched round
 
 ## Branch
 
-`feat/wp-020e`, `fix/wp-020f-qa`
+`feat/wp-025-s2` (#152)
 
 ## Worktree
 
@@ -21,8 +21,8 @@ main folder (`supportx-v2`)
 
 ## Claimed migration
 
-0034, 0038 (merged); 0039 (WP-020e), 0040 (WP-020f QA fix)
+0038, 0039, 0040 (merged); 0044, 0047 (WP-025, #152)
 
 ## Claimed decisions
 
-D-105, D-107, D-111, D-112, D-113; ADR-035
+D-105, D-115
