@@ -431,13 +431,19 @@ async def ensure_keycloak(client: httpx.AsyncClient, target: KeycloakTarget) -> 
     made: list[str] = []
 
     found = await client.get(
-        f"{realm}/organizations", params={"search": SLUG, "exact": "true"}, headers=headers
+        # Keycloak searches organizations by name, not alias: find by name, match the alias.
+        f"{realm}/organizations",
+        params={"search": TENANT_NAME, "exact": "true"},
+        headers=headers,
     )
     found.raise_for_status()
     orgs = [o for o in found.json() if o.get("alias") == SLUG]
     if orgs:
         org_id = str(orgs[0]["id"])
-        if orgs[0].get("attributes", {}).get("tenant_id") != [str(TENANT_ID)]:
+        # Search answers in brief, without attributes: read the organization itself.
+        whole = await client.get(f"{realm}/organizations/{org_id}", headers=headers)
+        whole.raise_for_status()
+        if whole.json().get("attributes", {}).get("tenant_id") != [str(TENANT_ID)]:
             msg = f"the Keycloak organization {SLUG!r} points at another tenant; nothing changed"
             raise SeedError(msg)
     else:

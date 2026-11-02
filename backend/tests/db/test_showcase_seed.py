@@ -29,13 +29,24 @@ class FakeKeycloak:
         self.members: dict[str, set[str]] = {}
         self.passwords: dict[str, str] = {}
 
-    def handle(self, request: httpx.Request) -> httpx.Response:  # noqa: C901, PLR0911 - one branch per call
+    def handle(self, request: httpx.Request) -> httpx.Response:  # noqa: C901, PLR0911, PLR0912 - one branch per call
         path = request.url.path.removeprefix("/admin/realms/supportx")
         method = request.method
         if request.url.path == "/realms/master/protocol/openid-connect/token":
             return httpx.Response(200, json={"access_token": "t"})
         if path == "/organizations" and method == "GET":
-            return httpx.Response(200, json=self.orgs)
+            # Like Keycloak: `search` matches the name (exactly with exact=true), never the alias.
+            wanted = request.url.params.get("search", "")
+            exact = request.url.params.get("exact") == "true"
+            found = [
+                o for o in self.orgs if (o["name"] == wanted if exact else wanted in o["name"])
+            ]
+            # Brief answers, like Keycloak's search: no attributes.
+            brief = [{k: v for k, v in o.items() if k != "attributes"} for o in found]
+            return httpx.Response(200, json=brief)
+        if path.startswith("/organizations/") and path.count("/") == 2 and method == "GET":
+            org = next(o for o in self.orgs if o["id"] == path.rsplit("/", 1)[-1])
+            return httpx.Response(200, json=org)
         if path == "/organizations" and method == "POST":
             org = {**json.loads(request.content), "id": "org-1"}
             self.orgs.append(org)
