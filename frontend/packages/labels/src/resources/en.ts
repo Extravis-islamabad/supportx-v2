@@ -4994,6 +4994,29 @@ export const en = {
   'sla_run_state.cancelled': 'Cancelled',
   'errors.field.level_too_many_recipients': 'At most {{max}} recipients per level.',
   'errors.field.level_too_many_actions': 'At most {{max}} actions per level.',
+  'notification_event.incident.sla_warning': 'SLA warning point reached',
+  'notification_event.incident.sla_breached': 'SLA target overdue',
+  'notification_event.incident.sla_escalated': 'SLA escalation',
+  'notification_recipient.escalation_recipients': "The escalation level's recipients",
+  'notification_variable.sla.target': 'SLA › Target',
+  'notification_template.incident.sla_warning.in_app':
+    '{{ record.display_id }}: {{ sla.target }} is close to its due time',
+  'notification_template.incident.sla_warning.subject':
+    'Due soon: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_warning.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has reached the warning point of its {{ sla.target }} target.',
+  'notification_template.incident.sla_breached.in_app':
+    '{{ record.display_id }}: {{ sla.target }} is overdue',
+  'notification_template.incident.sla_breached.subject':
+    'Overdue: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_breached.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" has passed the due time of its {{ sla.target }} target.',
+  'notification_template.incident.sla_escalated.in_app':
+    'Escalated to you: {{ record.display_id }} ({{ sla.target }})',
+  'notification_template.incident.sla_escalated.subject':
+    'Escalation: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_escalated.body':
+    'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was escalated to you by its {{ sla.target }} SLA.',
 } as const;
 
 export type LabelKey = keyof typeof en;

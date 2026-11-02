@@ -5046,4 +5046,27 @@ export const ar: LabelResource = {
   'sla_run_state.cancelled': 'أُلغي',
   'errors.field.level_too_many_recipients': 'يُسمح بـ {{max}} مستلمًا على الأكثر لكل مستوى.',
   'errors.field.level_too_many_actions': 'يُسمح بـ {{max}} إجراءات على الأكثر لكل مستوى.',
+  'notification_event.incident.sla_warning': 'بلوغ نقطة تحذير اتفاقية مستوى الخدمة',
+  'notification_event.incident.sla_breached': 'تأخر هدف اتفاقية مستوى الخدمة',
+  'notification_event.incident.sla_escalated': 'تصعيد اتفاقية مستوى الخدمة',
+  'notification_recipient.escalation_recipients': 'مستلمو مستوى التصعيد',
+  'notification_variable.sla.target': 'اتفاقية مستوى الخدمة › الهدف',
+  'notification_template.incident.sla_warning.in_app':
+    '{{ record.display_id }}: اقترب موعد {{ sla.target }}',
+  'notification_template.incident.sla_warning.subject':
+    'يستحق قريبًا: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_warning.body':
+    'مرحبًا {{ recipient.name }}،\n\nبلغ {{ record.display_id }} "{{ record.title }}" نقطة التحذير لهدف {{ sla.target }}.',
+  'notification_template.incident.sla_breached.in_app':
+    '{{ record.display_id }}: تأخر {{ sla.target }}',
+  'notification_template.incident.sla_breached.subject':
+    'متأخر: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_breached.body':
+    'مرحبًا {{ recipient.name }}،\n\nتجاوز {{ record.display_id }} "{{ record.title }}" موعد هدف {{ sla.target }}.',
+  'notification_template.incident.sla_escalated.in_app':
+    'صُعِّد إليك: {{ record.display_id }} ({{ sla.target }})',
+  'notification_template.incident.sla_escalated.subject':
+    'تصعيد: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_escalated.body':
+    'مرحبًا {{ recipient.name }}،\n\nصُعِّد إليك {{ record.display_id }} "{{ record.title }}" بموجب اتفاقية مستوى الخدمة الخاصة بـ {{ sla.target }}.',
 };

@@ -16,6 +16,12 @@ from sqlalchemy import text
 from app.core.tenancy import TenantContext
 from app.modules import sla
 from app.modules.sla.service.timers import overdue_records
+from app.modules.work_items.service.notifications import (
+    ESCALATION_RECIPIENTS,
+    IncidentNotifications,
+)
+from app.shared.events import EventEnvelope
+from app.shared.notifications.ports import LabelRef
 from tests.db import test_incidents_api
 from tests.db.test_incidents_api import Org, World
 from tests.db.test_sla_clock import POLICIES, _events, _p1, _targets
@@ -275,3 +281,39 @@ async def test_escalation_tables_are_isolated_by_tenant(world: World) -> None:
             "DELETE FROM sla_escalation_levels",
         ):
             assert (await session.execute(text(statement))).rowcount == 0, statement
+
+
+async def test_req_sla_023_an_unset_assignee_falls_back_and_the_level_notifies_them(
+    world: World,
+) -> None:
+    a = world.a
+    await _levels(
+        world,
+        a,
+        [
+            {
+                "kind": "resolution",
+                "offset_seconds": 0,
+                "recipients": [{"kind": "assignee"}],
+                "fallback": [{"kind": "user", "id": str(a.lead)}],
+            }
+        ],
+    )
+    item = await world.create(a, a.admin, priority="p1", priority_reason="Whole floor down")
+    assert item["technician_id"] is None
+    due = (await _targets(world, item))["resolution:1"]["due_at"]
+    await _fire_all(world, a, item, due + timedelta(seconds=1))
+    rows = await world.sql(
+        "SELECT envelope FROM outbox_events WHERE aggregate_id = $1"
+        " AND event_type = 'sla.target.escalated'",
+        item["id"],
+    )
+    (envelope,) = [EventEnvelope.model_validate(json.loads(r["envelope"])) for r in rows]
+    source = IncidentNotifications()
+    assert source.events_for(envelope) == ("incident.sla_escalated",)
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        context = await source.context(session, "incident.sla_escalated", envelope)
+    assert context is not None
+    assert context.relatives[ESCALATION_RECIPIENTS] == frozenset({a.lead})
+    assert context.urgent  # never held for a digest
+    assert context.variables["sla.target"] == LabelRef("sla_target_kind.resolution")

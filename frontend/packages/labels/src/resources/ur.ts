@@ -4598,4 +4598,27 @@ export const ur: LabelResource = {
   'sla_run_state.cancelled': 'منسوخ',
   'errors.field.level_too_many_recipients': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} وصول کنندگان۔',
   'errors.field.level_too_many_actions': 'ہر درجے کے لیے زیادہ سے زیادہ {{max}} کارروائیاں۔',
+  'notification_event.incident.sla_warning': 'ایس ایل اے کی انتباہی حد آ گئی',
+  'notification_event.incident.sla_breached': 'ایس ایل اے ہدف میں تاخیر',
+  'notification_event.incident.sla_escalated': 'ایس ایل اے ایسکلیشن',
+  'notification_recipient.escalation_recipients': 'ایسکلیشن درجے کے وصول کنندگان',
+  'notification_variable.sla.target': 'ایس ایل اے › ہدف',
+  'notification_template.incident.sla_warning.in_app':
+    '{{ record.display_id }}: {{ sla.target }} کا وقت قریب ہے',
+  'notification_template.incident.sla_warning.subject':
+    'جلد واجب: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_warning.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اپنے {{ sla.target }} ہدف کی انتباہی حد تک پہنچ گیا ہے۔',
+  'notification_template.incident.sla_breached.in_app':
+    '{{ record.display_id }}: {{ sla.target }} میں تاخیر ہو گئی',
+  'notification_template.incident.sla_breached.subject':
+    'تاخیر: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_breached.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اپنے {{ sla.target }} ہدف کا وقت گزار چکا ہے۔',
+  'notification_template.incident.sla_escalated.in_app':
+    'آپ کو ایسکلیٹ کیا گیا: {{ record.display_id }} ({{ sla.target }})',
+  'notification_template.incident.sla_escalated.subject':
+    'ایسکلیشن: {{ record.display_id }} {{ record.title }}',
+  'notification_template.incident.sla_escalated.body':
+    'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اس کے {{ sla.target }} ایس ایل اے کے تحت آپ کو ایسکلیٹ کیا گیا ہے۔',
 };

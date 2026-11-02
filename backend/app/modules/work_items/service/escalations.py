@@ -19,6 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
 from app.modules import sla
+from app.modules.identity_access import person_placement
+from app.modules.organization import unit_heads, users_in_groups
 from app.modules.work_items.domain.classification import Priority
 from app.modules.work_items.domain.types import TYPES, WorkItemTypeCode
 from app.modules.work_items.infra.models import WorkItem
@@ -91,3 +93,62 @@ async def run_actions(
             {"kind": action.kind.value, "ok": True, "code": None if changed else "no_change"}
         )
     return outcomes
+
+
+async def _relative(
+    session: AsyncSession, record: WorkItem, kind: sla.RecipientKind
+) -> frozenset[uuid.UUID]:
+    """The people a relative recipient kind names on this record now (REQ-SLA-023)."""
+    if kind is sla.RecipientKind.ASSIGNEE:
+        return frozenset({record.technician_id} if record.technician_id else ())
+    if kind in {sla.RecipientKind.GROUP_HEAD, sla.RecipientKind.DEPARTMENT_HEAD}:
+        lead, head = await unit_heads(session, record.group_id, record.department_id)
+        person = lead if kind is sla.RecipientKind.GROUP_HEAD else head
+        return frozenset({person} if person else ())
+    whose = (
+        record.technician_id if kind is sla.RecipientKind.ASSIGNEE_MANAGER else record.requester_id
+    )
+    if whose is None:
+        return frozenset()
+    manager = (await person_placement(session, whose)).manager_id
+    return frozenset({manager} if manager else ())
+
+
+async def _named(session: AsyncSession, who: sla.Recipient) -> frozenset[uuid.UUID]:
+    if who.id is None:
+        return frozenset()
+    if who.kind is sla.RecipientKind.USER:
+        return frozenset({uuid.UUID(who.id)})
+    members = await session.scalars(users_in_groups(frozenset({uuid.UUID(who.id)})))
+    return frozenset(members)
+
+
+async def level_people(
+    session: AsyncSession, record: WorkItem, level: sla.Level
+) -> tuple[frozenset[uuid.UUID], bool]:
+    """Who a level tells, and whether its fallback list was used (REQ-SLA-023 AC1).
+
+    A relative who is not set (no assignee, no manager) falls back to the level's fallback
+    list. Whether each person may see the record is the notification engine's check at send
+    time (the source's `access`), so a recipient who cannot is skipped there (AC3).
+    """
+    people: set[uuid.UUID] = set()
+    missing = False
+    for who in level.recipients:
+        if who.kind in {sla.RecipientKind.USER, sla.RecipientKind.GROUP}:
+            people |= await _named(session, who)
+            continue
+        found = await _relative(session, record, who.kind)
+        missing = missing or not found
+        people |= found
+    if not missing:
+        return frozenset(people), False
+    for who in level.fallback:
+        found = (
+            await _named(session, who)
+            if who.kind in {sla.RecipientKind.USER, sla.RecipientKind.GROUP}
+            else await _relative(session, record, who.kind)
+        )
+        if found:
+            return frozenset(people | found), True  # the first fallback that names someone
+    return frozenset(people), False
