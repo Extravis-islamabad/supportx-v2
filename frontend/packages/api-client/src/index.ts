@@ -478,6 +478,7 @@ export {
   type PeopleImport,
   type PersonFields,
   type PersonIn,
+  type PersonType,
   type Reactivation,
   type TechnicianScope,
 } from './people';
@@ -556,4 +557,5 @@ export {
   type ReleasedMail,
   type WaitingMail,
 } from './mailboxes';
+export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
 export { useEventDelivery, type Readiness } from './system';

@@ -394,7 +394,7 @@ async def status(
 
 
 # Who can set mail up: the people who manage mailboxes (integrations, Admin > Mail).
-MAIL_ADMINS = "mailboxes.manage"
+MAIL_ADMINS = "integrations.manage_email"  # WP-040; every mailboxes.manage role got it (0049)
 WHO_CAN_FIX_LIMIT = 10
 
 

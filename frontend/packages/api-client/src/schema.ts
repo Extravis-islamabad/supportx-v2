@@ -2791,7 +2791,8 @@ export interface paths {
          * Reply or add a note
          * @description A private note needs add_note; a reply or public note needs reply.
          *
-         *     Replies are saved and marked not_sent until an email channel exists (never dropped).
+         *     Replies are saved and wait (mail_not_configured) until an email channel exists, then are
+         *     queued for sending (never dropped).
          *     Send an Idempotency-Key: a retried request returns the same 201.
          */
         post: operations["add_api_v1_incidents__record_id__conversation_post"];
@@ -3165,6 +3166,26 @@ export interface paths {
          * @description Needs If-Match.
          */
         patch: operations["update_worklog_api_v1_incidents__record_id__worklogs__worklog_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/integrations/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connector catalogue
+         * @description Every kind of connector with its instances and their live status (REQ-INT-001).
+         */
+        get: operations["connector_catalogue_api_v1_integrations_catalogue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/integrations/mailboxes": {
@@ -6454,6 +6475,111 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * ConnectorCategory
+         * @description Catalogue groups (REQ-INT-001); set-up rights are given per category (REQ-INT-013).
+         * @enum {string}
+         */
+        ConnectorCategory: "identity" | "email" | "collaboration" | "monitoring" | "devops" | "endpoint" | "telephony" | "automation" | "analytics" | "knowledge" | "ai";
+        /**
+         * ConnectorInstanceOut
+         * @description One configured connector and its health.
+         */
+        ConnectorInstanceOut: {
+            /**
+             * Counts 24H
+             * @description Last 24 hours: runs, failed_runs, read, created, updated, skipped, failed.
+             */
+            counts_24h: {
+                [key: string]: number;
+            };
+            /** Credential Expires At */
+            credential_expires_at: string | null;
+            /**
+             * Failing Since
+             * @description When it turned failing (notified).
+             */
+            failing_since: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Error At */
+            last_error_at: string | null;
+            /**
+             * Last Error Code
+             * @description The last error (a label code).
+             */
+            last_error_code: string | null;
+            /** Last Success At */
+            last_success_at: string | null;
+            /**
+             * Name
+             * @description What the admin called it, such as a mailbox address.
+             */
+            name: string;
+            /** Next Run At */
+            next_run_at: string | null;
+            /**
+             * Reason
+             * @description Why it fails or is degraded (a label code).
+             */
+            reason: string | null;
+            status: components["schemas"]["ConnectorStatus"];
+        };
+        /**
+         * ConnectorKindOut
+         * @description One kind of connector in the catalogue, as the caller sees it.
+         */
+        ConnectorKindOut: {
+            /**
+             * Available
+             * @description Whether the tenant's edition includes it.
+             */
+            available: boolean;
+            /** Can Manage */
+            can_manage: boolean;
+            category: components["schemas"]["ConnectorCategory"];
+            /**
+             * Code
+             * @description The kind's code; the console shows its label.
+             */
+            code: string;
+            /** Instances */
+            instances: components["schemas"]["ConnectorInstanceOut"][];
+            /**
+             * Keywords
+             * @description Label codes the catalogue search also matches.
+             */
+            keywords: string[];
+            /**
+             * Manage Reason
+             * @description Why it cannot be set up: not_in_edition or no_permission.
+             */
+            manage_reason: string | null;
+            /**
+             * Multiple
+             * @description Whether more than one can be added.
+             */
+            multiple: boolean;
+            /**
+             * Page
+             * @description The console page where it is set up.
+             */
+            page: string;
+            /**
+             * Reason Labels
+             * @description Label prefix of its instances' failure reasons.
+             */
+            reason_labels: string;
+        };
+        /**
+         * ConnectorStatus
+         * @description One instance's status as the catalogue shows it (REQ-INT-001).
+         * @enum {string}
+         */
+        ConnectorStatus: "not_set_up" | "active" | "degraded" | "failed" | "paused";
+        /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
          */
@@ -8333,9 +8459,16 @@ export interface components {
             /** Client Id */
             client_id: string | null;
             creates: components["schemas"]["MailboxCreates"];
+            /** @description The stored credential, if any. */
+            credential: components["schemas"]["StoredSecretOut"] | null;
             /** Credential Expires At */
             credential_expires_at: string | null;
             credential_kind: components["schemas"]["CredentialKind"] | null;
+            /**
+             * Degraded Reason
+             * @description Code when it works but needs a look (secret_store_fallback: the secrets store's copy could not be read, so an earlier copy is used); the UI shows its label.
+             */
+            degraded_reason: string | null;
             /** Directory Id */
             directory_id: string | null;
             /** Display Name */
@@ -9034,7 +9167,7 @@ export interface components {
             /** Time Zone */
             time_zone?: string | null;
             /** @default requester */
-            user_type: components["schemas"]["UserType"];
+            user_type: components["schemas"]["PersonType"];
             /** Vip */
             vip?: boolean | null;
         };
@@ -9048,6 +9181,12 @@ export interface components {
             /** Email */
             email: string;
         };
+        /**
+         * PersonType
+         * @description The types a person can be given in the people screens and imports (never `service`).
+         * @enum {string}
+         */
+        PersonType: "technician" | "requester";
         /**
          * PickList
          * @description Admin-managed value lists: the reason lists plus levels and closure codes.
@@ -10434,6 +10573,12 @@ export interface components {
             } | null;
         };
         /**
+         * SecretType
+         * @description What kind of credential the secrets store holds (REQ-INT-003).
+         * @enum {string}
+         */
+        SecretType: "password" | "client_secret" | "certificate" | "refresh_token";
+        /**
          * SettingsIn
          * @description New settings.
          */
@@ -10829,6 +10974,29 @@ export interface components {
              * @description Paused statuses: a requester reply moves the record to in progress (051).
              */
             resume_on_requester_reply?: boolean | null;
+        };
+        /**
+         * StoredSecretOut
+         * @description A stored secret as anyone may see it: never its value (REQ-INT-003 AC1).
+         */
+        StoredSecretOut: {
+            /**
+             * Last Four
+             * @description For display only ("ending in ..."): long random secrets show their last four characters, a certificate its thumbprint's; a password never shows any.
+             */
+            last_four: string | null;
+            /**
+             * Name
+             * @description Its stable name; exports carry {{secret:<name>}} instead.
+             */
+            name: string;
+            secret_type: components["schemas"]["SecretType"];
+            /**
+             * Set At
+             * Format: date-time
+             * @description When it was saved: its age.
+             */
+            set_at: string;
         };
         /**
          * SubscriptionTokenRequest
@@ -11361,7 +11529,7 @@ export interface components {
          * @description Technician (takes a licence seat) or requester.
          */
         TypeIn: {
-            user_type: components["schemas"]["UserType"];
+            user_type: components["schemas"]["PersonType"];
         };
         /**
          * TypingIn
@@ -11611,7 +11779,7 @@ export interface components {
          * @description Which app a user works in. Stored as a code; the UI shows a label.
          * @enum {string}
          */
-        UserType: "technician" | "requester";
+        UserType: "technician" | "requester" | "service";
         /** ValidationError */
         ValidationError: {
             /** Context */
@@ -27076,6 +27244,53 @@ export interface operations {
             };
         };
     };
+    connector_catalogue_api_v1_integrations_catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorKindOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.view). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     list_mailboxes_api_v1_integrations_mailboxes_get: {
         parameters: {
             query?: never;
@@ -27103,7 +27318,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27166,7 +27381,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27243,7 +27458,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27326,7 +27541,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27402,7 +27617,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27482,7 +27697,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27549,7 +27764,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27618,7 +27833,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -27698,7 +27913,7 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
-            /** @description Missing permission (mailboxes.manage). */
+            /** @description Missing permission (integrations.manage_email). */
             403: {
                 headers: {
                     [name: string]: unknown;

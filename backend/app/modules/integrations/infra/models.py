@@ -1,4 +1,6 @@
-"""Mailboxes and the ledger of fetched mail (WP-024; migrations 0037 and 0042).
+"""Mailboxes, the ledger of fetched mail and the secrets store (WP-024, WP-040).
+
+Migrations 0037 and 0042 (mailboxes), 0045 (connector secrets), 0049 (connector runs, health).
 
 Both tenant-scoped with RLS. A mailbox's password is stored sealed with the installation key ring
 (AES-256-GCM, bound to the tenant and to the purpose "mailbox"), never in clear. The ledger has
@@ -18,12 +20,13 @@ from sqlalchemy import (
     LargeBinary,
     String,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps
+from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps, utc_now
 
 
 class Mailbox(TenantEntity):
@@ -32,6 +35,16 @@ class Mailbox(TenantEntity):
     __tablename__ = "mailboxes"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mailboxes_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "secret_ref"],
+            ["connector_secrets.tenant_id", "connector_secrets.id"],
+            name="fk_mailboxes_secret_ref",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "token_ref"],
+            ["connector_secrets.tenant_id", "connector_secrets.id"],
+            name="fk_mailboxes_token_ref",
+        ),
         Index(
             "uq_mailboxes_tenant_address",
             "tenant_id",
@@ -79,6 +92,8 @@ class Mailbox(TenantEntity):
     allow_plain: Mapped[bool] = mapped_column(Boolean, server_default="false")
     username: Mapped[str | None] = mapped_column(String(320))
     # The IMAP password, or the API mailbox's client secret or certificate (with its key).
+    # Kept, and still written, until the contract step after the secrets store (0045) is proven;
+    # `secret_ref` and `token_ref` point at the store's copies.
     secret_key_id: Mapped[str | None] = mapped_column(String(32))
     secret_sealed: Mapped[bytes | None] = mapped_column(LargeBinary)
     # Microsoft 365 and Gmail (session 2): the customer's own OAuth app (D-109 (2)).
@@ -113,6 +128,11 @@ class Mailbox(TenantEntity):
     # the fetch once every such sender is back under the limit.
     flooding: Mapped[bool] = mapped_column(Boolean, server_default="false")
     next_fetch_at: Mapped[datetime | None]
+    secret_ref: Mapped[uuid.UUID | None]  # connector_secrets (WP-040)
+    token_ref: Mapped[uuid.UUID | None]
+    # The store's copy could not be read and the old column was used: shown as degraded until a
+    # read from the store works again (never silent).
+    secret_fallback_at: Mapped[datetime | None]
 
 
 class MailFetched(TenantKeyed, Timestamps, Base):
@@ -154,3 +174,142 @@ class MailFetched(TenantKeyed, Timestamps, Base):
     # cleared). Not kept for mail over the size limit.
     raw: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     handled_by: Mapped[uuid.UUID | None]  # the admin who released or discarded it
+
+
+class ConnectorSecret(TenantEntity):
+    """One sealed credential of a connector (WP-040, REQ-INT-003; migration 0045).
+
+    Sealed with the installation key ring, bound to the tenant and to `purpose` (the same
+    context the owner used before the store, so moved secrets were copied without being opened).
+    Never returned or logged; the API shows its name, type and age. Rotating replaces the value
+    behind the same row, so what uses it keeps its reference.
+    """
+
+    __tablename__ = "connector_secrets"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_connector_secrets_tenant_id_id"),
+        Index(
+            "uq_connector_secrets_tenant_owner_role",
+            "tenant_id",
+            "owner_kind",
+            "owner_id",
+            "role",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_connector_secrets_tenant_name",
+            "tenant_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint(
+            "secret_type IN ('password', 'client_secret', 'certificate', 'refresh_token')",
+            name="secret_type_code",
+        ),
+        # A password never shows any of its characters (product owner, 2026-11-02).
+        CheckConstraint(
+            "secret_type <> 'password' OR last_four IS NULL", name="no_password_ending"
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))  # stable; exports carry {{secret:<name>}}
+    secret_type: Mapped[str] = mapped_column(String(20))
+    owner_kind: Mapped[str] = mapped_column(String(40))  # a connector kind code ("mailbox")
+    owner_id: Mapped[uuid.UUID]
+    role: Mapped[str] = mapped_column(String(20))  # which of the owner's secrets
+    purpose: Mapped[str] = mapped_column(String(40))  # the sealing context
+    key_id: Mapped[str] = mapped_column(String(32))
+    sealed: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    set_at: Mapped[datetime]  # its age (REQ-INT-003 AC3)
+    # "ending in ..a3f9", for display only, never for verification, and only for long random
+    # secrets (product owner, 2026-11-02): client secrets and refresh tokens; for a certificate
+    # its public thumbprint's end. Never for a password.
+    last_four: Mapped[str | None] = mapped_column(String(4))
+
+
+class ConnectorHealth(TenantKeyed, Base):
+    """One connector instance's standing between runs (WP-040, REQ-INT-004/005; migration 0049).
+
+    Any kind's instance: `kind` is the catalogue code, `instance_id` the owner's own ID (a
+    mailbox). Written only by `service.runs.record_run`, in the run's own transaction.
+    """
+
+    __tablename__ = "connector_health"
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    instance_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    failing: Mapped[bool] = mapped_column(Boolean, server_default="false")
+    consecutive_failures: Mapped[int] = mapped_column(Integer, server_default="0")
+    failing_since: Mapped[datetime | None]
+    last_success_at: Mapped[datetime | None]
+    last_error_at: Mapped[datetime | None]
+    last_error_code: Mapped[str | None] = mapped_column(String(60))  # a label code
+    updated_at: Mapped[datetime] = mapped_column(onupdate=utc_now)
+
+
+class ConnectorIdentity(TenantKeyed, Base):
+    """The service identity a connector instance acts as (WP-040, REQ-INT-012; migration 0052).
+
+    One per instance, made with it (or at its next run); the user row is identity_access's.
+    """
+
+    __tablename__ = "connector_identities"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_connector_identities_user",
+        ),
+        UniqueConstraint("tenant_id", "user_id", name="uq_connector_identities_tenant_user"),
+    )
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    instance_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+
+class ConnectorRun(TenantKeyed, Base):
+    """One run of a connector and its counts (kept RUN_RETENTION_DAYS; migration 0049)."""
+
+    __tablename__ = "connector_runs"
+    __table_args__ = (
+        Index(
+            "ix_connector_runs_tenant_instance_finished", "tenant_id", "instance_id", "finished_at"
+        ),
+        Index("ix_connector_runs_tenant_finished", "tenant_id", "finished_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    instance_id: Mapped[uuid.UUID]
+    started_at: Mapped[datetime]
+    finished_at: Mapped[datetime]
+    ok: Mapped[bool] = mapped_column(Boolean)
+    read: Mapped[int] = mapped_column(Integer, server_default="0")
+    created: Mapped[int] = mapped_column(Integer, server_default="0")
+    updated: Mapped[int] = mapped_column(Integer, server_default="0")
+    skipped: Mapped[int] = mapped_column(Integer, server_default="0")
+    failed: Mapped[int] = mapped_column(Integer, server_default="0")
+    error_code: Mapped[str | None] = mapped_column(String(60))
+
+
+class ConnectorError(TenantKeyed, Base):
+    """One failure of a connector, for its error list (kept ERROR_RETENTION_DAYS, REQ-INT-005 AC3).
+
+    A code and when, never the outside system's message text (it may carry personal data).
+    """
+
+    __tablename__ = "connector_errors"
+    __table_args__ = (
+        Index("ix_connector_errors_tenant_instance_at", "tenant_id", "instance_id", "occurred_at"),
+        Index("ix_connector_errors_tenant_at", "tenant_id", "occurred_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    instance_id: Mapped[uuid.UUID]
+    occurred_at: Mapped[datetime]
+    code: Mapped[str] = mapped_column(String(60))

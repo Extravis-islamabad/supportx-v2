@@ -22,7 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import after_commit
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import PERSON_TYPES, UserType
 from app.modules.identity_access.domain.people import (
     PERSON_FIELDS,
     TEXT_FIELDS,
@@ -32,7 +32,7 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
-from app.modules.identity_access.events import UserCreatedV2, UserStatusChanged, UserUpdated
+from app.modules.identity_access.events import UserCreatedV3, UserStatusChanged, UserUpdated
 from app.modules.identity_access.infra.models import Role, User, UserRole
 from app.modules.identity_access.service.directory import (
     USER_RECORD_TYPE,
@@ -160,6 +160,20 @@ async def _reference_problems(
     return problems
 
 
+def _person_type(user_type: UserType) -> None:
+    """People are technicians or requesters; a service identity is made by its connector."""
+    if user_type not in PERSON_TYPES:
+        raise _invalid([("user_type", "invalid_choice", {})])
+
+
+async def _person(session: AsyncSession, user_id: uuid.UUID) -> User:
+    """The person to change; a connector's service identity changes only with its connector."""
+    current = await UserRepository(session).get(user_id)
+    if current.user_type == UserType.SERVICE.value:
+        raise Conflict(code="service_identity_managed")
+    return current
+
+
 async def _live(session: AsyncSession, user_id: uuid.UUID) -> bool:
     found = await session.scalar(
         select(User.id).where(User.id == user_id, User.deleted_at.is_(None))
@@ -209,6 +223,7 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     now: datetime | None = None,
 ) -> User:
     """Add a person (REQ-ADM-002). Technicians take a seat; sign-in needs an email address."""
+    _person_type(user_type)
     now = now or datetime.now(UTC)
     clean = _clean(values)
     clean.setdefault("first_name", None)
@@ -245,7 +260,7 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     )
     await record_event(
         session,
-        UserCreatedV2(user_id=person.id, user_type=user_type.value, source=source),
+        UserCreatedV3(user_id=person.id, user_type=user_type.value, source=source),
         aggregate_id=person.id,
         aggregate_version=person.version,
     )
@@ -262,7 +277,7 @@ async def update_person(
 ) -> User:
     """Change the person record (REQ-ADM-002). A stale version gets an explained 409."""
     clean = _clean(changes)
-    current = await UserRepository(session).get(user_id)
+    current = await _person(session, user_id)
     clean = _with_name(current, clean)
     problems: list[Problem] = list(person_problems(clean))
     if "email" in clean and clean["email"] is None and current.can_sign_in:
@@ -352,7 +367,8 @@ async def set_user_type(
     A requester never holds the technician role. A tenant admin stays a technician: the admin
     role is removed first (so the tenant never loses its last admin this way).
     """
-    current = await UserRepository(session).get(user_id)
+    _person_type(user_type)
+    current = await _person(session, user_id)
     if current.user_type == user_type.value:
         return await _save(session, current, expected_version, {}, "ui")
     if user_type is UserType.TECHNICIAN:
@@ -385,7 +401,7 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
     end_sessions: EndSessions | None = None,
 ) -> User:
     """Allow sign-in (needs an email address; marks the invitation) or stop it (ends sessions)."""
-    current = await UserRepository(session).get(user_id)
+    current = await _person(session, user_id)
     if allowed == current.can_sign_in:
         return await _save(session, current, expected_version, {}, "ui")
     if allowed and not current.email:
@@ -410,7 +426,7 @@ async def deactivate(
     end_sessions: EndSessions | None = None,
 ) -> User:
     """Deactivate (REQ-ADM-005): cannot sign in, frees the seat, keeps every record and role."""
-    current = await UserRepository(session).get(user_id)
+    current = await _person(session, user_id)
     if current.status == "disabled":
         return await _save(session, current, expected_version, {}, "ui")
     if user_id == actor_id:
@@ -430,7 +446,7 @@ async def deactivate(
 
 async def reactivation(session: AsyncSession, user_id: uuid.UUID) -> Reactivation:
     """The roles and groups a person still holds, offered for confirmation on reactivation."""
-    await UserRepository(session).get(user_id)
+    await _person(session, user_id)
     held = await _held(session, user_id)
     groups = await memberships(session, user_id)
     return Reactivation(
@@ -447,7 +463,7 @@ async def reactivate(
     keep_group_ids: Sequence[uuid.UUID],
 ) -> User:
     """Reactivate, keeping only the confirmed roles and groups (REQ-ADM-005 AC3)."""
-    current = await UserRepository(session).get(user_id)
+    current = await _person(session, user_id)
     if current.status == "active":
         return await _save(session, current, expected_version, {}, "ui")
     if current.user_type == UserType.TECHNICIAN.value:

@@ -32,6 +32,7 @@ import {
   useUser,
   useUsers,
   type PersonFields,
+  type PersonType,
   type UserDetail,
 } from '@supportx/api-client';
 import { refreshRecord, useRecordChannel } from '@supportx/realtime';
@@ -73,7 +74,7 @@ const LOCALES = ['en', 'ar', 'ur'] as const;
 type Values = Omit<PersonFields, 'request_visibility'> & {
   // '' is the "organisation's rule" option (sent as null).
   request_visibility?: PersonFields['request_visibility'] | '';
-  user_type?: UserDetail['user_type'];
+  user_type?: PersonType;
   can_sign_in?: boolean;
 };
 
@@ -620,7 +621,7 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
     reportError(error);
   };
   const saved = (next: UserDetail) => own.add(next.version);
-  const changeType = (userType: UserDetail['user_type'], version = user.version) => {
+  const changeType = (userType: PersonType, version = user.version) => {
     setType.mutate(
       { id: user.id, version, userType },
       {
@@ -670,10 +671,11 @@ function PersonStatus({ user, own }: { user: UserDetail; own: Set<number> }) {
       </Flex>
       <Flex gap={16} wrap align="center">
         <Typography.Text>{t('people.field.user_type')}</Typography.Text>
-        <Segmented
+        <Segmented<PersonType>
           data-testid="person-type"
           disabled={busy}
-          value={user.user_type}
+          // A connector's identity never opens here (not in people lists): nothing selected.
+          value={user.user_type === 'service' ? undefined : user.user_type}
           options={(['requester', 'technician'] as const).map((value) => ({
             value,
             label: t(`user_type.${value}`),

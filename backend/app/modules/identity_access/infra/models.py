@@ -45,7 +45,15 @@ class User(TenantEntity):
         UniqueConstraint("tenant_id", "id", name="uq_users_tenant_id_id"),
         CheckConstraint("locale IN ('en', 'ar', 'ur')", name="locale_code"),
         CheckConstraint("status IN ('active', 'disabled')", name="status_code"),
-        CheckConstraint("user_type IN ('technician', 'requester')", name="user_type_code"),
+        CheckConstraint(
+            "user_type IN ('technician', 'requester', 'service')", name="user_type_code"
+        ),
+        # A service identity (WP-040) has no account to sign in with, and no address to link one.
+        CheckConstraint(
+            "user_type <> 'service' OR (external_subject IS NULL AND email IS NULL"
+            " AND NOT can_sign_in)",
+            name="service_no_sign_in",
+        ),
         CheckConstraint("char_length(signature) <= 2000", name="signature_length"),
         CheckConstraint("nav_layout IN ('top', 'side', 'side_compact')", name="nav_layout_code"),
         CheckConstraint("form_density IN ('comfortable', 'compact')", name="form_density_code"),

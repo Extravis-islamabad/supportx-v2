@@ -257,7 +257,11 @@ async def test_only_mailbox_managers_start_a_sign_in(world: World, fake: FakePro
 
 
 async def test_a_failing_mailbox_tells_its_admins_once(world: World, fake: FakeProviders) -> None:
-    """Never silent: the mail page shows it, and the people who manage mailboxes are told."""
+    """Never silent: the mail page shows it, and the people who manage mailboxes are told.
+
+    A refused credential fails at once (WP-040, D-118); further failures send nothing more,
+    and the recovery is told once (REQ-INT-005 AC2).
+    """
     ring = _configure(world)
     created = (await _add(world, GRAPH_APP)).json()
     fake.refuse_with = "invalid_client"  # the secret expired at Microsoft
@@ -267,18 +271,29 @@ async def test_a_failing_mailbox_tells_its_admins_once(world: World, fake: FakeP
         "SELECT state, state_reason FROM mailboxes WHERE id = $1", uuid.UUID(created["id"])
     )
     assert (rows[0]["state"], rows[0]["state_reason"]) == ("failing", "oauth_client_rejected")
-    events = await world.sql(
-        "SELECT envelope->'payload' AS payload FROM outbox_events"
-        " WHERE tenant_id = $1 AND event_type = 'integrations.mailbox.failing'"
-        " AND aggregate_id = $2",
-        world.a.tenant,
-        created["id"],
-    )
-    assert len(events) == 1
-    assert "s3cret" not in str(events[0]["payload"])
+
+    async def events(event_type: str) -> list[Any]:
+        return await world.sql(
+            "SELECT envelope->'payload' AS payload FROM outbox_events"
+            " WHERE tenant_id = $1 AND event_type = $2 AND aggregate_id = $3",
+            world.a.tenant,
+            event_type,
+            created["id"],
+        )
+
+    failing = await events("integrations.connector.failing")
+    assert len(failing) == 1
+    assert "s3cret" not in str(failing[0]["payload"])
+    assert await events("integrations.mailbox.failing") == []  # replaced (kept as an alias)
+    fake.refuse_with = None
+    fake.deliver(ADDRESS, _raw("Works again"))  # the provider has the mailbox once more
+    await _fetch(world, created["id"], ring)
+    await _fetch(world, created["id"], ring)
+    assert len(await events("integrations.connector.recovered")) == 1
     await run_engine(world, world.a)
     sent = await deliveries(world, world.a, created)
-    assert {(r["event_code"], r["user_id"]) for r in sent} >= {("mailbox.failing", world.a.admin)}
+    told = {(r["event_code"], r["user_id"]) for r in sent}
+    assert told >= {("connector.failing", world.a.admin), ("connector.recovered", world.a.admin)}
     assert world.a.tech_a not in {r["user_id"] for r in sent}  # not a mailbox manager
 
 

@@ -142,6 +142,9 @@ export const queryKeys = {
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
   },
+  connectors: {
+    catalogue: ['connectors', 'catalogue'] as const,
+  },
   mailboxes: {
     all: ['mailboxes'] as const,
     waiting: (id: string) => ['mailboxes', 'waiting', id] as const,

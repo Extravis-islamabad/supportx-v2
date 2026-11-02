@@ -4090,6 +4090,240 @@
         "title": "ConnectionTestOut",
         "type": "object"
       },
+      "ConnectorCategory": {
+        "description": "Catalogue groups (REQ-INT-001); set-up rights are given per category (REQ-INT-013).",
+        "enum": [
+          "identity",
+          "email",
+          "collaboration",
+          "monitoring",
+          "devops",
+          "endpoint",
+          "telephony",
+          "automation",
+          "analytics",
+          "knowledge",
+          "ai"
+        ],
+        "title": "ConnectorCategory",
+        "type": "string"
+      },
+      "ConnectorInstanceOut": {
+        "description": "One configured connector and its health.",
+        "properties": {
+          "counts_24h": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Last 24 hours: runs, failed_runs, read, created, updated, skipped, failed.",
+            "title": "Counts 24H",
+            "type": "object"
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "failing_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it turned failing (notified).",
+            "title": "Failing Since"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last error (a label code).",
+            "title": "Last Error Code"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "description": "What the admin called it, such as a mailbox address.",
+            "title": "Name",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it fails or is degraded (a label code).",
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConnectorStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "reason",
+          "last_success_at",
+          "next_run_at",
+          "credential_expires_at",
+          "failing_since",
+          "last_error_at",
+          "last_error_code",
+          "counts_24h"
+        ],
+        "title": "ConnectorInstanceOut",
+        "type": "object"
+      },
+      "ConnectorKindOut": {
+        "description": "One kind of connector in the catalogue, as the caller sees it.",
+        "properties": {
+          "available": {
+            "description": "Whether the tenant's edition includes it.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ConnectorCategory"
+          },
+          "code": {
+            "description": "The kind's code; the console shows its label.",
+            "title": "Code",
+            "type": "string"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectorInstanceOut"
+            },
+            "title": "Instances",
+            "type": "array"
+          },
+          "keywords": {
+            "description": "Label codes the catalogue search also matches.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "manage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot be set up: not_in_edition or no_permission.",
+            "title": "Manage Reason"
+          },
+          "multiple": {
+            "description": "Whether more than one can be added.",
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "page": {
+            "description": "The console page where it is set up.",
+            "title": "Page",
+            "type": "string"
+          },
+          "reason_labels": {
+            "description": "Label prefix of its instances' failure reasons.",
+            "title": "Reason Labels",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "category",
+          "page",
+          "keywords",
+          "reason_labels",
+          "multiple",
+          "available",
+          "can_manage",
+          "manage_reason",
+          "instances"
+        ],
+        "title": "ConnectorKindOut",
+        "type": "object"
+      },
+      "ConnectorStatus": {
+        "description": "One instance's status as the catalogue shows it (REQ-INT-001).",
+        "enum": [
+          "not_set_up",
+          "active",
+          "degraded",
+          "failed",
+          "paused"
+        ],
+        "title": "ConnectorStatus",
+        "type": "string"
+      },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
         "properties": {
@@ -8931,6 +9165,17 @@
           "creates": {
             "$ref": "#/components/schemas/MailboxCreates"
           },
+          "credential": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoredSecretOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored credential, if any."
+          },
           "credential_expires_at": {
             "anyOf": [
               {
@@ -8952,6 +9197,18 @@
                 "type": "null"
               }
             ]
+          },
+          "degraded_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code when it works but needs a look (secret_store_fallback: the secrets store's copy could not be read, so an earlier copy is used); the UI shows its label.",
+            "title": "Degraded Reason"
           },
           "directory_id": {
             "anyOf": [
@@ -9121,6 +9378,7 @@
           "allow_plain",
           "username",
           "has_password",
+          "credential",
           "auth_model",
           "client_id",
           "directory_id",
@@ -9141,6 +9399,7 @@
           "last_fetch_at",
           "held",
           "flooding",
+          "degraded_reason",
           "version"
         ],
         "title": "MailboxOut",
@@ -10837,7 +11096,7 @@
             "title": "Time Zone"
           },
           "user_type": {
-            "$ref": "#/components/schemas/UserType",
+            "$ref": "#/components/schemas/PersonType",
             "default": "requester"
           },
           "vip": {
@@ -10876,6 +11135,15 @@
         ],
         "title": "PersonOut",
         "type": "object"
+      },
+      "PersonType": {
+        "description": "The types a person can be given in the people screens and imports (never `service`).",
+        "enum": [
+          "technician",
+          "requester"
+        ],
+        "title": "PersonType",
+        "type": "string"
       },
       "PickList": {
         "description": "Admin-managed value lists: the reason lists plus levels and closure codes.",
@@ -14387,6 +14655,17 @@
         "title": "ScaleValuePatch",
         "type": "object"
       },
+      "SecretType": {
+        "description": "What kind of credential the secrets store holds (REQ-INT-003).",
+        "enum": [
+          "password",
+          "client_secret",
+          "certificate",
+          "refresh_token"
+        ],
+        "title": "SecretType",
+        "type": "string"
+      },
       "SettingsIn": {
         "additionalProperties": false,
         "description": "New settings.",
@@ -15474,6 +15753,45 @@
           }
         },
         "title": "StatusPatch",
+        "type": "object"
+      },
+      "StoredSecretOut": {
+        "description": "A stored secret as anyone may see it: never its value (REQ-INT-003 AC1).",
+        "properties": {
+          "last_four": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For display only (\"ending in ...\"): long random secrets show their last four characters, a certificate its thumbprint's; a password never shows any.",
+            "title": "Last Four"
+          },
+          "name": {
+            "description": "Its stable name; exports carry {{secret:<name>}} instead.",
+            "title": "Name",
+            "type": "string"
+          },
+          "secret_type": {
+            "$ref": "#/components/schemas/SecretType"
+          },
+          "set_at": {
+            "description": "When it was saved: its age.",
+            "format": "date-time",
+            "title": "Set At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "secret_type",
+          "last_four",
+          "set_at"
+        ],
+        "title": "StoredSecretOut",
         "type": "object"
       },
       "SubscriptionTokenRequest": {
@@ -17003,7 +17321,7 @@
         "description": "Technician (takes a licence seat) or requester.",
         "properties": {
           "user_type": {
-            "$ref": "#/components/schemas/UserType"
+            "$ref": "#/components/schemas/PersonType"
           }
         },
         "required": [
@@ -17620,7 +17938,8 @@
         "description": "Which app a user works in. Stored as a code; the UI shows a label.",
         "enum": [
           "technician",
-          "requester"
+          "requester",
+          "service"
         ],
         "title": "UserType",
         "type": "string"
@@ -38412,7 +38731,7 @@
         ]
       },
       "post": {
-        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and marked not_sent until an email channel exists (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
+        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and wait (mail_not_configured) until an email channel exists, then are\nqueued for sending (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
         "operationId": "add_api_v1_incidents__record_id__conversation_post",
         "parameters": [
           {
@@ -40951,6 +41270,62 @@
         ]
       }
     },
+    "/api/v1/integrations/catalogue": {
+      "get": {
+        "description": "Every kind of connector with its instances and their live status (REQ-INT-001).",
+        "operationId": "connector_catalogue_api_v1_integrations_catalogue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorKindOut"
+                  },
+                  "title": "Response Connector Catalogue Api V1 Integrations Catalogue Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.view)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Connector catalogue",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/api/v1/integrations/mailboxes": {
       "get": {
         "description": "Every mailbox with its state (the mail page, REQ-ADM-066 AC1).",
@@ -40988,7 +41363,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41078,7 +41453,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41183,7 +41558,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41303,7 +41678,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41397,7 +41772,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41501,7 +41876,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41589,7 +41964,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41676,7 +42051,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41780,7 +42155,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {

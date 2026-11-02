@@ -388,7 +388,8 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
     ) -> Response:
         """A private note needs add_note; a reply or public note needs reply.
 
-        Replies are saved and marked not_sent until an email channel exists (never dropped).
+        Replies are saved and wait (mail_not_configured) until an email channel exists, then are
+        queued for sending (never dropped).
         Send an Idempotency-Key: a retried request returns the same 201.
         """
 
