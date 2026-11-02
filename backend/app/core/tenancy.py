@@ -38,6 +38,10 @@ class TenantContext:
     # Realm roles of the session user (tenant_admin, technician, requester). Coarse until the
     # policy layer exists (WP-016); used for admin-only notices such as the licence grace warning.
     roles: frozenset[str] = field(default_factory=frozenset)
+    # An API key's call (WP-041, D-128): the key and its scopes. None for a browser session. A key
+    # acts as its owner (`user_id`) limited to these scopes; the owner's permissions are live.
+    api_key_id: uuid.UUID | None = None
+    api_scopes: frozenset[str] | None = None
 
 
 # Returns the session's context, None when the request has no session, or raises a problem
