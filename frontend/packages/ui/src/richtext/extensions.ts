@@ -1,4 +1,4 @@
-import { Extension, Mark, mergeAttributes, type CommandProps } from '@tiptap/core';
+import { Extension, Mark, Node, mergeAttributes, type CommandProps } from '@tiptap/core';
 
 /**
  * Editor extensions of our own (WP-020b). Everything is stored as codes in `data-*` attributes,
@@ -16,6 +16,9 @@ export type HighlightColour = (typeof HIGHLIGHTS)[number];
 export const ALIGNMENTS = ['start', 'center', 'end', 'justify'] as const;
 export type Alignment = (typeof ALIGNMENTS)[number];
 export const MAX_INDENT = 6;
+// Knowledge article callouts (D-108 (9)); the same codes as CALLOUT_KINDS on the server.
+export const CALLOUTS = ['info', 'warning', 'tip', 'note'] as const;
+export type CalloutKind = (typeof CALLOUTS)[number];
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -27,6 +30,10 @@ declare module '@tiptap/core' {
     textColour: {
       setTextColour: (colour: TextColour) => ReturnType;
       unsetTextColour: () => ReturnType;
+    };
+    callout: {
+      setCallout: (kind: CalloutKind) => ReturnType;
+      unsetCallout: () => ReturnType;
     };
     highlightColour: {
       setHighlight: (colour: HighlightColour) => ReturnType;
@@ -164,6 +171,46 @@ export const HighlightMark = Mark.create({
         () =>
         ({ commands }) =>
           commands.unsetMark(this.name),
+    };
+  },
+});
+
+/**
+ * A callout box around blocks: `<div data-callout="tip">…</div>` (D-108 (9)). Only the four kinds
+ * exist; the server drops any other value. Off unless the editor asks for it (knowledge).
+ */
+export const Callout = Node.create({
+  name: 'callout',
+  group: 'block',
+  content: 'block+',
+  defining: true,
+  addAttributes() {
+    return {
+      kind: {
+        default: 'info',
+        parseHTML: (element) => oneOf(CALLOUTS, element.getAttribute('data-callout')) ?? 'info',
+        renderHTML: (attributes) => ({ 'data-callout': attributes.kind as string }),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'div[data-callout]' }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes), 0];
+  },
+  addCommands() {
+    return {
+      setCallout:
+        (kind) =>
+        ({ editor, commands }) =>
+          editor.isActive(this.name)
+            ? commands.updateAttributes(this.name, { kind })
+            : commands.wrapIn(this.name, { kind }),
+      unsetCallout:
+        () =>
+        ({ commands }) =>
+          commands.lift(this.name),
     };
   },
 });

@@ -453,15 +453,20 @@ async def test_req_kb_048_lists_and_search_use_the_same_audience(world: World) -
     assert problem(await world.call("GET", url, a, a.tech_a)) == (404, "kb_article_not_found")
 
 
-async def test_d108_requesters_do_not_read_as_staff(world: World) -> None:
-    """Requesters read published articles addressed to them in session 2; never staff paths."""
+async def test_d108_requesters_read_published_never_drafts(world: World) -> None:
+    """Requesters read published articles addressed to them (session 2); never drafts."""
     a = world.a
     topic = await _topic(world, a, requesters="all")
     article = await _article(world, a, a.admin, topic)
-    await _publish(world, article)
+    url = f"{ARTICLES}/{article['id']}"
     assert (await world.call("GET", ARTICLES, a, a.requester)).json() == []
-    response = await world.call("GET", f"{ARTICLES}/{article['id']}", a, a.requester)
-    assert problem(response) == (404, "kb_article_not_found")
+    assert problem(await world.call("GET", url, a, a.requester)) == (404, "kb_article_not_found")
+    await _publish(world, article)
+    read = (await world.call("GET", url, a, a.requester)).json()
+    assert read["published"]["en"]["internal_note"] is None
+    assert (read["drafts"], read["can_edit"]) == ({}, False)
+    listed = await world.call("GET", ARTICLES, a, a.requester, params={"view": "my_drafts"})
+    assert listed.json() == []
 
 
 async def test_article_update_checks_version_and_dates(world: World) -> None:

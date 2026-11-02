@@ -73,6 +73,7 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 
 import { useIncidentFieldName } from './conflict';
+import { useKnowledgeTools } from './knowledgeSlot';
 import { useTypingSignal } from './typing';
 
 type Filter = 'all' | 'messages' | 'notes' | 'system';
@@ -500,6 +501,10 @@ function Composer({
   const [key, setKey] = useState(() => crypto.randomUUID());
   const [body, setBody] = useState('');
   const [visibility, setVisibility] = useState<Visibility>('private');
+  // Knowledge in this editor (D-121): a reply and a public note are read by the requester.
+  const knowledgeTools = useKnowledgeTools(
+    draft.kind === 'reply' || visibility === 'public' ? 'public' : 'private',
+  );
   const requesters = emailsOf([item.requester_id, item.on_behalf_of_id], item.people);
   const initial = useMemo(() => {
     if (draft.kind === 'note' || draft.mode === 'forward') return { to: [], cc: [] };
@@ -668,6 +673,7 @@ function Composer({
         )}
         mentions={mentions}
         templates={templates.data}
+        extraTools={knowledgeTools}
         onManageTemplates={
           can('settings.manage')
             ? () => {

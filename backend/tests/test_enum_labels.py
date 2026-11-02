@@ -74,6 +74,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "ArticlePatch.requesters": "kb_requesters",
     "TopicIn.requesters": "kb_requesters",
     "TopicPatch.requesters": "kb_requesters",
+    # Knowledge on incidents (WP-033 session 4)
+    "ApplyIn.audience": "kb_apply_audience",
+    "ApplyIn.language": "locale",
+    "ApplyIn.mode": "kb_apply_mode",
+    "FindingOut.field": "kb_personal_field",
+    "FindingOut.kind": "kb_personal_data",
     # Reports (WP-035)
     "ChartType": "report_chart",
     "DateBucket": "report_bucket",
@@ -104,6 +110,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "AnnouncementStatus": "announcement_status",
     "AnnouncementVisibility": "announcement_visibility",
     "HistoryEntryOut.actor_type": "actor_type",
+    "KbHistoryEntryOut.actor_type": "actor_type",
     "HistoryEntryOut.kind": "change_kind",
     "HistoryEntryOut.source": "change_source",
     "CheckStatus": "check_status",
