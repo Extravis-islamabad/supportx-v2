@@ -56,7 +56,7 @@ from app.modules.identity_access import Subject, mail_recipients
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes, stale_version
-from app.shared.labels import label
+from app.shared.labels import html_label, label, plain_label
 from app.shared.mail import (
     MAX_ATTACHMENT_BYTES,
     Attachment,
@@ -448,10 +448,12 @@ def _mail(  # noqa: PLR0913 - the message's parts, keyword-only
     brand: MailBrand,
     to: str,
 ) -> OutgoingMail:
-    subject_line = label("reports.mail_subject", language, title=title)
-    intro = label("reports.mail_intro", language, title=title)
+    # Mail: no directional marks in the subject or plain text; <bdi> in the HTML part.
+    subject_line = plain_label("reports.mail_subject", language, title=title)
+    intro = plain_label("reports.mail_intro", language, title=title)
+    intro_html = html_label("reports.mail_intro", language, title=title)
     note = row.message or ""
-    content = f"<p>{escape(intro)}</p>" + (f"<p>{escape(note)}</p>" if note else "")
+    content = f"<p>{intro_html}</p>" + (f"<p>{escape(note)}</p>" if note else "")
     return OutgoingMail(
         kind="report",
         to=(to,),

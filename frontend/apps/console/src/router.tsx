@@ -195,6 +195,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'sla/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/sla/SlaPage')).SlaPage,
+            }),
+          },
+          {
             path: 'files',
             lazy: async () => ({
               Component: (await import('./pages/admin/files/FilesPage')).FilesPage,
@@ -223,6 +229,20 @@ export const routes: RouteObject[] = [
             path: 'mail',
             lazy: async () => ({
               Component: (await import('./pages/admin/mail/MailPage')).MailPage,
+            }),
+          },
+          {
+            path: 'integrations',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/IntegrationsPage'))
+                .IntegrationsPage,
+            }),
+          },
+          {
+            path: 'integrations/directories',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/DirectoriesPage'))
+                .DirectoriesPage,
             }),
           },
           {

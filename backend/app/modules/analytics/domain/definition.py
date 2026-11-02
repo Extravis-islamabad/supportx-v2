@@ -82,6 +82,24 @@ class ReportGroupBy(BaseModel):
     bucket: DateBucket | None = None
 
 
+class FlowSpec(BaseModel):
+    """A flow report (D-114): created, resolved and backlog per day, week or month.
+
+    Per bucket: the records created, the records resolved and the backlog (still open) at the
+    bucket's end. Replaces `group_by`; measures are the flow measures (`flow_created`,
+    `flow_resolved`, `flow_backlog`).
+
+    The backlog is "created by then and not yet resolved, closed or cancelled by then", read from
+    each record's own timestamps as they stand now (a cancellation counts from its last status
+    change), not from a history replay.
+    """
+
+    model_config = ConfigDict(extra="forbid", title="FlowSpec")
+
+    days: int = Field(default=30, ge=7, le=366)
+    bucket: Literal["day", "week", "month"] = "day"
+
+
 class ReportDefinition(BaseModel):
     """A report as stored and as sent to `POST /reports/run`."""
 
@@ -102,6 +120,7 @@ class ReportDefinition(BaseModel):
     # default: the groupings, then the entity's usual list), and how to sort them.
     columns: list[str] | None = Field(default=None, min_length=1, max_length=MAX_COLUMNS)
     sort: list[RecordSort] = Field(default_factory=list, max_length=MAX_SORT)
+    flow: FlowSpec | None = None  # a flow report instead of groupings (D-114)
 
     def filter_json(self) -> Any:  # noqa: ANN401 - the filter DSL's JSON tree
         """The filter as the DSL compiler reads it (`and`/`or` keys, not Python names)."""

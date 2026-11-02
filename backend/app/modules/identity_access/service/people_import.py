@@ -23,7 +23,7 @@ from app.core.database import Database
 from app.core.errors import AppError, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import PERSON_TYPES, UserType
 from app.modules.identity_access.domain.people import LOCALES
 from app.modules.identity_access.domain.people_import import (
     MAX_FILE_BYTES,
@@ -49,6 +49,9 @@ log = get_logger(__name__)
 
 BATCH = 100
 MAX_PROBLEMS = 1000  # kept on the import; the counts stay exact beyond this
+# File format names, sent as values so labels isolate them: typed into a right-to-left sentence,
+# "UTF-8" would read "8-UTF" (labels README: no direction marks in labels).
+FORMAT_WORDS = {"csv": "CSV (UTF-8)", "xlsx": ".xlsx", "utf8": "UTF-8"}
 MatchOn = Literal["email", "employee_id"]
 LANGUAGE_NAMES = {"english": "en", "arabic": "ar", "urdu": "ur"}
 
@@ -78,7 +81,9 @@ async def start_import(
         if len(content) > MAX_FILE_BYTES:
             raise ImportRefused(ImportFailure.TOO_LARGE)  # noqa: TRY301 - same refusal as the job's
     except ImportRefused as refused:
-        raise ValidationFailed(code=f"people_import_{refused.failure.value}") from refused
+        raise ValidationFailed(
+            code=f"people_import_{refused.failure.value}", params=FORMAT_WORDS
+        ) from refused
     job = await ImportRepository(session).add(
         PeopleImport(
             file_name=file_name[:255] or "people",
@@ -232,6 +237,9 @@ async def apply_row(
         existing = await session.scalar(
             select(User).where(column == wanted, User.deleted_at.is_(None))
         )
+    if existing is not None and existing.directory_source is not None:
+        # A directory keeps this person (WP-040 session 2): the import leaves them alone.
+        raise RowProblem(field="row", code="managed_by_directory")
     await _suggest_site(session, fields, existing)
     try:
         if existing is None:
@@ -330,6 +338,8 @@ async def _row_values(  # noqa: C901, PLR0912 - one rule per column, flat
             user_type = UserType(values["user_type"].strip().lower())
         except ValueError as exc:
             raise RowProblem(field="user_type", code="invalid_choice") from exc
+        if user_type not in PERSON_TYPES:  # service identities come only from their connector
+            raise RowProblem(field="user_type", code="invalid_choice")
     can_sign_in = None
     if values.get("can_sign_in"):
         can_sign_in = flag(values["can_sign_in"])

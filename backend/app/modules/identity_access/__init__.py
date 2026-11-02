@@ -42,6 +42,7 @@ from app.modules.identity_access.bff.routes import router
 from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     IDENTITY_PERMISSIONS,
+    KNOWLEDGE_MANAGER,
     RESERVED_PERMISSIONS,
     Catalogue,
 )
@@ -64,6 +65,14 @@ from app.modules.identity_access.service.directory import (
     people_matching,
     user_contacts,
     user_names,
+)
+from app.modules.identity_access.service.directory_people import (
+    LeaverOutcome,
+    SyncedPerson,
+    directory_leaver,
+    directory_returner,
+    release_from_directory,
+    sync_directory_person,
 )
 from app.modules.identity_access.service.password_policy import PASSWORD_POLICY_APPLY
 from app.modules.identity_access.service.people import (
@@ -88,7 +97,15 @@ from app.modules.identity_access.service.policy import (
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
 from app.modules.identity_access.service.roles import RoleName, role_names
+from app.modules.identity_access.service.service_identities import (
+    create_service_identity,
+    set_service_identity_active,
+)
 from app.modules.identity_access.service.users import count_technicians
+from app.modules.identity_access.service.worker_sessions import (
+    TenantSessionEnder,
+    worker_session_ender,
+)
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
 from app.shared.clock import system_clock
@@ -283,7 +300,9 @@ AUTHZ_CACHE_TTL_SECONDS = 300
 register_people_usage()
 
 __all__ = [
+    "KNOWLEDGE_MANAGER",
     "FieldRule",
+    "LeaverOutcome",
     "MailRecipient",
     "NotifiablePerson",
     "Placement",
@@ -293,11 +312,16 @@ __all__ = [
     "RoleName",
     "SodRule",
     "Subject",
+    "SyncedPerson",
+    "TenantSessionEnder",
     "UserType",
     "authorize",
     "authorize_stored",
     "create_requester_from_mail",
+    "create_service_identity",
     "direct_reports",
+    "directory_leaver",
+    "directory_returner",
     "display_names",
     "get_policy",
     "mail_recipients",
@@ -306,12 +330,16 @@ __all__ = [
     "people_matching",
     "person_by_email",
     "person_placement",
+    "release_from_directory",
     "require",
     "role_names",
     "scope_filter",
+    "set_service_identity_active",
     "subject_for",
+    "sync_directory_person",
     "user_contacts",
     "user_names",
     "visible",
     "worker_policy",
+    "worker_session_ender",
 ]

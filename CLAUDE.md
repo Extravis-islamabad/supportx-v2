@@ -120,6 +120,14 @@ companions `react-draggable`, `react-resizable`, `fast-equals`, `resize-observer
 `clsx`, `prop-types`: free-form dashboard layout, lazy-loaded in edit mode only, keyboard
 move/resize buttons kept, right to left mirrored and checked by e2e.
 
+**Approved additions (D-115, WP-025):** `tzdata` (Apache-2.0; IANA time zones for `zoneinfo` in
+every image and the Nuitka build) and `icalendar` (BSD-2-Clause; holiday and working-calendar
+import, with size and line limits and a fuzz test, as the files are untrusted). icalendar's own
+dependencies already ship through approved packages: `python-dateutil` (Apache-2.0/BSD-3-Clause),
+`six` (MIT), `typing-extensions` (PSF-2.0, Python < 3.13). Temporal's Python
+SDK `temporalio` (MIT) is the stack's Temporal client (§5); its server images and Helm chart are
+MIT.
+
 **Tooling named in the specs (§16.2, §11.4):** ruff, mypy, pytest (+ pytest-asyncio, coverage),
 import-linter, Testcontainers, tsc, ESLint, Prettier, Vitest, Playwright, k6, Semgrep, Bandit,
 Trivy, cosign.
@@ -230,7 +238,10 @@ UTC; `created_at`, `updated_at`, `created_by`, `updated_by` on every table; soft
 `deleted_at` (hard delete only via GDPR erasure jobs); enums stored as stable lowercase codes;
 snake_case, plural table names. Custom field values in typed JSONB with GIN indexes (§6.6).
 Field-level history for every change with source (UI, API, rule, workflow, AI agent) (§7.4).
-Migrations follow expand/contract (§14.3) and must be reversible.
+Migrations follow expand/contract (§14.3) and must be reversible. **A merged migration is never
+edited** (product owner, 2026-10-28): any environment may already have run it, and an edit never
+reaches those. Fixes go in a new migration. Data steps run once per tenant with `app.tenant_id`
+set (business tables force RLS, so a statement without it changes nothing; see 0023).
 
 ## 7. API conventions (§10)
 

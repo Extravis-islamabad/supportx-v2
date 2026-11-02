@@ -29,6 +29,9 @@ export type Urgency = components['schemas']['Urgency'];
 export type StatusCategory = components['schemas']['StatusCategory'];
 export type ReasonList = components['schemas']['ReasonList'];
 export type WorkItemChannel = components['schemas']['Channel'];
+export type IncidentSla = components['schemas']['WorkItemSlaOut'];
+export type IncidentSlaTarget = components['schemas']['SlaTargetOut'];
+export type SlaTargetKind = 'first_response' | 'resolution';
 
 /** List parameters the UI controls. */
 export interface IncidentsQuery {
@@ -88,6 +91,9 @@ export function useIncidentViews(enabled = true) {
     queryKey: queryKeys.incidents.views,
     queryFn: () => call(api.GET('/api/v1/incidents/views')),
     enabled,
+    // Overdue, due today and created today change with the clock, not only with events
+    // (WP-020d QA BUG-01).
+    refetchInterval: 60_000,
   });
 }
 
@@ -122,6 +128,19 @@ export function useIncidentHistory(
     initialPageParam: null as string | null,
     getNextPageParam: (page) => page.next_cursor,
     enabled,
+  });
+}
+
+/** The record's SLA panel: policy, targets, calendars, due dates set by hand (WP-025). */
+export function useIncidentSla(id: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.incidents.sla(id),
+    queryFn: () =>
+      call(api.GET('/api/v1/incidents/{record_id}/sla', { params: { path: { record_id: id } } })),
+    enabled,
+    retry: false,
+    // A side panel: the record page already reports a record it cannot load.
+    meta: { silent: true },
   });
 }
 
@@ -373,6 +392,37 @@ export function useTakeIncident(id: string) {
         body: groupId === undefined ? undefined : { group_id: groupId },
       }),
     ),
+  );
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: once,
+    onSuccess: saved,
+    onError: refresh,
+  });
+}
+
+/** Set a due date by hand (`dueAt` null clears it); always with a reason (REQ-SLA-028). */
+export function useSetIncidentDueDate(id: string) {
+  const saved = useSaved();
+  const refresh = useRefreshOnConflict(id);
+  const once = useSingleFlight(
+    ({
+      version,
+      kind,
+      dueAt,
+      reason,
+    }: {
+      version: number;
+      kind: SlaTargetKind;
+      dueAt: string | null;
+      reason: string;
+    }) =>
+      call(
+        api.PUT('/api/v1/incidents/{record_id}/due-dates/{kind}', {
+          params: { path: { record_id: id, kind }, header: ifMatch(version) },
+          body: { due_at: dueAt, reason },
+        }),
+      ),
   );
   return useMutation({
     meta: { silent: true },

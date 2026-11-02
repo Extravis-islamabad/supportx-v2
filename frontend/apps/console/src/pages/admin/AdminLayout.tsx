@@ -10,12 +10,14 @@ const TABS = [
   { key: 'roles', labelKey: 'nav.admin_roles', permission: 'roles.view' },
   { key: 'incidents', labelKey: 'nav.admin_incidents', permission: 'settings.manage' },
   { key: 'automation', labelKey: 'nav.admin_automation', permission: 'automation.view' },
+  { key: 'sla', labelKey: 'nav.admin_sla', permission: 'sla.view' },
   { key: 'audit', labelKey: 'nav.audit', permission: 'audit.view' },
   { key: 'files', labelKey: 'nav.admin_files', permission: 'files.manage' },
   { key: 'branding', labelKey: 'nav.admin_branding', permission: 'branding.manage' },
   { key: 'security', labelKey: 'nav.admin_security', permission: 'identity.manage' },
   { key: 'notifications', labelKey: 'nav.admin_notifications', permission: 'notifications.manage' },
-  { key: 'mail', labelKey: 'nav.admin_mail', permission: 'mailboxes.manage' },
+  { key: 'mail', labelKey: 'nav.admin_mail', permission: 'integrations.manage_email' },
+  { key: 'integrations', labelKey: 'nav.admin_integrations', permission: 'integrations.view' },
   // Knowledge settings or its article types (D-120): either permission opens the tab.
   {
     key: 'knowledge',

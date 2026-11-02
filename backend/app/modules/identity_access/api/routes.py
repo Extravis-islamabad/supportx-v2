@@ -23,6 +23,7 @@ from app.shared.api.concurrency import ExpectedVersion, not_modified, set_etag
 from app.shared.api.listing import ListQuery, Page, list_query
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import source_of
+from app.shared.labels import strip_isolates
 
 router = APIRouter(
     prefix="/users",
@@ -60,6 +61,10 @@ class UserDetail(BaseModel):
     department_id: uuid.UUID | None
     manager_id: uuid.UUID | None
     can_sign_in: bool = Field(description="False: a contact, who cannot sign in.")
+    directory_source: Literal["entra", "ldap"] | None = Field(
+        default=None,
+        description="The directory that keeps this person (its fields are read-only here).",
+    )
     invited_at: datetime | None = Field(default=None, description="Only for `users.manage`.")
     signed_in_before: bool = Field(
         default=False, description="Linked to a sign-in account (has signed in at least once)."
@@ -135,7 +140,9 @@ async def list_users(
     Filter with the DSL (`filter=`) and/or simple parameters (`status=active`), search with `q`,
     sort with `sort=-last_login_at,display_name`, page with `limit` and `cursor`.
     """
-    page = await directory.list_users(session, subject, query, text=(q or "").strip() or None)
+    page = await directory.list_users(
+        session, subject, query, text=strip_isolates(q or "").strip() or None
+    )
     return UserPage(
         items=[UserDetail.of(u, subject) for u in page.rows],
         next_cursor=page.next_cursor,

@@ -6,8 +6,8 @@ Each write, in one transaction with the work item's rules (service/work_items.py
    note needs `add_note` (followers with access have it, D-068); a reply, a public note or making
    a note public needs `reply`;
 2. the body is sanitised with the one allow-list (REQ-INC-064) and checked;
-3. the entry is saved; a reply is marked `not_sent` while no email channel exists (WP-024), so it
-   is never silently lost;
+3. the entry is saved; a reply waits (`waiting`, reason `mail_not_configured`) while no email
+   channel exists, or is queued for sending (WP-024), so it is never silently lost;
 4. the first response is stamped once, by the actions the tenant counts (REQ-INC-065);
 5. mentioned people who may see the record follow it; the others are reported back to the author
    and not notified (REQ-INC-063);
@@ -19,12 +19,13 @@ import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import NotFound, PermissionDenied
 from app.modules.identity_access import Subject, authorize_stored, user_contacts
 from app.modules.work_items.domain.conversation import (
@@ -37,6 +38,7 @@ from app.modules.work_items.domain.conversation import (
     Visibility,
     delivery_for,
     mentioned_ids,
+    reply_is_inbound,
     stamps_first_response,
     unmention,
 )
@@ -60,6 +62,7 @@ from app.modules.work_items.service.catalogue import load as load_catalogue
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
+from app.shared.mail import mail_configured
 from app.shared.richtext import is_blank, sanitize_html
 
 TIMELINE_MAX = 500
@@ -93,13 +96,13 @@ class TemplateRepository(Repository[WorkItemReplyTemplate]):
 
 
 async def email_channel_configured(session: AsyncSession) -> bool:
-    """Whether outbound email can send replies. Not before WP-024 (the email channel).
+    """Whether outgoing mail is set up (WP-024): a reply is then queued, else it waits.
 
-    Until then every reply is saved and shown as "not sent: email channel not configured"
-    (never dropped, never pretending to be sent). WP-024 replaces this with its mailbox lookup.
+    The notification engine moves the reply on from there (sent, retrying, failed), so the
+    timeline never pretends a reply was sent (REQ-INC-059, REQ-INC-060).
     """
     del session
-    return False
+    return mail_configured(get_settings())
 
 
 # --- reading --------------------------------------------------------------------------------------
@@ -329,7 +332,13 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
     if claimed:
         known = await user_contacts(session, claimed)
         clean = unmention(clean, [u for u in claimed if u not in known])
-    state, reason = delivery_for(kind, email_channel=await email_channel_configured(session))
+    state, reason = delivery_for(
+        kind,
+        inbound=reply_is_inbound(
+            subject.user_id, {record.requester_id, record.on_behalf_of_id}, source
+        ),
+        email_channel=await email_channel_configured(session),
+    )
     mentioned: list[uuid.UUID] = []
     not_notified: list[uuid.UUID] = []
     for raw in mentioned_ids(clean):
@@ -357,6 +366,7 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
             body=clean,
             recipients=recipients,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=first,
             mentioned_ids=mentioned,
@@ -402,11 +412,12 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
     return Added(entry, not_notified, names, follow_up)
 
 
-async def add_requester_comment(
+async def add_requester_comment(  # noqa: PLR0913 - the comment and who sent it how, explicit
     session: AsyncSession,
     record: WorkItem,
     body: str,
     *,
+    author_id: uuid.UUID,
     source: Source,
     automatic: bool = False,
 ) -> WorkItemConversation:
@@ -417,7 +428,9 @@ async def add_requester_comment(
     """
     clean = sanitize_html(body)
     state, reason = delivery_for(
-        EntryKind.REPLY, email_channel=await email_channel_configured(session)
+        EntryKind.REPLY,
+        inbound=reply_is_inbound(author_id, {record.requester_id, record.on_behalf_of_id}, source),
+        email_channel=await email_channel_configured(session),
     )
     entry = await ConversationRepository(session).add(
         WorkItemConversation(
@@ -428,9 +441,15 @@ async def add_requester_comment(
             body=clean,
             recipients=None,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=False,
             mentioned_ids=[],
+            automatic=automatic,
+            # The author, also where no request sets app.user_id (the mail worker): the
+            # timeline names them and their files may go on their own reply (WP-024 s2).
+            created_by=author_id,
+            updated_by=author_id,
         )
     )
     await record_changes(
@@ -462,6 +481,18 @@ async def add_requester_comment(
     return entry
 
 
+@dataclass(frozen=True)
+class RequesterReply:
+    """What a requester's reply from outside made: its entry, and a follow-up record if any.
+
+    The entry's ID lets the channel attach what came with the reply to it (mail attachments,
+    WP-024); the follow-up's ID is told to the sender.
+    """
+
+    entry_id: uuid.UUID
+    follow_up: WorkItem | None
+
+
 async def add_requester_reply(  # noqa: PLR0913 - the reply and its context, explicit
     session: AsyncSession,
     wtype: WorkItemType,
@@ -472,23 +503,26 @@ async def add_requester_reply(  # noqa: PLR0913 - the reply and its context, exp
     automatic: bool,
     subject: Subject,
     holders: items.PermissionHolders,
-) -> WorkItem | None:
+) -> RequesterReply:
     """A reply by the record's requester from outside the console (e-mail WP-024, portal WP-028).
 
     Only the requester or the person it is for (else 404, as for a record they cannot see; staff
     reply through `add_entry` as themselves). The reply is public and in their name; then the
     record moves as for any requester reply (WP-020f): resumed when waiting on them, reopened
-    within the window, or followed by a new record, which is returned so the sender can be told
-    its ID. An automatic reply (out-of-office) is recorded and does nothing else.
+    within the window, or followed by a new record. Both the entry and any follow-up are
+    returned. An automatic reply (out-of-office) is recorded and does nothing else.
     """
     if subject.user_id not in {record.requester_id, record.on_behalf_of_id}:
         raise NotFound(code=f"{wtype.code}_not_found")
-    await add_requester_comment(session, record, body, source=source, automatic=automatic)
+    entry = await add_requester_comment(
+        session, record, body, author_id=subject.user_id, source=source, automatic=automatic
+    )
     if automatic:
-        return None
-    return await items.on_requester_reply(
+        return RequesterReply(entry.id, None)
+    follow_up = await items.on_requester_reply(
         session, subject, wtype, record, body=sanitize_html(body), source=source, holders=holders
     )
+    return RequesterReply(entry.id, follow_up)
 
 
 async def _entry(

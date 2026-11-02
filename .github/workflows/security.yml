@@ -6,20 +6,21 @@ on:
   pull_request:
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
-  push:
-    branches: [main]
+  # No run on push to main (D-122): the merge queue tested that exact merge commit.
   schedule:
-    - cron: "17 3 * * 1" # weekly, Monday 03:17 UTC: catches advisories published after a merge
+    - cron: "17 3 * * *" # nightly 03:17 UTC: catches advisories published after a merge (no push run)
   workflow_dispatch:
 
 permissions:
   contents: read
 
 # One group per PR: a new push cancels that PR's outdated run, freeing runners for every lane.
-# Runs on main, nightly and manual runs each get a group of their own and are never cancelled.
+# A queue group gets one group per temporary branch (a re-run replaces the old one); a group the
+# queue dropped finishes at once in its first step (.github/actions/changes). Nightly and manual
+# runs each get a group of their own and are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'merge_group' && format('queue-{0}', github.event.merge_group.head_ref) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 env:
   GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1

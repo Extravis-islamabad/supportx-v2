@@ -110,6 +110,7 @@ from app.modules.work_items.infra.models import (
 )
 from app.modules.work_items.service import automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service.access import RESOURCE
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
@@ -810,7 +811,14 @@ async def view_counts(
 
 # Fields whose history values are user IDs: the page names them (QA BUG-03).
 PERSON_FIELDS = frozenset(
-    {"requester_id", "on_behalf_of_id", "technician_id", "follower", "follower_access"}
+    {
+        "requester_id",
+        "on_behalf_of_id",
+        "technician_id",
+        "follower",
+        "follower_access",
+        "task.owner_id",  # WP-020e
+    }
 )
 
 
@@ -841,6 +849,15 @@ async def history(  # noqa: PLR0913 - paging options, explicit
         if c.field in PERSON_FIELDS or is_custom(c.field)
         for value in (c.old, c.new)
         if isinstance(value, str) and (c.field in PERSON_FIELDS or _is_uuid(value))
+    }
+    # A worklog's value names its owner (WP-020e).
+    named |= {
+        str(value["owner_id"])
+        for e in entries
+        for c in e.changes
+        if c.field == "worklog"
+        for value in (c.old, c.new)
+        if isinstance(value, dict) and value.get("owner_id")
     }
     return entries, cursor, names, await user_contacts(session, sorted(named))
 
@@ -1176,12 +1193,19 @@ async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID
 async def _update(
     session: AsyncSession, record: WorkItem, expected_version: int, changes: Mapping[str, Any]
 ) -> WorkItem:
+    """Every versioned save of a work item; the SLA clock runs in the same save (WP-025)."""
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    before = {k: getattr(record, k) for k in sla_glue.STAMP_COLUMNS}
+    stamped = await sla_glue.sla_columns(session, record, changes, now=_now())
     try:
-        return await WorkItemRepository(session).update(
-            record.id, expected_version=expected_version, changes=changes
+        updated = await WorkItemRepository(session).update(
+            record.id, expected_version=expected_version, changes={**changes, **stamped}
         )
     except Conflict as error:
         raise await _conflict(session, error, record.id) from error
+    await sla_glue.record_sla_history(session, updated, before, stamped)
+    return updated
 
 
 def _stale(record: WorkItem, expected_version: int) -> Conflict:
@@ -1626,6 +1650,10 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         reassignment_count=0,
     )
     await WorkItemRepository(session).add(record)
+    stamped = await sla_glue.sla_columns(session, record, None, now=now)
+    for name, value in stamped.items():  # the same insert: the record is still at version 1
+        setattr(record, name, value)
+    await session.flush()
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
     # An entry point (e-mail, the portal) creates as the requester, who never had console
@@ -1976,8 +2004,14 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
     source: Source,
     rule: str = REQUESTER_REPLY,
     given: closing.MoveInput | None = None,
+    by_requester: bool = True,
 ) -> WorkItem:
-    """A move the requester makes (a reply, a confirmation); history names the rule."""
+    """A move made for the requester's act (a reply, a confirmation) or by the system.
+
+    The requester's own acts (reply, confirm, reject) are theirs, never automation (WP-020f
+    BUG-03): history keeps them as the person, from their channel, with `requester_action`
+    saying what they did. Only the system's own moves (auto-close) are automatic.
+    """
     target = cat.lifecycle.target(record.status, action, before_cancel=record.status_before_cancel)
     step = await closing.before_move(session, cat, record, action, given or closing.MoveInput())
     before = _snapshot(record, STAMP_FIELDS)
@@ -1993,10 +2027,20 @@ async def system_move(  # noqa: PLR0913 - the move and its context, explicit
         action,
         source=source,
         reason=None,
-        automatic=True,
+        automatic=not by_requester,
         rule=rule,
+        extra=[Change("requester_action", None, requester_action(rule, action))]
+        if by_requester
+        else (),
     )
     return updated
+
+
+def requester_action(rule: str, action: WorkItemAction) -> str:
+    """What the requester did, as history words it: a reply that reopened or resumed."""
+    if rule == REQUESTER_REPLY:
+        return f"{rule}_reopened" if action == WorkItemAction.REOPEN else f"{rule}_resumed"
+    return rule
 
 
 async def on_requester_reply(  # noqa: PLR0913 - the reply and its context, explicit
@@ -2067,6 +2111,11 @@ async def _follow_up(  # noqa: PLR0913 - the reply and its context, explicit
             follow = await _update(
                 session, created.record, created.record.version, {"follows_id": record.id}
             )
+            # WP-020e: the follow-up is also a `follows` link, shown on both records. Imported
+            # here because the parts service builds on this one.
+            from app.modules.work_items.service import parts  # noqa: PLC0415
+
+            await parts.add_follows(session, follow, record, source=source)
     except (ValidationFailed, PermissionDenied, Conflict):
         await record_changes(
             session,
@@ -2318,6 +2367,105 @@ async def take(  # noqa: PLR0913 - the record and its context, explicit
         confirm_lose_access=False,
         source=source,
         holders=holders,
+    )
+
+
+# --- due dates set by hand (REQ-SLA-028, REQ-INC-012, D-115 D11) -------------------------------
+
+
+async def set_due_date(  # noqa: PLR0913 - the record, the change and its context, explicit
+    session: AsyncSession,
+    subject: Subject,
+    wtype: WorkItemType,
+    record_id: uuid.UUID,
+    *,
+    kind: str,
+    due_at: datetime | None,
+    reason: str,
+    expected_version: int,
+    source: Source,
+) -> WorkItemView:
+    """Set a target's due date by hand, or clear it (`due_at` None); always with a reason.
+
+    The date then stays through priority and policy changes until cleared; clearing
+    recalculates it from the record's SLA (REQ-SLA-028 AC1, AC2).
+    """
+    record = await _for_action(session, subject, wtype, "edit_due_dates", record_id)
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    if not sla_glue.has_sla(record) or kind not in sla_glue.DUE_COLUMNS:
+        raise NotFound(code="sla_target_not_found", params={"kind": kind})
+    now = _now()
+    problems: list[tuple[str, str]] = []
+    if not reason.strip():
+        problems.append(("reason", "required"))
+    if due_at is not None and due_at <= now:
+        problems.append(("due_at", "due_in_past"))
+    if problems:
+        raise _errors(problems)
+    audience_before = _audience(record)
+    columns = await sla_glue.set_due(
+        session, record, kind, due_at, reason=reason.strip(), now=now, actor=subject.user_id
+    )
+    change = sla_glue.due_change(record, kind, columns)
+    changed = {k: v for k, v in columns.items() if getattr(record, k) != v}
+    try:
+        updated = await WorkItemRepository(session).update(
+            record.id, expected_version=expected_version, changes=changed
+        )
+    except Conflict as error:
+        raise await _conflict(session, error, record.id) from error
+    await record_changes(
+        session,
+        record_type=RECORD_TYPE,
+        record_id=updated.id,
+        version=updated.version,
+        kind="updated",
+        changes=[change],
+        source=source,
+        reason=reason.strip(),
+    )
+    await record_event(
+        session,
+        WorkItemUpdated(
+            work_item_id=updated.id,
+            type=updated.type,
+            display_id=updated.display_id,
+            status=updated.status,
+            status_category=updated.status_category,
+            changed_fields=sorted({change.field, *changed}),
+            audience_before=audience_before,
+        ),
+        aggregate_id=updated.id,
+        aggregate_version=updated.version,
+    )
+    return await _view(session, subject, wtype, updated)
+
+
+@dataclass(frozen=True, slots=True)
+class SlaPanel:
+    """The record's SLA panel (REQ-SLA-038).
+
+    sla's view, the names it shows, and whether the reader may set due dates by hand.
+    """
+
+    sla: sla_glue.SlaRecordView
+    names: Mapping[str, str]
+    may_set_due_dates: bool
+
+
+async def sla_panel(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> SlaPanel:
+    """The SLA of one record the subject may see (else 404)."""
+    record = await _visible(session, subject, wtype, record_id)
+    view = await sla_glue.record_view(session, record)
+    people = sorted({str(t.manual_by) for t in view.targets if t.manual_by})
+    refused = await _reason_for(session, subject, wtype, "edit_due_dates", record.id)
+    return SlaPanel(
+        sla=view,
+        names=await user_names(session, people) if people else {},
+        may_set_due_dates=refused is None and sla_glue.has_sla(record) and not _closed(record),
     )
 
 

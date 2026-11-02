@@ -26,7 +26,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",
-    "react-hook-form": "^7.90.0",
+    "react-hook-form": "^7.91.0",
     "zod": "^4.6.7",
     "@supportx/api-client": "workspace:*",
     "@supportx/labels": "workspace:*",

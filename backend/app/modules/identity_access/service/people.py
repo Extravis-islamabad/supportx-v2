@@ -22,8 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import after_commit
 from app.core.errors import Conflict, FieldError, PermissionDenied, ValidationFailed
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import PERSON_TYPES, UserType
 from app.modules.identity_access.domain.people import (
+    DIRECTORY_FIELDS,
     PERSON_FIELDS,
     TEXT_FIELDS,
     UUID_FIELDS,
@@ -32,7 +33,7 @@ from app.modules.identity_access.domain.people import (
     full_name,
     person_problems,
 )
-from app.modules.identity_access.events import UserCreatedV2, UserStatusChanged, UserUpdated
+from app.modules.identity_access.events import UserCreatedV3, UserStatusChanged, UserUpdated
 from app.modules.identity_access.infra.models import Role, User, UserRole
 from app.modules.identity_access.service.directory import (
     USER_RECORD_TYPE,
@@ -160,6 +161,39 @@ async def _reference_problems(
     return problems
 
 
+def _person_type(user_type: UserType) -> None:
+    """People are technicians or requesters; a service identity is made by its connector."""
+    if user_type not in PERSON_TYPES:
+        raise _invalid([("user_type", "invalid_choice", {})])
+
+
+async def _person(session: AsyncSession, user_id: uuid.UUID) -> User:
+    """The person to change; a connector's service identity changes only with its connector."""
+    current = await UserRepository(session).get(user_id)
+    if current.user_type == UserType.SERVICE.value:
+        raise Conflict(code="service_identity_managed")
+    return current
+
+
+async def get_person(session: AsyncSession, user_id: uuid.UUID) -> User:
+    """A person (404 if none; 409 for a connector's service identity)."""
+    return await _person(session, user_id)
+
+
+async def set_directory_source(
+    session: AsyncSession, user_id: uuid.UUID, directory: Literal["entra", "ldap"] | None
+) -> User:
+    """Mark who keeps the person (a directory, or SupportX when None), as a save.
+
+    A save bumps the version and emits `UserUpdated`, so an open drawer locks or unlocks live
+    (lane A's review of #168), and the history names the integration.
+    """
+    current = await _person(session, user_id)
+    return await _save(
+        session, current, current.version, {"directory_source": directory}, "integration"
+    )
+
+
 async def _live(session: AsyncSession, user_id: uuid.UUID) -> bool:
     found = await session.scalar(
         select(User.id).where(User.id == user_id, User.deleted_at.is_(None))
@@ -205,10 +239,11 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
     *,
     user_type: UserType = UserType.REQUESTER,
     can_sign_in: bool = True,
-    source: Literal["admin", "import", "email"] = "admin",
+    source: Literal["admin", "import", "email", "integration"] = "admin",
     now: datetime | None = None,
 ) -> User:
     """Add a person (REQ-ADM-002). Technicians take a seat; sign-in needs an email address."""
+    _person_type(user_type)
     now = now or datetime.now(UTC)
     clean = _clean(values)
     clean.setdefault("first_name", None)
@@ -241,11 +276,11 @@ async def create_person(  # noqa: PLR0913 - keyword-only person settings
         version=person.version,
         kind="created",
         changes=[],
-        source="import" if source == "import" else "email" if source == "email" else "ui",
+        source=source if source in {"import", "email", "integration"} else "ui",
     )
     await record_event(
         session,
-        UserCreatedV2(user_id=person.id, user_type=user_type.value, source=source),
+        UserCreatedV3(user_id=person.id, user_type=user_type.value, source=source),
         aggregate_id=person.id,
         aggregate_version=person.version,
     )
@@ -262,7 +297,15 @@ async def update_person(
 ) -> User:
     """Change the person record (REQ-ADM-002). A stale version gets an explained 409."""
     clean = _clean(changes)
-    current = await UserRepository(session).get(user_id)
+    current = await _person(session, user_id)
+    if current.directory_source is not None and source != "integration":
+        managed = sorted(
+            name
+            for name, value in clean.items()
+            if name in DIRECTORY_FIELDS and getattr(current, name) != value
+        )
+        if managed:  # the directory owns these: the next sync would undo the change
+            raise _invalid([(name, "managed_by_directory", {}) for name in managed])
     clean = _with_name(current, clean)
     problems: list[Problem] = list(person_problems(clean))
     if "email" in clean and clean["email"] is None and current.can_sign_in:
@@ -322,7 +365,13 @@ async def _save(
     )
     await record_event(
         session,
-        UserUpdated(user_id=current.id, changed_fields=changed),
+        UserUpdated(
+            user_id=current.id,
+            changed_fields=changed,
+            managers=[m for m in (before.get("manager_id"), values.get("manager_id")) if m]
+            if "manager_id" in changed
+            else [],
+        ),
         aggregate_id=current.id,
         aggregate_version=updated.version,
     )
@@ -346,7 +395,8 @@ async def set_user_type(
     A requester never holds the technician role. A tenant admin stays a technician: the admin
     role is removed first (so the tenant never loses its last admin this way).
     """
-    current = await UserRepository(session).get(user_id)
+    _person_type(user_type)
+    current = await _person(session, user_id)
     if current.user_type == user_type.value:
         return await _save(session, current, expected_version, {}, "ui")
     if user_type is UserType.TECHNICIAN:
@@ -379,7 +429,7 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
     end_sessions: EndSessions | None = None,
 ) -> User:
     """Allow sign-in (needs an email address; marks the invitation) or stop it (ends sessions)."""
-    current = await UserRepository(session).get(user_id)
+    current = await _person(session, user_id)
     if allowed == current.can_sign_in:
         return await _save(session, current, expected_version, {}, "ui")
     if allowed and not current.email:
@@ -395,26 +445,37 @@ async def set_sign_in(  # noqa: PLR0913 - the record, the version and the change
     return updated
 
 
-async def deactivate(
+async def deactivate(  # noqa: PLR0913 - the record, the version and who asks, explicit
     session: AsyncSession,
     actor_id: uuid.UUID | None,
     user_id: uuid.UUID,
     *,
     expected_version: int,
     end_sessions: EndSessions | None = None,
+    directory: Literal["entra", "ldap"] | None = None,
 ) -> User:
-    """Deactivate (REQ-ADM-005): cannot sign in, frees the seat, keeps every record and role."""
-    current = await UserRepository(session).get(user_id)
+    """Deactivate (REQ-ADM-005): cannot sign in, frees the seat, keeps every record and role.
+
+    `directory`: the directory sync deactivates a leaver (REQ-INT-064); the event says so, for
+    lane A's "needs reassignment" view, and the history names the integration.
+    """
+    current = await _person(session, user_id)
+    history: Source = "ui" if directory is None else "integration"
     if current.status == "disabled":
-        return await _save(session, current, expected_version, {}, "ui")
+        return await _save(session, current, expected_version, {}, history)
     if user_id == actor_id:
         raise PermissionDenied(code="cannot_deactivate_self")
     if await holds_tenant_admin(session, user_id):
         await guard_last_admin(session, user_id)  # the last active admin is never deactivated
-    updated = await _save(session, current, expected_version, {"status": "disabled"}, "ui")
+    updated = await _save(session, current, expected_version, {"status": "disabled"}, history)
     await record_event(
         session,
-        UserStatusChanged(user_id=user_id, status="disabled"),
+        UserStatusChanged(
+            user_id=user_id,
+            status="disabled",
+            reason="admin" if directory is None else "directory",
+            source=directory,
+        ),
         aggregate_id=user_id,
         aggregate_version=updated.version,
     )
@@ -424,7 +485,7 @@ async def deactivate(
 
 async def reactivation(session: AsyncSession, user_id: uuid.UUID) -> Reactivation:
     """The roles and groups a person still holds, offered for confirmation on reactivation."""
-    await UserRepository(session).get(user_id)
+    await _person(session, user_id)
     held = await _held(session, user_id)
     groups = await memberships(session, user_id)
     return Reactivation(
@@ -432,18 +493,23 @@ async def reactivation(session: AsyncSession, user_id: uuid.UUID) -> Reactivatio
     )
 
 
-async def reactivate(
+async def reactivate(  # noqa: PLR0913 - the record, the version and what is kept, explicit
     session: AsyncSession,
     user_id: uuid.UUID,
     *,
     expected_version: int,
     keep_role_ids: Sequence[uuid.UUID],
     keep_group_ids: Sequence[uuid.UUID],
+    directory: Literal["entra", "ldap"] | None = None,
 ) -> User:
-    """Reactivate, keeping only the confirmed roles and groups (REQ-ADM-005 AC3)."""
-    current = await UserRepository(session).get(user_id)
+    """Reactivate, keeping only the confirmed roles and groups (REQ-ADM-005 AC3).
+
+    `directory`: the directory enabled the person again (the sync keeps what they held).
+    """
+    current = await _person(session, user_id)
+    history: Source = "ui" if directory is None else "integration"
     if current.status == "active":
-        return await _save(session, current, expected_version, {}, "ui")
+        return await _save(session, current, expected_version, {}, history)
     if current.user_type == UserType.TECHNICIAN.value:
         await hold_limit(session, LimitKey.TECHNICIANS)
         await reserve_capacity(session, LimitKey.TECHNICIANS, code="technician_limit_reached")
@@ -456,10 +522,15 @@ async def reactivate(
     await leave_groups(session, user_id, sorted(groups.group_ids - set(keep_group_ids)))
     # A person always keeps the system role of their type.
     await grant_system_role(session, user_id, current.user_type)
-    updated = await _save(session, current, expected_version, {"status": "active"}, "ui")
+    updated = await _save(session, current, expected_version, {"status": "active"}, history)
     await record_event(
         session,
-        UserStatusChanged(user_id=user_id, status="active"),
+        UserStatusChanged(
+            user_id=user_id,
+            status="active",
+            reason="admin" if directory is None else "directory",
+            source=directory,
+        ),
         aggregate_id=user_id,
         aggregate_version=updated.version,
     )

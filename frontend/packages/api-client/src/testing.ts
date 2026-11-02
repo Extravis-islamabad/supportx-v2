@@ -22,6 +22,7 @@ type Grant = [
 ];
 
 const TECHNICIAN: Grant[] = [
+  ['integrations.view', 'all'],
   ['profile.edit', 'own'],
   ['users.view', 'all'],
   ['sites.view', 'all'],
@@ -49,6 +50,8 @@ const TECHNICIAN: Grant[] = [
   ['reports.export', 'all'],
   ['announcements.view', 'all'],
   ['announcements.manage', 'own'],
+  // WP-025: technicians read the SLA set-up; admins change it.
+  ['sla.view', 'all'],
   // D-052: technicians work on incidents at group scope (their groups, assigned, site queue).
   ['incidents.view', 'group'],
   ['incidents.create', 'all'],
@@ -70,6 +73,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['knowledge.manage_topics', 'all'],
   ['knowledge.manage_types', 'all'],
   ['knowledge.manage_settings', 'all'],
+  ['sla.manage', 'all'],
   ['files.manage', 'all'],
   ['announcements.manage', 'all'],
   ['announcements.publish', 'all'],
@@ -104,6 +108,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['identity.manage', 'all'],
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
+  ['integrations.manage_email', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
@@ -520,8 +525,10 @@ export function fakeConversationEntry(
     recipients: null,
     delivery_state: null,
     delivery_reason: null,
+    delivery_updated_at: null,
     first_response: false,
     mentioned_ids: [],
+    automatic: false,
     created_at: '2026-10-24T09:30:00Z',
     created_by: '01900000-0000-7000-8000-0000000000a1',
     version: 1,
@@ -594,9 +601,21 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       colour: null,
       disabled: false,
     })),
-    closure_codes: ['fixed', 'workaround', 'no_fault_found', 'duplicate', 'user_error'].map(
-      (code, sort_order) => ({ code, labels: null, sort_order, colour: null, disabled: false }),
-    ),
+    // D-083 plus D-107's "confirmed_by_requester", as the server seeds them.
+    closure_codes: [
+      'fixed',
+      'workaround',
+      'no_fault_found',
+      'duplicate',
+      'user_error',
+      'confirmed_by_requester',
+    ].map((code, sort_order) => ({
+      code,
+      labels: null,
+      sort_order,
+      colour: null,
+      disabled: false,
+    })),
     // WP-020f defaults (D1, D2, D5): auto-close off until a channel tells requesters.
     closure: {
       resolve_requires: ['resolution'],
@@ -605,7 +624,9 @@ export function fakeIncidentCatalogue(): IncidentCatalogue {
       complete_open_work: false,
       auto_close_days: null,
       reopen_window_days: 7,
+      task_owner_access: false, // WP-020e (D-112): off by default
       requester_channels: [],
+      requester_channel_states: [],
     },
     next_number: 8,
   };
@@ -845,6 +866,17 @@ export function fakeMailbox(
     id: '01900000-0000-7000-8000-000000000a01',
     address: 'it@acme.test',
     display_name: null,
+    protocol: 'imap',
+    auth_model: null,
+    client_id: null,
+    directory_id: null,
+    credential_kind: null,
+    credential_expires_at: null,
+    needs_sign_in: false,
+    signed_in: false,
+    flooding: false,
+    degraded_reason: null,
+    credential: null,
     host: 'imap.acme.test',
     port: 993,
     security: 'tls',

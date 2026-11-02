@@ -18,7 +18,10 @@ For each fetched message, in this order:
 
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from enum import StrEnum
+
+from app.shared.connectors.ports import ConnectorStatus
 
 PER_SENDER_LIMIT = 10  # messages per address per hour before holding (proposed default)
 POLL_SECONDS = 120  # Appendix A (file 12): every 2 minutes
@@ -29,6 +32,30 @@ class MailboxProtocol(StrEnum):
     """How a mailbox is read."""
 
     IMAP = "imap"
+    GRAPH = "graph"  # Microsoft 365 through Microsoft Graph (OAuth 2.0, D-109 (2))
+    GMAIL = "gmail"  # Google Workspace through the Gmail API (OAuth 2.0)
+
+
+class AuthModel(StrEnum):
+    """How an API mailbox signs in (docs/guides/mail-oauth-apps.md)."""
+
+    APP = "app"  # Graph application permission: no one signs in (model A)
+    DELEGATED = "delegated"  # someone signs in as the mailbox once; a refresh token is kept
+
+
+class CredentialKind(StrEnum):
+    """What proves the customer's OAuth app (client) to Microsoft or Google."""
+
+    SECRET = "secret"  # noqa: S105 - a kind of credential, not a password
+    CERTIFICATE = "certificate"  # Microsoft only: a private key signs each token request
+
+
+# Least privilege (D-109 (2), listed in docs/guides/mail-oauth-apps.md): read, mark and move mail.
+# Never sending, never full mailbox access.
+GRAPH_APP_SCOPES = ("https://graph.microsoft.com/.default",)  # the app's granted Mail.ReadWrite
+GRAPH_DELEGATED_SCOPES = ("offline_access", "https://graph.microsoft.com/Mail.ReadWrite")
+GMAIL_SCOPES = ("https://www.googleapis.com/auth/gmail.modify",)
+CREDENTIAL_WARNING_DAYS = 14  # an expiring client secret or certificate is announced this early
 
 
 class ConnectionSecurity(StrEnum):
@@ -68,6 +95,43 @@ class MailboxState(StrEnum):
     NOT_SET_UP = "not_set_up"
     WORKING = "working"
     FAILING = "failing"
+
+
+CONNECTOR_KIND = "mailbox"  # the catalogue's code for mailboxes (WP-040)
+# The provider refused the credential, or there is none: failing at once, not after 3 runs.
+AUTH_FAILURES = frozenset(
+    {
+        "imap_login_failed",
+        "mailbox_no_password",
+        "mailbox_secret_unreadable",
+        "mailbox_key_ring_missing",
+        "oauth_certificate_invalid",
+        "oauth_client_rejected",
+        "oauth_consent_revoked",
+        "oauth_not_allowed",
+        "oauth_not_connected",
+        "oauth_wrong_account",
+    }
+)
+SECRET_FALLBACK = "secret_store_fallback"  # noqa: S105 - a reason code (degraded), no secret
+
+
+def connector_status(
+    state: str, *, enabled: bool, secret_fallback: bool = False
+) -> ConnectorStatus:
+    """How the connector catalogue shows a mailbox (REQ-INT-001): switched off is "paused".
+
+    A working mailbox whose secret came from the old column instead of the secrets store is
+    "degraded" (WP-040): it works, but the move needs an admin's look.
+    """
+    if not enabled:
+        return ConnectorStatus.PAUSED
+    if state == MailboxState.WORKING.value and secret_fallback:
+        return ConnectorStatus.DEGRADED
+    return {
+        MailboxState.WORKING.value: ConnectorStatus.ACTIVE,
+        MailboxState.FAILING.value: ConnectorStatus.FAILED,
+    }.get(state, ConnectorStatus.NOT_SET_UP)
 
 
 class Outcome(StrEnum):
@@ -153,6 +217,58 @@ def route(  # noqa: PLR0911, PLR0913 - one decision per rule in the module docst
     if policy is UnknownSenders.CREATE_ALLOWED_DOMAINS and domain_of(sender) in allowed:
         return Routing(Outcome.CREATED, create_requester=True)
     return Routing(Outcome.REJECTED, "unknown_sender")
+
+
+def oauth_problems(  # noqa: PLR0913 - one check per field, explicit
+    protocol: MailboxProtocol,
+    *,
+    auth_model: AuthModel | None,
+    credential_kind: CredentialKind | None,
+    client_id: str | None,
+    directory_id: str | None,
+    has_credential: bool,
+) -> list[tuple[str, str]]:
+    """(field, code) problems of an API mailbox's sign-in settings; none for IMAP."""
+    if protocol is MailboxProtocol.IMAP:
+        return []
+    problems: list[tuple[str, str]] = []
+    if not client_id:
+        problems.append(("client_id", "required"))
+    if not has_credential:
+        problems.append(("client_secret", "required"))
+    if protocol is MailboxProtocol.GRAPH:
+        if not directory_id:
+            problems.append(("directory_id", "required"))
+        if auth_model is None:
+            problems.append(("auth_model", "required"))
+    elif auth_model is AuthModel.APP:
+        # Gmail without someone signing in needs domain-wide delegation, not offered (it reaches
+        # every mailbox of the Workspace).
+        problems.append(("auth_model", "mailbox_auth_model_unsupported"))
+    if protocol is MailboxProtocol.GMAIL and credential_kind is CredentialKind.CERTIFICATE:
+        problems.append(("credential_kind", "mailbox_auth_model_unsupported"))
+    return problems
+
+
+def scopes_for(protocol: MailboxProtocol, auth_model: AuthModel) -> tuple[str, ...]:
+    """The OAuth scopes SupportX asks for: the least that reads, marks and moves mail."""
+    if protocol is MailboxProtocol.GMAIL:
+        return GMAIL_SCOPES
+    return GRAPH_APP_SCOPES if auth_model is AuthModel.APP else GRAPH_DELEGATED_SCOPES
+
+
+def needs_sign_in(protocol: MailboxProtocol, auth_model: AuthModel | None) -> bool:
+    """Whether someone must sign in as the mailbox (a consent screen) before it can be read."""
+    return protocol is not MailboxProtocol.IMAP and auth_model is not AuthModel.APP
+
+
+def credential_warning_due(
+    expires_at: datetime | None, warned_at: datetime | None, now: datetime
+) -> bool:
+    """Whether to announce an expiring credential now (once per expiry date)."""
+    if expires_at is None or expires_at - now > timedelta(days=CREDENTIAL_WARNING_DAYS):
+        return False
+    return warned_at is None or warned_at < expires_at - timedelta(days=CREDENTIAL_WARNING_DAYS)
 
 
 def check_security(security: ConnectionSecurity, *, allow_plain: bool) -> list[str]:

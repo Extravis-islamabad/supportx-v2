@@ -19,7 +19,7 @@ from app.core.database import TenantSession
 from app.core.errors import ProblemDetail, ValidationFailed
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access.api.routes import UserDetail
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import PersonType, UserType
 from app.modules.identity_access.domain.people_import import MAX_FILE_BYTES
 from app.modules.identity_access.domain.policy import Subject
 from app.modules.identity_access.infra.models import PeopleImport
@@ -88,7 +88,7 @@ class PersonIn(PersonFields):
     """A new person: requester or technician (takes a seat), may sign in or is a contact."""
 
     first_name: str  # required when adding
-    user_type: UserType = UserType.REQUESTER
+    user_type: PersonType = PersonType.REQUESTER
     can_sign_in: bool = Field(default=True, description="False: a contact (no sign-in).")
 
 
@@ -117,7 +117,7 @@ async def create_person(
             include=body.model_fields_set - {"user_type", "can_sign_in"} | {"first_name"}
         )
         person = await people.create_person(
-            session, values, user_type=body.user_type, can_sign_in=body.can_sign_in
+            session, values, user_type=UserType(body.user_type), can_sign_in=body.can_sign_in
         )
         note.skip = False
         note.object_id = str(person.id)
@@ -158,7 +158,7 @@ class TypeIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    user_type: UserType
+    user_type: PersonType
 
 
 @people_router.put(
@@ -175,7 +175,9 @@ async def set_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     subject: Manage,
 ) -> UserDetail:
     """403 `technician_limit_reached` when no seat is left; a tenant admin stays a technician."""
-    person = await people.set_user_type(session, user_id, body.user_type, expected_version=version)
+    person = await people.set_user_type(
+        session, user_id, UserType(body.user_type), expected_version=version
+    )
     set_etag(response, person.version)
     return UserDetail.of(person, subject)
 

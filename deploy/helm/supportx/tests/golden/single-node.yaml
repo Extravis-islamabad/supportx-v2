@@ -2248,7 +2248,7 @@ spec:
           type: RuntimeDefault
       initContainers:
         - name: wait-for-migrate
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.wait_for_job"]
           env:
@@ -2268,7 +2268,7 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
       containers:
         - name: api
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           envFrom:
             - configMapRef:
@@ -2633,7 +2633,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: web
-          image: ghcr.io/devhat-pm/supportx-web:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-web:0.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - {name: http, containerPort: 8080}
@@ -2717,7 +2717,7 @@ spec:
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: wait-for-migrate
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.wait_for_job"]
           env:
@@ -2737,7 +2737,7 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
       containers:
         - name: relay
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.outbox_relay"]
           envFrom:
@@ -2867,7 +2867,7 @@ spec:
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: wait-for-migrate
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.wait_for_job"]
           env:
@@ -2887,7 +2887,7 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
       containers:
         - name: consumers
-          image: ghcr.io/devhat-pm/supportx-worker:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-worker:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.consumers"]
           envFrom:
@@ -3021,7 +3021,7 @@ spec:
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: wait-for-migrate
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.wait_for_job"]
           env:
@@ -3041,7 +3041,7 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
       containers:
         - name: fanout
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.realtime_fanout"]
           envFrom:
@@ -3166,7 +3166,7 @@ spec:
       terminationGracePeriodSeconds: 30
       initContainers:
         - name: wait-for-migrate
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.wait_for_job"]
           env:
@@ -3186,7 +3186,7 @@ spec:
             limits: {cpu: 200m, memory: 128Mi}
       containers:
         - name: indexes
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "workers.custom_field_indexes"]
           envFrom:
@@ -3710,7 +3710,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: keycloak-identity
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.keycloak_identity"]
           env:
@@ -3786,7 +3786,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: keycloak-theme
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["python", "-m", "tooling.keycloak_theme"]
           env:
@@ -3856,7 +3856,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrate
-          image: ghcr.io/devhat-pm/supportx-backend:0.1.0
+          image: ghcr.io/extravis-islamabad/supportx-backend:0.1.0
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:

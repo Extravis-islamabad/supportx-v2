@@ -8,10 +8,11 @@ technician only through `/assign` and `/take`.
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission, require_signed_in
 from app.core.database import TenantSession
@@ -23,6 +24,7 @@ from app.modules.work_items.api.conversation_routes import (
     add_record_routes,
 )
 from app.modules.work_items.api.list_routes import add_list_routes, list_dependency
+from app.modules.work_items.api.parts_routes import add_parts_collection_routes, add_parts_routes
 from app.modules.work_items.api.people import PersonOut, people_out
 from app.modules.work_items.api.settings_routes import add_settings_routes
 from app.modules.work_items.domain.classification import (
@@ -56,12 +58,13 @@ from app.modules.work_items.service import search as search_service
 from app.modules.work_items.service import settings as settings_service
 from app.modules.work_items.service import work_items as service
 from app.modules.work_items.service.catalogue import Catalogue, ReasonInfo
-from app.modules.work_items.service.closing import MoveInput, requester_channels
+from app.modules.work_items.service.closing import MoveInput, requester_channel_states
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import ListQuery, Page, PageResult, request_zone
 from app.shared.api.ratelimit import rate_limit
 from app.shared.history import Actors, ChangeKind, HistoryEntry, Source, source_of
+from app.shared.labels import strip_isolates
 
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
@@ -230,6 +233,109 @@ class WorkItemAssignIn(BaseModel):
         default=None,
         description="With confirm_lose_access: keep following it (null: tenant default, D-068).",
     )
+
+
+class WorkItemDueDateIn(BaseModel):
+    """A due date set by hand (null clears it and the SLA calculates it again), and why."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    due_at: datetime | None = Field(description="The new due moment (UTC); null clears it.")
+    reason: str = Field(min_length=1, max_length=500)
+
+
+SlaKind = Literal["first_response", "resolution"]
+SlaState = Literal["running", "paused", "met", "breached", "stopped"]
+SlaMetHow = Literal["on_time", "late", "at_resolution"]
+SlaReason = Literal["created", "priority_changed", "condition_changed"]
+
+
+class SlaManualOut(BaseModel):
+    """A due date set by hand: who, why and when (REQ-SLA-028 AC3)."""
+
+    due_at: datetime
+    by_id: uuid.UUID | None
+    by_name: str | None
+    reason: str | None
+    at: datetime | None
+
+
+class SlaTargetOut(BaseModel):
+    """One target of the record's SLA (the latest round).
+
+    Times are UTC; seconds are business seconds on the target's calendar.
+    """
+
+    kind: SlaKind
+    round: int
+    state: SlaState
+    target_seconds: int
+    used_seconds: int
+    paused_seconds: int
+    running_since: datetime | None
+    paused_since: datetime | None
+    due_at: datetime | None
+    warning_at: datetime | None
+    met_at: datetime | None
+    met_how: SlaMetHow | None
+    breached_at: datetime | None
+    breach_seconds: int | None
+    calendar_id: uuid.UUID | None
+    calendar_name: str | None
+    manual: SlaManualOut | None
+
+
+class WorkItemSlaOut(BaseModel):
+    """The record's SLA panel (REQ-SLA-038). No policy: the record has no SLA."""
+
+    policy_id: uuid.UUID | None
+    policy_name: str | None
+    reason: SlaReason | None
+    applied_at: datetime | None
+    targets: list[SlaTargetOut]
+    may_set_due_dates: bool
+
+    @classmethod
+    def of(cls, panel: service.SlaPanel) -> "WorkItemSlaOut":
+        """The panel as the API returns it."""
+        view = panel.sla
+        return cls(
+            policy_id=view.policy_id,
+            policy_name=view.policy_name,
+            reason=cast("SlaReason | None", view.reason),
+            applied_at=view.applied_at,
+            may_set_due_dates=panel.may_set_due_dates,
+            targets=[
+                SlaTargetOut(
+                    kind=cast("SlaKind", t.kind),
+                    round=t.round,
+                    state=cast("SlaState", t.state),
+                    target_seconds=t.target_seconds,
+                    used_seconds=t.used_seconds,
+                    paused_seconds=t.paused_seconds,
+                    running_since=t.running_since,
+                    paused_since=t.paused_since,
+                    due_at=t.due_at,
+                    warning_at=t.warning_at,
+                    met_at=t.met_at,
+                    met_how=cast("SlaMetHow | None", t.met_how),
+                    breached_at=t.breached_at,
+                    breach_seconds=t.breach_seconds,
+                    calendar_id=t.calendar_id,
+                    calendar_name=t.calendar_name,
+                    manual=SlaManualOut(
+                        due_at=t.manual_due_at,
+                        by_id=t.manual_by,
+                        by_name=panel.names.get(str(t.manual_by)) if t.manual_by else None,
+                        reason=t.manual_reason,
+                        at=t.manual_at,
+                    )
+                    if t.manual_due_at is not None
+                    else None,
+                )
+                for t in view.targets
+            ],
+        )
 
 
 class WorkItemTakeIn(BaseModel):
@@ -463,6 +569,7 @@ class WorkItemListItem(BaseModel):
     channel: Channel
     tags: list[str]
     sla_policy_id: uuid.UUID | None
+    first_response_due_at: datetime | None
     resolution_due_at: datetime | None
     created_at: datetime
     updated_at: datetime
@@ -537,9 +644,22 @@ class WorkItemClosureOut(BaseModel):
     complete_open_work: bool
     auto_close_days: int | None = Field(description="Business days; null: off.")
     reopen_window_days: int
-    requester_channels: list[str] = Field(
-        description="Channels that can tell requesters; auto-close needs one."
+    task_owner_access: bool = Field(
+        description="A task's owner may work on it without access to the record (D-112)."
     )
+    requester_channels: list[str] = Field(
+        description="Channels that reach this tenant's requesters now; auto-close needs one."
+    )
+    requester_channel_states: list["RequesterChannelOut"] = Field(
+        description="Every channel that can tell requesters, and why one does not reach now."
+    )
+
+
+class RequesterChannelOut(BaseModel):
+    """A channel that can tell requesters, for this tenant now."""
+
+    channel: str
+    reason: str | None = Field(description="Null: it reaches; else why not (a labelled code).")
 
 
 class WorkItemTransitionOut(BaseModel):
@@ -628,8 +748,9 @@ class WorkItemCatalogueOut(BaseModel):
     next_number: int = Field(description="The display number the next record gets.")
 
     @classmethod
-    def of(cls, cat: Catalogue) -> "WorkItemCatalogueOut":
-        """From the loaded catalogue."""
+    async def of(cls, session: AsyncSession, cat: Catalogue) -> "WorkItemCatalogueOut":
+        """From the loaded catalogue and the tenant's requester channels (BUG-02)."""
+        channels = await requester_channel_states(session)
         return cls(
             prefix=cat.prefix,
             default_priority=Priority(cat.default_priority),
@@ -701,7 +822,11 @@ class WorkItemCatalogueOut(BaseModel):
                 complete_open_work=cat.closure.complete_open_work,
                 auto_close_days=cat.closure.auto_close_days,
                 reopen_window_days=cat.closure.reopen_window_days,
-                requester_channels=sorted(requester_channels()),
+                task_owner_access=cat.closure.task_owner_access,
+                requester_channels=sorted(n for n, reason in channels.items() if reason is None),
+                requester_channel_states=[
+                    RequesterChannelOut(channel=n, reason=reason) for n, reason in channels.items()
+                ],
             ),
             next_number=cat.last_number + 1,
         )
@@ -720,6 +845,7 @@ class WorkItemClosurePatch(BaseModel):
         default=None, description="1 to 30 business days; null switches auto-close off."
     )
     reopen_window_days: int | None = None
+    task_owner_access: bool | None = None
 
 
 # Settings that may be cleared with null (the others ignore a null).
@@ -913,6 +1039,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     Edit = Annotated[Subject, Depends(require_permission(perm("edit")))]  # noqa: N806 - type alias
     Assign = Annotated[Subject, Depends(require_permission(perm("assign")))]  # noqa: N806 - type alias
     Take = Annotated[Subject, Depends(require_permission(perm("take")))]  # noqa: N806 - type alias
+    DueDates = Annotated[Subject, Depends(require_permission(perm("edit_due_dates")))]  # noqa: N806 - type alias
     Delete = Annotated[Subject, Depends(require_permission(perm("delete")))]  # noqa: N806 - type alias
     Admin = Annotated[Subject, Depends(require_permission("settings.manage"))]  # noqa: N806 - type alias
     Policy = Annotated[PolicyService, Depends(get_policy)]  # noqa: N806 - type alias
@@ -986,7 +1113,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             wtype,
             policy,
             group_id=group_id,
-            search=(search or "").strip() or None,
+            search=strip_isolates(search or "").strip() or None,  # a pasted name may carry marks
             limit=limit,
         )
         return [
@@ -1021,7 +1148,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             session,
             subject,
             wtype,
-            (q or "").strip() or None,
+            strip_isolates(q or "").strip() or None,  # a pasted ID or name may carry marks
             status_categories={c.value for c in status_category},
             requester_id=requester_id,
             ids=ids,
@@ -1050,7 +1177,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         del subject
         cat = await settings_service.get_catalogue(session, wtype)
         set_etag(response, cat.settings_version)
-        return WorkItemCatalogueOut.of(cat)
+        return await WorkItemCatalogueOut.of(session, cat)
 
     @router.patch("/settings", summary=f"Change {name} settings", responses=CONFLICT)
     async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
@@ -1079,7 +1206,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             user_id=subject.user_id,
         )
         set_etag(response, cat.settings_version)
-        return WorkItemCatalogueOut.of(cat)
+        return await WorkItemCatalogueOut.of(session, cat)
 
     @router.patch(
         "/settings/closure", summary=f"Change how {name}s resolve and close", responses=CONFLICT
@@ -1107,7 +1234,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
             user_id=subject.user_id,
         )
         set_etag(response, cat.settings_version)
-        return WorkItemCatalogueOut.of(cat)
+        return await WorkItemCatalogueOut.of(session, cat)
 
     @router.get("/categories", summary="Category tree")
     async def categories(session: TenantSession, subject: View) -> list[WorkItemCategoryOut]:
@@ -1174,6 +1301,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         return WorkItemCategoryOut.of(node)
 
     add_list_routes(router, wtype)
+    add_parts_collection_routes(router, wtype)
     add_collection_routes(router, wtype)
     add_settings_routes(router, wtype, WorkItemCatalogueOut)
 
@@ -1368,6 +1496,39 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         set_etag(response, view.record.version)
         return WorkItemOut.of(view)
 
+    @router.put(
+        "/{record_id}/due-dates/{kind}",
+        summary="Set or clear a due date by hand",
+        responses=CONFLICT,
+        dependencies=[
+            audited(f"{name}.due_date_changed", object_type=name, object_param="record_id")
+        ],
+    )
+    async def set_due_date(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+        record_id: uuid.UUID,
+        kind: SlaKind,
+        body: WorkItemDueDateIn,
+        version: ExpectedVersion,
+        session: TenantSession,
+        subject: DueDates,
+        response: Response,
+        request: Request,
+    ) -> WorkItemOut:
+        """REQ-SLA-028: the date stays through priority and policy changes until cleared."""
+        view = await service.set_due_date(
+            session,
+            subject,
+            wtype,
+            record_id,
+            kind=kind,
+            due_at=body.due_at,
+            reason=body.reason,
+            expected_version=version,
+            source=source_of(request),
+        )
+        set_etag(response, view.record.version)
+        return WorkItemOut.of(view)
+
     @router.delete(
         "/{record_id}",
         summary="Move to the trash",
@@ -1417,6 +1578,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         rows = await service.automation_log(session, subject, wtype, record_id)
         return [AutomationRunOut.model_validate(r, from_attributes=True) for r in rows]
 
+    @router.get("/{record_id}/sla", summary="SLA")
+    async def sla_panel(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemSlaOut:
+        """The record's SLA: the policy, why it applies, each target and its due date."""
+        return WorkItemSlaOut.of(await service.sla_panel(session, subject, wtype, record_id))
+
     @router.get("/{record_id}/history", summary="History")
     async def history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options
         record_id: uuid.UUID,
@@ -1444,4 +1612,5 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         )
 
     add_record_routes(router, wtype)
+    add_parts_routes(router, wtype)
     return router

@@ -1,6 +1,6 @@
 # SupportX v2 task runner. `make check` must be green before any task is reported done (CLAUDE.md).
 .DEFAULT_GOAL := help
-.PHONY: help setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
+.PHONY: help decisions progress-log setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
 	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
@@ -121,14 +121,21 @@ dlq-replay: ## Replay dead letters to their consumer: make dlq-replay seq=<n> | 
 backend-test-pdf: ## PDF export tests (D-100 D8): needs `uv sync --group pdf` and Pango (macOS: brew install pango)
 	cd backend && uv sync --group pdf && DYLD_FALLBACK_LIBRARY_PATH=$(PDF_LIBS) SUPPORTX_REQUIRE_PDF_TESTS=1 .venv/bin/pytest -m pdf --no-cov -q
 
-labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034)
+labels-json: ## Export the label dictionary for the backend (D-100 D7, ADR-034), and the RTL ranges for the console
 	node frontend/packages/labels/scripts/export-json.js backend/app/shared/labels/resources.json
+	$(BACKEND) uv run python -m tooling.rtl_ranges ../frontend/packages/labels/src/rtl-ranges.json
 
 events-schemas: ## Export every event schema to docs/architecture/event-schemas.json
 	$(BACKEND) uv run python -m tooling.event_schemas write $(EVENT_SCHEMAS)
 
 events-check: ## Fail on an outdated schema export or a breaking event change (base=<file> in CI)
 	$(BACKEND) uv run python -m tooling.event_schemas check $(EVENT_SCHEMAS) $(if $(base),--base $(base))
+
+decisions: ## Render every docs/decisions/D-NNN.md into one table at docs/_build/DECISIONS.md (D-123)
+	$(BACKEND) uv run python -m tooling.docs_entries decisions
+
+progress-log: ## Render docs/progress-log/ newest first into docs/_build/PROGRESS-log.md (D-123)
+	$(BACKEND) uv run python -m tooling.docs_entries progress-log
 
 openapi: ## Export the OpenAPI 3.1 contract and regenerate the TypeScript API types (D-022)
 	$(BACKEND) uv run python -m tooling.export_openapi $(OPENAPI_FILE)

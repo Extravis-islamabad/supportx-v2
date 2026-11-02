@@ -146,7 +146,7 @@ export function WaitingMailDrawer({ mailbox, onClose }: { mailbox: Mailbox; onCl
                 title={<Typography.Text strong>{item.subject}</Typography.Text>}
                 description={
                   <Flex vertical gap={2}>
-                    <Typography.Text type="secondary">
+                    <Typography.Text type="secondary" data-testid="mail-waiting-from">
                       {t('mail.waiting.from', {
                         sender: item.sender,
                         when: dates.format(item.received_at),

@@ -73,6 +73,7 @@ export const queryKeys = {
     list: ['dashboards', 'list'] as const,
     detail: (ref: string) => ['dashboards', 'detail', ref] as const,
     roleHomes: ['dashboards', 'role-homes'] as const,
+    catalogue: ['dashboards', 'catalogue'] as const,
   },
   incidents: {
     all: ['incidents'] as const,
@@ -84,6 +85,8 @@ export const queryKeys = {
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,
     // Under the record's history: whatever refreshes the history refreshes this (WP-029).
     automation: (id: string) => ['incidents', 'history', id, 'automation'] as const,
+    // The SLA panel changes with every save, so it lives under the history too (WP-025).
+    sla: (id: string) => ['incidents', 'history', id, 'sla'] as const,
     catalogue: ['incidents', 'catalogue'] as const,
     categories: ['incidents', 'categories'] as const,
     assignees: (groupId: string | null, search: string) =>
@@ -99,6 +102,10 @@ export const queryKeys = {
     listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
     bulkJobs: ['incidents', 'bulk-jobs'] as const,
     bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,
+    tasks: (id: string) => ['incidents', 'tasks', id] as const,
+    myTasks: ['incidents', 'my-tasks'] as const,
+    worklogs: (id: string) => ['incidents', 'worklogs', id] as const,
+    links: (id: string) => ['incidents', 'links', id] as const,
   },
   customFields: {
     all: ['custom-fields'] as const,
@@ -125,6 +132,15 @@ export const queryKeys = {
     usage: ['files', 'usage'] as const,
     status: ['files', 'status'] as const,
   },
+  sla: {
+    all: ['sla'] as const,
+    calendars: ['sla', 'calendars'] as const,
+    holidayLists: ['sla', 'holiday-lists'] as const,
+    holidays: (listId: string, year: number) => ['sla', 'holidays', listId, year] as const,
+    policies: (recordType: string) => ['sla', 'policies', recordType] as const,
+    settings: (recordType: string) => ['sla', 'settings', recordType] as const,
+    openRecords: (calendarId: string) => ['sla', 'open-records', calendarId] as const,
+  },
   automation: {
     all: ['automation'] as const,
     fields: (recordType: string) => ['automation', 'fields', recordType] as const,
@@ -137,6 +153,13 @@ export const queryKeys = {
     triggers: (recordType: string) => ['automation', 'triggers', recordType] as const,
     transitions: (recordType: string) => ['automation', 'transitions', recordType] as const,
     loopStops: ['automation', 'loop-stops'] as const,
+  },
+  connectors: {
+    catalogue: ['connectors', 'catalogue'] as const,
+  },
+  directories: {
+    all: ['directories'] as const,
+    groups: (id: string, query: string) => ['directories', 'groups', id, query] as const,
   },
   mailboxes: {
     all: ['mailboxes'] as const,

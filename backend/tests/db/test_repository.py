@@ -30,6 +30,19 @@ async def test_add_fills_managed_columns(
     assert item.deleted_at is None
 
 
+async def test_a_worker_naming_only_the_author_also_records_them_as_last_changer(
+    app_db: Database, tenant_pair: tuple[uuid.UUID, uuid.UUID]
+) -> None:
+    # A worker (no session user) writing in someone's name, e.g. a requester's reply by e-mail.
+    tenant, _ = tenant_pair
+    author = uuid.uuid4()
+    async with app_db.tenant_session(TenantContext(tenant)) as session:
+        item = await ProbeRepository(session, clock=FrozenClock(T0)).add(
+            ProbeItem(title="by mail", created_by=author)
+        )
+    assert (item.created_by, item.updated_by) == (author, author)
+
+
 async def test_get_hides_deleted_and_other_tenants(
     app_db: Database, tenant_pair: tuple[uuid.UUID, uuid.UUID]
 ) -> None:
