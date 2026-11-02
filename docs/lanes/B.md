@@ -9,19 +9,19 @@ Identity, mail, notifications, CI
 
 ## Current WP
 
-Generated files out of git and a file per lane (D-127, this PR); then WP-040 session 2's rest: AD/LDAP through Keycloak federation (D-118) and the connector defaults screen. WP-040 merged so far: #150 (framework, service identities), #168 (Entra sync, leavers). Nightly Cluster rerun in progress, triage when it ends. Queue: QA round, WP-013, WP-014b, WP-014c, WP-037 AI gateway, WP-038 AI on incidents (plan to the coordinator first; lane A reviews the incident-screen parts).
+WP-040 session 2's rest on #175: AD/LDAP through Keycloak federation (D-118; product owner 2026-11-03: separate supportx-federation account, manage-realm only, on-prem LDAP only), then the connector defaults screen (D-041). Merged: #150, #168, #171 (D-127). Queue after WP-040: QA round, WP-013 (licence core, private repo), WP-014b, WP-014c. WP-037/038 (AI) moved to lane C; lane B reviews the gateway's security parts when asked.
 
 ## Branch
 
-`ci/generated-not-committed`; next `feat/wp-040-ldap`
+`feat/wp-040-ldap` (#175)
 
 ## Worktree
 
-`../supportx-v2-gen`; `../supportx-v2-entra`
+`../supportx-v2-entra`
 
 ## Claimed migration
 
-0024, 0026, 0032, 0033, 0037, 0042, 0043, 0045, 0049, 0052, 0053 (merged); next free after main's head for AD/LDAP
+0024, 0026, 0032, 0033, 0037, 0042, 0043, 0045, 0049, 0052, 0053 (merged); 0055 AD/LDAP directories (#175, revises main's head 0048; lane A's 0054 may land first)
 
 ## Claimed decisions
 

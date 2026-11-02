@@ -56,7 +56,7 @@ from app.modules.integrations.domain.directory import (
     groups_from_json,
     mapping_from_json,
 )
-from app.modules.integrations.domain.mailboxes import CredentialKind, MailboxProtocol
+from app.modules.integrations.domain.mailboxes import MailboxProtocol
 from app.modules.integrations.infra.graph_directory import (
     DELTA_EXPIRED,
     GRAPH_SCOPE,
@@ -72,6 +72,7 @@ from app.modules.integrations.infra.models import (
 from app.modules.integrations.infra.oauth import Client
 from app.modules.integrations.service import identities, runs, secrets
 from app.modules.integrations.service.connections import key_ring, oauth_for
+from app.modules.integrations.service.entra_app import ENTRA, entra_app
 from app.modules.organization import add_member, find_department, find_site, remove_member
 from app.shared.files.keyring import KeyRing
 
@@ -123,16 +124,17 @@ class _Run:
 
 async def _config(session: AsyncSession, row: DirectoryConnector, ring: KeyRing) -> _Config:
     identity = await identities.ensure_identity(session, CONNECTOR_KIND, row.id, name=row.name)
+    app = entra_app(row)
     secret = await secrets.read_owned(session, ring, row.secret_ref)
     client = (
         None
         if secret is None
         else Client(
             protocol=MailboxProtocol.GRAPH,
-            client_id=row.client_id,
-            credential_kind=CredentialKind(row.credential_kind),
+            client_id=app.client_id,
+            credential_kind=app.credential_kind,
             credential=secret,
-            directory_id=row.directory_tenant,
+            directory_id=app.directory_tenant,
         )
     )
     return _Config(
@@ -550,6 +552,7 @@ async def sync_schedule(database: Database, settings: Settings) -> None:
             due: Sequence[uuid.UUID] = list(
                 await session.scalars(
                     select(DirectoryConnector.id).where(
+                        DirectoryConnector.source == ENTRA,  # AD/LDAP is synced by Keycloak
                         DirectoryConnector.enabled.is_(True),
                         DirectoryConnector.deleted_at.is_(None),
                         (DirectoryConnector.next_sync_at.is_(None))

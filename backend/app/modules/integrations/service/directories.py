@@ -46,6 +46,7 @@ from app.modules.integrations.infra.oauth import Client, load_certificate
 from app.modules.integrations.service import identities, secrets
 from app.modules.integrations.service.connections import key_ring, oauth_for
 from app.modules.integrations.service.directory_sync import CONNECTOR_KIND, SECRET_ROLE
+from app.modules.integrations.service.entra_app import ENTRA, entra_app
 from app.modules.integrations.service.mailboxes import KeyRingMissing
 from app.modules.organization import existing_unit_ids
 from app.shared.db.repository import Repository
@@ -218,7 +219,7 @@ async def create_directory(
         owner_kind=CONNECTOR_KIND,
         owner_id=row.id,
         role=SECRET_ROLE,
-        secret_type=SECRET_TYPES[CredentialKind(row.credential_kind)],
+        secret_type=SECRET_TYPES[entra_app(row).credential_kind],
         value=credential,
     )
     await identities.ensure_identity(session, CONNECTOR_KIND, row.id, name=row.name)
@@ -241,6 +242,7 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
         raise ValidationFailed(errors=errors)
     await _groups_exist(session, values)
     current = await DirectoryRepository(session).get(directory_id)
+    entra_app(current)  # 404 for an AD/LDAP directory: it has its own screen
     stored = _stored(values)
     # Who is synced changed: the next round reads everyone again (delta links start over).
     if (stored["scope"], stored["scope_groups"], stored["group_mappings"], stored["mapping"]) != (
@@ -260,7 +262,7 @@ async def update_directory(  # noqa: PLR0913 - the record, the version and the c
             owner_kind=CONNECTOR_KIND,
             owner_id=row.id,
             role=SECRET_ROLE,
-            secret_type=SECRET_TYPES[CredentialKind(row.credential_kind)],
+            secret_type=SECRET_TYPES[entra_app(row).credential_kind],
             value=credential,
         )
         row.next_sync_at = None  # try the new secret at once
@@ -274,6 +276,7 @@ async def remove_directory(
     session: AsyncSession, directory_id: uuid.UUID, *, expected_version: int
 ) -> None:
     """Stop syncing: the connector and its secret go, its people stay and SupportX keeps them."""
+    entra_app(await DirectoryRepository(session).get(directory_id))  # 404 for AD/LDAP
     row = await DirectoryRepository(session).soft_delete(
         directory_id, expected_version=expected_version
     )
@@ -291,6 +294,7 @@ async def remove_directory(
 async def sync_now(session: AsyncSession, directory_id: uuid.UUID) -> DirectoryView:
     """Run at the next minute's schedule instead of waiting for the interval."""
     row = await DirectoryRepository(session).get(directory_id)
+    entra_app(row)  # 404 for an AD/LDAP directory: Keycloak syncs it
     if not row.enabled:
         raise Conflict(code="directory_disabled")
     row.next_sync_at = datetime.now(UTC)
@@ -302,7 +306,7 @@ async def list_directories(session: AsyncSession) -> Sequence[DirectoryView]:
     """Every directory connector, by name."""
     rows = await session.scalars(
         select(DirectoryConnector)
-        .where(DirectoryConnector.deleted_at.is_(None))
+        .where(DirectoryConnector.deleted_at.is_(None), DirectoryConnector.source == ENTRA)
         .order_by(DirectoryConnector.name)
     )
     return [await _view(session, row) for row in rows]
@@ -311,7 +315,7 @@ async def list_directories(session: AsyncSession) -> Sequence[DirectoryView]:
 async def get_directory(session: AsyncSession, directory_id: uuid.UUID) -> DirectoryView:
     """One connector (404 when removed or another tenant's)."""
     row = await session.get(DirectoryConnector, directory_id)
-    if row is None or row.deleted_at is not None:
+    if row is None or row.deleted_at is not None or row.source != ENTRA:
         raise NotFound(code="directory_not_found")
     return await _view(session, row)
 
@@ -326,12 +330,13 @@ async def find_groups(
     secret = await secrets.read_owned(session, _ring(settings), row.secret_ref)
     if secret is None:
         raise Conflict(code="directory_secret_missing")
+    app = entra_app(row)
     client = Client(
         protocol=MailboxProtocol.GRAPH,
-        client_id=row.client_id,
-        credential_kind=CredentialKind(row.credential_kind),
+        client_id=app.client_id,
+        credential_kind=app.credential_kind,
         credential=secret,
-        directory_id=row.directory_tenant,
+        directory_id=app.directory_tenant,
     )
     oauth = oauth_for(settings)
     try:
