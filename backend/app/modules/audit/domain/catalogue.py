@@ -122,6 +122,11 @@ ACTIONS: dict[str, Action] = _actions(
     ("sla.holidays_changed", AuditCategory.CONFIGURATION, "sla"),
     ("sla.holidays_imported", AuditCategory.CONFIGURATION, "sla"),
     ("sla.holidays_copied", AuditCategory.CONFIGURATION, "sla"),
+    ("sla.policy_created", AuditCategory.CONFIGURATION, "sla"),
+    ("sla.policy_changed", AuditCategory.CONFIGURATION, "sla"),
+    ("sla.policy_deleted", AuditCategory.CONFIGURATION, "sla"),
+    ("sla.policies_reordered", AuditCategory.CONFIGURATION, "sla"),
+    ("sla.settings_changed", AuditCategory.CONFIGURATION, "sla"),
     # people (WP-021)
     ("user.created", AuditCategory.ACCESS, "identity_access"),
     ("user.changed", AuditCategory.ACCESS, "identity_access"),

@@ -4628,6 +4628,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sla/policies/{policy_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One SLA policy
+         * @description A policy with its target table.
+         */
+        get: operations["get_policy_api_v1_sla_policies__policy_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete an SLA policy
+         * @description Needs `sla.manage`. Never the default policy (409). Records keep their targets.
+         */
+        delete: operations["delete_policy_api_v1_sla_policies__policy_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change an SLA policy
+         * @description Needs `sla.manage` and If-Match. The default policy keeps no conditions, stays on.
+         */
+        patch: operations["update_policy_api_v1_sla_policies__policy_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/sla/record-types/{record_type}/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SLA policies of a record type
+         * @description In order; the first enabled one whose conditions match applies, else the default.
+         */
+        get: operations["list_policies_api_v1_sla_record_types__record_type__policies_get"];
+        put?: never;
+        /**
+         * Create an SLA policy
+         * @description Needs `sla.manage`. Placed last, above the default policy.
+         */
+        post: operations["create_policy_api_v1_sla_record_types__record_type__policies_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/record-types/{record_type}/policies/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Reorder the SLA policies
+         * @description Needs `sla.manage`. Every policy but the default, each once (else 422).
+         */
+        put: operations["reorder_policies_api_v1_sla_record_types__record_type__policies_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sla/record-types/{record_type}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SLA settings of a record type
+         * @description The warning point and what a priority change and a reopen do.
+         */
+        get: operations["get_settings_api_v1_sla_record_types__record_type__settings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change the SLA settings
+         * @description Needs `sla.manage` and If-Match.
+         */
+        patch: operations["update_settings_api_v1_sla_record_types__record_type__settings_patch"];
+        trace?: never;
+    };
     "/api/v1/users": {
         parameters: {
             query?: never;
@@ -6289,6 +6385,12 @@ export interface components {
          * @enum {string}
          */
         BulkStatus: "queued" | "running" | "done" | "failed";
+        /**
+         * CalendarSource
+         * @description Where a target's calendar comes from (REQ-SLA-013).
+         * @enum {string}
+         */
+        CalendarSource: "site" | "group" | "fixed" | "around_the_clock";
         /**
          * CertificateIn
          * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
@@ -8893,6 +8995,12 @@ export interface components {
          */
         Priority: "p1" | "p2" | "p3" | "p4";
         /**
+         * PriorityRule
+         * @description What a priority change does to open targets (D-115 D2).
+         * @enum {string}
+         */
+        PriorityRule: "recalculate" | "restart";
+        /**
          * PrioritySource
          * @description Where the current priority came from (shown as a marker, REQ-INC-010/011).
          * @enum {string}
@@ -9081,6 +9189,12 @@ export interface components {
                 [key: string]: string;
             };
         };
+        /**
+         * ReopenRule
+         * @description What a reopen does to the resolution target (REQ-SLA-029).
+         * @enum {string}
+         */
+        ReopenRule: "resume" | "restart";
         /**
          * ReplyMode
          * @description Which composer a reply came from (REQ-INC-058).
@@ -10601,6 +10715,145 @@ export interface components {
             starts_on?: string | null;
         };
         /**
+         * SlaPolicyIn
+         * @description A new policy: placed above the default policy, last among the others.
+         */
+        SlaPolicyIn: {
+            /**
+             * Conditions
+             * @description A filter DSL tree on the record type's fields; None: all.
+             */
+            conditions?: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /**
+             * Pausing
+             * @description The targets an on-hold status pauses.
+             */
+            pausing?: components["schemas"]["TargetKind"][];
+            /** Targets */
+            targets?: components["schemas"]["SlaTargetRow"][];
+        };
+        /**
+         * SlaPolicyOrderIn
+         * @description Every policy except the default one, in the new order.
+         */
+        SlaPolicyOrderIn: {
+            /** Policy Ids */
+            policy_ids: string[];
+        };
+        /**
+         * SlaPolicyOut
+         * @description A policy in its place in the order, with its target table.
+         */
+        SlaPolicyOut: {
+            /** Can Manage */
+            can_manage: boolean;
+            /** Conditions */
+            conditions: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Fallback
+             * @description The default policy: always last, applies to the rest.
+             */
+            fallback: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /**
+             * Never Matches
+             * @description An earlier policy always wins (REQ-SLA-001).
+             */
+            never_matches: boolean;
+            /** Pausing */
+            pausing: components["schemas"]["TargetKind"][];
+            /** Position */
+            position: number;
+            /** Record Type */
+            record_type: string;
+            /** Targets */
+            targets: components["schemas"]["SlaTargetRow"][];
+            /** Version */
+            version: number;
+        };
+        /**
+         * SlaPolicyPatch
+         * @description What to change (only what is sent); `targets` replaces the whole table.
+         */
+        SlaPolicyPatch: {
+            /** Conditions */
+            conditions?: {
+                [key: string]: unknown;
+            } | null;
+            /** Description */
+            description?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Name */
+            name?: string | null;
+            /** Pausing */
+            pausing?: components["schemas"]["TargetKind"][] | null;
+            /** Targets */
+            targets?: components["schemas"]["SlaTargetRow"][] | null;
+        };
+        /**
+         * SlaSettingsOut
+         * @description A record type's SLA settings.
+         */
+        SlaSettingsOut: {
+            priority_rule: components["schemas"]["PriorityRule"];
+            /** Record Type */
+            record_type: string;
+            reopen_rule: components["schemas"]["ReopenRule"];
+            /** Version */
+            version: number;
+            /**
+             * Warning Percent
+             * @description Warn when this share of the target has gone.
+             */
+            warning_percent: number;
+        };
+        /**
+         * SlaSettingsPatch
+         * @description What to change (only what is sent).
+         */
+        SlaSettingsPatch: {
+            priority_rule?: components["schemas"]["PriorityRule"] | null;
+            reopen_rule?: components["schemas"]["ReopenRule"] | null;
+            /** Warning Percent */
+            warning_percent?: number | null;
+        };
+        /**
          * SlaSkippedHoliday
          * @description A holiday the import or copy left out, and why (`sla_import_skip.<code>`).
          */
@@ -10678,6 +10931,32 @@ export interface components {
             starts_on?: string | null;
             /** Week */
             week?: components["schemas"]["SlaWorkingPeriod"][] | null;
+        };
+        /**
+         * SlaTargetRow
+         * @description One row of a policy's target table: a priority (or all) and a kind of target.
+         */
+        SlaTargetRow: {
+            /**
+             * Amount
+             * @description None: no target of this kind.
+             */
+            amount?: number | null;
+            /**
+             * Fixed Calendar Id
+             * @description Only with source `fixed`.
+             */
+            fixed_calendar_id?: string | null;
+            kind: components["schemas"]["TargetKind"];
+            /**
+             * Priority
+             * @description A priority code; None: every priority.
+             */
+            priority?: string | null;
+            /** @default site */
+            source: components["schemas"]["CalendarSource"];
+            /** @default hours */
+            unit: components["schemas"]["TargetUnit"];
         };
         /**
          * SlaWorkingPeriod
@@ -10977,6 +11256,18 @@ export interface components {
              */
             tenant_id: string;
         };
+        /**
+         * TargetKind
+         * @description What a target measures.
+         * @enum {string}
+         */
+        TargetKind: "first_response" | "resolution";
+        /**
+         * TargetUnit
+         * @description The unit an admin set a target in.
+         * @enum {string}
+         */
+        TargetUnit: "minutes" | "hours" | "business_days";
         /**
          * TemplateCopyIn
          * @description The copy's name.
@@ -33910,6 +34201,595 @@ export interface operations {
             };
             /** @description No such calendar, list or holiday. */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_policy_api_v1_sla_policies__policy_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaPolicyOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    delete_policy_api_v1_sla_policies__policy_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_policy_api_v1_sla_policies__policy_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                policy_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlaPolicyPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaPolicyOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    list_policies_api_v1_sla_record_types__record_type__policies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaPolicyOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_policy_api_v1_sla_record_types__record_type__policies_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path: {
+                record_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlaPolicyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaPolicyOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    reorder_policies_api_v1_sla_record_types__record_type__policies_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlaPolicyOrderIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaPolicyOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_sla_record_types__record_type__settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_settings_api_v1_sla_record_types__record_type__settings_patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                record_type: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SlaSettingsPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlaSettingsOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such calendar, list or holiday. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match or in use. */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

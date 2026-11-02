@@ -3759,6 +3759,17 @@
         "title": "BulkStatus",
         "type": "string"
       },
+      "CalendarSource": {
+        "description": "Where a target's calendar comes from (REQ-SLA-013).",
+        "enum": [
+          "site",
+          "group",
+          "fixed",
+          "around_the_clock"
+        ],
+        "title": "CalendarSource",
+        "type": "string"
+      },
       "CertificateIn": {
         "description": "PEM certificate chain (the host's certificate first) and its unencrypted private key.",
         "properties": {
@@ -10530,6 +10541,15 @@
         "title": "Priority",
         "type": "string"
       },
+      "PriorityRule": {
+        "description": "What a priority change does to open targets (D-115 D2).",
+        "enum": [
+          "recalculate",
+          "restart"
+        ],
+        "title": "PriorityRule",
+        "type": "string"
+      },
       "PrioritySource": {
         "description": "Where the current priority came from (shown as a marker, REQ-INC-010/011).",
         "enum": [
@@ -10917,6 +10937,15 @@
         ],
         "title": "ReleasedOut",
         "type": "object"
+      },
+      "ReopenRule": {
+        "description": "What a reopen does to the resolution target (REQ-SLA-029).",
+        "enum": [
+          "resume",
+          "restart"
+        ],
+        "title": "ReopenRule",
+        "type": "string"
       },
       "ReplyMode": {
         "description": "Which composer a reply came from (REQ-INC-058).",
@@ -14911,6 +14940,375 @@
         "title": "SlaHolidayPatch",
         "type": "object"
       },
+      "SlaPolicyIn": {
+        "additionalProperties": false,
+        "description": "A new policy: placed above the default policy, last among the others.",
+        "properties": {
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A filter DSL tree on the record type's fields; None: all.",
+            "title": "Conditions"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pausing": {
+            "description": "The targets an on-hold status pauses.",
+            "items": {
+              "$ref": "#/components/schemas/TargetKind"
+            },
+            "title": "Pausing",
+            "type": "array"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/SlaTargetRow"
+            },
+            "maxItems": 200,
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SlaPolicyIn",
+        "type": "object"
+      },
+      "SlaPolicyOrderIn": {
+        "additionalProperties": false,
+        "description": "Every policy except the default one, in the new order.",
+        "properties": {
+          "policy_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 500,
+            "title": "Policy Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "policy_ids"
+        ],
+        "title": "SlaPolicyOrderIn",
+        "type": "object"
+      },
+      "SlaPolicyOut": {
+        "description": "A policy in its place in the order, with its target table.",
+        "properties": {
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "fallback": {
+            "description": "The default policy: always last, applies to the rest.",
+            "title": "Fallback",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "never_matches": {
+            "description": "An earlier policy always wins (REQ-SLA-001).",
+            "title": "Never Matches",
+            "type": "boolean"
+          },
+          "pausing": {
+            "items": {
+              "$ref": "#/components/schemas/TargetKind"
+            },
+            "title": "Pausing",
+            "type": "array"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/SlaTargetRow"
+            },
+            "title": "Targets",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "record_type",
+          "name",
+          "labels",
+          "description",
+          "conditions",
+          "position",
+          "fallback",
+          "enabled",
+          "pausing",
+          "targets",
+          "never_matches",
+          "can_manage",
+          "version"
+        ],
+        "title": "SlaPolicyOut",
+        "type": "object"
+      },
+      "SlaPolicyPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent); `targets` replaces the whole table.",
+        "properties": {
+          "conditions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conditions"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "pausing": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TargetKind"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pausing"
+          },
+          "targets": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SlaTargetRow"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targets"
+          }
+        },
+        "title": "SlaPolicyPatch",
+        "type": "object"
+      },
+      "SlaSettingsOut": {
+        "description": "A record type's SLA settings.",
+        "properties": {
+          "priority_rule": {
+            "$ref": "#/components/schemas/PriorityRule"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          },
+          "reopen_rule": {
+            "$ref": "#/components/schemas/ReopenRule"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "warning_percent": {
+            "description": "Warn when this share of the target has gone.",
+            "title": "Warning Percent",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "record_type",
+          "warning_percent",
+          "priority_rule",
+          "reopen_rule",
+          "version"
+        ],
+        "title": "SlaSettingsOut",
+        "type": "object"
+      },
+      "SlaSettingsPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent).",
+        "properties": {
+          "priority_rule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PriorityRule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reopen_rule": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReopenRule"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warning_percent": {
+            "anyOf": [
+              {
+                "maximum": 99.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning Percent"
+          }
+        },
+        "title": "SlaSettingsPatch",
+        "type": "object"
+      },
       "SlaSkippedHoliday": {
         "description": "A holiday the import or copy left out, and why (`sla_import_skip.<code>`).",
         "properties": {
@@ -15084,6 +15482,68 @@
           }
         },
         "title": "SlaSpecialHoursPatch",
+        "type": "object"
+      },
+      "SlaTargetRow": {
+        "additionalProperties": false,
+        "description": "One row of a policy's target table: a priority (or all) and a kind of target.",
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None: no target of this kind.",
+            "title": "Amount"
+          },
+          "fixed_calendar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only with source `fixed`.",
+            "title": "Fixed Calendar Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TargetKind"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "maxLength": 30,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A priority code; None: every priority.",
+            "title": "Priority"
+          },
+          "source": {
+            "$ref": "#/components/schemas/CalendarSource",
+            "default": "site"
+          },
+          "unit": {
+            "$ref": "#/components/schemas/TargetUnit",
+            "default": "hours"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SlaTargetRow",
         "type": "object"
       },
       "SlaWorkingPeriod": {
@@ -15810,6 +16270,25 @@
         ],
         "title": "SwitchTenantRequest",
         "type": "object"
+      },
+      "TargetKind": {
+        "description": "What a target measures.",
+        "enum": [
+          "first_response",
+          "resolution"
+        ],
+        "title": "TargetKind",
+        "type": "string"
+      },
+      "TargetUnit": {
+        "description": "The unit an admin set a target in.",
+        "enum": [
+          "minutes",
+          "hours",
+          "business_days"
+        ],
+        "title": "TargetUnit",
+        "type": "string"
       },
       "TemplateCopyIn": {
         "additionalProperties": false,
@@ -49870,6 +50349,828 @@
           }
         },
         "summary": "Import holidays from an iCalendar file",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/policies/{policy_id}": {
+      "delete": {
+        "description": "Needs `sla.manage`. Never the default policy (409). Records keep their targets.",
+        "operationId": "delete_policy_api_v1_sla_policies__policy_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match or in use."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Delete an SLA policy",
+        "tags": [
+          "sla"
+        ]
+      },
+      "get": {
+        "description": "A policy with its target table.",
+        "operationId": "get_policy_api_v1_sla_policies__policy_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "One SLA policy",
+        "tags": [
+          "sla"
+        ]
+      },
+      "patch": {
+        "description": "Needs `sla.manage` and If-Match. The default policy keeps no conditions, stays on.",
+        "operationId": "update_policy_api_v1_sla_policies__policy_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "policy_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Policy Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaPolicyPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match or in use."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change an SLA policy",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/record-types/{record_type}/policies": {
+      "get": {
+        "description": "In order; the first enabled one whose conditions match applies, else the default.",
+        "operationId": "list_policies_api_v1_sla_record_types__record_type__policies_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "examples": [
+                "incident"
+              ],
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SlaPolicyOut"
+                  },
+                  "title": "Response List Policies Api V1 Sla Record Types  Record Type  Policies Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "SLA policies of a record type",
+        "tags": [
+          "sla"
+        ]
+      },
+      "post": {
+        "description": "Needs `sla.manage`. Placed last, above the default policy.",
+        "operationId": "create_policy_api_v1_sla_record_types__record_type__policies_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "examples": [
+                "incident"
+              ],
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaPolicyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaPolicyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Create an SLA policy",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/record-types/{record_type}/policies/order": {
+      "put": {
+        "description": "Needs `sla.manage`. Every policy but the default, each once (else 422).",
+        "operationId": "reorder_policies_api_v1_sla_record_types__record_type__policies_order_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "examples": [
+                "incident"
+              ],
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaPolicyOrderIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SlaPolicyOut"
+                  },
+                  "title": "Response Reorder Policies Api V1 Sla Record Types  Record Type  Policies Order Put",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Reorder the SLA policies",
+        "tags": [
+          "sla"
+        ]
+      }
+    },
+    "/api/v1/sla/record-types/{record_type}/settings": {
+      "get": {
+        "description": "The warning point and what a priority change and a reopen do.",
+        "operationId": "get_settings_api_v1_sla_record_types__record_type__settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "examples": [
+                "incident"
+              ],
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "SLA settings of a record type",
+        "tags": [
+          "sla"
+        ]
+      },
+      "patch": {
+        "description": "Needs `sla.manage` and If-Match.",
+        "operationId": "update_settings_api_v1_sla_record_types__record_type__settings_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_type",
+            "required": true,
+            "schema": {
+              "examples": [
+                "incident"
+              ],
+              "pattern": "^[a-z][a-z_]{1,29}$",
+              "title": "Record Type",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaSettingsPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such calendar, list or holiday."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match or in use."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change the SLA settings",
         "tags": [
           "sla"
         ]

@@ -1,4 +1,4 @@
-"""SLA set-up API (WP-025 session 1): working calendars, holiday lists and holidays.
+"""SLA set-up API (WP-025): working calendars, holiday lists, holidays, policies, settings.
 
 HTTP only: schemas, dependencies and status codes; the rules live in the services. Reading
 needs `sla.view`, every change `sla.manage` (checked in the service) and is audited.
@@ -8,7 +8,7 @@ import uuid
 from datetime import date
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
@@ -18,9 +18,16 @@ from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.sla.domain.calendar import HolidayPart
 from app.modules.sla.domain.ical import MAX_BYTES
+from app.modules.sla.domain.policy import (
+    CalendarSource,
+    PriorityRule,
+    ReopenRule,
+    TargetKind,
+    TargetUnit,
+)
 from app.modules.sla.domain.setup import WeekPreset
-from app.modules.sla.infra.models import SlaCalendarException, SlaHoliday
-from app.modules.sla.service import calendars, holidays, special_hours
+from app.modules.sla.infra.models import SlaCalendarException, SlaHoliday, SlaSettings
+from app.modules.sla.service import calendars, holidays, policies, special_hours
 from app.modules.sla.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -778,3 +785,320 @@ async def copy_year(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         return Created(body=SlaHolidayImportOut.of(report))
 
     return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+# --- policies and settings (WP-025 session 2) -------------------------------------------------
+
+RecordTypeCode = Annotated[str, Path(pattern=r"^[a-z][a-z_]{1,29}$", examples=["incident"])]
+
+
+class SlaTargetRow(BaseModel):
+    """One row of a policy's target table: a priority (or all) and a kind of target."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: TargetKind
+    priority: str | None = Field(
+        default=None, max_length=30, description="A priority code; None: every priority."
+    )
+    amount: int | None = Field(
+        default=None, ge=1, le=100_000, description="None: no target of this kind."
+    )
+    unit: TargetUnit = TargetUnit.HOURS
+    source: CalendarSource = CalendarSource.SITE
+    fixed_calendar_id: uuid.UUID | None = Field(
+        default=None, description="Only with source `fixed`."
+    )
+
+
+class SlaPolicyIn(BaseModel):
+    """A new policy: placed above the default policy, last among the others."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=200)
+    labels: dict[str, str] = Field(default_factory=dict)
+    description: str | None = Field(default=None, max_length=2000)
+    conditions: dict[str, Any] | None = Field(
+        default=None, description="A filter DSL tree on the record type's fields; None: all."
+    )
+    enabled: bool = True
+    pausing: list[TargetKind] = Field(
+        default_factory=lambda: list(TargetKind),
+        description="The targets an on-hold status pauses.",
+    )
+    targets: list[SlaTargetRow] = Field(default_factory=list, max_length=200)
+
+
+class SlaPolicyPatch(BaseModel):
+    """What to change (only what is sent); `targets` replaces the whole table."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    labels: dict[str, str] | None = None
+    description: str | None = Field(default=None, max_length=2000)
+    conditions: dict[str, Any] | None = None
+    enabled: bool | None = None
+    pausing: list[TargetKind] | None = None
+    targets: list[SlaTargetRow] | None = Field(default=None, max_length=200)
+
+
+class SlaPolicyOut(BaseModel):
+    """A policy in its place in the order, with its target table."""
+
+    id: uuid.UUID
+    record_type: str
+    name: str
+    labels: dict[str, str]
+    description: str | None
+    conditions: dict[str, Any] | None
+    position: int
+    fallback: bool = Field(description="The default policy: always last, applies to the rest.")
+    enabled: bool
+    pausing: list[TargetKind]
+    targets: list[SlaTargetRow]
+    never_matches: bool = Field(description="An earlier policy always wins (REQ-SLA-001).")
+    can_manage: bool
+    version: int
+
+    @classmethod
+    def of(cls, view: policies.PolicyView) -> "SlaPolicyOut":
+        """The API form of a policy view."""
+        p = view.policy
+        return cls(
+            id=p.id,
+            record_type=p.record_type,
+            name=p.name,
+            labels=p.labels,
+            description=p.description,
+            conditions=p.conditions,
+            position=p.position,
+            fallback=p.fallback,
+            enabled=p.enabled,
+            pausing=[TargetKind(k) for k in p.pausing],
+            targets=[
+                SlaTargetRow(
+                    kind=TargetKind(t.kind),
+                    priority=t.priority,
+                    amount=t.amount,
+                    unit=TargetUnit(t.unit),
+                    source=CalendarSource(t.source),
+                    fixed_calendar_id=t.fixed_calendar_id,
+                )
+                for t in view.targets
+            ],
+            never_matches=view.never_matches,
+            can_manage=view.can_manage,
+            version=p.version,
+        )
+
+
+class SlaPolicyOrderIn(BaseModel):
+    """Every policy except the default one, in the new order."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    policy_ids: list[uuid.UUID] = Field(max_length=500)
+
+
+class SlaSettingsOut(BaseModel):
+    """A record type's SLA settings."""
+
+    record_type: str
+    warning_percent: int = Field(description="Warn when this share of the target has gone.")
+    priority_rule: PriorityRule
+    reopen_rule: ReopenRule
+    version: int
+
+
+class SlaSettingsPatch(BaseModel):
+    """What to change (only what is sent)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    warning_percent: int | None = Field(default=None, ge=1, le=99)
+    priority_rule: PriorityRule | None = None
+    reopen_rule: ReopenRule | None = None
+
+
+def _policy_values(body: BaseModel) -> dict[str, Any]:
+    values = {name: getattr(body, name) for name in body.model_fields_set}
+    if values.get("targets") is not None:
+        values["targets"] = [t.model_dump() for t in values["targets"]]
+    if values.get("pausing") is not None:
+        values["pausing"] = [k.value for k in values["pausing"]]
+    return values
+
+
+def _settings_out(row: SlaSettings) -> SlaSettingsOut:
+    return SlaSettingsOut(
+        record_type=row.record_type,
+        warning_percent=row.warning_percent,
+        priority_rule=PriorityRule(row.priority_rule),
+        reopen_rule=ReopenRule(row.reopen_rule),
+        version=row.version,
+    )
+
+
+@router.get("/record-types/{record_type}/policies", summary="SLA policies of a record type")
+async def list_policies(
+    record_type: RecordTypeCode, session: TenantSession, subject: Viewer
+) -> list[SlaPolicyOut]:
+    """In order; the first enabled one whose conditions match applies, else the default."""
+    views = await policies.list_policies(session, subject, record_type)
+    return [SlaPolicyOut.of(v) for v in views]
+
+
+@router.post(
+    "/record-types/{record_type}/policies",
+    summary="Create an SLA policy",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SlaPolicyOut,
+)
+async def create_policy(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_type: RecordTypeCode,
+    body: SlaPolicyIn,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    idempotency: Idempotency,
+    note: Annotated[AuditNote, audited("sla.policy_created", object_type="sla_policy")],
+) -> Response:
+    """Needs `sla.manage`. Placed last, above the default policy."""
+    note.skip = True
+
+    async def go() -> Created:
+        view = await policies.create_policy(
+            session,
+            subject,
+            record_type,
+            _policy_values(body) | {"labels": body.labels},
+            source=source_of(request),
+        )
+        note.skip = False
+        note.object_id = str(view.policy.id)
+        note.details = {"record_type": record_type}
+        out = SlaPolicyOut.of(view)
+        return Created(body=out, headers={"ETag": f'"{out.version}"'})
+
+    return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+@router.put(
+    "/record-types/{record_type}/policies/order",
+    summary="Reorder the SLA policies",
+    dependencies=[
+        audited("sla.policies_reordered", object_type="sla_policy", detail_params=("record_type",))
+    ],
+)
+async def reorder_policies(
+    record_type: RecordTypeCode,
+    body: SlaPolicyOrderIn,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+) -> list[SlaPolicyOut]:
+    """Needs `sla.manage`. Every policy but the default, each once (else 422)."""
+    views = await policies.reorder_policies(
+        session, subject, record_type, body.policy_ids, source=source_of(request)
+    )
+    return [SlaPolicyOut.of(v) for v in views]
+
+
+@router.get("/policies/{policy_id}", summary="One SLA policy")
+async def get_policy(
+    policy_id: uuid.UUID, session: TenantSession, subject: Viewer, response: Response
+) -> SlaPolicyOut:
+    """A policy with its target table."""
+    view = await policies.get_policy(session, subject, policy_id)
+    set_etag(response, view.policy.version)
+    return SlaPolicyOut.of(view)
+
+
+@router.patch(
+    "/policies/{policy_id}",
+    summary="Change an SLA policy",
+    responses=CONFLICT,
+    dependencies=[
+        audited("sla.policy_changed", object_type="sla_policy", object_param="policy_id")
+    ],
+)
+async def update_policy(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    policy_id: uuid.UUID,
+    body: SlaPolicyPatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> SlaPolicyOut:
+    """Needs `sla.manage` and If-Match. The default policy keeps no conditions, stays on."""
+    view = await policies.update_policy(
+        session,
+        subject,
+        policy_id,
+        _policy_values(body),
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, view.policy.version)
+    return SlaPolicyOut.of(view)
+
+
+@router.delete(
+    "/policies/{policy_id}",
+    summary="Delete an SLA policy",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=CONFLICT,
+    dependencies=[
+        audited("sla.policy_deleted", object_type="sla_policy", object_param="policy_id")
+    ],
+)
+async def delete_policy(
+    policy_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+) -> None:
+    """Needs `sla.manage`. Never the default policy (409). Records keep their targets."""
+    await policies.delete_policy(
+        session, subject, policy_id, expected_version=version, source=source_of(request)
+    )
+
+
+@router.get("/record-types/{record_type}/settings", summary="SLA settings of a record type")
+async def get_settings(
+    record_type: RecordTypeCode, session: TenantSession, subject: Viewer, response: Response
+) -> SlaSettingsOut:
+    """The warning point and what a priority change and a reopen do."""
+    row = await policies.get_settings(session, subject, record_type)
+    set_etag(response, row.version)
+    return _settings_out(row)
+
+
+@router.patch(
+    "/record-types/{record_type}/settings",
+    summary="Change the SLA settings",
+    responses=CONFLICT,
+    dependencies=[
+        audited("sla.settings_changed", object_type="sla_settings", detail_params=("record_type",))
+    ],
+)
+async def update_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    record_type: RecordTypeCode,
+    body: SlaSettingsPatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> SlaSettingsOut:
+    """Needs `sla.manage` and If-Match."""
+    values = {k: getattr(body, k) for k in body.model_fields_set if getattr(body, k) is not None}
+    row = await policies.update_settings(
+        session, subject, record_type, values, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, row.version)
+    return _settings_out(row)

@@ -50,6 +50,7 @@ from app.shared.ids import new_id
 RECORD_TYPE = "sla_policy"
 SETTINGS_RECORD_TYPE = "sla_settings"
 NAME_MAX = 200
+WARNING_MIN, WARNING_MAX = 1, 99  # the share of a target after which it warns
 LANGUAGES = frozenset({"en", "ar", "ur"})
 FALLBACK_NAME = "Default policy"  # labelled `sla_policy.fallback` in the UI
 
@@ -631,12 +632,25 @@ async def update_settings(  # noqa: PLR0913 - the change, explicit
     _type(code)
     row = await settings_of(session, code)
     columns: dict[str, Any] = {}
+    errors: list[FieldError] = []
     if "warning_percent" in values:
-        columns["warning_percent"] = int(values["warning_percent"])
-    if "priority_rule" in values:
-        columns["priority_rule"] = PriorityRule(values["priority_rule"]).value
-    if "reopen_rule" in values:
-        columns["reopen_rule"] = ReopenRule(values["reopen_rule"]).value
+        percent = values["warning_percent"]
+        if (
+            isinstance(percent, bool)
+            or not isinstance(percent, int)
+            or not WARNING_MIN <= percent <= WARNING_MAX
+        ):
+            errors.append(
+                _field("warning_percent", "out_of_range", min=WARNING_MIN, max=WARNING_MAX)
+            )
+        columns["warning_percent"] = percent
+    for name, choices in (("priority_rule", PriorityRule), ("reopen_rule", ReopenRule)):
+        if name in values:
+            if values[name] not in {c.value for c in choices}:
+                errors.append(_field(name, "invalid_choice"))
+            columns[name] = values[name]
+    if errors:
+        raise ValidationFailed(errors=errors)
     columns = {k: v for k, v in columns.items() if getattr(row, k) != v}
     if not columns:
         return row

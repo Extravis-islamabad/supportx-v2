@@ -23,6 +23,11 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 ENUM_PREFIXES: dict[str, str] = {
     # SLA set-up (WP-025)
     "HolidayPart": "sla_holiday_part",
+    "CalendarSource": "sla_calendar_source",
+    "PriorityRule": "sla_priority_rule",
+    "ReopenRule": "sla_reopen_rule",
+    "TargetKind": "sla_target_kind",
+    "TargetUnit": "sla_target_unit",
     "WeekPreset": "sla_week_preset",
     # Mailboxes (WP-024)
     "AfterFetch": "mailbox_after_fetch",
