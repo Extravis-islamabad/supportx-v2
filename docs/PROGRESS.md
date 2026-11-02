@@ -700,6 +700,15 @@ WP-025 SLA v1 with Temporal (D-055; needs parity file 03) · WP-026 custom field
 WP-028 portal incidents (needs parity file 02). Open item from D-052: the first-run setup must offer
 "technicians see all incidents" vs the group default.
 
+**WP-028 follow-up (2026-10-29, coordinator; from `fix/requester-file-access`):** requesters may
+not join the staff record channel `t:{tenant}:wi:{id}` (correct: it carries private-note and
+internal events), so today they get no live updates on their own incident. The portal needs a
+requester-scoped live channel per record, joined only by its requester or the person it is for,
+that publishes **public-entry events only**: public replies and their files, status and
+resolution changes the requester may see; never private notes, internal fields or their files.
+Same rules as the files access (D-052): out of scope is a refused join. Portal screens patch from
+it with no reload (rule c). Not built yet.
+
 ### [ ] WP-023 — Notification engine and in-app notifications (lane B, assigned 2026-10-28; D-106; 2 sessions)
 - **Plan:** ~/Desktop/wp-023-plan.md. Built on `app/shared/mail` (D-089) and the server labels (D-100 D7).
 - [x] Session 1 (2026-10-28): one engine through `app/shared/notifications/ports.py` (REQ-NTF-001; the
