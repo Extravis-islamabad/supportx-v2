@@ -5,6 +5,7 @@ import { renderUi } from '../test/render';
 import { ActionBar, type RecordAction } from './ActionBar';
 import { AlertStrip } from './AlertStrip';
 import { NoticeStack } from './NoticeStack';
+import { SectionNav } from './SectionNav';
 
 // D-124: buttons for the available everyday actions (at most four, the most useful ones),
 // every action in "More actions" in its fixed order, destructive ones last and confirmed.
@@ -100,6 +101,32 @@ describe('ActionBar', () => {
     expect(entry.textContent).toContain('Not available in read-only mode.');
     fireEvent.click(entry);
     expect(assign.onClick).not.toHaveBeenCalled();
+  });
+});
+
+describe('SectionNav', () => {
+  it('is a nav of links, never a tablist, and marks the open section', () => {
+    const go = vi.fn();
+    renderUi(
+      <SectionNav
+        label="Administration"
+        active="roles"
+        onNavigate={go}
+        testId="sections"
+        items={[
+          { key: 'people', label: 'People', path: '/admin/people' },
+          { key: 'roles', label: 'Roles', path: '/admin/roles' },
+        ]}
+      />,
+    );
+    // Sections are pages: links in a nav (axe aria-required-children failed on the tab overflow).
+    expect(screen.queryByRole('tablist')).toBeNull();
+    expect(screen.getByRole('navigation', { name: 'Administration' })).toBeDefined();
+    const roles = screen.getByRole('link', { name: 'Roles' });
+    expect(roles.getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('link', { name: 'People' }).getAttribute('href')).toBe('/admin/people');
+    fireEvent.click(screen.getByRole('link', { name: 'People' }));
+    expect(go).toHaveBeenCalledWith('/admin/people');
   });
 });
 

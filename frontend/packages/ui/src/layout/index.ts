@@ -11,6 +11,7 @@ export {
   type ListPageProps,
 } from './ListPage';
 export { NoticeStack } from './NoticeStack';
+export { SectionNav, type SectionNavItem } from './SectionNav';
 export { PageHeader, type PageHeaderProps } from './PageHeader';
 export {
   PropertiesPanel,

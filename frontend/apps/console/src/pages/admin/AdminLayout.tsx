@@ -1,7 +1,6 @@
-import { Tabs } from 'antd';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
-import { NoAccess, PageHeader, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
+import { NoAccess, PageHeader, SectionNav, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
 
 /** Admin tabs, each shown only to users holding its permission (WP-016). */
 const TABS = [
@@ -48,11 +47,16 @@ export function AdminLayout() {
   return (
     <>
       <PageHeader title={t('nav.admin')} testId="admin-header" />
-      <Tabs
-        size="small"
-        activeKey={active}
-        onChange={(key) => void navigate(`/admin/${key}`)}
-        items={tabs.map((tab) => ({ key: tab.key, label: t(tab.labelKey) }))}
+      <SectionNav
+        label={t('nav.admin')}
+        active={active}
+        onNavigate={(path) => void navigate(path)}
+        items={tabs.map((tab) => ({
+          key: tab.key,
+          label: t(tab.labelKey),
+          path: `/admin/${tab.key}`,
+        }))}
+        testId="admin-sections"
       />
       <Outlet />
     </>

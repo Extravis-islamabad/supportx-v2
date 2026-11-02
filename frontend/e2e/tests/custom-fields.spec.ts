@@ -84,7 +84,10 @@ test('a custom pick list: added live, required by a template, filled, filtered, 
     await expect(tech.page.locator('main')).not.toContainText(key);
 
     // A template that requires it.
-    await admin.page.getByRole('tab', { name: 'Templates', exact: true }).click();
+    await admin.page
+      .getByTestId('settings-sections')
+      .getByRole('link', { name: 'Templates', exact: true })
+      .click();
     await admin.page.getByTestId('tpl-admin-new').click();
     await admin.page.getByTestId('tpl-editor-name-en').fill(templateName);
     await admin.page.getByTestId(`tpl-rule-custom.${key}-required`).click();

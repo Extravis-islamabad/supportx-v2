@@ -256,7 +256,7 @@ describe('Admin › Knowledge (D-120)', () => {
       'PATCH /api/v1/knowledge/settings': { body: { ...SETTINGS, prefix: 'ART', version: 6 } },
     });
     render(<App />);
-    expect(await screen.findByRole('tab', { name: 'Knowledge' })).toBeDefined();
+    expect(await screen.findByRole('link', { name: 'Knowledge' })).toBeDefined();
     const card = await screen.findByTestId('kb-admin-general');
     expect(within(card).getAllByText('Default: No').length).toBeGreaterThan(0);
     expect(within(card).getByText('Default: KB')).toBeDefined();
