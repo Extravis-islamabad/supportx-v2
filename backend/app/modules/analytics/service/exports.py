@@ -47,7 +47,7 @@ from app.modules.audit import WORKER, AuditActorType, record
 from app.modules.identity_access import Subject
 from app.shared.events import record_event
 from app.shared.ids import new_id
-from app.shared.labels import RTL_LANGUAGES, label
+from app.shared.labels import RTL_LANGUAGES, plain_label
 from app.shared.reporting import DimensionKind, ReportingSource
 from app.shared.storage import ObjectStorage, StorageNotConfigured, StorageUnavailable
 
@@ -195,7 +195,9 @@ def _measure_kind(spec: MeasureSpec) -> CellKind:
 
 def _measure_header(entity: str, spec: MeasureSpec, language: str) -> str:
     name = measure_label(entity, spec.code, language)
-    return label("reports.in_hours", language, name=name) if spec.unit == Unit.SECONDS else name
+    return (
+        plain_label("reports.in_hours", language, name=name) if spec.unit == Unit.SECONDS else name
+    )
 
 
 def _record_kind(source: ReportingSource, name: str) -> CellKind:
@@ -255,7 +257,9 @@ class _Job:
             ]
             rows.append(names + [_number(v) for v in record_[len(groups) :]])
         lead: list[Value] = (
-            [label("reports.total", self.language), *([""] * (len(groups) - 1))] if groups else []
+            [plain_label("reports.total", self.language), *([""] * (len(groups) - 1))]
+            if groups
+            else []
         )
         return columns, rows, lead + [_number(v) for v in totals]
 
@@ -343,14 +347,16 @@ class _Job:
         """The summary sheet, and the records sheet when asked for; right to left in ar/ur."""
         sink = XlsxSink(rtl=self.language in RTL_LANGUAGES)
         columns, rows, totals = await self.summary()
-        sink.sheet(label("reports.sheet_summary", self.language), columns, self.header)
+        sink.sheet(plain_label("reports.sheet_summary", self.language), columns, self.header)
         for values in rows:
             sink.row(values)
         sink.row(totals, bold=True)
         count = len(rows)
         if self.row.content == "records":
             sink.sheet(
-                label("reports.sheet_records", self.language), self.record_columns(), self.header
+                plain_label("reports.sheet_records", self.language),
+                self.record_columns(),
+                self.header,
             )
             count = 0
             async for values in self.records(self.max_rows):
@@ -402,13 +408,13 @@ def _header_lines(row: FileSpec, ran_at: datetime, zone: ZoneInfo) -> list[str]:
     language = row.language
     return [
         row.title,
-        label(
+        plain_label(
             "reports.export_run_at",
             language,
             time=ran_at.astimezone(zone).strftime("%Y-%m-%d %H:%M"),
         ),
-        label("reports.times_in", language, zone=zone.key),
-        label("reports.scope_note", language),
+        plain_label("reports.times_in", language, zone=zone.key),
+        plain_label("reports.scope_note", language),
     ]
 
 

@@ -60,3 +60,6 @@ deploy/**/charts/*.tgz
 
 # Helm chart dependencies (downloaded from Chart.lock by `make chart-deps`)
 deploy/helm/*/charts/*.tgz
+
+# Rendered docs (make decisions, make progress-log; D-123)
+docs/_build/
