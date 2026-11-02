@@ -4118,4 +4118,5 @@ export const ur: LabelResource = {
   'sla.settings.warning_percent_help': 'ہدف کا وہ حصہ جو انتباہ کے وقت گزر چکا ہو۔',
   'sla.settings.priority_rule': 'جب ترجیح بدلے',
   'sla.settings.reopen_rule': 'جب حل شدہ واقعہ دوبارہ کھولا جائے',
+  'report_field.first_response_due_at': 'جواب کی آخری حد',
 };

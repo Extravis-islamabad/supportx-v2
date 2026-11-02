@@ -13053,6 +13053,8 @@ export interface components {
             display_id: string;
             /** First Responded At */
             first_responded_at: string | null;
+            /** First Response Due At */
+            first_response_due_at: string | null;
             /** Group Id */
             group_id: string | null;
             /**

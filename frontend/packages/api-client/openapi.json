@@ -20551,6 +20551,18 @@
             ],
             "title": "First Responded At"
           },
+          "first_response_due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Response Due At"
+          },
           "group_id": {
             "anyOf": [
               {
@@ -20743,6 +20755,7 @@
           "channel",
           "tags",
           "sla_policy_id",
+          "first_response_due_at",
           "resolution_due_at",
           "created_at",
           "updated_at",

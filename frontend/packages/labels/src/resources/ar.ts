@@ -4579,4 +4579,5 @@ export const ar: LabelResource = {
   'sla.settings.warning_percent_help': 'نسبة الهدف المنقضية عند إطلاق التنبيه.',
   'sla.settings.priority_rule': 'عند تغيير الأولوية',
   'sla.settings.reopen_rule': 'عند إعادة فتح حادثة محلولة',
+  'report_field.first_response_due_at': 'الاستجابة قبل',
 };

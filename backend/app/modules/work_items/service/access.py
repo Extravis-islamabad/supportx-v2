@@ -130,6 +130,9 @@ FIELDS = ResourceFields(
         "resolution_due_at": FilterField(
             WorkItem.resolution_due_at, FieldType.DATETIME, sortable=True, simple=False
         ),
+        "first_response_due_at": FilterField(
+            WorkItem.first_response_due_at, FieldType.DATETIME, sortable=True, simple=False
+        ),
         # Reporting needs these too (WP-035, D-100 D9); they filter the list just the same.
         "first_responded_at": FilterField(
             WorkItem.first_responded_at, FieldType.DATETIME, sortable=True, simple=False

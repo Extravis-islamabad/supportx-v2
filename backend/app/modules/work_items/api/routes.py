@@ -569,6 +569,7 @@ class WorkItemListItem(BaseModel):
     channel: Channel
     tags: list[str]
     sla_policy_id: uuid.UUID | None
+    first_response_due_at: datetime | None
     resolution_due_at: datetime | None
     created_at: datetime
     updated_at: datetime

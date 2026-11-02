@@ -4516,6 +4516,7 @@ export const en = {
     'The share of the target that has gone when the warning fires.',
   'sla.settings.priority_rule': 'When the priority changes',
   'sla.settings.reopen_rule': 'When a resolved incident is reopened',
+  'report_field.first_response_due_at': 'Respond by',
 } as const;
 
 export type LabelKey = keyof typeof en;
