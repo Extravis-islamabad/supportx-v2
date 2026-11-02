@@ -344,3 +344,33 @@ async def test_due_dates_by_hand_need_the_permission_a_reason_and_a_future_momen
     # Another tenant's admin cannot reach it (404, never a hint it exists).
     other = await _set_due(world, world.b, world.b.admin, item, "resolution", later)
     assert other.status_code == 404, other.text
+
+
+async def test_req_sla_038_the_panel_shows_policy_targets_calendar_and_who_set_a_date(
+    world: World,
+) -> None:
+    a = world.a
+    item = await _p1(world, a)
+    panel = await world.call("GET", f"/incidents/{item['id']}/sla", a, a.tech_a)
+    assert panel.status_code == 200, panel.text
+    body = panel.json()
+    assert body["policy_id"] == item["sla_policy_id"]
+    assert body["policy_name"]
+    assert body["reason"] == "created"
+    assert body["may_set_due_dates"] is False  # technicians: not by default (D-115 D11)
+    assert [t["kind"] for t in body["targets"]] == ["first_response", "resolution"]
+    resolution = body["targets"][1]
+    assert resolution["state"] == "running"
+    assert resolution["calendar_name"]  # P1 runs around the clock: the system calendar
+    assert resolution["manual"] is None
+    wanted = _iso(resolution["due_at"]) + timedelta(days=1)
+    await _set_due(world, a, a.admin, item, "resolution", wanted)
+    by_admin = (await world.call("GET", f"/incidents/{item['id']}/sla", a, a.admin)).json()
+    assert by_admin["may_set_due_dates"] is True
+    manual = by_admin["targets"][1]["manual"]
+    assert _iso(manual["due_at"]) == wanted
+    assert (manual["by_id"], manual["reason"]) == (str(a.admin), "Agreed with the requester")
+    assert manual["by_name"]
+    # Out of reach: another tenant gets 404.
+    other = await world.call("GET", f"/incidents/{item['id']}/sla", world.b, world.b.admin)
+    assert other.status_code == 404, other.text

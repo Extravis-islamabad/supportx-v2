@@ -10,7 +10,8 @@ by the published table in docs/architecture/sla-business-time.md.
 Public interface for other modules: `calendar_for_maths` (a calendar ready for business-time
 maths), `system_calendar_id`, `SystemCalendar`, `Calendar` (its `add`, `between`,
 `working_at`); `SlaRecordType`, `register_record_type`, `on_change`, `set_due_by_hand` and
-`SlaStamp`, for a module whose records have SLAs (it calls `on_change` inside every save). Sites and
+`SlaStamp`, for a module whose records have SLAs (it calls `on_change` inside every save);
+`record_sla` (with `SlaRecordView`, `SlaTargetView`) for the record page's SLA panel. Sites and
 support groups name their calendar through organization, which asks this module whether an
 ID is usable (`register_calendar_check`, registered at import).
 """
@@ -30,6 +31,7 @@ from app.modules.sla.service.calendars import (
 )
 from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
 from app.modules.sla.service.realtime import ROUTES
+from app.modules.sla.service.records import SlaRecordView, SlaTargetView, record_sla
 from app.modules.sla.service.registry import SlaRecordType, register_record_type
 
 FEATURE = "sla"  # in every edition (licensing catalogue): SLAs have no licence gate beyond it
@@ -55,11 +57,14 @@ module = ModuleSpec(
 __all__ = [
     "Calendar",
     "SlaRecordType",
+    "SlaRecordView",
     "SlaStamp",
+    "SlaTargetView",
     "SystemCalendar",
     "calendar_for_maths",
     "module",
     "on_change",
+    "record_sla",
     "register_record_type",
     "set_due_by_hand",
     "system_calendar_id",

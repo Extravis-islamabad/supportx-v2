@@ -2442,6 +2442,33 @@ async def set_due_date(  # noqa: PLR0913 - the record, the change and its contex
     return await _view(session, subject, wtype, updated)
 
 
+@dataclass(frozen=True, slots=True)
+class SlaPanel:
+    """The record's SLA panel (REQ-SLA-038).
+
+    sla's view, the names it shows, and whether the reader may set due dates by hand.
+    """
+
+    sla: sla_glue.SlaRecordView
+    names: Mapping[str, str]
+    may_set_due_dates: bool
+
+
+async def sla_panel(
+    session: AsyncSession, subject: Subject, wtype: WorkItemType, record_id: uuid.UUID
+) -> SlaPanel:
+    """The SLA of one record the subject may see (else 404)."""
+    record = await _visible(session, subject, wtype, record_id)
+    view = await sla_glue.record_view(session, record)
+    people = sorted({str(t.manual_by) for t in view.targets if t.manual_by})
+    refused = await _reason_for(session, subject, wtype, "edit_due_dates", record.id)
+    return SlaPanel(
+        sla=view,
+        names=await user_names(session, people) if people else {},
+        may_set_due_dates=refused is None and sla_glue.has_sla(record) and not _closed(record),
+    )
+
+
 # --- trash ----------------------------------------------------------------------------------------
 
 

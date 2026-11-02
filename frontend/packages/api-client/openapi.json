@@ -14989,6 +14989,71 @@
         "title": "SlaHolidayPatch",
         "type": "object"
       },
+      "SlaManualOut": {
+        "description": "A due date set by hand: who, why and when (REQ-SLA-028 AC3).",
+        "properties": {
+          "at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "At"
+          },
+          "by_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By Id"
+          },
+          "by_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "By Name"
+          },
+          "due_at": {
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "due_at",
+          "by_id",
+          "by_name",
+          "reason",
+          "at"
+        ],
+        "title": "SlaManualOut",
+        "type": "object"
+      },
       "SlaPolicyIn": {
         "additionalProperties": false,
         "description": "A new policy: placed above the default policy, last among the others.",
@@ -15531,6 +15596,183 @@
           }
         },
         "title": "SlaSpecialHoursPatch",
+        "type": "object"
+      },
+      "SlaTargetOut": {
+        "description": "One target of the record's SLA (the latest round).\n\nTimes are UTC; seconds are business seconds on the target's calendar.",
+        "properties": {
+          "breach_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breach Seconds"
+          },
+          "breached_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Breached At"
+          },
+          "calendar_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Id"
+          },
+          "calendar_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar Name"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due At"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "manual": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SlaManualOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "met_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Met At"
+          },
+          "met_how": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Met How"
+          },
+          "paused_seconds": {
+            "title": "Paused Seconds",
+            "type": "integer"
+          },
+          "paused_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Since"
+          },
+          "round": {
+            "title": "Round",
+            "type": "integer"
+          },
+          "running_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Running Since"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "target_seconds": {
+            "title": "Target Seconds",
+            "type": "integer"
+          },
+          "used_seconds": {
+            "title": "Used Seconds",
+            "type": "integer"
+          },
+          "warning_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning At"
+          }
+        },
+        "required": [
+          "kind",
+          "round",
+          "state",
+          "target_seconds",
+          "used_seconds",
+          "paused_seconds",
+          "running_since",
+          "paused_since",
+          "due_at",
+          "warning_at",
+          "met_at",
+          "met_how",
+          "breached_at",
+          "breach_seconds",
+          "calendar_id",
+          "calendar_name",
+          "manual"
+        ],
+        "title": "SlaTargetOut",
         "type": "object"
       },
       "SlaTargetRow": {
@@ -21671,6 +21913,78 @@
           }
         },
         "title": "WorkItemSettingsPatch",
+        "type": "object"
+      },
+      "WorkItemSlaOut": {
+        "description": "The record's SLA panel (REQ-SLA-038). No policy: the record has no SLA.",
+        "properties": {
+          "applied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Applied At"
+          },
+          "may_set_due_dates": {
+            "title": "May Set Due Dates",
+            "type": "boolean"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "policy_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Name"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "targets": {
+            "items": {
+              "$ref": "#/components/schemas/SlaTargetOut"
+            },
+            "title": "Targets",
+            "type": "array"
+          }
+        },
+        "required": [
+          "policy_id",
+          "policy_name",
+          "reason",
+          "applied_at",
+          "targets",
+          "may_set_due_dates"
+        ],
+        "title": "WorkItemSlaOut",
         "type": "object"
       },
       "WorkItemStatusOut": {
@@ -40629,6 +40943,90 @@
           }
         },
         "summary": "Restore from the trash",
+        "tags": [
+          "incidents"
+        ]
+      }
+    },
+    "/api/v1/incidents/{record_id}/sla": {
+      "get": {
+        "description": "The record's SLA: the policy, why it applies, each target and its due date.",
+        "operationId": "sla_panel_api_v1_incidents__record_id__sla_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "record_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Record Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkItemSlaOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such record visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "SLA",
         "tags": [
           "incidents"
         ]

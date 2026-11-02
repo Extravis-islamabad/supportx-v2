@@ -3006,6 +3006,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/incidents/{record_id}/sla": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * SLA
+         * @description The record's SLA: the policy, why it applies, each target and its due date.
+         */
+        get: operations["sla_panel_api_v1_incidents__record_id__sla_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/incidents/{record_id}/take": {
         parameters: {
             query?: never;
@@ -10944,6 +10964,25 @@ export interface components {
             starts_on?: string | null;
         };
         /**
+         * SlaManualOut
+         * @description A due date set by hand: who, why and when (REQ-SLA-028 AC3).
+         */
+        SlaManualOut: {
+            /** At */
+            at: string | null;
+            /** By Id */
+            by_id: string | null;
+            /** By Name */
+            by_name: string | null;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /** Reason */
+            reason: string | null;
+        };
+        /**
          * SlaPolicyIn
          * @description A new policy: placed above the default policy, last among the others.
          */
@@ -11160,6 +11199,47 @@ export interface components {
             starts_on?: string | null;
             /** Week */
             week?: components["schemas"]["SlaWorkingPeriod"][] | null;
+        };
+        /**
+         * SlaTargetOut
+         * @description One target of the record's SLA (the latest round).
+         *
+         *     Times are UTC; seconds are business seconds on the target's calendar.
+         */
+        SlaTargetOut: {
+            /** Breach Seconds */
+            breach_seconds: number | null;
+            /** Breached At */
+            breached_at: string | null;
+            /** Calendar Id */
+            calendar_id: string | null;
+            /** Calendar Name */
+            calendar_name: string | null;
+            /** Due At */
+            due_at: string | null;
+            /** Kind */
+            kind: string;
+            manual: components["schemas"]["SlaManualOut"] | null;
+            /** Met At */
+            met_at: string | null;
+            /** Met How */
+            met_how: string | null;
+            /** Paused Seconds */
+            paused_seconds: number;
+            /** Paused Since */
+            paused_since: string | null;
+            /** Round */
+            round: number;
+            /** Running Since */
+            running_since: string | null;
+            /** State */
+            state: string;
+            /** Target Seconds */
+            target_seconds: number;
+            /** Used Seconds */
+            used_seconds: number;
+            /** Warning At */
+            warning_at: string | null;
         };
         /**
          * SlaTargetRow
@@ -13411,6 +13491,24 @@ export interface components {
              * @description 2-6 capital letters.
              */
             prefix?: string | null;
+        };
+        /**
+         * WorkItemSlaOut
+         * @description The record's SLA panel (REQ-SLA-038). No policy: the record has no SLA.
+         */
+        WorkItemSlaOut: {
+            /** Applied At */
+            applied_at: string | null;
+            /** May Set Due Dates */
+            may_set_due_dates: boolean;
+            /** Policy Id */
+            policy_id: string | null;
+            /** Policy Name */
+            policy_name: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Targets */
+            targets: components["schemas"]["SlaTargetOut"][];
         };
         /**
          * WorkItemStatusOut
@@ -26883,6 +26981,73 @@ export interface operations {
             };
             /** @description version_conflict (who changed what), invalid_transition, record_closed, would_lose_access, already_taken or already_yours. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    sla_panel_api_v1_incidents__record_id__sla_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                record_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkItemSlaOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such record visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

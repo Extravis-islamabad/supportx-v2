@@ -244,6 +244,94 @@ class WorkItemDueDateIn(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
+class SlaManualOut(BaseModel):
+    """A due date set by hand: who, why and when (REQ-SLA-028 AC3)."""
+
+    due_at: datetime
+    by_id: uuid.UUID | None
+    by_name: str | None
+    reason: str | None
+    at: datetime | None
+
+
+class SlaTargetOut(BaseModel):
+    """One target of the record's SLA (the latest round).
+
+    Times are UTC; seconds are business seconds on the target's calendar.
+    """
+
+    kind: str
+    round: int
+    state: str
+    target_seconds: int
+    used_seconds: int
+    paused_seconds: int
+    running_since: datetime | None
+    paused_since: datetime | None
+    due_at: datetime | None
+    warning_at: datetime | None
+    met_at: datetime | None
+    met_how: str | None
+    breached_at: datetime | None
+    breach_seconds: int | None
+    calendar_id: uuid.UUID | None
+    calendar_name: str | None
+    manual: SlaManualOut | None
+
+
+class WorkItemSlaOut(BaseModel):
+    """The record's SLA panel (REQ-SLA-038). No policy: the record has no SLA."""
+
+    policy_id: uuid.UUID | None
+    policy_name: str | None
+    reason: str | None
+    applied_at: datetime | None
+    targets: list[SlaTargetOut]
+    may_set_due_dates: bool
+
+    @classmethod
+    def of(cls, panel: service.SlaPanel) -> "WorkItemSlaOut":
+        """The panel as the API returns it."""
+        view = panel.sla
+        return cls(
+            policy_id=view.policy_id,
+            policy_name=view.policy_name,
+            reason=view.reason,
+            applied_at=view.applied_at,
+            may_set_due_dates=panel.may_set_due_dates,
+            targets=[
+                SlaTargetOut(
+                    kind=t.kind,
+                    round=t.round,
+                    state=t.state,
+                    target_seconds=t.target_seconds,
+                    used_seconds=t.used_seconds,
+                    paused_seconds=t.paused_seconds,
+                    running_since=t.running_since,
+                    paused_since=t.paused_since,
+                    due_at=t.due_at,
+                    warning_at=t.warning_at,
+                    met_at=t.met_at,
+                    met_how=t.met_how,
+                    breached_at=t.breached_at,
+                    breach_seconds=t.breach_seconds,
+                    calendar_id=t.calendar_id,
+                    calendar_name=t.calendar_name,
+                    manual=SlaManualOut(
+                        due_at=t.manual_due_at,
+                        by_id=t.manual_by,
+                        by_name=panel.names.get(str(t.manual_by)) if t.manual_by else None,
+                        reason=t.manual_reason,
+                        at=t.manual_at,
+                    )
+                    if t.manual_due_at is not None
+                    else None,
+                )
+                for t in view.targets
+            ],
+        )
+
+
 class WorkItemTakeIn(BaseModel):
     """Which of your groups, when it has none and you are in several."""
 
@@ -1482,6 +1570,13 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
         """Triggers' outcomes per action and loop stops, newest first (kept 30 days)."""
         rows = await service.automation_log(session, subject, wtype, record_id)
         return [AutomationRunOut.model_validate(r, from_attributes=True) for r in rows]
+
+    @router.get("/{record_id}/sla", summary="SLA")
+    async def sla_panel(
+        record_id: uuid.UUID, session: TenantSession, subject: View
+    ) -> WorkItemSlaOut:
+        """The record's SLA: the policy, why it applies, each target and its due date."""
+        return WorkItemSlaOut.of(await service.sla_panel(session, subject, wtype, record_id))
 
     @router.get("/{record_id}/history", summary="History")
     async def history(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and query options

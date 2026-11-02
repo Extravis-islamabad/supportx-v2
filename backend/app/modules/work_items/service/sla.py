@@ -149,3 +149,15 @@ def due_change(record: WorkItem, kind: str, columns: Mapping[str, Any]) -> Chang
     """The history line of a due date set or cleared by hand."""
     column = DUE_COLUMNS[kind]
     return Change(column, _plain(getattr(record, column)), _plain(columns.get(column)))
+
+
+SlaRecordView = sla.SlaRecordView
+
+
+async def record_view(session: AsyncSession, record: WorkItem) -> sla.SlaRecordView:
+    """The record's SLA for its panel; a type without SLAs has none."""
+    if not has_sla(record):
+        return sla.SlaRecordView(
+            policy_id=None, policy_name=None, reason=None, applied_at=None, targets=()
+        )
+    return await sla.record_sla(session, record.id)
