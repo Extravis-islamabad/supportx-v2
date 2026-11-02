@@ -3915,6 +3915,9 @@ export const ur: LabelResource = {
   'connector_category.knowledge': 'معلومات',
   'connector_category.ai': 'مصنوعی ذہانت',
   'connector_status.not_set_up': 'سیٹ اپ نہیں ہوا',
+  'user_type.service': 'انٹیگریشن',
+  'errors.service_identity_managed':
+    'یہ ایک کنیکٹر کی اپنی شناخت ہے۔ اسے ایڈمن › انٹیگریشنز سے تبدیل کریں۔',
   'connector_status.active': 'فعال',
   'connector_status.degraded': 'کارکردگی متاثر',
   'connector_status.failed': 'ناکام',

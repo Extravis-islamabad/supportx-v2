@@ -37,7 +37,7 @@ from app.modules.integrations.events import (
 )
 from app.modules.integrations.infra.imap import MailboxReader, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox
-from app.modules.integrations.service import runs, secrets
+from app.modules.integrations.service import identities, runs, secrets
 from app.modules.integrations.service.connections import (
     Credentials,
     key_ring,
@@ -115,6 +115,8 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
         mailbox = await session.get(Mailbox, mailbox_id)
         if mailbox is None or not mailbox.enabled or mailbox.deleted_at is not None:
             return 0
+        # A mailbox from before WP-040 session 2 gets its service identity here.
+        await identities.ensure_identity(session, CONNECTOR_KIND, mailbox.id, name=mailbox.address)
         boxes = list(await session.scalars(select(Mailbox).where(Mailbox.deleted_at.is_(None))))
         ours = own_addresses(settings, boxes)
         after, move_to = AfterFetch(mailbox.after_fetch), mailbox.move_to

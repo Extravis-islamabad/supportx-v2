@@ -20,6 +20,7 @@ from sqlalchemy import (
     LargeBinary,
     String,
     UniqueConstraint,
+    func,
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
@@ -246,6 +247,28 @@ class ConnectorHealth(TenantKeyed, Base):
     last_error_at: Mapped[datetime | None]
     last_error_code: Mapped[str | None] = mapped_column(String(60))  # a label code
     updated_at: Mapped[datetime]
+
+
+class ConnectorIdentity(TenantKeyed, Base):
+    """The service identity a connector instance acts as (WP-040, REQ-INT-012; migration 0052).
+
+    One per instance, made with it (or at its next run); the user row is identity_access's.
+    """
+
+    __tablename__ = "connector_identities"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "user_id"],
+            ["users.tenant_id", "users.id"],
+            name="fk_connector_identities_user",
+        ),
+        UniqueConstraint("tenant_id", "user_id", name="uq_connector_identities_tenant_user"),
+    )
+
+    kind: Mapped[str] = mapped_column(String(40), primary_key=True)
+    instance_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
 
 class ConnectorRun(TenantKeyed, Base):

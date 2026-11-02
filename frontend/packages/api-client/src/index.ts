@@ -449,6 +449,7 @@ export {
   type PeopleImport,
   type PersonFields,
   type PersonIn,
+  type PersonType,
   type Reactivation,
   type TechnicianScope,
 } from './people';

@@ -830,9 +830,18 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
     threshold; D-041) with the session 2 settings screen; generalising the 14-day credential
     warning to every kind; the contract step (drop the mailbox secret columns, `mailbox.failing`,
     `mailboxes.manage`) once the store is proven.
-- **Session 2:** Entra ID sync, AD/LDAP through Keycloak federation (D-118), leavers and
-  `identity_access.user.status_changed` `reason`/`source` (agreed with lane A), service identities,
-  mapping screens.
+- **Session 2 (in progress on #150):**
+  - [x] `identity_access.user.status_changed` gains `reason` and `source` (defaulted, still v1;
+    agreed with lane A).
+  - [x] Service identities (REQ-INT-012), migration 0052: user type `service`, one per connector
+    instance in `connector_identities` (RLS), made with the instance or at its next run, disabled
+    (never deleted) when it is removed. A database check keeps it from ever signing in; it takes
+    no seat, is left out of people lists, search, pickers and permission holders, and the people
+    screens and imports cannot make, change or retype one (`PersonType` input,
+    409 `service_identity_managed`). Its history says "integration". `identity_access.user.created`
+    v3 carries `service` and `integration`. The downgrade keeps every row (disabled requesters).
+  - [ ] Entra ID sync, AD/LDAP through Keycloak federation (D-118), leavers, mapping screens,
+    tenant-editable defaults (D-041).
 
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first

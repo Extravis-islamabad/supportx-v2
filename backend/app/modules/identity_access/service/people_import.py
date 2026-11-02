@@ -23,7 +23,7 @@ from app.core.database import Database
 from app.core.errors import AppError, NotFound, ValidationFailed
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
-from app.modules.identity_access.domain.identity import UserType
+from app.modules.identity_access.domain.identity import PERSON_TYPES, UserType
 from app.modules.identity_access.domain.people import LOCALES
 from app.modules.identity_access.domain.people_import import (
     MAX_FILE_BYTES,
@@ -330,6 +330,8 @@ async def _row_values(  # noqa: C901, PLR0912 - one rule per column, flat
             user_type = UserType(values["user_type"].strip().lower())
         except ValueError as exc:
             raise RowProblem(field="user_type", code="invalid_choice") from exc
+        if user_type not in PERSON_TYPES:  # service identities come only from their connector
+            raise RowProblem(field="user_type", code="invalid_choice")
     can_sign_in = None
     if values.get("can_sign_in"):
         can_sign_in = flag(values["can_sign_in"])

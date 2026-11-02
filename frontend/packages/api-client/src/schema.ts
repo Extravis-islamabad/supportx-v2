@@ -8921,7 +8921,7 @@ export interface components {
             /** Time Zone */
             time_zone?: string | null;
             /** @default requester */
-            user_type: components["schemas"]["UserType"];
+            user_type: components["schemas"]["PersonType"];
             /** Vip */
             vip?: boolean | null;
         };
@@ -8935,6 +8935,12 @@ export interface components {
             /** Email */
             email: string;
         };
+        /**
+         * PersonType
+         * @description The types a person can be given in the people screens and imports (never `service`).
+         * @enum {string}
+         */
+        PersonType: "technician" | "requester";
         /**
          * PickList
          * @description Admin-managed value lists: the reason lists plus levels and closure codes.
@@ -11202,7 +11208,7 @@ export interface components {
          * @description Technician (takes a licence seat) or requester.
          */
         TypeIn: {
-            user_type: components["schemas"]["UserType"];
+            user_type: components["schemas"]["PersonType"];
         };
         /**
          * TypingIn
@@ -11452,7 +11458,7 @@ export interface components {
          * @description Which app a user works in. Stored as a code; the UI shows a label.
          * @enum {string}
          */
-        UserType: "technician" | "requester";
+        UserType: "technician" | "requester" | "service";
         /** ValidationError */
         ValidationError: {
             /** Context */

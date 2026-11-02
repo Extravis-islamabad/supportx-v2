@@ -128,6 +128,22 @@ class UserCreatedV2(DomainEvent):
     source: Literal["admin", "import", "email"]
 
 
+class UserCreatedV3(DomainEvent):
+    """As UserCreatedV2, with service identities: a connector's own identity (WP-040).
+
+    `service` and `integration` are new allowed values, so a new schema version; v1 and v2 stay
+    registered. A service identity never signs in and is never in people lists.
+    """
+
+    event_type: ClassVar[str] = "identity_access.user.created"
+    schema_version: ClassVar[int] = 3
+    aggregate_type: ClassVar[str] = "user"
+
+    user_id: uuid.UUID
+    user_type: Literal["technician", "requester", "service"]
+    source: Literal["admin", "import", "email", "integration"]
+
+
 class UserStatusChanged(DomainEvent):
     """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.
 
@@ -240,6 +256,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     UserRoleChanged,
     UserCreated,
     UserCreatedV2,
+    UserCreatedV3,
     UserStatusChanged,
     PeopleImportProgressed,
     AccessSettingsChanged,

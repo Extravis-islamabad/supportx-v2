@@ -4310,6 +4310,9 @@ export const en = {
   'connector_category.knowledge': 'Knowledge',
   'connector_category.ai': 'AI',
   'connector_status.not_set_up': 'Not set up',
+  'user_type.service': 'Integration',
+  'errors.service_identity_managed':
+    'This is a connector’s own identity. Change it from Admin › Integrations.',
   'connector_status.active': 'Active',
   'connector_status.degraded': 'Degraded',
   'connector_status.failed': 'Failed',

@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.errors import Conflict, FieldError, NotFound, ServiceUnavailable, ValidationFailed
 from app.modules.integrations.domain.mailboxes import (
+    CONNECTOR_KIND,
     WAITING,
     AfterFetch,
     AuthModel,
@@ -37,7 +38,7 @@ from app.modules.integrations.domain.mailboxes import (
 from app.modules.integrations.events import MailboxChanged
 from app.modules.integrations.infra.imap import MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox, MailFetched
-from app.modules.integrations.service import inbound, secrets
+from app.modules.integrations.service import identities, inbound, secrets
 from app.modules.integrations.service.connections import (
     CONSENT_DECLINED,
     CONSENT_EXPIRED,
@@ -270,6 +271,8 @@ async def create_mailbox(
     if password:  # required for every kind (_problems)
         await _store_secret(session, row, ring, password)
         await session.flush()
+    # Acts in its own name from the start (REQ-INT-012).
+    await identities.ensure_identity(session, CONNECTOR_KIND, row.id, name=row.address)
     await changed(session, row, "added")
     return _view(row, {}, await secrets.credential_info(session, [row.id]))
 
@@ -328,6 +331,8 @@ async def remove_mailbox(
     row.deleted_at, row.updated_at, row.enabled = now, now, False
     for role in secrets.SecretRole:  # a removed mailbox keeps no credential
         await secrets.clear(session, row, role)
+    # Its identity may do nothing more; history keeps naming it.
+    await identities.set_identity_active(session, CONNECTOR_KIND, row.id, active=False)
     row.version += 1
     await session.flush()
     await changed(session, row, "removed")

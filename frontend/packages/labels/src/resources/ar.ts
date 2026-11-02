@@ -4373,6 +4373,8 @@ export const ar: LabelResource = {
   'connector_category.knowledge': 'المعرفة',
   'connector_category.ai': 'الذكاء الاصطناعي',
   'connector_status.not_set_up': 'غير مُعَدّ',
+  'user_type.service': 'تكامل',
+  'errors.service_identity_managed': 'هذه هوية خاصة بموصّل. غيّرها من الإدارة › التكاملات.',
   'connector_status.active': 'نشط',
   'connector_status.degraded': 'متراجع الأداء',
   'connector_status.failed': 'متعطل',

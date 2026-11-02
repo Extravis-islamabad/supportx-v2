@@ -11049,7 +11049,7 @@
             "title": "Time Zone"
           },
           "user_type": {
-            "$ref": "#/components/schemas/UserType",
+            "$ref": "#/components/schemas/PersonType",
             "default": "requester"
           },
           "vip": {
@@ -11088,6 +11088,15 @@
         ],
         "title": "PersonOut",
         "type": "object"
+      },
+      "PersonType": {
+        "description": "The types a person can be given in the people screens and imports (never `service`).",
+        "enum": [
+          "technician",
+          "requester"
+        ],
+        "title": "PersonType",
+        "type": "string"
       },
       "PickList": {
         "description": "Admin-managed value lists: the reason lists plus levels and closure codes.",
@@ -17095,7 +17104,7 @@
         "description": "Technician (takes a licence seat) or requester.",
         "properties": {
           "user_type": {
-            "$ref": "#/components/schemas/UserType"
+            "$ref": "#/components/schemas/PersonType"
           }
         },
         "required": [
@@ -17712,7 +17721,8 @@
         "description": "Which app a user works in. Stored as a code; the UI shows a label.",
         "enum": [
           "technician",
-          "requester"
+          "requester",
+          "service"
         ],
         "title": "UserType",
         "type": "string"

@@ -88,6 +88,10 @@ from app.modules.identity_access.service.policy import (
 )
 from app.modules.identity_access.service.realtime import CHANNELS, ROUTES
 from app.modules.identity_access.service.roles import RoleName, role_names
+from app.modules.identity_access.service.service_identities import (
+    create_service_identity,
+    set_service_identity_active,
+)
 from app.modules.identity_access.service.users import count_technicians
 from app.modules.licensing import Feature, entitled_features
 from app.modules.organization import memberships
@@ -297,6 +301,7 @@ __all__ = [
     "authorize",
     "authorize_stored",
     "create_requester_from_mail",
+    "create_service_identity",
     "direct_reports",
     "display_names",
     "get_policy",
@@ -309,6 +314,7 @@ __all__ = [
     "require",
     "role_names",
     "scope_filter",
+    "set_service_identity_active",
     "subject_for",
     "user_contacts",
     "user_names",
