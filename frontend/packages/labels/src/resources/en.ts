@@ -1843,6 +1843,7 @@ export const en = {
   'palette.placeholder_search': 'Type a page, an incident ID, words or a name…',
   'palette.searching': 'Searching…',
   'search.incidents': 'Incidents',
+  'search.knowledge': 'Knowledge articles',
   'search.recent': 'Recently viewed',
   'search.same_requester': 'Also from {{name}}',
   'search.results': 'Matching incidents',

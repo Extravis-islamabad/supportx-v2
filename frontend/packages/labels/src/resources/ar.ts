@@ -1874,6 +1874,7 @@ export const ar: LabelResource = {
   'palette.placeholder_search': 'اكتب اسم صفحة أو رقم حادثة أو كلمات أو اسمًا…',
   'palette.searching': 'جارٍ البحث…',
   'search.incidents': 'الحوادث',
+  'search.knowledge': 'مقالات المعرفة',
   'search.recent': 'تمت مشاهدتها مؤخرًا',
   'search.same_requester': 'من {{name}} أيضًا',
   'search.results': 'الحوادث المطابقة',

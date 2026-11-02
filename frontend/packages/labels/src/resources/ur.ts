@@ -1442,6 +1442,7 @@ export const ur: LabelResource = {
   'palette.placeholder_search': 'صفحہ، واقعے کا نمبر، الفاظ یا نام لکھیں…',
   'palette.searching': 'تلاش جاری ہے…',
   'search.incidents': 'واقعات',
+  'search.knowledge': 'علمی مضامین',
   'search.recent': 'حال ہی میں دیکھے گئے',
   'search.same_requester': '{{name}} کے دیگر واقعات',
   'search.results': 'ملتے جلتے واقعات',
