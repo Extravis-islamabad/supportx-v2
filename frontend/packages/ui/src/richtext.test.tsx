@@ -126,4 +126,39 @@ describe('The rich-text editor (WP-020b)', () => {
       expect(changed.mock.lastCall?.[0]).toContain('Hello there');
     });
   });
+
+  it('wraps text in a callout box of one of four kinds, only when asked (D-108 (9))', async () => {
+    const changed = vi.fn<(html: string) => void>();
+    renderUi(
+      <RichTextField
+        label="Article"
+        value="<p>Restart first</p>"
+        onChange={changed}
+        callouts
+        testId="ed"
+      />,
+    );
+    const editor = await screen.findByTestId('ed');
+    act(() => {
+      editor.focus();
+    });
+    fireEvent.click(screen.getByTestId('rt-callout'));
+    fireEvent.click(await screen.findByText('Tip'));
+    await waitFor(() => {
+      expect(changed.mock.lastCall?.[0]).toMatch(
+        /data-callout="tip"><p[^>]*>Restart first<\/p><\/div>/,
+      );
+    });
+    fireEvent.click(screen.getByTestId('rt-callout'));
+    fireEvent.click(await screen.findByText('Warning'));
+    await waitFor(() => {
+      expect(changed.mock.lastCall?.[0]).toContain('data-callout="warning"');
+    });
+  });
+
+  it('offers no callouts in other editors', async () => {
+    renderUi(<RichTextField label="Reply" testId="ed" />);
+    await screen.findByTestId('ed');
+    expect(screen.queryByTestId('rt-callout')).toBeNull();
+  });
 });

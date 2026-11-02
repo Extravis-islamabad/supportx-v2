@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import type { MentionSearch } from './mention';
 
 /** A text to insert at the caret (reply templates, REQ-INC-058). */
@@ -33,4 +35,11 @@ export interface RichTextFieldProps {
    * shown inline; the screen attaches them to the saved entry. Without it images are not taken.
    */
   imageOwnerId?: string;
+  /** Offer callout boxes (info, warning, tip, note) in the toolbar (knowledge articles). */
+  callouts?: boolean;
+  /**
+   * More toolbar controls from the screen (the knowledge picker, D-121). They get `insert`, which
+   * puts sanitised HTML at the editor's own caret; the editor keeps its state and logic.
+   */
+  extraTools?: (insert: (html: string) => void) => ReactNode;
 }

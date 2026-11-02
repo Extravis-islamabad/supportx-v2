@@ -26,6 +26,7 @@ from app.modules.work_items.service import (
     inbound_mail,
     notifications,
     parts,
+    record_facts,
     report_names,
     resolution,
 )
@@ -86,6 +87,8 @@ register_sources()
 report_names.register()
 # Incident notifications (WP-023, lane B with lane A's review): at import, for the worker too.
 notifications.register()
+# What other modules may ask about incidents (D-121, knowledge links): at import, as above.
+record_facts.register()
 # Incidents from mail (WP-024, lane B with lane A's review): at import, for the worker too.
 inbound_mail.register()
 # Who may reach work item files: at import too, since mail attachments upload in the worker.

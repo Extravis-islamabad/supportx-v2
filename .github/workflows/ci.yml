@@ -65,6 +65,8 @@ jobs:
         uses: ./.github/actions/changes
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run == 'true' }}
+      - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - name: Lint (ruff check, ruff format --check, import-linter, OpenAPI + event schema drift)
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: make backend-lint
@@ -83,7 +85,15 @@ jobs:
         run: |
           base_ref="${GITHUB_BASE_REF:-main}"
           base_file="$RUNNER_TEMP/openapi.base.json"
-          git show "origin/${base_ref}:frontend/packages/api-client/openapi.json" > "$base_file"
+          committed="origin/${base_ref}:frontend/packages/api-client/openapi.json"
+          if git cat-file -e "$committed" 2>/dev/null; then
+            git show "$committed" > "$base_file"  # a target branch from before D-127
+          else
+            # Generated, never committed (D-127): export the target branch's contract from its code.
+            git worktree add --detach "$RUNNER_TEMP/base" "origin/${base_ref}"
+            (cd "$RUNNER_TEMP/base/backend" && uv sync --frozen \
+              && uv run python -m tooling.export_openapi "$base_file")
+          fi
           make openapi-diff base="$base_file"
       - name: Type-check (mypy --strict)
         if: ${{ steps.changes.outputs.run == 'true' }}
@@ -111,6 +121,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-backend
+      - uses: ./.github/actions/generated
       - name: Restart PostgreSQL and NATS under running workers
         working-directory: backend
         env:
@@ -213,6 +224,8 @@ jobs:
           curl -s -o /dev/null http://127.0.0.1:8333 # fail the job if never up
       - uses: ./.github/actions/setup-backend
         if: ${{ steps.changes.outputs.run == 'true' }}
+      - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - name: Create roles and database (same code as the test fixtures)
         if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
@@ -305,6 +318,8 @@ jobs:
       - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
+      - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: ./.github/actions/setup-frontend
         if: ${{ steps.changes.outputs.run == 'true' }}
       - name: Lint (ESLint, Prettier check)
@@ -334,6 +349,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - uses: ./.github/actions/generated
       - name: Build the worker image with its test tools
         run: docker build -f deploy/images/backend.Dockerfile --target worker-test -t supportx-worker-test:ci .
       - name: PDF tests inside the worker image
@@ -382,6 +398,10 @@ jobs:
         if: ${{ steps.changes.outputs.run == 'true' }}
       - uses: ./.github/actions/setup-frontend
         if: ${{ steps.changes.outputs.run == 'true' }}
+      - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run == 'true' }}
+        with:
+          frontend: "true"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: ${{ steps.changes.outputs.run == 'true' }}
         with:

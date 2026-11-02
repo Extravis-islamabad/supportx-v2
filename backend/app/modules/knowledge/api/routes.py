@@ -1,7 +1,8 @@
-"""Knowledge over HTTP (WP-033 session 1): `/api/v1/knowledge`.
+"""Knowledge over HTTP (WP-033 sessions 1-2): `/api/v1/knowledge`.
 
-Topics, articles and their drafts. Approval, publishing, withdrawal, trash and requesters'
-reading follow in session 2 (D-108). Static paths come before `/{id}`.
+Topics, articles and their drafts (session 1); review and approval, withdrawal, "still
+correct", trash, versions, settings and requesters' reading (session 2, D-108). Static paths
+come before `/{id}`.
 """
 
 import uuid
@@ -10,18 +11,23 @@ from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.authorization import require_permission
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.identity_access import Subject
-from app.modules.knowledge.infra.models import KbArticleVersion, KbTopic, KbType
-from app.modules.knowledge.service import articles, topics
+from app.modules.audit import audited
+from app.modules.identity_access import Subject, user_names
+from app.modules.knowledge.domain.knowledge import ID_PREFIX
+from app.modules.knowledge.infra.models import KbArticleVersion, KbSettings, KbTopic, KbType
+from app.modules.knowledge.service import articles, review, topics
+from app.modules.knowledge.service import types as kb_types
 from app.modules.knowledge.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
-from app.shared.history import source_of
+from app.shared.clock import system_clock
+from app.shared.history import HistoryEntry, source_of
 
 Responses = dict[int | str, dict[str, Any]]
 RESPONSES: Responses = {
@@ -143,6 +149,7 @@ class ArticleTypeOut(BaseModel):
     review_months: int
     builtin: bool
     retired: bool
+    version: int
 
     @classmethod
     def of(cls, kind: KbType) -> "ArticleTypeOut":
@@ -153,6 +160,7 @@ class ArticleTypeOut(BaseModel):
             review_months=kind.review_months,
             builtin=kind.builtin,
             retired=kind.retired_at is not None,
+            version=kind.version,
         )
 
 
@@ -254,15 +262,20 @@ class ArticleOut(BaseModel):
     expired: bool
     review_due: bool
     withdrawn: bool
+    withdrawn_reason: str | None = Field(description="For editors and withdrawers only.")
     published: dict[str, VersionOut]
     drafts: dict[str, VersionOut]
     can_edit: bool
+    can_approve: bool
+    can_withdraw: bool
     version: int
     created_at: datetime
     updated_at: datetime
 
+    owner_name: str | None = Field(default=None, description="The owner's display name.")
+
     @classmethod
-    def of(cls, view: articles.ArticleView) -> "ArticleOut":
+    def of(cls, view: articles.ArticleView, owner_name: str | None = None) -> "ArticleOut":
         """From the service view."""
         article = view.article
         return cls(
@@ -271,6 +284,7 @@ class ArticleOut(BaseModel):
             topic_id=article.topic_id,
             type_code=article.type_code,
             owner_id=article.owner_id,
+            owner_name=owner_name,
             default_language=article.default_language,
             audience=articles.audience_text(view),
             review_on=article.review_on,
@@ -278,15 +292,26 @@ class ArticleOut(BaseModel):
             expired=view.expired,
             review_due=view.review_due,
             withdrawn=article.withdrawn_at is not None,
+            withdrawn_reason=(
+                article.withdrawn_reason if view.can_edit or view.can_withdraw else None
+            ),
             published={
                 k: VersionOut.of(v, editor=view.can_edit) for k, v in view.published.items()
             },
             drafts={k: VersionOut.of(v, editor=True) for k, v in view.drafts.items()},
             can_edit=view.can_edit,
+            can_approve=view.can_approve,
+            can_withdraw=view.can_withdraw,
             version=article.version,
             created_at=article.created_at,
             updated_at=article.updated_at,
         )
+
+
+async def _article_out(session: AsyncSession, view: articles.ArticleView) -> ArticleOut:
+    """The article with its owner's name."""
+    owner = str(view.article.owner_id)
+    return ArticleOut.of(view, (await user_names(session, [owner])).get(owner))
 
 
 class ArticleRowOut(BaseModel):
@@ -301,6 +326,13 @@ class ArticleRowOut(BaseModel):
     status: str
     review_on: date | None
     updated_at: datetime
+    owner_id: uuid.UUID
+    expired: bool
+    withdrawn: bool
+    review_due: bool
+    # Who wrote the version shown (the approval inbox names it; D-120).
+    author_id: uuid.UUID | None = None
+    author_name: str | None = None
 
 
 # --- topics ---------------------------------------------------------------------------------------
@@ -312,7 +344,12 @@ async def list_topics(session: TenantSession, subject: Viewer) -> list[TopicOut]
     return [TopicOut.of(t) for t in await topics.list_topics(session, subject)]
 
 
-@router.post("/topics", summary="Create a topic", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/topics",
+    summary="Create a topic",
+    status_code=status.HTTP_201_CREATED,
+    response_model=TopicOut,
+)
 async def create_topic(
     body: TopicIn,
     session: TenantSession,
@@ -390,6 +427,87 @@ async def list_types(session: TenantSession, subject: Viewer) -> list[ArticleTyp
     return [ArticleTypeOut.of(t) for t in await articles.article_types(session)]
 
 
+class TypeNames(BaseModel):
+    """A custom type's names: English and Arabic required, Urdu optional (rule d)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    en: str = Field(default="", max_length=200)
+    ar: str = Field(default="", max_length=200)
+    ur: str = Field(default="", max_length=200)
+
+
+class ArticleTypeIn(BaseModel):
+    """A new custom article type (D-120)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    names: TypeNames
+    review_months: int = Field(ge=1, le=60)
+
+
+class ArticleTypePatch(BaseModel):
+    """Change a type (If-Match): a built-in type keeps its names."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    names: TypeNames | None = None
+    review_months: int | None = Field(default=None, ge=1, le=60)
+    retired: bool | None = None
+
+
+@router.post(
+    "/types",
+    summary="Add an article type",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ArticleTypeOut,
+    dependencies=[audited("knowledge.type_created", object_type="kb_type")],
+)
+async def create_type(
+    body: ArticleTypeIn,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    idempotency: Idempotency,
+) -> Response:
+    """Needs `knowledge.manage_types`."""
+
+    async def go() -> Created:
+        kind = await kb_types.create_type(
+            session, subject, body.model_dump(), source=source_of(request)
+        )
+        out = ArticleTypeOut.of(kind)
+        return Created(body=out, headers={"ETag": f'"{out.version}"'})
+
+    return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
+
+
+@router.patch(
+    "/types/{code}",
+    summary="Change an article type",
+    responses=CONFLICT,
+    dependencies=[audited("knowledge.type_changed", object_type="kb_type")],
+)
+async def update_type(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    code: Annotated[str, Field(max_length=40)],
+    body: ArticleTypePatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleTypeOut:
+    """Needs `knowledge.manage_types` and If-Match. Retired types stay on their articles."""
+    values = {name: getattr(body, name) for name in body.model_fields_set}
+    if isinstance(values.get("names"), TypeNames):
+        values["names"] = values["names"].model_dump()
+    kind = await kb_types.update_type(
+        session, subject, code, values, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, kind.version)
+    return ArticleTypeOut.of(kind)
+
+
 # --- articles -------------------------------------------------------------------------------------
 
 
@@ -397,15 +515,47 @@ async def list_types(session: TenantSession, subject: Viewer) -> list[ArticleTyp
 async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
     session: TenantSession,
     subject: Viewer,
-    view: Annotated[Literal["published", "my_drafts"], Query()] = "published",
-    language: Annotated[Language, Query()] = "en",
+    view: Annotated[
+        Literal[
+            "published",
+            "my_drafts",
+            "in_review",
+            "awaiting_approval",
+            "review_due",
+            "due_today",
+            "overdue",
+            "expired",
+            "withdrawn",
+            "trash",
+        ],
+        Query(),
+    ] = "published",
+    language: Annotated[Language, Query(description="Preferred language of each row.")] = "en",
     topic_id: Annotated[uuid.UUID | None, Query()] = None,
     q: Annotated[str | None, Query(max_length=200, description="Search words.")] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
+    type_code: Annotated[str | None, Query(max_length=40)] = None,
+    owner_id: Annotated[uuid.UUID | None, Query()] = None,
+    only_language: Annotated[
+        Language | None, Query(description="Only versions in this language.")
+    ] = None,
 ) -> list[ArticleRowOut]:
     """Published articles you may read, or the drafts you may work on; searchable."""
     rows = await articles.list_articles(
-        session, subject, view=view, language=language, topic_id=topic_id, query=q, limit=limit
+        session,
+        subject,
+        view=view,
+        language=language,
+        topic_id=topic_id,
+        query=q,
+        limit=limit,
+        type_code=type_code,
+        owner_id=owner_id,
+        only_language=only_language,
+    )
+    today = system_clock.now().date()
+    authors = await user_names(
+        session, sorted({str(r.version.created_by) for r in rows if r.version.created_by})
     )
     return [
         ArticleRowOut(
@@ -418,12 +568,23 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
             status=r.version.status,
             review_on=r.article.review_on,
             updated_at=r.article.updated_at,
+            owner_id=r.article.owner_id,
+            expired=r.article.expires_on is not None and r.article.expires_on <= today,
+            withdrawn=r.article.withdrawn_at is not None,
+            review_due=r.article.review_on is not None and r.article.review_on <= today,
+            author_id=r.version.created_by,
+            author_name=(authors.get(str(r.version.created_by)) if r.version.created_by else None),
         )
         for r in rows
     ]
 
 
-@router.post("/articles", summary="Write an article", status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/articles",
+    summary="Write an article",
+    status_code=status.HTTP_201_CREATED,
+    response_model=ArticleOut,
+)
 async def create_article(
     body: ArticleIn,
     session: TenantSession,
@@ -437,7 +598,7 @@ async def create_article(
         view = await articles.create_article(
             session, subject, body.model_dump(), source=source_of(request)
         )
-        out = ArticleOut.of(view)
+        out = await _article_out(session, view)
         return Created(
             body=out,
             headers={
@@ -456,7 +617,7 @@ async def get_article(
     """Published versions for its audience; drafts for its author, owners and approvers."""
     view = await articles.get_article(session, subject, article_id)
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.patch("/articles/{article_id}", summary="Change an article", responses=CONFLICT)
@@ -479,7 +640,7 @@ async def update_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.article.version)
-    return ArticleOut.of(view)
+    return await _article_out(session, view)
 
 
 @router.post(
@@ -527,3 +688,372 @@ async def save_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     )
     set_etag(response, draft.version)
     return VersionOut.of(draft, editor=True)
+
+
+# --- session 2: review and approval (REQ-KB-027, 028) ---------------------------------------------
+
+
+class SubmitIn(BaseModel):
+    """Send a draft to review, with an optional note for the approver."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    note: str | None = Field(default=None, max_length=500)
+
+
+class ReasonIn(BaseModel):
+    """A reason, required (sending back, withdrawing)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(max_length=2000)
+
+
+@router.post(
+    "/articles/{article_id}/drafts/{language}/submit",
+    summary="Send a draft to review",
+    responses=CONFLICT,
+)
+async def submit_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    language: Language,
+    body: SubmitIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> VersionOut:
+    """If-Match carries the draft's version. Approvers see it at once (no mail needed)."""
+    submitted = await review.submit(
+        session,
+        subject,
+        article_id,
+        language,
+        note=body.note,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, submitted.version)
+    return VersionOut.of(submitted, editor=True)
+
+
+@router.post(
+    "/articles/{article_id}/drafts/{language}/approve",
+    summary="Approve and publish",
+    responses=CONFLICT,
+    dependencies=[
+        audited(
+            "knowledge.article_approved",
+            object_type="kb_article",
+            object_param="article_id",
+            detail_params=("language",),
+        )
+    ],
+)
+async def approve_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    language: Language,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Publishes the version in review; the previous one is replaced at the same moment."""
+    view = await review.approve(
+        session, subject, article_id, language, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, view.article.version)
+    return await _article_out(session, view)
+
+
+@router.post(
+    "/articles/{article_id}/drafts/{language}/reject",
+    summary="Send back to the author",
+    responses=CONFLICT,
+)
+async def reject_draft(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    language: Language,
+    body: ReasonIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> VersionOut:
+    """The version becomes a draft again; the author sees the reason."""
+    rejected = await review.reject(
+        session,
+        subject,
+        article_id,
+        language,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, rejected.version)
+    return VersionOut.of(rejected, editor=True)
+
+
+# --- session 2: withdraw, still correct, trash, versions (REQ-KB-020, 031, 034, 079) --------------
+
+
+@router.post(
+    "/articles/{article_id}/withdraw",
+    summary="Withdraw",
+    responses=CONFLICT,
+    dependencies=[
+        audited("knowledge.article_withdrawn", object_type="kb_article", object_param="article_id")
+    ],
+)
+async def withdraw_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    body: ReasonIn,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Off every reader path at once; approving a new version brings it back."""
+    view = await review.withdraw(
+        session,
+        subject,
+        article_id,
+        reason=body.reason,
+        expected_version=version,
+        source=source_of(request),
+    )
+    set_etag(response, view.article.version)
+    return await _article_out(session, view)
+
+
+@router.post("/articles/{article_id}/still-correct", summary="Still correct", responses=CONFLICT)
+async def still_correct(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Records a review; the review date moves on, with no new version."""
+    view = await review.still_correct(
+        session, subject, article_id, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, view.article.version)
+    return await _article_out(session, view)
+
+
+@router.delete(
+    "/articles/{article_id}",
+    summary="Move to the trash",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=CONFLICT,
+    dependencies=[
+        audited("knowledge.article_deleted", object_type="kb_article", object_param="article_id")
+    ],
+)
+async def delete_article(
+    article_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+) -> None:
+    """Restorable; nothing is deleted for good here (GDPR erasure jobs only)."""
+    await review.delete_article(
+        session, subject, article_id, expected_version=version, source=source_of(request)
+    )
+
+
+@router.post(
+    "/articles/{article_id}/restore",
+    summary="Restore from the trash",
+    responses=CONFLICT,
+    dependencies=[
+        audited("knowledge.article_restored", object_type="kb_article", object_param="article_id")
+    ],
+)
+async def restore_article(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    article_id: uuid.UUID,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> ArticleOut:
+    """Back into its topic (409 kb_topic_in_trash while the topic is in the trash)."""
+    view = await review.restore_article(
+        session, subject, article_id, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, view.article.version)
+    return await _article_out(session, view)
+
+
+@router.get("/articles/{article_id}/versions", summary="Versions")
+async def article_versions(
+    article_id: uuid.UUID, session: TenantSession, subject: Viewer
+) -> list[VersionOut]:
+    """Published and earlier versions; drafts and reviews for those who may see them."""
+    view = await articles.get_article(session, subject, article_id)
+    found = await review.list_versions(session, subject, article_id)
+    return [VersionOut.of(v, editor=view.can_edit or view.can_approve) for v in found]
+
+
+class KbFieldChangeOut(BaseModel):
+    """One field of one save. Values are codes, IDs, text or ISO dates; the UI labels them.
+
+    Version fields are named `version.<language>.<what>` (e.g. `version.ar.status`).
+    """
+
+    field: str
+    old: Any = None
+    new: Any = None
+
+
+class KbHistoryEntryOut(BaseModel):
+    """One save of an article."""
+
+    version: int
+    kind: str = Field(description="history_kind code: created, updated, status, deleted…")
+    occurred_at: datetime
+    actor_type: Literal["user", "system"]
+    actor_id: str | None
+    actor_name: str | None
+    source: str = Field(description="history_source code: ui, api, system…")
+    reason: str | None
+    changes: list[KbFieldChangeOut]
+
+    @classmethod
+    def of(cls, entry: HistoryEntry, names: dict[str, str]) -> "KbHistoryEntryOut":
+        """From a history entry plus resolved actor names."""
+        return cls(
+            version=entry.version,
+            kind=entry.kind,
+            occurred_at=entry.occurred_at,
+            actor_type="user" if entry.actor_type == "user" else "system",
+            actor_id=entry.actor_id,
+            actor_name=names.get(entry.actor_id or ""),
+            source=entry.source,
+            reason=entry.reason,
+            changes=[KbFieldChangeOut(field=c.field, old=c.old, new=c.new) for c in entry.changes],
+        )
+
+
+class KbHistoryOut(BaseModel):
+    """Saves of one article, newest first."""
+
+    items: list[KbHistoryEntryOut]
+    next_cursor: str | None
+
+
+@router.get("/articles/{article_id}/history", summary="History of an article")
+async def article_history(
+    article_id: uuid.UUID,
+    session: TenantSession,
+    subject: Viewer,
+    cursor: Annotated[str | None, Query(description="next_cursor of the previous page.")] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 25,
+) -> KbHistoryOut:
+    """Every save, newest first: who, when, from where, what, why (editors and approvers)."""
+    before = int(cursor) if cursor and cursor.isdigit() else None
+    entries, next_version, names = await review.history(
+        session, subject, article_id, before_version=before, limit=limit
+    )
+    return KbHistoryOut(
+        items=[KbHistoryEntryOut.of(entry, names) for entry in entries],
+        next_cursor=None if next_version is None else str(next_version),
+    )
+
+
+# --- session 2: the approval count and settings (REQ-KB-086, 090) ---------------------------------
+
+
+class ApprovalCountOut(BaseModel):
+    """A number for a menu badge."""
+
+    count: int
+
+
+@router.get("/approvals/count", summary="Articles awaiting my approval")
+async def approvals_count(session: TenantSession, subject: Viewer) -> ApprovalCountOut:
+    """The live count in the Knowledge menu (refreshed by realtime)."""
+    return ApprovalCountOut(count=await review.awaiting_count(session, subject))
+
+
+class KnowledgeSettingsDefaults(BaseModel):
+    """What each setting is before anyone changes it (the page's "reset")."""
+
+    prefix: str = ID_PREFIX
+    self_approval: bool = False  # D-120 (4)
+    requesters_enabled: bool = True
+
+
+class KnowledgeSettingsOut(BaseModel):
+    """Knowledge settings (REQ-KB-090; prefix and next number, D-120)."""
+
+    prefix: str
+    next_number: int = Field(description="The number the next new article gets.")
+    self_approval: bool
+    requesters_enabled: bool
+    version: int
+    defaults: KnowledgeSettingsDefaults = Field(default_factory=KnowledgeSettingsDefaults)
+
+    @classmethod
+    async def of(cls, session: AsyncSession, found: KbSettings) -> "KnowledgeSettingsOut":
+        """From the row and the article counter."""
+        return cls(
+            prefix=found.prefix,
+            next_number=await review.next_article_number(session),
+            self_approval=found.self_approval,
+            requesters_enabled=found.requesters_enabled,
+            version=found.version,
+        )
+
+
+class KnowledgeSettingsPatch(BaseModel):
+    """Change knowledge settings (If-Match). A new prefix applies to new articles only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    prefix: str | None = Field(default=None, max_length=6)
+    next_number: int | None = Field(default=None, ge=1, le=999_999_999)
+    self_approval: bool | None = None
+    requesters_enabled: bool | None = None
+
+
+@router.get("/settings", summary="Knowledge settings")
+async def get_settings(
+    session: TenantSession, subject: Viewer, response: Response
+) -> KnowledgeSettingsOut:
+    """Read by every reader (the screens need self-approval); changed by settings managers."""
+    del subject
+    found = await articles.settings_row(session)
+    set_etag(response, found.version)
+    return await KnowledgeSettingsOut.of(session, found)
+
+
+@router.patch(
+    "/settings",
+    summary="Change knowledge settings",
+    responses=CONFLICT,
+    dependencies=[audited("knowledge.settings_changed", object_type="kb_settings")],
+)
+async def patch_settings(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
+    body: KnowledgeSettingsPatch,
+    version: ExpectedVersion,
+    session: TenantSession,
+    subject: Viewer,
+    request: Request,
+    response: Response,
+) -> KnowledgeSettingsOut:
+    """Needs `knowledge.manage_settings`."""
+    values = {k: v for k, v in body.model_dump(exclude_unset=True).items() if v is not None}
+    found = await review.update_settings(
+        session, subject, values, expected_version=version, source=source_of(request)
+    )
+    set_etag(response, found.version)
+    return await KnowledgeSettingsOut.of(session, found)

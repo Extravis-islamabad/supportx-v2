@@ -93,6 +93,42 @@ export const routes: RouteObject[] = [
         ],
       },
       {
+        path: 'knowledge',
+        handle: { section: 'knowledge' },
+        children: [
+          {
+            index: true,
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/KnowledgePage')).KnowledgePage,
+            }),
+          },
+          {
+            path: 'approvals',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ApprovalInboxPage')).ApprovalInboxPage,
+            }),
+          },
+          {
+            path: 'articles/new',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ArticleEditorPage')).NewArticlePage,
+            }),
+          },
+          {
+            path: 'articles/:id',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ArticlePage')).ArticlePage,
+            }),
+          },
+          {
+            path: 'articles/:id/edit/:lang',
+            lazy: async () => ({
+              Component: (await import('./pages/knowledge/ArticleEditorPage')).ArticleEditorPage,
+            }),
+          },
+        ],
+      },
+      {
         path: 'announcements',
         handle: { section: 'announcements' },
         children: [
@@ -207,6 +243,13 @@ export const routes: RouteObject[] = [
             lazy: async () => ({
               Component: (await import('./pages/admin/integrations/DirectoriesPage'))
                 .DirectoriesPage,
+            }),
+          },
+          {
+            path: 'knowledge',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/knowledge/KnowledgeSettingsPage'))
+                .KnowledgeSettingsPage,
             }),
           },
         ],

@@ -71,6 +71,9 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { KnowledgeCard } from '../knowledge/KnowledgeCard';
+import { KnowledgePicker } from '../knowledge/KnowledgePicker';
+import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
@@ -262,188 +265,201 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
   const groupName =
     item.group_id === null ? '' : (groups.data?.find((g) => g.id === item.group_id)?.name ?? '');
 
+  // Knowledge in this record's editors (D-121): the picker, for replies, notes and the resolution.
+  const knowledgeSlot: KnowledgeSlot = (insert, audience) => (
+    <KnowledgePicker
+      recordType="incident"
+      recordId={item.id}
+      subject={item.subject}
+      audience={audience}
+      insert={insert}
+    />
+  );
+
   return (
-    // Full width: the record uses the whole screen (no fixed cap leaving the right side empty).
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="start" wrap gap={12}>
-        <Space direction="vertical" size={4}>
-          <Typography.Text type="secondary" copyable data-testid="inc-display-id">
-            {item.display_id}
-          </Typography.Text>
-          <Typography.Title level={1} style={{ margin: 0 }} data-testid="inc-heading">
-            {/* What people typed reads in its own direction, whatever the UI's (QA BUG-12). */}
-            <bdi dir="auto">{item.subject}</bdi>
-          </Typography.Title>
-          <Space size={4} wrap>
-            <StatusTag status={item.status} catalogue={catalogue.data} />
-            <PriorityTag priority={item.priority} source={item.priority_source} />
-            <SlaTag
-              policyId={item.sla_policy_id}
-              dueAt={item.resolution_due_at}
-              state={item.resolution_sla_state}
-              format={dates.format}
-            />
-          </Space>
-          {(item.status_reason_code !== null || item.status_reason_text !== null) && (
-            <Typography.Text type="secondary" data-testid="inc-status-reason">
-              {t('incidents.status_reason')}:{' '}
-              {item.status_reason_code === null
-                ? ''
-                : reasonValueLabel(t, catalogue.data, item.status_reason_code, locale)}
-              {item.status_reason_text === null ? (
-                ''
-              ) : (
-                <>
-                  {' — '}
-                  <bdi dir="auto">{item.status_reason_text}</bdi>
-                </>
-              )}
+    <KnowledgeSlotContext.Provider value={knowledgeSlot}>
+      {/* Full width: the record uses the whole screen (no fixed cap leaving the right side empty). */}
+      <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Flex justify="space-between" align="start" wrap gap={12}>
+          <Space direction="vertical" size={4}>
+            <Typography.Text type="secondary" copyable data-testid="inc-display-id">
+              {item.display_id}
             </Typography.Text>
-          )}
-          <Typography.Text type="secondary" data-testid="inc-people">
-            {/* Names and the group are isolated, so a mixed Arabic and English line keeps
+            <Typography.Title level={1} style={{ margin: 0 }} data-testid="inc-heading">
+              {/* What people typed reads in its own direction, whatever the UI's (QA BUG-12). */}
+              <bdi dir="auto">{item.subject}</bdi>
+            </Typography.Title>
+            <Space size={4} wrap>
+              <StatusTag status={item.status} catalogue={catalogue.data} />
+              <PriorityTag priority={item.priority} source={item.priority_source} />
+              <SlaTag
+                policyId={item.sla_policy_id}
+                dueAt={item.resolution_due_at}
+                state={item.resolution_sla_state}
+                format={dates.format}
+              />
+            </Space>
+            {(item.status_reason_code !== null || item.status_reason_text !== null) && (
+              <Typography.Text type="secondary" data-testid="inc-status-reason">
+                {t('incidents.status_reason')}:{' '}
+                {item.status_reason_code === null
+                  ? ''
+                  : reasonValueLabel(t, catalogue.data, item.status_reason_code, locale)}
+                {item.status_reason_text === null ? (
+                  ''
+                ) : (
+                  <>
+                    {' — '}
+                    <bdi dir="auto">{item.status_reason_text}</bdi>
+                  </>
+                )}
+              </Typography.Text>
+            )}
+            <Typography.Text type="secondary" data-testid="inc-people">
+              {/* Names and the group are isolated, so a mixed Arabic and English line keeps
                 "(group)" together in either reading direction (QA C6). */}
-            {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
-            {' · '}
-            {item.technician_id === null
-              ? t('incidents.unassigned')
-              : t('incidents.assigned_to', { name: personName(item.people, item.technician_id) })}
-            {groupName === '' ? '' : ' '}
-            {groupName === '' ? null : <bdi>({groupName})</bdi>}
-          </Typography.Text>
-        </Space>
-        <Flex align="center" gap={12} wrap>
-          <PresenceAvatars viewers={viewers} selfUserId={me} />
-          <FollowButton item={item} me={me} />
+              {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
+              {' · '}
+              {item.technician_id === null
+                ? t('incidents.unassigned')
+                : t('incidents.assigned_to', { name: personName(item.people, item.technician_id) })}
+              {groupName === '' ? '' : ' '}
+              {groupName === '' ? null : <bdi>({groupName})</bdi>}
+            </Typography.Text>
+          </Space>
+          <Flex align="center" gap={12} wrap>
+            <PresenceAvatars viewers={viewers} selfUserId={me} />
+            <FollowButton item={item} me={me} />
+          </Flex>
         </Flex>
-      </Flex>
-      {changedBy !== null && (
-        <Alert
-          type="warning"
-          showIcon
-          role="status"
-          data-testid="live-change-notice"
-          message={t('live.changed_by', { name: changedBy })}
-          action={
-            <Button
-              size="small"
-              data-testid="live-change-reload"
-              onClick={() => {
-                behind.current = false;
-                setChangedBy(null);
-                void reload();
+        {changedBy !== null && (
+          <Alert
+            type="warning"
+            showIcon
+            role="status"
+            data-testid="live-change-notice"
+            message={t('live.changed_by', { name: changedBy })}
+            action={
+              <Button
+                size="small"
+                data-testid="live-change-reload"
+                onClick={() => {
+                  behind.current = false;
+                  setChangedBy(null);
+                  void reload();
+                }}
+              >
+                {t('live.reload')}
+              </Button>
+            }
+          />
+        )}
+        <Flex gap={8} wrap align="center" data-testid="inc-operations">
+          <OperationButton
+            state={op('assign')}
+            label={t('work_item_operation.assign')}
+            testId="inc-op-assign"
+            onClick={() => {
+              setAssigning(true);
+            }}
+          />
+          <TakeButton item={item} state={op('take')} />
+          <StatusActions item={item} catalogue={catalogue.data} />
+          <span style={{ flex: 1 }} />
+          {deleteOp !== undefined && deleteOp.reason !== 'no_permission' && (
+            <Popconfirm
+              title={t('incidents.delete_confirm', { id: item.display_id })}
+              okText={t('work_item_operation.delete')}
+              okButtonProps={{ danger: true }}
+              cancelText={t('actions.cancel')}
+              onConfirm={() => {
+                removeIt(item.version);
               }}
             >
-              {t('live.reload')}
-            </Button>
-          }
-        />
-      )}
-      <Flex gap={8} wrap align="center" data-testid="inc-operations">
-        <OperationButton
-          state={op('assign')}
-          label={t('work_item_operation.assign')}
-          testId="inc-op-assign"
-          onClick={() => {
-            setAssigning(true);
+              <WriteButton
+                danger
+                disabled={!deleteOp.allowed}
+                loading={remove.isPending}
+                data-testid="inc-op-delete"
+              >
+                {t('work_item_operation.delete')}
+              </WriteButton>
+            </Popconfirm>
+          )}
+        </Flex>
+        <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <AssignDialog
+          item={item}
+          open={assigning}
+          refresh={reload}
+          onClose={() => {
+            setAssigning(false);
           }}
         />
-        <TakeButton item={item} state={op('take')} />
-        <StatusActions item={item} catalogue={catalogue.data} />
-        <span style={{ flex: 1 }} />
-        {deleteOp !== undefined && deleteOp.reason !== 'no_permission' && (
-          <Popconfirm
-            title={t('incidents.delete_confirm', { id: item.display_id })}
-            okText={t('work_item_operation.delete')}
-            okButtonProps={{ danger: true }}
-            cancelText={t('actions.cancel')}
-            onConfirm={() => {
-              removeIt(item.version);
-            }}
-          >
-            <WriteButton
-              danger
-              disabled={!deleteOp.allowed}
-              loading={remove.isPending}
-              data-testid="inc-op-delete"
-            >
-              {t('work_item_operation.delete')}
-            </WriteButton>
-          </Popconfirm>
-        )}
-      </Flex>
-      <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
-      <AssignDialog
-        item={item}
-        open={assigning}
-        refresh={reload}
-        onClose={() => {
-          setAssigning(false);
-        }}
-      />
-      <LoopWarning id={item.id} />
-      <Tabs
-        data-testid="inc-tabs"
-        // The tab this user used last, Conversation the first time (D-081).
-        activeKey={tab}
-        onChange={(key) => {
-          setTab(key);
-          rememberTab(me, key);
-        }}
-        items={[
-          {
-            key: 'conversation',
-            label: t('incidents.tab.conversation', { count: item.conversation_count }),
-            children: <IncidentConversation item={item} typing={typing} />,
-          },
-          {
-            key: 'details',
-            label: t('incidents.tab.details'),
-            children: (
-              <Details
-                item={item}
-                reload={reload}
-                onEditing={(delta) => {
-                  editing.current = Math.max(0, editing.current + delta);
-                  // Nobody edits any more: catch up with what changed meanwhile (QA BUG-09).
-                  if (editing.current === 0 && behind.current) {
-                    behind.current = false;
-                    setChangedBy(null);
-                    void reload();
-                  }
-                }}
-                me={me}
-              />
-            ),
-          },
-          {
-            key: 'tasks',
-            label: <TasksTabLabel id={item.id} />,
-            children: <IncidentTasks item={item} canEdit={canEditParts} />,
-          },
-          {
-            key: 'worklogs',
-            label: t('incidents.tab.worklogs'),
-            children: <IncidentWorklogs item={item} canEdit={canEditParts} />,
-          },
-          {
-            key: 'links',
-            label: t('incidents.tab.links'),
-            children: <IncidentLinks item={item} canEdit={canEditParts} />,
-          },
-          {
-            key: 'history',
-            label: t('incidents.tab.history', { count: item.history_count }),
-            children: <IncidentHistory id={item.id} />,
-          },
-          {
-            key: 'automation',
-            label: t('incidents.tab.automation'),
-            children: <IncidentAutomation id={item.id} />,
-          },
-        ]}
-      />
-    </Space>
+        <LoopWarning id={item.id} />
+        <Tabs
+          data-testid="inc-tabs"
+          // The tab this user used last, Conversation the first time (D-081).
+          activeKey={tab}
+          onChange={(key) => {
+            setTab(key);
+            rememberTab(me, key);
+          }}
+          items={[
+            {
+              key: 'conversation',
+              label: t('incidents.tab.conversation', { count: item.conversation_count }),
+              children: <IncidentConversation item={item} typing={typing} />,
+            },
+            {
+              key: 'details',
+              label: t('incidents.tab.details'),
+              children: (
+                <Details
+                  item={item}
+                  reload={reload}
+                  onEditing={(delta) => {
+                    editing.current = Math.max(0, editing.current + delta);
+                    // Nobody edits any more: catch up with what changed meanwhile (QA BUG-09).
+                    if (editing.current === 0 && behind.current) {
+                      behind.current = false;
+                      setChangedBy(null);
+                      void reload();
+                    }
+                  }}
+                  me={me}
+                />
+              ),
+            },
+            {
+              key: 'tasks',
+              label: <TasksTabLabel id={item.id} />,
+              children: <IncidentTasks item={item} canEdit={canEditParts} />,
+            },
+            {
+              key: 'worklogs',
+              label: t('incidents.tab.worklogs'),
+              children: <IncidentWorklogs item={item} canEdit={canEditParts} />,
+            },
+            {
+              key: 'links',
+              label: t('incidents.tab.links'),
+              children: <IncidentLinks item={item} canEdit={canEditParts} />,
+            },
+            {
+              key: 'history',
+              label: t('incidents.tab.history', { count: item.history_count }),
+              children: <IncidentHistory id={item.id} />,
+            },
+            {
+              key: 'automation',
+              label: t('incidents.tab.automation'),
+              children: <IncidentAutomation id={item.id} />,
+            },
+          ]}
+        />
+      </Space>
+    </KnowledgeSlotContext.Provider>
   );
 }
 
@@ -742,6 +758,13 @@ function Details({
           <IncidentSla item={item} />
         </Card>
         <FollowersCard item={item} me={me} />
+        <KnowledgeCard
+          recordType="incident"
+          recordId={item.id}
+          subject={item.subject}
+          hasResolution={item.resolution !== null}
+          userId={me ?? ''}
+        />
       </Flex>
     </Flex>
   );

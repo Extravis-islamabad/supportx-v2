@@ -20,7 +20,8 @@
   the 1M-row volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA
   round done (~/Desktop/qa-wp035, 8 bugs), all fixed in WP-035-FIX (#103). WP-036 dashboards
   merged (#106), free-form layout follow-up (D-110, #115). WP-033 knowledge (plan D-108, moved
-  from lane B): session 1 (backend core) built, PR open; sessions 2-4 next. Lanes and claimed
+  from lane B): session 1 merged (#118); session 2 (review, publishing, withdrawal, trash,
+  requesters, notifications) built, waiting for the merge queue; sessions 3-4 next. Lanes and claimed
   numbers: docs/LANES.md.
 - **Working mode:** two lanes (MVP build plan): lane A = the WP-020 chain (main folder), lane B =
   WP-018 audit log (done 2026-10-26), then branding (done 2026-10-26, branch `feat/branding`,

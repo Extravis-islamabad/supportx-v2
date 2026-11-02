@@ -1,15 +1,16 @@
 # Lanes
 
-Three lanes work in parallel (product owner, 2026-10-27). Each lane keeps **its own row** up to
-date at every start and finish of a work package. Rules: see "Coordination rules" below.
+Three lanes work in parallel (product owner, 2026-10-27). Each lane keeps **its own file** in
+`docs/lanes/` up to date at every start and finish of a work package. Rules: see "Coordination
+rules" below.
 
 ## Lanes
 
-| Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
-|---|---|---|---|---|---|---|
-| A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-025 sessions 1-2 merged (#152); **WP-025 session 3 in progress** (warnings, breaches, escalation levels, Temporal waker and safety net). Queue: QA round (WP-020e + WP-025), WP-028 (plan to the coordinator first), WP-030, WP-031, WP-032. WP-038 moved to lane B (lane A reviews its incident-screen parts) | `feat/wp-025-s3` | main folder (`supportx-v2`) | 0038, 0039, 0040, 0044, 0047 (merged); 0054 (WP-025 s3) | D-105, D-115 |
-| B | Identity, mail, notifications, CI | WP-040: session 1 and service identities on #150; Entra sync on `feat/wp-040-entra` (0053); AD/LDAP federation next. Queue: nightly triage, QA round, WP-013, WP-014b, WP-014c, WP-037 AI gateway, WP-038 AI on incidents (plan to the coordinator first; lane A reviews the incident-screen parts); WP-024 sessions 2 and 3 #133 and #134 (queue after lane A's #142); #130 org move, #113, #131, #132 | `feat/wp-040-connectors`, `feat/wp-040-entra`, `feat/wp-024-graph-gmail`, `feat/wp-024-outgoing`, `chore/org-move` | `../supportx-v2-wp040`, `../supportx-v2-w24s2`, `../supportx-v2-w24s3`, `../supportx-v2-ci2` | 0024, 0026, 0032, 0033, 0037 (merged); 0042 mailbox OAuth, 0043 reply delivery, 0045 connector secrets, 0049 connector runs, 0052 service identities (after lane A's 0044 and 0047 and lane C's 0046, 0048, 0050 and 0051; down_revision re-pointed when queued), 0053 directory sync | D-098, D-099, D-103, D-104, D-106, D-109, D-116, D-118 |
-| C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-036 merged (#106), free grid #115; WP-033 knowledge session 1 PR open, sessions 2-4 next | `feat/wp-033-knowledge` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031, 0035 (merged), 0036 knowledge (lane A's WP-020d also wants 0036: second to merge renumbers) | D-100, D-101, D-108, D-110; ADR-033, ADR-034 |
+Each lane keeps its own file (D-127), so two lanes never edit the same lines:
+
+- [Lane A](lanes/A.md): incidents chain
+- [Lane B](lanes/B.md): identity, mail, notifications, CI
+- [Lane C](lanes/C.md): reports, dashboards and knowledge
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
 
@@ -30,7 +31,8 @@ stopped unless the lock holder needs it.
 
 ## Coordination rules
 
-1. This file: each lane's current WP, branch and worktree, claimed migration, and the QA lock.
+1. `docs/lanes/<lane>.md`: each lane's current WP, branch and worktree, claimed migration and
+   decisions (only that lane edits it); this file: the index, the QA lock and these rules.
 2. Every lane works in its own git worktree from the latest main; only lane A uses the main folder.
 3. Migrations: one Alembic head always. Before opening a PR, merge the latest main and renumber
    your migration after the current head.
@@ -47,8 +49,9 @@ stopped unless the lock holder needs it.
    shared dev Keycloak and use the dev database, so two runs at once race (lane A's 6
    `login_failed` failures, 2026-10-27). Tell the other lanes before starting one and never run
    two at once. Testcontainers database tests stay lock-free.
-7. Shared files (DECISIONS.md, PROGRESS.md, labels, CLAUDE.md): small additive edits; on
-   conflicts keep both sides.
+7. Shared files (PROGRESS.md WP sections, labels, CLAUDE.md): small additive edits; on conflicts
+   keep both sides. Generated files (OpenAPI, API types, the backend label JSON) are never
+   committed and never hand-merged: `make generated` writes them (D-127).
 8. Stay in your lane's code; if you must change another lane's module, tell that lane first and
    keep it minimal. Lane C reads incident data through read-only paths lane A provides; it does
    not change incident code.

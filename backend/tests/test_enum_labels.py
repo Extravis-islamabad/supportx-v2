@@ -1,23 +1,21 @@
 """Every enum value the API can send has an English and an Arabic label (CLAUDE.md rule d, WP-010).
 
-Walks the committed OpenAPI contract (frontend/packages/api-client/openapi.json, kept in sync by
-the drift check) and finds every enum: named schemas (`UserType`) and inline property enums
-(`UserDetail.status`). Each must be mapped to a label prefix below, and every value must have a
-label `<prefix>.<value>` in en and ar. A new enum without a mapping fails here, so nobody ships a
-code the UI cannot translate. Error codes, event types and the licence catalogue have their own
-checks (test_error_labels.py, test_event_labels.py, test_licensing_labels.py).
+Walks the OpenAPI contract as the code builds it (`tooling.export_openapi.build_schema`; the
+file is generated, never committed, D-127) and finds every enum: named schemas (`UserType`) and
+inline property enums (`UserDetail.status`). Each must be mapped to a label prefix below, and
+every value must have a label `<prefix>.<value>` in en and ar. A new enum without a mapping
+fails here, so nobody ships a code the UI cannot translate. Error codes, event types and the
+licence catalogue have their own checks (test_error_labels.py, test_event_labels.py,
+test_licensing_labels.py).
 """
 
-import json
 from collections.abc import Iterator
-from pathlib import Path
 from typing import Any
 
 import pytest
 
 from tests.test_error_labels import label_keys
-
-OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/openapi.json"
+from tooling.export_openapi import build_schema
 
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
@@ -81,6 +79,12 @@ ENUM_PREFIXES: dict[str, str] = {
     "ArticlePatch.requesters": "kb_requesters",
     "TopicIn.requesters": "kb_requesters",
     "TopicPatch.requesters": "kb_requesters",
+    # Knowledge on incidents (WP-033 session 4)
+    "ApplyIn.audience": "kb_apply_audience",
+    "ApplyIn.language": "locale",
+    "ApplyIn.mode": "kb_apply_mode",
+    "FindingOut.field": "kb_personal_field",
+    "FindingOut.kind": "kb_personal_data",
     # Reports (WP-035)
     "ChartType": "report_chart",
     "DateBucket": "report_bucket",
@@ -111,6 +115,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "AnnouncementStatus": "announcement_status",
     "AnnouncementVisibility": "announcement_visibility",
     "HistoryEntryOut.actor_type": "actor_type",
+    "KbHistoryEntryOut.actor_type": "actor_type",
     "HistoryEntryOut.kind": "change_kind",
     "HistoryEntryOut.source": "change_source",
     "CheckStatus": "check_status",
@@ -223,7 +228,7 @@ def enums(schemas: dict[str, Any]) -> Iterator[tuple[str, list[str]]]:
 
 @pytest.fixture(scope="module")
 def contract_enums() -> list[tuple[str, list[str]]]:
-    return list(enums(json.loads(OPENAPI.read_text(encoding="utf-8"))["components"]["schemas"]))
+    return list(enums(build_schema()["components"]["schemas"]))
 
 
 def test_every_enum_in_the_contract_has_a_label_prefix(

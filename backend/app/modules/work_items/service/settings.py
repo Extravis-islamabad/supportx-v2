@@ -28,7 +28,7 @@ from app.modules.work_items.domain.closure import (
     rule_field_problems,
 )
 from app.modules.work_items.domain.conversation import FirstResponseAction
-from app.modules.work_items.domain.types import WorkItemType, prefix_problems
+from app.modules.work_items.domain.types import WorkItemType
 from app.modules.work_items.events import WorkItemSettingsChanged
 from app.modules.work_items.infra.models import WorkItemCategory, WorkItemTypeSettings
 from app.modules.work_items.service import catalogue as config
@@ -36,6 +36,7 @@ from app.modules.work_items.service import closing
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.db.display_ids import NumberAlreadyUsedError, set_next_number
 from app.shared.db.repository import Repository
+from app.shared.domain import prefix_problems
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes, stale_version
 

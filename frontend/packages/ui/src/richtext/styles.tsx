@@ -91,6 +91,11 @@ ${indents}
 .sx-richtext table { border-collapse: collapse; margin: 0 0 0.5em; }
 .sx-richtext td, .sx-richtext th { border: 1px solid ${token.colorBorder}; padding: 4px 8px; vertical-align: top; }
 .sx-richtext th { background: ${token.colorFillTertiary}; font-weight: 600; }
+.sx-richtext [data-callout] { margin: 0 0 0.5em; padding: 8px 12px; border-inline-start: 4px solid ${token.colorInfo}; background: ${token.colorInfoBg}; border-radius: ${String(token.borderRadius)}px; }
+.sx-richtext [data-callout="warning"] { border-inline-start-color: ${token.colorWarning}; background: ${token.colorWarningBg}; }
+.sx-richtext [data-callout="tip"] { border-inline-start-color: ${token.colorSuccess}; background: ${token.colorSuccessBg}; }
+.sx-richtext [data-callout="note"] { border-inline-start-color: ${token.colorBorder}; background: ${token.colorFillTertiary}; }
+.sx-richtext [data-callout] > :last-child { margin-bottom: 0; }
 .sx-richtext span[data-type="mention"] { color: ${token.colorPrimaryText}; background: ${token.colorPrimaryBg}; border-radius: 4px; padding: 0 2px; font-weight: 500; unicode-bidi: isolate; }
 ${colours}
 ${swatches}
