@@ -3759,298 +3759,6 @@
         "title": "BulkStatus",
         "type": "string"
       },
-      "CalendarIn": {
-        "additionalProperties": false,
-        "description": "A new operating-hours calendar: a week, or a preset (Monday to Friday by default).",
-        "properties": {
-          "holiday_list_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "maxItems": 20,
-            "title": "Holiday List Ids",
-            "type": "array"
-          },
-          "labels": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Labels",
-            "type": "object"
-          },
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "preset": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/WeekPreset"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "time_zone": {
-            "examples": [
-              "Asia/Karachi"
-            ],
-            "maxLength": 64,
-            "minLength": 1,
-            "title": "Time Zone",
-            "type": "string"
-          },
-          "week": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/WorkingPeriod"
-                },
-                "maxItems": 28,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Week"
-          }
-        },
-        "required": [
-          "name",
-          "time_zone"
-        ],
-        "title": "SlaCalendarIn",
-        "type": "object"
-      },
-      "CalendarOut": {
-        "description": "A working calendar, who uses it and what you may do with it.",
-        "properties": {
-          "can_manage": {
-            "title": "Can Manage",
-            "type": "boolean"
-          },
-          "delete_refusal": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "`action_reason.<code>` when it cannot go.",
-            "title": "Delete Refusal"
-          },
-          "fixed": {
-            "description": "Around the clock: only the name can change.",
-            "title": "Fixed",
-            "type": "boolean"
-          },
-          "holiday_list_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Holiday List Ids",
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "description": "`sla_calendar_kind.<code>`: hours or around the clock.",
-            "title": "Kind",
-            "type": "string"
-          },
-          "labels": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "description": "Its name in other languages (ar, ur).",
-            "title": "Labels",
-            "type": "object"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "system_key": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "`sla_calendar.<key>`: a calendar every tenant has.",
-            "title": "System Key"
-          },
-          "time_zone": {
-            "title": "Time Zone",
-            "type": "string"
-          },
-          "used_by_groups": {
-            "items": {
-              "$ref": "#/components/schemas/CalendarUser"
-            },
-            "title": "Used By Groups",
-            "type": "array"
-          },
-          "used_by_sites": {
-            "items": {
-              "$ref": "#/components/schemas/CalendarUser"
-            },
-            "title": "Used By Sites",
-            "type": "array"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          },
-          "week": {
-            "items": {
-              "$ref": "#/components/schemas/WorkingPeriod"
-            },
-            "title": "Week",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "labels",
-          "time_zone",
-          "kind",
-          "system_key",
-          "week",
-          "holiday_list_ids",
-          "used_by_sites",
-          "used_by_groups",
-          "fixed",
-          "can_manage",
-          "delete_refusal",
-          "version"
-        ],
-        "title": "SlaCalendar",
-        "type": "object"
-      },
-      "CalendarPatch": {
-        "additionalProperties": false,
-        "description": "What to change (only what is sent); `holiday_list_ids` replaces the lists.",
-        "properties": {
-          "holiday_list_ids": {
-            "anyOf": [
-              {
-                "items": {
-                  "format": "uuid",
-                  "type": "string"
-                },
-                "maxItems": 20,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Holiday List Ids"
-          },
-          "labels": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Labels"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "preset": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/WeekPreset"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "time_zone": {
-            "anyOf": [
-              {
-                "maxLength": 64,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Time Zone"
-          },
-          "week": {
-            "anyOf": [
-              {
-                "items": {
-                  "$ref": "#/components/schemas/WorkingPeriod"
-                },
-                "maxItems": 28,
-                "type": "array"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Week"
-          }
-        },
-        "title": "SlaCalendarPatch",
-        "type": "object"
-      },
-      "CalendarUser": {
-        "description": "A site or support group that names the calendar.",
-        "properties": {
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name"
-        ],
-        "title": "SlaCalendarUser",
-        "type": "object"
-      },
       "CertificateIn": {
         "description": "PEM certificate chain (the host's certificate first) and its unencrypted private key.",
         "properties": {
@@ -4605,23 +4313,6 @@
           "people"
         ],
         "title": "ConversationOut",
-        "type": "object"
-      },
-      "CopyYearIn": {
-        "additionalProperties": false,
-        "description": "Copy the holidays that start in `year` to the year after.",
-        "properties": {
-          "year": {
-            "maximum": 2200.0,
-            "minimum": 2000.0,
-            "title": "Year",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "year"
-        ],
-        "title": "SlaCopyYearIn",
         "type": "object"
       },
       "CounterOut": {
@@ -7262,7 +6953,6 @@
           "email",
           "sender_name",
           "desk_id",
-          "calendar_id",
           "site_ids",
           "disabled",
           "member_ids",
@@ -7554,241 +7244,6 @@
         "title": "HistoryOut",
         "type": "object"
       },
-      "HolidayImportOut": {
-        "description": "What an import or a copy added and what it skipped.",
-        "properties": {
-          "created": {
-            "items": {
-              "$ref": "#/components/schemas/HolidayOut"
-            },
-            "title": "Created",
-            "type": "array"
-          },
-          "skipped": {
-            "items": {
-              "$ref": "#/components/schemas/SkippedHoliday"
-            },
-            "title": "Skipped",
-            "type": "array"
-          }
-        },
-        "required": [
-          "created",
-          "skipped"
-        ],
-        "title": "SlaHolidayImport",
-        "type": "object"
-      },
-      "HolidayIn": {
-        "additionalProperties": false,
-        "description": "A new holiday; `ends_on` defaults to `starts_on`.",
-        "properties": {
-          "ends_on": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ends On"
-          },
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          },
-          "part": {
-            "$ref": "#/components/schemas/HolidayPart",
-            "default": "full"
-          },
-          "starts_on": {
-            "format": "date",
-            "title": "Starts On",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "starts_on"
-        ],
-        "title": "SlaHolidayIn",
-        "type": "object"
-      },
-      "HolidayListIn": {
-        "additionalProperties": false,
-        "description": "A new holiday list.",
-        "properties": {
-          "labels": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Labels",
-            "type": "object"
-          },
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Name",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "SlaHolidayListIn",
-        "type": "object"
-      },
-      "HolidayListOut": {
-        "description": "A holiday list, how many holidays it holds and the calendars that use it.",
-        "properties": {
-          "calendar_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Calendar Ids",
-            "type": "array"
-          },
-          "can_manage": {
-            "title": "Can Manage",
-            "type": "boolean"
-          },
-          "holiday_count": {
-            "title": "Holiday Count",
-            "type": "integer"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "labels": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Labels",
-            "type": "object"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "labels",
-          "holiday_count",
-          "calendar_ids",
-          "can_manage",
-          "version"
-        ],
-        "title": "SlaHolidayList",
-        "type": "object"
-      },
-      "HolidayListPatch": {
-        "additionalProperties": false,
-        "description": "What to change (only what is sent).",
-        "properties": {
-          "labels": {
-            "anyOf": [
-              {
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "type": "object"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Labels"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          }
-        },
-        "title": "SlaHolidayListPatch",
-        "type": "object"
-      },
-      "HolidayOut": {
-        "description": "One holiday: a date or a range of whole days, or a half day.",
-        "properties": {
-          "ends_on": {
-            "format": "date",
-            "title": "Ends On",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "list_id": {
-            "format": "uuid",
-            "title": "List Id",
-            "type": "string"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "needs_review": {
-            "description": "Copied to this year: check the date.",
-            "title": "Needs Review",
-            "type": "boolean"
-          },
-          "origin": {
-            "description": "`sla_holiday_origin.<code>`.",
-            "title": "Origin",
-            "type": "string"
-          },
-          "part": {
-            "$ref": "#/components/schemas/HolidayPart",
-            "description": "`sla_holiday_part.<code>`."
-          },
-          "starts_on": {
-            "format": "date",
-            "title": "Starts On",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "list_id",
-          "name",
-          "starts_on",
-          "ends_on",
-          "part",
-          "needs_review",
-          "origin",
-          "version"
-        ],
-        "title": "SlaHoliday",
-        "type": "object"
-      },
       "HolidayPart": {
         "description": "How much of a working day a holiday takes.",
         "enum": [
@@ -7798,66 +7253,6 @@
         ],
         "title": "HolidayPart",
         "type": "string"
-      },
-      "HolidayPatch": {
-        "additionalProperties": false,
-        "description": "What to change; a saved holiday is no longer flagged for review unless `needs_review`.",
-        "properties": {
-          "ends_on": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ends On"
-          },
-          "name": {
-            "anyOf": [
-              {
-                "maxLength": 200,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Name"
-          },
-          "needs_review": {
-            "default": false,
-            "title": "Needs Review",
-            "type": "boolean"
-          },
-          "part": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/HolidayPart"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "starts_on": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Starts On"
-          }
-        },
-        "title": "SlaHolidayPatch",
-        "type": "object"
       },
       "HomeIn": {
         "additionalProperties": false,
@@ -14767,7 +14162,6 @@
           "phone",
           "email",
           "is_default",
-          "calendar_id",
           "disabled",
           "member_ids",
           "version"
@@ -14904,7 +14298,611 @@
         "title": "SitePatch",
         "type": "object"
       },
-      "SkippedHoliday": {
+      "SlaCalendarIn": {
+        "additionalProperties": false,
+        "description": "A new operating-hours calendar: a week, or a preset (Monday to Friday by default).",
+        "properties": {
+          "holiday_list_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Holiday List Ids",
+            "type": "array"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WeekPreset"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "examples": [
+              "Asia/Karachi"
+            ],
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Time Zone",
+            "type": "string"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SlaWorkingPeriod"
+                },
+                "maxItems": 28,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "required": [
+          "name",
+          "time_zone"
+        ],
+        "title": "SlaCalendarIn",
+        "type": "object"
+      },
+      "SlaCalendarOut": {
+        "description": "A working calendar, who uses it and what you may do with it.",
+        "properties": {
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "delete_refusal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`action_reason.<code>` when it cannot go.",
+            "title": "Delete Refusal"
+          },
+          "fixed": {
+            "description": "Around the clock: only the name can change.",
+            "title": "Fixed",
+            "type": "boolean"
+          },
+          "holiday_list_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Holiday List Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "`sla_calendar_kind.<code>`: hours or around the clock.",
+            "title": "Kind",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Its name in other languages (ar, ur).",
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "system_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "`sla_calendar.<key>`: a calendar every tenant has.",
+            "title": "System Key"
+          },
+          "time_zone": {
+            "title": "Time Zone",
+            "type": "string"
+          },
+          "used_by_groups": {
+            "items": {
+              "$ref": "#/components/schemas/SlaCalendarUser"
+            },
+            "title": "Used By Groups",
+            "type": "array"
+          },
+          "used_by_sites": {
+            "items": {
+              "$ref": "#/components/schemas/SlaCalendarUser"
+            },
+            "title": "Used By Sites",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "week": {
+            "items": {
+              "$ref": "#/components/schemas/SlaWorkingPeriod"
+            },
+            "title": "Week",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "labels",
+          "time_zone",
+          "kind",
+          "system_key",
+          "week",
+          "holiday_list_ids",
+          "used_by_sites",
+          "used_by_groups",
+          "fixed",
+          "can_manage",
+          "delete_refusal",
+          "version"
+        ],
+        "title": "SlaCalendarOut",
+        "type": "object"
+      },
+      "SlaCalendarPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent); `holiday_list_ids` replaces the lists.",
+        "properties": {
+          "holiday_list_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 20,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Holiday List Ids"
+          },
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "preset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WeekPreset"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_zone": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Zone"
+          },
+          "week": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SlaWorkingPeriod"
+                },
+                "maxItems": 28,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week"
+          }
+        },
+        "title": "SlaCalendarPatch",
+        "type": "object"
+      },
+      "SlaCalendarUser": {
+        "description": "A site or support group that names the calendar.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "SlaCalendarUser",
+        "type": "object"
+      },
+      "SlaCopyYearIn": {
+        "additionalProperties": false,
+        "description": "Copy the holidays that start in `year` to the year after.",
+        "properties": {
+          "year": {
+            "maximum": 2200.0,
+            "minimum": 2000.0,
+            "title": "Year",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "year"
+        ],
+        "title": "SlaCopyYearIn",
+        "type": "object"
+      },
+      "SlaHolidayImportOut": {
+        "description": "What an import or a copy added and what it skipped.",
+        "properties": {
+          "created": {
+            "items": {
+              "$ref": "#/components/schemas/SlaHolidayOut"
+            },
+            "title": "Created",
+            "type": "array"
+          },
+          "skipped": {
+            "items": {
+              "$ref": "#/components/schemas/SlaSkippedHoliday"
+            },
+            "title": "Skipped",
+            "type": "array"
+          }
+        },
+        "required": [
+          "created",
+          "skipped"
+        ],
+        "title": "SlaHolidayImportOut",
+        "type": "object"
+      },
+      "SlaHolidayIn": {
+        "additionalProperties": false,
+        "description": "A new holiday; `ends_on` defaults to `starts_on`.",
+        "properties": {
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "part": {
+            "$ref": "#/components/schemas/HolidayPart",
+            "default": "full"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "starts_on"
+        ],
+        "title": "SlaHolidayIn",
+        "type": "object"
+      },
+      "SlaHolidayListIn": {
+        "additionalProperties": false,
+        "description": "A new holiday list.",
+        "properties": {
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "SlaHolidayListIn",
+        "type": "object"
+      },
+      "SlaHolidayListOut": {
+        "description": "A holiday list, how many holidays it holds and the calendars that use it.",
+        "properties": {
+          "calendar_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Calendar Ids",
+            "type": "array"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "holiday_count": {
+            "title": "Holiday Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "labels",
+          "holiday_count",
+          "calendar_ids",
+          "can_manage",
+          "version"
+        ],
+        "title": "SlaHolidayListOut",
+        "type": "object"
+      },
+      "SlaHolidayListPatch": {
+        "additionalProperties": false,
+        "description": "What to change (only what is sent).",
+        "properties": {
+          "labels": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Labels"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "title": "SlaHolidayListPatch",
+        "type": "object"
+      },
+      "SlaHolidayOut": {
+        "description": "One holiday: a date or a range of whole days, or a half day.",
+        "properties": {
+          "ends_on": {
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "list_id": {
+            "format": "uuid",
+            "title": "List Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "needs_review": {
+            "description": "Copied to this year: check the date.",
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "origin": {
+            "description": "`sla_holiday_origin.<code>`.",
+            "title": "Origin",
+            "type": "string"
+          },
+          "part": {
+            "$ref": "#/components/schemas/HolidayPart",
+            "description": "`sla_holiday_part.<code>`."
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "list_id",
+          "name",
+          "starts_on",
+          "ends_on",
+          "part",
+          "needs_review",
+          "origin",
+          "version"
+        ],
+        "title": "SlaHolidayOut",
+        "type": "object"
+      },
+      "SlaHolidayPatch": {
+        "additionalProperties": false,
+        "description": "What to change; a saved holiday is no longer flagged for review unless `needs_review`.",
+        "properties": {
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "needs_review": {
+            "default": false,
+            "title": "Needs Review",
+            "type": "boolean"
+          },
+          "part": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HolidayPart"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          }
+        },
+        "title": "SlaHolidayPatch",
+        "type": "object"
+      },
+      "SlaSkippedHoliday": {
         "description": "A holiday the import or copy left out, and why (`sla_import_skip.<code>`).",
         "properties": {
           "name": {
@@ -14928,6 +14926,43 @@
           "reason"
         ],
         "title": "SlaSkippedHoliday",
+        "type": "object"
+      },
+      "SlaWorkingPeriod": {
+        "additionalProperties": false,
+        "description": "One working period on a weekday; an end not after the start runs past midnight.",
+        "properties": {
+          "end": {
+            "description": "24:00 is midnight.",
+            "examples": [
+              "18:00"
+            ],
+            "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "examples": [
+              "09:00"
+            ],
+            "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$",
+            "title": "Start",
+            "type": "string"
+          },
+          "weekday": {
+            "description": "0 = Monday ... 6 = Sunday.",
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weekday",
+          "start",
+          "end"
+        ],
+        "title": "SlaWorkingPeriod",
         "type": "object"
       },
       "SsoBody": {
@@ -20930,43 +20965,6 @@
           "capped"
         ],
         "title": "WorkItemViewCountOut",
-        "type": "object"
-      },
-      "WorkingPeriod": {
-        "additionalProperties": false,
-        "description": "One working period on a weekday; an end not after the start runs past midnight.",
-        "properties": {
-          "end": {
-            "description": "24:00 is midnight.",
-            "examples": [
-              "18:00"
-            ],
-            "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$",
-            "title": "End",
-            "type": "string"
-          },
-          "start": {
-            "examples": [
-              "09:00"
-            ],
-            "pattern": "^([01]\\d|2[0-4]):[0-5]\\d$",
-            "title": "Start",
-            "type": "string"
-          },
-          "weekday": {
-            "description": "0 = Monday ... 6 = Sunday.",
-            "maximum": 6.0,
-            "minimum": 0.0,
-            "title": "Weekday",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "weekday",
-          "start",
-          "end"
-        ],
-        "title": "SlaWorkingPeriod",
         "type": "object"
       }
     }
@@ -47751,7 +47749,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/CalendarOut"
+                    "$ref": "#/components/schemas/SlaCalendarOut"
                   },
                   "title": "Response List Calendars Api V1 Sla Calendars Get",
                   "type": "array"
@@ -47833,7 +47831,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalendarIn"
+                "$ref": "#/components/schemas/SlaCalendarIn"
               }
             }
           },
@@ -47844,7 +47842,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarOut"
+                  "$ref": "#/components/schemas/SlaCalendarOut"
                 }
               }
             },
@@ -48031,7 +48029,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarOut"
+                  "$ref": "#/components/schemas/SlaCalendarOut"
                 }
               }
             },
@@ -48130,7 +48128,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CalendarPatch"
+                "$ref": "#/components/schemas/SlaCalendarPatch"
               }
             }
           },
@@ -48141,7 +48139,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CalendarOut"
+                  "$ref": "#/components/schemas/SlaCalendarOut"
                 }
               }
             },
@@ -48224,7 +48222,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/HolidayListOut"
+                    "$ref": "#/components/schemas/SlaHolidayListOut"
                   },
                   "title": "Response List Holiday Lists Api V1 Sla Holiday Lists Get",
                   "type": "array"
@@ -48306,7 +48304,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HolidayListIn"
+                "$ref": "#/components/schemas/SlaHolidayListIn"
               }
             }
           },
@@ -48317,7 +48315,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayListOut"
+                  "$ref": "#/components/schemas/SlaHolidayListOut"
                 }
               }
             },
@@ -48504,7 +48502,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayListOut"
+                  "$ref": "#/components/schemas/SlaHolidayListOut"
                 }
               }
             },
@@ -48603,7 +48601,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HolidayListPatch"
+                "$ref": "#/components/schemas/SlaHolidayListPatch"
               }
             }
           },
@@ -48614,7 +48612,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayListOut"
+                  "$ref": "#/components/schemas/SlaHolidayListOut"
                 }
               }
             },
@@ -48725,7 +48723,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CopyYearIn"
+                "$ref": "#/components/schemas/SlaCopyYearIn"
               }
             }
           },
@@ -48736,7 +48734,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayImportOut"
+                  "$ref": "#/components/schemas/SlaHolidayImportOut"
                 }
               }
             },
@@ -48839,7 +48837,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/HolidayOut"
+                    "$ref": "#/components/schemas/SlaHolidayOut"
                   },
                   "title": "Response List Holidays Api V1 Sla Holiday Lists  List Id  Holidays Get",
                   "type": "array"
@@ -48941,7 +48939,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HolidayIn"
+                "$ref": "#/components/schemas/SlaHolidayIn"
               }
             }
           },
@@ -48952,7 +48950,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayOut"
+                  "$ref": "#/components/schemas/SlaHolidayOut"
                 }
               }
             },
@@ -49176,7 +49174,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/HolidayPatch"
+                "$ref": "#/components/schemas/SlaHolidayPatch"
               }
             }
           },
@@ -49187,7 +49185,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayOut"
+                  "$ref": "#/components/schemas/SlaHolidayOut"
                 }
               }
             },
@@ -49299,7 +49297,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HolidayImportOut"
+                  "$ref": "#/components/schemas/SlaHolidayImportOut"
                 }
               }
             },

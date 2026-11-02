@@ -159,6 +159,12 @@ export const routes: RouteObject[] = [
             }),
           },
           {
+            path: 'sla/:section?',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/sla/SlaPage')).SlaPage,
+            }),
+          },
+          {
             path: 'files',
             lazy: async () => ({
               Component: (await import('./pages/admin/files/FilesPage')).FilesPage,

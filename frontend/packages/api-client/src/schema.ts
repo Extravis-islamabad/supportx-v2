@@ -6246,114 +6246,6 @@ export interface components {
          */
         BulkStatus: "queued" | "running" | "done" | "failed";
         /**
-         * SlaCalendarIn
-         * @description A new operating-hours calendar: a week, or a preset (Monday to Friday by default).
-         */
-        CalendarIn: {
-            /** Holiday List Ids */
-            holiday_list_ids?: string[];
-            /** Labels */
-            labels?: {
-                [key: string]: string;
-            };
-            /** Name */
-            name: string;
-            preset?: components["schemas"]["WeekPreset"] | null;
-            /**
-             * Time Zone
-             * @example Asia/Karachi
-             */
-            time_zone: string;
-            /** Week */
-            week?: components["schemas"]["WorkingPeriod"][] | null;
-        };
-        /**
-         * SlaCalendar
-         * @description A working calendar, who uses it and what you may do with it.
-         */
-        CalendarOut: {
-            /** Can Manage */
-            can_manage: boolean;
-            /**
-             * Delete Refusal
-             * @description `action_reason.<code>` when it cannot go.
-             */
-            delete_refusal: string | null;
-            /**
-             * Fixed
-             * @description Around the clock: only the name can change.
-             */
-            fixed: boolean;
-            /** Holiday List Ids */
-            holiday_list_ids: string[];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Kind
-             * @description `sla_calendar_kind.<code>`: hours or around the clock.
-             */
-            kind: string;
-            /**
-             * Labels
-             * @description Its name in other languages (ar, ur).
-             */
-            labels: {
-                [key: string]: string;
-            };
-            /** Name */
-            name: string;
-            /**
-             * System Key
-             * @description `sla_calendar.<key>`: a calendar every tenant has.
-             */
-            system_key: string | null;
-            /** Time Zone */
-            time_zone: string;
-            /** Used By Groups */
-            used_by_groups: components["schemas"]["CalendarUser"][];
-            /** Used By Sites */
-            used_by_sites: components["schemas"]["CalendarUser"][];
-            /** Version */
-            version: number;
-            /** Week */
-            week: components["schemas"]["WorkingPeriod"][];
-        };
-        /**
-         * SlaCalendarPatch
-         * @description What to change (only what is sent); `holiday_list_ids` replaces the lists.
-         */
-        CalendarPatch: {
-            /** Holiday List Ids */
-            holiday_list_ids?: string[] | null;
-            /** Labels */
-            labels?: {
-                [key: string]: string;
-            } | null;
-            /** Name */
-            name?: string | null;
-            preset?: components["schemas"]["WeekPreset"] | null;
-            /** Time Zone */
-            time_zone?: string | null;
-            /** Week */
-            week?: components["schemas"]["WorkingPeriod"][] | null;
-        };
-        /**
-         * SlaCalendarUser
-         * @description A site or support group that names the calendar.
-         */
-        CalendarUser: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-        };
-        /**
          * CertificateIn
          * @description PEM certificate chain (the host's certificate first) and its unencrypted private key.
          */
@@ -6576,14 +6468,6 @@ export interface components {
              * @description Only the newest entries are listed.
              */
             truncated: boolean;
-        };
-        /**
-         * SlaCopyYearIn
-         * @description Copy the holidays that start in `year` to the year after.
-         */
-        CopyYearIn: {
-            /** Year */
-            year: number;
         };
         /**
          * CounterOut
@@ -7555,7 +7439,7 @@ export interface components {
              * Calendar Id
              * @description Its working calendar (SLA).
              */
-            calendar_id: string | null;
+            calendar_id?: string | null;
             /** Description */
             description: string | null;
             /**
@@ -7683,147 +7567,11 @@ export interface components {
             next_cursor: string | null;
         };
         /**
-         * SlaHolidayImport
-         * @description What an import or a copy added and what it skipped.
-         */
-        HolidayImportOut: {
-            /** Created */
-            created: components["schemas"]["HolidayOut"][];
-            /** Skipped */
-            skipped: components["schemas"]["SkippedHoliday"][];
-        };
-        /**
-         * SlaHolidayIn
-         * @description A new holiday; `ends_on` defaults to `starts_on`.
-         */
-        HolidayIn: {
-            /** Ends On */
-            ends_on?: string | null;
-            /** Name */
-            name: string;
-            /** @default full */
-            part: components["schemas"]["HolidayPart"];
-            /**
-             * Starts On
-             * Format: date
-             */
-            starts_on: string;
-        };
-        /**
-         * SlaHolidayListIn
-         * @description A new holiday list.
-         */
-        HolidayListIn: {
-            /** Labels */
-            labels?: {
-                [key: string]: string;
-            };
-            /** Name */
-            name: string;
-        };
-        /**
-         * SlaHolidayList
-         * @description A holiday list, how many holidays it holds and the calendars that use it.
-         */
-        HolidayListOut: {
-            /** Calendar Ids */
-            calendar_ids: string[];
-            /** Can Manage */
-            can_manage: boolean;
-            /** Holiday Count */
-            holiday_count: number;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Labels */
-            labels: {
-                [key: string]: string;
-            };
-            /** Name */
-            name: string;
-            /** Version */
-            version: number;
-        };
-        /**
-         * SlaHolidayListPatch
-         * @description What to change (only what is sent).
-         */
-        HolidayListPatch: {
-            /** Labels */
-            labels?: {
-                [key: string]: string;
-            } | null;
-            /** Name */
-            name?: string | null;
-        };
-        /**
-         * SlaHoliday
-         * @description One holiday: a date or a range of whole days, or a half day.
-         */
-        HolidayOut: {
-            /**
-             * Ends On
-             * Format: date
-             */
-            ends_on: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * List Id
-             * Format: uuid
-             */
-            list_id: string;
-            /** Name */
-            name: string;
-            /**
-             * Needs Review
-             * @description Copied to this year: check the date.
-             */
-            needs_review: boolean;
-            /**
-             * Origin
-             * @description `sla_holiday_origin.<code>`.
-             */
-            origin: string;
-            /** @description `sla_holiday_part.<code>`. */
-            part: components["schemas"]["HolidayPart"];
-            /**
-             * Starts On
-             * Format: date
-             */
-            starts_on: string;
-            /** Version */
-            version: number;
-        };
-        /**
          * HolidayPart
          * @description How much of a working day a holiday takes.
          * @enum {string}
          */
         HolidayPart: "full" | "morning" | "afternoon";
-        /**
-         * SlaHolidayPatch
-         * @description What to change; a saved holiday is no longer flagged for review unless `needs_review`.
-         */
-        HolidayPatch: {
-            /** Ends On */
-            ends_on?: string | null;
-            /** Name */
-            name?: string | null;
-            /**
-             * Needs Review
-             * @default false
-             */
-            needs_review: boolean;
-            part?: components["schemas"]["HolidayPart"] | null;
-            /** Starts On */
-            starts_on?: string | null;
-        };
         /**
          * HomeIn
          * @description Your home dashboard; None goes back to your role's (REQ-DSH-002 AC2).
@@ -10487,7 +10235,7 @@ export interface components {
              * Calendar Id
              * @description Its working calendar (SLA).
              */
-            calendar_id: string | null;
+            calendar_id?: string | null;
             /** Default Language */
             default_language: string | null;
             /** Description */
@@ -10552,14 +10300,288 @@ export interface components {
             time_zone?: string | null;
         };
         /**
+         * SlaCalendarIn
+         * @description A new operating-hours calendar: a week, or a preset (Monday to Friday by default).
+         */
+        SlaCalendarIn: {
+            /** Holiday List Ids */
+            holiday_list_ids?: string[];
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            preset?: components["schemas"]["WeekPreset"] | null;
+            /**
+             * Time Zone
+             * @example Asia/Karachi
+             */
+            time_zone: string;
+            /** Week */
+            week?: components["schemas"]["SlaWorkingPeriod"][] | null;
+        };
+        /**
+         * SlaCalendarOut
+         * @description A working calendar, who uses it and what you may do with it.
+         */
+        SlaCalendarOut: {
+            /** Can Manage */
+            can_manage: boolean;
+            /**
+             * Delete Refusal
+             * @description `action_reason.<code>` when it cannot go.
+             */
+            delete_refusal: string | null;
+            /**
+             * Fixed
+             * @description Around the clock: only the name can change.
+             */
+            fixed: boolean;
+            /** Holiday List Ids */
+            holiday_list_ids: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @description `sla_calendar_kind.<code>`: hours or around the clock.
+             */
+            kind: string;
+            /**
+             * Labels
+             * @description Its name in other languages (ar, ur).
+             */
+            labels: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /**
+             * System Key
+             * @description `sla_calendar.<key>`: a calendar every tenant has.
+             */
+            system_key: string | null;
+            /** Time Zone */
+            time_zone: string;
+            /** Used By Groups */
+            used_by_groups: components["schemas"]["SlaCalendarUser"][];
+            /** Used By Sites */
+            used_by_sites: components["schemas"]["SlaCalendarUser"][];
+            /** Version */
+            version: number;
+            /** Week */
+            week: components["schemas"]["SlaWorkingPeriod"][];
+        };
+        /**
+         * SlaCalendarPatch
+         * @description What to change (only what is sent); `holiday_list_ids` replaces the lists.
+         */
+        SlaCalendarPatch: {
+            /** Holiday List Ids */
+            holiday_list_ids?: string[] | null;
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Name */
+            name?: string | null;
+            preset?: components["schemas"]["WeekPreset"] | null;
+            /** Time Zone */
+            time_zone?: string | null;
+            /** Week */
+            week?: components["schemas"]["SlaWorkingPeriod"][] | null;
+        };
+        /**
+         * SlaCalendarUser
+         * @description A site or support group that names the calendar.
+         */
+        SlaCalendarUser: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * SlaCopyYearIn
+         * @description Copy the holidays that start in `year` to the year after.
+         */
+        SlaCopyYearIn: {
+            /** Year */
+            year: number;
+        };
+        /**
+         * SlaHolidayImportOut
+         * @description What an import or a copy added and what it skipped.
+         */
+        SlaHolidayImportOut: {
+            /** Created */
+            created: components["schemas"]["SlaHolidayOut"][];
+            /** Skipped */
+            skipped: components["schemas"]["SlaSkippedHoliday"][];
+        };
+        /**
+         * SlaHolidayIn
+         * @description A new holiday; `ends_on` defaults to `starts_on`.
+         */
+        SlaHolidayIn: {
+            /** Ends On */
+            ends_on?: string | null;
+            /** Name */
+            name: string;
+            /** @default full */
+            part: components["schemas"]["HolidayPart"];
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+        };
+        /**
+         * SlaHolidayListIn
+         * @description A new holiday list.
+         */
+        SlaHolidayListIn: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+        };
+        /**
+         * SlaHolidayListOut
+         * @description A holiday list, how many holidays it holds and the calendars that use it.
+         */
+        SlaHolidayListOut: {
+            /** Calendar Ids */
+            calendar_ids: string[];
+            /** Can Manage */
+            can_manage: boolean;
+            /** Holiday Count */
+            holiday_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Name */
+            name: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SlaHolidayListPatch
+         * @description What to change (only what is sent).
+         */
+        SlaHolidayListPatch: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            } | null;
+            /** Name */
+            name?: string | null;
+        };
+        /**
+         * SlaHolidayOut
+         * @description One holiday: a date or a range of whole days, or a half day.
+         */
+        SlaHolidayOut: {
+            /**
+             * Ends On
+             * Format: date
+             */
+            ends_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * List Id
+             * Format: uuid
+             */
+            list_id: string;
+            /** Name */
+            name: string;
+            /**
+             * Needs Review
+             * @description Copied to this year: check the date.
+             */
+            needs_review: boolean;
+            /**
+             * Origin
+             * @description `sla_holiday_origin.<code>`.
+             */
+            origin: string;
+            /** @description `sla_holiday_part.<code>`. */
+            part: components["schemas"]["HolidayPart"];
+            /**
+             * Starts On
+             * Format: date
+             */
+            starts_on: string;
+            /** Version */
+            version: number;
+        };
+        /**
+         * SlaHolidayPatch
+         * @description What to change; a saved holiday is no longer flagged for review unless `needs_review`.
+         */
+        SlaHolidayPatch: {
+            /** Ends On */
+            ends_on?: string | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * Needs Review
+             * @default false
+             */
+            needs_review: boolean;
+            part?: components["schemas"]["HolidayPart"] | null;
+            /** Starts On */
+            starts_on?: string | null;
+        };
+        /**
          * SlaSkippedHoliday
          * @description A holiday the import or copy left out, and why (`sla_import_skip.<code>`).
          */
-        SkippedHoliday: {
+        SlaSkippedHoliday: {
             /** Name */
             name: string | null;
             /** Reason */
             reason: string;
+        };
+        /**
+         * SlaWorkingPeriod
+         * @description One working period on a weekday; an end not after the start runs past midnight.
+         */
+        SlaWorkingPeriod: {
+            /**
+             * End
+             * @description 24:00 is midnight.
+             * @example 18:00
+             */
+            end: string;
+            /**
+             * Start
+             * @example 09:00
+             */
+            start: string;
+            /**
+             * Weekday
+             * @description 0 = Monday ... 6 = Sunday.
+             */
+            weekday: number;
         };
         /**
          * SsoBody
@@ -12738,28 +12760,6 @@ export interface components {
             count: number;
             /** View */
             view: string;
-        };
-        /**
-         * SlaWorkingPeriod
-         * @description One working period on a weekday; an end not after the start runs past midnight.
-         */
-        WorkingPeriod: {
-            /**
-             * End
-             * @description 24:00 is midnight.
-             * @example 18:00
-             */
-            end: string;
-            /**
-             * Start
-             * @example 09:00
-             */
-            start: string;
-            /**
-             * Weekday
-             * @description 0 = Monday ... 6 = Sunday.
-             */
-            weekday: number;
         };
     };
     responses: never;
@@ -32439,7 +32439,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CalendarOut"][];
+                    "application/json": components["schemas"]["SlaCalendarOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -32492,7 +32492,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CalendarIn"];
+                "application/json": components["schemas"]["SlaCalendarIn"];
             };
         };
         responses: {
@@ -32502,7 +32502,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CalendarOut"];
+                    "application/json": components["schemas"]["SlaCalendarOut"];
                 };
             };
             /** @description Not signed in. */
@@ -32569,7 +32569,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CalendarOut"];
+                    "application/json": components["schemas"]["SlaCalendarOut"];
                 };
             };
             /** @description Not signed in. */
@@ -32710,7 +32710,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CalendarPatch"];
+                "application/json": components["schemas"]["SlaCalendarPatch"];
             };
         };
         responses: {
@@ -32720,7 +32720,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CalendarOut"];
+                    "application/json": components["schemas"]["SlaCalendarOut"];
                 };
             };
             /** @description Not signed in. */
@@ -32794,7 +32794,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayListOut"][];
+                    "application/json": components["schemas"]["SlaHolidayListOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -32847,7 +32847,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["HolidayListIn"];
+                "application/json": components["schemas"]["SlaHolidayListIn"];
             };
         };
         responses: {
@@ -32857,7 +32857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayListOut"];
+                    "application/json": components["schemas"]["SlaHolidayListOut"];
                 };
             };
             /** @description Not signed in. */
@@ -32924,7 +32924,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayListOut"];
+                    "application/json": components["schemas"]["SlaHolidayListOut"];
                 };
             };
             /** @description Not signed in. */
@@ -33065,7 +33065,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["HolidayListPatch"];
+                "application/json": components["schemas"]["SlaHolidayListPatch"];
             };
         };
         responses: {
@@ -33075,7 +33075,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayListOut"];
+                    "application/json": components["schemas"]["SlaHolidayListOut"];
                 };
             };
             /** @description Not signed in. */
@@ -33148,7 +33148,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["CopyYearIn"];
+                "application/json": components["schemas"]["SlaCopyYearIn"];
             };
         };
         responses: {
@@ -33158,7 +33158,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayImportOut"];
+                    "application/json": components["schemas"]["SlaHolidayImportOut"];
                 };
             };
             /** @description Not signed in. */
@@ -33227,7 +33227,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayOut"][];
+                    "application/json": components["schemas"]["SlaHolidayOut"][];
                 };
             };
             /** @description Not signed in. */
@@ -33291,7 +33291,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["HolidayIn"];
+                "application/json": components["schemas"]["SlaHolidayIn"];
             };
         };
         responses: {
@@ -33301,7 +33301,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayOut"];
+                    "application/json": components["schemas"]["SlaHolidayOut"];
                 };
             };
             /** @description Not signed in. */
@@ -33444,7 +33444,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["HolidayPatch"];
+                "application/json": components["schemas"]["SlaHolidayPatch"];
             };
         };
         responses: {
@@ -33454,7 +33454,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayOut"];
+                    "application/json": components["schemas"]["SlaHolidayOut"];
                 };
             };
             /** @description Not signed in. */
@@ -33533,7 +33533,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["HolidayImportOut"];
+                    "application/json": components["schemas"]["SlaHolidayImportOut"];
                 };
             };
             /** @description Not signed in. */

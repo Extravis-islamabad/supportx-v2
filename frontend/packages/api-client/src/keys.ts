@@ -124,6 +124,12 @@ export const queryKeys = {
     usage: ['files', 'usage'] as const,
     status: ['files', 'status'] as const,
   },
+  sla: {
+    all: ['sla'] as const,
+    calendars: ['sla', 'calendars'] as const,
+    holidayLists: ['sla', 'holiday-lists'] as const,
+    holidays: (listId: string, year: number) => ['sla', 'holidays', listId, year] as const,
+  },
   automation: {
     all: ['automation'] as const,
     fields: (recordType: string) => ['automation', 'fields', recordType] as const,

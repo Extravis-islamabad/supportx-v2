@@ -79,6 +79,11 @@ export function ConsoleLayout() {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.incidents.all, 'history'] });
       return;
     }
+    // Working calendars or holidays changed (WP-025): the SLA screens and the calendar pickers.
+    if (event.type === 'sla.setup.changed') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sla.all });
+      return;
+    }
     if (event.type === 'metadata.custom_fields_changed') {
       void queryClient.invalidateQueries({ queryKey: queryKeys.customFields.all });
       return;

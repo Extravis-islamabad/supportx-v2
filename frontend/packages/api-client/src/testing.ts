@@ -49,6 +49,8 @@ const TECHNICIAN: Grant[] = [
   ['reports.export', 'all'],
   ['announcements.view', 'all'],
   ['announcements.manage', 'own'],
+  // WP-025: technicians read the SLA set-up; admins change it.
+  ['sla.view', 'all'],
   // D-052: technicians work on incidents at group scope (their groups, assigned, site queue).
   ['incidents.view', 'group'],
   ['incidents.create', 'all'],
@@ -62,6 +64,7 @@ const TECHNICIAN: Grant[] = [
   ['incidents.cancel', 'group'],
 ];
 const ADMIN_EXTRA: Grant[] = [
+  ['sla.manage', 'all'],
   ['files.manage', 'all'],
   ['announcements.manage', 'all'],
   ['announcements.publish', 'all'],

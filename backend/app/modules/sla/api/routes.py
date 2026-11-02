@@ -48,29 +48,25 @@ Viewer = Annotated[Subject, Depends(require_permission(VIEW))]
 # --- schemas ------------------------------------------------------------------------------------
 
 
-class WorkingPeriod(BaseModel):
+class SlaWorkingPeriod(BaseModel):
     """One working period on a weekday; an end not after the start runs past midnight."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaWorkingPeriod")
+    model_config = ConfigDict(extra="forbid")
 
     weekday: int = Field(ge=0, le=6, description="0 = Monday ... 6 = Sunday.")
     start: str = Field(pattern=HHMM, examples=["09:00"])
     end: str = Field(pattern=HHMM, examples=["18:00"], description="24:00 is midnight.")
 
 
-class CalendarUser(BaseModel):
+class SlaCalendarUser(BaseModel):
     """A site or support group that names the calendar."""
-
-    model_config = ConfigDict(title="SlaCalendarUser")
 
     id: uuid.UUID
     name: str
 
 
-class CalendarOut(BaseModel):
+class SlaCalendarOut(BaseModel):
     """A working calendar, who uses it and what you may do with it."""
-
-    model_config = ConfigDict(title="SlaCalendar")
 
     id: uuid.UUID
     name: str
@@ -78,17 +74,17 @@ class CalendarOut(BaseModel):
     time_zone: str
     kind: str = Field(description="`sla_calendar_kind.<code>`: hours or around the clock.")
     system_key: str | None = Field(description="`sla_calendar.<key>`: a calendar every tenant has.")
-    week: list[WorkingPeriod]
+    week: list[SlaWorkingPeriod]
     holiday_list_ids: list[uuid.UUID]
-    used_by_sites: list[CalendarUser]
-    used_by_groups: list[CalendarUser]
+    used_by_sites: list[SlaCalendarUser]
+    used_by_groups: list[SlaCalendarUser]
     fixed: bool = Field(description="Around the clock: only the name can change.")
     can_manage: bool
     delete_refusal: str | None = Field(description="`action_reason.<code>` when it cannot go.")
     version: int
 
     @classmethod
-    def of(cls, view: calendars.CalendarView) -> "CalendarOut":
+    def of(cls, view: calendars.CalendarView) -> "SlaCalendarOut":
         """The API form of a calendar view."""
         row = view.calendar
         return cls(
@@ -98,10 +94,10 @@ class CalendarOut(BaseModel):
             time_zone=row.time_zone,
             kind=row.kind,
             system_key=row.system_key,
-            week=[WorkingPeriod.model_validate(p) for p in row.week],
+            week=[SlaWorkingPeriod.model_validate(p) for p in row.week],
             holiday_list_ids=view.holiday_list_ids,
-            used_by_sites=[CalendarUser(id=s.id, name=s.name) for s in view.users.sites],
-            used_by_groups=[CalendarUser(id=g.id, name=g.name) for g in view.users.groups],
+            used_by_sites=[SlaCalendarUser(id=s.id, name=s.name) for s in view.users.sites],
+            used_by_groups=[SlaCalendarUser(id=g.id, name=g.name) for g in view.users.groups],
             fixed=view.fixed,
             can_manage=view.can_manage,
             delete_refusal=view.delete_refusal,
@@ -109,36 +105,34 @@ class CalendarOut(BaseModel):
         )
 
 
-class CalendarIn(BaseModel):
+class SlaCalendarIn(BaseModel):
     """A new operating-hours calendar: a week, or a preset (Monday to Friday by default)."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaCalendarIn")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=200)
     labels: dict[str, str] = Field(default_factory=dict)
     time_zone: str = Field(min_length=1, max_length=64, examples=["Asia/Karachi"])
     preset: WeekPreset | None = None
-    week: list[WorkingPeriod] | None = Field(default=None, max_length=28)
+    week: list[SlaWorkingPeriod] | None = Field(default=None, max_length=28)
     holiday_list_ids: list[uuid.UUID] = Field(default_factory=list, max_length=20)
 
 
-class CalendarPatch(BaseModel):
+class SlaCalendarPatch(BaseModel):
     """What to change (only what is sent); `holiday_list_ids` replaces the lists."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaCalendarPatch")
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     labels: dict[str, str] | None = None
     time_zone: str | None = Field(default=None, min_length=1, max_length=64)
     preset: WeekPreset | None = None
-    week: list[WorkingPeriod] | None = Field(default=None, max_length=28)
+    week: list[SlaWorkingPeriod] | None = Field(default=None, max_length=28)
     holiday_list_ids: list[uuid.UUID] | None = Field(default=None, max_length=20)
 
 
-class HolidayListOut(BaseModel):
+class SlaHolidayListOut(BaseModel):
     """A holiday list, how many holidays it holds and the calendars that use it."""
-
-    model_config = ConfigDict(title="SlaHolidayList")
 
     id: uuid.UUID
     name: str
@@ -149,7 +143,7 @@ class HolidayListOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, view: holidays.HolidayListView) -> "HolidayListOut":
+    def of(cls, view: holidays.HolidayListView) -> "SlaHolidayListOut":
         """The API form of a holiday list view."""
         row = view.holiday_list
         return cls(
@@ -163,28 +157,26 @@ class HolidayListOut(BaseModel):
         )
 
 
-class HolidayListIn(BaseModel):
+class SlaHolidayListIn(BaseModel):
     """A new holiday list."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaHolidayListIn")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=200)
     labels: dict[str, str] = Field(default_factory=dict)
 
 
-class HolidayListPatch(BaseModel):
+class SlaHolidayListPatch(BaseModel):
     """What to change (only what is sent)."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaHolidayListPatch")
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     labels: dict[str, str] | None = None
 
 
-class HolidayOut(BaseModel):
+class SlaHolidayOut(BaseModel):
     """One holiday: a date or a range of whole days, or a half day."""
-
-    model_config = ConfigDict(title="SlaHoliday")
 
     id: uuid.UUID
     list_id: uuid.UUID
@@ -197,7 +189,7 @@ class HolidayOut(BaseModel):
     version: int
 
     @classmethod
-    def of(cls, row: SlaHoliday) -> "HolidayOut":
+    def of(cls, row: SlaHoliday) -> "SlaHolidayOut":
         """The API form of a holiday."""
         return cls(
             id=row.id,
@@ -212,10 +204,10 @@ class HolidayOut(BaseModel):
         )
 
 
-class HolidayIn(BaseModel):
+class SlaHolidayIn(BaseModel):
     """A new holiday; `ends_on` defaults to `starts_on`."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaHolidayIn")
+    model_config = ConfigDict(extra="forbid")
 
     name: str = Field(min_length=1, max_length=200)
     starts_on: date
@@ -223,10 +215,10 @@ class HolidayIn(BaseModel):
     part: HolidayPart = HolidayPart.FULL
 
 
-class HolidayPatch(BaseModel):
+class SlaHolidayPatch(BaseModel):
     """What to change; a saved holiday is no longer flagged for review unless `needs_review`."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaHolidayPatch")
+    model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=200)
     starts_on: date | None = None
@@ -235,36 +227,32 @@ class HolidayPatch(BaseModel):
     needs_review: bool = False
 
 
-class SkippedHoliday(BaseModel):
+class SlaSkippedHoliday(BaseModel):
     """A holiday the import or copy left out, and why (`sla_import_skip.<code>`)."""
-
-    model_config = ConfigDict(title="SlaSkippedHoliday")
 
     name: str | None
     reason: str
 
 
-class HolidayImportOut(BaseModel):
+class SlaHolidayImportOut(BaseModel):
     """What an import or a copy added and what it skipped."""
 
-    model_config = ConfigDict(title="SlaHolidayImport")
-
-    created: list[HolidayOut]
-    skipped: list[SkippedHoliday]
+    created: list[SlaHolidayOut]
+    skipped: list[SlaSkippedHoliday]
 
     @classmethod
-    def of(cls, report: holidays.ImportReport) -> "HolidayImportOut":
+    def of(cls, report: holidays.ImportReport) -> "SlaHolidayImportOut":
         """The API form of an import report."""
         return cls(
-            created=[HolidayOut.of(h) for h in report.created],
-            skipped=[SkippedHoliday(name=n, reason=r) for n, r in report.skipped],
+            created=[SlaHolidayOut.of(h) for h in report.created],
+            skipped=[SlaSkippedHoliday(name=n, reason=r) for n, r in report.skipped],
         )
 
 
-class CopyYearIn(BaseModel):
+class SlaCopyYearIn(BaseModel):
     """Copy the holidays that start in `year` to the year after."""
 
-    model_config = ConfigDict(extra="forbid", title="SlaCopyYearIn")
+    model_config = ConfigDict(extra="forbid")
 
     year: int = Field(ge=2000, le=2200)
 
@@ -288,19 +276,19 @@ def _sent(body: BaseModel) -> dict[str, Any]:
 
 
 @router.get("/calendars", summary="Working calendars")
-async def list_calendars(session: TenantSession, subject: Viewer) -> list[CalendarOut]:
+async def list_calendars(session: TenantSession, subject: Viewer) -> list[SlaCalendarOut]:
     """Every calendar: around the clock and the default operating hours first."""
-    return [CalendarOut.of(v) for v in await calendars.list_calendars(session, subject)]
+    return [SlaCalendarOut.of(v) for v in await calendars.list_calendars(session, subject)]
 
 
 @router.post(
     "/calendars",
     summary="Create a working calendar",
     status_code=status.HTTP_201_CREATED,
-    response_model=CalendarOut,
+    response_model=SlaCalendarOut,
 )
 async def create_calendar(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-    body: CalendarIn,
+    body: SlaCalendarIn,
     session: TenantSession,
     subject: Viewer,
     request: Request,
@@ -316,7 +304,7 @@ async def create_calendar(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         )
         note.skip = False
         note.object_id = str(view.calendar.id)
-        out = CalendarOut.of(view)
+        out = SlaCalendarOut.of(view)
         return Created(body=out, headers={"ETag": f'"{out.version}"'})
 
     return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
@@ -325,11 +313,11 @@ async def create_calendar(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 @router.get("/calendars/{calendar_id}", summary="One working calendar")
 async def get_calendar(
     calendar_id: uuid.UUID, session: TenantSession, subject: Viewer, response: Response
-) -> CalendarOut:
+) -> SlaCalendarOut:
     """A calendar with its holiday lists and the sites and groups that use it."""
     view = await calendars.get_calendar(session, subject, calendar_id)
     set_etag(response, view.calendar.version)
-    return CalendarOut.of(view)
+    return SlaCalendarOut.of(view)
 
 
 @router.patch(
@@ -342,13 +330,13 @@ async def get_calendar(
 )
 async def update_calendar(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     calendar_id: uuid.UUID,
-    body: CalendarPatch,
+    body: SlaCalendarPatch,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Viewer,
     request: Request,
     response: Response,
-) -> CalendarOut:
+) -> SlaCalendarOut:
     """Needs `sla.manage` and If-Match. Around the clock: only its name and translations."""
     view = await calendars.update_calendar(
         session,
@@ -359,7 +347,7 @@ async def update_calendar(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, view.calendar.version)
-    return CalendarOut.of(view)
+    return SlaCalendarOut.of(view)
 
 
 @router.delete(
@@ -388,19 +376,19 @@ async def delete_calendar(
 
 
 @router.get("/holiday-lists", summary="Holiday lists")
-async def list_holiday_lists(session: TenantSession, subject: Viewer) -> list[HolidayListOut]:
+async def list_holiday_lists(session: TenantSession, subject: Viewer) -> list[SlaHolidayListOut]:
     """Every holiday list by name."""
-    return [HolidayListOut.of(v) for v in await holidays.list_holiday_lists(session, subject)]
+    return [SlaHolidayListOut.of(v) for v in await holidays.list_holiday_lists(session, subject)]
 
 
 @router.post(
     "/holiday-lists",
     summary="Create a holiday list",
     status_code=status.HTTP_201_CREATED,
-    response_model=HolidayListOut,
+    response_model=SlaHolidayListOut,
 )
 async def create_holiday_list(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
-    body: HolidayListIn,
+    body: SlaHolidayListIn,
     session: TenantSession,
     subject: Viewer,
     request: Request,
@@ -416,7 +404,7 @@ async def create_holiday_list(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         )
         note.skip = False
         note.object_id = str(view.holiday_list.id)
-        out = HolidayListOut.of(view)
+        out = SlaHolidayListOut.of(view)
         return Created(body=out, headers={"ETag": f'"{out.version}"'})
 
     return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
@@ -425,11 +413,11 @@ async def create_holiday_list(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 @router.get("/holiday-lists/{list_id}", summary="One holiday list")
 async def get_holiday_list(
     list_id: uuid.UUID, session: TenantSession, subject: Viewer, response: Response
-) -> HolidayListOut:
+) -> SlaHolidayListOut:
     """A holiday list with its count and the calendars that use it."""
     view = await holidays.get_holiday_list(session, subject, list_id)
     set_etag(response, view.holiday_list.version)
-    return HolidayListOut.of(view)
+    return SlaHolidayListOut.of(view)
 
 
 @router.patch(
@@ -442,19 +430,19 @@ async def get_holiday_list(
 )
 async def update_holiday_list(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     list_id: uuid.UUID,
-    body: HolidayListPatch,
+    body: SlaHolidayListPatch,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Viewer,
     request: Request,
     response: Response,
-) -> HolidayListOut:
+) -> SlaHolidayListOut:
     """Needs `sla.manage` and If-Match."""
     view = await holidays.update_holiday_list(
         session, subject, list_id, _sent(body), expected_version=version, source=source_of(request)
     )
     set_etag(response, view.holiday_list.version)
-    return HolidayListOut.of(view)
+    return SlaHolidayListOut.of(view)
 
 
 @router.delete(
@@ -488,21 +476,21 @@ async def list_holidays(
     session: TenantSession,
     subject: Viewer,
     year: Annotated[int | None, Query(ge=2000, le=2200)] = None,
-) -> list[HolidayOut]:
+) -> list[SlaHolidayOut]:
     """By date; `year`: the holidays that touch that year."""
     rows = await holidays.list_holidays(session, subject, list_id, year=year)
-    return [HolidayOut.of(row) for row in rows]
+    return [SlaHolidayOut.of(row) for row in rows]
 
 
 @router.post(
     "/holiday-lists/{list_id}/holidays",
     summary="Add a holiday",
     status_code=status.HTTP_201_CREATED,
-    response_model=HolidayOut,
+    response_model=SlaHolidayOut,
 )
 async def add_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     list_id: uuid.UUID,
-    body: HolidayIn,
+    body: SlaHolidayIn,
     session: TenantSession,
     subject: Viewer,
     request: Request,
@@ -519,7 +507,7 @@ async def add_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         row = await holidays.add_holiday(
             session, subject, list_id, body.model_dump(), source=source_of(request)
         )
-        return Created(body=HolidayOut.of(row), headers={"ETag": f'"{row.version}"'})
+        return Created(body=SlaHolidayOut.of(row), headers={"ETag": f'"{row.version}"'})
 
     return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)
 
@@ -535,13 +523,13 @@ async def add_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
 async def update_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     list_id: uuid.UUID,
     holiday_id: uuid.UUID,
-    body: HolidayPatch,
+    body: SlaHolidayPatch,
     version: ExpectedVersion,
     session: TenantSession,
     subject: Viewer,
     request: Request,
     response: Response,
-) -> HolidayOut:
+) -> SlaHolidayOut:
     """Needs `sla.manage` and If-Match. Saving clears "check this date" unless it is sent."""
     values = _sent(body) | {"needs_review": body.needs_review}
     row = await holidays.update_holiday(
@@ -554,7 +542,7 @@ async def update_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         source=source_of(request),
     )
     set_etag(response, row.version)
-    return HolidayOut.of(row)
+    return SlaHolidayOut.of(row)
 
 
 @router.delete(
@@ -584,7 +572,7 @@ async def delete_holiday(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     "/holiday-lists/{list_id}/import",
     summary="Import holidays from an iCalendar file",
     status_code=status.HTTP_201_CREATED,
-    response_model=HolidayImportOut,
+    response_model=SlaHolidayImportOut,
 )
 async def import_holidays(  # noqa: PLR0913 - FastAPI dependencies
     *,
@@ -611,7 +599,7 @@ async def import_holidays(  # noqa: PLR0913 - FastAPI dependencies
             session, subject, list_id, bytes(content), source=source_of(request)
         )
         note.details = {"created": len(report.created), "skipped": len(report.skipped)}
-        return Created(body=HolidayImportOut.of(report))
+        return Created(body=SlaHolidayImportOut.of(report))
 
     return await idempotency.run(target, go, status_code=status.HTTP_201_CREATED)
 
@@ -620,11 +608,11 @@ async def import_holidays(  # noqa: PLR0913 - FastAPI dependencies
     "/holiday-lists/{list_id}/copy-year",
     summary="Copy a year's holidays to the next year",
     status_code=status.HTTP_201_CREATED,
-    response_model=HolidayImportOut,
+    response_model=SlaHolidayImportOut,
 )
 async def copy_year(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     list_id: uuid.UUID,
-    body: CopyYearIn,
+    body: SlaCopyYearIn,
     session: TenantSession,
     subject: Viewer,
     request: Request,
@@ -641,6 +629,6 @@ async def copy_year(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             session, subject, list_id, body.year, source=source_of(request)
         )
         note.details = {"year": body.year, "created": len(report.created)}
-        return Created(body=HolidayImportOut.of(report))
+        return Created(body=SlaHolidayImportOut.of(report))
 
     return await idempotency.run(body, go, status_code=status.HTTP_201_CREATED)

@@ -49,7 +49,7 @@ class SiteOut(BaseModel):
     phone: str | None
     email: str | None
     is_default: bool
-    calendar_id: uuid.UUID | None = Field(description="Its working calendar (SLA).")
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     disabled: bool = Field(description="Inactive: kept where used, not offered for new ones.")
     member_ids: list[uuid.UUID]
     version: int = Field(description="Send back as If-Match to change it.")
@@ -208,7 +208,7 @@ class GroupOut(BaseModel):
     email: str | None = Field(description="The group's own address (notifications, mail).")
     sender_name: str | None
     desk_id: uuid.UUID
-    calendar_id: uuid.UUID | None = Field(description="Its working calendar (SLA).")
+    calendar_id: uuid.UUID | None = Field(default=None, description="Its working calendar (SLA).")
     site_ids: list[uuid.UUID] = Field(description="The sites it serves (one or many).")
     disabled: bool
     member_ids: list[uuid.UUID]
