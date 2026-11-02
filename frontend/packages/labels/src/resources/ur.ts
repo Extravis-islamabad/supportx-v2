@@ -1059,6 +1059,8 @@ export const ur: LabelResource = {
   'file_warning.files_not_scanned': 'کچھ فائلیں بغیر اسکین کے محفوظ کی گئیں۔',
   'file_warning.files_scan_failed': 'کچھ فائلوں کی جانچ نہیں ہو سکی۔',
   'errors.file_not_found': 'یہ فائل موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
+  'errors.file_staff_only':
+    'صرف سروس ڈیسک فائلیں ہٹا سکتا ہے یا کسی اور کے پیغام میں شامل کر سکتا ہے۔',
   'errors.file_owner_not_found':
     'جس چیز سے آپ منسلک کر رہے ہیں وہ موجود نہیں یا آپ اسے نہیں دیکھ سکتے۔',
   'errors.file_owner_not_allowed': 'وہاں فائلیں منسلک نہیں کی جا سکتیں۔',
@@ -3637,6 +3639,10 @@ export const ur: LabelResource = {
   'dashboard_records_sort.created': 'تازہ ترین پہلے',
   'dashboard_records_sort.due': 'سب سے پہلے واجب پہلے',
   'dashboard_records_sort.priority': 'سب سے زیادہ ترجیح پہلے',
+  'security.invitations.earlier_links_work':
+    'پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
+  'security.invitations.resent_earlier_work':
+    'دعوت دوبارہ بھیج دی گئی۔ اس شخص کا اکاؤنٹ دعوت سے پہلے موجود تھا، اس لیے پہلے بھیجے گئے لنک بھی میعاد ختم ہونے تک کام کرتے رہیں گے۔',
   // WP-020d: the incident list's columns, views, time range, chips, bulk and export.
   'incidents.columns.button': 'کالم',
   'incidents.columns.title': 'کالم منتخب کریں',

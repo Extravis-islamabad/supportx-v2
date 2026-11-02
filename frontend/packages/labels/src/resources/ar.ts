@@ -1486,6 +1486,7 @@ export const ar: LabelResource = {
   'file_warning.files_not_scanned': 'خُزّنت بعض الملفات دون فحص.',
   'file_warning.files_scan_failed': 'تعذّر فحص بعض الملفات.',
   'errors.file_not_found': 'هذا الملف غير موجود أو لا يمكنك رؤيته.',
+  'errors.file_staff_only': 'فريق الدعم وحده يمكنه حذف الملفات أو إضافتها إلى رسالة شخص آخر.',
   'errors.file_owner_not_found': 'ما تحاول الإرفاق به غير موجود أو لا يمكنك رؤيته.',
   'errors.file_owner_not_allowed': 'لا يمكن إرفاق الملفات هناك.',
   'errors.file_not_ready': 'هذا الملف غير جاهز للفتح.',
@@ -3987,6 +3988,10 @@ export const ar: LabelResource = {
   'dashboard_records_sort.created': 'الأحدث أولًا',
   'dashboard_records_sort.due': 'الأقرب استحقاقًا أولًا',
   'dashboard_records_sort.priority': 'الأعلى أولوية أولًا',
+  'security.invitations.earlier_links_work':
+    'الروابط المرسلة سابقًا لا تزال تعمل أيضًا حتى تنتهي صلاحيتها.',
+  'security.invitations.resent_earlier_work':
+    'أُرسلت الدعوة مجددًا. كان لدى هذا الشخص حساب قبل الدعوة، لذا تظل الروابط المرسلة سابقًا تعمل أيضًا حتى تنتهي صلاحيتها.',
   // WP-020d: the incident list's columns, views, time range, chips, bulk and export.
   'incidents.columns.button': 'الأعمدة',
   'incidents.columns.title': 'اختر الأعمدة',
