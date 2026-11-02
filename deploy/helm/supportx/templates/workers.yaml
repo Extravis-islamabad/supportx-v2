@@ -73,6 +73,11 @@ spec:
             # Applies the password policy admins save (manage-realm); no other pod holds it.
             - name: SUPPORTX_KEYCLOAK_REALM_CLIENT_SECRET
               valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-realm-secret, optional: true}}
+            {{- if $.Values.directory.ldap.enabled }}
+            # Writes the AD/LDAP connection admins set up (manage-realm); no other pod holds it.
+            - name: SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET
+              valueFrom: {secretKeyRef: {name: {{ $.Values.secrets.app }}, key: keycloak-federation-secret}}
+            {{- end }}
             {{- end }}
           ports:
             - {name: metrics, containerPort: 9464}

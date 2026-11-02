@@ -25,6 +25,7 @@ PROFILES=(
   "ingress|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.mode=ingress --set routing.ingress.tlsSecret=supportx-tls --set routing.hostnames={supportx.example.com}"
   "external-db|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.gateway.tlsSecret=supportx-tls --set postgresql.mode=external --set postgresql.external.host=db.example.com"
   "podmonitors|-f $CHART/values-dev.yaml --set metrics.podMonitors=true"
+  "ldap|-f $CHART/values-single-node.yaml --set publicUrl=https://supportx.example.com --set routing.hostnames={supportx.example.com} --set routing.gateway.tlsSecret=supportx-tls --set directory.ldap.enabled=true"
 )
 
 for entry in "${PROFILES[@]}"; do
@@ -43,6 +44,19 @@ for entry in "${PROFILES[@]}"; do
     echo "kubeconform not installed: schema validation skipped (CI always runs it)"
   fi
 done
+
+# On-prem LDAP (D-118, product owner 2026-11-03): the federation secret reaches exactly the
+# keycloak-identity Job and the consumers worker with LDAP on, no pod without it, and the chart
+# refuses LDAP on a multi-tenant installation (a shared realm would show its people to everyone).
+federation_pods() { grep -c 'SUPPORTX_KEYCLOAK_FEDERATION_CLIENT_SECRET' "$1" || true; }
+[ "$(federation_pods "$OUT/ldap.yaml")" = "2" ] || { echo "ldap: the federation secret must reach exactly 2 pods" >&2; exit 1; }
+[ "$(federation_pods "$OUT/single-node.yaml")" = "0" ] || { echo "single-node: no pod may hold the federation secret without LDAP" >&2; exit 1; }
+LDAP_ARGS="${PROFILES[5]#*|}"
+# shellcheck disable=SC2086 # the flags are meant to be split
+if helm template supportx "$CHART" --namespace supportx $LDAP_ARGS --set multiTenant=true >/dev/null 2>&1; then
+  echo "ldap: the chart must refuse directory.ldap.enabled with multiTenant: true" >&2
+  exit 1
+fi
 
 # The golden file is what an install creates: without `helm test` pods (those run on demand).
 GOLDEN="$CHART/tests/golden/single-node.yaml"
