@@ -154,9 +154,18 @@ describe('dashboards: rules without a screen', () => {
       and: [
         { field: 'technician_id', op: 'eq', value: 'u1' },
         { field: 'site_id', op: 'eq', value: SITE },
-        { field: 'created_at', op: 'last_n_days', value: 30 },
       ],
     });
+    // D-119: that widget counts what is open now; a volume widget does take the time filter.
+    const volume = { ...MY_WORK.body.widgets[0]?.report, filter: undefined, measures: ['count'] };
+    expect(
+      widgetDefinition({ id: 'v', report: volume } as never, {
+        userId: 'u1',
+        filters: { days: 30 },
+        builtin: [],
+        fields: ENTITY.fields,
+      })?.filter,
+    ).toEqual({ field: 'created_at', op: 'last_n_days', value: 30 });
     // REQ-DSH-022 AC2: an entity without the field is not filtered by it, and says so.
     expect(unusableFilters({ group_id: 'g' }, [ENTITY.fields[0]] as never)).toEqual(['group_id']);
   });

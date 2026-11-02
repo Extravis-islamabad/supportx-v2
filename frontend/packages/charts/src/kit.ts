@@ -27,6 +27,11 @@ export interface KitInput {
   format?: (value: number) => string;
   /** Gauge only: the maximum (100 for percentages). */
   max?: number;
+  /**
+   * A narrow place (a dashboard widget of 4 columns or less): a doughnut leaves the names to its
+   * legend, which wraps, instead of slice labels cut to "P…" (QA WP-036 C1).
+   */
+  compact?: boolean;
 }
 
 /** Longest category name shown on an axis or slice label; the tooltip and table show it whole. */
@@ -65,7 +70,7 @@ export function kitOption(input: KitInput): EChartsCoreOption {
     const first = input.series[0]?.values ?? [];
     return {
       tooltip: { trigger: 'item', valueFormatter: format },
-      legend: { type: 'scroll', bottom: 0 },
+      legend: { type: input.compact === true ? 'plain' : 'scroll', bottom: 0 },
       series: [
         {
           type: 'pie',
@@ -74,7 +79,7 @@ export function kitOption(input: KitInput): EChartsCoreOption {
           radius: ['40%', '64%'],
           avoidLabelOverlap: true,
           label: {
-            show: true,
+            show: input.compact !== true,
             formatter: (params: { name: string }) => shortLabel(params.name),
           },
           data: input.categories.map((name, i) => ({
