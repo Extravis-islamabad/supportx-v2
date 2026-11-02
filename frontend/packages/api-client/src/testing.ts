@@ -22,6 +22,7 @@ type Grant = [
 ];
 
 const TECHNICIAN: Grant[] = [
+  ['integrations.view', 'all'],
   ['profile.edit', 'own'],
   ['users.view', 'all'],
   ['sites.view', 'all'],

@@ -4252,6 +4252,19 @@ export const en = {
   'event_delivery_state.stalled': 'Stalled',
   'incidents.bulk.select_page': 'Select every incident on this page',
   // WP-040: the connector catalogue.
+  'nav.admin_integrations': 'Integrations',
+  'integrations.intro':
+    'Every connection between SupportX and other systems, with its status right now. A connector that fails tells the people who set it up once, and again when it works.',
+  'integrations.search': 'Search by name or keyword, such as key or API',
+  'integrations.set_up': 'Set up',
+  'integrations.none_set_up': 'None set up yet.',
+  'integrations.last_success': 'Last worked {{when}}',
+  'integrations.never_succeeded': 'Has not worked yet',
+  'integrations.counts_24h':
+    'Last 24 hours: {{runs}} runs, {{read}} items read, {{failed}} failed runs',
+  'integrations.credential_expires': 'Credential expires {{when}}',
+  'integrations.load_failed': 'The integrations could not be loaded. Try again in a moment.',
+  'integrations.no_match': 'No connector matches this search.',
   'permission.integrations.manage_identity': 'Set up directory connectors',
   'permission.integrations.manage_identity.description':
     'Connect Microsoft Entra ID or Active Directory and choose who is synchronised.',

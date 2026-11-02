@@ -4316,6 +4316,19 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'incidents.bulk.select_page': 'تحديد كل الحوادث في هذه الصفحة',
   // WP-040: the connector catalogue.
+  'nav.admin_integrations': 'التكاملات',
+  'integrations.intro':
+    'كل اتصال بين SupportX والأنظمة الأخرى، مع حالته الآن. الموصل الذي يتعطل يُبلغ من أعدّوه مرة واحدة، ومرة أخرى عندما يعود إلى العمل.',
+  'integrations.search': 'ابحث بالاسم أو بكلمة مفتاحية مثل مفتاح أو API',
+  'integrations.set_up': 'إعداد',
+  'integrations.none_set_up': 'لم يُعَدّ أي شيء بعد.',
+  'integrations.last_success': 'آخر عمل ناجح {{when}}',
+  'integrations.never_succeeded': 'لم يعمل بعد',
+  'integrations.counts_24h':
+    'آخر 24 ساعة: {{runs}} تشغيلات، {{read}} عناصر مقروءة، {{failed}} تشغيلات فاشلة',
+  'integrations.credential_expires': 'تنتهي بيانات الاعتماد {{when}}',
+  'integrations.load_failed': 'تعذّر تحميل التكاملات. حاول مرة أخرى بعد قليل.',
+  'integrations.no_match': 'لا يوجد موصل يطابق هذا البحث.',
   'permission.integrations.manage_identity': 'إعداد موصلات الأدلة',
   'permission.integrations.manage_identity.description':
     'ربط Microsoft Entra ID أو Active Directory واختيار من تتم مزامنتهم.',

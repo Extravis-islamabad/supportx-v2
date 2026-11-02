@@ -527,4 +527,5 @@ export {
   type ReleasedMail,
   type WaitingMail,
 } from './mailboxes';
+export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
 export { useEventDelivery, type Readiness } from './system';

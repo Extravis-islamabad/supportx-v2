@@ -802,6 +802,38 @@ Plan: ~/Desktop/wp-039-plan.md (answers D-089). docs/architecture/identity.md.
   end to end by hand against Keycloak as the customer's provider; CI runs the SAML journey (in
   Compose, Keycloak cannot call itself on the browser's address, which OIDC would need).
 
+### [ ] WP-040 — Connector framework and directory sync (lane B; D-118; session 1 of 2 built 2026-11-02, draft #150)
+- **Plan:** ~/Desktop/wp-040-plan.md (approved 2026-10-29; decision 1 by the product owner, D-118).
+- **Session 1 (built, draft #150, stacked on #134):**
+  - [x] Connector registry `app.shared.connectors` and catalogue `GET /integrations/catalogue`
+    (REQ-INT-001): categories, live status, edition through `has_feature` only, keywords;
+    read-only with a reason without set-up rights (REQ-INT-013 AC1).
+  - [x] Secrets store `connector_secrets` (REQ-INT-003, REQ-SEC-042), migration 0045 (expand):
+    mailbox secrets copied sealed, never opened; old columns kept and still written; a store
+    copy that cannot be read falls back, counted (`supportx_connector_secret_fallback`), logged by
+    code and shown as degraded. "Ending in …" for display only, long random secrets and
+    certificate thumbprints, never a password (product owner, 2026-11-02; enforced by the table).
+  - [x] Runs, health and error list (REQ-INT-004, REQ-INT-005), migration 0049: failing after 3
+    failed runs or at once on a refused credential; `connector.failing` / `connector.recovered`
+    once each; runs kept 7 days, errors 90; mailbox fetches are runs; each tenant's
+    `mailbox.failing` rule copied to `connector.failing` (alias kept until the contract step).
+  - [x] Set-up rights per category `integrations.manage_<category>` (REQ-INT-013): permission keys
+    are two-part, so not `integrations.<category>.manage` as the plan said (coordinator,
+    2026-11-02). `mailboxes.manage` → `integrations.manage_email` by expand/contract (0049 copies
+    every grant); `integrations.manage_identity` registered for session 2.
+  - [x] Console: Admin › Integrations (catalogue by category, search by keyword, live status on
+    `integrations.connectors_changed`, Arabic RTL); Admin › Mail uses the new key.
+  - **Moved to session 2 (coordinator, 2026-11-02):** service identities (REQ-INT-012), built with
+    directory sync, their first real user. Session 2 tests: kept out of pickers, seat counts
+    (entitlement interface only) and sign-in; history tagged "integration".
+  - **Later:** tenant-editable defaults (sync interval, rotation reminder, retention, failing
+    threshold; D-041) with the session 2 settings screen; generalising the 14-day credential
+    warning to every kind; the contract step (drop the mailbox secret columns, `mailbox.failing`,
+    `mailboxes.manage`) once the store is proven.
+- **Session 2:** Entra ID sync, AD/LDAP through Keycloak federation (D-118), leavers and
+  `identity_access.user.status_changed` `reason`/`source` (agreed with lane A), service identities,
+  mapping screens.
+
 ### [x] WP-017-FIX — WP-017 QA findings (lane B; D-093; done 2026-10-27)
 Every bug of ~/Desktop/qa-wp017/QA-REPORT.md has a test named after its ID that failed first
 (Vitest `admin/branding/branding.test.tsx` "WP-017-FIX", `tests/test_keycloak_theme.py`, the
@@ -1143,6 +1175,18 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-11-02 — WP-040 session 1: connector framework (lane B)
+
+After the move to Extravis-islamabad: confirmed the merge queue on #147 (merge_group checks green,
+merge commit 0242b48). #133/#134 failed because mail attachments are uploaded as the sender and a
+requester could not attach to a record; lane A's #142 is the fix, merged into both (merge order:
+#142 first). WP-040 session 1 built on `feat/wp-040-connectors` (draft #150): catalogue, secrets
+store (0045), runs and health (0049), per-category set-up rights, Admin › Integrations. Service
+identities moved to session 2. Migrations renumbered after lane A's 0044/0047 and lane C's
+0046/0048. Reviewed lane C's `copy_to_drafts` for WP-033 s4 (7 conditions agreed). WP-013 plan
+(private licence-core repo) sent to the product owner. Tests: area suites (backend 156, console
+admin 152) green; full suite in CI.
 
 ### 2026-10-29 — WP-024 email channel, session 3: delivery state, waiting, resend (lane B)
 

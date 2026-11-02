@@ -3858,6 +3858,19 @@ export const ur: LabelResource = {
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   // WP-040: the connector catalogue.
+  'nav.admin_integrations': 'انٹیگریشنز',
+  'integrations.intro':
+    'SupportX اور دوسرے نظاموں کے درمیان ہر رابطہ، اس کی موجودہ حالت کے ساتھ۔ جو کنیکٹر ناکام ہو وہ اسے سیٹ اپ کرنے والوں کو ایک بار بتاتا ہے، اور دوبارہ جب وہ کام کرنے لگے۔',
+  'integrations.search': 'نام یا کلیدی لفظ سے تلاش کریں، جیسے کلید یا API',
+  'integrations.set_up': 'سیٹ اپ کریں',
+  'integrations.none_set_up': 'ابھی کچھ سیٹ اپ نہیں ہوا۔',
+  'integrations.last_success': 'آخری بار کامیاب {{when}}',
+  'integrations.never_succeeded': 'ابھی تک کامیاب نہیں ہوا',
+  'integrations.counts_24h':
+    'پچھلے 24 گھنٹے: {{runs}} رنز، {{read}} آئٹمز پڑھے، {{failed}} ناکام رنز',
+  'integrations.credential_expires': 'اسناد کی میعاد {{when}} ختم ہوگی',
+  'integrations.load_failed': 'انٹیگریشنز لوڈ نہیں ہو سکیں۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
+  'integrations.no_match': 'اس تلاش سے کوئی کنیکٹر میل نہیں کھاتا۔',
   'permission.integrations.manage_identity': 'ڈائریکٹری کنیکٹر سیٹ اپ کریں',
   'permission.integrations.manage_identity.description':
     'Microsoft Entra ID یا Active Directory جوڑیں اور منتخب کریں کہ کون ہم آہنگ ہو۔',
