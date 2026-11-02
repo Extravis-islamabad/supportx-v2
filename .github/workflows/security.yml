@@ -6,20 +6,21 @@ on:
   pull_request:
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
-  push:
-    branches: [main]
+  # No run on push to main: the merge queue tested that exact merge commit (2026-11-02).
   schedule:
-    - cron: "17 3 * * 1" # weekly, Monday 03:17 UTC: catches advisories published after a merge
+    - cron: "17 3 * * *" # nightly 03:17 UTC: catches advisories published after a merge (no push run)
   workflow_dispatch:
 
 permissions:
   contents: read
 
 # One group per PR: a new push cancels that PR's outdated run, freeing runners for every lane.
-# Runs on main, nightly and manual runs each get a group of their own and are never cancelled.
+# A queue group gets one group per temporary branch (a re-run replaces the old one); a group the
+# queue dropped finishes at once in its first step (.github/actions/changes). Nightly and manual
+# runs each get a group of their own and are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'merge_group' && format('queue-{0}', github.event.merge_group.head_ref) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 env:
   GITLEAKS_IMAGE: ghcr.io/gitleaks/gitleaks:v8.30.1
@@ -72,11 +73,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      - name: Changes (heavy work runs in the merge queue)
+        id: changes
+        uses: ./.github/actions/changes
+        with:
+          queue-only: "true"
       - name: Report all findings
+        if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
             fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --exit-code 0 /repo
       - name: Fail on high/critical
+        if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
             fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --severity HIGH,CRITICAL --exit-code 1 /repo

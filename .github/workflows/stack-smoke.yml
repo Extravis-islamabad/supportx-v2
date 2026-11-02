@@ -20,10 +20,12 @@ permissions:
   pull-requests: read # the changes step reads the PR's file list
 
 # One group per PR: a new push cancels that PR's outdated run, freeing runners for every lane.
-# Runs on main, nightly and manual runs each get a group of their own and are never cancelled.
+# A queue group gets one group per temporary branch (a re-run replaces the old one); a group the
+# queue dropped finishes at once in its first step (.github/actions/changes). Nightly and manual
+# runs each get a group of their own and are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'merge_group' && format('queue-{0}', github.event.merge_group.head_ref) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 jobs:
   core:
@@ -37,6 +39,8 @@ jobs:
       - name: Changes (docs-only PRs skip the stack)
         id: changes
         uses: ./.github/actions/changes
+        with:
+          queue-only: "true"
       - name: Generate throwaway .env
         if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
