@@ -7,24 +7,29 @@ one is stored). Changes use If-Match and are audited; create takes an Idempotenc
 import uuid
 from datetime import datetime
 from typing import Annotated, Any, Literal
+from urllib.parse import urlencode, urlsplit
 
-from fastapi import APIRouter, Depends, Request, Response, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.authorization import require_permission
 from app.core.config import Settings
 from app.core.database import TenantSession
 from app.core.errors import ProblemDetail
-from app.modules.audit import audited
+from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.domain.mailboxes import (
     AfterFetch,
+    AuthModel,
     ConnectionSecurity,
+    CredentialKind,
     MailboxCreates,
+    MailboxProtocol,
     MailboxState,
     UnknownSenders,
+    needs_sign_in,
 )
-from app.modules.integrations.infra.imap import ImapSettings
 from app.modules.integrations.service import mailboxes as service
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
@@ -60,6 +65,19 @@ class MailboxFields(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    auth_model: AuthModel | None = Field(
+        default=None,
+        description="Microsoft 365: app (no one signs in) or delegated. Gmail: delegated.",
+    )
+    client_id: str | None = Field(default=None, min_length=1, max_length=255)
+    directory_id: str | None = Field(
+        default=None, min_length=1, max_length=64, description="Microsoft Entra tenant ID."
+    )
+    credential_kind: CredentialKind | None = None
+    credential_expires_at: datetime | None = Field(
+        default=None,
+        description="When the client secret expires (read from a certificate); warned ahead.",
+    )
     display_name: str | None = Field(default=None, max_length=120)
     host: str | None = Field(default=None, min_length=1, max_length=255)
     port: int | None = Field(default=None, ge=1, le=65535)
@@ -78,20 +96,31 @@ class MailboxFields(BaseModel):
     enabled: bool | None = None
 
 
+SECRET_MAX = 20_000  # a PEM certificate with its private key
+
+
 class MailboxIn(MailboxFields):
-    """A new mailbox."""
+    """A new mailbox: IMAP (server, account, password) or Microsoft 365 / Gmail (OAuth app)."""
 
     address: str = Field(min_length=3, max_length=320)
-    host: str = Field(min_length=1, max_length=255)
-    port: int = Field(default=993, ge=1, le=65535)
-    username: str = Field(min_length=1, max_length=320)
-    password: str = Field(min_length=1, max_length=500, description="Stored sealed; never shown.")
+    protocol: MailboxProtocol = MailboxProtocol.IMAP
+    port: int | None = Field(default=None, ge=1, le=65535, description="IMAP: 993 when left out.")
+    password: str | None = Field(
+        default=None, min_length=1, max_length=500, description="IMAP. Stored sealed; never shown."
+    )
+    client_secret: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=SECRET_MAX,
+        description="The OAuth app's secret, or its certificate and private key (PEM). Sealed.",
+    )
 
 
 class MailboxPatch(MailboxFields):
-    """Fields to change; a password replaces the stored one."""
+    """Fields to change; a password or client secret replaces the stored one."""
 
     password: str | None = Field(default=None, min_length=1, max_length=500)
+    client_secret: str | None = Field(default=None, min_length=1, max_length=SECRET_MAX)
 
 
 class MailboxOut(BaseModel):
@@ -100,12 +129,20 @@ class MailboxOut(BaseModel):
     id: uuid.UUID
     address: str
     display_name: str | None
-    host: str
-    port: int
+    protocol: MailboxProtocol
+    host: str | None
+    port: int | None
     security: ConnectionSecurity
     allow_plain: bool
-    username: str
-    has_password: bool
+    username: str | None
+    has_password: bool = Field(description="A password or client secret is stored.")
+    auth_model: AuthModel | None
+    client_id: str | None
+    directory_id: str | None
+    credential_kind: CredentialKind | None
+    credential_expires_at: datetime | None
+    needs_sign_in: bool = Field(description="Someone must sign in as the mailbox (consent).")
+    signed_in: bool = Field(description="A sign-in (refresh token) is stored.")
     folder: str
     after_fetch: AfterFetch
     move_to: str | None
@@ -118,6 +155,9 @@ class MailboxOut(BaseModel):
     state_reason: str | None = Field(description="Code; the UI shows its label.")
     last_fetch_at: datetime | None
     held: int = Field(description="Messages kept for an admin (refused, flooding, not matched).")
+    flooding: bool = Field(
+        description="A sender went over the flood limit; their mail waits in the review queue."
+    )
     version: int
 
     @classmethod
@@ -128,12 +168,22 @@ class MailboxOut(BaseModel):
             id=row.id,
             address=row.address,
             display_name=row.display_name,
+            protocol=MailboxProtocol(row.protocol),
             host=row.host,
             port=row.port,
             security=ConnectionSecurity(row.security),
             allow_plain=row.allow_plain,
             username=row.username,
             has_password=view.has_password,
+            auth_model=AuthModel(row.auth_model) if row.auth_model else None,
+            client_id=row.client_id,
+            directory_id=row.directory_id,
+            credential_kind=CredentialKind(row.credential_kind) if row.credential_kind else None,
+            credential_expires_at=row.credential_expires_at,
+            needs_sign_in=needs_sign_in(
+                MailboxProtocol(row.protocol), AuthModel(row.auth_model) if row.auth_model else None
+            ),
+            signed_in=row.token_sealed is not None,
             folder=row.folder,
             after_fetch=AfterFetch(row.after_fetch),
             move_to=row.move_to,
@@ -146,17 +196,27 @@ class MailboxOut(BaseModel):
             state_reason=row.state_reason,
             last_fetch_at=row.last_fetch_at,
             held=view.held,
+            flooding=view.flooding,
             version=row.version,
         )
+
+
+SECRETS = {"password", "client_secret"}
 
 
 def _values(body: BaseModel, *, new: bool = False) -> dict[str, Any]:
     # A new mailbox keeps its defaults (port 993); a change carries only what was sent.
     if new:
-        values = body.model_dump(exclude_none=True, exclude={"password"})
+        values = body.model_dump(exclude_none=True, exclude=SECRETS)
+        if values.get("protocol", "imap") == "imap":
+            values.setdefault("port", 993)
     else:
-        values = body.model_dump(exclude_unset=True, exclude={"password"})
+        values = body.model_dump(exclude_unset=True, exclude=SECRETS)
     return {k: (v.value if hasattr(v, "value") else v) for k, v in values.items()}
+
+
+def _secret(body: "MailboxIn | MailboxPatch | ConnectionTestIn") -> str | None:
+    return body.password or body.client_secret
 
 
 @router.get("", summary="Mailboxes")
@@ -185,7 +245,7 @@ async def create_mailbox(
 
     async def run() -> Created:
         view = await service.create_mailbox(
-            session, settings, subject.tenant_id, _values(body, new=True), password=body.password
+            session, settings, subject.tenant_id, _values(body, new=True), password=_secret(body)
         )
         out = MailboxOut.of(view)
         return Created(body=out, headers={"ETag": f'"{out.version}"'})
@@ -215,7 +275,7 @@ async def update_mailbox(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         settings,
         mailbox_id,
         _values(body),
-        password=body.password,
+        password=_secret(body),
         expected_version=version,
     )
     set_etag(response, view.row.version)
@@ -239,11 +299,12 @@ async def remove_mailbox(
 
 
 class ConnectionTestIn(BaseModel):
-    """Settings to try (a new password, or the stored one when left out)."""
+    """A new password or client secret to try, or the stored one when left out."""
 
     model_config = ConfigDict(extra="forbid")
 
     password: str | None = Field(default=None, max_length=500)
+    client_secret: str | None = Field(default=None, max_length=SECRET_MAX)
 
 
 class ConnectionTestOut(BaseModel):
@@ -264,30 +325,98 @@ async def test_mailbox(
     """Connects and looks for new mail; changes nothing on the server or here."""
     del subject
     row = (await service.get_mailbox(session, mailbox_id)).row
-    password = body.password
-    if password is None:
-        from app.modules.integrations.service.fetching import (  # noqa: PLC0415 - one use
-            SECRET_PURPOSE,
-            key_ring,
-        )
-
-        ring = key_ring(settings)
-        if ring is None or row.secret_key_id is None or row.secret_sealed is None:
-            return ConnectionTestOut(ok=False, reason="mailbox_no_password")
-        password = ring.unseal(
-            row.tenant_id, SECRET_PURPOSE, row.secret_key_id, row.secret_sealed
-        ).decode()
-    reason = await service.test_connection(
-        ImapSettings(
-            host=row.host,
-            port=row.port,
-            security=ConnectionSecurity(row.security),
-            username=row.username,
-            password=password,
-            folder=row.folder,
-        )
-    )
+    reason = await service.try_connection(row, settings, secret=_secret(body))
     return ConnectionTestOut(ok=reason is None, reason=reason)
+
+
+def origin_of(request: Request, settings: Settings) -> str:
+    """The address the admin is on (a tenant's own address, WP-017), with the console's scheme.
+
+    The session cookie is bound to this host, so the consent comes back to the same session.
+    """
+    console = urlsplit(settings.console_url)
+    return f"{console.scheme}://{request.headers.get('host') or console.netloc}"
+
+
+class MailboxSignInOut(BaseModel):
+    """Where to send the browser: Microsoft's or Google's sign-in, for the mailbox's account."""
+
+    authorize_url: str
+
+
+@router.post(
+    "/{mailbox_id}/sign-in",
+    summary="Start signing in as the mailbox (consent)",
+    responses=CONFLICT,
+    dependencies=[
+        audited("mailbox.consent_started", object_type="mailbox", object_param="mailbox_id")
+    ],
+)
+async def start_sign_in(
+    mailbox_id: uuid.UUID,
+    request: Request,
+    session: TenantSession,
+    subject: Manage,
+    settings: AppSettings,
+) -> MailboxSignInOut:
+    """Gmail, and Microsoft 365 with delegated permission. Valid ten minutes, for you only."""
+    url = await service.start_sign_in(
+        session,
+        settings,
+        mailbox_id,
+        admin_id=subject.user_id,
+        origin=origin_of(request, settings),
+    )
+    return MailboxSignInOut(authorize_url=url)
+
+
+oauth_router = APIRouter(
+    prefix="/integrations/oauth",
+    tags=["integrations"],
+    dependencies=[Depends(rate_limit("integrations"))],
+)
+
+
+@oauth_router.get(
+    "/callback",
+    summary="Microsoft or Google sends the admin back here",
+    status_code=status.HTTP_303_SEE_OTHER,
+    response_class=RedirectResponse,
+)
+async def sign_in_callback(  # noqa: PLR0913, PLR0917 - FastAPI dependencies and the provider's query
+    request: Request,
+    session: TenantSession,
+    subject: Manage,
+    settings: AppSettings,
+    note: Annotated[AuditNote, audited("mailbox.connected", object_type="mailbox")],
+    state: Annotated[str, Query(max_length=200)] = "",
+    code: Annotated[str | None, Query(max_length=4000)] = None,
+    error: Annotated[str | None, Query(max_length=200)] = None,
+) -> RedirectResponse:
+    """Stores the sign-in and returns to Admin > Mail, which shows the result.
+
+    The authorization code and state are never logged (see app.core.logging's query redaction).
+    """
+    origin = origin_of(request, settings)
+    result = await service.complete_sign_in(
+        session,
+        settings,
+        state=state,
+        code=code,
+        declined=error is not None,
+        admin_id=subject.user_id,
+        origin=origin,
+    )
+    note.object_id = str(result.mailbox_id) if result.mailbox_id else None
+    if result.reason is not None:
+        note.details = {"refused": result.reason}
+    query = {"sign_in": result.reason or "ok"}
+    if result.mailbox_id is not None:
+        query["mailbox"] = str(result.mailbox_id)
+    base = urlsplit(settings.console_url).path.rstrip("/")
+    return RedirectResponse(
+        f"{origin}{base}/admin/mail?{urlencode(query)}", status_code=status.HTTP_303_SEE_OTHER
+    )
 
 
 class WaitingOut(BaseModel):
