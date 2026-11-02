@@ -28,7 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps
+from app.shared.db.models import Base, TenantEntity, TenantKeyed, Timestamps, utc_now
 
 
 class Mailbox(TenantEntity):
@@ -248,7 +248,7 @@ class ConnectorHealth(TenantKeyed, Base):
     last_success_at: Mapped[datetime | None]
     last_error_at: Mapped[datetime | None]
     last_error_code: Mapped[str | None] = mapped_column(String(60))  # a label code
-    updated_at: Mapped[datetime]
+    updated_at: Mapped[datetime] = mapped_column(onupdate=utc_now)
 
 
 class ConnectorIdentity(TenantKeyed, Base):

@@ -21,7 +21,7 @@ from urllib.request import url2pathname
 
 from app.modules.analytics.domain.tables import CellKind, Column, PdfInput, Value
 from app.modules.analytics.infra.svgchart import chart_html
-from app.shared.labels import label
+from app.shared.labels import plain_label as label
 
 FONTS = (Path(__file__).resolve().parent / "fonts").resolve()
 _FONT_FILES = {
