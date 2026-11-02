@@ -45,6 +45,15 @@ class RecordRef(BaseModel):
     record_id: uuid.UUID
 
 
+class ArticleLinkIn(RecordRef):
+    """A record to link, and how the technician chose the article."""
+
+    how: Literal["link", "suggestion"] = Field(
+        default="link",
+        description="`suggestion`: picked from the suggestions while logging it (REQ-INC-021).",
+    )
+
+
 class LinkedRecordOut(BaseModel):
     """A record linked to an article, as a line of its Links tab."""
 
@@ -89,7 +98,7 @@ class RecordArticlesOut(BaseModel):
 )
 async def create_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
     article_id: uuid.UUID,
-    body: RecordRef,
+    body: ArticleLinkIn,
     session: TenantSession,
     subject: Viewer,
     request: Request,
@@ -104,7 +113,7 @@ async def create_link(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
             article_id,
             body.record_type,
             body.record_id,
-            how="link",
+            how=body.how,
             source=source_of(request),
         )
         seen = await links.visible_records(session, subject, row.record_type, [row.record_id])

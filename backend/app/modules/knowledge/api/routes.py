@@ -1220,6 +1220,7 @@ class KnowledgeSettingsDefaults(BaseModel):
     prefix: str = ID_PREFIX
     self_approval: bool = False  # D-120 (4)
     requesters_enabled: bool = True
+    suggest_on_technician_form: bool = True  # REQ-KB-062 AC3
 
 
 class KnowledgeSettingsOut(BaseModel):
@@ -1229,6 +1230,7 @@ class KnowledgeSettingsOut(BaseModel):
     next_number: int = Field(description="The number the next new article gets.")
     self_approval: bool
     requesters_enabled: bool
+    suggest_on_technician_form: bool
     version: int
     defaults: KnowledgeSettingsDefaults = Field(default_factory=KnowledgeSettingsDefaults)
 
@@ -1240,6 +1242,7 @@ class KnowledgeSettingsOut(BaseModel):
             next_number=await review.next_article_number(session),
             self_approval=found.self_approval,
             requesters_enabled=found.requesters_enabled,
+            suggest_on_technician_form=found.suggest_on_technician_form,
             version=found.version,
         )
 
@@ -1253,6 +1256,7 @@ class KnowledgeSettingsPatch(BaseModel):
     next_number: int | None = Field(default=None, ge=1, le=999_999_999)
     self_approval: bool | None = None
     requesters_enabled: bool | None = None
+    suggest_on_technician_form: bool | None = None
 
 
 @router.get("/settings", summary="Knowledge settings")

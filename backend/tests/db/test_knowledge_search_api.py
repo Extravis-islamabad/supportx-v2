@@ -14,7 +14,7 @@ from sqlalchemy import text
 from app.core.tenancy import TenantContext
 from tests.db import test_incidents_api
 from tests.db.test_incidents_api import Org, World, problem
-from tests.db.test_knowledge_api import ARTICLES, _article, _match, _publish, _topic
+from tests.db.test_knowledge_api import ARTICLES, _article, _match, _new, _publish, _topic
 from tests.db.test_knowledge_review_api import SETTINGS, _approve, _published, _read, _submit, _url
 
 pytestmark = pytest.mark.db
@@ -285,3 +285,33 @@ async def test_req_kb_081_portal_topics_and_home_follow_the_reader_rule(world: W
     for path in ("/knowledge/portal/topics", "/knowledge/portal/home"):
         assert problem(await world.call("GET", path, a, a.requester)) == (404, "kb_requesters_off")
     assert (await world.call("GET", "/knowledge/portal/topics", a, a.tech_a)).status_code == 200
+
+
+async def test_req_kb_062_ac3_the_setting_and_a_link_chosen_from_suggestions(world: World) -> None:
+    a = world.a
+    settings = (await world.call("GET", SETTINGS, a, a.admin)).json()
+    assert settings["suggest_on_technician_form"] is True  # on by default
+    off = await world.call(
+        "PATCH",
+        SETTINGS,
+        a,
+        a.admin,
+        json={"suggest_on_technician_form": False},
+        headers=_match(settings["version"]),
+    )
+    assert off.status_code == 200, off.text
+    assert off.json()["suggest_on_technician_form"] is False
+    # REQ-INC-021: an article picked from the suggestions is linked as such after the create.
+    topic = await _topic(world, a, "Mail")
+    article = await _published(world, a, topic, title="Mailbox full")
+    item = await world.create(a, a.tech_a, group_id=str(a.ga))
+    made = await world.call(
+        "POST",
+        _url(article, "/links"),
+        a,
+        a.tech_a,
+        json={"record_type": "incident", "record_id": item["id"], "how": "suggestion"},
+        headers=_new(),
+    )
+    assert made.status_code == 201, made.text
+    assert made.json()["source"] == "suggestion"

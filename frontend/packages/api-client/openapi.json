@@ -1235,6 +1235,38 @@
         "title": "ArticleIn",
         "type": "object"
       },
+      "ArticleLinkIn": {
+        "additionalProperties": false,
+        "description": "A record to link, and how the technician chose the article.",
+        "properties": {
+          "how": {
+            "default": "link",
+            "description": "`suggestion`: picked from the suggestions while logging it (REQ-INC-021).",
+            "enum": [
+              "link",
+              "suggestion"
+            ],
+            "title": "How",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "pattern": "^[a-z][a-z_]{1,29}$",
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id"
+        ],
+        "title": "ArticleLinkIn",
+        "type": "object"
+      },
       "ArticleLinksOut": {
         "description": "An article's links that you may see, and how many others.",
         "properties": {
@@ -9366,6 +9398,11 @@
             "default": false,
             "title": "Self Approval",
             "type": "boolean"
+          },
+          "suggest_on_technician_form": {
+            "default": true,
+            "title": "Suggest On Technician Form",
+            "type": "boolean"
           }
         },
         "title": "KnowledgeSettingsDefaults",
@@ -9394,6 +9431,10 @@
             "title": "Self Approval",
             "type": "boolean"
           },
+          "suggest_on_technician_form": {
+            "title": "Suggest On Technician Form",
+            "type": "boolean"
+          },
           "version": {
             "title": "Version",
             "type": "integer"
@@ -9404,6 +9445,7 @@
           "next_number",
           "self_approval",
           "requesters_enabled",
+          "suggest_on_technician_form",
           "version"
         ],
         "title": "KnowledgeSettingsOut",
@@ -9459,6 +9501,17 @@
               }
             ],
             "title": "Self Approval"
+          },
+          "suggest_on_technician_form": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggest On Technician Form"
           }
         },
         "title": "KnowledgeSettingsPatch",
@@ -13038,28 +13091,6 @@
           "restricted"
         ],
         "title": "RecordArticlesOut",
-        "type": "object"
-      },
-      "RecordRef": {
-        "additionalProperties": false,
-        "description": "A record: its type (the work-item type code, `incident`) and id.",
-        "properties": {
-          "record_id": {
-            "format": "uuid",
-            "title": "Record Id",
-            "type": "string"
-          },
-          "record_type": {
-            "pattern": "^[a-z][a-z_]{1,29}$",
-            "title": "Record Type",
-            "type": "string"
-          }
-        },
-        "required": [
-          "record_type",
-          "record_id"
-        ],
-        "title": "RecordRef",
         "type": "object"
       },
       "RecordSort": {
@@ -48686,7 +48717,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RecordRef"
+                "$ref": "#/components/schemas/ArticleLinkIn"
               }
             }
           },

@@ -158,11 +158,13 @@ export function useKbApprovalCount(enabled = true) {
   });
 }
 
-export function useKbSettings(enabled = true) {
+/** `silent`: a screen that only adapts to the settings (the incident form) shows no error. */
+export function useKbSettings(enabled = true, silent = false) {
   return useQuery({
     queryKey: queryKeys.knowledge.settings,
     queryFn: () => call(api.GET('/api/v1/knowledge/settings')),
     enabled,
+    meta: silent ? { silent: true } : undefined,
   });
 }
 
@@ -532,16 +534,19 @@ export function useLinkKbArticle() {
       recordType,
       recordId,
       key,
+      how = 'link',
     }: {
       articleId: string;
       recordType: string;
       recordId: string;
       key: string;
+      /** `suggestion`: picked from the suggestions while logging the record (REQ-INC-021). */
+      how?: 'link' | 'suggestion';
     }) =>
       call(
         api.POST('/api/v1/knowledge/articles/{article_id}/links', {
           params: { path: { article_id: articleId }, header: { 'Idempotency-Key': key } },
-          body: { record_type: recordType, record_id: recordId },
+          body: { record_type: recordType, record_id: recordId, how },
         }),
       ),
     onSuccess: (_, v) => {

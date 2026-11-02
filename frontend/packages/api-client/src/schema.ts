@@ -6350,6 +6350,26 @@ export interface components {
             type_code: string;
         };
         /**
+         * ArticleLinkIn
+         * @description A record to link, and how the technician chose the article.
+         */
+        ArticleLinkIn: {
+            /**
+             * How
+             * @description `suggestion`: picked from the suggestions while logging it (REQ-INC-021).
+             * @default link
+             * @enum {string}
+             */
+            how: "link" | "suggestion";
+            /**
+             * Record Id
+             * Format: uuid
+             */
+            record_id: string;
+            /** Record Type */
+            record_type: string;
+        };
+        /**
          * ArticleLinksOut
          * @description An article's links that you may see, and how many others.
          */
@@ -9613,6 +9633,11 @@ export interface components {
              * @default false
              */
             self_approval: boolean;
+            /**
+             * Suggest On Technician Form
+             * @default true
+             */
+            suggest_on_technician_form: boolean;
         };
         /**
          * KnowledgeSettingsOut
@@ -9631,6 +9656,8 @@ export interface components {
             requesters_enabled: boolean;
             /** Self Approval */
             self_approval: boolean;
+            /** Suggest On Technician Form */
+            suggest_on_technician_form: boolean;
             /** Version */
             version: number;
         };
@@ -9647,6 +9674,8 @@ export interface components {
             requesters_enabled?: boolean | null;
             /** Self Approval */
             self_approval?: boolean | null;
+            /** Suggest On Technician Form */
+            suggest_on_technician_form?: boolean | null;
         };
         /**
          * LimitKey
@@ -11039,19 +11068,6 @@ export interface components {
             items: components["schemas"]["LinkedArticleOut"][];
             /** Restricted */
             restricted: number;
-        };
-        /**
-         * RecordRef
-         * @description A record: its type (the work-item type code, `incident`) and id.
-         */
-        RecordRef: {
-            /**
-             * Record Id
-             * Format: uuid
-             */
-            record_id: string;
-            /** Record Type */
-            record_type: string;
         };
         /**
          * RecordSort
@@ -32365,7 +32381,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RecordRef"];
+                "application/json": components["schemas"]["ArticleLinkIn"];
             };
         };
         responses: {
