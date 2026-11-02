@@ -40,6 +40,7 @@ from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
 from app.modules.sla.service.realtime import ROUTES
 from app.modules.sla.service.records import SlaRecordView, SlaTargetView, record_sla
 from app.modules.sla.service.registry import Fired, SlaRecordType, register_record_type
+from app.modules.sla.service.scheduler import SCHEDULER
 from app.modules.sla.service.timers import escalation_run, fire, next_wake, safety_net
 from app.shared.schedules import ScheduleSpec
 
@@ -63,6 +64,8 @@ module = ModuleSpec(
     realtime=ROUTES,
     # The safety net behind the Temporal waker (D-115 D5): anything over two minutes late.
     schedules=[ScheduleSpec("sla__safety_net", 60, safety_net)],
+    # Saves that move clocks wake the record's Temporal workflow (off without Temporal).
+    consumers=[SCHEDULER],
 )
 
 __all__ = [

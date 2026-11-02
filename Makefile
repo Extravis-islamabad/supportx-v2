@@ -3,7 +3,7 @@
 .PHONY: help decisions progress-log setup lint typecheck test format check build precommit audit audit-backend audit-frontend labels-json backend-test-timings backend-shard-weights \
 	backend-dev backend-env openapi openapi-check openapi-diff schema-check \
 	db-bootstrap db-migrate db-downgrade db-revision db-current db-seed db-guard custom-field-indexes dev-subscription e2e \
-	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes events-tail events-stats dlq-list dlq-replay events-schemas events-check \
+	worker-relay worker-consumers worker-consumers-pdf worker-fanout worker-indexes worker-sla events-tail events-stats dlq-list dlq-replay events-schemas events-check \
 	dev-init dev-up dev-up-full dev-down dev-ps dev-logs dev-check dev-reset \
 	backend-lint backend-typecheck backend-test frontend-lint frontend-typecheck frontend-test \
 	frontend-install-check keycloak-realm keycloak-theme keycloak-identity brand-assets chart-deps chart-lint images cluster-up cluster-secrets \
@@ -100,6 +100,9 @@ worker-consumers-pdf: ## The consumers with PDF report exports (D-100 D8; macOS:
 
 worker-indexes: ## Run the custom field index worker (builds requested indexes, D-088) until Ctrl+C
 	$(BACKEND) uv run python -m workers.custom_field_indexes
+
+worker-sla: ## Run the SLA clocks' Temporal worker (needs SUPPORTX_TEMPORAL_ADDRESS, make dev-up-full) until Ctrl+C
+	$(BACKEND) uv run python -m workers.sla_timers
 
 worker-fanout: ## Run the realtime fan-out (events -> Centrifugo -> live screens) until Ctrl+C
 	$(BACKEND) uv run python -m workers.realtime_fanout
