@@ -42,7 +42,7 @@ from app.modules.integrations.domain.mailboxes import (
 )
 from app.modules.integrations.infra.models import Mailbox, MailFetched
 from app.modules.notifications import records_for_mail
-from app.shared.labels import label
+from app.shared.labels import plain_label
 from app.shared.mail import Language, MailRefused, OutgoingMail, mail_configured, queue_mail
 from app.shared.mail.domain.inbound import InboundMessage, parse, reply_text, request_text
 from app.shared.mail.ports import FoundRecord, InboundRefused, InboundTarget, inbound_target
@@ -124,8 +124,9 @@ async def _answer(  # noqa: PLR0913 - the message, who, what to say and its valu
         return
     known = await mail_recipients(session, [person]) if person is not None else {}
     language: Language = known[person].language if person in known else "en"
-    subject = label(f"{key}.subject", language, subject=message.subject, **values)
-    text = label(f"{key}.body", language, address=mailbox.address, **values)
+    # Mail: no directional marks (they would break the "[INC-12]" token in a reply's subject).
+    subject = plain_label(f"{key}.subject", language, subject=message.subject, **values)
+    text = plain_label(f"{key}.body", language, address=mailbox.address, **values)
     try:
         await queue_mail(
             session,
