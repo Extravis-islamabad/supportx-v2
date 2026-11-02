@@ -3869,6 +3869,10 @@ export const ar: LabelResource = {
   'notification_preferences.locked': 'تُلزمك به مؤسستك: لا يمكن إيقافه.',
   'notification_preferences.dnd_help':
     'لا نوافذ منبثقة ولا بريد إلا العاجل والإلزامي؛ ويبقى كل شيء في إشعاراتك.',
+  'security.invitations.earlier_links_work':
+    'الروابط المرسلة سابقًا لا تزال تعمل أيضًا حتى تنتهي صلاحيتها.',
+  'security.invitations.resent_earlier_work':
+    'أُرسلت الدعوة مجددًا. كان لدى هذا الشخص حساب قبل الدعوة، لذا تظل الروابط المرسلة سابقًا تعمل أيضًا حتى تنتهي صلاحيتها.',
   // WP-020d: the incident list's columns, views, time range, chips, bulk and export.
   'incidents.columns.button': 'الأعمدة',
   'incidents.columns.title': 'اختر الأعمدة',
