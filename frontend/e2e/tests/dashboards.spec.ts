@@ -100,8 +100,10 @@ test('a technician lands on "My work"; a shared dashboard reaches their picker (
     await admin.page.getByTestId('dashboard-add-title').fill('Open by priority');
     await expect(admin.page.getByTestId('dashboard-add-preview')).toBeVisible();
     await admin.page.getByTestId('dashboard-add-confirm').click();
+    // The add drawer's preview carries the same title while it closes (nightly 41436129077).
+    await expect(admin.page.getByTestId('dashboard-add-preview')).toBeHidden();
     await admin.page.getByTestId('dashboard-done').click();
-    await expect(admin.page.getByText('Open by priority')).toBeVisible();
+    await expect(admin.page.getByTestId('widget-title-w1')).toHaveText('Open by priority');
     await admin.page.getByTestId('dashboard-share').click();
     await expect(admin.page.getByTestId('dashboard-share')).toHaveAttribute('aria-checked', 'true');
     await expectAccessible(admin.page, 'user-made dashboard');
