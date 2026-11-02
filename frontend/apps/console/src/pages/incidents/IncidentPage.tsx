@@ -79,6 +79,9 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { KnowledgeCard } from '../knowledge/KnowledgeCard';
+import { KnowledgePicker } from '../knowledge/KnowledgePicker';
+import { KnowledgeSlotContext, type KnowledgeSlot } from './knowledgeSlot';
 import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
@@ -355,199 +358,226 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
       </span>
     ) : null;
 
+  // Knowledge in this record's editors (D-121): the picker, for replies, notes and the resolution.
+  const knowledgeSlot: KnowledgeSlot = (insert, audience) => (
+    <KnowledgePicker
+      recordType="incident"
+      recordId={item.id}
+      subject={item.subject}
+      audience={audience}
+      insert={insert}
+    />
+  );
+
   return (
-    <RecordPage
-      testId="inc-record"
-      header={
-        <RecordHeader
-          icon={<AlertOutlined />}
-          displayId={item.display_id}
-          title={item.subject}
-          testIds={{ id: 'inc-display-id', title: 'inc-heading' }}
-          tags={
-            <>
-              <StatusTag status={item.status} catalogue={catalogue.data} />
-              <PriorityTag priority={item.priority} source={item.priority_source} />
-            </>
-          }
-          meta={[
-            // Names are isolated, so a mixed Arabic and English line keeps its order (QA C6).
-            <span key="people" data-testid="inc-people">
-              {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
-            </span>,
-            <span key="created">
-              {t('incidents.created_on', { date: dates.format(item.created_at) })}
-            </span>,
-            ...(statusReason === null ? [] : [statusReason]),
-          ]}
-          extra={
-            <>
-              <PresenceAvatars viewers={viewers} selfUserId={me} />
-              <FollowButton item={item} me={me} />
-            </>
-          }
-        />
-      }
-      actions={<ActionBar actions={actions} testId="inc-operations" />}
-      alerts={
-        <>
-          <AlertStrip
-            testId="inc-alerts"
-            alerts={
-              changedBy === null
-                ? []
-                : [
-                    {
-                      key: 'live',
-                      type: 'warning',
-                      dismissible: false,
-                      testId: 'live-change-notice',
-                      message: t('live.changed_by', { name: changedBy }),
-                      action: (
-                        <Button
-                          size="small"
-                          data-testid="live-change-reload"
-                          onClick={() => {
-                            behind.current = false;
-                            setChangedBy(null);
-                            void reload();
-                          }}
-                        >
-                          {t('live.reload')}
-                        </Button>
-                      ),
-                    },
-                  ]
+    <KnowledgeSlotContext.Provider value={knowledgeSlot}>
+      <RecordPage
+        testId="inc-record"
+        header={
+          <RecordHeader
+            icon={<AlertOutlined />}
+            displayId={item.display_id}
+            title={item.subject}
+            testIds={{ id: 'inc-display-id', title: 'inc-heading' }}
+            tags={
+              <>
+                <StatusTag status={item.status} catalogue={catalogue.data} />
+                <PriorityTag priority={item.priority} source={item.priority_source} />
+              </>
+            }
+            meta={[
+              // Names are isolated, so a mixed Arabic and English line keeps its order (QA C6).
+              <span key="people" data-testid="inc-people">
+                {t('incidents.requested_by', { name: personName(item.people, item.requester_id) })}
+              </span>,
+              <span key="created">
+                {t('incidents.created_on', { date: dates.format(item.created_at) })}
+              </span>,
+              ...(statusReason === null ? [] : [statusReason]),
+            ]}
+            extra={
+              <>
+                <PresenceAvatars viewers={viewers} selfUserId={me} />
+                <FollowButton item={item} me={me} />
+              </>
             }
           />
-          <LoopWarning id={item.id} />
-        </>
-      }
-      panel={
-        <PropertiesPanel
-          testId="inc-panel"
-          sections={[
+        }
+        actions={<ActionBar actions={actions} testId="inc-operations" />}
+        alerts={
+          <>
+            <AlertStrip
+              testId="inc-alerts"
+              alerts={
+                changedBy === null
+                  ? []
+                  : [
+                      {
+                        key: 'live',
+                        type: 'warning',
+                        dismissible: false,
+                        testId: 'live-change-notice',
+                        message: t('live.changed_by', { name: changedBy }),
+                        action: (
+                          <Button
+                            size="small"
+                            data-testid="live-change-reload"
+                            onClick={() => {
+                              behind.current = false;
+                              setChangedBy(null);
+                              void reload();
+                            }}
+                          >
+                            {t('live.reload')}
+                          </Button>
+                        ),
+                      },
+                    ]
+              }
+            />
+            <LoopWarning id={item.id} />
+          </>
+        }
+        panel={
+          <PropertiesPanel
+            testId="inc-panel"
+            sections={[
+              {
+                key: 'properties',
+                title: t('incidents.properties'),
+                children: (
+                  <Details item={item} reload={reload} onEditing={onEditing} part="properties" />
+                ),
+              },
+              {
+                key: 'sla',
+                title: t('incidents.panel.sla'),
+                testId: 'inc-panel-sla',
+                // Lane A's SLA card (WP-025, #152) in the panel section kept for it.
+                children: (
+                  <div data-testid="inc-sla-card">
+                    <IncidentSla item={item} />
+                  </div>
+                ),
+              },
+              {
+                key: 'assignment',
+                title: t('incidents.panel.assignment'),
+                testId: 'inc-panel-assignment',
+                children: (
+                  <>
+                    <PropertyRow label={t('work_item.field.group_id')}>
+                      <bdi>{groupName}</bdi>
+                    </PropertyRow>
+                    <PropertyRow label={t('work_item.field.technician_id')}>
+                      {item.technician_id === null ? (
+                        <Typography.Text type="secondary">
+                          {t('incidents.unassigned')}
+                        </Typography.Text>
+                      ) : (
+                        <bdi>{personName(item.people, item.technician_id)}</bdi>
+                      )}
+                    </PropertyRow>
+                  </>
+                ),
+              },
+              {
+                key: 'followers',
+                title: t('incidents.panel.followers'),
+                children: <FollowersCard item={item} me={me} />,
+              },
+              // Linked articles you may read, and how many others (WP-033 s4, D-121).
+              {
+                key: 'knowledge',
+                title: t('knowledge.card.title'),
+                children: (
+                  <KnowledgeCard
+                    recordType="incident"
+                    recordId={item.id}
+                    subject={item.subject}
+                    hasResolution={item.resolution !== null}
+                    userId={me ?? ''}
+                  />
+                ),
+              },
+            ]}
+          />
+        }
+      >
+        <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
+        <AssignDialog
+          item={item}
+          open={assigning}
+          refresh={reload}
+          onClose={() => {
+            setAssigning(false);
+          }}
+        />
+        {status.dialogs}
+        {take.dialogs}
+        <Tabs
+          data-testid="inc-tabs"
+          // The tab this user used last, Conversation the first time (D-081).
+          activeKey={tab}
+          onChange={(key) => {
+            setTab(key);
+            rememberTab(me, key);
+          }}
+          items={[
             {
-              key: 'properties',
-              title: t('incidents.properties'),
+              key: 'conversation',
+              label: t('incidents.tab.conversation', { count: item.conversation_count }),
+              children: <IncidentConversation item={item} typing={typing} />,
+            },
+            {
+              key: 'details',
+              label: t('incidents.tab.details'),
               children: (
-                <Details item={item} reload={reload} onEditing={onEditing} part="properties" />
+                <Details
+                  item={item}
+                  reload={reload}
+                  onEditing={(delta) => {
+                    editing.current = Math.max(0, editing.current + delta);
+                    // Nobody edits any more: catch up with what changed meanwhile (QA BUG-09).
+                    if (editing.current === 0 && behind.current) {
+                      behind.current = false;
+                      setChangedBy(null);
+                      void reload();
+                    }
+                  }}
+                  part="main"
+                />
               ),
             },
             {
-              key: 'sla',
-              title: t('incidents.panel.sla'),
-              testId: 'inc-panel-sla',
-              // Lane A's SLA card (WP-025, #152) in the panel section kept for it.
-              children: (
-                <div data-testid="inc-sla-card">
-                  <IncidentSla item={item} />
-                </div>
-              ),
+              key: 'tasks',
+              label: <TasksTabLabel id={item.id} />,
+              children: <IncidentTasks item={item} canEdit={canEditParts} />,
             },
             {
-              key: 'assignment',
-              title: t('incidents.panel.assignment'),
-              testId: 'inc-panel-assignment',
-              children: (
-                <>
-                  <PropertyRow label={t('work_item.field.group_id')}>
-                    <bdi>{groupName}</bdi>
-                  </PropertyRow>
-                  <PropertyRow label={t('work_item.field.technician_id')}>
-                    {item.technician_id === null ? (
-                      <Typography.Text type="secondary">
-                        {t('incidents.unassigned')}
-                      </Typography.Text>
-                    ) : (
-                      <bdi>{personName(item.people, item.technician_id)}</bdi>
-                    )}
-                  </PropertyRow>
-                </>
-              ),
+              key: 'worklogs',
+              label: t('incidents.tab.worklogs'),
+              children: <IncidentWorklogs item={item} canEdit={canEditParts} />,
             },
             {
-              key: 'followers',
-              title: t('incidents.panel.followers'),
-              children: <FollowersCard item={item} me={me} />,
+              key: 'links',
+              label: t('incidents.tab.links'),
+              children: <IncidentLinks item={item} canEdit={canEditParts} />,
+            },
+            {
+              key: 'history',
+              label: t('incidents.tab.history', { count: item.history_count }),
+              children: <IncidentHistory id={item.id} />,
+            },
+            {
+              key: 'automation',
+              label: t('incidents.tab.automation'),
+              children: <IncidentAutomation id={item.id} />,
             },
           ]}
         />
-      }
-    >
-      <ConflictDialog {...removeConflict.dialog} fieldLabel={incidentField} />
-      <AssignDialog
-        item={item}
-        open={assigning}
-        refresh={reload}
-        onClose={() => {
-          setAssigning(false);
-        }}
-      />
-      {status.dialogs}
-      {take.dialogs}
-      <Tabs
-        data-testid="inc-tabs"
-        // The tab this user used last, Conversation the first time (D-081).
-        activeKey={tab}
-        onChange={(key) => {
-          setTab(key);
-          rememberTab(me, key);
-        }}
-        items={[
-          {
-            key: 'conversation',
-            label: t('incidents.tab.conversation', { count: item.conversation_count }),
-            children: <IncidentConversation item={item} typing={typing} />,
-          },
-          {
-            key: 'details',
-            label: t('incidents.tab.details'),
-            children: (
-              <Details
-                item={item}
-                reload={reload}
-                onEditing={(delta) => {
-                  editing.current = Math.max(0, editing.current + delta);
-                  // Nobody edits any more: catch up with what changed meanwhile (QA BUG-09).
-                  if (editing.current === 0 && behind.current) {
-                    behind.current = false;
-                    setChangedBy(null);
-                    void reload();
-                  }
-                }}
-                part="main"
-              />
-            ),
-          },
-          {
-            key: 'tasks',
-            label: <TasksTabLabel id={item.id} />,
-            children: <IncidentTasks item={item} canEdit={canEditParts} />,
-          },
-          {
-            key: 'worklogs',
-            label: t('incidents.tab.worklogs'),
-            children: <IncidentWorklogs item={item} canEdit={canEditParts} />,
-          },
-          {
-            key: 'links',
-            label: t('incidents.tab.links'),
-            children: <IncidentLinks item={item} canEdit={canEditParts} />,
-          },
-          {
-            key: 'history',
-            label: t('incidents.tab.history', { count: item.history_count }),
-            children: <IncidentHistory id={item.id} />,
-          },
-          {
-            key: 'automation',
-            label: t('incidents.tab.automation'),
-            children: <IncidentAutomation id={item.id} />,
-          },
-        ]}
-      />
-    </RecordPage>
+      </RecordPage>
+    </KnowledgeSlotContext.Provider>
   );
 }
 
