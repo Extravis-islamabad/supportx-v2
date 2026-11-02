@@ -51,6 +51,22 @@ A timing that proves a behaviour rather than a speed is not a timing test, and i
 assertion: for example "probes share one deadline" (`test_readiness_service.py`) or "the audit
 search at 10 million entries" (nightly only, `audit-scale.yml`).
 
+## Contrast in Arabic and Urdu: axe does not check it (2026-10-30)
+
+**"axe clean" in Arabic or Urdu does not prove contrast.** axe's `color-contrast` rule reports
+"inapplicable" on Arabic-script text: even `#ccc` on white gives no violation. Its `isIconLigature`
+check takes the script's joined letters for an icon font, and no option turns that off (axe-core
+4.14.0). Latin text inside a right-to-left page is measured normally. Every other axe rule still
+applies to these pages.
+
+Contrast in those languages is covered by:
+
+- `packages/ui/src/theme-contrast.test.ts`: the palette tokens against WCAG AA, in every theme;
+- `expectTextContrast` in `frontend/e2e/tests/helpers.ts`: computed colours of the visible text;
+  `rtl-contrast.spec.ts` runs it on key screens in Arabic and Urdu. Use it on new right-to-left
+  screens that bring their own colours.
+- `expectToastsAccessible`: toasts held open, as `expectAccessible` waits until toasts have gone.
+
 ## Counts and lookups in database tests (2026-10-29)
 
 All tests in one process share one migrated database (`migrated_db` is session-scoped), so other
