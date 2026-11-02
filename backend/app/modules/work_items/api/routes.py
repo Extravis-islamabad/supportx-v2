@@ -246,6 +246,8 @@ class WorkItemDueDateIn(BaseModel):
 
 SlaKind = Literal["first_response", "resolution"]
 SlaState = Literal["running", "paused", "met", "breached", "stopped"]
+# A target as lists show it: `warning` is a running target past its warning point.
+SlaShownState = Literal["running", "warning", "paused", "met", "breached", "stopped"]
 SlaMetHow = Literal["on_time", "late", "at_resolution"]
 SlaReason = Literal["created", "priority_changed", "condition_changed"]
 
@@ -436,6 +438,12 @@ class WorkItemOut(BaseModel):
     sla_policy_id: uuid.UUID | None = Field(description="Null: no SLA applies (REQ-INC-011).")
     first_response_due_at: datetime | None
     resolution_due_at: datetime | None
+    first_response_sla_state: SlaShownState | None = Field(
+        default=None, description="Where the response target stands (`warning`: past its point)."
+    )
+    resolution_sla_state: SlaShownState | None = None
+    first_response_breached: bool = Field(default=False, description="Ever breached (stays).")
+    resolution_breached: bool = False
     created_at: datetime
     created_by: uuid.UUID | None
     updated_at: datetime
@@ -520,6 +528,10 @@ _RECORD_FIELDS = (
     "sla_policy_id",
     "first_response_due_at",
     "resolution_due_at",
+    "first_response_sla_state",
+    "resolution_sla_state",
+    "first_response_breached",
+    "resolution_breached",
     "created_at",
     "created_by",
     "updated_at",
@@ -571,6 +583,10 @@ class WorkItemListItem(BaseModel):
     sla_policy_id: uuid.UUID | None
     first_response_due_at: datetime | None
     resolution_due_at: datetime | None
+    first_response_sla_state: SlaShownState | None = None
+    resolution_sla_state: SlaShownState | None = None
+    first_response_breached: bool = False
+    resolution_breached: bool = False
     created_at: datetime
     updated_at: datetime
     deleted_at: datetime | None

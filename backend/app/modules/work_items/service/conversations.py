@@ -884,6 +884,7 @@ async def automated_note(  # noqa: PLR0913 - the record, the text and who adds i
     *,
     ref: Mapping[str, Any],
     cause_id: uuid.UUID,
+    source: Source = "rule",
 ) -> None:
     """A trigger's private note (REQ-RUL-010): plain text, history names the trigger."""
     record = await items.automation_record(session, wtype, record_id)
@@ -913,7 +914,7 @@ async def automated_note(  # noqa: PLR0913 - the record, the text and who adds i
         changes=[
             Change("conversation_entry", None, _entry_code(EntryKind.NOTE, Visibility.PRIVATE))
         ],
-        source="rule",
+        source=source,
         automation_ref=dict(ref),
     )
     await record_event(

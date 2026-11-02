@@ -122,6 +122,17 @@
         "title": "AccountSecurityOut",
         "type": "object"
       },
+      "ActionKind": {
+        "description": "What a level does besides telling people (REQ-SLA-024).",
+        "enum": [
+          "reassign_group",
+          "reassign_person",
+          "raise_priority",
+          "add_note"
+        ],
+        "title": "ActionKind",
+        "type": "string"
+      },
       "ActionMode": {
         "description": "Whether a set action may replace what a person entered (REQ-RUL-003).",
         "enum": [
@@ -202,6 +213,15 @@
         ],
         "title": "AllowedForOut",
         "type": "object"
+      },
+      "Anchor": {
+        "description": "What a level's offset is measured from.",
+        "enum": [
+          "due",
+          "warning"
+        ],
+        "title": "Anchor",
+        "type": "string"
       },
       "AnnouncementAction": {
         "description": "AnnouncementStatus actions, in the order the UI shows them.",
@@ -11901,6 +11921,20 @@
         "title": "ReasonMode",
         "type": "string"
       },
+      "RecipientKind": {
+        "description": "Who a level tells (REQ-SLA-023). Site and change managers wait for their fields (D12).",
+        "enum": [
+          "assignee",
+          "group_head",
+          "assignee_manager",
+          "requester_manager",
+          "department_head",
+          "user",
+          "group"
+        ],
+        "title": "RecipientKind",
+        "type": "string"
+      },
       "RecipientsOut": {
         "description": "Where a reply goes.",
         "properties": {
@@ -15575,6 +15609,46 @@
         "title": "SitePatch",
         "type": "object"
       },
+      "SlaActionIn": {
+        "additionalProperties": false,
+        "description": "What an escalation level does besides telling people (REQ-SLA-024).",
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/ActionKind"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The group or person to reassign to.",
+            "title": "Target Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A private note.",
+            "title": "Text"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SlaActionIn",
+        "type": "object"
+      },
       "SlaCalendarIn": {
         "additionalProperties": false,
         "description": "A new operating-hours calendar: a week, or a preset (Monday to Friday by default).",
@@ -16188,6 +16262,123 @@
         "title": "SlaHolidayPatch",
         "type": "object"
       },
+      "SlaLevelIn": {
+        "additionalProperties": false,
+        "description": "One escalation level: when (business time from the due moment or the warning point).",
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/SlaActionIn"
+            },
+            "maxItems": 10,
+            "title": "Actions",
+            "type": "array"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/Anchor",
+            "default": "due"
+          },
+          "fallback": {
+            "description": "When a relative is not set.",
+            "items": {
+              "$ref": "#/components/schemas/SlaRecipientIn"
+            },
+            "maxItems": 20,
+            "title": "Fallback",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TargetKind"
+          },
+          "notify": {
+            "default": true,
+            "title": "Notify",
+            "type": "boolean"
+          },
+          "offset_seconds": {
+            "default": 0,
+            "description": "Business seconds; negative is before the anchor.",
+            "maximum": 2592000.0,
+            "minimum": -2592000.0,
+            "title": "Offset Seconds",
+            "type": "integer"
+          },
+          "recipients": {
+            "items": {
+              "$ref": "#/components/schemas/SlaRecipientIn"
+            },
+            "maxItems": 20,
+            "title": "Recipients",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SlaLevelIn",
+        "type": "object"
+      },
+      "SlaLevelOut": {
+        "additionalProperties": false,
+        "description": "A stored level, numbered within its kind.",
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/SlaActionIn"
+            },
+            "maxItems": 10,
+            "title": "Actions",
+            "type": "array"
+          },
+          "anchor": {
+            "$ref": "#/components/schemas/Anchor",
+            "default": "due"
+          },
+          "fallback": {
+            "description": "When a relative is not set.",
+            "items": {
+              "$ref": "#/components/schemas/SlaRecipientIn"
+            },
+            "maxItems": 20,
+            "title": "Fallback",
+            "type": "array"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/TargetKind"
+          },
+          "notify": {
+            "default": true,
+            "title": "Notify",
+            "type": "boolean"
+          },
+          "offset_seconds": {
+            "default": 0,
+            "description": "Business seconds; negative is before the anchor.",
+            "maximum": 2592000.0,
+            "minimum": -2592000.0,
+            "title": "Offset Seconds",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "recipients": {
+            "items": {
+              "$ref": "#/components/schemas/SlaRecipientIn"
+            },
+            "maxItems": 20,
+            "title": "Recipients",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "position"
+        ],
+        "title": "SlaLevelOut",
+        "type": "object"
+      },
       "SlaManualOut": {
         "description": "A due date set by hand: who, why and when (REQ-SLA-028 AC3).",
         "properties": {
@@ -16309,6 +16500,15 @@
             "title": "Labels",
             "type": "object"
           },
+          "levels": {
+            "description": "Escalation levels, in order per kind.",
+            "items": {
+              "$ref": "#/components/schemas/SlaLevelIn"
+            },
+            "maxItems": 16,
+            "title": "Levels",
+            "type": "array"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -16408,6 +16608,13 @@
             },
             "title": "Labels",
             "type": "object"
+          },
+          "levels": {
+            "items": {
+              "$ref": "#/components/schemas/SlaLevelOut"
+            },
+            "title": "Levels",
+            "type": "array"
           },
           "name": {
             "title": "Name",
@@ -16517,6 +16724,22 @@
             ],
             "title": "Labels"
           },
+          "levels": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SlaLevelIn"
+                },
+                "maxItems": 16,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Replaces every escalation level.",
+            "title": "Levels"
+          },
           "name": {
             "anyOf": [
               {
@@ -16561,6 +16784,33 @@
           }
         },
         "title": "SlaPolicyPatch",
+        "type": "object"
+      },
+      "SlaRecipientIn": {
+        "additionalProperties": false,
+        "description": "Who an escalation level tells: a relative of the record, a person or a support group.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only for `user` and `group`.",
+            "title": "Id"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/RecipientKind"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SlaRecipientIn",
         "type": "object"
       },
       "SlaSettingsOut": {
@@ -21924,6 +22174,11 @@
             ],
             "title": "First Responded At"
           },
+          "first_response_breached": {
+            "default": false,
+            "title": "First Response Breached",
+            "type": "boolean"
+          },
           "first_response_due_at": {
             "anyOf": [
               {
@@ -21935,6 +22190,25 @@
               }
             ],
             "title": "First Response Due At"
+          },
+          "first_response_sla_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "running",
+                  "warning",
+                  "paused",
+                  "met",
+                  "breached",
+                  "stopped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Response Sla State"
           },
           "group_id": {
             "anyOf": [
@@ -21989,6 +22263,11 @@
             "title": "Requester Id",
             "type": "string"
           },
+          "resolution_breached": {
+            "default": false,
+            "title": "Resolution Breached",
+            "type": "boolean"
+          },
           "resolution_due_at": {
             "anyOf": [
               {
@@ -22000,6 +22279,25 @@
               }
             ],
             "title": "Resolution Due At"
+          },
+          "resolution_sla_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "running",
+                  "warning",
+                  "paused",
+                  "met",
+                  "breached",
+                  "stopped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Sla State"
           },
           "resolved_at": {
             "anyOf": [
@@ -22410,6 +22708,12 @@
             ],
             "title": "First Responded At"
           },
+          "first_response_breached": {
+            "default": false,
+            "description": "Ever breached (stays).",
+            "title": "First Response Breached",
+            "type": "boolean"
+          },
           "first_response_due_at": {
             "anyOf": [
               {
@@ -22421,6 +22725,26 @@
               }
             ],
             "title": "First Response Due At"
+          },
+          "first_response_sla_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "running",
+                  "warning",
+                  "paused",
+                  "met",
+                  "breached",
+                  "stopped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the response target stands (`warning`: past its point).",
+            "title": "First Response Sla State"
           },
           "following": {
             "description": "You follow this record.",
@@ -22581,6 +22905,11 @@
             "description": "The fix, sanitised rich text (REQ-INC-090).",
             "title": "Resolution"
           },
+          "resolution_breached": {
+            "default": false,
+            "title": "Resolution Breached",
+            "type": "boolean"
+          },
           "resolution_due_at": {
             "anyOf": [
               {
@@ -22605,6 +22934,25 @@
             ],
             "description": "When the requester was told of the resolution; auto-close counts from it.",
             "title": "Resolution Notified At"
+          },
+          "resolution_sla_state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "running",
+                  "warning",
+                  "paused",
+                  "met",
+                  "breached",
+                  "stopped"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution Sla State"
           },
           "resolved_at": {
             "anyOf": [

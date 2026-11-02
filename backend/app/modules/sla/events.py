@@ -1,7 +1,7 @@
 """Event contracts published by the sla module (WP-025; docs/architecture/events.md).
 
-Payloads carry IDs and changed field names only, never names or dates (rule c). Sessions 1 and 2:
-the set-up and clock events; `warning`, `breached` and `escalated` come with session 3.
+Payloads carry IDs and changed field names only, never names or dates (rule c). The set-up and
+clock events (sessions 1 and 2), and `warning`, `breached` and `escalated` (session 3).
 """
 
 import uuid
@@ -165,6 +165,31 @@ class SlaSetByHand(_ClockEvent):
     event_type: ClassVar[str] = "sla.target.set_by_hand"
 
 
+class SlaWarning(_ClockEvent):
+    """The target reached its warning point (REQ-SLA-019)."""
+
+    event_type: ClassVar[str] = "sla.target.warning"
+
+
+class SlaBreached(_ClockEvent):
+    """The target's due moment passed while it was open (REQ-SLA-020); the stamp stays."""
+
+    event_type: ClassVar[str] = "sla.target.breached"
+
+
+class SlaEscalated(_ClockEvent):
+    """An escalation level ran, once (REQ-SLA-022). `run_id` names the run and its level.
+
+    `notify` False: the level only acted, or the tenant-wide switch held its messages.
+    """
+
+    event_type: ClassVar[str] = "sla.target.escalated"
+
+    run_id: uuid.UUID
+    position: int
+    notify: bool
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     SlaCalendarSaved,
     SlaCalendarDeleted,
@@ -181,4 +206,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SlaStopped,
     SlaSetByHand,
     SlaRecalculated,
+    SlaWarning,
+    SlaBreached,
+    SlaEscalated,
 )

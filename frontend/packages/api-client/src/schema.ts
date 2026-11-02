@@ -5449,6 +5449,12 @@ export interface components {
             recovery_codes: boolean;
         };
         /**
+         * ActionKind
+         * @description What a level does besides telling people (REQ-SLA-024).
+         * @enum {string}
+         */
+        ActionKind: "reassign_group" | "reassign_person" | "raise_priority" | "add_note";
+        /**
          * ActionMode
          * @description Whether a set action may replace what a person entered (REQ-RUL-003).
          * @enum {string}
@@ -5483,6 +5489,12 @@ export interface components {
             /** Roles */
             roles: components["schemas"]["RoleNameOut"][];
         };
+        /**
+         * Anchor
+         * @description What a level's offset is measured from.
+         * @enum {string}
+         */
+        Anchor: "due" | "warning";
         /**
          * AnnouncementAction
          * @description AnnouncementStatus actions, in the order the UI shows them.
@@ -10044,6 +10056,12 @@ export interface components {
          */
         ReasonMode: "none" | "optional" | "required";
         /**
+         * RecipientKind
+         * @description Who a level tells (REQ-SLA-023). Site and change managers wait for their fields (D12).
+         * @enum {string}
+         */
+        RecipientKind: "assignee" | "group_head" | "assignee_manager" | "requester_manager" | "department_head" | "user" | "group";
+        /**
          * RecipientsOut
          * @description Where a reply goes.
          */
@@ -11442,6 +11460,23 @@ export interface components {
             time_zone?: string | null;
         };
         /**
+         * SlaActionIn
+         * @description What an escalation level does besides telling people (REQ-SLA-024).
+         */
+        SlaActionIn: {
+            kind: components["schemas"]["ActionKind"];
+            /**
+             * Target Id
+             * @description The group or person to reassign to.
+             */
+            target_id?: string | null;
+            /**
+             * Text
+             * @description A private note.
+             */
+            text?: string | null;
+        };
+        /**
          * SlaCalendarIn
          * @description A new operating-hours calendar: a week, or a preset (Monday to Friday by default).
          */
@@ -11699,6 +11734,66 @@ export interface components {
             starts_on?: string | null;
         };
         /**
+         * SlaLevelIn
+         * @description One escalation level: when (business time from the due moment or the warning point).
+         */
+        SlaLevelIn: {
+            /** Actions */
+            actions?: components["schemas"]["SlaActionIn"][];
+            /** @default due */
+            anchor: components["schemas"]["Anchor"];
+            /**
+             * Fallback
+             * @description When a relative is not set.
+             */
+            fallback?: components["schemas"]["SlaRecipientIn"][];
+            kind: components["schemas"]["TargetKind"];
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+            /**
+             * Offset Seconds
+             * @description Business seconds; negative is before the anchor.
+             * @default 0
+             */
+            offset_seconds: number;
+            /** Recipients */
+            recipients?: components["schemas"]["SlaRecipientIn"][];
+        };
+        /**
+         * SlaLevelOut
+         * @description A stored level, numbered within its kind.
+         */
+        SlaLevelOut: {
+            /** Actions */
+            actions?: components["schemas"]["SlaActionIn"][];
+            /** @default due */
+            anchor: components["schemas"]["Anchor"];
+            /**
+             * Fallback
+             * @description When a relative is not set.
+             */
+            fallback?: components["schemas"]["SlaRecipientIn"][];
+            kind: components["schemas"]["TargetKind"];
+            /**
+             * Notify
+             * @default true
+             */
+            notify: boolean;
+            /**
+             * Offset Seconds
+             * @description Business seconds; negative is before the anchor.
+             * @default 0
+             */
+            offset_seconds: number;
+            /** Position */
+            position: number;
+            /** Recipients */
+            recipients?: components["schemas"]["SlaRecipientIn"][];
+        };
+        /**
          * SlaManualOut
          * @description A due date set by hand: who, why and when (REQ-SLA-028 AC3).
          */
@@ -11751,6 +11846,11 @@ export interface components {
             labels?: {
                 [key: string]: string;
             };
+            /**
+             * Levels
+             * @description Escalation levels, in order per kind.
+             */
+            levels?: components["schemas"]["SlaLevelIn"][];
             /** Name */
             name: string;
             /**
@@ -11798,6 +11898,8 @@ export interface components {
             labels: {
                 [key: string]: string;
             };
+            /** Levels */
+            levels?: components["schemas"]["SlaLevelOut"][];
             /** Name */
             name: string;
             /**
@@ -11833,12 +11935,29 @@ export interface components {
             labels?: {
                 [key: string]: string;
             } | null;
+            /**
+             * Levels
+             * @description Replaces every escalation level.
+             */
+            levels?: components["schemas"]["SlaLevelIn"][] | null;
             /** Name */
             name?: string | null;
             /** Pausing */
             pausing?: components["schemas"]["TargetKind"][] | null;
             /** Targets */
             targets?: components["schemas"]["SlaTargetRow"][] | null;
+        };
+        /**
+         * SlaRecipientIn
+         * @description Who an escalation level tells: a relative of the record, a person or a support group.
+         */
+        SlaRecipientIn: {
+            /**
+             * Id
+             * @description Only for `user` and `group`.
+             */
+            id?: string | null;
+            kind: components["schemas"]["RecipientKind"];
         };
         /**
          * SlaSettingsOut
@@ -13872,8 +13991,15 @@ export interface components {
             display_id: string;
             /** First Responded At */
             first_responded_at: string | null;
+            /**
+             * First Response Breached
+             * @default false
+             */
+            first_response_breached: boolean;
             /** First Response Due At */
             first_response_due_at: string | null;
+            /** First Response Sla State */
+            first_response_sla_state?: ("running" | "warning" | "paused" | "met" | "breached" | "stopped") | null;
             /** Group Id */
             group_id: string | null;
             /**
@@ -13893,8 +14019,15 @@ export interface components {
              * Format: uuid
              */
             requester_id: string;
+            /**
+             * Resolution Breached
+             * @default false
+             */
+            resolution_breached: boolean;
             /** Resolution Due At */
             resolution_due_at: string | null;
+            /** Resolution Sla State */
+            resolution_sla_state?: ("running" | "warning" | "paused" | "met" | "breached" | "stopped") | null;
             /** Resolved At */
             resolved_at: string | null;
             /** Site Id */
@@ -14038,8 +14171,19 @@ export interface components {
             first_assigned_at: string | null;
             /** First Responded At */
             first_responded_at: string | null;
+            /**
+             * First Response Breached
+             * @description Ever breached (stays).
+             * @default false
+             */
+            first_response_breached: boolean;
             /** First Response Due At */
             first_response_due_at: string | null;
+            /**
+             * First Response Sla State
+             * @description Where the response target stands (`warning`: past its point).
+             */
+            first_response_sla_state?: ("running" | "warning" | "paused" | "met" | "breached" | "stopped") | null;
             /**
              * Following
              * @description You follow this record.
@@ -14103,6 +14247,11 @@ export interface components {
              * @description The fix, sanitised rich text (REQ-INC-090).
              */
             resolution: string | null;
+            /**
+             * Resolution Breached
+             * @default false
+             */
+            resolution_breached: boolean;
             /** Resolution Due At */
             resolution_due_at: string | null;
             /**
@@ -14110,6 +14259,8 @@ export interface components {
              * @description When the requester was told of the resolution; auto-close counts from it.
              */
             resolution_notified_at: string | null;
+            /** Resolution Sla State */
+            resolution_sla_state?: ("running" | "warning" | "paused" | "met" | "breached" | "stopped") | null;
             /** Resolved At */
             resolved_at: string | null;
             /** Site Id */

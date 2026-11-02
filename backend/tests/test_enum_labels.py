@@ -22,6 +22,9 @@ OPENAPI = Path(__file__).resolve().parents[2] / "frontend/packages/api-client/op
 # Enum location in the contract -> label prefix the UI uses.
 ENUM_PREFIXES: dict[str, str] = {
     # SLA set-up (WP-025)
+    "ActionKind": "sla_action_kind",
+    "Anchor": "sla_level_anchor",
+    "RecipientKind": "sla_recipient_kind",
     "HolidayPart": "sla_holiday_part",
     "CalendarSource": "sla_calendar_source",
     "PriorityRule": "sla_priority_rule",

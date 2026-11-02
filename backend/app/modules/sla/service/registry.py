@@ -6,11 +6,18 @@ Inside a save, the owning module passes a snapshot of the record (field name -> 
 `sla.on_change`, which returns what to stamp on the record. So `sla` never imports `work_items`.
 """
 
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Protocol
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.shared.api.filters import ResourceFields
+
+if TYPE_CHECKING:
+    from app.modules.sla.domain.escalation import Level
 
 # The snapshot keys the clock itself reads (beyond the condition fields).
 PRIORITY = "priority"
@@ -24,12 +31,61 @@ Snapshot = Mapping[str, Any]
 
 
 @dataclass(frozen=True)
+class Fired:
+    """One thing the waker fired on a record: a warning, a breach or an escalation level."""
+
+    what: str  # "warning", "breached", "escalated"
+    kind: str  # the target kind
+    position: int | None = None  # the level, for "escalated"
+    run_id: uuid.UUID | None = None
+    skipped: bool = False
+
+
+class FiredHook(Protocol):
+    """The owning module stamps the record: SLA columns, history from source "sla", an event."""
+
+    async def __call__(  # noqa: D102 - the protocol's one call, documented on the class
+        self,
+        session: AsyncSession,
+        record_id: uuid.UUID,
+        columns: Mapping[str, Any],
+        fired: list[Fired],
+        *,
+        now: datetime,
+    ) -> None: ...
+
+
+class LockHook(Protocol):
+    """The owning module locks the record row (FOR UPDATE).
+
+    Every path locks the record before its clocks: the owning module's saves before calling
+    `on_change`, the waker through this hook before `fire` locks the clocks. One order, so a
+    save and a firing on the same record never deadlock.
+    """
+
+    async def __call__(  # noqa: D102 - the protocol's one call, documented on the class
+        self, session: AsyncSession, record_id: uuid.UUID
+    ) -> None: ...
+
+
+class ActionsHook(Protocol):
+    """The owning module runs a level's actions; one outcome per action, never raising."""
+
+    async def __call__(  # noqa: D102 - the protocol's one call, documented on the class
+        self, session: AsyncSession, record_id: uuid.UUID, level: "Level", *, now: datetime
+    ) -> list[dict[str, object]]: ...
+
+
+@dataclass(frozen=True)
 class SlaRecordType:
     """One record type with SLAs."""
 
     code: str  # "incident"
     fields: ResourceFields  # what conditions may filter on (validated and evaluated in memory)
     priorities: tuple[str, ...]  # its priority codes, highest first ("p1" ... "p4")
+    lock_record: LockHook | None = None  # session 3: the record row first, then the clocks
+    on_fired: FiredHook | None = None  # session 3: warnings, breaches and levels fired
+    run_actions: ActionsHook | None = None  # session 3: a level's actions (REQ-SLA-024)
 
 
 _TYPES: dict[str, SlaRecordType] = {}

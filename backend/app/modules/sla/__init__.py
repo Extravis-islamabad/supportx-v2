@@ -14,6 +14,12 @@ maths), `system_calendar_id`, `SystemCalendar`, `Calendar` (its `add`, `between`
 `record_sla` (with `SlaRecordView`, `SlaTargetView`) for the record page's SLA panel. Sites and
 support groups name their calendar through organization, which asks this module whether an
 ID is usable (`register_calendar_check`, registered at import).
+
+Session 3: `fire` and `next_wake` (the waker: Temporal's `workers/sla_timers`, and the
+`sla__safety_net` schedule), `Fired` (what a record type's `on_fired` hook hears), the
+escalation `Level` with its recipients and actions (for its `run_actions` hook and the
+notification source), `escalation_run`, and the `SlaWarning`, `SlaBreached` and `SlaEscalated`
+events.
 """
 
 from app.core.authorization import PermissionSpec
@@ -21,8 +27,9 @@ from app.core.modules import ModuleSpec
 from app.modules import organization
 from app.modules.sla.api.routes import router
 from app.modules.sla.domain.calendar import Calendar
+from app.modules.sla.domain.escalation import Action, ActionKind, Level, Recipient, RecipientKind
 from app.modules.sla.domain.setup import SystemCalendar
-from app.modules.sla.events import EVENTS
+from app.modules.sla.events import EVENTS, SlaBreached, SlaEscalated, SlaWarning
 from app.modules.sla.service.access import MANAGE, VIEW
 from app.modules.sla.service.calendars import (
     calendar_exists,
@@ -32,7 +39,9 @@ from app.modules.sla.service.calendars import (
 from app.modules.sla.service.clock import SlaStamp, on_change, set_due_by_hand
 from app.modules.sla.service.realtime import ROUTES
 from app.modules.sla.service.records import SlaRecordView, SlaTargetView, record_sla
-from app.modules.sla.service.registry import SlaRecordType, register_record_type
+from app.modules.sla.service.registry import Fired, SlaRecordType, register_record_type
+from app.modules.sla.service.timers import escalation_run, fire, next_wake, safety_net
+from app.shared.schedules import ScheduleSpec
 
 FEATURE = "sla"  # in every edition (licensing catalogue): SLAs have no licence gate beyond it
 
@@ -52,17 +61,31 @@ module = ModuleSpec(
     feature=FEATURE,
     permissions=PERMISSIONS,
     realtime=ROUTES,
+    # The safety net behind the Temporal waker (D-115 D5): anything over two minutes late.
+    schedules=[ScheduleSpec("sla__safety_net", 60, safety_net)],
 )
 
 __all__ = [
+    "Action",
+    "ActionKind",
     "Calendar",
+    "Fired",
+    "Level",
+    "Recipient",
+    "RecipientKind",
+    "SlaBreached",
+    "SlaEscalated",
     "SlaRecordType",
     "SlaRecordView",
     "SlaStamp",
     "SlaTargetView",
+    "SlaWarning",
     "SystemCalendar",
     "calendar_for_maths",
+    "escalation_run",
+    "fire",
     "module",
+    "next_wake",
     "on_change",
     "record_sla",
     "register_record_type",

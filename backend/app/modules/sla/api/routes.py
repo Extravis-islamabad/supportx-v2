@@ -17,6 +17,7 @@ from app.core.errors import ProblemDetail, ValidationFailed
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.sla.domain.calendar import HolidayPart
+from app.modules.sla.domain.escalation import ActionKind, Anchor, Level, RecipientKind
 from app.modules.sla.domain.ical import MAX_BYTES
 from app.modules.sla.domain.policy import (
     CalendarSource,
@@ -826,6 +827,81 @@ class SlaTargetRow(BaseModel):
     )
 
 
+class SlaRecipientIn(BaseModel):
+    """Who an escalation level tells: a relative of the record, a person or a support group."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: RecipientKind
+    id: uuid.UUID | None = Field(default=None, description="Only for `user` and `group`.")
+
+
+class SlaActionIn(BaseModel):
+    """What an escalation level does besides telling people (REQ-SLA-024)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: ActionKind
+    target_id: uuid.UUID | None = Field(
+        default=None, description="The group or person to reassign to."
+    )
+    text: str | None = Field(default=None, max_length=2000, description="A private note.")
+
+
+class SlaLevelIn(BaseModel):
+    """One escalation level: when (business time from the due moment or the warning point)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: TargetKind
+    anchor: Anchor = Anchor.DUE
+    offset_seconds: int = Field(
+        default=0,
+        ge=-30 * 86400,
+        le=30 * 86400,
+        description="Business seconds; negative is before the anchor.",
+    )
+    recipients: list[SlaRecipientIn] = Field(default_factory=list, max_length=20)
+    fallback: list[SlaRecipientIn] = Field(
+        default_factory=list, max_length=20, description="When a relative is not set."
+    )
+    actions: list[SlaActionIn] = Field(default_factory=list, max_length=10)
+    notify: bool = True
+
+
+class SlaLevelOut(SlaLevelIn):
+    """A stored level, numbered within its kind."""
+
+    position: int
+
+    @classmethod
+    def of(cls, level: Level) -> "SlaLevelOut":
+        """The API form of a level."""
+        return cls(
+            kind=level.kind,
+            position=level.position,
+            anchor=level.anchor,
+            offset_seconds=level.offset_seconds,
+            recipients=[
+                SlaRecipientIn(kind=r.kind, id=uuid.UUID(r.id) if r.id else None)
+                for r in level.recipients
+            ],
+            fallback=[
+                SlaRecipientIn(kind=r.kind, id=uuid.UUID(r.id) if r.id else None)
+                for r in level.fallback
+            ],
+            actions=[
+                SlaActionIn(
+                    kind=a.kind,
+                    target_id=uuid.UUID(a.target_id) if a.target_id else None,
+                    text=a.text,
+                )
+                for a in level.actions
+            ],
+            notify=level.notify,
+        )
+
+
 class SlaPolicyIn(BaseModel):
     """A new policy: placed above the default policy, last among the others."""
 
@@ -843,6 +919,9 @@ class SlaPolicyIn(BaseModel):
         description="The targets an on-hold status pauses.",
     )
     targets: list[SlaTargetRow] = Field(default_factory=list, max_length=200)
+    levels: list[SlaLevelIn] = Field(
+        default_factory=list, max_length=16, description="Escalation levels, in order per kind."
+    )
 
 
 class SlaPolicyPatch(BaseModel):
@@ -857,6 +936,9 @@ class SlaPolicyPatch(BaseModel):
     enabled: bool | None = None
     pausing: list[TargetKind] | None = None
     targets: list[SlaTargetRow] | None = Field(default=None, max_length=200)
+    levels: list[SlaLevelIn] | None = Field(
+        default=None, max_length=16, description="Replaces every escalation level."
+    )
 
 
 class SlaPolicyOut(BaseModel):
@@ -873,6 +955,7 @@ class SlaPolicyOut(BaseModel):
     enabled: bool
     pausing: list[TargetKind]
     targets: list[SlaTargetRow]
+    levels: list[SlaLevelOut] = Field(default_factory=list)
     never_matches: bool = Field(description="An earlier policy always wins (REQ-SLA-001).")
     can_manage: bool
     version: int
@@ -903,6 +986,7 @@ class SlaPolicyOut(BaseModel):
                 )
                 for t in view.targets
             ],
+            levels=[SlaLevelOut.of(level) for level in view.levels],
             never_matches=view.never_matches,
             can_manage=view.can_manage,
             version=p.version,
@@ -943,6 +1027,8 @@ def _policy_values(body: BaseModel) -> dict[str, Any]:
         values["targets"] = [t.model_dump() for t in values["targets"]]
     if values.get("pausing") is not None:
         values["pausing"] = [k.value for k in values["pausing"]]
+    if values.get("levels") is not None:
+        values["levels"] = [level.model_dump(mode="json") for level in values["levels"]]
     return values
 
 
