@@ -11,6 +11,9 @@
 - **Next work package:** WP-020d/e e2e and QA round (built: #114, #120), then WP-025 (lane A). Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
+- **Speed mode (D-122, until the MVP):** only the fast checks gate merges; e2e, the cluster, PDF and
+  worker-resilience jobs run nightly and on PRs labelled `full-ci`. **WP-043 makes the full gate,
+  e2e included, required again before the pilot.**
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
   #77, export #84, scheduled reports #88), on lane A's incident source, e2e in English and Arabic;
   the 1M-row volume test runs in GitHub (`report-scale.yml`; slowest median 0.73 s at 1M). QA
