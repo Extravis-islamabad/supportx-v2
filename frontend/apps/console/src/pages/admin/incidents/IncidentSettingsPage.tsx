@@ -2,7 +2,7 @@ import { Alert, Flex, Skeleton, Tabs } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
-import { NoAccess, useAccess, useLabel, PageHeader } from '@supportx/ui';
+import { NoAccess, PageHeader, useAccess, useLabel } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
 import { ClosingTab } from './ClosingTab';

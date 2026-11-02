@@ -14,15 +14,15 @@ import {
 import { useTenantChannel } from '@supportx/realtime';
 import {
   ConflictDialog,
+  PageHeader,
   reportError,
+  SPACE,
+  type Tone,
   ToneTag,
   useConflictRetry,
   useDateTime,
   useLabel,
   WriteButton,
-  type Tone,
-  PageHeader,
-  SPACE,
 } from '@supportx/ui';
 
 import { MailboxEditor } from './MailboxEditor';

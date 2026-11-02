@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { queryKeys, useRoles, type RoleSummary } from '@supportx/api-client';
 import { refreshList, useListChannel } from '@supportx/realtime';
-import { NoAccess, useAccess, useLabel, WriteButton, PageHeader } from '@supportx/ui';
+import { NoAccess, PageHeader, useAccess, useLabel, WriteButton } from '@supportx/ui';
 
 import { RoleEditor } from './RoleEditor';
 import { TechnicianVisibilityCard } from './TechnicianVisibility';

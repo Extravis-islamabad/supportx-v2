@@ -1,7 +1,7 @@
 import { Tabs } from 'antd';
 import { Navigate, Outlet, useLocation, useNavigate } from 'react-router';
 
-import { NoAccess, useAccess, useLabel, usePageCrumbs, PageHeader } from '@supportx/ui';
+import { NoAccess, PageHeader, useAccess, useLabel, usePageCrumbs } from '@supportx/ui';
 
 /** Admin tabs, each shown only to users holding its permission (WP-016). */
 const TABS = [

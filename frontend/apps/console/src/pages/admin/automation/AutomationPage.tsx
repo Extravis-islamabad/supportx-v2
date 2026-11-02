@@ -1,7 +1,7 @@
 import { Flex, Tabs } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
-import { NoAccess, useAccess, useLabel, PageHeader } from '@supportx/ui';
+import { NoAccess, PageHeader, useAccess, useLabel } from '@supportx/ui';
 
 import { BusinessRulesTab } from './BusinessRulesTab';
 import { RoutingTab } from './RoutingTab';

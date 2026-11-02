@@ -12,7 +12,7 @@ import {
   type UserDetail,
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
-import { NoAccess, ToneTag, useAccess, useAppearance, useLabel, PageHeader } from '@supportx/ui';
+import { NoAccess, PageHeader, ToneTag, useAccess, useAppearance, useLabel } from '@supportx/ui';
 
 import { UserAccessDrawer } from './UserAccessDrawer';
 import { ImportDrawer } from './people/ImportDrawer';
