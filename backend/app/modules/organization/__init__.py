@@ -14,7 +14,8 @@ Public interface for other modules: `get_current_tenant`, `TenantView`, `TenantS
 `register_usage` (modules that point at a site, group or department say how many rows use it),
 `tenant_for_host`, `HostTenant` (sign-in hint, WP-017), `get_branding`, `BrandingView`,
 `email_branding`, `EmailBranding`, `header_html` (e-mails), `register_calendar_check`,
-`calendar_users`, `CalendarUsers` (WP-025: which calendar a site or group names).
+`calendar_users`, `CalendarUsers`, `unit_calendars` (WP-025: which calendar a site or group
+names).
 """
 
 from fastapi import FastAPI
@@ -36,6 +37,7 @@ from app.modules.organization.service.calendars import (
     CalendarUsers,
     calendar_users,
     register_calendar_check,
+    unit_calendars,
 )
 from app.modules.organization.service.email_branding import (
     EmailBranding,
@@ -148,6 +150,7 @@ __all__ = [
     "register_usage",
     "site_defaults",
     "tenant_for_host",
+    "unit_calendars",
     "unit_heads",
     "users_in_groups",
     "users_in_sites",

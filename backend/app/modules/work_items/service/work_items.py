@@ -110,6 +110,7 @@ from app.modules.work_items.infra.models import (
 )
 from app.modules.work_items.service import automation, closing, followers, templates
 from app.modules.work_items.service import catalogue as config
+from app.modules.work_items.service import sla as sla_glue
 from app.modules.work_items.service.access import RESOURCE
 from app.modules.work_items.service.catalogue import Catalogue
 from app.shared.api.listing import ListQuery, PageResult, paginate
@@ -1176,12 +1177,19 @@ async def _conflict(session: AsyncSession, error: Conflict, record_id: uuid.UUID
 async def _update(
     session: AsyncSession, record: WorkItem, expected_version: int, changes: Mapping[str, Any]
 ) -> WorkItem:
+    """Every versioned save of a work item; the SLA clock runs in the same save (WP-025)."""
+    if record.version != expected_version:
+        raise await _conflict(session, _stale(record, expected_version), record.id)
+    before = {k: getattr(record, k) for k in sla_glue.STAMP_COLUMNS}
+    stamped = await sla_glue.sla_columns(session, record, changes, now=_now())
     try:
-        return await WorkItemRepository(session).update(
-            record.id, expected_version=expected_version, changes=changes
+        updated = await WorkItemRepository(session).update(
+            record.id, expected_version=expected_version, changes={**changes, **stamped}
         )
     except Conflict as error:
         raise await _conflict(session, error, record.id) from error
+    await sla_glue.record_sla_history(session, updated, before, stamped)
+    return updated
 
 
 def _stale(record: WorkItem, expected_version: int) -> Conflict:
@@ -1626,6 +1634,10 @@ async def create(  # noqa: PLR0913, PLR0915 - the new record's inputs and checks
         reassignment_count=0,
     )
     await WorkItemRepository(session).add(record)
+    stamped = await sla_glue.sla_columns(session, record, None, now=now)
+    for name, value in stamped.items():  # the same insert: the record is still at version 1
+        setattr(record, name, value)
+    await session.flush()
     if custom:
         await metadata.mark_used(session, wtype.code.value, list(custom))
     # An entry point (e-mail, the portal) creates as the requester, who never had console

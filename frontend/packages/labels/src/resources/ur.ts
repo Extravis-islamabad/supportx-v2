@@ -3888,6 +3888,12 @@ export const ur: LabelResource = {
   'event_type.sla.policy.deleted': 'ایس ایل اے پالیسی حذف ہوئی',
   'event_type.sla.policies.reordered': 'ایس ایل اے پالیسیوں کی ترتیب بدلی',
   'event_type.sla.settings.saved': 'ایس ایل اے کی ترتیبات محفوظ ہوئیں',
+  'event_type.sla.record.applied': 'ایس ایل اے لاگو ہوا',
+  'event_type.sla.target.paused': 'ایس ایل اے گھڑی رکی',
+  'event_type.sla.target.resumed': 'ایس ایل اے گھڑی دوبارہ چلی',
+  'event_type.sla.target.met': 'ایس ایل اے ہدف پورا ہوا',
+  'event_type.sla.target.stopped': 'ایس ایل اے گھڑی بند ہوئی',
+  'event_type.sla.target.recalculated': 'ایس ایل اے کی مقررہ تاریخ دوبارہ حساب ہوئی',
   'errors.sla_record_type_not_found': 'اس قسم کے ریکارڈ کے لیے سروس کے اہداف دستیاب نہیں۔',
   'errors.sla_policy_not_found': 'یہ ایس ایل اے پالیسی موجود نہیں یا حذف کر دی گئی ہے۔',
   'errors.sla_fallback_required':

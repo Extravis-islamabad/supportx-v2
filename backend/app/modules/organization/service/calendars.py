@@ -78,3 +78,26 @@ async def calendar_users(
         calendar_id: CalendarUsers(sites.get(calendar_id, []), groups.get(calendar_id, []))
         for calendar_id in calendar_ids
     }
+
+
+async def unit_calendars(
+    session: AsyncSession, site_id: uuid.UUID | None, group_id: uuid.UUID | None
+) -> tuple[uuid.UUID | None, uuid.UUID | None]:
+    """The calendars a record's site and support group name (None: none, or deleted unit)."""
+    site = (
+        await session.scalar(
+            select(Site.calendar_id).where(Site.id == site_id, Site.deleted_at.is_(None))
+        )
+        if site_id
+        else None
+    )
+    group = (
+        await session.scalar(
+            select(SupportGroup.calendar_id).where(
+                SupportGroup.id == group_id, SupportGroup.deleted_at.is_(None)
+            )
+        )
+        if group_id
+        else None
+    )
+    return site, group

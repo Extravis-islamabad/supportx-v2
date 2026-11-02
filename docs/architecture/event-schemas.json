@@ -2283,6 +2283,295 @@
         "type": "object"
       }
     },
+    "sla.policies.reordered": {
+      "1": {
+        "description": "The order of a record type's policies changed (first match wins).",
+        "properties": {
+          "policy_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Policy Ids",
+            "type": "array"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "policy_ids"
+        ],
+        "title": "SlaPoliciesReordered",
+        "type": "object"
+      }
+    },
+    "sla.policy.deleted": {
+      "1": {
+        "description": "A policy went to the trash (never the fallback).",
+        "properties": {
+          "policy_id": {
+            "format": "uuid",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "record_type"
+        ],
+        "title": "SlaPolicyDeleted",
+        "type": "object"
+      }
+    },
+    "sla.policy.saved": {
+      "1": {
+        "description": "A policy was created or changed (conditions, targets, enabled, name).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "policy_id": {
+            "format": "uuid",
+            "title": "Policy Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy_id",
+          "record_type",
+          "created",
+          "changed_fields"
+        ],
+        "title": "SlaPolicySaved",
+        "type": "object"
+      }
+    },
+    "sla.record.applied": {
+      "1": {
+        "description": "A record got its SLA policy, or another one after a change (`kinds`: targets started).",
+        "properties": {
+          "kinds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Kinds",
+            "type": "array"
+          },
+          "policy_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Policy Id"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "policy_id",
+          "reason",
+          "kinds"
+        ],
+        "title": "SlaApplied",
+        "type": "object"
+      }
+    },
+    "sla.settings.saved": {
+      "1": {
+        "description": "A record type's SLA settings changed (warning point, priority-change or reopen rule).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "changed_fields"
+        ],
+        "title": "SlaSettingsSaved",
+        "type": "object"
+      }
+    },
+    "sla.target.met": {
+      "1": {
+        "description": "The target was met (on time, late, or by the resolution).",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaMet",
+        "type": "object"
+      }
+    },
+    "sla.target.paused": {
+      "1": {
+        "description": "The record entered an on-hold status: the target's clock stopped counting.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaPaused",
+        "type": "object"
+      }
+    },
+    "sla.target.recalculated": {
+      "1": {
+        "description": "A new due moment: priority, policy, calendar or reopen.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaRecalculated",
+        "type": "object"
+      }
+    },
+    "sla.target.resumed": {
+      "1": {
+        "description": "The record left the on-hold status: the clock counts again, with a new due moment.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaResumed",
+        "type": "object"
+      }
+    },
+    "sla.target.stopped": {
+      "1": {
+        "description": "Closed or canceled before the target was met; never a breach by itself.",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "format": "uuid",
+            "title": "Record Id",
+            "type": "string"
+          },
+          "record_type": {
+            "title": "Record Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_type",
+          "record_id",
+          "kind"
+        ],
+        "title": "SlaStopped",
+        "type": "object"
+      }
+    },
     "system.file.changed": {
       "1": {
         "description": "A file's state changed (scanned, blocked, deleted, moved from a draft): screens refresh.",

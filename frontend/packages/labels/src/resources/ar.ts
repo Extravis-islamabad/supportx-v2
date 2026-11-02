@@ -4353,6 +4353,12 @@ export const ar: LabelResource = {
   'event_type.sla.policy.deleted': 'حُذفت سياسة اتفاقية مستوى الخدمة',
   'event_type.sla.policies.reordered': 'أُعيد ترتيب سياسات اتفاقية مستوى الخدمة',
   'event_type.sla.settings.saved': 'حُفظت إعدادات اتفاقية مستوى الخدمة',
+  'event_type.sla.record.applied': 'طُبّقت اتفاقية مستوى الخدمة',
+  'event_type.sla.target.paused': 'أُوقف عدّاد اتفاقية مستوى الخدمة مؤقتًا',
+  'event_type.sla.target.resumed': 'استُؤنف عدّاد اتفاقية مستوى الخدمة',
+  'event_type.sla.target.met': 'تحقق هدف اتفاقية مستوى الخدمة',
+  'event_type.sla.target.stopped': 'توقف عدّاد اتفاقية مستوى الخدمة',
+  'event_type.sla.target.recalculated': 'أُعيد حساب موعد استحقاق اتفاقية مستوى الخدمة',
   'errors.sla_record_type_not_found': 'أهداف الخدمة غير متاحة لهذا النوع من السجلات.',
   'errors.sla_policy_not_found': 'سياسة اتفاقية مستوى الخدمة هذه غير موجودة أو حُذفت.',
   'errors.sla_fallback_required':

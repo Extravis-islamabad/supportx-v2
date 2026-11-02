@@ -1,8 +1,7 @@
 """Event contracts published by the sla module (WP-025; docs/architecture/events.md).
 
-Payloads carry IDs and changed field names only, never names or dates (rule c). Session 1 has
-the set-up events; the clock events (`sla.applied`, `warning`, `paused`, `resumed`, `met`,
-`breached`, `escalated`, `recalculated`, `stopped`) come with sessions 2 and 3.
+Payloads carry IDs and changed field names only, never names or dates (rule c). Sessions 1 and 2:
+the set-up and clock events; `warning`, `breached` and `escalated` come with session 3.
 """
 
 import uuid
@@ -105,6 +104,61 @@ class SlaSettingsSaved(DomainEvent):
     changed_fields: list[str]
 
 
+class SlaApplied(DomainEvent):
+    """A record got its SLA policy, or another one after a change (`kinds`: targets started)."""
+
+    event_type: ClassVar[str] = "sla.record.applied"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "sla_record"
+
+    record_type: str
+    record_id: uuid.UUID
+    policy_id: uuid.UUID | None
+    reason: str
+    kinds: list[str]
+
+
+class _ClockEvent(DomainEvent):
+    """One target clock of one record changed state."""
+
+    aggregate_type: ClassVar[str] = "sla_record"
+    schema_version: ClassVar[int] = 1
+
+    record_type: str
+    record_id: uuid.UUID
+    kind: str
+
+
+class SlaPaused(_ClockEvent):
+    """The record entered an on-hold status: the target's clock stopped counting."""
+
+    event_type: ClassVar[str] = "sla.target.paused"
+
+
+class SlaResumed(_ClockEvent):
+    """The record left the on-hold status: the clock counts again, with a new due moment."""
+
+    event_type: ClassVar[str] = "sla.target.resumed"
+
+
+class SlaMet(_ClockEvent):
+    """The target was met (on time, late, or by the resolution)."""
+
+    event_type: ClassVar[str] = "sla.target.met"
+
+
+class SlaStopped(_ClockEvent):
+    """Closed or canceled before the target was met; never a breach by itself."""
+
+    event_type: ClassVar[str] = "sla.target.stopped"
+
+
+class SlaRecalculated(_ClockEvent):
+    """A new due moment: priority, policy, calendar or reopen."""
+
+    event_type: ClassVar[str] = "sla.target.recalculated"
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     SlaCalendarSaved,
     SlaCalendarDeleted,
@@ -114,4 +168,10 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     SlaPolicyDeleted,
     SlaPoliciesReordered,
     SlaSettingsSaved,
+    SlaApplied,
+    SlaPaused,
+    SlaResumed,
+    SlaMet,
+    SlaStopped,
+    SlaRecalculated,
 )

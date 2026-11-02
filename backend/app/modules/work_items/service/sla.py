@@ -6,11 +6,21 @@ and the record's own timestamps are left out: a policy chosen by its own due dat
 in circles, and a condition on "created before" would match differently on every recalculation.
 """
 
+import uuid
+from collections.abc import Mapping
+from datetime import datetime
+from typing import Any
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.modules import sla
 from app.modules.work_items.domain.classification import Priority
 from app.modules.work_items.domain.types import WorkItemTypeCode
+from app.modules.work_items.infra.models import WorkItem
 from app.modules.work_items.service.access import FIELDS
+from app.modules.work_items.service.followers import RECORD_TYPE
 from app.shared.api.filters import ResourceFields
+from app.shared.history import Change, record_changes
 
 # Fields no policy condition may name (see the docstring).
 _NOT_CONDITIONS = frozenset(
@@ -49,3 +59,66 @@ def register_sla() -> None:
             priorities=tuple(p.value for p in Priority),
         )
     )
+
+
+# What the SLA clock reads beyond the condition fields (sla.service.registry names them).
+_CLOCK_FIELDS = (
+    "status",
+    "status_category",
+    "priority",
+    "site_id",
+    "group_id",
+    "first_responded_at",
+)
+SNAPSHOT_FIELDS = tuple(dict.fromkeys((*CONDITION_FIELDS.fields, *_CLOCK_FIELDS)))
+STAMP_COLUMNS = ("sla_policy_id", "first_response_due_at", "resolution_due_at")
+
+
+def snapshot(record: WorkItem, changes: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """The record as sla sees it, with `changes` applied (field name -> value)."""
+    values = {name: getattr(record, name) for name in SNAPSHOT_FIELDS}
+    return values | {k: v for k, v in (changes or {}).items() if k in values}
+
+
+def has_sla(record: WorkItem) -> bool:
+    """Whether this record's type has SLAs (registered above)."""
+    return record.type == WorkItemTypeCode.INCIDENT.value
+
+
+async def sla_columns(
+    session: AsyncSession,
+    record: WorkItem,
+    changes: Mapping[str, Any] | None,
+    *,
+    now: datetime,
+) -> dict[str, Any]:
+    """The SLA columns this save changes (`changes` None: the record was just created)."""
+    if not has_sla(record):
+        return {}
+    before = None if changes is None else snapshot(record)
+    after = snapshot(record, changes)
+    stamp = await sla.on_change(session, record.type, record.id, before, after, now=now)
+    return {k: v for k, v in stamp.columns().items() if getattr(record, k) != v}
+
+
+def _plain(value: object) -> object:
+    """A history value: dates as ISO text, IDs as text."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return str(value) if isinstance(value, uuid.UUID) else value
+
+
+async def record_sla_history(
+    session: AsyncSession, record: WorkItem, before: Mapping[str, Any], columns: Mapping[str, Any]
+) -> None:
+    """The SLA's own changes in the record's history, with source `sla` (§7.4)."""
+    if columns:
+        await record_changes(
+            session,
+            record_type=RECORD_TYPE,
+            record_id=record.id,
+            version=record.version,
+            kind="updated",
+            changes=[Change(k, _plain(before.get(k)), _plain(v)) for k, v in columns.items()],
+            source="sla",
+        )

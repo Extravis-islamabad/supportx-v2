@@ -4284,6 +4284,12 @@ export const en = {
   'event_type.sla.policy.deleted': 'SLA policy deleted',
   'event_type.sla.policies.reordered': 'SLA policies reordered',
   'event_type.sla.settings.saved': 'SLA settings saved',
+  'event_type.sla.record.applied': 'SLA applied',
+  'event_type.sla.target.paused': 'SLA clock paused',
+  'event_type.sla.target.resumed': 'SLA clock resumed',
+  'event_type.sla.target.met': 'SLA target met',
+  'event_type.sla.target.stopped': 'SLA clock stopped',
+  'event_type.sla.target.recalculated': 'SLA due date recalculated',
   'errors.sla_record_type_not_found': 'Service targets are not available for this kind of record.',
   'errors.sla_policy_not_found': 'This SLA policy does not exist or was deleted.',
   'errors.sla_fallback_required':
