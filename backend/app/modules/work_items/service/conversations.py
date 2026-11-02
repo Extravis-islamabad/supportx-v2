@@ -6,8 +6,8 @@ Each write, in one transaction with the work item's rules (service/work_items.py
    note needs `add_note` (followers with access have it, D-068); a reply, a public note or making
    a note public needs `reply`;
 2. the body is sanitised with the one allow-list (REQ-INC-064) and checked;
-3. the entry is saved; a reply is marked `not_sent` while no email channel exists (WP-024), so it
-   is never silently lost;
+3. the entry is saved; a reply waits (`waiting`, reason `mail_not_configured`) while no email
+   channel exists, or is queued for sending (WP-024), so it is never silently lost;
 4. the first response is stamped once, by the actions the tenant counts (REQ-INC-065);
 5. mentioned people who may see the record follow it; the others are reported back to the author
    and not notified (REQ-INC-063);
