@@ -191,7 +191,7 @@ class IncidentsFromMail:
             return None
         subject = await subject_for(session, _tenant(session), author_id)
         async with _refusals():
-            follow_up = await add_requester_reply(
+            replied = await add_requester_reply(
                 session,
                 INCIDENT,
                 row,
@@ -201,6 +201,8 @@ class IncidentsFromMail:
                 subject=subject,
                 holders=worker_policy(),
             )
+        # replied.entry_id: where the reply's attachments go (WP-024 session 2, lane B).
+        follow_up = replied.follow_up
         if follow_up is None:
             return None
         return CreatedRecord(RECORD_TYPE, follow_up.id, follow_up.display_id)

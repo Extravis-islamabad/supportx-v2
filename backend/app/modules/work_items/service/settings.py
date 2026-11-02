@@ -215,6 +215,7 @@ def _closure_before(current: Catalogue) -> dict[str, Any]:
         "complete_open_work": c.complete_open_work,
         "auto_close_days": c.auto_close_days,
         "reopen_window_days": c.reopen_window_days,
+        "task_owner_access": c.task_owner_access,
     }
 
 
@@ -260,11 +261,13 @@ async def update_closure_settings(  # noqa: PLR0913, C901, PLR0912 - one rule pe
         changes["open_work"] = saved
     if "complete_open_work" in values:
         changes["complete_open_work"] = bool(values["complete_open_work"])
+    if "task_owner_access" in values:  # REQ-INC-072 AC3 (D-112)
+        changes["task_owner_access"] = bool(values["task_owner_access"])
     if "auto_close_days" in values:
         days = values["auto_close_days"]
         if days is not None and _days(days, AUTO_CLOSE_MIN, AUTO_CLOSE_MAX) is None:
             problem("auto_close_days", "out_of_range", min=AUTO_CLOSE_MIN, max=AUTO_CLOSE_MAX)
-        elif days is not None and not closing.requester_channels():
+        elif days is not None and not await closing.requester_channels(session):
             problem("auto_close_days", "auto_close_needs_notifications")
         changes["auto_close_days"] = days
     if "reopen_window_days" in values:

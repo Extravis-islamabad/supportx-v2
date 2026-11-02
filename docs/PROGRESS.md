@@ -8,8 +8,7 @@
   Before it WP-029-FIX (D-105) and WP-029 parts 1 and 2 (D-097, D-102, ADR-035); WP-021-FIX
   (D-096); WP-021 (D-092, ADR-032); WP-026 (custom fields). Lane B: WP-039 sessions 1-3,
   WP-023 notifications (D-106, in review).
-- **Next work package:** WP-020d e2e and QA round (built, draft #114), then WP-020e (tasks,
-  worklogs and links, which also register open-work checks) and WP-025 (lane A). Lanes: see docs/LANES.md.
+- **Next work package:** WP-020d/e e2e and QA round (built: #114, #120), then WP-025 (lane A). Lanes: see docs/LANES.md.
   The shared dev stack runs from `../supportx-v2-stack` (main).
 - **Other open packages:** WP-015 (clickable prototype), WP-013 (licence core), WP-014b.
 - **Lane C (reports, dashboards and knowledge):** WP-035 sessions 1-4 done (engine #73, viewer
@@ -63,7 +62,10 @@ decisions D1-D13 (D-038).
    Free plan. Upgrade to Pro (or move to an Extravis org on Team) to keep it, or accept
    unprotected `main`.
 3. **Dependabot PR #3 (jsdom 27 → 30, test helper)** awaits review; majors for TypeScript, Ant
-   Design and React are ignored per D-014, ADR-002 and CLAUDE.md §3 (PRs #2, #4, #5, #6 closed).
+. **`sr-only` is not defined** (lane C, 2026-10-29): screen-reader-only column titles in Admin
+   › Automation (Triggers, Transitions, Business rules, Routing) and Admin › Organization use a
+   class nothing defines, so they are probably visible. Switch them to `.sx-visually-hidden` once
+   lane C's header branch lands; check with axe and a screenshot.
 
 Resolved 2026-10-22 — see `docs/DECISIONS.md`: monitoring scope (D-001), roadmap authority
 (D-002), local cluster tool (D-003), stack additions (D-004), v1 migration (D-005), Urdu (D-006),
@@ -664,7 +666,7 @@ New `automation` module (migration 0025); incidents register their rule fields (
   Closing (closure rules, open work, auto-close disabled with the reason while no channel
   reaches requesters, reopen window); "a requester reply resumes it" on paused statuses.
 
-### [ ] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28, QA next)
+### [x] WP-020d — Views, columns, bulk and export (D-111, approved; built 2026-10-28; QA and fix round 2026-10-29)
 - **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0038 (after lane B's 0037 mailboxes, lane C's 0036 knowledge and
   0035 dashboards): `work_item_views`, `work_item_list_settings`, `work_item_bulk_jobs` (RLS,
   actor audit, isolation tests) and `field_changes.batch_id`. Draft PR #114.
@@ -691,6 +693,25 @@ New `automation` module (migration 0025); incidents register their rule fields (
 - [x] Export columns and sort: the file has the list's columns and sort (lane C's #108).
 - Tests: `tests/db/test_list_views_api.py` (13), the new-views test in `test_incidents_api.py`,
   Vitest `pages/incidents/list/list.test.tsx` (7), e2e `incident-lists.spec.ts` (runs at QA).
+
+### [ ] WP-020e — Tasks, worklogs and links (D-112, approved; built 2026-10-28, QA next)
+- **Plan:** ~/Desktop/wp-020de-plan.md (approved 2026-10-28). Migration 0039 (after WP-020d's
+  0038): `work_item_tasks`, `work_item_worklogs`, `work_item_links` (RLS, actor audit, isolation
+  tests), `task_owner_access`, and `follows_id` copied into `follows` links per tenant. Draft PR
+  #120 (stacked on #114).
+- [x] REQ-INC-072: tasks with their own status, owner, group, priority and due time; "done /
+  total" on the tab, live; reorder by buttons, saved for everyone; open tasks are open work for
+  resolve and close; task-only owner access (off by default) with `/incidents/my-tasks`.
+- [x] REQ-INC-067: worklogs (owner, type, start, end or duration, description); the end is never
+  before the start; start + duration fills the end and back; totals per person and type, live.
+- [x] REQ-INC-084: related links shown and recorded on both records, removable from either side;
+  a record you cannot see shows as a link without its ID or subject; follow-up records are
+  `follows` links.
+- [ ] Deferred: child incidents (REQ-INC-095) with parent/child links; "log time in the resolve
+  step" (REQ-INC-090 AC3) in the move dialog; admin-editable worklog types; the `follows_id`
+  contract step.
+- Tests: `tests/db/test_parts_api.py` (9), `test_parts_domain.py` (3), the follows link in
+  `test_closing_api.py`, Vitest `parts.test.tsx` (3), e2e `incident-parts.spec.ts` (runs at QA).
 
 ### Planned after WP-020 (sequence from the WP-020 plan)
 WP-020b conversation, notes and followers · WP-020c incident settings screens and templates · WP-020d views
@@ -1143,6 +1164,53 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
 - **Depends on:** WP-012, WP-014
 
 ## Session log (newest first)
+
+### 2026-10-29 — WP-020f QA fix round (lane A)
+
+- QA report ~/Desktop/qa-wp020f/QA-REPORT.md (6 bugs). Branch `fix/wp-020f-qa` on
+  `feat/wp-020e` (local until the repository move is done). Each bug got a failing test named
+  after it, then a fix of its cause.
+- BUG-01: incoming requester replies are "received" (one rule, `reply_is_inbound`). Migration
+  0040 adds the state and moves existing ones, per tenant (D-113).
+- BUG-02 (lane A part): per-tenant requester channels with a reason, and a `DeliveryListener` that
+  starts the auto-close clock on a delivered resolution notice. Admin › Closing shows the reason.
+  Lane B wires e-mail.
+- BUG-03: the requester's confirm, reject and reply are theirs (person, channel,
+  `requester_action`), never "Automatic". `source_of` maps the portal client to "portal".
+- BUG-04: only the requester's confirmation or auto-close sets "Confirmed by requester". 422
+  `requester_only` on the server; shown unavailable, with the reason, in the Close dialog and bulk close.
+- BUG-05: list-fields returns level and closure codes with their naming; chips and the view
+  builder pick them by name; reports group by closure code.
+- BUG-06: "Closed at" on the record.
+- Follow-ups with what unblocks them are in the QA report: WP-028 for plain replies and
+  requester cancel; lane B's e-mail part for auto-close end to end; #120 for open work.
+- Checks: lint and typecheck green; backend 1797 passed, 8 skipped (Testcontainers); frontend all green (console 335). Full `make check` waits for the QA lock (lane B, WP-023/024 QA).
+
+### 2026-10-29 — WP-020d QA and fix round (lane A)
+
+- QA on main f4caaa2 under the lock: ~/Desktop/qa-wp020d/QA-REPORT.md. The e2e passed, and the
+  views, sharing with groups (D-111c), chips, page size, bulk and live list all work.
+  Found 3 bugs; BUG-03 (Arabic 390 px clipping) was withdrawn after a re-check (a drawer-animation
+  capture). The axe user-menu finding went to lane C (fixed on their header branch).
+- Fix branch `fix/wp-020d-qa` from main:
+  - BUG-01: every view count follows the changes that move it.
+    - Record changes already reach the lists (tests per event type).
+    - Personal changes now reach the person's own channel: follow and unfollow (and a
+      hand-over that keeps access) and a reply by someone else send `work_items.lists_changed`;
+      a manager change sends `users.reports_changed` to the old and new manager (`UserUpdated`
+      gains an additive `managers`); a membership change's `access.changed` now recounts too.
+    - Views refetch every minute, like the counters (clock-based counts).
+    - Documented in docs/architecture/realtime.md.
+  - BUG-02: the toolbar is two rows that each fit (view and search; then filters, sort, page
+    size, columns), and chips stack under a fixed-width search. Measured at 1470 px (nothing
+    moves sideways when a chip is added) and 390 px (no sideways scroll).
+
+### 2026-10-28 — WP-020e: tasks, worklogs and links (lane A)
+
+- Built to the approved plan; defaults recorded as D-112 (approved as listed). Migration 0039; API
+  for tasks, worklogs and links; three record tabs, history in words, the task-owner setting on
+  Admin › Incidents › Closing. Draft PR #120 (stacked on #114); e2e and QA next.
+- Lane C's dashboards took D-110, so WP-020d's defaults moved to D-111.
 
 ### 2026-10-28 — Invitation links after "Send again" (lane B, #113)
 - Product owner: "Send again" stops the earlier link where Keycloak allows it, and otherwise the

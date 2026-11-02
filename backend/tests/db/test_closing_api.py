@@ -18,7 +18,7 @@ from app.modules.identity_access import subject_for
 from app.modules.work_items.domain.closure import OpenItem, OpenWorkKind
 from app.modules.work_items.domain.types import INCIDENT
 from app.modules.work_items.infra.models import WorkItem
-from app.modules.work_items.service import closing, conversations, resolution
+from app.modules.work_items.service import closing, conversations, parts, resolution
 from tests.db.test_conversation_api import say, timeline
 from tests.db.test_incidents_api import BASE, Org, World, field_codes, incidents_world, problem
 from tooling.db_testing import ThrowawayDatabase
@@ -111,13 +111,16 @@ async def test_req_inc_094_only_known_fields_can_be_required(world: World) -> No
 
 
 @pytest.fixture
-def open_task() -> Iterator[None]:
+def open_task(world: World) -> Iterator[None]:
+    """A fake task checker, after the app registered the real one (WP-020e), then the real one."""
+    del world
+
     async def tasks(_session: object, _record: object) -> list[OpenItem]:
         return [OpenItem(OpenWorkKind.TASKS, "Replace the toner")]
 
     closing.register_open_work(OpenWorkKind.TASKS, tasks)
     yield
-    closing.unregister_open_work(OpenWorkKind.TASKS)
+    closing.register_open_work(OpenWorkKind.TASKS, parts.open_tasks, parts.complete_tasks)
 
 
 @pytest.mark.usefixtures("open_task")
@@ -165,6 +168,12 @@ async def test_req_inc_097_reopen_keeps_the_past_and_asks_again(world: World) ->
     assert ("closure_code", "fixed") in seen
 
 
+async def _reaches(session: object) -> str | None:
+    """A requester channel that reaches every tenant (the port is per tenant since BUG-02)."""
+    del session
+    return None
+
+
 async def test_req_inc_096_auto_close_waits_for_a_channel_that_tells_requesters(
     world: World,
 ) -> None:
@@ -172,7 +181,7 @@ async def test_req_inc_096_auto_close_waits_for_a_channel_that_tells_requesters(
     assert (await settings(world, org))["closure"]["auto_close_days"] is None  # off by default
     refused = await change_closure(world, org, auto_close_days=3)
     assert field_codes(refused) == {"auto_close_days": "auto_close_needs_notifications"}
-    closing.register_requester_channel("email")
+    closing.register_requester_channel("email", _reaches)
     try:
         allowed = await change_closure(world, org, auto_close_days=3)
         assert allowed.status_code == 200, allowed.text
@@ -235,7 +244,12 @@ async def test_req_inc_051_ac1_a_requester_reply_resumes_awaiting_requester(worl
     now = await fresh(world, org, item)
     assert now["status"] == "in_progress"
     history = await world.history(org, now)
-    assert any((h.get("automation") or {}).get("rule") == "requester_reply" for h in history)
+    # The requester's own act (BUG-03): no automation, history says what they did.
+    assert any(
+        {"field": "requester_action", "old": None, "new": "requester_reply_resumed"} in h["changes"]
+        and h["automation"] is None
+        for h in history
+    )
 
 
 async def test_req_inc_051_ac2_waiting_on_a_third_party_does_not_move(world: World) -> None:
@@ -276,6 +290,13 @@ async def test_req_inc_098_ac2_a_reply_after_the_window_starts_a_new_record(worl
     new = (await world.call("GET", f"{BASE}/{follow_up['id']}", org, org.admin)).json()
     assert new["follows_id"] == closed["id"]
     assert new["display_id"] == follow_up["display_id"]
+    # WP-020e: the follow-up is a `follows` link, shown on both records.
+    on_new = (await world.call("GET", f"{BASE}/{follow_up['id']}/links", org, org.admin)).json()
+    on_old = (await world.call("GET", f"{BASE}/{closed['id']}/links", org, org.admin)).json()
+    assert [(x["kind"], x["relation"], x["other_id"]) for x in on_new] == [
+        ("follows", "follows", closed["id"])
+    ]
+    assert [(x["relation"], x["other_id"]) for x in on_old] == [("followed_by", follow_up["id"])]
     assert "New problem with the same printer" in (new["description"] or "")
 
 
@@ -331,12 +352,15 @@ async def test_req_inc_096_ac3_auto_close_only_after_the_requester_was_told(
     never_told = (
         await world.act(org, org.admin, await world.create(org, org.admin), "resolve")
     ).json()
-    closing.register_requester_channel("email")
+    closing.register_requester_channel("email", _reaches)
     try:
         assert (await change_closure(world, org, auto_close_days=1)).status_code == 200
         async with app_db.tenant_session(TenantContext(org.tenant)) as session:
             assert await closing.resolution_notified(
-                session, uuid.UUID(told["id"]), datetime.now(UTC) - timedelta(days=4)
+                session,
+                uuid.UUID(told["id"]),
+                event_at=datetime.now(UTC),
+                at=datetime.now(UTC) - timedelta(days=4),
             )
         async with app_db.tenant_session(TenantContext(org.tenant)) as session:
             closed = await resolution.auto_close_due(session, INCIDENT, datetime.now(UTC))
@@ -401,7 +425,7 @@ async def _reply_from_outside(
         subject = await subject_for(session, org.tenant, user)
         record = await session.get(WorkItem, uuid.UUID(item["id"]))
         assert record is not None
-        return await conversations.add_requester_reply(
+        replied = await conversations.add_requester_reply(
             session,
             INCIDENT,
             record,
@@ -411,6 +435,7 @@ async def _reply_from_outside(
             subject=subject,
             holders=world.app.state.policy,
         )
+        return replied.follow_up
 
 
 async def test_a_requester_reply_from_outside_reopens_and_an_auto_reply_does_nothing(
