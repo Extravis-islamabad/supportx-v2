@@ -2853,6 +2853,8 @@ export const en = {
   'reports.or': 'or',
   'reports.total': 'Total',
   'errors.kb_article_not_found': 'This article does not exist or is not shared with you.',
+  'errors.kb_type_not_found': 'This article type does not exist.',
+  'errors.field.builtin_type_names': 'A built-in type keeps its names.',
   'errors.kb_article_not_editable':
     'You cannot edit this article. Its owner or a knowledge manager can.',
   'errors.kb_topic_not_found': 'This topic does not exist or is not shared with you.',
@@ -2874,6 +2876,8 @@ export const en = {
     "An article can only narrow its topic's audience, never widen it.",
   'event_type.knowledge.topic.saved': 'Knowledge topic saved',
   'event_type.knowledge.topic.deleted': 'Knowledge topic deleted',
+  'event_type.knowledge.type.saved': 'Knowledge article type saved',
+  'event_type.knowledge.settings.changed': 'Knowledge settings changed',
   'event_type.knowledge.article.saved': 'Knowledge article saved',
   'permission.knowledge.view': 'Read knowledge',
   'permission.knowledge.view.description':
@@ -3100,6 +3104,8 @@ export const en = {
   'audit.action.knowledge.article_deleted': 'Moved an article to the trash',
   'audit.action.knowledge.article_restored': 'Restored an article',
   'audit.action.knowledge.settings_changed': 'Changed knowledge settings',
+  'audit.action.knowledge.type_created': 'Added a knowledge article type',
+  'audit.action.knowledge.type_changed': 'Changed a knowledge article type',
   'audit.object.kb_article': 'Knowledge article',
   'audit.object.kb_settings': 'Knowledge settings',
   'notification_recipient.approvers': 'Approvers',

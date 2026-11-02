@@ -2869,6 +2869,8 @@ export const ar: LabelResource = {
   'reports.or': 'أو',
   'reports.total': 'الإجمالي',
   'errors.kb_article_not_found': 'هذه المقالة غير موجودة أو غير مشتركة معك.',
+  'errors.kb_type_not_found': 'نوع المقالة هذا غير موجود.',
+  'errors.field.builtin_type_names': 'يحتفظ النوع المضمّن بأسمائه.',
   'errors.kb_article_not_editable':
     'لا يمكنك تعديل هذه المقالة. يمكن لمالكها أو لمدير المعرفة ذلك.',
   'errors.kb_topic_not_found': 'هذا الموضوع غير موجود أو غير مشترك معك.',
@@ -2889,6 +2891,8 @@ export const ar: LabelResource = {
   'errors.field.wider_than_topic': 'يمكن للمقالة تضييق جمهور موضوعها فقط، وليس توسيعه.',
   'event_type.knowledge.topic.saved': 'حُفظ موضوع معرفة',
   'event_type.knowledge.topic.deleted': 'حُذف موضوع معرفة',
+  'event_type.knowledge.type.saved': 'حُفظ نوع مقالة معرفة',
+  'event_type.knowledge.settings.changed': 'تغيّرت إعدادات المعرفة',
   'event_type.knowledge.article.saved': 'حُفظت مقالة معرفة',
   'permission.knowledge.view': 'قراءة المعرفة',
   'permission.knowledge.view.description':
@@ -3107,6 +3111,8 @@ export const ar: LabelResource = {
   'audit.action.knowledge.article_deleted': 'نقل مقالة إلى سلة المحذوفات',
   'audit.action.knowledge.article_restored': 'استعاد مقالة',
   'audit.action.knowledge.settings_changed': 'غيّر إعدادات المعرفة',
+  'audit.action.knowledge.type_created': 'أضاف نوع مقالة معرفة',
+  'audit.action.knowledge.type_changed': 'غيّر نوع مقالة معرفة',
   'audit.object.kb_article': 'مقالة معرفة',
   'audit.object.kb_settings': 'إعدادات المعرفة',
   'notification_recipient.approvers': 'المعتمِدون',

@@ -1520,6 +1520,27 @@
         "title": "ArticleRowOut",
         "type": "object"
       },
+      "ArticleTypeIn": {
+        "additionalProperties": false,
+        "description": "A new custom article type (D-120).",
+        "properties": {
+          "names": {
+            "$ref": "#/components/schemas/TypeNames"
+          },
+          "review_months": {
+            "maximum": 60.0,
+            "minimum": 1.0,
+            "title": "Review Months",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "names",
+          "review_months"
+        ],
+        "title": "ArticleTypeIn",
+        "type": "object"
+      },
       "ArticleTypeOut": {
         "description": "An article type (built-in ones are named by `kb_type.<code>`).",
         "properties": {
@@ -1545,6 +1566,10 @@
           "review_months": {
             "title": "Review Months",
             "type": "integer"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
@@ -1552,9 +1577,52 @@
           "names",
           "review_months",
           "builtin",
-          "retired"
+          "retired",
+          "version"
         ],
         "title": "ArticleTypeOut",
+        "type": "object"
+      },
+      "ArticleTypePatch": {
+        "additionalProperties": false,
+        "description": "Change a type (If-Match): a built-in type keeps its names.",
+        "properties": {
+          "names": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TypeNames"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "retired": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retired"
+          },
+          "review_months": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Months"
+          }
+        },
+        "title": "ArticleTypePatch",
         "type": "object"
       },
       "AssignMethod": {
@@ -8080,9 +8148,39 @@
         "title": "Kind",
         "type": "string"
       },
-      "KnowledgeSettingsOut": {
-        "description": "Knowledge settings (REQ-KB-090).",
+      "KnowledgeSettingsDefaults": {
+        "description": "What each setting is before anyone changes it (the page's \"reset\").",
         "properties": {
+          "prefix": {
+            "default": "KB",
+            "title": "Prefix",
+            "type": "string"
+          },
+          "requesters_enabled": {
+            "default": true,
+            "title": "Requesters Enabled",
+            "type": "boolean"
+          },
+          "self_approval": {
+            "default": false,
+            "title": "Self Approval",
+            "type": "boolean"
+          }
+        },
+        "title": "KnowledgeSettingsDefaults",
+        "type": "object"
+      },
+      "KnowledgeSettingsOut": {
+        "description": "Knowledge settings (REQ-KB-090; prefix and next number, D-120).",
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/KnowledgeSettingsDefaults"
+          },
+          "next_number": {
+            "description": "The number the next new article gets.",
+            "title": "Next Number",
+            "type": "integer"
+          },
           "prefix": {
             "title": "Prefix",
             "type": "string"
@@ -8102,6 +8200,7 @@
         },
         "required": [
           "prefix",
+          "next_number",
           "self_approval",
           "requesters_enabled",
           "version"
@@ -8111,8 +8210,33 @@
       },
       "KnowledgeSettingsPatch": {
         "additionalProperties": false,
-        "description": "Change knowledge settings (If-Match).",
+        "description": "Change knowledge settings (If-Match). A new prefix applies to new articles only.",
         "properties": {
+          "next_number": {
+            "anyOf": [
+              {
+                "maximum": 999999999.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Number"
+          },
+          "prefix": {
+            "anyOf": [
+              {
+                "maxLength": 6,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prefix"
+          },
           "requesters_enabled": {
             "anyOf": [
               {
@@ -16681,6 +16805,32 @@
           "user_type"
         ],
         "title": "TypeIn",
+        "type": "object"
+      },
+      "TypeNames": {
+        "additionalProperties": false,
+        "description": "A custom type's names: English and Arabic required, Urdu optional (rule d).",
+        "properties": {
+          "ar": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Ar",
+            "type": "string"
+          },
+          "en": {
+            "default": "",
+            "maxLength": 200,
+            "title": "En",
+            "type": "string"
+          },
+          "ur": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Ur",
+            "type": "string"
+          }
+        },
+        "title": "TypeNames",
         "type": "object"
       },
       "TypingIn": {
@@ -41652,6 +41802,228 @@
           }
         },
         "summary": "Article types",
+        "tags": [
+          "knowledge"
+        ]
+      },
+      "post": {
+        "description": "Needs `knowledge.manage_types`.",
+        "operationId": "create_type_api_v1_knowledge_types_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleTypeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleTypeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add an article type",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/types/{code}": {
+      "patch": {
+        "description": "Needs `knowledge.manage_types` and If-Match. Retired types stay on their articles.",
+        "operationId": "update_type_api_v1_knowledge_types__code__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "code",
+            "required": true,
+            "schema": {
+              "maxLength": 40,
+              "title": "Code",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ArticleTypePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArticleTypeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change an article type",
         "tags": [
           "knowledge"
         ]

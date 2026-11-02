@@ -1778,6 +1778,25 @@
         "type": "object"
       }
     },
+    "knowledge.settings.changed": {
+      "1": {
+        "description": "The tenant's knowledge settings changed (the settings page and the editor refetch).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changed_fields"
+        ],
+        "title": "KbSettingsChanged",
+        "type": "object"
+      }
+    },
     "knowledge.topic.deleted": {
       "1": {
         "description": "A topic went to the trash; its articles moved to `moved_to` (REQ-KB-004 AC2).",
@@ -1835,6 +1854,35 @@
           "changed_fields"
         ],
         "title": "KbTopicSaved",
+        "type": "object"
+      }
+    },
+    "knowledge.type.saved": {
+      "1": {
+        "description": "An article type was added or changed: names, review interval, retired (D-120).",
+        "properties": {
+          "changed_fields": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed Fields",
+            "type": "array"
+          },
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "created",
+          "changed_fields"
+        ],
+        "title": "KbTypeSaved",
         "type": "object"
       }
     },

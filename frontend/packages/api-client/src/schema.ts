@@ -3433,11 +3433,35 @@ export interface paths {
          */
         get: operations["list_types_api_v1_knowledge_types_get"];
         put?: never;
-        post?: never;
+        /**
+         * Add an article type
+         * @description Needs `knowledge.manage_types`.
+         */
+        post: operations["create_type_api_v1_knowledge_types_post"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/types/{code}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an article type
+         * @description Needs `knowledge.manage_types` and If-Match. Retired types stay on their articles.
+         */
+        patch: operations["update_type_api_v1_knowledge_types__code__patch"];
         trace?: never;
     };
     "/api/v1/notifications": {
@@ -5410,6 +5434,15 @@ export interface components {
             withdrawn: boolean;
         };
         /**
+         * ArticleTypeIn
+         * @description A new custom article type (D-120).
+         */
+        ArticleTypeIn: {
+            names: components["schemas"]["TypeNames"];
+            /** Review Months */
+            review_months: number;
+        };
+        /**
          * ArticleTypeOut
          * @description An article type (built-in ones are named by `kb_type.<code>`).
          */
@@ -5426,6 +5459,19 @@ export interface components {
             retired: boolean;
             /** Review Months */
             review_months: number;
+            /** Version */
+            version: number;
+        };
+        /**
+         * ArticleTypePatch
+         * @description Change a type (If-Match): a built-in type keeps its names.
+         */
+        ArticleTypePatch: {
+            names?: components["schemas"]["TypeNames"] | null;
+            /** Retired */
+            retired?: boolean | null;
+            /** Review Months */
+            review_months?: number | null;
         };
         /**
          * AssignMethod
@@ -7972,10 +8018,37 @@ export interface components {
          */
         Kind: "image" | "pdf" | "other";
         /**
+         * KnowledgeSettingsDefaults
+         * @description What each setting is before anyone changes it (the page's "reset").
+         */
+        KnowledgeSettingsDefaults: {
+            /**
+             * Prefix
+             * @default KB
+             */
+            prefix: string;
+            /**
+             * Requesters Enabled
+             * @default true
+             */
+            requesters_enabled: boolean;
+            /**
+             * Self Approval
+             * @default false
+             */
+            self_approval: boolean;
+        };
+        /**
          * KnowledgeSettingsOut
-         * @description Knowledge settings (REQ-KB-090).
+         * @description Knowledge settings (REQ-KB-090; prefix and next number, D-120).
          */
         KnowledgeSettingsOut: {
+            defaults?: components["schemas"]["KnowledgeSettingsDefaults"];
+            /**
+             * Next Number
+             * @description The number the next new article gets.
+             */
+            next_number: number;
             /** Prefix */
             prefix: string;
             /** Requesters Enabled */
@@ -7987,9 +8060,13 @@ export interface components {
         };
         /**
          * KnowledgeSettingsPatch
-         * @description Change knowledge settings (If-Match).
+         * @description Change knowledge settings (If-Match). A new prefix applies to new articles only.
          */
         KnowledgeSettingsPatch: {
+            /** Next Number */
+            next_number?: number | null;
+            /** Prefix */
+            prefix?: string | null;
             /** Requesters Enabled */
             requesters_enabled?: boolean | null;
             /** Self Approval */
@@ -11189,6 +11266,27 @@ export interface components {
          */
         TypeIn: {
             user_type: components["schemas"]["UserType"];
+        };
+        /**
+         * TypeNames
+         * @description A custom type's names: English and Arabic required, Urdu optional (rule d).
+         */
+        TypeNames: {
+            /**
+             * Ar
+             * @default
+             */
+            ar: string;
+            /**
+             * En
+             * @default
+             */
+            en: string;
+            /**
+             * Ur
+             * @default
+             */
+            ur: string;
         };
         /**
          * TypingIn
@@ -27866,6 +27964,161 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    create_type_api_v1_knowledge_types_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Optional. A unique key per intended create; retries reuse it. */
+                "Idempotency-Key"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleTypeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleTypeOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    update_type_api_v1_knowledge_types__code__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Required. The ETag of the version you read, e.g. "7". */
+                "If-Match"?: string | null;
+            };
+            path: {
+                code: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ArticleTypePatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleTypeOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Stale If-Match. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Unexpected server error. */

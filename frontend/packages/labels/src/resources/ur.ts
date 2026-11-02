@@ -2451,6 +2451,8 @@ export const ur: LabelResource = {
   'reports.or': 'یا',
   'reports.total': 'کل',
   'errors.kb_article_not_found': 'یہ مضمون موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
+  'errors.kb_type_not_found': 'مضمون کی یہ قسم موجود نہیں۔',
+  'errors.field.builtin_type_names': 'پہلے سے موجود قسم کے نام نہیں بدلتے۔',
   'errors.kb_article_not_editable':
     'آپ یہ مضمون نہیں بدل سکتے۔ اس کا مالک یا نالج مینیجر بدل سکتا ہے۔',
   'errors.kb_topic_not_found': 'یہ موضوع موجود نہیں یا آپ کے ساتھ شیئر نہیں ہے۔',
@@ -2471,6 +2473,8 @@ export const ur: LabelResource = {
   'errors.field.wider_than_topic': 'مضمون اپنے موضوع کے سامعین کو صرف محدود کر سکتا ہے، وسیع نہیں۔',
   'event_type.knowledge.topic.saved': 'نالج موضوع محفوظ ہوا',
   'event_type.knowledge.topic.deleted': 'نالج موضوع حذف ہوا',
+  'event_type.knowledge.type.saved': 'نالج مضمون کی قسم محفوظ ہوئی',
+  'event_type.knowledge.settings.changed': 'نالج کی ترتیبات بدلیں',
   'event_type.knowledge.article.saved': 'نالج مضمون محفوظ ہوا',
   'permission.knowledge.view': 'نالج پڑھنا',
   'permission.knowledge.view.description':
@@ -2696,6 +2700,8 @@ export const ur: LabelResource = {
   'audit.action.knowledge.article_deleted': 'مضمون ردی میں ڈالا',
   'audit.action.knowledge.article_restored': 'مضمون بحال کیا',
   'audit.action.knowledge.settings_changed': 'علمی ذخیرے کی ترتیبات بدلیں',
+  'audit.action.knowledge.type_created': 'نالج مضمون کی قسم شامل کی',
+  'audit.action.knowledge.type_changed': 'نالج مضمون کی قسم بدلی',
   'audit.object.kb_article': 'علمی مضمون',
   'audit.object.kb_settings': 'علمی ذخیرے کی ترتیبات',
   'notification_recipient.approvers': 'منظور کنندگان',
