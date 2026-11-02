@@ -6404,6 +6404,11 @@ export interface components {
          */
         ConversationEntryOut: {
             /**
+             * Automatic
+             * @description An automatic reply that came in, such as out-of-office.
+             */
+            automatic: boolean;
+            /**
              * Body
              * @description Sanitised rich text (HTML).
              */
@@ -6780,10 +6785,10 @@ export interface components {
         DeliveryReason: "email_channel_not_configured";
         /**
          * DeliveryState
-         * @description Where an outbound reply is. Notes have none.
+         * @description Where a reply is: outbound ones are sent, incoming ones were received. Notes have none.
          * @enum {string}
          */
-        DeliveryState: "not_sent" | "queued" | "sent" | "failed";
+        DeliveryState: "received" | "not_sent" | "queued" | "sent" | "failed";
         /**
          * DepartmentIn
          * @description A new department.
@@ -9539,6 +9544,19 @@ export interface components {
             week_start?: ("monday" | "sunday") | null;
         };
         /**
+         * RequesterChannelOut
+         * @description A channel that can tell requesters, for this tenant now.
+         */
+        RequesterChannelOut: {
+            /** Channel */
+            channel: string;
+            /**
+             * Reason
+             * @description Null: it reaches; else why not (a labelled code).
+             */
+            reason: string | null;
+        };
+        /**
          * ResolutionAnswerOut
          * @description What the requester's answer did (requesters see no more of the record here).
          */
@@ -11693,8 +11711,13 @@ export interface components {
             /** Reopen Window Days */
             reopen_window_days: number;
             /**
+             * Requester Channel States
+             * @description Every channel that can tell requesters, and why one does not reach now.
+             */
+            requester_channel_states: components["schemas"]["RequesterChannelOut"][];
+            /**
              * Requester Channels
-             * @description Channels that can tell requesters; auto-close needs one.
+             * @description Channels that reach this tenant's requesters now; auto-close needs one.
              */
             requester_channels: string[];
             /**

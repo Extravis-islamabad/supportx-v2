@@ -660,6 +660,16 @@ function Details({
       label: t('work_item.field.resolved_at'),
       view: dates.format(item.resolved_at),
     },
+    // Only once closed; reopening clears it, and history keeps the time (WP-020f QA BUG-06).
+    ...(item.closed_at === null
+      ? []
+      : [
+          {
+            key: 'closed_at',
+            label: t('work_item.field.closed_at'),
+            view: dates.format(item.closed_at),
+          },
+        ]),
     {
       key: 'reopen_count',
       label: t('work_item.field.reopen_count'),
