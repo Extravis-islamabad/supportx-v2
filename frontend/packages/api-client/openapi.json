@@ -38731,7 +38731,7 @@
         ]
       },
       "post": {
-        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and marked not_sent until an email channel exists (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
+        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and wait (mail_not_configured) until an email channel exists, then are\nqueued for sending (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
         "operationId": "add_api_v1_incidents__record_id__conversation_post",
         "parameters": [
           {
