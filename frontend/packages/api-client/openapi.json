@@ -3404,6 +3404,15 @@
         "title": "AuditStatusOut",
         "type": "object"
       },
+      "AuthModel": {
+        "description": "How an API mailbox signs in (docs/guides/mail-oauth-apps.md).",
+        "enum": [
+          "app",
+          "delegated"
+        ],
+        "title": "AuthModel",
+        "type": "string"
+      },
       "AutomationRunOut": {
         "description": "One automation step on the record: names, codes and outcomes, never values.",
         "properties": {
@@ -4342,8 +4351,20 @@
       },
       "ConnectionTestIn": {
         "additionalProperties": false,
-        "description": "Settings to try (a new password, or the stored one when left out).",
+        "description": "A new password or client secret to try, or the stored one when left out.",
         "properties": {
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "password": {
             "anyOf": [
               {
@@ -4535,7 +4556,20 @@
                 "type": "null"
               }
             ],
-            "description": "Replies only. not_sent: saved, but nothing could send it (see the reason)."
+            "description": "Replies only: waiting (mail not set up), queued, retrying, sent or failed (see the reason; a failed reply can be resent). not_sent is legacy."
+          },
+          "delivery_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the delivery state last moved.",
+            "title": "Delivery Updated At"
           },
           "first_response": {
             "description": "This entry stamped the first response.",
@@ -4595,6 +4629,7 @@
           "recipients",
           "delivery_state",
           "delivery_reason",
+          "delivery_updated_at",
           "first_response",
           "mentioned_ids",
           "automatic",
@@ -4660,6 +4695,15 @@
         ],
         "title": "CounterOut",
         "type": "object"
+      },
+      "CredentialKind": {
+        "description": "What proves the customer's OAuth app (client) to Microsoft or Google.",
+        "enum": [
+          "secret",
+          "certificate"
+        ],
+        "title": "CredentialKind",
+        "type": "string"
       },
       "CustomFieldChoiceIO": {
         "additionalProperties": false,
@@ -5511,19 +5555,33 @@
         "type": "string"
       },
       "DeliveryReason": {
-        "description": "Why a reply is not (yet) sent.",
+        "description": "Why a reply is not (yet) sent: a code the timeline shows as its label.",
         "enum": [
-          "email_channel_not_configured"
+          "email_channel_not_configured",
+          "mail_not_configured",
+          "not_sent_in_time",
+          "no_address",
+          "mail_refused",
+          "not_notified",
+          "recipient_refused",
+          "recipient_deferred",
+          "message_refused",
+          "authentication_failed",
+          "server_unavailable",
+          "server_busy",
+          "gave_up"
         ],
         "title": "DeliveryReason",
         "type": "string"
       },
       "DeliveryState": {
-        "description": "Where a reply is: outbound ones are sent, incoming ones were received. Notes have none.",
+        "description": "Where a reply is (REQ-INC-059): outbound ones are sent, incoming ones were received.\n\nNotes have none. The notification engine moves an outbound reply as its e-mail to the\nrequester goes (WP-024 session 3).",
         "enum": [
           "received",
           "not_sent",
+          "waiting",
           "queued",
+          "retrying",
           "sent",
           "failed"
         ],
@@ -6946,6 +7004,31 @@
         ],
         "title": "FirstResponseAction",
         "type": "string"
+      },
+      "FlowSpec": {
+        "additionalProperties": false,
+        "description": "A flow report (D-114): created, resolved and backlog per day, week or month.\n\nPer bucket: the records created, the records resolved and the backlog (still open) at the\nbucket's end. Replaces `group_by`; measures are the flow measures (`flow_created`,\n`flow_resolved`, `flow_backlog`).\n\nThe backlog is \"created by then and not yet resolved, closed or cancelled by then\", read from\neach record's own timestamps as they stand now (a cancellation counts from its last status\nchange), not from a history replay.",
+        "properties": {
+          "bucket": {
+            "default": "day",
+            "enum": [
+              "day",
+              "week",
+              "month"
+            ],
+            "title": "Bucket",
+            "type": "string"
+          },
+          "days": {
+            "default": 30,
+            "maximum": 366.0,
+            "minimum": 7.0,
+            "title": "Days",
+            "type": "integer"
+          }
+        },
+        "title": "FlowSpec",
+        "type": "object"
       },
       "FollowReason": {
         "description": "How someone came to follow a record (shown in the followers list).",
@@ -9199,6 +9282,55 @@
         "title": "LoopStopOut",
         "type": "object"
       },
+      "MailFixerOut": {
+        "description": "A person by name only (no address: this is shown to every technician).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "MailFixerOut",
+        "type": "object"
+      },
+      "MailStatusOut": {
+        "description": "For the reply composer (REQ-INC-060): whether a reply can go out by e-mail now.",
+        "properties": {
+          "mail_configured": {
+            "title": "Mail Configured",
+            "type": "boolean"
+          },
+          "waiting": {
+            "description": "E-mails waiting for outgoing mail in this organisation.",
+            "title": "Waiting",
+            "type": "integer"
+          },
+          "who_can_fix": {
+            "description": "People who can set mail up (names only).",
+            "items": {
+              "$ref": "#/components/schemas/MailFixerOut"
+            },
+            "title": "Who Can Fix",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mail_configured",
+          "waiting",
+          "who_can_fix"
+        ],
+        "title": "MailStatusOut",
+        "type": "object"
+      },
       "MailboxCreates": {
         "description": "What a new (non-reply) message to the mailbox becomes.",
         "enum": [
@@ -9210,7 +9342,7 @@
       },
       "MailboxIn": {
         "additionalProperties": false,
-        "description": "A new mailbox.",
+        "description": "A new mailbox: IMAP (server, account, password) or Microsoft 365 / Gmail (OAuth app).",
         "properties": {
           "address": {
             "maxLength": 320,
@@ -9255,6 +9387,44 @@
             ],
             "title": "Allowed Domains"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft 365: app (no one signs in) or delegated. Gmail: delegated."
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The OAuth app's secret, or its certificate and private key (PEM). Sealed.",
+            "title": "Client Secret"
+          },
           "creates": {
             "anyOf": [
               {
@@ -9264,6 +9434,43 @@
                 "type": "null"
               }
             ]
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the client secret expires (read from a certificate); warned ahead.",
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft Entra tenant ID.",
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -9314,10 +9521,17 @@
             "title": "Group Id"
           },
           "host": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
           },
           "move_to": {
             "anyOf": [
@@ -9332,18 +9546,36 @@
             "title": "Move To"
           },
           "password": {
-            "description": "Stored sealed; never shown.",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IMAP. Stored sealed; never shown.",
+            "title": "Password"
           },
           "port": {
-            "default": 993,
-            "maximum": 65535.0,
-            "minimum": 1.0,
-            "title": "Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IMAP: 993 when left out.",
+            "title": "Port"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/MailboxProtocol",
+            "default": "imap"
           },
           "security": {
             "anyOf": [
@@ -9366,17 +9598,21 @@
             ]
           },
           "username": {
-            "maxLength": 320,
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
         "required": [
-          "host",
-          "username",
-          "address",
-          "password"
+          "address"
         ],
         "title": "MailboxIn",
         "type": "object"
@@ -9402,8 +9638,62 @@
             "title": "Allowed Domains",
             "type": "array"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
           "creates": {
             "$ref": "#/components/schemas/MailboxCreates"
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -9418,6 +9708,11 @@
           },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "flooding": {
+            "description": "A sender went over the flood limit; their mail waits in the review queue.",
+            "title": "Flooding",
             "type": "boolean"
           },
           "folder": {
@@ -9437,6 +9732,7 @@
             "title": "Group Id"
           },
           "has_password": {
+            "description": "A password or client secret is stored.",
             "title": "Has Password",
             "type": "boolean"
           },
@@ -9446,8 +9742,15 @@
             "type": "integer"
           },
           "host": {
-            "title": "Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
           },
           "id": {
             "format": "uuid",
@@ -9477,12 +9780,32 @@
             ],
             "title": "Move To"
           },
+          "needs_sign_in": {
+            "description": "Someone must sign in as the mailbox (consent).",
+            "title": "Needs Sign In",
+            "type": "boolean"
+          },
           "port": {
-            "title": "Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/MailboxProtocol"
           },
           "security": {
             "$ref": "#/components/schemas/ConnectionSecurity"
+          },
+          "signed_in": {
+            "description": "A sign-in (refresh token) is stored.",
+            "title": "Signed In",
+            "type": "boolean"
           },
           "state": {
             "$ref": "#/components/schemas/MailboxState"
@@ -9503,8 +9826,15 @@
             "$ref": "#/components/schemas/UnknownSenders"
           },
           "username": {
-            "title": "Username",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "version": {
             "title": "Version",
@@ -9515,12 +9845,20 @@
           "id",
           "address",
           "display_name",
+          "protocol",
           "host",
           "port",
           "security",
           "allow_plain",
           "username",
           "has_password",
+          "auth_model",
+          "client_id",
+          "directory_id",
+          "credential_kind",
+          "credential_expires_at",
+          "needs_sign_in",
+          "signed_in",
           "folder",
           "after_fetch",
           "move_to",
@@ -9533,6 +9871,7 @@
           "state_reason",
           "last_fetch_at",
           "held",
+          "flooding",
           "version"
         ],
         "title": "MailboxOut",
@@ -9540,7 +9879,7 @@
       },
       "MailboxPatch": {
         "additionalProperties": false,
-        "description": "Fields to change; a password replaces the stored one.",
+        "description": "Fields to change; a password or client secret replaces the stored one.",
         "properties": {
           "after_fetch": {
             "anyOf": [
@@ -9579,6 +9918,43 @@
             ],
             "title": "Allowed Domains"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft 365: app (no one signs in) or delegated. Gmail: delegated."
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "creates": {
             "anyOf": [
               {
@@ -9588,6 +9964,43 @@
                 "type": "null"
               }
             ]
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the client secret expires (read from a certificate); warned ahead.",
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft Entra tenant ID.",
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -9723,6 +10136,30 @@
           }
         },
         "title": "MailboxPatch",
+        "type": "object"
+      },
+      "MailboxProtocol": {
+        "description": "How a mailbox is read.",
+        "enum": [
+          "imap",
+          "graph",
+          "gmail"
+        ],
+        "title": "MailboxProtocol",
+        "type": "string"
+      },
+      "MailboxSignInOut": {
+        "description": "Where to send the browser: Microsoft's or Google's sign-in, for the mailbox's account.",
+        "properties": {
+          "authorize_url": {
+            "title": "Authorize Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url"
+        ],
+        "title": "MailboxSignInOut",
         "type": "object"
       },
       "MailboxState": {
@@ -11657,6 +12094,108 @@
         "title": "RecordSort",
         "type": "object"
       },
+      "RecordsSpec-Input": {
+        "additionalProperties": false,
+        "description": "A short list of records (D-114), read through the entity's own list in the viewer's scope.\n\nIts filter may say `@me` (the console puts the viewer in); `@my_groups` is for report\nwidgets, which the server resolves.",
+        "properties": {
+          "entity": {
+            "maxLength": 40,
+            "title": "Entity",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterCondition"
+              },
+              {
+                "$ref": "#/components/schemas/FilterAnd-Input"
+              },
+              {
+                "$ref": "#/components/schemas/FilterOr-Input"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "limit": {
+            "default": 8,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "sort": {
+            "default": "updated",
+            "enum": [
+              "updated",
+              "created",
+              "due",
+              "priority"
+            ],
+            "title": "Sort",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity"
+        ],
+        "title": "DashboardRecords",
+        "type": "object"
+      },
+      "RecordsSpec-Output": {
+        "additionalProperties": false,
+        "description": "A short list of records (D-114), read through the entity's own list in the viewer's scope.\n\nIts filter may say `@me` (the console puts the viewer in); `@my_groups` is for report\nwidgets, which the server resolves.",
+        "properties": {
+          "entity": {
+            "maxLength": 40,
+            "title": "Entity",
+            "type": "string"
+          },
+          "filter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FilterCondition"
+              },
+              {
+                "$ref": "#/components/schemas/FilterAnd-Output"
+              },
+              {
+                "$ref": "#/components/schemas/FilterOr-Output"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Filter"
+          },
+          "limit": {
+            "default": 8,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "sort": {
+            "default": "updated",
+            "enum": [
+              "updated",
+              "created",
+              "due",
+              "priority"
+            ],
+            "title": "Sort",
+            "type": "string"
+          }
+        },
+        "required": [
+          "entity"
+        ],
+        "title": "DashboardRecords",
+        "type": "object"
+      },
       "Relative": {
         "description": "People relative to the record who may run a transition (REQ-WF-004).",
         "enum": [
@@ -11811,6 +12350,16 @@
             ],
             "title": "Filter"
           },
+          "flow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlowSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "group_by": {
             "items": {
               "$ref": "#/components/schemas/ReportGroupBy"
@@ -11916,6 +12465,16 @@
               }
             ],
             "title": "Filter"
+          },
+          "flow": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FlowSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "group_by": {
             "items": {
@@ -18234,6 +18793,16 @@
           "place": {
             "$ref": "#/components/schemas/Placement"
           },
+          "records": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordsSpec-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "report": {
             "anyOf": [
               {
@@ -18301,6 +18870,16 @@
           "place": {
             "$ref": "#/components/schemas/Placement"
           },
+          "records": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RecordsSpec-Output"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "report": {
             "anyOf": [
               {
@@ -18354,6 +18933,80 @@
           "place"
         ],
         "title": "Widget",
+        "type": "object"
+      },
+      "WidgetCatalogueEntryOut": {
+        "description": "One widget you may add (D-114); its description label is `<title_key>.description`.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "coming_with": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Not available yet: arrives with this package (`widget_coming.<code>`).",
+            "title": "Coming With"
+          },
+          "module": {
+            "description": "Report folder code: `report_folder.<module>`.",
+            "title": "Module",
+            "type": "string"
+          },
+          "section": {
+            "description": "Section code: `widget_section.<section>`.",
+            "title": "Section",
+            "type": "string"
+          },
+          "title_key": {
+            "title": "Title Key",
+            "type": "string"
+          },
+          "widget": {
+            "$ref": "#/components/schemas/Widget-Output",
+            "description": "The widget to add, at x 0 / y 0 in its default size."
+          }
+        },
+        "required": [
+          "code",
+          "module",
+          "section",
+          "title_key",
+          "widget",
+          "coming_with"
+        ],
+        "title": "WidgetCatalogueEntryOut",
+        "type": "object"
+      },
+      "WidgetCatalogueOut": {
+        "description": "The \"Add widget\" catalogue: sections in their order, and the entries.",
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/WidgetCatalogueEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections",
+          "entries"
+        ],
+        "title": "WidgetCatalogueOut",
         "type": "object"
       },
       "WorkItemAction": {
@@ -29838,6 +30491,68 @@
           }
         },
         "summary": "Set a role's home dashboard",
+        "tags": [
+          "dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/widgets": {
+      "get": {
+        "description": "Every widget you may add, by module and section (D-114).\n\nOnly widgets over entities you may report on (permission and licence); each still shows only\nthe records you may see.",
+        "operationId": "widget_catalogue_api_v1_dashboards_widgets_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WidgetCatalogueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such dashboard."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "The widget catalogue",
         "tags": [
           "dashboards"
         ]
@@ -41495,6 +42210,100 @@
         ]
       }
     },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/sign-in": {
+      "post": {
+        "description": "Gmail, and Microsoft 365 with delegated permission. Valid ten minutes, for you only.",
+        "operationId": "start_sign_in_api_v1_integrations_mailboxes__mailbox_id__sign_in_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSignInOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (mailboxes.manage)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Start signing in as the mailbox (consent)",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/api/v1/integrations/mailboxes/{mailbox_id}/test": {
       "post": {
         "description": "Connects and looks for new mail; changes nothing on the server or here.",
@@ -41873,6 +42682,88 @@
           }
         },
         "summary": "Hand a held message in again",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/oauth/callback": {
+      "get": {
+        "description": "Stores the sign-in and returns to Admin > Mail, which shows the result.\n\nThe authorization code and state are never logged (see app.core.logging's query redaction).",
+        "operationId": "sign_in_callback_api_v1_integrations_oauth_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Microsoft or Google sends the admin back here",
         "tags": [
           "integrations"
         ]
@@ -45508,6 +46399,58 @@
           }
         },
         "summary": "Notifications of a record",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/mail-status": {
+      "get": {
+        "description": "For staff who reply on records (any `*.reply` permission); others get 403.",
+        "operationId": "mail_status_api_v1_notifications_mail_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not staff (mail_status_staff_only)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Whether replies can go out by e-mail",
         "tags": [
           "notifications"
         ]

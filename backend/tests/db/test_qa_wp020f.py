@@ -233,7 +233,7 @@ async def test_bug_01_a_technician_reply_still_waits_for_the_email_channel(
     )
     assert said.status_code == 201, said.text
     replies = await _replies(world, org, item)
-    assert replies[0]["delivery_state"] in {"not_sent", "queued"}
+    assert replies[0]["delivery_state"] in {"waiting", "queued"}  # "waiting": WP-024 s3
 
 
 # --- BUG-03: the requester's own moves were filed as automation -----------------------------------

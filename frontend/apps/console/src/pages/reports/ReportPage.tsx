@@ -568,6 +568,7 @@ export function Results({
   onDrill,
   onDrillAll,
   chartHeight,
+  compact = false,
 }: {
   result: ReportResult;
   definition: ReportDefinition;
@@ -577,6 +578,8 @@ export function Results({
   onDrillAll: () => void;
   /** Dashboard widgets draw smaller charts than the report viewer. */
   chartHeight?: number;
+  /** A narrow widget: names in the legend, not on the chart (QA WP-036 C1). */
+  compact?: boolean;
 }) {
   const t = useLabels();
   const catalogue = useIncidentCatalogue();
@@ -714,6 +717,7 @@ export function Results({
     categoryColors: second ? undefined : result.rows.map((r) => priorityColour(r.keys[0])),
     format: (value) => words.value({ unit }, value),
     max: unit === 'percent' ? 100 : undefined,
+    compact,
   });
   const summary = t('reports.chart_summary', {
     count: result.rows.length,

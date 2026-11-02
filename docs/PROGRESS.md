@@ -1298,6 +1298,93 @@ Plan: ~/Desktop/wp-018-plan.md (approved with D-076). Three sessions.
   on main); the article page's record channel (session 3 screens); console screens (session 3);
   portal pages (WP-034); incident links (session 4).
 
+### 2026-10-29 — WP-024 email channel, session 3: delivery state, waiting, resend (lane B)
+
+Plan ~/Desktop/wp-024-s3-plan.md. Defaults: D-116 (10) to (13), approved. (9), sending as the
+mailbox, waits for the product owner.
+- **Reply delivery state (REQ-INC-059):**
+  - a new reply is queued, or waits while outgoing mail is not set up (it never shows the old
+    "not sent" placeholder); the engine links each requester e-mail to its reply (`entry_id`);
+  - the sender emits `system.mail.state_changed` (sent, retrying, failed with a code) and the
+    reply follows through the incident source's `delivery_changed`;
+  - ordering: an older report is ignored and a sent reply never moves back; each change bumps
+    the entry's version and reaches the timeline live
+    (`work_items.conversation.delivery_changed`).
+- **Waiting (REQ-INC-060):** e-mails waiting 7 days fail as `not_sent_in_time`, visibly, and are
+  never sent late. `GET /notifications/mail-status` gives staff whether mail works, how many
+  wait, and who can fix it (names only).
+- **Resend:** `notifications.resend_entry` queues the failed e-mail again to the person's current
+  address. It refuses when nothing failed (a double click sends once) or when mail is still not
+  set up. Lane A writes the route (audit, If-Match, Idempotency-Key).
+- **Migration 0043:** delivery states and reasons, `delivery_updated_at`, `entry_id` on
+  deliveries. It moves pre-WP-024 replies from "not sent" to "waiting", per tenant, with a
+  reversible downgrade (tested).
+- **Tests:** 8 PostgreSQL tests for the delivery flow, and the migration's data step both ways.
+  Lane A's two tests now expect "waiting" (for their review).
+- **Still to do:** lane A's timeline chips, resend route and composer notice (after their
+  queue); sending as the mailbox (D-116 (9)) once the product owner answers.
+
+### 2026-10-29 — WP-024 email channel, session 2: Microsoft 365, Gmail, attachments (lane B)
+
+Defaults: D-116 (approved 2026-10-29). Draft PR #133.
+- **Microsoft 365 and Gmail mailboxes** (`integrations`, migration 0042, expand only):
+  - the customer's own OAuth app per mailbox, with a client secret or a Microsoft certificate
+    (RS256 client assertion), sealed with the installation key ring;
+  - Graph with application permission or delegated, and Gmail delegated, with the least
+    scopes (`Mail.ReadWrite` and `gmail.modify`);
+  - readers fetch raw MIME, so the parser, ledger and routing are shared with IMAP.
+- **Consent:**
+  - "Sign in as the mailbox" on Admin > Mail, with PKCE;
+  - a one-time hashed state, valid ten minutes for the admin who started it, on the same
+    address;
+  - the account must be the mailbox;
+  - the callback `/api/v1/integrations/oauth/callback` (and the login callback) are left out of
+    tracing, because the code is in the query.
+- **Never silent:**
+  - a failing mailbox notifies the people with `mailboxes.manage` once per new reason
+    (notification events `mailbox.failing` and `mailbox.credential_expiring`);
+  - an app secret or certificate is announced 14 days before it expires;
+  - the mail page shows the kind of mailbox, the sign-in state and the expiry.
+- **Attachments from mail** through WP-022's upload path as the sender:
+  - screened against the tenant's rules first, and refused files named on the record in the
+    sender's language;
+  - one savepoint per file;
+  - storage outages leave the mail on the server.
+  - The inbound port's `reply_from_mail` returns `Replied(entry_id, follow_up)`; reply files go
+    on the conversation entry (lane A's `RequesterReply`, merged with main 2026-11-02).
+- **Tests:**
+  - `fake_providers` (Microsoft identity, Graph, Google OAuth and Gmail as an httpx
+    MockTransport; no network, no real account);
+  - 19 unit tests;
+  - 11 PostgreSQL tests: API, callback refusals, another tenant, mail into incidents, the
+    failing notice, expiry, attachments on real S3-compatible storage;
+  - console tests.
+- **Waiting on lane A:**
+  - requesters may attach to their own record, and work_items' file access registers at import
+    (lane A's `fix/requester-file-access`). Until it lands, `test_mail_attachments_go_through_the_files_path_and_refusals_are_named`
+    fails; it passes with that branch applied.
+  - `RequesterReply` (lane A's `fix/wp-020f-qa`) for entry-level reply files.
+- **API:** host, port and user name are nullable, listed as accepted breaks under D-109 (D-095).
+- **Session 3:** outgoing mail per mailbox (REQ-INT-053), delivery state and resend
+  (REQ-INC-059), the composer without mail (REQ-INC-060).
+
+### 2026-10-29 — WP-036 QA round and WP-036-FIX (lane C)
+
+- QA (~/Desktop/qa-wp036/QA-REPORT.md): live updates for a second user in 0.37–0.47 s, scope,
+  drill-down, free grid, Arabic and 390 px pass; 7 bugs and 2 cosmetic notes.
+- Fixes, one failing test per ID first (~/Desktop/qa-wp036/FIX-REPORT.md):
+  - a concurrent edit was silently lost: the edit now keeps its starting version, so the second
+    save meets the conflict dialog;
+  - sharing's "Keep my changes" did nothing;
+  - keyboard moves could overlap widgets;
+  - shipped widget names were stored in the adder's language;
+  - Add widget labels and the widget scroll region were not accessible;
+  - widgets now say which dashboard filters apply;
+  - narrow doughnuts cut their labels, and widget titles were cut by the chart-type text.
+- Conflict sweep across lane C's editable records: all send If-Match and open the shared dialog;
+  missing console tests added.
+- The 390 px header findings (BUG-06/07) move to the header fix.
+
 ### 2026-10-29 — WP-020f QA fix round (lane A)
 
 - QA report ~/Desktop/qa-wp020f/QA-REPORT.md (6 bugs). Branch `fix/wp-020f-qa` on
@@ -1434,6 +1521,20 @@ and the held-mail review queue as MVP.
   - Plus 14 unit tests, probe tests and a `/ready` test.
 - Also: `GET /notifications/status` reads the app's settings, never a fresh `backend/.env`
   (found by lane A).
+### 2026-10-28 — Dashboard widget library (D-114, lane C)
+
+- Product owner request after using the dashboards: "Add widget" opens a searchable catalogue
+  by module and section (43 curated widgets plus every built-in report); SLA and approval widgets
+  appear under "coming later" with the package that brings them.
+- Engine: flow report (created, resolved, backlog per day/week/month), `@my_groups` and `@me`
+  resolved on the server for every run, records widgets (short lists through the entity's own
+  list API), four new measures (overdue, due today, awaiting first response, reopened).
+- Built-in Service desk (17 widgets) and My work (9) are placed from the catalogue.
+- Tests: 8 DB tests (flow numbers per day and per viewer, `@my_groups`, records checks, every
+  catalogue widget runs in a technician's scope), 5 Vitest, one e2e journey; label tests cover
+  every widget, section and measure in en/ar/ur.
+- Backlog per bucket uses each record's own timestamps (no history replay); a cancellation
+  counts from its last status change. Recorded in D-114.
 
 ### 2026-10-28 — WP-039-FIX: the five WP-039 QA findings (lane B)
 One test per finding, named after it (~/Desktop/qa-wp039/QA-REPORT.md):

@@ -27,6 +27,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "MailboxCreates": "mailbox_creates",
     "MailboxState": "mailbox_state",
     "UnknownSenders": "mailbox_unknown_senders",
+    # Microsoft 365 and Gmail mailboxes (WP-024 session 2)
+    "MailboxProtocol": "mailbox_protocol",
+    "AuthModel": "mailbox_auth_model",
+    "CredentialKind": "mailbox_credential_kind",
     "WaitingOut.outcome": "mail_outcome",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
@@ -45,6 +49,10 @@ ENUM_PREFIXES: dict[str, str] = {
     "NotificationChannel": "notification_channel",
     "ConditionOperator": "notification_condition_operator",
     "NotificationDeliveryOut.state": "notification_state",
+    # Dashboard widgets, decision D-114
+    "FlowSpec.bucket": "report_bucket",
+    "RecordsSpec-Input.sort": "dashboard_records_sort",
+    "RecordsSpec-Output.sort": "dashboard_records_sort",
     # Knowledge (WP-033)
     "ArticleIn.language": "locale",
     "ArticleIn.requesters": "kb_requesters",

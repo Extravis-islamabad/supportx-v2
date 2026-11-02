@@ -36,3 +36,38 @@ export function adjust(place: Place, change: Partial<Place>): Place {
   const y = Math.max(0, change.y ?? place.y);
   return { x, y, w, h };
 }
+
+function overlaps(a: Place, b: Place): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+}
+
+/**
+ * The layout after one widget was moved or resized with the keyboard buttons, by the rules the
+ * free grid uses when dragging (QA WP-036 BUG-02): the moved widget stays where it was sent,
+ * whatever it now covers moves down below it (and so on), then every widget rises as far as it
+ * can (vertical compaction). No two widgets ever overlap.
+ */
+export function settle<W extends { id: string; place: Place }>(widgets: W[], movedId: string): W[] {
+  const out = widgets.map((w) => ({ ...w, place: { ...w.place } }));
+  const moved = out.find((w) => w.id === movedId);
+  if (moved === undefined) return out;
+  const queue = [moved];
+  for (let current = queue.shift(); current !== undefined; current = queue.shift()) {
+    for (const other of out) {
+      if (other === current || other === moved || !overlaps(current.place, other.place)) continue;
+      other.place.y = current.place.y + current.place.h;
+      queue.push(other);
+    }
+  }
+  const placed: Place[] = [];
+  for (const widget of readingOrder(out)) {
+    while (
+      widget.place.y > 0 &&
+      !placed.some((p) => overlaps({ ...widget.place, y: widget.place.y - 1 }, p))
+    ) {
+      widget.place.y -= 1;
+    }
+    placed.push(widget.place);
+  }
+  return out;
+}
