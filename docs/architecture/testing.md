@@ -60,6 +60,7 @@ check takes the script's joined letters for an icon font, and no option turns th
 applies to these pages.
 
 Contrast in those languages is covered by:
+
 - `packages/ui/src/theme-contrast.test.ts`: the palette tokens against WCAG AA, in every theme;
 - `expectTextContrast` in `frontend/e2e/tests/helpers.ts`: computed colours of the visible text;
   `rtl-contrast.spec.ts` runs it on key screens in Arabic and Urdu. Use it on new right-to-left
