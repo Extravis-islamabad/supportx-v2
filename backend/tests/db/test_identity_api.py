@@ -1344,9 +1344,11 @@ async def test_my_account_shows_how_i_sign_in_and_recent_sign_ins(world: World) 
         world, "UPDATE users SET external_subject = 'kc-req' WHERE id = $1", world.a.requester
     )
     world.admin.credentials_of["kc-req"] = [Credential("p", "password"), Credential("o", "otp")]
+    # Within the last week, counted from now: fixed timestamps aged out of the window (2026-11-02).
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
     world.admin.events = [
-        LoginEvent("LOGIN", 1_793_000_000_000, None, None, "kc-req"),
-        LoginEvent("LOGIN_ERROR", 1_792_999_000_000, "invalid_user_credentials", None, "kc-req"),
+        LoginEvent("LOGIN", now_ms - 3_600_000, None, None, "kc-req"),
+        LoginEvent("LOGIN_ERROR", now_ms - 7_200_000, "invalid_user_credentials", None, "kc-req"),
     ]
     found = await world.call("GET", "/account/security", world.a, world.a.requester)
     assert found.status_code == 200, found.text
