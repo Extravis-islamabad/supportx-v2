@@ -38,7 +38,7 @@ async function call(page: Page, method: string, path: string, body?: unknown, ve
   return page.request.fetch(`/api/v1${path}`, { method, data: body, headers });
 }
 
-async function open(browser: Browser, path: string, as: 'admin' | 'tech' | 'outsider') {
+async function open(browser: Browser, path: string, as: 'admin' | 'tech' | 'limited' | 'outsider') {
   const context = await browser.newContext();
   const page = await context.newPage();
   if (as === 'outsider') await signIn(page, SEEDED.tech.email, SEEDED.tech.password, path);
@@ -311,5 +311,114 @@ test('knowledge in Arabic: right to left, labels only, accessible', async ({ bro
     await cleanUp(admin.page, made);
     await admin.context.close();
     await author.context.close();
+  }
+});
+
+/** An article in the topic, written by the technician and approved by the admin (published). */
+async function publish(admin: Page, tech: Page, topic: string, title: string): Promise<string> {
+  const created = await call(tech, 'POST', '/knowledge/articles', {
+    topic_id: topic,
+    type_code: 'how_to',
+    title,
+    body_html: '<p>Open the portal and reset the token.</p>',
+  });
+  expect(created.status(), await created.text()).toBe(201);
+  const article = (await created.json()) as { id: string; drafts: { en: { version: number } } };
+  const submitted = await call(
+    tech,
+    'POST',
+    `/knowledge/articles/${article.id}/drafts/en/submit`,
+    { note: 'Ready' },
+    article.drafts.en.version,
+  );
+  expect(submitted.status(), await submitted.text()).toBe(200);
+  const draft = (await submitted.json()) as { version: number };
+  const approved = await call(
+    admin,
+    'POST',
+    `/knowledge/articles/${article.id}/drafts/en/approve`,
+    undefined,
+    draft.version,
+  );
+  expect(approved.status(), await approved.text()).toBe(200);
+  return article.id;
+}
+
+test('knowledge in a reply: the server decides the warning, the card shows the link (s4, D-121)', async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  const tag = stamp();
+  const admin = await open(browser, '/knowledge', 'admin');
+  const tech = await open(browser, '/knowledge', 'tech');
+  const requester = await open(browser, '/', 'limited');
+  let made: World | undefined;
+  const incidents: string[] = [];
+  try {
+    made = await world(admin.page, tech.page, tag);
+    const forAll = await call(admin.page, 'POST', '/knowledge/topics', {
+      names: { en: `E2E Help ${tag}`, ar: `مساعدة E2E ${tag}` },
+      requesters: 'all',
+    });
+    expect(forAll.status(), await forAll.text()).toBe(201);
+    const helpTopic = ((await forAll.json()) as { id: string }).id;
+    const internal = await publish(admin.page, tech.page, made.topic, `E2E internal ${tag}`);
+    const shared = await publish(admin.page, tech.page, helpTopic, `E2E shared ${tag}`);
+    made.articles.push(internal, shared);
+    const created = await call(tech.page, 'POST', '/incidents', {
+      subject: `E2E knowledge ${tag}`,
+      requester_id: (await me(requester.page)).user.id,
+      group_id: made.group,
+    });
+    expect(created.status(), await created.text()).toBe(201);
+    const incident = ((await created.json()) as { id: string }).id;
+    incidents.push(incident);
+
+    await tech.page.goto(`/incidents/${incident}`);
+    await tech.page.getByRole('tab', { name: /Conversation/ }).click();
+    await tech.page.getByTestId('conv-reply').locator('button').first().click();
+    const pickFrom = async (title: string, action: 'content' | 'link') => {
+      await tech.page.getByTestId('kb-picker-open').click();
+      const drawer = tech.page.getByTestId('kb-picker');
+      await drawer.getByTestId('kb-picker-search').locator('input').fill(title);
+      const row = drawer.locator('[data-testid^="kb-picker-item-"]').filter({ hasText: title });
+      await row.locator(`[data-testid^="kb-picker-${action}-"]`).click();
+    };
+    // An article the requester cannot read: warned first, and nothing goes in on "Cancel".
+    await pickFrom(`E2E internal ${tag}`, 'content');
+    await expect(tech.page.getByTestId('kb-picker-warning')).toBeVisible(LIVE);
+    await expectAccessible(tech.page, 'knowledge warning');
+    await tech.page.locator('.ant-modal:visible').getByRole('button').first().click();
+    await expect(tech.page.getByTestId('conv-editor')).not.toContainText('Open the portal');
+    // An article the requester can read: no warning, the content goes in at the caret.
+    await tech.page.keyboard.press('Escape');
+    await pickFrom(`E2E shared ${tag}`, 'content');
+    await expect(tech.page.getByTestId('conv-editor')).toContainText('Open the portal', LIVE);
+    await expect(tech.page.getByTestId('kb-picker-warning')).toHaveCount(0);
+    await tech.page.getByTestId('conv-send').click();
+    await expect(
+      tech.page.getByTestId('conv-timeline').getByText('Open the portal and reset the token.'),
+    ).toBeVisible(LIVE);
+
+    // The incident's Knowledge card shows it, live, as "Used in a reply".
+    await tech.page.getByRole('tab', { name: /Details/ }).click();
+    const card = tech.page.getByTestId('kb-card');
+    await expect(card).toContainText(`E2E shared ${tag}`, LIVE);
+    await expect(card).toContainText('Used in a reply');
+    await expectAccessible(tech.page, 'incident knowledge card');
+    // And the article's Links tab names the incident.
+    await tech.page.goto(`/knowledge/articles/${shared}`);
+    await tech.page.getByRole('tab', { name: /Links/ }).click();
+    await expect(tech.page.getByTestId('kb-links')).toContainText(`E2E knowledge ${tag}`);
+  } finally {
+    for (const id of incidents) {
+      const found = await call(admin.page, 'GET', `/incidents/${id}`);
+      if (found.status() === 200) {
+        const { version } = (await found.json()) as { version: number };
+        await call(admin.page, 'DELETE', `/incidents/${id}`, undefined, version);
+      }
+    }
+    await cleanUp(admin.page, made);
+    for (const one of [admin, tech, requester]) await one.context.close();
   }
 });
