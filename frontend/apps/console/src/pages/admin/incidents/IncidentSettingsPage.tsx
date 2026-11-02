@@ -1,8 +1,8 @@
-import { Alert, Flex, Skeleton, Tabs, Typography } from 'antd';
+import { Alert, Flex, Skeleton, Tabs } from 'antd';
 import { Navigate, useNavigate, useParams } from 'react-router';
 
 import { useIncidentCatalogue, type PickList } from '@supportx/api-client';
-import { NoAccess, useAccess, useLabel } from '@supportx/ui';
+import { NoAccess, useAccess, useLabel, PageHeader } from '@supportx/ui';
 
 import { CategoriesTab } from './CategoriesTab';
 import { ClosingTab } from './ClosingTab';
@@ -122,8 +122,9 @@ export function IncidentSettingsPage() {
   return (
     // minWidth 0: the tab bar fits the screen and folds the rest into "more" (QA BUG-03).
     <Flex vertical gap={8} style={{ minWidth: 0 }}>
-      <Typography.Title level={2}>{t('settings.incidents_title')}</Typography.Title>
+      <PageHeader level={2} title={t('settings.incidents_title')} />
       <Tabs
+        size="small"
         activeKey={current}
         onChange={(key) => void navigate(`/admin/incidents/${key}`)}
         items={SECTIONS.map((key) => ({ key, label: t(`settings.section.${key}`) }))}

@@ -12,7 +12,7 @@ import {
   type UserDetail,
 } from '@supportx/api-client';
 import { refreshList, refreshRecord, useListChannel } from '@supportx/realtime';
-import { NoAccess, ToneTag, useAccess, useAppearance, useLabel } from '@supportx/ui';
+import { NoAccess, ToneTag, useAccess, useAppearance, useLabel, PageHeader } from '@supportx/ui';
 
 import { UserAccessDrawer } from './UserAccessDrawer';
 import { ImportDrawer } from './people/ImportDrawer';
@@ -117,17 +117,16 @@ export function UsersPage() {
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Flex justify="space-between" align="baseline" wrap>
-        <Typography.Title level={2} style={{ margin: 0 }}>
-          {t('people.title')}
-        </Typography.Title>
-        <Flex gap={12} align="baseline" wrap>
-          {total !== undefined && total !== null && (
-            <Typography.Text type="secondary" data-testid="users-total">
-              {t('people.total', { count: total })}
-            </Typography.Text>
-          )}
-          {manage && (
+      <PageHeader
+        level={2}
+        title={t('people.title')}
+        count={
+          total !== undefined && total !== null ? (
+            <span data-testid="users-total">{t('people.total', { count: total })}</span>
+          ) : undefined
+        }
+        extra={
+          manage && (
             <>
               <Button
                 icon={<UploadOutlined />}
@@ -149,9 +148,9 @@ export function UsersPage() {
                 {t('people.add')}
               </Button>
             </>
-          )}
-        </Flex>
-      </Flex>
+          )
+        }
+      />
       <Flex gap={12} wrap>
         <Input.Search
           allowClear
