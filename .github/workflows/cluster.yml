@@ -121,6 +121,15 @@ jobs:
         with:
           needs: '^(deploy/|Makefile$|\.github/workflows/cluster\.yml$|\.github/actions/)'
           skipped: "skipped: no deployment change"
+      # deploy-dev builds the images, which need the generated files (D-127).
+      - uses: ./.github/actions/setup-backend
+        if: ${{ steps.changes.outputs.run != 'false' }}
+      - uses: ./.github/actions/setup-frontend
+        if: ${{ steps.changes.outputs.run != 'false' }}
+      - uses: ./.github/actions/generated
+        if: ${{ steps.changes.outputs.run != 'false' }}
+        with:
+          frontend: "true"
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         if: ${{ steps.changes.outputs.run != 'false' }}
         with:
