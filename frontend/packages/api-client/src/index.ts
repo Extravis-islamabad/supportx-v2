@@ -662,4 +662,12 @@ export {
   type KbApplied,
   type KbFromRecord,
   type KbAudience,
+  useKbSuggestions,
+  useKbScores,
+  useKbVote,
+  type KbVote,
+  type KbVoteInput,
+  type KbVoteReason,
+  type KbScores,
+  type KbSnippetPart,
 } from './knowledge';

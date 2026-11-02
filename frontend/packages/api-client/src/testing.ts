@@ -139,8 +139,8 @@ export function fakePermissions(
 
 /** A knowledge article as its author sees it: published in English unless overridden. */
 export function fakeKbArticle(
-  overrides: Partial<components['schemas']['ArticleOut']> = {},
-): components['schemas']['ArticleOut'] {
+  overrides: Partial<components['schemas']['ArticleReadOut']> = {},
+): components['schemas']['ArticleReadOut'] {
   const version = {
     id: '01900000-0000-7000-8000-00000000b101',
     language: 'en',
@@ -157,6 +157,8 @@ export function fakeKbArticle(
     published_at: '2026-10-29T08:00:00Z',
   };
   return {
+    featured: false,
+    my_vote: null,
     id: '01900000-0000-7000-8000-00000000b001',
     display_id: 'KB-1',
     topic_id: '01900000-0000-7000-8000-00000000b201',
