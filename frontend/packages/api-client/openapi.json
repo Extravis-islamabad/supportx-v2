@@ -3088,6 +3088,15 @@
         "title": "AuditStatusOut",
         "type": "object"
       },
+      "AuthModel": {
+        "description": "How an API mailbox signs in (docs/guides/mail-oauth-apps.md).",
+        "enum": [
+          "app",
+          "delegated"
+        ],
+        "title": "AuthModel",
+        "type": "string"
+      },
       "AutomationRunOut": {
         "description": "One automation step on the record: names, codes and outcomes, never values.",
         "properties": {
@@ -4026,8 +4035,20 @@
       },
       "ConnectionTestIn": {
         "additionalProperties": false,
-        "description": "Settings to try (a new password, or the stored one when left out).",
+        "description": "A new password or client secret to try, or the stored one when left out.",
         "properties": {
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "password": {
             "anyOf": [
               {
@@ -4068,6 +4089,240 @@
         ],
         "title": "ConnectionTestOut",
         "type": "object"
+      },
+      "ConnectorCategory": {
+        "description": "Catalogue groups (REQ-INT-001); set-up rights are given per category (REQ-INT-013).",
+        "enum": [
+          "identity",
+          "email",
+          "collaboration",
+          "monitoring",
+          "devops",
+          "endpoint",
+          "telephony",
+          "automation",
+          "analytics",
+          "knowledge",
+          "ai"
+        ],
+        "title": "ConnectorCategory",
+        "type": "string"
+      },
+      "ConnectorInstanceOut": {
+        "description": "One configured connector and its health.",
+        "properties": {
+          "counts_24h": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Last 24 hours: runs, failed_runs, read, created, updated, skipped, failed.",
+            "title": "Counts 24H",
+            "type": "object"
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "failing_since": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it turned failing (notified).",
+            "title": "Failing Since"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_error_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error At"
+          },
+          "last_error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The last error (a label code).",
+            "title": "Last Error Code"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "description": "What the admin called it, such as a mailbox address.",
+            "title": "Name",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it fails or is degraded (a label code).",
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConnectorStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "reason",
+          "last_success_at",
+          "next_run_at",
+          "credential_expires_at",
+          "failing_since",
+          "last_error_at",
+          "last_error_code",
+          "counts_24h"
+        ],
+        "title": "ConnectorInstanceOut",
+        "type": "object"
+      },
+      "ConnectorKindOut": {
+        "description": "One kind of connector in the catalogue, as the caller sees it.",
+        "properties": {
+          "available": {
+            "description": "Whether the tenant's edition includes it.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ConnectorCategory"
+          },
+          "code": {
+            "description": "The kind's code; the console shows its label.",
+            "title": "Code",
+            "type": "string"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectorInstanceOut"
+            },
+            "title": "Instances",
+            "type": "array"
+          },
+          "keywords": {
+            "description": "Label codes the catalogue search also matches.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "manage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot be set up: not_in_edition or no_permission.",
+            "title": "Manage Reason"
+          },
+          "multiple": {
+            "description": "Whether more than one can be added.",
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "page": {
+            "description": "The console page where it is set up.",
+            "title": "Page",
+            "type": "string"
+          },
+          "reason_labels": {
+            "description": "Label prefix of its instances' failure reasons.",
+            "title": "Reason Labels",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "category",
+          "page",
+          "keywords",
+          "reason_labels",
+          "multiple",
+          "available",
+          "can_manage",
+          "manage_reason",
+          "instances"
+        ],
+        "title": "ConnectorKindOut",
+        "type": "object"
+      },
+      "ConnectorStatus": {
+        "description": "One instance's status as the catalogue shows it (REQ-INT-001).",
+        "enum": [
+          "not_set_up",
+          "active",
+          "degraded",
+          "failed",
+          "paused"
+        ],
+        "title": "ConnectorStatus",
+        "type": "string"
       },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
@@ -4219,7 +4474,20 @@
                 "type": "null"
               }
             ],
-            "description": "Replies only. not_sent: saved, but nothing could send it (see the reason)."
+            "description": "Replies only: waiting (mail not set up), queued, retrying, sent or failed (see the reason; a failed reply can be resent). not_sent is legacy."
+          },
+          "delivery_updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the delivery state last moved.",
+            "title": "Delivery Updated At"
           },
           "first_response": {
             "description": "This entry stamped the first response.",
@@ -4279,6 +4547,7 @@
           "recipients",
           "delivery_state",
           "delivery_reason",
+          "delivery_updated_at",
           "first_response",
           "mentioned_ids",
           "automatic",
@@ -4344,6 +4613,15 @@
         ],
         "title": "CounterOut",
         "type": "object"
+      },
+      "CredentialKind": {
+        "description": "What proves the customer's OAuth app (client) to Microsoft or Google.",
+        "enum": [
+          "secret",
+          "certificate"
+        ],
+        "title": "CredentialKind",
+        "type": "string"
       },
       "CustomFieldChoiceIO": {
         "additionalProperties": false,
@@ -5195,19 +5473,33 @@
         "type": "string"
       },
       "DeliveryReason": {
-        "description": "Why a reply is not (yet) sent.",
+        "description": "Why a reply is not (yet) sent: a code the timeline shows as its label.",
         "enum": [
-          "email_channel_not_configured"
+          "email_channel_not_configured",
+          "mail_not_configured",
+          "not_sent_in_time",
+          "no_address",
+          "mail_refused",
+          "not_notified",
+          "recipient_refused",
+          "recipient_deferred",
+          "message_refused",
+          "authentication_failed",
+          "server_unavailable",
+          "server_busy",
+          "gave_up"
         ],
         "title": "DeliveryReason",
         "type": "string"
       },
       "DeliveryState": {
-        "description": "Where a reply is: outbound ones are sent, incoming ones were received. Notes have none.",
+        "description": "Where a reply is (REQ-INC-059): outbound ones are sent, incoming ones were received.\n\nNotes have none. The notification engine moves an outbound reply as its e-mail to the\nrequester goes (WP-024 session 3).",
         "enum": [
           "received",
           "not_sent",
+          "waiting",
           "queued",
+          "retrying",
           "sent",
           "failed"
         ],
@@ -5585,6 +5877,267 @@
         "title": "DeskPatch",
         "type": "object"
       },
+      "DirectoryGroupIn": {
+        "additionalProperties": false,
+        "description": "A directory group: its Graph object ID and the name shown.",
+        "properties": {
+          "external_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "External Id",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id"
+        ],
+        "title": "DirectoryGroupIn",
+        "type": "object"
+      },
+      "DirectoryGroupOut": {
+        "description": "A directory group found by name.",
+        "properties": {
+          "external_id": {
+            "title": "External Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id",
+          "name"
+        ],
+        "title": "DirectoryGroupOut",
+        "type": "object"
+      },
+      "DirectoryIn": {
+        "additionalProperties": false,
+        "description": "Every setting of a directory connector (create and replace).",
+        "properties": {
+          "client_id": {
+            "description": "The sync app's ID.",
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "Client Id",
+            "type": "string"
+          },
+          "credential": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Client secret or PEM certificate; required on create, kept when left out.",
+            "title": "Credential"
+          },
+          "credential_kind": {
+            "$ref": "#/components/schemas/CredentialKind"
+          },
+          "directory_tenant": {
+            "description": "Entra tenant ID, or its primary domain.",
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Directory Tenant",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/GroupMappingIn"
+            },
+            "maxItems": 100,
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "interval_minutes": {
+            "default": 30,
+            "maximum": 1440.0,
+            "minimum": 15.0,
+            "title": "Interval Minutes",
+            "type": "integer"
+          },
+          "mapping": {
+            "$ref": "#/components/schemas/MappingIn"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SyncScope",
+            "default": "all_users"
+          },
+          "scope_groups": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryGroupIn"
+            },
+            "maxItems": 100,
+            "title": "Scope Groups",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "directory_tenant",
+          "client_id",
+          "credential_kind"
+        ],
+        "title": "DirectoryIn",
+        "type": "object"
+      },
+      "DirectoryOut": {
+        "description": "A directory connector as its page shows it.",
+        "properties": {
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "credential_kind": {
+            "$ref": "#/components/schemas/CredentialKind"
+          },
+          "directory_tenant": {
+            "title": "Directory Tenant",
+            "type": "string"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_mappings": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interval_minutes": {
+            "title": "Interval Minutes",
+            "type": "integer"
+          },
+          "last_skips": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Last run's skipped by reason code.",
+            "title": "Last Skips",
+            "type": "object"
+          },
+          "last_synced_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Synced At"
+          },
+          "mapping": {
+            "additionalProperties": true,
+            "title": "Mapping",
+            "type": "object"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "next_sync_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Sync At"
+          },
+          "people": {
+            "description": "People this directory keeps.",
+            "title": "People",
+            "type": "integer"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/SyncScope"
+          },
+          "scope_groups": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Scope Groups",
+            "type": "array"
+          },
+          "secret": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SecretOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "source",
+          "directory_tenant",
+          "client_id",
+          "credential_kind",
+          "secret",
+          "scope",
+          "scope_groups",
+          "group_mappings",
+          "mapping",
+          "interval_minutes",
+          "enabled",
+          "people",
+          "last_synced_at",
+          "next_sync_at",
+          "last_skips",
+          "version"
+        ],
+        "title": "DirectoryOut",
+        "type": "object"
+      },
       "Disposition": {
         "description": "Open in the browser (images, PDFs) or save as a file.",
         "enum": [
@@ -5876,6 +6429,15 @@
         ],
         "title": "EffectivePermission",
         "type": "object"
+      },
+      "EmailFrom": {
+        "description": "Which Graph attribute is the person's address.",
+        "enum": [
+          "mail",
+          "user_principal_name"
+        ],
+        "title": "EmailFrom",
+        "type": "string"
       },
       "EntitlementState": {
         "description": "Derived licence state (see module docstring).",
@@ -6860,6 +7422,35 @@
           "name"
         ],
         "title": "GroupIn",
+        "type": "object"
+      },
+      "GroupMappingIn": {
+        "additionalProperties": false,
+        "description": "A directory group whose members fill a SupportX group.",
+        "properties": {
+          "external_id": {
+            "maxLength": 36,
+            "minLength": 36,
+            "title": "External Id",
+            "type": "string"
+          },
+          "group_id": {
+            "format": "uuid",
+            "title": "Group Id",
+            "type": "string"
+          },
+          "name": {
+            "default": "",
+            "maxLength": 200,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "external_id",
+          "group_id"
+        ],
+        "title": "GroupMappingIn",
         "type": "object"
       },
       "GroupOut": {
@@ -8493,6 +9084,55 @@
         "title": "LoopStopOut",
         "type": "object"
       },
+      "MailFixerOut": {
+        "description": "A person by name only (no address: this is shown to every technician).",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ],
+        "title": "MailFixerOut",
+        "type": "object"
+      },
+      "MailStatusOut": {
+        "description": "For the reply composer (REQ-INC-060): whether a reply can go out by e-mail now.",
+        "properties": {
+          "mail_configured": {
+            "title": "Mail Configured",
+            "type": "boolean"
+          },
+          "waiting": {
+            "description": "E-mails waiting for outgoing mail in this organisation.",
+            "title": "Waiting",
+            "type": "integer"
+          },
+          "who_can_fix": {
+            "description": "People who can set mail up (names only).",
+            "items": {
+              "$ref": "#/components/schemas/MailFixerOut"
+            },
+            "title": "Who Can Fix",
+            "type": "array"
+          }
+        },
+        "required": [
+          "mail_configured",
+          "waiting",
+          "who_can_fix"
+        ],
+        "title": "MailStatusOut",
+        "type": "object"
+      },
       "MailboxCreates": {
         "description": "What a new (non-reply) message to the mailbox becomes.",
         "enum": [
@@ -8504,7 +9144,7 @@
       },
       "MailboxIn": {
         "additionalProperties": false,
-        "description": "A new mailbox.",
+        "description": "A new mailbox: IMAP (server, account, password) or Microsoft 365 / Gmail (OAuth app).",
         "properties": {
           "address": {
             "maxLength": 320,
@@ -8549,6 +9189,44 @@
             ],
             "title": "Allowed Domains"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft 365: app (no one signs in) or delegated. Gmail: delegated."
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The OAuth app's secret, or its certificate and private key (PEM). Sealed.",
+            "title": "Client Secret"
+          },
           "creates": {
             "anyOf": [
               {
@@ -8558,6 +9236,43 @@
                 "type": "null"
               }
             ]
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the client secret expires (read from a certificate); warned ahead.",
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft Entra tenant ID.",
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -8608,10 +9323,17 @@
             "title": "Group Id"
           },
           "host": {
-            "maxLength": 255,
-            "minLength": 1,
-            "title": "Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
           },
           "move_to": {
             "anyOf": [
@@ -8626,18 +9348,36 @@
             "title": "Move To"
           },
           "password": {
-            "description": "Stored sealed; never shown.",
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Password",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IMAP. Stored sealed; never shown.",
+            "title": "Password"
           },
           "port": {
-            "default": 993,
-            "maximum": 65535.0,
-            "minimum": 1.0,
-            "title": "Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "IMAP: 993 when left out.",
+            "title": "Port"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/MailboxProtocol",
+            "default": "imap"
           },
           "security": {
             "anyOf": [
@@ -8660,17 +9400,21 @@
             ]
           },
           "username": {
-            "maxLength": 320,
-            "minLength": 1,
-            "title": "Username",
-            "type": "string"
+            "anyOf": [
+              {
+                "maxLength": 320,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           }
         },
         "required": [
-          "host",
-          "username",
-          "address",
-          "password"
+          "address"
         ],
         "title": "MailboxIn",
         "type": "object"
@@ -8696,8 +9440,85 @@
             "title": "Allowed Domains",
             "type": "array"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
           "creates": {
             "$ref": "#/components/schemas/MailboxCreates"
+          },
+          "credential": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/StoredSecretOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The stored credential, if any."
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "degraded_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code when it works but needs a look (secret_store_fallback: the secrets store's copy could not be read, so an earlier copy is used); the UI shows its label.",
+            "title": "Degraded Reason"
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -8712,6 +9533,11 @@
           },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "flooding": {
+            "description": "A sender went over the flood limit; their mail waits in the review queue.",
+            "title": "Flooding",
             "type": "boolean"
           },
           "folder": {
@@ -8731,6 +9557,7 @@
             "title": "Group Id"
           },
           "has_password": {
+            "description": "A password or client secret is stored.",
             "title": "Has Password",
             "type": "boolean"
           },
@@ -8740,8 +9567,15 @@
             "type": "integer"
           },
           "host": {
-            "title": "Host",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
           },
           "id": {
             "format": "uuid",
@@ -8771,12 +9605,32 @@
             ],
             "title": "Move To"
           },
+          "needs_sign_in": {
+            "description": "Someone must sign in as the mailbox (consent).",
+            "title": "Needs Sign In",
+            "type": "boolean"
+          },
           "port": {
-            "title": "Port",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "protocol": {
+            "$ref": "#/components/schemas/MailboxProtocol"
           },
           "security": {
             "$ref": "#/components/schemas/ConnectionSecurity"
+          },
+          "signed_in": {
+            "description": "A sign-in (refresh token) is stored.",
+            "title": "Signed In",
+            "type": "boolean"
           },
           "state": {
             "$ref": "#/components/schemas/MailboxState"
@@ -8797,8 +9651,15 @@
             "$ref": "#/components/schemas/UnknownSenders"
           },
           "username": {
-            "title": "Username",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
           },
           "version": {
             "title": "Version",
@@ -8809,12 +9670,21 @@
           "id",
           "address",
           "display_name",
+          "protocol",
           "host",
           "port",
           "security",
           "allow_plain",
           "username",
           "has_password",
+          "credential",
+          "auth_model",
+          "client_id",
+          "directory_id",
+          "credential_kind",
+          "credential_expires_at",
+          "needs_sign_in",
+          "signed_in",
           "folder",
           "after_fetch",
           "move_to",
@@ -8827,6 +9697,8 @@
           "state_reason",
           "last_fetch_at",
           "held",
+          "flooding",
+          "degraded_reason",
           "version"
         ],
         "title": "MailboxOut",
@@ -8834,7 +9706,7 @@
       },
       "MailboxPatch": {
         "additionalProperties": false,
-        "description": "Fields to change; a password replaces the stored one.",
+        "description": "Fields to change; a password or client secret replaces the stored one.",
         "properties": {
           "after_fetch": {
             "anyOf": [
@@ -8873,6 +9745,43 @@
             ],
             "title": "Allowed Domains"
           },
+          "auth_model": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AuthModel"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft 365: app (no one signs in) or delegated. Gmail: delegated."
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
           "creates": {
             "anyOf": [
               {
@@ -8882,6 +9791,43 @@
                 "type": "null"
               }
             ]
+          },
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the client secret expires (read from a certificate); warned ahead.",
+            "title": "Credential Expires At"
+          },
+          "credential_kind": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CredentialKind"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "directory_id": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Microsoft Entra tenant ID.",
+            "title": "Directory Id"
           },
           "display_name": {
             "anyOf": [
@@ -9019,6 +9965,30 @@
         "title": "MailboxPatch",
         "type": "object"
       },
+      "MailboxProtocol": {
+        "description": "How a mailbox is read.",
+        "enum": [
+          "imap",
+          "graph",
+          "gmail"
+        ],
+        "title": "MailboxProtocol",
+        "type": "string"
+      },
+      "MailboxSignInOut": {
+        "description": "Where to send the browser: Microsoft's or Google's sign-in, for the mailbox's account.",
+        "properties": {
+          "authorize_url": {
+            "title": "Authorize Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url"
+        ],
+        "title": "MailboxSignInOut",
+        "type": "object"
+      },
       "MailboxState": {
         "description": "What the mail page shows for a mailbox (REQ-ADM-066 AC1).",
         "enum": [
@@ -9028,6 +9998,35 @@
         ],
         "title": "MailboxState",
         "type": "string"
+      },
+      "MappingIn": {
+        "additionalProperties": false,
+        "description": "Where person fields come from (defaults: mail, department, officeLocation).",
+        "properties": {
+          "department_from": {
+            "default": "department",
+            "maxLength": 40,
+            "title": "Department From",
+            "type": "string"
+          },
+          "email_from": {
+            "$ref": "#/components/schemas/EmailFrom",
+            "default": "mail"
+          },
+          "include_guests": {
+            "default": false,
+            "title": "Include Guests",
+            "type": "boolean"
+          },
+          "site_from": {
+            "default": "officeLocation",
+            "maxLength": 40,
+            "title": "Site From",
+            "type": "string"
+          }
+        },
+        "title": "MappingIn",
+        "type": "object"
       },
       "MatrixCellIn": {
         "description": "One cell.",
@@ -10425,7 +11424,7 @@
             "title": "Time Zone"
           },
           "user_type": {
-            "$ref": "#/components/schemas/UserType",
+            "$ref": "#/components/schemas/PersonType",
             "default": "requester"
           },
           "vip": {
@@ -10464,6 +11463,15 @@
         ],
         "title": "PersonOut",
         "type": "object"
+      },
+      "PersonType": {
+        "description": "The types a person can be given in the people screens and imports (never `service`).",
+        "enum": [
+          "technician",
+          "requester"
+        ],
+        "title": "PersonType",
+        "type": "string"
       },
       "PickList": {
         "description": "Admin-managed value lists: the reason lists plus levels and closure codes.",
@@ -13975,6 +14983,50 @@
         "title": "ScaleValuePatch",
         "type": "object"
       },
+      "SecretOut": {
+        "description": "What may be said about the stored secret: never its value.",
+        "properties": {
+          "ending": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Last four characters, for display only.",
+            "title": "Ending"
+          },
+          "secret_type": {
+            "title": "Secret Type",
+            "type": "string"
+          },
+          "set_at": {
+            "format": "date-time",
+            "title": "Set At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "secret_type",
+          "ending",
+          "set_at"
+        ],
+        "title": "SecretOut",
+        "type": "object"
+      },
+      "SecretType": {
+        "description": "What kind of credential the secrets store holds (REQ-INT-003).",
+        "enum": [
+          "password",
+          "client_secret",
+          "certificate",
+          "refresh_token"
+        ],
+        "title": "SecretType",
+        "type": "string"
+      },
       "SettingsIn": {
         "additionalProperties": false,
         "description": "New settings.",
@@ -15064,6 +16116,45 @@
         "title": "StatusPatch",
         "type": "object"
       },
+      "StoredSecretOut": {
+        "description": "A stored secret as anyone may see it: never its value (REQ-INT-003 AC1).",
+        "properties": {
+          "last_four": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For display only (\"ending in ...\"): long random secrets show their last four characters, a certificate its thumbprint's; a password never shows any.",
+            "title": "Last Four"
+          },
+          "name": {
+            "description": "Its stable name; exports carry {{secret:<name>}} instead.",
+            "title": "Name",
+            "type": "string"
+          },
+          "secret_type": {
+            "$ref": "#/components/schemas/SecretType"
+          },
+          "set_at": {
+            "description": "When it was saved: its age.",
+            "format": "date-time",
+            "title": "Set At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "secret_type",
+          "last_four",
+          "set_at"
+        ],
+        "title": "StoredSecretOut",
+        "type": "object"
+      },
       "SubscriptionTokenRequest": {
         "description": "The channel to join, e.g. `t:<tenant>:users:<user id>`.",
         "properties": {
@@ -15093,6 +16184,15 @@
         ],
         "title": "SwitchTenantRequest",
         "type": "object"
+      },
+      "SyncScope": {
+        "description": "Everyone in the directory, or only members of chosen groups.",
+        "enum": [
+          "all_users",
+          "groups"
+        ],
+        "title": "SyncScope",
+        "type": "string"
       },
       "TaskPriority": {
         "description": "How urgent a task is, relative to the record's other tasks.",
@@ -16591,7 +17691,7 @@
         "description": "Technician (takes a licence seat) or requester.",
         "properties": {
           "user_type": {
-            "$ref": "#/components/schemas/UserType"
+            "$ref": "#/components/schemas/PersonType"
           }
         },
         "required": [
@@ -16753,6 +17853,22 @@
             ],
             "description": "Only for `users.manage`.",
             "title": "Description"
+          },
+          "directory_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "entra",
+                  "ldap"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The directory that keeps this person (its fields are read-only here).",
+            "title": "Directory Source"
           },
           "display_name": {
             "title": "Display Name",
@@ -17208,7 +18324,8 @@
         "description": "Which app a user works in. Stored as a code; the UI shows a label.",
         "enum": [
           "technician",
-          "requester"
+          "requester",
+          "service"
         ],
         "title": "UserType",
         "type": "string"
@@ -38000,7 +39117,7 @@
         ]
       },
       "post": {
-        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and marked not_sent until an email channel exists (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
+        "description": "A private note needs add_note; a reply or public note needs reply.\n\nReplies are saved and wait (mail_not_configured) until an email channel exists, then are\nqueued for sending (never dropped).\nSend an Idempotency-Key: a retried request returns the same 201.",
         "operationId": "add_api_v1_incidents__record_id__conversation_post",
         "parameters": [
           {
@@ -40539,6 +41656,728 @@
         ]
       }
     },
+    "/api/v1/integrations/catalogue": {
+      "get": {
+        "description": "Every kind of connector with its instances and their live status (REQ-INT-001).",
+        "operationId": "connector_catalogue_api_v1_integrations_catalogue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorKindOut"
+                  },
+                  "title": "Response Connector Catalogue Api V1 Integrations Catalogue Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.view)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Connector catalogue",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/directories": {
+      "get": {
+        "description": "Every directory connector with its last run.",
+        "operationId": "list_directories_api_v1_integrations_directories_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DirectoryOut"
+                  },
+                  "title": "Response List Directories Api V1 Integrations Directories Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Directory connectors",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "post": {
+        "description": "Send an Idempotency-Key: a retried request returns the same 201. Syncs within a minute.",
+        "operationId": "create_directory_api_v1_integrations_directories_post",
+        "parameters": [
+          {
+            "description": "Optional. A unique key per intended create; retries reuse it.",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Optional. A unique key per intended create; retries reuse it.",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Add a directory connector",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/directories/{directory_id}": {
+      "delete": {
+        "description": "Stop syncing. Its people stay, and SupportX keeps them from now on.",
+        "operationId": "remove_directory_api_v1_integrations_directories__directory_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Directory Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Remove a directory connector",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "get": {
+        "description": "One connector; its ETag is the version to send back.",
+        "operationId": "get_directory_api_v1_integrations_directories__directory_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Directory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "A directory connector",
+        "tags": [
+          "integrations"
+        ]
+      },
+      "put": {
+        "description": "If-Match: the version you read. Changing who is synced reads everyone again next run.",
+        "operationId": "update_directory_api_v1_integrations_directories__directory_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Directory Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Required. The ETag of the version you read, e.g. \"7\".",
+            "in": "header",
+            "name": "If-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Required. The ETag of the version you read, e.g. \"7\".",
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DirectoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Change a directory connector",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/directories/{directory_id}/groups": {
+      "get": {
+        "description": "Up to 25 groups whose name starts with `q`, asked of the directory with the sync app.",
+        "operationId": "find_groups_api_v1_integrations_directories__directory_id__groups_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Directory Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DirectoryGroupOut"
+                  },
+                  "title": "Response Find Groups Api V1 Integrations Directories  Directory Id  Groups Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Find directory groups by name",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/directories/{directory_id}/sync": {
+      "post": {
+        "description": "Runs within a minute instead of at its interval; the page updates live when it ends.",
+        "operationId": "sync_now_api_v1_integrations_directories__directory_id__sync_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "directory_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Directory Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_identity)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such directory (directory_not_found)."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Sync now",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
     "/api/v1/integrations/mailboxes": {
       "get": {
         "description": "Every mailbox with its state (the mail page, REQ-ADM-066 AC1).",
@@ -40576,7 +42415,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -40666,7 +42505,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -40771,7 +42610,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -40891,7 +42730,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -40935,6 +42774,100 @@
           }
         },
         "summary": "Change a mailbox",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/mailboxes/{mailbox_id}/sign-in": {
+      "post": {
+        "description": "Gmail, and Microsoft 365 with delegated permission. Valid ten minutes, for you only.",
+        "operationId": "start_sign_in_api_v1_integrations_mailboxes__mailbox_id__sign_in_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "mailbox_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Mailbox Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailboxSignInOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.manage_email)."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such mailbox (mailbox_not_found)."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Stale If-Match, or taken."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Start signing in as the mailbox (consent)",
         "tags": [
           "integrations"
         ]
@@ -40995,7 +42928,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41083,7 +43016,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41170,7 +43103,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41274,7 +43207,7 @@
                 }
               }
             },
-            "description": "Missing permission (mailboxes.manage)."
+            "description": "Missing permission (integrations.manage_email)."
           },
           "404": {
             "content": {
@@ -41318,6 +43251,88 @@
           }
         },
         "summary": "Hand a held message in again",
+        "tags": [
+          "integrations"
+        ]
+      }
+    },
+    "/api/v1/integrations/oauth/callback": {
+      "get": {
+        "description": "Stores the sign-in and returns to Admin > Mail, which shows the result.\n\nThe authorization code and state are never logged (see app.core.logging's query redaction).",
+        "operationId": "sign_in_callback_api_v1_integrations_oauth_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "",
+              "maxLength": 200,
+              "title": "State",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 4000,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Microsoft or Google sends the admin back here",
         "tags": [
           "integrations"
         ]
@@ -42693,6 +44708,58 @@
           }
         },
         "summary": "Notifications of a record",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/mail-status": {
+      "get": {
+        "description": "For staff who reply on records (any `*.reply` permission); others get 403.",
+        "operationId": "mail_status_api_v1_notifications_mail_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MailStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not staff (mail_status_staff_only)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Whether replies can go out by e-mail",
         "tags": [
           "notifications"
         ]

@@ -6,8 +6,8 @@ Each write, in one transaction with the work item's rules (service/work_items.py
    note needs `add_note` (followers with access have it, D-068); a reply, a public note or making
    a note public needs `reply`;
 2. the body is sanitised with the one allow-list (REQ-INC-064) and checked;
-3. the entry is saved; a reply is marked `not_sent` while no email channel exists (WP-024), so it
-   is never silently lost;
+3. the entry is saved; a reply waits (`waiting`, reason `mail_not_configured`) while no email
+   channel exists, or is queued for sending (WP-024), so it is never silently lost;
 4. the first response is stamped once, by the actions the tenant counts (REQ-INC-065);
 5. mentioned people who may see the record follow it; the others are reported back to the author
    and not notified (REQ-INC-063);
@@ -19,12 +19,13 @@ import re
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import tzinfo
+from datetime import UTC, datetime, tzinfo
 from typing import Any, Protocol
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import NotFound, PermissionDenied
 from app.modules.identity_access import Subject, authorize_stored, user_contacts
 from app.modules.work_items.domain.conversation import (
@@ -61,6 +62,7 @@ from app.modules.work_items.service.catalogue import load as load_catalogue
 from app.shared.db.repository import Repository
 from app.shared.events import record_event
 from app.shared.history import Change, Source, record_changes
+from app.shared.mail import mail_configured
 from app.shared.richtext import is_blank, sanitize_html
 
 TIMELINE_MAX = 500
@@ -94,13 +96,13 @@ class TemplateRepository(Repository[WorkItemReplyTemplate]):
 
 
 async def email_channel_configured(session: AsyncSession) -> bool:
-    """Whether outbound email can send replies. Not before WP-024 (the email channel).
+    """Whether outgoing mail is set up (WP-024): a reply is then queued, else it waits.
 
-    Until then every reply is saved and shown as "not sent: email channel not configured"
-    (never dropped, never pretending to be sent). WP-024 replaces this with its mailbox lookup.
+    The notification engine moves the reply on from there (sent, retrying, failed), so the
+    timeline never pretends a reply was sent (REQ-INC-059, REQ-INC-060).
     """
     del session
-    return False
+    return mail_configured(get_settings())
 
 
 # --- reading --------------------------------------------------------------------------------------
@@ -364,6 +366,7 @@ async def add_entry(  # noqa: PLR0913, C901, PLR0912 - the composer's fields and
             body=clean,
             recipients=recipients,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=first,
             mentioned_ids=mentioned,
@@ -438,10 +441,15 @@ async def add_requester_comment(  # noqa: PLR0913 - the comment and who sent it 
             body=clean,
             recipients=None,
             delivery_state=state,
+            delivery_updated_at=None if state is None else datetime.now(UTC),
             delivery_reason=reason,
             first_response=False,
             mentioned_ids=[],
             automatic=automatic,
+            # The author, also where no request sets app.user_id (the mail worker): the
+            # timeline names them and their files may go on their own reply (WP-024 s2).
+            created_by=author_id,
+            updated_by=author_id,
         )
     )
     await record_changes(

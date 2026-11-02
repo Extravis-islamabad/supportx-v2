@@ -478,6 +478,7 @@ export {
   type PeopleImport,
   type PersonFields,
   type PersonIn,
+  type PersonType,
   type Reactivation,
   type TechnicianScope,
 } from './people';
@@ -545,6 +546,7 @@ export {
   useMailboxes,
   useReleaseMail,
   useRemoveMailbox,
+  useStartMailboxSignIn,
   useTestMailbox,
   useUpdateMailbox,
   useWaitingMail,
@@ -555,4 +557,16 @@ export {
   type ReleasedMail,
   type WaitingMail,
 } from './mailboxes';
+export { useConnectorCatalogue, type ConnectorInstance, type ConnectorKind } from './connectors';
+export {
+  useCreateDirectory,
+  useDirectories,
+  useDirectoryGroups,
+  useRemoveDirectory,
+  useSyncDirectoryNow,
+  useUpdateDirectory,
+  type Directory,
+  type DirectoryGroup,
+  type DirectoryInput,
+} from './directories';
 export { useEventDelivery, type Readiness } from './system';

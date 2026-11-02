@@ -3,7 +3,8 @@
 The `integrations__mail_fetch` schedule runs every minute; each enabled mailbox is fetched when
 its `next_fetch_at` is due (every 2 minutes, Appendix A). Per mailbox:
 
-1. open the reader with the password unsealed from the key ring;
+1. open the reader (IMAP with the unsealed password; Graph or Gmail with an access token from the
+   customer's OAuth app, keeping a rotated refresh token);
 2. for each new message: `inbound.process` in its own tenant transaction, committed, and only
    then the message is marked read, moved or deleted on the server (REQ-ADM-067: never deleted
    unless the admin chose it; a crash in between finds it again and the ledger skips it);
@@ -21,62 +22,33 @@ from app.core.config import Settings
 from app.core.database import Database
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.integrations.domain.connector_health import RunCounts
 from app.modules.integrations.domain.mailboxes import (
+    AUTH_FAILURES,
+    CONNECTOR_KIND,
     POLL_SECONDS,
     AfterFetch,
-    ConnectionSecurity,
     MailboxState,
+    credential_warning_due,
 )
-from app.modules.integrations.events import MailboxChanged
-from app.modules.integrations.infra.imap import (
-    ImapReader,
-    ImapSettings,
-    MailboxReader,
-    MailboxUnavailableError,
+from app.modules.integrations.events import (
+    MailboxChanged,
+    MailboxCredentialExpiring,
 )
+from app.modules.integrations.infra.imap import MailboxReader, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox
-from app.modules.integrations.service.inbound import process
+from app.modules.integrations.service import identities, runs, secrets
+from app.modules.integrations.service.connections import (
+    Credentials,
+    key_ring,
+    open_reader,
+)
+from app.modules.integrations.service.inbound import flood_over, process
+from app.modules.integrations.service.secrets import SecretRole
 from app.shared.events import record_event
-from app.shared.files.keyring import KeyRing, KeyRingError
+from app.shared.files.keyring import KeyRing
 
 log = get_logger(__name__)
-SECRET_PURPOSE = "mailbox"  # noqa: S105 - the sealing context, not a password
-NOT_SET = "mailbox_no_password"
-UNREADABLE = "mailbox_secret_unreadable"
-
-
-def key_ring(settings: Settings) -> KeyRing | None:
-    """The installation key ring (the same as for files), or None when not configured."""
-    if settings.files_keys is None:
-        return None
-    return KeyRing.parse(settings.files_keys.get_secret_value())
-
-
-def seal_password(ring: KeyRing, tenant_id: uuid.UUID, password: str) -> tuple[str, bytes]:
-    """(key id, sealed bytes) to store on the mailbox; the password is never stored in clear."""
-    return ring.seal(tenant_id, SECRET_PURPOSE, password.encode())
-
-
-def reader_for(mailbox: Mailbox, ring: KeyRing) -> MailboxReader:
-    """The IMAP reader of a mailbox (Graph and Gmail readers come in session 2)."""
-    if mailbox.secret_key_id is None or mailbox.secret_sealed is None:
-        raise MailboxUnavailableError(NOT_SET)
-    try:
-        password = ring.unseal(
-            mailbox.tenant_id, SECRET_PURPOSE, mailbox.secret_key_id, mailbox.secret_sealed
-        ).decode()
-    except KeyRingError as exc:
-        raise MailboxUnavailableError(UNREADABLE) from exc
-    return ImapReader(
-        ImapSettings(
-            host=mailbox.host,
-            port=mailbox.port,
-            security=ConnectionSecurity(mailbox.security),
-            username=mailbox.username,
-            password=password,
-            folder=mailbox.folder,
-        )
-    )
 
 
 def own_addresses(settings: Settings, mailboxes: list[Mailbox]) -> tuple[str, ...]:
@@ -87,19 +59,36 @@ def own_addresses(settings: Settings, mailboxes: list[Mailbox]) -> tuple[str, ..
     return tuple(a.lower() for a in addresses)
 
 
-async def _set_state(
+async def _set_state(  # noqa: PLR0913 - one fetch's outcome, explicit
     session: AsyncSession,
     mailbox_id: uuid.UUID,
     state: MailboxState,
     reason: str | None,
     *,
     handled: int,
+    started_at: datetime | None = None,
 ) -> None:
     mailbox = await session.get(Mailbox, mailbox_id)
     if mailbox is None:
         return
     now = datetime.now(UTC)
     moved = (mailbox.state, mailbox.state_reason) != (state.value, reason)
+    # Every fetch is a connector run: its admins are told once when it turns failing (at once
+    # when the provider refused the credential, else after 3 failed runs) and once when it
+    # recovers (WP-040, REQ-INT-005; replaces the per-reason mailbox.failing notice).
+    await runs.record_run(
+        session,
+        CONNECTOR_KIND,
+        mailbox.id,
+        started_at=started_at or now,
+        counts=RunCounts(read=handled, created=handled),
+        error_code=reason if state is MailboxState.FAILING else None,
+        auth_failure=reason in AUTH_FAILURES,
+    )
+    if mailbox.flooding and await flood_over(session, mailbox.id):
+        # Back under the limit: the warning goes away by itself, live (held mail still waits).
+        mailbox.flooding = False
+        moved = True
     mailbox.state, mailbox.state_reason = state.value, reason
     mailbox.last_fetch_at = now
     mailbox.next_fetch_at = now + timedelta(seconds=POLL_SECONDS)
@@ -126,12 +115,32 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
         mailbox = await session.get(Mailbox, mailbox_id)
         if mailbox is None or not mailbox.enabled or mailbox.deleted_at is not None:
             return 0
+        # A mailbox from before WP-040 session 2 gets its service identity here.
+        await identities.ensure_identity(session, CONNECTOR_KIND, mailbox.id, name=mailbox.address)
         boxes = list(await session.scalars(select(Mailbox).where(Mailbox.deleted_at.is_(None))))
         ours = own_addresses(settings, boxes)
         after, move_to = AfterFetch(mailbox.after_fetch), mailbox.move_to
+        # Read here so a fallback to the old column is marked (degraded) in this transaction.
+        stored: Credentials | MailboxUnavailableError | None
+        try:
+            stored = await secrets.credentials(session, mailbox, ring) if reader is None else None
+        except MailboxUnavailableError as exc:
+            stored = exc
     handled = 0
+    started = datetime.now(UTC)
     try:
-        reader = reader or reader_for(mailbox, ring)
+        if isinstance(stored, MailboxUnavailableError):
+            raise stored
+        if reader is None:
+            opened = await open_reader(mailbox, ring, settings, stored=stored)
+            reader = opened.reader
+            if opened.new_refresh_token is not None:
+                async with database.tenant_session(TenantContext(tenant)) as session:
+                    live = await session.get(Mailbox, mailbox_id)
+                    if live is not None:
+                        await secrets.put(
+                            session, live, ring, SecretRole.REFRESH_TOKEN, opened.new_refresh_token
+                        )
         try:
             for fetched in await reader.new_messages():
                 async with database.tenant_session(TenantContext(tenant)) as session:
@@ -149,10 +158,19 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
     except MailboxUnavailableError as exc:
         log.warning("mailbox_fetch_failed", mailbox_id=str(mailbox_id), reason=exc.reason)
         async with database.tenant_session(TenantContext(tenant)) as session:
-            await _set_state(session, mailbox_id, MailboxState.FAILING, exc.reason, handled=handled)
+            await _set_state(
+                session,
+                mailbox_id,
+                MailboxState.FAILING,
+                exc.reason,
+                handled=handled,
+                started_at=started,
+            )
         return handled
     async with database.tenant_session(TenantContext(tenant)) as session:
-        await _set_state(session, mailbox_id, MailboxState.WORKING, None, handled=handled)
+        await _set_state(
+            session, mailbox_id, MailboxState.WORKING, None, handled=handled, started_at=started
+        )
     return handled
 
 
@@ -177,3 +195,31 @@ async def fetch_schedule(database: Database, settings: Settings) -> None:
             )
         for mailbox_id in due:
             await fetch_mailbox(database, settings, tenant, mailbox_id, ring=ring)
+        async with database.tenant_session(TenantContext(tenant)) as session:
+            await warn_expiring(session)
+
+
+async def warn_expiring(session: AsyncSession, now: datetime | None = None) -> int:
+    """Announce credentials that expire soon, once per expiry date (REQ-INT-050)."""
+    now = now or datetime.now(UTC)
+    rows = await session.scalars(
+        select(Mailbox).where(
+            Mailbox.deleted_at.is_(None), Mailbox.credential_expires_at.is_not(None)
+        )
+    )
+    warned = 0
+    for mailbox in rows:
+        expires = mailbox.credential_expires_at
+        if expires is None or not credential_warning_due(
+            expires, mailbox.credential_warned_at, now
+        ):
+            continue
+        mailbox.credential_warned_at = now
+        await record_event(
+            session,
+            MailboxCredentialExpiring(mailbox_id=mailbox.id, expires_at=expires),
+            aggregate_id=mailbox.id,
+            aggregate_version=mailbox.version,
+        )
+        warned += 1
+    return warned

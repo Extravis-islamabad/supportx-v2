@@ -97,6 +97,24 @@ describe('Admin › People', () => {
     });
   });
 
+  it('WP-040: a person the directory keeps shows it, with its fields read-only', async () => {
+    routes({
+      'GET /api/v1/users/u-9': {
+        body: { ...BILAL, directory_source: 'entra' },
+        headers: { ETag: '"4"' },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByText('Bilal Saleh'));
+    expect((await screen.findByTestId('person-managed')).textContent).toContain(
+      'Managed by the directory',
+    );
+    const form = screen.getByTestId('person-form');
+    expect(within(form).getByTestId('person-first-name').hasAttribute('disabled')).toBe(true);
+    expect(within(form).getByTestId('person-email').hasAttribute('disabled')).toBe(true);
+    expect(within(form).getByTestId('person-vip').hasAttribute('disabled')).toBe(false);
+  });
+
   it('an open person keeps its version: a save elsewhere is said, saving shows the conflict', async () => {
     let current = BILAL;
     const fake = routes({

@@ -8,6 +8,8 @@ import type { UserDetail } from './users';
 
 export type PersonIn = components['schemas']['PersonIn'];
 export type PersonFields = components['schemas']['PersonFields'];
+/** What a person can be made (never `service`: a connector's own identity, WP-040). */
+export type PersonType = components['schemas']['PersonType'];
 export type PeopleImport = components['schemas']['ImportOut'];
 export type ImportProblem = components['schemas']['ImportProblem'];
 export type AccessSettings = components['schemas']['AccessSettingsOut'];
@@ -61,7 +63,7 @@ export function usePersonChange() {
     }: {
       id: string;
       version: number;
-      userType: UserDetail['user_type'];
+      userType: PersonType;
     }) =>
       call(
         api.PUT('/api/v1/users/{user_id}/type', {

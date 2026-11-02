@@ -102,6 +102,22 @@ export function useTestMailbox() {
   });
 }
 
+/**
+ * Start signing in as the mailbox (Gmail; Microsoft 365 with delegated permission): the address
+ * of Microsoft's or Google's sign-in page, valid ten minutes for this admin. The provider sends
+ * the browser back to Admin › Mail with `?sign_in=ok` or a reason code.
+ */
+export function useStartMailboxSignIn() {
+  return useMutation({
+    mutationFn: ({ id }: { id: string }) =>
+      call(
+        api.POST('/api/v1/integrations/mailboxes/{mailbox_id}/sign-in', {
+          params: { path: { mailbox_id: id } },
+        }),
+      ),
+  });
+}
+
 /** The mailbox's review queue: held mail is never invisible (D-109). */
 export function useWaitingMail(mailboxId: string | null) {
   return useQuery({

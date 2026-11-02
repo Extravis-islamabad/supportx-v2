@@ -8,7 +8,7 @@ date at every start and finish of a work package. Rules: see "Coordination rules
 | Lane | Area | Current WP | Branch | Worktree | Claimed migration | Claimed decisions |
 |---|---|---|---|---|---|---|
 | A | Incidents chain (WP-021 fix → WP-029 rules → WP-020f → WP-020d/e → WP-025 SLA) | WP-020f merged (#100, #105, #107), 0034 fix (#116), entry points (#110), list format (this PR); WP-020d merged (#114); WP-020e (#120) waits for the move; WP-020f QA fix round built (0040); WP-025 plan next | `feat/wp-020e`, `fix/wp-020f-qa` | main folder (`supportx-v2`) | 0034, 0038 (merged); 0039 (WP-020e), 0040 (WP-020f QA fix) | D-105, D-107, D-111, D-112, D-113; ADR-035 |
-| B | Identity, mail, notifications | Worker resilience #102 and WP-039-FIX #104 (CI, then merge); WP-024 email channel session 1 in progress (mailboxes, IMAP fetch, mail page, threading; waits on lane A's #105 for the incident side) | `fix/worker-resilience`, `fix/wp-039-qa`, `feat/wp-024-email` | `../supportx-v2-resil`, `../supportx-v2-w39fix`, `../supportx-v2-mail` | 0024, 0026, 0032, 0033 (merged); WP-024 next free after lane C's 0035 | D-098, D-099, D-103, D-104, D-106 |
+| B | Identity, mail, notifications, CI | WP-040: session 1 and service identities on #150; Entra sync on `feat/wp-040-entra` (0053); AD/LDAP federation next. Queue: nightly triage, QA round, WP-013, WP-014b, WP-014c, WP-037 AI gateway, WP-038 AI on incidents (plan to the coordinator first; lane A reviews the incident-screen parts); WP-024 sessions 2 and 3 #133 and #134 (queue after lane A's #142); #130 org move, #113, #131, #132 | `feat/wp-040-connectors`, `feat/wp-040-entra`, `feat/wp-024-graph-gmail`, `feat/wp-024-outgoing`, `chore/org-move` | `../supportx-v2-wp040`, `../supportx-v2-w24s2`, `../supportx-v2-w24s3`, `../supportx-v2-ci2` | 0024, 0026, 0032, 0033, 0037 (merged); 0042 mailbox OAuth, 0043 reply delivery, 0045 connector secrets, 0049 connector runs, 0052 service identities (after lane A's 0044 and 0047 and lane C's 0046, 0048, 0050 and 0051; down_revision re-pointed when queued), 0053 directory sync | D-098, D-099, D-103, D-104, D-106, D-109, D-116, D-118 |
 | C | Reports, dashboards and knowledge (knowledge moved from lane B, D-108) | WP-036 merged (#106), free grid #115; WP-033 knowledge session 1 PR open, sessions 2-4 next | `feat/wp-033-knowledge` | `../supportx-v2-lanec` (also `../supportx-v2-lanec2`) | 0027, 0029, 0031, 0035 (merged), 0036 knowledge (lane A's WP-020d also wants 0036: second to merge renumbers) | D-100, D-101, D-108, D-110; ADR-033, ADR-034 |
 
 Next free decision on the latest main at commit time; on a clash the later lane renumbers.
@@ -35,7 +35,9 @@ stopped unless the lock holder needs it.
 3. Migrations: one Alembic head always. Before opening a PR, merge the latest main and renumber
    your migration after the current head.
 4. Decision numbers: the next free number on the latest main at commit time; on a conflict,
-   renumber yours.
+   renumber yours. Each decision is a new file `docs/decisions/D-NNN.md` and each session-log
+   entry a new file in `docs/progress-log/` (D-123); never add rows to `DECISIONS.md` or entries
+   to `PROGRESS.md`'s session log.
 5. Shared dev stack: one lane at a time runs QA or restarts shared services (the lock above).
    Unit and database tests (Testcontainers) need no lock.
 6. Keep k3d stopped unless you hold the lock and need it; stop it afterwards. No heavy test suites

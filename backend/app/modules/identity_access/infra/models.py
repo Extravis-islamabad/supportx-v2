@@ -45,7 +45,20 @@ class User(TenantEntity):
         UniqueConstraint("tenant_id", "id", name="uq_users_tenant_id_id"),
         CheckConstraint("locale IN ('en', 'ar', 'ur')", name="locale_code"),
         CheckConstraint("status IN ('active', 'disabled')", name="status_code"),
-        CheckConstraint("user_type IN ('technician', 'requester')", name="user_type_code"),
+        CheckConstraint(
+            "user_type IN ('technician', 'requester', 'service')", name="user_type_code"
+        ),
+        # A service identity (WP-040) has no account to sign in with, and no address to link one.
+        CheckConstraint(
+            "user_type <> 'service' OR (external_subject IS NULL AND email IS NULL"
+            " AND NOT can_sign_in)",
+            name="service_no_sign_in",
+        ),
+        # Synced from a directory (WP-040 session 2): its fields are the directory's to change.
+        CheckConstraint(
+            "directory_source IS NULL OR directory_source IN ('entra', 'ldap')",
+            name="directory_source_code",
+        ),
         CheckConstraint("char_length(signature) <= 2000", name="signature_length"),
         CheckConstraint("nav_layout IN ('top', 'side', 'side_compact')", name="nav_layout_code"),
         CheckConstraint("form_density IN ('comfortable', 'compact')", name="form_density_code"),
@@ -120,6 +133,8 @@ class User(TenantEntity):
     ui_locale: Mapped[str | None]
     # When the Keycloak roles were mapped to SupportX roles (once, D-029); NULL = not yet.
     roles_mapped_at: Mapped[datetime | None]
+    # Which directory keeps this person (entra | ldap); NULL: SupportX does (WP-040 session 2).
+    directory_source: Mapped[str | None] = mapped_column(String(20))
     # The person record (WP-021, REQ-ADM-002): owned by SupportX from then on (D-092).
     employee_id: Mapped[str | None] = mapped_column(String(50))
     job_title: Mapped[str | None] = mapped_column(String(200))

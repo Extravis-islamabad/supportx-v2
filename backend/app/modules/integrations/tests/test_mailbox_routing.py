@@ -88,3 +88,9 @@ def test_plain_connections_need_the_admins_say_so() -> None:
     ]
     assert check_security(ConnectionSecurity.NONE, allow_plain=True) == []
     assert check_security(ConnectionSecurity.TLS, allow_plain=False) == []
+
+
+def test_flood_replies_count_towards_the_limit_and_are_held() -> None:
+    """Product owner, 2026-10-29: replies count towards the flood limit, per sender."""
+    assert _route(answers_record=True, recent_from_sender=PER_SENDER_LIMIT) is Outcome.HELD
+    assert _route(answers_record=True, recent_from_sender=PER_SENDER_LIMIT - 1) is Outcome.REPLIED

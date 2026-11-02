@@ -71,9 +71,13 @@ class ConversationEntryOut(BaseModel):
     body: str = Field(description="Sanitised rich text (HTML).")
     recipients: RecipientsOut | None
     delivery_state: DeliveryState | None = Field(
-        description="Replies only. not_sent: saved, but nothing could send it (see the reason)."
+        description=(
+            "Replies only: waiting (mail not set up), queued, retrying, sent or failed (see the"
+            " reason; a failed reply can be resent). not_sent is legacy."
+        )
     )
     delivery_reason: DeliveryReason | None
+    delivery_updated_at: datetime | None = Field(description="When the delivery state last moved.")
     first_response: bool = Field(description="This entry stamped the first response.")
     mentioned_ids: list[uuid.UUID]
     automatic: bool = Field(description="An automatic reply that came in, such as out-of-office.")
@@ -97,6 +101,7 @@ class ConversationEntryOut(BaseModel):
             delivery_reason=None
             if row.delivery_reason is None
             else DeliveryReason(row.delivery_reason),
+            delivery_updated_at=row.delivery_updated_at,
             first_response=row.first_response,
             mentioned_ids=list(row.mentioned_ids),
             automatic=row.automatic,
@@ -383,7 +388,8 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
     ) -> Response:
         """A private note needs add_note; a reply or public note needs reply.
 
-        Replies are saved and marked not_sent until an email channel exists (never dropped).
+        Replies are saved and wait (mail_not_configured) until an email channel exists, then are
+        queued for sending (never dropped).
         Send an Idempotency-Key: a retried request returns the same 201.
         """
 
