@@ -3519,7 +3519,9 @@ export interface paths {
         };
         /**
          * Articles
-         * @description Published articles you may read, or the drafts you may work on; searchable.
+         * @description Published articles you may read, or the drafts you may work on; searchable (REQ-KB-053).
+         *
+         *     A search returns a highlighted snippet per row.
          */
         get: operations["list_articles_api_v1_knowledge_articles_get"];
         put?: never;
@@ -3830,6 +3832,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/knowledge/articles/{article_id}/vote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Say whether an article helped
+         * @description One vote per person and version; voting again changes it (REQ-KB-069 AC2).
+         */
+        put: operations["save_vote_api_v1_knowledge_articles__article_id__vote_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/articles/{article_id}/votes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How helpful an article was
+         * @description For those who may change or approve the article; never requesters.
+         */
+        get: operations["article_votes_api_v1_knowledge_articles__article_id__votes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/knowledge/articles/{article_id}/withdraw": {
         parameters: {
             query?: never;
@@ -3844,6 +3886,46 @@ export interface paths {
          * @description Off every reader path at once; approving a new version brings it back.
          */
         post: operations["withdraw_article_api_v1_knowledge_articles__article_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/portal/home": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The portal's knowledge lists
+         * @description Recently updated, popular and featured articles you may read (REQ-KB-081).
+         */
+        get: operations["portal_home_api_v1_knowledge_portal_home_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/knowledge/portal/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Topics for the portal
+         * @description Only topics holding an article you may read (REQ-KB-081 AC1).
+         */
+        get: operations["portal_topics_api_v1_knowledge_portal_topics_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3892,6 +3974,26 @@ export interface paths {
          * @description Needs `knowledge.manage_settings`.
          */
         patch: operations["patch_settings_api_v1_knowledge_settings_patch"];
+        trace?: never;
+    };
+    "/api/v1/knowledge/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Articles that may answer a text
+         * @description Published articles you may read that match any word, best first (REQ-KB-062).
+         */
+        get: operations["suggestions_api_v1_knowledge_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/knowledge/topics": {
@@ -6290,6 +6392,11 @@ export interface components {
             /** Expires On */
             expires_on: string | null;
             /**
+             * Featured
+             * @default false
+             */
+            featured: boolean;
+            /**
              * Id
              * Format: uuid
              */
@@ -6341,6 +6448,11 @@ export interface components {
         ArticlePatch: {
             /** Expires On */
             expires_on?: string | null;
+            /**
+             * Featured
+             * @description Featured in the portal (D-125).
+             */
+            featured?: boolean | null;
             /** Own Audience */
             own_audience?: boolean | null;
             /** Owner Id */
@@ -6363,6 +6475,89 @@ export interface components {
             topic_id?: string | null;
             /** Type Code */
             type_code?: string | null;
+        };
+        /**
+         * ArticleReadOut
+         * @description The article as you read it, with your own vote on it.
+         */
+        ArticleReadOut: {
+            /** Audience */
+            audience: {
+                [key: string]: unknown;
+            };
+            /** Can Approve */
+            can_approve: boolean;
+            /** Can Edit */
+            can_edit: boolean;
+            /** Can Withdraw */
+            can_withdraw: boolean;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Default Language */
+            default_language: string;
+            /** Display Id */
+            display_id: string;
+            /** Drafts */
+            drafts: {
+                [key: string]: components["schemas"]["VersionOut"];
+            };
+            /** Expired */
+            expired: boolean;
+            /** Expires On */
+            expires_on: string | null;
+            /**
+             * Featured
+             * @default false
+             */
+            featured: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            my_vote?: components["schemas"]["VoteOut"] | null;
+            /**
+             * Owner Id
+             * Format: uuid
+             */
+            owner_id: string;
+            /**
+             * Owner Name
+             * @description The owner's display name.
+             */
+            owner_name?: string | null;
+            /** Published */
+            published: {
+                [key: string]: components["schemas"]["VersionOut"];
+            };
+            /** Review Due */
+            review_due: boolean;
+            /** Review On */
+            review_on: string | null;
+            /**
+             * Topic Id
+             * Format: uuid
+             */
+            topic_id: string;
+            /** Type Code */
+            type_code: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** Withdrawn */
+            withdrawn: boolean;
+            /**
+             * Withdrawn Reason
+             * @description For editors and withdrawers only.
+             */
+            withdrawn_reason: string | null;
         };
         /**
          * ArticleRowOut
@@ -6393,6 +6588,8 @@ export interface components {
             review_due: boolean;
             /** Review On */
             review_on: string | null;
+            /** Snippet */
+            snippet?: components["schemas"]["SnippetOut"][];
             /** Status */
             status: string;
             /** Title */
@@ -8445,6 +8642,25 @@ export interface components {
              * @description Refetch after this many seconds (a window starts or ends); null: no timer.
              */
             next_change_in_seconds: number | null;
+        };
+        /**
+         * FeedbackOut
+         * @description A "not helpful" with what the reader said; never who.
+         */
+        FeedbackOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Comment */
+            comment: string | null;
+            /** Language */
+            language: string;
+            /** Reason */
+            reason: string | null;
+            /** Version Number */
+            version_number: number;
         };
         /**
          * FieldChangeOut
@@ -10608,6 +10824,37 @@ export interface components {
             y: number;
         };
         /**
+         * PortalHomeOut
+         * @description The portal's knowledge lists.
+         */
+        PortalHomeOut: {
+            /** Featured */
+            featured: components["schemas"]["ArticleRowOut"][];
+            /** Popular */
+            popular: components["schemas"]["ArticleRowOut"][];
+            /** Recent */
+            recent: components["schemas"]["ArticleRowOut"][];
+        };
+        /**
+         * PortalTopicOut
+         * @description A topic with articles you may read, and how many.
+         */
+        PortalTopicOut: {
+            /** Articles */
+            articles: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Names */
+            names: {
+                [key: string]: string;
+            };
+            /** Parent Id */
+            parent_id: string | null;
+        };
+        /**
          * Priority
          * @description P1 is the highest.
          * @enum {string}
@@ -12016,6 +12263,20 @@ export interface components {
             } | null;
         };
         /**
+         * ScoresOut
+         * @description The current versions' score, every version's, and the feedback (REQ-KB-069 AC3).
+         */
+        ScoresOut: {
+            /** Feedback */
+            feedback: components["schemas"]["FeedbackOut"][];
+            /** Helpful */
+            helpful: number;
+            /** Not Helpful */
+            not_helpful: number;
+            /** Versions */
+            versions: components["schemas"]["VersionScoreOut"][];
+        };
+        /**
          * SecretOut
          * @description What may be said about the stored secret: never its value.
          */
@@ -12793,6 +13054,16 @@ export interface components {
              * @description 0 = Monday ... 6 = Sunday.
              */
             weekday: number;
+        };
+        /**
+         * SnippetOut
+         * @description A run of a search snippet: text, and whether it is a searched word (shown marked).
+         */
+        SnippetOut: {
+            /** Mark */
+            mark: boolean;
+            /** Text */
+            text: string;
         };
         /**
          * SsoBody
@@ -13960,6 +14231,25 @@ export interface components {
             version: number;
         };
         /**
+         * VersionScoreOut
+         * @description Helpful and not helpful for one version.
+         */
+        VersionScoreOut: {
+            /** Helpful */
+            helpful: number;
+            /** Language */
+            language: string;
+            /** Not Helpful */
+            not_helpful: number;
+            /** Number */
+            number: number;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+        };
+        /**
          * ViewFilterOut
          * @description A built-in view as a filter, for what takes a filter and not a view (the export).
          */
@@ -13997,6 +14287,49 @@ export interface components {
          */
         VisibilityIn: {
             visibility: components["schemas"]["Visibility"];
+        };
+        /**
+         * VoteIn
+         * @description Whether the version you read helped; a "no" may say why (REQ-KB-069).
+         */
+        VoteIn: {
+            /** Comment */
+            comment?: string | null;
+            /** Helpful */
+            helpful: boolean;
+            /**
+             * Reason
+             * @description Only with helpful=false.
+             */
+            reason?: ("steps_did_not_work" | "out_of_date" | "hard_to_follow" | "not_what_i_needed" | "other") | null;
+            /**
+             * Version Id
+             * Format: uuid
+             * @description The published version you read.
+             */
+            version_id: string;
+        };
+        /**
+         * VoteOut
+         * @description Your vote.
+         */
+        VoteOut: {
+            /** Comment */
+            comment: string | null;
+            /** Helpful */
+            helpful: boolean;
+            /** Reason */
+            reason: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
         };
         /**
          * WaitingIn
@@ -30888,6 +31221,13 @@ export interface operations {
                 owner_id?: string | null;
                 /** @description Only versions in this language. */
                 only_language?: ("en" | "ar") | null;
+                /** @description Readable by some requesters, or by staff only. */
+                audience?: ("requesters" | "staff_only") | null;
+                updated_from?: string | null;
+                updated_to?: string | null;
+                featured?: boolean | null;
+                /** @description `popular`: helpful votes and record links of the last 90 days. */
+                order?: "recent" | "popular";
             };
             header?: never;
             path?: never;
@@ -31112,7 +31452,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ArticleOut"];
+                    "application/json": components["schemas"]["ArticleReadOut"];
                 };
             };
             /** @description Not signed in. */
@@ -32376,6 +32716,144 @@ export interface operations {
             };
         };
     };
+    save_vote_api_v1_knowledge_articles__article_id__vote_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VoteOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    article_votes_api_v1_knowledge_articles__article_id__votes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                article_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScoresOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
     withdraw_article_api_v1_knowledge_articles__article_id__withdraw_post: {
         parameters: {
             query?: never;
@@ -32446,6 +32924,130 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    portal_home_api_v1_knowledge_portal_home_get: {
+        parameters: {
+            query?: {
+                language?: "en" | "ar";
+                topic_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalHomeOut"];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    portal_topics_api_v1_knowledge_portal_topics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortalTopicOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */
@@ -32637,6 +33239,76 @@ export interface operations {
             };
             /** @description Stale If-Match. */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    suggestions_api_v1_knowledge_suggestions_get: {
+        parameters: {
+            query: {
+                /** @description Subject and description so far. */
+                text: string;
+                language?: "en" | "ar";
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ArticleRowOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission or licence feature. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description No such topic or article visible to you. */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

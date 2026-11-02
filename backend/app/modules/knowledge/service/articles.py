@@ -765,17 +765,25 @@ def _narrowing(given: ListFilters) -> list[ColumnElement[bool]]:
     )
     staff_only = requesters == RequesterAudience.NONE.value
     updated = func.date(KbArticle.updated_at)
-    candidates: list[tuple[object, ColumnElement[bool]]] = [
-        (given.topic_id, KbArticle.topic_id == given.topic_id),
-        (given.type_code, KbArticle.type_code == given.type_code),
-        (given.owner_id, KbArticle.owner_id == given.owner_id),
-        (given.only_language, KbArticleVersion.language == given.only_language),
-        (given.audience, staff_only if given.audience == "staff_only" else ~staff_only),
-        (given.updated_from, updated >= given.updated_from),
-        (given.updated_to, updated <= given.updated_to),
-        (given.featured, KbArticle.featured.is_(bool(given.featured))),
-    ]
-    return [condition for value, condition in candidates if value is not None]
+    # Built only for the filters given: comparing a column with None is an error in SQLAlchemy.
+    conditions: list[ColumnElement[bool]] = []
+    if given.topic_id is not None:
+        conditions.append(KbArticle.topic_id == given.topic_id)
+    if given.type_code is not None:
+        conditions.append(KbArticle.type_code == given.type_code)
+    if given.owner_id is not None:
+        conditions.append(KbArticle.owner_id == given.owner_id)
+    if given.only_language is not None:
+        conditions.append(KbArticleVersion.language == given.only_language)
+    if given.audience is not None:
+        conditions.append(staff_only if given.audience == "staff_only" else ~staff_only)
+    if given.updated_from is not None:
+        conditions.append(updated >= given.updated_from)
+    if given.updated_to is not None:
+        conditions.append(updated <= given.updated_to)
+    if given.featured is not None:
+        conditions.append(KbArticle.featured.is_(given.featured))
+    return conditions
 
 
 def _popularity() -> Subquery:

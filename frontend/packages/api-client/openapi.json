@@ -1313,6 +1313,11 @@
             ],
             "title": "Expires On"
           },
+          "featured": {
+            "default": false,
+            "title": "Featured",
+            "type": "boolean"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1434,6 +1439,18 @@
               }
             ],
             "title": "Expires On"
+          },
+          "featured": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Featured in the portal (D-125).",
+            "title": "Featured"
           },
           "own_audience": {
             "anyOf": [
@@ -1589,6 +1606,183 @@
         "title": "ArticlePatch",
         "type": "object"
       },
+      "ArticleReadOut": {
+        "description": "The article as you read it, with your own vote on it.",
+        "properties": {
+          "audience": {
+            "additionalProperties": true,
+            "title": "Audience",
+            "type": "object"
+          },
+          "can_approve": {
+            "title": "Can Approve",
+            "type": "boolean"
+          },
+          "can_edit": {
+            "title": "Can Edit",
+            "type": "boolean"
+          },
+          "can_withdraw": {
+            "title": "Can Withdraw",
+            "type": "boolean"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "default_language": {
+            "title": "Default Language",
+            "type": "string"
+          },
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "drafts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VersionOut"
+            },
+            "title": "Drafts",
+            "type": "object"
+          },
+          "expired": {
+            "title": "Expired",
+            "type": "boolean"
+          },
+          "expires_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires On"
+          },
+          "featured": {
+            "default": false,
+            "title": "Featured",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "my_vote": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VoteOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "owner_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The owner's display name.",
+            "title": "Owner Name"
+          },
+          "published": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/VersionOut"
+            },
+            "title": "Published",
+            "type": "object"
+          },
+          "review_due": {
+            "title": "Review Due",
+            "type": "boolean"
+          },
+          "review_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review On"
+          },
+          "topic_id": {
+            "format": "uuid",
+            "title": "Topic Id",
+            "type": "string"
+          },
+          "type_code": {
+            "title": "Type Code",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "withdrawn": {
+            "title": "Withdrawn",
+            "type": "boolean"
+          },
+          "withdrawn_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For editors and withdrawers only.",
+            "title": "Withdrawn Reason"
+          }
+        },
+        "required": [
+          "id",
+          "display_id",
+          "topic_id",
+          "type_code",
+          "owner_id",
+          "default_language",
+          "audience",
+          "review_on",
+          "expires_on",
+          "expired",
+          "review_due",
+          "withdrawn",
+          "withdrawn_reason",
+          "published",
+          "drafts",
+          "can_edit",
+          "can_approve",
+          "can_withdraw",
+          "version",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ArticleReadOut",
+        "type": "object"
+      },
       "ArticleRowOut": {
         "description": "One line of the knowledge list.",
         "properties": {
@@ -1652,6 +1846,13 @@
               }
             ],
             "title": "Review On"
+          },
+          "snippet": {
+            "items": {
+              "$ref": "#/components/schemas/SnippetOut"
+            },
+            "title": "Snippet",
+            "type": "array"
           },
           "status": {
             "title": "Status",
@@ -6976,6 +7177,55 @@
           "next_change_in_seconds"
         ],
         "title": "FeedOut",
+        "type": "object"
+      },
+      "FeedbackOut": {
+        "description": "A \"not helpful\" with what the reader said; never who.",
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "version_number": {
+            "title": "Version Number",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version_number",
+          "language",
+          "reason",
+          "comment",
+          "at"
+        ],
+        "title": "FeedbackOut",
         "type": "object"
       },
       "FieldChangeOut": {
@@ -12337,6 +12587,80 @@
         "title": "Placement",
         "type": "object"
       },
+      "PortalHomeOut": {
+        "description": "The portal's knowledge lists.",
+        "properties": {
+          "featured": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleRowOut"
+            },
+            "title": "Featured",
+            "type": "array"
+          },
+          "popular": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleRowOut"
+            },
+            "title": "Popular",
+            "type": "array"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/ArticleRowOut"
+            },
+            "title": "Recent",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recent",
+          "popular",
+          "featured"
+        ],
+        "title": "PortalHomeOut",
+        "type": "object"
+      },
+      "PortalTopicOut": {
+        "description": "A topic with articles you may read, and how many.",
+        "properties": {
+          "articles": {
+            "title": "Articles",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "names": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "object"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          }
+        },
+        "required": [
+          "id",
+          "parent_id",
+          "names",
+          "articles"
+        ],
+        "title": "PortalTopicOut",
+        "type": "object"
+      },
       "Priority": {
         "description": "P1 is the highest.",
         "enum": [
@@ -15873,6 +16197,41 @@
         "title": "ScaleValuePatch",
         "type": "object"
       },
+      "ScoresOut": {
+        "description": "The current versions' score, every version's, and the feedback (REQ-KB-069 AC3).",
+        "properties": {
+          "feedback": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackOut"
+            },
+            "title": "Feedback",
+            "type": "array"
+          },
+          "helpful": {
+            "title": "Helpful",
+            "type": "integer"
+          },
+          "not_helpful": {
+            "title": "Not Helpful",
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionScoreOut"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "helpful",
+          "not_helpful",
+          "versions",
+          "feedback"
+        ],
+        "title": "ScoresOut",
+        "type": "object"
+      },
       "SecretOut": {
         "description": "What may be said about the stored secret: never its value.",
         "properties": {
@@ -17914,6 +18273,25 @@
           "end"
         ],
         "title": "SlaWorkingPeriod",
+        "type": "object"
+      },
+      "SnippetOut": {
+        "description": "A run of a search snippet: text, and whether it is a searched word (shown marked).",
+        "properties": {
+          "mark": {
+            "title": "Mark",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "mark"
+        ],
+        "title": "SnippetOut",
         "type": "object"
       },
       "SsoBody": {
@@ -21001,6 +21379,41 @@
         "title": "VersionOut",
         "type": "object"
       },
+      "VersionScoreOut": {
+        "description": "Helpful and not helpful for one version.",
+        "properties": {
+          "helpful": {
+            "title": "Helpful",
+            "type": "integer"
+          },
+          "language": {
+            "title": "Language",
+            "type": "string"
+          },
+          "not_helpful": {
+            "title": "Not Helpful",
+            "type": "integer"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "language",
+          "number",
+          "helpful",
+          "not_helpful"
+        ],
+        "title": "VersionScoreOut",
+        "type": "object"
+      },
       "ViewFilterOut": {
         "description": "A built-in view as a filter, for what takes a filter and not a view (the export).",
         "properties": {
@@ -21066,6 +21479,109 @@
           "visibility"
         ],
         "title": "VisibilityIn",
+        "type": "object"
+      },
+      "VoteIn": {
+        "additionalProperties": false,
+        "description": "Whether the version you read helped; a \"no\" may say why (REQ-KB-069).",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "helpful": {
+            "title": "Helpful",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "steps_did_not_work",
+                  "out_of_date",
+                  "hard_to_follow",
+                  "not_what_i_needed",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only with helpful=false.",
+            "title": "Reason"
+          },
+          "version_id": {
+            "description": "The published version you read.",
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "helpful"
+        ],
+        "title": "VoteIn",
+        "type": "object"
+      },
+      "VoteOut": {
+        "description": "Your vote.",
+        "properties": {
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "helpful": {
+            "title": "Helpful",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "helpful",
+          "reason",
+          "comment",
+          "updated_at"
+        ],
+        "title": "VoteOut",
         "type": "object"
       },
       "WaitingIn": {
@@ -46275,7 +46791,7 @@
     },
     "/api/v1/knowledge/articles": {
       "get": {
-        "description": "Published articles you may read, or the drafts you may work on; searchable.",
+        "description": "Published articles you may read, or the drafts you may work on; searchable (REQ-KB-053).\n\nA search returns a highlighted snippet per row.",
         "operationId": "list_articles_api_v1_knowledge_articles_get",
         "parameters": [
           {
@@ -46418,6 +46934,94 @@
               ],
               "description": "Only versions in this language.",
               "title": "Only Language"
+            }
+          },
+          {
+            "description": "Readable by some requesters, or by staff only.",
+            "in": "query",
+            "name": "audience",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "requesters",
+                    "staff_only"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Readable by some requesters, or by staff only.",
+              "title": "Audience"
+            }
+          },
+          {
+            "in": "query",
+            "name": "updated_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "updated_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Updated To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "featured",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Featured"
+            }
+          },
+          {
+            "description": "`popular`: helpful votes and record links of the last 90 days.",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "recent",
+              "description": "`popular`: helpful votes and record links of the last 90 days.",
+              "enum": [
+                "recent",
+                "popular"
+              ],
+              "title": "Order",
+              "type": "string"
             }
           }
         ],
@@ -46819,7 +47423,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ArticleOut"
+                  "$ref": "#/components/schemas/ArticleReadOut"
                 }
               }
             },
@@ -48555,6 +49159,184 @@
         ]
       }
     },
+    "/api/v1/knowledge/articles/{article_id}/vote": {
+      "put": {
+        "description": "One vote per person and version; voting again changes it (REQ-KB-069 AC2).",
+        "operationId": "save_vote_api_v1_knowledge_articles__article_id__vote_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Say whether an article helped",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/articles/{article_id}/votes": {
+      "get": {
+        "description": "For those who may change or approve the article; never requesters.",
+        "operationId": "article_votes_api_v1_knowledge_articles__article_id__votes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "article_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Article Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScoresOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "How helpful an article was",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
     "/api/v1/knowledge/articles/{article_id}/withdraw": {
       "post": {
         "description": "Off every reader path at once; approving a new version brings it back.",
@@ -48672,6 +49454,177 @@
           }
         },
         "summary": "Withdraw",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/portal/home": {
+      "get": {
+        "description": "Recently updated, popular and featured articles you may read (REQ-KB-081).",
+        "operationId": "portal_home_api_v1_knowledge_portal_home_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "en",
+                "ar"
+              ],
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "topic_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Topic Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalHomeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "The portal's knowledge lists",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/portal/topics": {
+      "get": {
+        "description": "Only topics holding an article you may read (REQ-KB-081 AC1).",
+        "operationId": "portal_topics_api_v1_knowledge_portal_topics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PortalTopicOut"
+                  },
+                  "title": "Response Portal Topics Api V1 Knowledge Portal Topics Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Topics for the portal",
         "tags": [
           "knowledge"
         ]
@@ -48938,6 +49891,122 @@
           }
         },
         "summary": "Change knowledge settings",
+        "tags": [
+          "knowledge"
+        ]
+      }
+    },
+    "/api/v1/knowledge/suggestions": {
+      "get": {
+        "description": "Published articles you may read that match any word, best first (REQ-KB-062).",
+        "operationId": "suggestions_api_v1_knowledge_suggestions_get",
+        "parameters": [
+          {
+            "description": "Subject and description so far.",
+            "in": "query",
+            "name": "text",
+            "required": true,
+            "schema": {
+              "description": "Subject and description so far.",
+              "maxLength": 2000,
+              "title": "Text",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "language",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "en",
+                "ar"
+              ],
+              "title": "Language",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 10,
+              "minimum": 3,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ArticleRowOut"
+                  },
+                  "title": "Response Suggestions Api V1 Knowledge Suggestions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission or licence feature."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "No such topic or article visible to you."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Articles that may answer a text",
         "tags": [
           "knowledge"
         ]

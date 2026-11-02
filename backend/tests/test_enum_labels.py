@@ -76,6 +76,7 @@ ENUM_PREFIXES: dict[str, str] = {
     "ArticlePatch.requesters": "kb_requesters",
     "TopicIn.requesters": "kb_requesters",
     "TopicPatch.requesters": "kb_requesters",
+    "VoteIn.reason": "kb_vote_reason",
     # Knowledge on incidents (WP-033 session 4)
     "ApplyIn.audience": "kb_apply_audience",
     "ApplyIn.language": "locale",

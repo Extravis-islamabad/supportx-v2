@@ -19,8 +19,15 @@ from app.core.errors import ProblemDetail
 from app.modules.audit import audited
 from app.modules.identity_access import Subject, user_names
 from app.modules.knowledge.domain.knowledge import ID_PREFIX
-from app.modules.knowledge.infra.models import KbArticleVersion, KbSettings, KbTopic, KbType
-from app.modules.knowledge.service import articles, review, topics
+from app.modules.knowledge.infra.models import (
+    VOTE_REASONS,
+    KbArticleVersion,
+    KbSettings,
+    KbTopic,
+    KbType,
+    KbVote,
+)
+from app.modules.knowledge.service import articles, portal, review, search, suggest, topics, votes
 from app.modules.knowledge.service import types as kb_types
 from app.modules.knowledge.service.access import VIEW
 from app.shared.api.concurrency import ExpectedVersion, set_etag
@@ -317,6 +324,54 @@ async def _article_out(session: AsyncSession, view: articles.ArticleView) -> Art
     return ArticleOut.of(view, (await user_names(session, [owner])).get(owner))
 
 
+VoteReason = Literal[VOTE_REASONS]  # type: ignore[valid-type]  # the tuple of reason codes
+
+
+class VoteIn(BaseModel):
+    """Whether the version you read helped; a "no" may say why (REQ-KB-069)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    version_id: uuid.UUID = Field(description="The published version you read.")
+    helpful: bool
+    reason: VoteReason | None = Field(default=None, description="Only with helpful=false.")
+    comment: str | None = Field(default=None, max_length=votes.COMMENT_MAX)
+
+
+class VoteOut(BaseModel):
+    """Your vote."""
+
+    version_id: uuid.UUID
+    helpful: bool
+    reason: str | None
+    comment: str | None
+    updated_at: datetime
+
+    @classmethod
+    def of(cls, vote: KbVote) -> "VoteOut":
+        """From the row."""
+        return cls(
+            version_id=vote.version_id,
+            helpful=vote.helpful,
+            reason=vote.reason,
+            comment=vote.comment,
+            updated_at=vote.updated_at,
+        )
+
+
+class ArticleReadOut(ArticleOut):
+    """The article as you read it, with your own vote on it."""
+
+    my_vote: VoteOut | None = None
+
+
+class SnippetOut(BaseModel):
+    """A run of a search snippet: text, and whether it is a searched word (shown marked)."""
+
+    text: str
+    mark: bool
+
+
 class ArticleRowOut(BaseModel):
     """One line of the knowledge list."""
 
@@ -336,6 +391,40 @@ class ArticleRowOut(BaseModel):
     # Who wrote the version shown (the approval inbox names it; D-120).
     author_id: uuid.UUID | None = None
     author_name: str | None = None
+    # Where the searched words were found, as text and marks (never HTML; REQ-KB-053 AC4).
+    snippet: list[SnippetOut] = Field(default_factory=list)
+
+
+async def _rows_out(
+    session: AsyncSession, rows: list[articles.ArticleRow], query: str | None = None
+) -> list[ArticleRowOut]:
+    """List lines with their authors' names, and snippets when the list was searched."""
+    today = system_clock.now().date()
+    authors = await user_names(
+        session, sorted({str(r.version.created_by) for r in rows if r.version.created_by})
+    )
+    found = await search.snippets(session, [r.version.id for r in rows], query) if query else {}
+    return [
+        ArticleRowOut(
+            id=r.article.id,
+            display_id=r.article.display_id,
+            topic_id=r.article.topic_id,
+            type_code=r.article.type_code,
+            language=r.version.language,
+            title=r.version.title,
+            status=r.version.status,
+            review_on=r.article.review_on,
+            updated_at=r.article.updated_at,
+            owner_id=r.article.owner_id,
+            expired=r.article.expires_on is not None and r.article.expires_on <= today,
+            withdrawn=r.article.withdrawn_at is not None,
+            review_due=r.article.review_on is not None and r.article.review_on <= today,
+            author_id=r.version.created_by,
+            author_name=(authors.get(str(r.version.created_by)) if r.version.created_by else None),
+            snippet=[SnippetOut(text=p.text, mark=p.mark) for p in found.get(r.version.id, [])],
+        )
+        for r in rows
+    ]
 
 
 # --- topics ---------------------------------------------------------------------------------------
@@ -542,8 +631,22 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
     only_language: Annotated[
         Language | None, Query(description="Only versions in this language.")
     ] = None,
+    audience: Annotated[
+        Literal["requesters", "staff_only"] | None,
+        Query(description="Readable by some requesters, or by staff only."),
+    ] = None,
+    updated_from: Annotated[date | None, Query()] = None,
+    updated_to: Annotated[date | None, Query()] = None,
+    featured: Annotated[bool | None, Query()] = None,
+    order: Annotated[
+        Literal["recent", "popular"],
+        Query(description="`popular`: helpful votes and record links of the last 90 days."),
+    ] = "recent",
 ) -> list[ArticleRowOut]:
-    """Published articles you may read, or the drafts you may work on; searchable."""
+    """Published articles you may read, or the drafts you may work on; searchable (REQ-KB-053).
+
+    A search returns a highlighted snippet per row.
+    """
     rows = await articles.list_articles(
         session,
         subject,
@@ -555,31 +658,13 @@ async def list_articles(  # noqa: PLR0913, PLR0917 - FastAPI query parameters
         type_code=type_code,
         owner_id=owner_id,
         only_language=only_language,
+        audience=audience,
+        updated_from=updated_from,
+        updated_to=updated_to,
+        featured=featured,
+        order=order,
     )
-    today = system_clock.now().date()
-    authors = await user_names(
-        session, sorted({str(r.version.created_by) for r in rows if r.version.created_by})
-    )
-    return [
-        ArticleRowOut(
-            id=r.article.id,
-            display_id=r.article.display_id,
-            topic_id=r.article.topic_id,
-            type_code=r.article.type_code,
-            language=r.version.language,
-            title=r.version.title,
-            status=r.version.status,
-            review_on=r.article.review_on,
-            updated_at=r.article.updated_at,
-            owner_id=r.article.owner_id,
-            expired=r.article.expires_on is not None and r.article.expires_on <= today,
-            withdrawn=r.article.withdrawn_at is not None,
-            review_due=r.article.review_on is not None and r.article.review_on <= today,
-            author_id=r.version.created_by,
-            author_name=(authors.get(str(r.version.created_by)) if r.version.created_by else None),
-        )
-        for r in rows
-    ]
+    return await _rows_out(session, rows, q)
 
 
 @router.post(
@@ -616,11 +701,153 @@ async def create_article(
 @router.get("/articles/{article_id}", summary="Get an article")
 async def get_article(
     article_id: uuid.UUID, session: TenantSession, subject: Viewer, response: Response
-) -> ArticleOut:
+) -> ArticleReadOut:
     """Published versions for its audience; drafts for its author, owners and approvers."""
     view = await articles.get_article(session, subject, article_id)
     set_etag(response, view.article.version)
-    return await _article_out(session, view)
+    mine = await votes.my_vote(session, subject, view)
+    return ArticleReadOut(
+        **(await _article_out(session, view)).model_dump(),
+        my_vote=None if mine is None else VoteOut.of(mine),
+    )
+
+
+@router.put("/articles/{article_id}/vote", summary="Say whether an article helped")
+async def save_vote(
+    article_id: uuid.UUID, body: VoteIn, session: TenantSession, subject: Viewer
+) -> VoteOut:
+    """One vote per person and version; voting again changes it (REQ-KB-069 AC2)."""
+    vote = await votes.save_vote(
+        session,
+        subject,
+        article_id,
+        version_id=body.version_id,
+        helpful=body.helpful,
+        reason=body.reason,
+        comment=body.comment,
+        now=system_clock.now(),
+    )
+    return VoteOut.of(vote)
+
+
+class VersionScoreOut(BaseModel):
+    """Helpful and not helpful for one version."""
+
+    version_id: uuid.UUID
+    language: str
+    number: int
+    helpful: int
+    not_helpful: int
+
+
+class FeedbackOut(BaseModel):
+    """A "not helpful" with what the reader said; never who."""
+
+    version_number: int
+    language: str
+    reason: str | None
+    comment: str | None
+    at: datetime
+
+
+class ScoresOut(BaseModel):
+    """The current versions' score, every version's, and the feedback (REQ-KB-069 AC3)."""
+
+    helpful: int
+    not_helpful: int
+    versions: list[VersionScoreOut]
+    feedback: list[FeedbackOut]
+
+
+@router.get("/articles/{article_id}/votes", summary="How helpful an article was")
+async def article_votes(
+    article_id: uuid.UUID, session: TenantSession, subject: Viewer
+) -> ScoresOut:
+    """For those who may change or approve the article; never requesters."""
+    view = await articles.get_article(session, subject, article_id)
+    by_version, feedback = await votes.scores(session, subject, article_id)
+    helpful, not_helpful = votes.current_score(view, by_version)
+    return ScoresOut(
+        helpful=helpful,
+        not_helpful=not_helpful,
+        versions=[
+            VersionScoreOut(
+                version_id=v.version_id,
+                language=v.language,
+                number=v.number,
+                helpful=v.helpful,
+                not_helpful=v.not_helpful,
+            )
+            for v in by_version
+        ],
+        feedback=[
+            FeedbackOut(
+                version_number=f.version_number,
+                language=f.language,
+                reason=f.reason,
+                comment=f.comment,
+                at=f.at,
+            )
+            for f in feedback
+        ],
+    )
+
+
+@router.get("/suggestions", summary="Articles that may answer a text")
+async def suggestions(
+    session: TenantSession,
+    subject: Viewer,
+    text: Annotated[str, Query(max_length=2000, description="Subject and description so far.")],
+    language: Annotated[Language, Query()] = "en",
+    limit: Annotated[int, Query(ge=3, le=10)] = suggest.DEFAULT_LIMIT,
+) -> list[ArticleRowOut]:
+    """Published articles you may read that match any word, best first (REQ-KB-062)."""
+    rows = await suggest.suggest(session, subject, text, language=language, limit=limit)
+    return await _rows_out(session, rows, text)
+
+
+class PortalTopicOut(BaseModel):
+    """A topic with articles you may read, and how many."""
+
+    id: uuid.UUID
+    parent_id: uuid.UUID | None
+    names: dict[str, str]
+    articles: int
+
+
+@router.get("/portal/topics", summary="Topics for the portal")
+async def portal_topics(session: TenantSession, subject: Viewer) -> list[PortalTopicOut]:
+    """Only topics holding an article you may read (REQ-KB-081 AC1)."""
+    return [
+        PortalTopicOut(
+            id=t.topic.id, parent_id=t.topic.parent_id, names=t.topic.names, articles=t.articles
+        )
+        for t in await portal.topics(session, subject)
+    ]
+
+
+class PortalHomeOut(BaseModel):
+    """The portal's knowledge lists."""
+
+    recent: list[ArticleRowOut]
+    popular: list[ArticleRowOut]
+    featured: list[ArticleRowOut]
+
+
+@router.get("/portal/home", summary="The portal's knowledge lists")
+async def portal_home(
+    session: TenantSession,
+    subject: Viewer,
+    language: Annotated[Language, Query()] = "en",
+    topic_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> PortalHomeOut:
+    """Recently updated, popular and featured articles you may read (REQ-KB-081)."""
+    found = await portal.home(session, subject, language=language, topic_id=topic_id)
+    return PortalHomeOut(
+        recent=await _rows_out(session, list(found.recent)),
+        popular=await _rows_out(session, list(found.popular)),
+        featured=await _rows_out(session, list(found.featured)),
+    )
 
 
 @router.patch("/articles/{article_id}", summary="Change an article", responses=CONFLICT)
