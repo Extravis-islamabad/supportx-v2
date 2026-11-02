@@ -3,13 +3,14 @@
 name: CI
 
 on:
+  # labeled: adding the full-ci label runs the heavy jobs on this PR (speed mode, D-122).
   pull_request:
+    types: [opened, synchronize, reopened, labeled]
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
-  # No run on push to main (product owner, 2026-11-02): the merge queue already tested that exact
-  # merge commit (merge method "merge"). The nightly run catches what changes outside a PR.
+  # No run on push to main (D-122): the merge queue tested that exact merge commit.
   schedule:
-    - cron: "07 2 * * *" # nightly 02:07 UTC
+    - cron: "07 2 * * *" # nightly 02:07 UTC: the heavy jobs, and what changes outside a PR
   workflow_dispatch:
 
 permissions:
@@ -100,28 +101,24 @@ jobs:
     # (relay, consumers) and every event is published and applied once afterwards; a worker
     # whose database stays away exits non-zero. The test runs its own containers.
     name: worker resilience
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Changes (heavy work runs in the merge queue)
-        id: changes
-        uses: ./.github/actions/changes
-        with:
-          queue-only: "true"
       - uses: ./.github/actions/setup-backend
-        if: ${{ steps.changes.outputs.run == 'true' }}
       - name: Restart PostgreSQL and NATS under running workers
-        if: ${{ steps.changes.outputs.run == 'true' }}
         working-directory: backend
         env:
           SUPPORTX_RESILIENCE_TESTS: "1"
           SUPPORTX_RESILIENCE_LOGS: ${{ runner.temp }}
         run: uv run pytest tests/resilience --no-cov -p no:cacheprovider -v
       - name: Worker logs on failure
-        if: ${{ steps.changes.outputs.run == 'true' && (failure()) }}
+        if: ${{ failure() }}
         run: tail -n 200 "$RUNNER_TEMP"/resilience-*.log || true
 
   backend-tests:
@@ -273,7 +270,9 @@ jobs:
           PDF: ${{ needs.pdf.result }}
         run: |
           echo "backend checks: $CHECKS, backend tests: $TESTS, pdf: $PDF"
-          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ] && [ "$PDF" = "success" ]
+          # pdf is skipped outside nightly, manual and full-ci runs (speed mode, D-122).
+          [ "$CHECKS" = "success" ] && [ "$TESTS" = "success" ] &&
+            { [ "$PDF" = "success" ] || [ "$PDF" = "skipped" ]; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -326,22 +325,18 @@ jobs:
   # tests skip them (no Pango there); here SUPPORTX_REQUIRE_PDF_TESTS=1 makes a skip a failure.
   pdf:
     name: pdf (worker image)
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Changes (heavy work runs in the merge queue)
-        id: changes
-        uses: ./.github/actions/changes
-        with:
-          queue-only: "true"
       - name: Build the worker image with its test tools
-        if: ${{ steps.changes.outputs.run == 'true' }}
         run: docker build -f deploy/images/backend.Dockerfile --target worker-test -t supportx-worker-test:ci .
       - name: PDF tests inside the worker image
-        if: ${{ steps.changes.outputs.run == 'true' }}
         run: docker run --rm supportx-worker-test:ci
 
   chart:
@@ -354,11 +349,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Changes (heavy work runs in the merge queue)
+      - name: Changes (docs-only PRs skip)
         id: changes
         uses: ./.github/actions/changes
-        with:
-          queue-only: "true"
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         if: ${{ steps.changes.outputs.run == 'true' }}
         with:

@@ -6,7 +6,7 @@ on:
   pull_request:
   # The merge queue: each queued group is tested on top of main before it merges.
   merge_group:
-  # No run on push to main: the merge queue tested that exact merge commit (2026-11-02).
+  # No run on push to main (D-122): the merge queue tested that exact merge commit.
   schedule:
     - cron: "17 3 * * *" # nightly 03:17 UTC: catches advisories published after a merge (no push run)
   workflow_dispatch:
@@ -73,18 +73,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Changes (heavy work runs in the merge queue)
-        id: changes
-        uses: ./.github/actions/changes
-        with:
-          queue-only: "true"
       - name: Report all findings
-        if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
             fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --exit-code 0 /repo
       - name: Fail on high/critical
-        if: ${{ steps.changes.outputs.run == 'true' }}
         run: |
           docker run --rm -v "$PWD:/repo:ro" -v "$HOME/.cache/trivy:/root/.cache/trivy" "$TRIVY_IMAGE" \
             fs --scanners vuln,secret,misconfig --ignorefile /repo/.trivyignore.yaml --severity HIGH,CRITICAL --exit-code 1 /repo
