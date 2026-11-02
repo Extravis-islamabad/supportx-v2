@@ -196,6 +196,7 @@ class ArticlePatch(BaseModel):
     req_departments: list[uuid.UUID] | None = Field(default=None, max_length=200)
     review_on: date | None = None
     expires_on: date | None = None
+    featured: bool | None = Field(default=None, description="Featured in the portal (D-123).")
 
 
 class DraftPatch(BaseModel):
@@ -268,6 +269,7 @@ class ArticleOut(BaseModel):
     can_edit: bool
     can_approve: bool
     can_withdraw: bool
+    featured: bool = False
     version: int
     created_at: datetime
     updated_at: datetime
@@ -302,6 +304,7 @@ class ArticleOut(BaseModel):
             can_edit=view.can_edit,
             can_approve=view.can_approve,
             can_withdraw=view.can_withdraw,
+            featured=article.featured,
             version=article.version,
             created_at=article.created_at,
             updated_at=article.updated_at,
