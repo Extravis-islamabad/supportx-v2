@@ -4479,6 +4479,43 @@ export const en = {
   'incidents.sla.reason': 'Reason',
   'incidents.sla.due_saved': 'Due date saved',
   'incidents.sla.due_cleared': 'The SLA calculates the due date again',
+  'sla.policies.title': 'Policies',
+  'sla.policies.explain':
+    'The first enabled policy whose conditions match an incident applies. The default policy is always last and applies to the rest.',
+  'sla.policies.add': 'Add policy',
+  'sla.policies.edit': 'Edit policy',
+  'sla.policies.default': 'Default',
+  'sla.policies.off': 'Off',
+  'sla.policies.never_matches': 'Never applies: an earlier policy always matches first',
+  'sla.policies.all_records': 'All incidents',
+  'sla.policies.with_conditions': 'Incidents that match its conditions',
+  'sla.policies.every_priority': 'Every priority',
+  'sla.policies.move_up': 'Move up',
+  'sla.policies.move_down': 'Move down',
+  'sla.policies.delete': 'Delete policy',
+  'sla.policies.delete_confirm':
+    'Delete this policy? Incidents that already have it keep their due dates.',
+  'sla.policies.running_records_keep':
+    'Changes apply to new incidents and to incidents whose fields change. Incidents already running keep their current targets.',
+  'sla.policies.conditions_complex':
+    'These conditions use nested groups and cannot be edited here; they stay as they are.',
+  'sla.policies.conditions_explain': 'Leave empty to apply to every incident.',
+  'sla.policies.targets_explain':
+    'A row for one priority wins over "Every priority". Leave a target empty for no target of that kind.',
+  'sla.policy.field.name': 'Name',
+  'sla.policy.field.description': 'Description',
+  'sla.policy.field.enabled': 'Enabled',
+  'sla.policy.field.pausing': 'Paused while on hold',
+  'sla.policy.field.conditions': 'Applies to',
+  'sla.policy.field.targets': 'Targets',
+  'sla.policy.field.unit': 'Unit',
+  'sla.policy.field.calendar': 'Calendar',
+  'sla.settings.title': 'Settings',
+  'sla.settings.warning_percent': 'Warn at',
+  'sla.settings.warning_percent_help':
+    'The share of the target that has gone when the warning fires.',
+  'sla.settings.priority_rule': 'When the priority changes',
+  'sla.settings.reopen_rule': 'When a resolved incident is reopened',
 } as const;
 
 export type LabelKey = keyof typeof en;

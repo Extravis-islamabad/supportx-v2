@@ -20,6 +20,12 @@ export type SlaHolidayImport = components['schemas']['SlaHolidayImportOut'];
 export type SlaSpecialHours = components['schemas']['SlaSpecialHoursOut'];
 export type SlaSpecialHoursIn = components['schemas']['SlaSpecialHoursIn'];
 export type SlaSpecialHoursPatch = components['schemas']['SlaSpecialHoursPatch'];
+export type SlaPolicy = components['schemas']['SlaPolicyOut'];
+export type SlaPolicyIn = components['schemas']['SlaPolicyIn'];
+export type SlaPolicyPatch = components['schemas']['SlaPolicyPatch'];
+export type SlaTargetRow = components['schemas']['SlaTargetRow'];
+export type SlaSettings = components['schemas']['SlaSettingsOut'];
+export type SlaSettingsPatch = components['schemas']['SlaSettingsPatch'];
 
 function ifMatch(version: number) {
   return { 'If-Match': `"${String(version)}"` };
@@ -261,4 +267,97 @@ export function useSlaSpecialHoursChange(calendarId: string) {
     onSuccess: refresh,
   });
   return { create, update, remove };
+}
+
+/** A record type's policies in order, the default one last (WP-025 session 2). Live like the
+ * rest of the SLA set-up (`sla.setup.changed`). */
+export function useSlaPolicies(recordType: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.sla.policies(recordType),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/sla/record-types/{record_type}/policies', {
+          params: { path: { record_type: recordType } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+/** Add, change, delete and reorder policies; errors are shown by the editor itself. */
+export function useSlaPolicyChange(recordType: string) {
+  const refresh = useRefresh();
+  const create = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ body, key }: { body: SlaPolicyIn; key: string }) =>
+      call(
+        api.POST('/api/v1/sla/record-types/{record_type}/policies', {
+          body,
+          params: { path: { record_type: recordType }, header: idempotent(key) },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const update = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version, body }: { id: string; version: number; body: SlaPolicyPatch }) =>
+      call(
+        api.PATCH('/api/v1/sla/policies/{policy_id}', {
+          params: { path: { policy_id: id }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const remove = useMutation({
+    meta: { silent: true },
+    mutationFn: ({ id, version }: { id: string; version: number }) =>
+      call(
+        api.DELETE('/api/v1/sla/policies/{policy_id}', {
+          params: { path: { policy_id: id }, header: ifMatch(version) },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  const reorder = useMutation({
+    meta: { silent: true },
+    mutationFn: (policyIds: string[]) =>
+      call(
+        api.PUT('/api/v1/sla/record-types/{record_type}/policies/order', {
+          params: { path: { record_type: recordType } },
+          body: { policy_ids: policyIds },
+        }),
+      ),
+    onSuccess: refresh,
+  });
+  return { create, update, remove, reorder };
+}
+
+/** A record type's SLA settings: warning point, priority-change and reopen rules. */
+export function useSlaSettings(recordType: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.sla.settings(recordType),
+    queryFn: () =>
+      call(
+        api.GET('/api/v1/sla/record-types/{record_type}/settings', {
+          params: { path: { record_type: recordType } },
+        }),
+      ),
+    enabled,
+  });
+}
+
+export function useSlaSettingsChange(recordType: string) {
+  const refresh = useRefresh();
+  return useMutation({
+    meta: { silent: true },
+    mutationFn: ({ version, body }: { version: number; body: SlaSettingsPatch }) =>
+      call(
+        api.PATCH('/api/v1/sla/record-types/{record_type}/settings', {
+          params: { path: { record_type: recordType }, header: ifMatch(version) },
+          body,
+        }),
+      ),
+    onSuccess: refresh,
+  });
 }

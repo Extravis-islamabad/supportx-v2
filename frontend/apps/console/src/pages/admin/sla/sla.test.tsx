@@ -99,7 +99,7 @@ describe('Admin › SLA › Working calendars', () => {
   });
 
   it('lists the system calendars by label, hours a week, and who uses each one', async () => {
-    window.history.pushState({}, '', '/admin/sla');
+    window.history.pushState({}, '', '/admin/sla/calendars');
     api({ me: ADMIN, routes: ROUTES });
     render(<App />);
     const table = await screen.findByTestId('sla-calendars');

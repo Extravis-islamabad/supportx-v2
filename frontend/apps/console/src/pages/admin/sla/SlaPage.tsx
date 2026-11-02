@@ -54,10 +54,11 @@ import {
   useLicence,
 } from '@supportx/ui';
 
+import { PoliciesTab, SettingsTab } from './PoliciesTab';
 import { minutes, weekMinutes } from './week';
 
 type Translate = ReturnType<typeof useLabel>;
-const SECTIONS = ['calendars', 'holidays'] as const;
+const SECTIONS = ['policies', 'calendars', 'holidays', 'settings'] as const;
 const PRESETS: SlaWeekPreset[] = ['mon_fri', 'sun_thu', 'mon_sat'];
 // A half day keeps the first half by default (product owner, 2026-11-02): "afternoon off" first.
 const PARTS: SlaHolidayPart[] = ['full', 'afternoon', 'morning'];
@@ -90,7 +91,7 @@ function fieldProblems(error: ApiError, t: Translate): Record<string, string> {
   );
 }
 
-/** Admin › SLA (WP-025): working calendars and holidays. Policies join in session 2. */
+/** Admin › SLA (WP-025): policies, working calendars, holidays and settings. */
 export function SlaPage() {
   const t = useLabel();
   const { can } = useAccess();
@@ -99,7 +100,7 @@ export function SlaPage() {
   const { section } = useParams();
   if (!licence.has('sla') || !can('sla.view')) return <NoAccess titleKey="nav.admin_sla" />;
   if (!SECTIONS.includes(section as (typeof SECTIONS)[number])) {
-    return <Navigate to="/admin/sla/calendars" replace />;
+    return <Navigate to="/admin/sla/policies" replace />;
   }
   const editable = can('sla.manage');
   return (
@@ -107,6 +108,11 @@ export function SlaPage() {
       activeKey={section}
       onChange={(key) => void navigate(`/admin/sla/${key}`)}
       items={[
+        {
+          key: 'policies',
+          label: t('sla.policies.title'),
+          children: <PoliciesTab editable={editable} />,
+        },
         {
           key: 'calendars',
           label: t('sla.calendars.title'),
@@ -116,6 +122,11 @@ export function SlaPage() {
           key: 'holidays',
           label: t('sla.holidays.title'),
           children: <HolidaysTab editable={editable} />,
+        },
+        {
+          key: 'settings',
+          label: t('sla.settings.title'),
+          children: <SettingsTab editable={editable} />,
         },
       ]}
     />

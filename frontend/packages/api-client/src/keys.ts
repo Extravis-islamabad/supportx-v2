@@ -135,6 +135,8 @@ export const queryKeys = {
     calendars: ['sla', 'calendars'] as const,
     holidayLists: ['sla', 'holiday-lists'] as const,
     holidays: (listId: string, year: number) => ['sla', 'holidays', listId, year] as const,
+    policies: (recordType: string) => ['sla', 'policies', recordType] as const,
+    settings: (recordType: string) => ['sla', 'settings', recordType] as const,
   },
   automation: {
     all: ['automation'] as const,
