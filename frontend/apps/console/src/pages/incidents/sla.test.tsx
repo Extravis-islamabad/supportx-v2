@@ -37,6 +37,8 @@ function target(kind: 'first_response' | 'resolution', extra: Record<string, unk
     calendar_id: null,
     calendar_name: 'Office hours',
     manual: null,
+    warned_at: null,
+    levels: [],
     ...extra,
   };
 }
@@ -95,6 +97,60 @@ describe('SLA panel (WP-025)', () => {
     expect(card.textContent).not.toMatch(/at_resolution|first_response|running/);
     // Without the permission there is nothing to change.
     expect(screen.queryByTestId('inc-sla-resolution-change')).toBeNull();
+  });
+
+  it('REQ-SLA-019/022: a target past its warning point shows Warning; levels say when and how', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'details');
+    const levels = [
+      {
+        position: 1,
+        anchor: 'due',
+        offset_seconds: -3600,
+        state: 'ran',
+        due_at: '2026-11-03T11:00:00Z',
+        ran_at: '2026-11-03T11:00:20Z',
+        failed_actions: 1,
+      },
+      {
+        position: 2,
+        anchor: 'due',
+        offset_seconds: 0,
+        state: 'waiting',
+        due_at: '2026-11-03T12:00:00Z',
+        ran_at: null,
+        failed_actions: 0,
+      },
+      {
+        position: 3,
+        anchor: 'warning',
+        offset_seconds: 1800,
+        state: 'waiting',
+        due_at: null,
+        ran_at: null,
+        failed_actions: 0,
+      },
+    ];
+    api({
+      [`GET ${PATH}/sla`]: {
+        body: panel({
+          targets: [target('resolution', { warned_at: '2026-11-03T09:00:00Z', levels })],
+        }),
+      },
+    });
+    render(<App />);
+    expect((await screen.findByTestId('inc-sla-resolution-state')).textContent).toBe('Warning');
+    const first = screen.getByTestId('inc-sla-resolution-level-1');
+    expect(first.textContent).toContain('Level 1 · 1 business hour before the due time');
+    expect(first.textContent).toContain('Ran');
+    expect(first.textContent).toContain('1 action could not be done');
+    expect(screen.getByTestId('inc-sla-resolution-level-2').textContent).toContain(
+      'At the due time',
+    );
+    const held = screen.getByTestId('inc-sla-resolution-level-3');
+    expect(held.textContent).toContain('30 business minutes after the warning point');
+    expect(held.textContent).toContain('Held while paused');
+    expect(document.body.textContent).not.toMatch(/\bwaiting\b|\bran\b|warning_at/);
   });
 
   it('REQ-SLA-028: a date set by hand shows who and why; changing it needs a reason', async () => {

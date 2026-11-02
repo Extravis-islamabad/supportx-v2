@@ -24,6 +24,8 @@ export type SlaPolicy = components['schemas']['SlaPolicyOut'];
 export type SlaPolicyIn = components['schemas']['SlaPolicyIn'];
 export type SlaPolicyPatch = components['schemas']['SlaPolicyPatch'];
 export type SlaTargetRow = components['schemas']['SlaTargetRow'];
+export type SlaLevel = components['schemas']['SlaLevelIn'];
+export type SlaLevelOut = components['schemas']['SlaLevelOut'];
 export type SlaSettings = components['schemas']['SlaSettingsOut'];
 export type SlaSettingsPatch = components['schemas']['SlaSettingsPatch'];
 
