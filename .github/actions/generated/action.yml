@@ -1,0 +1,23 @@
+name: Generated files
+description: >-
+  Writes the files that are generated, never committed (D-127): the backend's label dictionary
+  (Node only) and, with `frontend: "true"`, the OpenAPI contract and the TypeScript API types
+  (run setup-backend and setup-frontend first). Offline: nothing is fetched.
+inputs:
+  frontend:
+    description: Also write the OpenAPI contract and the TypeScript API types.
+    default: "false"
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version-file: .nvmrc
+        package-manager-cache: false
+    - name: Label dictionary for the backend
+      shell: bash
+      run: make generated-backend
+    - name: OpenAPI contract and API types
+      if: ${{ inputs.frontend == 'true' }}
+      shell: bash
+      run: make generated-frontend

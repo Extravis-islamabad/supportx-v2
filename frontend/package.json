@@ -8,12 +8,12 @@
     "pnpm": ">=12"
   },
   "scripts": {
-    "lint": "eslint . --max-warnings=0",
+    "lint": "node scripts/ensure-generated.js && eslint . --max-warnings=0",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r --workspace-concurrency=1 test",
-    "build": "pnpm -r build"
+    "typecheck": "node scripts/ensure-generated.js && pnpm -r typecheck",
+    "test": "node scripts/ensure-generated.js && pnpm -r --workspace-concurrency=1 test",
+    "build": "node scripts/ensure-generated.js && pnpm -r build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

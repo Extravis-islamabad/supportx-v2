@@ -82,3 +82,26 @@ def test_a_malformed_log_entry_is_refused_with_the_reason(
     path.write_text(text, encoding="utf-8")
     with pytest.raises(EntryError, match=re.escape(problem)):
         parse_log_entry(path)
+
+
+LANE_SECTIONS = (
+    "Area",
+    "Current WP",
+    "Branch",
+    "Worktree",
+    "Claimed migration",
+    "Claimed decisions",
+)
+
+
+@pytest.mark.parametrize("lane", ["A", "B", "C"])
+def test_each_lane_keeps_its_own_file_with_every_section(lane: str) -> None:
+    text = (docs_entries.DOCS / "lanes" / f"{lane}.md").read_text(encoding="utf-8")
+    assert text.startswith(f"# Lane {lane}\n")
+    headings = re.findall(r"^## (.+)$", text, re.MULTILINE)
+    assert tuple(headings) == LANE_SECTIONS
+
+
+def test_the_lanes_index_holds_no_lane_rows_so_lanes_never_conflict_there() -> None:
+    index = (docs_entries.DOCS / "LANES.md").read_text(encoding="utf-8")
+    assert not re.search(r"^\| [ABC] \|", index, re.MULTILINE), "edit docs/lanes/<lane>.md"
