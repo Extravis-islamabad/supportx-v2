@@ -195,6 +195,20 @@ export const routes: RouteObject[] = [
               Component: (await import('./pages/admin/mail/MailPage')).MailPage,
             }),
           },
+          {
+            path: 'integrations',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/IntegrationsPage'))
+                .IntegrationsPage,
+            }),
+          },
+          {
+            path: 'integrations/directories',
+            lazy: async () => ({
+              Component: (await import('./pages/admin/integrations/DirectoriesPage'))
+                .DirectoriesPage,
+            }),
+          },
         ],
       },
       {

@@ -8,7 +8,7 @@ Every tenant's two system calendars ("around the clock" and the default operatin
 created on first use by the service, not here (D-041).
 
 Revision ID: 0044
-Revises: 0043
+Revises: 0053
 Created: 2026-11-02
 """
 
@@ -22,7 +22,7 @@ from sqlalchemy.dialects import postgresql
 from migrations.helpers import enable_actor_audit, enable_tenant_rls, grant_app
 
 revision: str = "0044"
-down_revision: str | None = "0043"
+down_revision: str | None = "0053"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

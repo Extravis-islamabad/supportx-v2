@@ -31,6 +31,7 @@ from app.core.database import REQUEST_SESSION_STATE, Database
 from app.core.errors import PermissionDenied
 from app.core.logging import get_logger
 from app.core.tenancy import TenantContext
+from app.modules.identity_access.domain.identity import UserType
 from app.modules.identity_access.domain.permissions import (
     REQUESTER,
     SYSTEM_ROLES,
@@ -403,7 +404,9 @@ class PolicyService:
         ).all()
         role_keys = {r.key for r in roles}
         if not roles and user.roles_mapped_at is None:
-            role_keys = {UNMAPPED_DEFAULT[user.user_type]}
+            # A service identity has only the roles given to it (none: it may do nothing).
+            default = UNMAPPED_DEFAULT.get(user.user_type)
+            role_keys = {default} if default is not None else set()
         grants: list[tuple[str, Grant]] = []
         technician_scope = await tenant_technician_scope(session)
         for key in role_keys & set(SYSTEM_ROLES):
@@ -480,6 +483,8 @@ class PolicyService:
         unmapped_types = [t for t, key in UNMAPPED_DEFAULT.items() if key in granting_system]
         query = select(User.id, User.display_name).where(
             User.status == "active",
+            # Connectors' service identities are never offered or told anything (REQ-INT-012).
+            User.user_type != UserType.SERVICE.value,
             or_(
                 User.id.in_(select(UserRole.user_id).where(UserRole.role_id.in_(granting_roles))),
                 and_(

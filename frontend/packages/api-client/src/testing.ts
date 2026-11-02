@@ -22,6 +22,7 @@ type Grant = [
 ];
 
 const TECHNICIAN: Grant[] = [
+  ['integrations.view', 'all'],
   ['profile.edit', 'own'],
   ['users.view', 'all'],
   ['sites.view', 'all'],
@@ -99,6 +100,7 @@ const ADMIN_EXTRA: Grant[] = [
   ['identity.manage', 'all'],
   ['notifications.manage', 'all'],
   ['mailboxes.manage', 'all'],
+  ['integrations.manage_email', 'all'],
 ];
 const REQUESTER: Grant[] = [
   ['profile.edit', 'own'],
@@ -811,6 +813,8 @@ export function fakeMailbox(
     needs_sign_in: false,
     signed_in: false,
     flooding: false,
+    degraded_reason: null,
+    credential: null,
     host: 'imap.acme.test',
     port: 993,
     security: 'tls',

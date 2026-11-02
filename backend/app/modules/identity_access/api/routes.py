@@ -61,6 +61,10 @@ class UserDetail(BaseModel):
     department_id: uuid.UUID | None
     manager_id: uuid.UUID | None
     can_sign_in: bool = Field(description="False: a contact, who cannot sign in.")
+    directory_source: Literal["entra", "ldap"] | None = Field(
+        default=None,
+        description="The directory that keeps this person (its fields are read-only here).",
+    )
     invited_at: datetime | None = Field(default=None, description="Only for `users.manage`.")
     signed_in_before: bool = Field(
         default=False, description="Linked to a sign-in account (has signed in at least once)."

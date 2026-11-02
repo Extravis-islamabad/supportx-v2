@@ -112,6 +112,11 @@ def _names(identity: Identity) -> tuple[str, str | None]:
     return parts[0][:100], (parts[1][:100] if len(parts) > 1 else None)
 
 
+# A connector's identity is never signed in as: it has no subject or address to match (a
+# database check), and the lookups below leave it out so no future matching rule can either.
+SERVICE = UserType.SERVICE.value
+
+
 async def _find_person(session: AsyncSession, identity: Identity) -> tuple[User | None, bool]:
     """The person this sign-in belongs to (locked), and whether it was linked just now.
 
@@ -119,7 +124,9 @@ async def _find_person(session: AsyncSession, identity: Identity) -> tuple[User 
     same email address, which this sign-in links (D-092).
     """
     person = await session.scalar(
-        select(User).where(User.external_subject == identity.subject).with_for_update()
+        select(User)
+        .where(User.external_subject == identity.subject, User.user_type != SERVICE)
+        .with_for_update()
     )
     if person is not None:
         return person, False
@@ -127,6 +134,7 @@ async def _find_person(session: AsyncSession, identity: Identity) -> tuple[User 
         select(User)
         .where(
             User.external_subject.is_(None),
+            User.user_type != SERVICE,
             func.lower(User.email) == identity.email.strip().lower(),
             User.deleted_at.is_(None),
         )
@@ -207,7 +215,11 @@ async def _sign_in(  # noqa: PLR0913 - the sign-in and two keyword-only tenant p
             await _place(session, user_id, await directory(identity.subject))
         if inserted:
             created = UserProvisioned(
-                user_id=user_id, user_type=identity.user_type.value, locale=identity.locale
+                user_id=user_id,
+                user_type="technician"
+                if identity.user_type is UserType.TECHNICIAN
+                else "requester",
+                locale=identity.locale,
             )
             return user_id, version, [created]
         person = await session.get(User, user_id)  # a parallel first sign-in created it

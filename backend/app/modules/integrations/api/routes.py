@@ -1,6 +1,7 @@
 """Mailboxes HTTP API under /api/v1/integrations/mailboxes (WP-024). No business logic here.
 
-Everything needs `mailboxes.manage`. Passwords go in, never come out (`has_password` says whether
+Everything needs `integrations.manage_email` (or `mailboxes.manage`, accepted until the
+contract step, WP-040). Passwords go in, never come out (`has_password` says whether
 one is stored). Changes use If-Match and are audited; create takes an Idempotency-Key.
 """
 
@@ -20,6 +21,7 @@ from app.core.errors import ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.domain.mailboxes import (
+    SECRET_FALLBACK,
     AfterFetch,
     AuthModel,
     ConnectionSecurity,
@@ -34,11 +36,12 @@ from app.modules.integrations.service import mailboxes as service
 from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.ratelimit import rate_limit
+from app.shared.connectors.ports import SecretType
 
 Responses = dict[int | str, dict[str, object]]
 RESPONSES: Responses = {
     401: {"model": ProblemDetail, "description": "Not signed in."},
-    403: {"model": ProblemDetail, "description": "Missing permission (mailboxes.manage)."},
+    403: {"model": ProblemDetail, "description": "Missing permission (integrations.manage_email)."},
     404: {"model": ProblemDetail, "description": "No such mailbox (mailbox_not_found)."},
 }
 CONFLICT: Responses = {409: {"model": ProblemDetail, "description": "Stale If-Match, or taken."}}
@@ -49,7 +52,7 @@ router = APIRouter(
     dependencies=[Depends(rate_limit("integrations"))],
     responses=RESPONSES,
 )
-Manage = Annotated[Subject, Depends(require_permission(service.MANAGE))]
+Manage = Annotated[Subject, Depends(require_permission(*service.MANAGE_KEYS))]
 
 
 def _app_settings(request: Request) -> Settings:
@@ -123,6 +126,20 @@ class MailboxPatch(MailboxFields):
     client_secret: str | None = Field(default=None, min_length=1, max_length=SECRET_MAX)
 
 
+class StoredSecretOut(BaseModel):
+    """A stored secret as anyone may see it: never its value (REQ-INT-003 AC1)."""
+
+    name: str = Field(description="Its stable name; exports carry {{secret:<name>}} instead.")
+    secret_type: SecretType
+    last_four: str | None = Field(
+        description=(
+            'For display only ("ending in ..."): long random secrets show their last four'
+            " characters, a certificate its thumbprint's; a password never shows any."
+        )
+    )
+    set_at: datetime = Field(description="When it was saved: its age.")
+
+
 class MailboxOut(BaseModel):
     """A mailbox as the mail page shows it."""
 
@@ -136,6 +153,7 @@ class MailboxOut(BaseModel):
     allow_plain: bool
     username: str | None
     has_password: bool = Field(description="A password or client secret is stored.")
+    credential: StoredSecretOut | None = Field(description="The stored credential, if any.")
     auth_model: AuthModel | None
     client_id: str | None
     directory_id: str | None
@@ -158,6 +176,12 @@ class MailboxOut(BaseModel):
     flooding: bool = Field(
         description="A sender went over the flood limit; their mail waits in the review queue."
     )
+    degraded_reason: str | None = Field(
+        description=(
+            "Code when it works but needs a look (secret_store_fallback: the secrets store's"
+            " copy could not be read, so an earlier copy is used); the UI shows its label."
+        )
+    )
     version: int
 
     @classmethod
@@ -175,6 +199,16 @@ class MailboxOut(BaseModel):
             allow_plain=row.allow_plain,
             username=row.username,
             has_password=view.has_password,
+            credential=(
+                StoredSecretOut(
+                    name=view.credential.name,
+                    secret_type=SecretType(view.credential.secret_type),
+                    last_four=view.credential.last_four,
+                    set_at=view.credential.set_at,
+                )
+                if view.credential is not None
+                else None
+            ),
             auth_model=AuthModel(row.auth_model) if row.auth_model else None,
             client_id=row.client_id,
             directory_id=row.directory_id,
@@ -197,6 +231,7 @@ class MailboxOut(BaseModel):
             last_fetch_at=row.last_fetch_at,
             held=view.held,
             flooding=view.flooding,
+            degraded_reason=SECRET_FALLBACK if row.secret_fallback_at is not None else None,
             version=row.version,
         )
 
@@ -325,7 +360,7 @@ async def test_mailbox(
     """Connects and looks for new mail; changes nothing on the server or here."""
     del subject
     row = (await service.get_mailbox(session, mailbox_id)).row
-    reason = await service.try_connection(row, settings, secret=_secret(body))
+    reason = await service.try_connection(session, row, settings, secret=_secret(body))
     return ConnectionTestOut(ok=reason is None, reason=reason)
 
 

@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
 
+from app.shared.connectors.ports import ConnectorStatus
+
 PER_SENDER_LIMIT = 10  # messages per address per hour before holding (proposed default)
 POLL_SECONDS = 120  # Appendix A (file 12): every 2 minutes
 MAX_MESSAGE_BYTES = 35 * 1024 * 1024  # Appendix A: largest accepted message
@@ -93,6 +95,43 @@ class MailboxState(StrEnum):
     NOT_SET_UP = "not_set_up"
     WORKING = "working"
     FAILING = "failing"
+
+
+CONNECTOR_KIND = "mailbox"  # the catalogue's code for mailboxes (WP-040)
+# The provider refused the credential, or there is none: failing at once, not after 3 runs.
+AUTH_FAILURES = frozenset(
+    {
+        "imap_login_failed",
+        "mailbox_no_password",
+        "mailbox_secret_unreadable",
+        "mailbox_key_ring_missing",
+        "oauth_certificate_invalid",
+        "oauth_client_rejected",
+        "oauth_consent_revoked",
+        "oauth_not_allowed",
+        "oauth_not_connected",
+        "oauth_wrong_account",
+    }
+)
+SECRET_FALLBACK = "secret_store_fallback"  # noqa: S105 - a reason code (degraded), no secret
+
+
+def connector_status(
+    state: str, *, enabled: bool, secret_fallback: bool = False
+) -> ConnectorStatus:
+    """How the connector catalogue shows a mailbox (REQ-INT-001): switched off is "paused".
+
+    A working mailbox whose secret came from the old column instead of the secrets store is
+    "degraded" (WP-040): it works, but the move needs an admin's look.
+    """
+    if not enabled:
+        return ConnectorStatus.PAUSED
+    if state == MailboxState.WORKING.value and secret_fallback:
+        return ConnectorStatus.DEGRADED
+    return {
+        MailboxState.WORKING.value: ConnectorStatus.ACTIVE,
+        MailboxState.FAILING.value: ConnectorStatus.FAILED,
+    }.get(state, ConnectorStatus.NOT_SET_UP)
 
 
 class Outcome(StrEnum):

@@ -12,7 +12,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import unquote, urlsplit
 
 ORGANIZATIONS_CLAIM = "supportx_organizations"
@@ -28,6 +28,19 @@ class UserType(StrEnum):
 
     TECHNICIAN = "technician"
     REQUESTER = "requester"
+    # A connector acting in its own name (WP-040, REQ-INT-012): never signs in, never takes a
+    # seat, never in people lists or pickers; only the integrations module makes one.
+    SERVICE = "service"
+
+
+class PersonType(StrEnum):
+    """The types a person can be given in the people screens and imports (never `service`)."""
+
+    TECHNICIAN = UserType.TECHNICIAN.value
+    REQUESTER = UserType.REQUESTER.value
+
+
+PERSON_TYPES = frozenset({UserType.TECHNICIAN, UserType.REQUESTER})
 
 
 class NavLayout(StrEnum):
@@ -77,8 +90,8 @@ class Identity:
     keycloak_session_id: str | None
 
     @property
-    def user_type(self) -> UserType:
-        """Technician if the user holds a staff role, requester otherwise."""
+    def user_type(self) -> Literal[UserType.TECHNICIAN, UserType.REQUESTER]:
+        """Technician if the user holds a staff role, requester otherwise (never a service)."""
         return (
             UserType.TECHNICIAN
             if {"technician", "tenant_admin"} & set(self.roles)

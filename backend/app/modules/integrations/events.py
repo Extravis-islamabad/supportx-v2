@@ -1,4 +1,4 @@
-"""Event contracts published by the integrations module (WP-024).
+"""Event contracts published by the integrations module (WP-024, WP-040).
 
 Payloads carry IDs and codes only (architecture.md §8.2): never an address, a password or mail.
 """
@@ -58,9 +58,50 @@ class MailboxMailHeld(DomainEvent):
     reason: str  # "sender_rate"
 
 
+class ConnectorFailing(DomainEvent):
+    """A connector turned failing: its admins are told once per failure (REQ-INT-005, WP-040).
+
+    Replaces `integrations.mailbox.failing` for mailboxes (kept, and still handled, until the
+    contract step).
+    """
+
+    event_type: ClassVar[str] = "integrations.connector.failing"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "connector"
+
+    kind: str  # the catalogue code ("mailbox")
+    instance_id: uuid.UUID
+    reason: str  # a code; the notification shows its label
+
+
+class ConnectorRecovered(DomainEvent):
+    """A failing connector works again: its admins are told once (REQ-INT-005 AC2)."""
+
+    event_type: ClassVar[str] = "integrations.connector.recovered"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "connector"
+
+    kind: str
+    instance_id: uuid.UUID
+
+
+class DirectoryChanged(DomainEvent):
+    """A directory connector was added, changed or removed, or a sync run finished (WP-040)."""
+
+    event_type: ClassVar[str] = "integrations.directory.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "directory_connector"
+
+    directory_id: uuid.UUID
+    change: Literal["added", "changed", "removed", "synced"]
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     MailboxChanged,
     MailboxFailing,
     MailboxCredentialExpiring,
     MailboxMailHeld,
+    ConnectorFailing,
+    ConnectorRecovered,
+    DirectoryChanged,
 )

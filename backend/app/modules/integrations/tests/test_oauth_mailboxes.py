@@ -335,11 +335,10 @@ async def test_consent_round_trip(
     stored = row.oauth_state_hash
     assert stored is not None
     assert state not in stored  # only its hash is stored
-    await finish_consent(row, ring, settings, code=code, admin_id=ADMIN, origin=ORIGIN)
+    # The refresh token comes back for the caller to put in the secrets store (WP-040).
+    refresh = await finish_consent(row, ring, settings, code=code, admin_id=ADMIN, origin=ORIGIN)
     assert row.connected_account == ADDRESS
-    assert row.token_sealed is not None
     assert row.oauth_state_hash is None  # used once
-    refresh = ring.unseal(TENANT, TOKEN_PURPOSE, str(row.token_key_id), row.token_sealed).decode()
     assert fake.refresh_tokens[refresh] == ADDRESS
     if protocol is MailboxProtocol.GMAIL:
         assert query["access_type"] == ["offline"]
