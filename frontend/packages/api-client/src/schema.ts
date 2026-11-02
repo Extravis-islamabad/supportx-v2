@@ -11217,13 +11217,16 @@ export interface components {
             calendar_name: string | null;
             /** Due At */
             due_at: string | null;
-            /** Kind */
-            kind: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "first_response" | "resolution";
             manual: components["schemas"]["SlaManualOut"] | null;
             /** Met At */
             met_at: string | null;
             /** Met How */
-            met_how: string | null;
+            met_how: ("on_time" | "late" | "at_resolution") | null;
             /** Paused Seconds */
             paused_seconds: number;
             /** Paused Since */
@@ -11232,8 +11235,11 @@ export interface components {
             round: number;
             /** Running Since */
             running_since: string | null;
-            /** State */
-            state: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "running" | "paused" | "met" | "breached" | "stopped";
             /** Target Seconds */
             target_seconds: number;
             /** Used Seconds */
@@ -13506,7 +13512,7 @@ export interface components {
             /** Policy Name */
             policy_name: string | null;
             /** Reason */
-            reason: string | null;
+            reason: ("created" | "priority_changed" | "condition_changed") | null;
             /** Targets */
             targets: components["schemas"]["SlaTargetOut"][];
         };

@@ -8,7 +8,7 @@ technician only through `/assign` and `/take`.
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -244,6 +244,12 @@ class WorkItemDueDateIn(BaseModel):
     reason: str = Field(min_length=1, max_length=500)
 
 
+SlaKind = Literal["first_response", "resolution"]
+SlaState = Literal["running", "paused", "met", "breached", "stopped"]
+SlaMetHow = Literal["on_time", "late", "at_resolution"]
+SlaReason = Literal["created", "priority_changed", "condition_changed"]
+
+
 class SlaManualOut(BaseModel):
     """A due date set by hand: who, why and when (REQ-SLA-028 AC3)."""
 
@@ -260,9 +266,9 @@ class SlaTargetOut(BaseModel):
     Times are UTC; seconds are business seconds on the target's calendar.
     """
 
-    kind: str
+    kind: SlaKind
     round: int
-    state: str
+    state: SlaState
     target_seconds: int
     used_seconds: int
     paused_seconds: int
@@ -271,7 +277,7 @@ class SlaTargetOut(BaseModel):
     due_at: datetime | None
     warning_at: datetime | None
     met_at: datetime | None
-    met_how: str | None
+    met_how: SlaMetHow | None
     breached_at: datetime | None
     breach_seconds: int | None
     calendar_id: uuid.UUID | None
@@ -284,7 +290,7 @@ class WorkItemSlaOut(BaseModel):
 
     policy_id: uuid.UUID | None
     policy_name: str | None
-    reason: str | None
+    reason: SlaReason | None
     applied_at: datetime | None
     targets: list[SlaTargetOut]
     may_set_due_dates: bool
@@ -296,14 +302,14 @@ class WorkItemSlaOut(BaseModel):
         return cls(
             policy_id=view.policy_id,
             policy_name=view.policy_name,
-            reason=view.reason,
+            reason=cast("SlaReason | None", view.reason),
             applied_at=view.applied_at,
             may_set_due_dates=panel.may_set_due_dates,
             targets=[
                 SlaTargetOut(
-                    kind=t.kind,
+                    kind=cast("SlaKind", t.kind),
                     round=t.round,
-                    state=t.state,
+                    state=cast("SlaState", t.state),
                     target_seconds=t.target_seconds,
                     used_seconds=t.used_seconds,
                     paused_seconds=t.paused_seconds,
@@ -312,7 +318,7 @@ class WorkItemSlaOut(BaseModel):
                     due_at=t.due_at,
                     warning_at=t.warning_at,
                     met_at=t.met_at,
-                    met_how=t.met_how,
+                    met_how=cast("SlaMetHow | None", t.met_how),
                     breached_at=t.breached_at,
                     breach_seconds=t.breach_seconds,
                     calendar_id=t.calendar_id,
@@ -1499,7 +1505,7 @@ def build_router(wtype: WorkItemType) -> APIRouter:  # noqa: C901, PLR0915 - one
     )
     async def set_due_date(  # noqa: PLR0913, PLR0917 - FastAPI dependencies
         record_id: uuid.UUID,
-        kind: Literal["first_response", "resolution"],
+        kind: SlaKind,
         body: WorkItemDueDateIn,
         version: ExpectedVersion,
         session: TenantSession,

@@ -83,6 +83,8 @@ export const queryKeys = {
     history: (id: string, actors: string) => ['incidents', 'history', id, actors] as const,
     // Under the record's history: whatever refreshes the history refreshes this (WP-029).
     automation: (id: string) => ['incidents', 'history', id, 'automation'] as const,
+    // The SLA panel changes with every save, so it lives under the history too (WP-025).
+    sla: (id: string) => ['incidents', 'history', id, 'sla'] as const,
     catalogue: ['incidents', 'catalogue'] as const,
     categories: ['incidents', 'categories'] as const,
     assignees: (groupId: string | null, search: string) =>

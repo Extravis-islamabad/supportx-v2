@@ -71,6 +71,7 @@ import { rememberIncident } from './recent';
 import { lastTab, rememberTab } from './tabs';
 import { TYPING_SHOWN_MS } from './typing';
 import { FollowButton, FollowersCard } from './IncidentFollowers';
+import { IncidentSla } from './IncidentSla';
 import { IncidentLinks, IncidentTasks, IncidentWorklogs } from './IncidentParts';
 import { AutoCloseNote } from './autoClose';
 import { IncidentAutomation, LoopWarning } from './IncidentAutomation';
@@ -735,6 +736,9 @@ function Details({
               </Descriptions.Item>
             ))}
           </Descriptions>
+        </Card>
+        <Card title={t('incidents.sla.title')} data-testid="inc-sla-card">
+          <IncidentSla item={item} />
         </Card>
         <FollowersCard item={item} me={me} />
       </Flex>

@@ -15660,6 +15660,10 @@
             "title": "Due At"
           },
           "kind": {
+            "enum": [
+              "first_response",
+              "resolution"
+            ],
             "title": "Kind",
             "type": "string"
           },
@@ -15688,6 +15692,11 @@
           "met_how": {
             "anyOf": [
               {
+                "enum": [
+                  "on_time",
+                  "late",
+                  "at_resolution"
+                ],
                 "type": "string"
               },
               {
@@ -15729,6 +15738,13 @@
             "title": "Running Since"
           },
           "state": {
+            "enum": [
+              "running",
+              "paused",
+              "met",
+              "breached",
+              "stopped"
+            ],
             "title": "State",
             "type": "string"
           },
@@ -21960,6 +21976,11 @@
           "reason": {
             "anyOf": [
               {
+                "enum": [
+                  "created",
+                  "priority_changed",
+                  "condition_changed"
+                ],
                 "type": "string"
               },
               {
