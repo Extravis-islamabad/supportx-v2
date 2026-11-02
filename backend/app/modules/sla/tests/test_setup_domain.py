@@ -1,6 +1,7 @@
 """Calendar set-up rules and the iCalendar import, without I/O (WP-025 session 1)."""
 
 import random
+import time
 from datetime import UTC, date, datetime
 
 import pytest
@@ -269,3 +270,95 @@ def test_fuzz_never_raises_anything_but_a_refusal() -> None:
             continue
         for holiday in result.holidays:
             assert holiday.ends_on >= holiday.starts_on
+
+
+# --- iCalendar fuzz: structured hostile input (D-115: imported files are untrusted) ------------
+
+_HOSTILE = [
+    # truncated: the file stops mid-event, mid-line, mid-property
+    _ical(_event("Eid", "20270310", "20270313"))[:60],
+    _ical(_event("Eid", "20270310", "20270313"))[:-20],
+    b"BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Open",
+    # a huge folded line: one property continued over thousands of lines
+    _ical(
+        "SUMMARY:"
+        + "x" * 70
+        + "".join("\r\n " + "y" * 70 for _ in range(5000))
+        + "\r\n"
+        + "DTSTART;VALUE=DATE:20270101\r\n"
+    ),
+    # one enormous unfolded line
+    _ical(f"SUMMARY:{'z' * 900_000}\r\nDTSTART;VALUE=DATE:20270101\r\n"),
+    # bad dates
+    _ical(_event("Feb 30", "20270230")),
+    _ical(_event("Month 13", "20271301")),
+    _ical(_event("Words", "tomorrow")),
+    _ical("SUMMARY:Timed bad\r\nDTSTART:20270101T256100Z\r\n"),
+    _ical("SUMMARY:Year 0\r\nDTSTART;VALUE=DATE:00000101\r\n"),
+    _ical("SUMMARY:Far\r\nDTSTART;VALUE=DATE:99991231\r\nDTEND;VALUE=DATE:99991231\r\n"),
+    _ical("SUMMARY:Bad zone\r\nDTSTART;TZID=Mars/Olympus:20270101T090000\r\n"),
+    # recurrence rules, valid and not
+    _ical(_event("Daily", "20270101") + "RRULE:FREQ=DAILY;COUNT=100000\r\n"),
+    _ical(_event("Broken rule", "20270101") + "RRULE:FREQ=;;;INTERVAL=-1\r\n"),
+    _ical(_event("Rdate", "20270101") + "RDATE;VALUE=DATE:20270102,20270103\r\n"),
+    # wrong encodings
+    _ical(_event("Eid", "20270310")).decode().encode("utf-16"),
+    "BEGIN:VCALENDAR\r\nSUMMARY:Café\r\nEND:VCALENDAR\r\n".encode("latin-1"),
+    b"\xef\xbb\xbf" + _ical(_event("BOM", "20270101")),
+    b"\x00" * 1000,
+    # nesting and structure abuse
+    b"BEGIN:VCALENDAR\r\n" * 2000 + b"END:VCALENDAR\r\n" * 2000,
+    _ical(
+        "BEGIN:VALARM\r\nTRIGGER:-PT15M\r\nEND:VALARM\r\nSUMMARY:Alarm\r\nDTSTART;VALUE=DATE:20270101\r\n"
+    ),
+    b"BEGIN:VEVENT\r\nSUMMARY:No calendar\r\nDTSTART;VALUE=DATE:20270101\r\nEND:VEVENT\r\n",
+    b"END:VCALENDAR\r\nBEGIN:VCALENDAR\r\n",
+]
+
+
+@pytest.mark.parametrize("data", _HOSTILE, ids=[f"hostile-{i}" for i in range(len(_HOSTILE))])
+def test_hostile_files_end_in_a_code_or_a_valid_result_quickly(data: bytes) -> None:
+    started = time.monotonic()
+    try:
+        result = parse_holidays(data)
+    except IcalRefused as refused:
+        assert refused.code.startswith("ical_")  # noqa: PT017 - either outcome is allowed here
+    else:
+        for holiday in result.holidays:
+            assert 1 <= len(holiday.name) <= 200
+            assert holiday.starts_on <= holiday.ends_on
+            assert (holiday.ends_on - holiday.starts_on).days < 366
+        assert all(isinstance(s.reason, IcalSkip) for s in result.skipped)
+    assert time.monotonic() - started < 5, "an import must never hang"
+
+
+def test_fuzz_line_level_mutations_never_crash() -> None:
+    """Lines dropped, duplicated, swapped and cut, over many seeded rounds."""
+    lines = _ical(
+        _event("Eid", "20270310", "20270313"),
+        _event("Labour Day", "20270501"),
+        "SUMMARY:Timed\r\nDTSTART:20271225T090000Z\r\nDTEND:20271226T000000Z\r\n",
+    ).split(b"\r\n")
+    rng = random.Random(1025)  # noqa: S311 - seeded fuzz input, not security
+    for _ in range(1500):
+        mutated = list(lines)
+        for _ in range(rng.randint(1, 6)):
+            i = rng.randrange(len(mutated))
+            choice = rng.randrange(4)
+            if choice == 0:
+                del mutated[i]
+            elif choice == 1:
+                mutated.insert(i, mutated[i])
+            elif choice == 2:
+                j = rng.randrange(len(mutated))
+                mutated[i], mutated[j] = mutated[j], mutated[i]
+            else:
+                mutated[i] = mutated[i][: rng.randrange(len(mutated[i]) + 1)]
+            if not mutated:
+                break
+        try:
+            result = parse_holidays(b"\r\n".join(mutated))
+        except IcalRefused:
+            continue
+        for holiday in result.holidays:
+            assert holiday.starts_on <= holiday.ends_on

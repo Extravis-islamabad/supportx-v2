@@ -5,6 +5,7 @@ and requesters, sites S1/S2 and groups GA/GB; org B is there for isolation. Test
 requirement they prove (REQ-SLA-*, REQ-ADM-040).
 """
 
+import random
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -611,3 +612,60 @@ async def test_sla_tables_are_isolated_by_rls(world: World) -> None:
     assert all(
         c["id"] != calendar["id"] for c in (await world.call("GET", CALENDARS, b, b.admin)).json()
     )
+
+
+async def test_hostile_ical_uploads_answer_201_or_422_never_500(world: World) -> None:
+    """D-115: imported files are untrusted. Every upload ends in a result or a problem code."""
+    a = world.a
+    holidays = await _list(world, a)
+    path = f"{LISTS}/{holidays['id']}/import"
+    good = _ics(("Eid", "20270310"), ("Labour Day", "20270501"))
+    rng = random.Random(4044)  # noqa: S311 - seeded fuzz input, not security
+    uploads = [
+        good[:50],
+        good.decode().encode("utf-16"),
+        b"\x00" * 500,
+        good.replace(b"20270310", b"20271340"),
+        good.replace(b"END:VEVENT", b"RRULE:FREQ=DAILY\r\nEND:VEVENT"),
+        b"x" * (1_000_001),
+    ]
+    for _ in range(40):
+        mutated = bytearray(good)
+        for _ in range(rng.randint(1, 10)):
+            mutated[rng.randrange(len(mutated))] = rng.randrange(256)
+        uploads.append(bytes(mutated))
+    for data in uploads:
+        answer = await world.call(
+            "POST",
+            path,
+            a,
+            a.admin,
+            content=data,
+            headers={**_new(), "Content-Type": "text/calendar"},
+        )
+        assert answer.status_code in {201, 422}, (answer.status_code, answer.text[:200])
+        if answer.status_code == 422:
+            body = answer.json()
+            assert body["code"] in {"validation_failed", "ical_too_large"}
+            assert "Traceback" not in answer.text
+
+
+async def test_rls_sites_and_groups_cannot_point_at_another_tenants_calendar(world: World) -> None:
+    """The calendar links on sites and support groups are same-tenant in the database too."""
+    a, b = world.a, world.b
+    theirs = await _calendar(world, a)
+    async with world.app.state.db.tenant_session(TenantContext(b.tenant)) as session:
+        for table, row in (("sites", b.s1), ("support_groups", b.ga)):
+            with pytest.raises(Exception, match="foreign key"):
+                async with session.begin_nested():
+                    await session.execute(
+                        text(f"UPDATE {table} SET calendar_id = :c WHERE id = :id"),  # noqa: S608 - fixed names
+                        {"c": uuid.UUID(theirs["id"]), "id": row},
+                    )
+        # B cannot even see which of A's sites or groups use a calendar.
+        for table in ("sites", "support_groups"):
+            seen = await session.scalar(
+                text(f"SELECT count(*) FROM {table} WHERE tenant_id = :a"),  # noqa: S608 - fixed names
+                {"a": a.tenant},
+            )
+            assert seen == 0, table
