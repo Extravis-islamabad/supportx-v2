@@ -112,7 +112,12 @@ const OWN: ColumnSpec[] = [
     width: 170,
     title: (c) => c.t('incidents.col.due'),
     render: (row, c) => (
-      <SlaTag policyId={row.sla_policy_id} dueAt={row.resolution_due_at} format={c.dates.format} />
+      <SlaTag
+        policyId={row.sla_policy_id}
+        dueAt={row.resolution_due_at}
+        state={row.resolution_sla_state}
+        format={c.dates.format}
+      />
     ),
   },
   {

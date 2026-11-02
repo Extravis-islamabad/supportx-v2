@@ -4655,4 +4655,9 @@ export const ur: LabelResource = {
   'sla.levels.recipients': 'کسے بتانا ہے',
   'sla.levels.fallback': 'اگر یہ مقرر نہ ہوں تو ان کی جگہ بتائیں',
   'sla.policy.field.levels': 'ایسکلیشن درجے',
+  'incidents.sla.due_in': '{{time}} میں واجب',
+  'incidents.sla.overdue_by': '{{time}} کی تاخیر',
+  'incidents.sla.span_days': '{{days}} دن {{hours}} گھنٹے',
+  'incidents.sla.span_hours': '{{hours}} گھنٹے {{minutes}} منٹ',
+  'incidents.sla.span_minutes': '{{minutes}} منٹ',
 };

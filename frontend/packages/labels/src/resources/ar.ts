@@ -5115,4 +5115,9 @@ export const ar: LabelResource = {
   'sla.levels.recipients': 'من يُبلَّغ',
   'sla.levels.fallback': 'إن لم يكونوا محددين، أبلِغ بدلًا منهم',
   'sla.policy.field.levels': 'مستويات التصعيد',
+  'incidents.sla.due_in': 'يستحق خلال {{time}}',
+  'incidents.sla.overdue_by': 'متأخر بمقدار {{time}}',
+  'incidents.sla.span_days': '{{days}} ي {{hours}} س',
+  'incidents.sla.span_hours': '{{hours}} س {{minutes}} د',
+  'incidents.sla.span_minutes': '{{minutes}} د',
 };

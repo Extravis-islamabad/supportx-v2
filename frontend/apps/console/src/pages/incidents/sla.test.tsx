@@ -153,6 +153,42 @@ describe('SLA panel (WP-025)', () => {
     expect(document.body.textContent).not.toMatch(/\bwaiting\b|\bran\b|warning_at/);
   });
 
+  it('WP-025 s4: the header counts down to the due time, and says when it is overdue', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'details');
+    const soon = new Date(Date.now() + (2 * 60 + 10) * 60_000 + 30_000).toISOString();
+    api({
+      [`GET ${PATH}`]: {
+        body: { ...ITEM, resolution_due_at: soon, resolution_sla_state: 'warning' },
+        headers: { ETag: '"1"' },
+      },
+      [`GET ${PATH}/sla`]: { body: panel() },
+    });
+    render(<App />);
+    const due = await screen.findByTestId('inc-due');
+    expect(due.textContent).toContain('Due in 2 h 10 min');
+    expect(due.getAttribute('data-state')).toBe('warning');
+    expect(within(due).getByRole('timer').getAttribute('aria-live')).toBe('off');
+    expect(due.textContent).toContain('Warning'); // said once, politely, for screen readers
+  });
+
+  it('WP-025 s4: an overdue target reads "Overdue by"', async () => {
+    window.history.pushState({}, '', `/incidents/${ITEM.id}`);
+    rememberTab(SESSION_USER, 'details');
+    const late = new Date(Date.now() - 25 * 60_000 - 10_000).toISOString();
+    api({
+      [`GET ${PATH}`]: {
+        body: { ...ITEM, resolution_due_at: late, resolution_sla_state: 'breached' },
+        headers: { ETag: '"1"' },
+      },
+      [`GET ${PATH}/sla`]: { body: panel() },
+    });
+    render(<App />);
+    const due = await screen.findByTestId('inc-due');
+    expect(due.textContent).toContain('Overdue by 25 min');
+    expect(due.getAttribute('data-state')).toBe('breached');
+  });
+
   it('REQ-SLA-028: a date set by hand shows who and why; changing it needs a reason', async () => {
     window.history.pushState({}, '', `/incidents/${ITEM.id}`);
     rememberTab(SESSION_USER, 'details');

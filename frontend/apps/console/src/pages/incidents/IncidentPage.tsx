@@ -280,6 +280,7 @@ function IncidentDetail({ item, reload }: { item: Incident; reload: () => Promis
             <SlaTag
               policyId={item.sla_policy_id}
               dueAt={item.resolution_due_at}
+              state={item.resolution_sla_state}
               format={dates.format}
             />
           </Space>

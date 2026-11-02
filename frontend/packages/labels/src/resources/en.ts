@@ -5051,6 +5051,11 @@ export const en = {
   'sla.levels.recipients': 'Who to tell',
   'sla.levels.fallback': 'If they are not set, tell instead',
   'sla.policy.field.levels': 'Escalation levels',
+  'incidents.sla.due_in': 'Due in {{time}}',
+  'incidents.sla.overdue_by': 'Overdue by {{time}}',
+  'incidents.sla.span_days': '{{days}} d {{hours}} h',
+  'incidents.sla.span_hours': '{{hours}} h {{minutes}} min',
+  'incidents.sla.span_minutes': '{{minutes}} min',
 } as const;
 
 export type LabelKey = keyof typeof en;
