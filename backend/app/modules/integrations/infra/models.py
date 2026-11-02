@@ -394,7 +394,7 @@ class DirectoryPersonLink(TenantKeyed, Base):
     user_id: Mapped[uuid.UUID]
     manager_external_id: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=utc_now)
 
 
 class DirectoryMembership(TenantKeyed, Base):
