@@ -11,9 +11,9 @@ name: Cluster
 on:
   # Every PR, so its jobs always report (and could become required checks): the first step of
   # each job decides whether this PR touches the deployment; if not, the job finishes at once.
+  # labeled: adding the full-ci label runs the heavy jobs on this PR (speed mode, D-122).
   pull_request:
-  # The merge queue: each queued group is tested on top of main before it merges.
-  merge_group:
+    types: [opened, synchronize, reopened, labeled]
   schedule:
     - cron: "17 3 * * *" # nightly 03:17 UTC
   workflow_dispatch:
@@ -23,10 +23,12 @@ permissions:
   pull-requests: read # the changes step reads the PR's file list
 
 # One group per PR: a new push cancels that PR's outdated run, freeing runners for every lane.
-# Runs on main, nightly and manual runs each get a group of their own and are never cancelled.
+# A queue group gets one group per temporary branch (a re-run replaces the old one); a group the
+# queue dropped finishes at once in its first step (.github/actions/changes). Nightly and manual
+# runs each get a group of their own and are never cancelled.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || format('run-{0}', github.run_id) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.event_name == 'merge_group' && format('queue-{0}', github.event.merge_group.head_ref) || format('run-{0}', github.run_id) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 env:
   FORCE_COLOR: "1"
@@ -37,6 +39,9 @@ env:
 jobs:
   images:
     name: images (build, Trivy, SBOM)
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -93,6 +98,9 @@ jobs:
 
   smoke:
     name: k3d install and smoke test
+    # Speed mode (D-122): heavy, not a required check. Runs nightly, manually, and on a PR
+    # labelled full-ci; never in the merge queue. Skipped here, it takes no runner.
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'full-ci')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:

@@ -40,6 +40,7 @@ from app.shared.api.concurrency import ExpectedVersion, set_etag
 from app.shared.api.idempotency import Created, Idempotency
 from app.shared.api.listing import request_zone
 from app.shared.history import source_of
+from app.shared.labels import strip_isolates
 from app.shared.realtime import CENTRIFUGO_STATE, CentrifugoClient, CentrifugoError, Publish
 from app.shared.realtime.channels import record
 
@@ -75,6 +76,7 @@ class ConversationEntryOut(BaseModel):
     delivery_reason: DeliveryReason | None
     first_response: bool = Field(description="This entry stamped the first response.")
     mentioned_ids: list[uuid.UUID]
+    automatic: bool = Field(description="An automatic reply that came in, such as out-of-office.")
     created_at: datetime
     created_by: uuid.UUID | None
     version: int
@@ -97,6 +99,7 @@ class ConversationEntryOut(BaseModel):
             else DeliveryReason(row.delivery_reason),
             first_response=row.first_response,
             mentioned_ids=list(row.mentioned_ids),
+            automatic=row.automatic,
             created_at=row.created_at,
             created_by=row.created_by,
             version=row.version,
@@ -498,7 +501,14 @@ def add_record_routes(router: APIRouter, wtype: WorkItemType) -> None:  # noqa: 
     ) -> list[MentionableOut]:
         """Staff who work on this type, each saying whether they may see this record."""
         found = await service.mentionable(
-            session, subject, wtype, record_id, policy, policy, search=search, limit=limit
+            session,
+            subject,
+            wtype,
+            record_id,
+            policy,
+            policy,
+            search=strip_isolates(search or "").strip() or None,  # a pasted name may carry marks
+            limit=limit,
         )
         return [
             MentionableOut(id=u, display_name=n, email=e, can_see=sees) for u, n, e, sees in found

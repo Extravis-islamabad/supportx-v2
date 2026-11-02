@@ -14,19 +14,19 @@ images:
   registry: ""          # overrides every image's registry (air-gapped mirror, WP-014c)
   pullSecrets: []
   backend:
-    repository: ghcr.io/devhat-pm/supportx-backend
+    repository: ghcr.io/extravis-islamabad/supportx-backend
     tag: ""             # default: .Chart.AppVersion
     digest: ""          # preferred in real installs: sha256:...
     pullPolicy: IfNotPresent
   # The consumers worker with PDF rendering (WeasyPrint + Pango, D-100 D8): the backend image's
   # `worker` target. The API and the other workers keep the backend image.
   worker:
-    repository: ghcr.io/devhat-pm/supportx-worker
+    repository: ghcr.io/extravis-islamabad/supportx-worker
     tag: ""
     digest: ""
     pullPolicy: IfNotPresent
   web:
-    repository: ghcr.io/devhat-pm/supportx-web
+    repository: ghcr.io/extravis-islamabad/supportx-web
     tag: ""
     digest: ""
     pullPolicy: IfNotPresent

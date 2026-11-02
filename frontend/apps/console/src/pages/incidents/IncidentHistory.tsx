@@ -16,7 +16,7 @@ import { useListFormat } from '@supportx/labels';
 import { useAccess, useAppearance, useDateTime, useLabel } from '@supportx/ui';
 
 import { fieldName, useCustomValueText } from '../customFields/values';
-import { useAutomationWhy } from './automationWhy';
+import { useAutomationWhy, useRequesterActionWhy } from './automationWhy';
 import {
   categoryPath,
   closureCodeLabel,
@@ -29,12 +29,17 @@ import {
 
 type Change = IncidentHistoryEntry['changes'][number];
 
+/** The requester's own act: shown as the why-line, not as a changed field (QA BUG-03). */
+const REQUESTER_ACTION = 'requester_action';
+
 const CODED: Record<string, string> = {
   priority_source: 'priority_source',
   channel: 'work_item_channel',
   follow_reason: 'follow_reason',
   conversation_entry: 'conversation_entry',
   note_visibility: 'visibility',
+  'task.status': 'task_status', // WP-020e
+  'task.priority': 'task_priority',
 };
 const TIMES = new Set([
   'resolved_at',
@@ -42,15 +47,17 @@ const TIMES = new Set([
   'last_reopened_at',
   'first_responded_at',
   'resolution_notified_at',
+  'task.due_at',
 ]);
 // Rich text and references with no words of their own: "changed", never the HTML or an ID.
-const CHANGED_ONLY = new Set(['description', 'resolution', 'follows_id']);
+const CHANGED_ONLY = new Set(['description', 'resolution', 'follows_id', 'task.position']);
 const PEOPLE = new Set([
   'requester_id',
   'on_behalf_of_id',
   'technician_id',
   'follower',
   'follower_access',
+  'task.owner_id',
 ]);
 // Flags: "not set" reads "No", not "(empty)".
 const FLAGS = new Set(['handed_over_out_of_reach']);
@@ -101,7 +108,12 @@ export function IncidentHistory({ id }: { id: string }) {
   );
 
   const why = useAutomationWhy();
-  const whyText = (automation: Record<string, unknown>) => why(automation, people);
+  const requesterWhy = useRequesterActionWhy();
+  /** Why it happened: the automation that did it, or what the requester did (QA BUG-03). */
+  const whyText = (entry: IncidentHistoryEntry) =>
+    entry.automation !== null
+      ? why(entry.automation, people)
+      : requesterWhy(entry.changes.find((c) => c.field === REQUESTER_ACTION)?.new);
 
   const valueText = (change: Change, value: unknown): string => {
     if (FLAGS.has(change.field) && (value === null || value === undefined)) return t('history.no');
@@ -151,7 +163,25 @@ export function IncidentHistory({ id }: { id: string }) {
     if (change.field === 'category_id' && typeof value === 'string') {
       return categoryPath(t, categories.data ?? [], value, locale) || t('history.changed');
     }
-    if ((change.field === 'site_id' || change.field === 'group_id') && typeof value === 'string') {
+    // WP-020e parts: a worklog as person, type and time; a link by its kind only (the other
+    // record may be one this reader cannot see, REQ-INC-084 AC3).
+    if (change.field === 'worklog' && typeof value === 'object') {
+      const log = value as { owner_id?: string; worklog_type?: string; minutes?: number };
+      return t('incidents.worklogs.line', {
+        person: people[log.owner_id ?? '']?.display_name ?? t('incidents.unknown_value'),
+        type: t(`worklog_type.${log.worklog_type ?? 'other'}`),
+        duration: t('incidents.worklogs.minutes', { minutes: log.minutes ?? 0 }),
+      });
+    }
+    if (change.field === 'link' && typeof value === 'object') {
+      return t(`link_kind.${(value as { kind?: string }).kind ?? 'related'}`);
+    }
+    if (
+      (change.field === 'site_id' ||
+        change.field === 'group_id' ||
+        change.field === 'task.group_id') &&
+      typeof value === 'string'
+    ) {
       return units.get(value) ?? t('history.changed');
     }
     if (PEOPLE.has(change.field) && typeof value === 'string') {
@@ -203,13 +233,13 @@ export function IncidentHistory({ id }: { id: string }) {
                     <Tag data-testid="inc-history-bulk">{t('incidents.history.bulk')}</Tag>{' '}
                   </>
                 )}
-                {entry.automation !== null && whyText(entry.automation) !== '' && (
+                {whyText(entry) !== '' && (
                   <Typography.Paragraph
                     type="secondary"
                     style={{ marginBottom: 4 }}
                     data-testid="inc-history-why"
                   >
-                    {whyText(entry.automation)}
+                    {whyText(entry)}
                   </Typography.Paragraph>
                 )}
                 {entry.audit_entry_id != null && (
@@ -235,15 +265,17 @@ export function IncidentHistory({ id }: { id: string }) {
                 )}
                 {entry.kind !== 'created' && entry.changes.length > 0 && (
                   <ul style={{ margin: 0, paddingInlineStart: 20 }}>
-                    {entry.changes.map((change) => (
-                      <li key={change.field}>
-                        {t('history.change', {
-                          field: fieldText(change.field),
-                          old: valueText(change, change.old),
-                          new: valueText(change, change.new),
-                        })}
-                      </li>
-                    ))}
+                    {entry.changes
+                      .filter((change) => change.field !== REQUESTER_ACTION)
+                      .map((change) => (
+                        <li key={change.field}>
+                          {t('history.change', {
+                            field: fieldText(change.field),
+                            old: valueText(change, change.old),
+                            new: valueText(change, change.new),
+                          })}
+                        </li>
+                      ))}
                   </ul>
                 )}
               </div>
