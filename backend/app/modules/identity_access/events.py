@@ -129,7 +129,13 @@ class UserCreatedV2(DomainEvent):
 
 
 class UserStatusChanged(DomainEvent):
-    """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in."""
+    """A person was deactivated or reactivated (WP-021); a deactivated person cannot sign in.
+
+    WP-040 (agreed with lane A, 2026-10-29) adds two defaulted fields, so the contract stays v1
+    and older events still read: `reason` says who made the change (an admin, the directory sync
+    or a privacy erasure) and `source` which directory, when it was the sync. Lane A's
+    "needs reassignment" view flags a leaver's open incidents from `reason = "directory"`.
+    """
 
     event_type: ClassVar[str] = "identity_access.user.status_changed"
     schema_version: ClassVar[int] = 1
@@ -137,6 +143,8 @@ class UserStatusChanged(DomainEvent):
 
     user_id: uuid.UUID
     status: Literal["active", "disabled"]
+    reason: Literal["admin", "directory", "erasure"] = "admin"
+    source: Literal["entra", "ldap"] | None = None
 
 
 class PeopleImportProgressed(DomainEvent):
