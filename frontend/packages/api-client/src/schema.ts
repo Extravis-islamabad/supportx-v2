@@ -2964,6 +2964,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/integrations/catalogue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Connector catalogue
+         * @description Every kind of connector with its instances and their live status (REQ-INT-001).
+         */
+        get: operations["connector_catalogue_api_v1_integrations_catalogue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/integrations/mailboxes": {
         parameters: {
             query?: never;
@@ -6250,6 +6270,92 @@ export interface components {
             /** Reason */
             reason?: string | null;
         };
+        /**
+         * ConnectorCategory
+         * @description Catalogue groups (REQ-INT-001); set-up rights are given per category (REQ-INT-013).
+         * @enum {string}
+         */
+        ConnectorCategory: "identity" | "email" | "collaboration" | "monitoring" | "devops" | "endpoint" | "telephony" | "automation" | "analytics" | "knowledge" | "ai";
+        /**
+         * ConnectorInstanceOut
+         * @description One configured connector and its health.
+         */
+        ConnectorInstanceOut: {
+            /** Credential Expires At */
+            credential_expires_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Last Success At */
+            last_success_at: string | null;
+            /**
+             * Name
+             * @description What the admin called it, such as a mailbox address.
+             */
+            name: string;
+            /** Next Run At */
+            next_run_at: string | null;
+            /**
+             * Reason
+             * @description Why it fails or is degraded (a label code).
+             */
+            reason: string | null;
+            status: components["schemas"]["ConnectorStatus"];
+        };
+        /**
+         * ConnectorKindOut
+         * @description One kind of connector in the catalogue, as the caller sees it.
+         */
+        ConnectorKindOut: {
+            /**
+             * Available
+             * @description Whether the tenant's edition includes it.
+             */
+            available: boolean;
+            /** Can Manage */
+            can_manage: boolean;
+            category: components["schemas"]["ConnectorCategory"];
+            /**
+             * Code
+             * @description The kind's code; the console shows its label.
+             */
+            code: string;
+            /** Instances */
+            instances: components["schemas"]["ConnectorInstanceOut"][];
+            /**
+             * Keywords
+             * @description Label codes the catalogue search also matches.
+             */
+            keywords: string[];
+            /**
+             * Manage Reason
+             * @description Why it cannot be set up: not_in_edition or no_permission.
+             */
+            manage_reason: string | null;
+            /**
+             * Multiple
+             * @description Whether more than one can be added.
+             */
+            multiple: boolean;
+            /**
+             * Page
+             * @description The console page where it is set up.
+             */
+            page: string;
+            /**
+             * Reason Labels
+             * @description Label prefix of its instances' failure reasons.
+             */
+            reason_labels: string;
+        };
+        /**
+         * ConnectorStatus
+         * @description One instance's status as the catalogue shows it (REQ-INT-001).
+         * @enum {string}
+         */
+        ConnectorStatus: "not_set_up" | "active" | "degraded" | "failed" | "paused";
         /**
          * ConversationAddedOut
          * @description The saved entry, and who was mentioned but not notified (they cannot see the record).
@@ -25422,6 +25528,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Unexpected server error. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+        };
+    };
+    connector_catalogue_api_v1_integrations_catalogue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectorKindOut"][];
+                };
+            };
+            /** @description Not signed in. */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
+                };
+            };
+            /** @description Missing permission (integrations.view). */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemDetail"];
                 };
             };
             /** @description Unexpected server error. */

@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
 
+from app.shared.connectors.ports import ConnectorStatus
+
 PER_SENDER_LIMIT = 10  # messages per address per hour before holding (proposed default)
 POLL_SECONDS = 120  # Appendix A (file 12): every 2 minutes
 MAX_MESSAGE_BYTES = 35 * 1024 * 1024  # Appendix A: largest accepted message
@@ -93,6 +95,16 @@ class MailboxState(StrEnum):
     NOT_SET_UP = "not_set_up"
     WORKING = "working"
     FAILING = "failing"
+
+
+def connector_status(state: str, *, enabled: bool) -> ConnectorStatus:
+    """How the connector catalogue shows a mailbox (REQ-INT-001): switched off is "paused"."""
+    if not enabled:
+        return ConnectorStatus.PAUSED
+    return {
+        MailboxState.WORKING.value: ConnectorStatus.ACTIVE,
+        MailboxState.FAILING.value: ConnectorStatus.FAILED,
+    }.get(state, ConnectorStatus.NOT_SET_UP)
 
 
 class Outcome(StrEnum):

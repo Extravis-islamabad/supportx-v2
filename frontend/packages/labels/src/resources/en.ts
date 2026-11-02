@@ -4251,6 +4251,35 @@ export const en = {
   'event_delivery_state.ok': 'Delivering',
   'event_delivery_state.stalled': 'Stalled',
   'incidents.bulk.select_page': 'Select every incident on this page',
+  // WP-040: the connector catalogue.
+  'permission_module.integrations': 'Integrations',
+  'permission.integrations.view': 'See the integrations catalogue',
+  'permission.integrations.view.description':
+    'See every connector and its status, without changing them.',
+  'connector_category.identity': 'Identity and directories',
+  'connector_category.email': 'Email',
+  'connector_category.collaboration': 'Collaboration',
+  'connector_category.monitoring': 'Monitoring',
+  'connector_category.devops': 'DevOps',
+  'connector_category.endpoint': 'Endpoint management',
+  'connector_category.telephony': 'Telephony',
+  'connector_category.automation': 'Automation',
+  'connector_category.analytics': 'Analytics',
+  'connector_category.knowledge': 'Knowledge',
+  'connector_category.ai': 'AI',
+  'connector_status.not_set_up': 'Not set up',
+  'connector_status.active': 'Active',
+  'connector_status.degraded': 'Degraded',
+  'connector_status.failed': 'Failed',
+  'connector_status.paused': 'Paused',
+  'connector_kind.mailbox': 'Support mailbox',
+  'connector_kind.mailbox.description':
+    'Turn email to a support address into incidents and replies.',
+  'connector_keyword.imap': 'IMAP',
+  'connector_keyword.oauth': 'OAuth',
+  'connector_keyword.key': 'key',
+  'connector_manage_reason.not_in_edition': 'Your plan does not include this connector.',
+  'connector_manage_reason.no_permission': 'You do not have permission to set up this connector.',
 } as const;
 
 export type LabelKey = keyof typeof en;

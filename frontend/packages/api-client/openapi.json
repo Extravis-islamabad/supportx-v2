@@ -4090,6 +4090,191 @@
         "title": "ConnectionTestOut",
         "type": "object"
       },
+      "ConnectorCategory": {
+        "description": "Catalogue groups (REQ-INT-001); set-up rights are given per category (REQ-INT-013).",
+        "enum": [
+          "identity",
+          "email",
+          "collaboration",
+          "monitoring",
+          "devops",
+          "endpoint",
+          "telephony",
+          "automation",
+          "analytics",
+          "knowledge",
+          "ai"
+        ],
+        "title": "ConnectorCategory",
+        "type": "string"
+      },
+      "ConnectorInstanceOut": {
+        "description": "One configured connector and its health.",
+        "properties": {
+          "credential_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Credential Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_success_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Success At"
+          },
+          "name": {
+            "description": "What the admin called it, such as a mailbox address.",
+            "title": "Name",
+            "type": "string"
+          },
+          "next_run_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Run At"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it fails or is degraded (a label code).",
+            "title": "Reason"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ConnectorStatus"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "status",
+          "reason",
+          "last_success_at",
+          "next_run_at",
+          "credential_expires_at"
+        ],
+        "title": "ConnectorInstanceOut",
+        "type": "object"
+      },
+      "ConnectorKindOut": {
+        "description": "One kind of connector in the catalogue, as the caller sees it.",
+        "properties": {
+          "available": {
+            "description": "Whether the tenant's edition includes it.",
+            "title": "Available",
+            "type": "boolean"
+          },
+          "can_manage": {
+            "title": "Can Manage",
+            "type": "boolean"
+          },
+          "category": {
+            "$ref": "#/components/schemas/ConnectorCategory"
+          },
+          "code": {
+            "description": "The kind's code; the console shows its label.",
+            "title": "Code",
+            "type": "string"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectorInstanceOut"
+            },
+            "title": "Instances",
+            "type": "array"
+          },
+          "keywords": {
+            "description": "Label codes the catalogue search also matches.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Keywords",
+            "type": "array"
+          },
+          "manage_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot be set up: not_in_edition or no_permission.",
+            "title": "Manage Reason"
+          },
+          "multiple": {
+            "description": "Whether more than one can be added.",
+            "title": "Multiple",
+            "type": "boolean"
+          },
+          "page": {
+            "description": "The console page where it is set up.",
+            "title": "Page",
+            "type": "string"
+          },
+          "reason_labels": {
+            "description": "Label prefix of its instances' failure reasons.",
+            "title": "Reason Labels",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "category",
+          "page",
+          "keywords",
+          "reason_labels",
+          "multiple",
+          "available",
+          "can_manage",
+          "manage_reason",
+          "instances"
+        ],
+        "title": "ConnectorKindOut",
+        "type": "object"
+      },
+      "ConnectorStatus": {
+        "description": "One instance's status as the catalogue shows it (REQ-INT-001).",
+        "enum": [
+          "not_set_up",
+          "active",
+          "degraded",
+          "failed",
+          "paused"
+        ],
+        "title": "ConnectorStatus",
+        "type": "string"
+      },
       "ConversationAddedOut": {
         "description": "The saved entry, and who was mentioned but not notified (they cannot see the record).",
         "properties": {
@@ -38462,6 +38647,62 @@
         "summary": "Show others you are writing",
         "tags": [
           "incidents"
+        ]
+      }
+    },
+    "/api/v1/integrations/catalogue": {
+      "get": {
+        "description": "Every kind of connector with its instances and their live status (REQ-INT-001).",
+        "operationId": "connector_catalogue_api_v1_integrations_catalogue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ConnectorKindOut"
+                  },
+                  "title": "Response Connector Catalogue Api V1 Integrations Catalogue Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Not signed in."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Missing permission (integrations.view)."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description": "Unexpected server error."
+          }
+        },
+        "summary": "Connector catalogue",
+        "tags": [
+          "integrations"
         ]
       }
     },

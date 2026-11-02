@@ -32,6 +32,9 @@ ENUM_PREFIXES: dict[str, str] = {
     "AuthModel": "mailbox_auth_model",
     "CredentialKind": "mailbox_credential_kind",
     "WaitingOut.outcome": "mail_outcome",
+    # Connector catalogue (WP-040)
+    "ConnectorCategory": "connector_category",
+    "ConnectorStatus": "connector_status",
     # Notifications (WP-023)
     "NotificationCategory": "notification_category",
     # Incident lists and bulk jobs (WP-020d)
