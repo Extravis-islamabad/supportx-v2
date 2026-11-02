@@ -20,6 +20,7 @@ from app.core.errors import ProblemDetail
 from app.modules.audit import AuditNote, audited
 from app.modules.identity_access import Subject
 from app.modules.integrations.domain.mailboxes import (
+    SECRET_FALLBACK,
     AfterFetch,
     AuthModel,
     ConnectionSecurity,
@@ -158,6 +159,12 @@ class MailboxOut(BaseModel):
     flooding: bool = Field(
         description="A sender went over the flood limit; their mail waits in the review queue."
     )
+    degraded_reason: str | None = Field(
+        description=(
+            "Code when it works but needs a look (secret_store_fallback: the secrets store's"
+            " copy could not be read, so an earlier copy is used); the UI shows its label."
+        )
+    )
     version: int
 
     @classmethod
@@ -197,6 +204,7 @@ class MailboxOut(BaseModel):
             last_fetch_at=row.last_fetch_at,
             held=view.held,
             flooding=view.flooding,
+            degraded_reason=SECRET_FALLBACK if row.secret_fallback_at is not None else None,
             version=row.version,
         )
 
@@ -325,7 +333,7 @@ async def test_mailbox(
     """Connects and looks for new mail; changes nothing on the server or here."""
     del subject
     row = (await service.get_mailbox(session, mailbox_id)).row
-    reason = await service.try_connection(row, settings, secret=_secret(body))
+    reason = await service.try_connection(session, row, settings, secret=_secret(body))
     return ConnectionTestOut(ok=reason is None, reason=reason)
 
 

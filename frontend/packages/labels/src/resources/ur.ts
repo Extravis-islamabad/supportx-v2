@@ -3858,6 +3858,8 @@ export const ur: LabelResource = {
     'آپ کے جواب کا شکریہ۔ {{previous}} بہت پہلے بند ہو چکا تھا اس لیے دوبارہ نہیں کھل سکتا، چنانچہ آپ کے پیغام سے ایک نیا واقعہ شروع ہوا: {{id}}۔ اس میں اضافہ کرنے کے لیے اس ای میل کا جواب دیں۔',
   'incidents.mail_no_subject': 'بغیر موضوع کی ای میل',
   // WP-040: the connector catalogue.
+  'mailbox_reason.secret_store_fallback':
+    'رازوں کا ذخیرہ پڑھا نہیں جا سکا، اس لیے میل باکس اپنی اسناد کی پچھلی نقل استعمال کر رہا ہے۔ اسے ٹھیک کرنے کے لیے اسناد دوبارہ محفوظ کریں۔',
   'permission_module.integrations': 'انٹیگریشنز',
   'permission.integrations.view': 'انٹیگریشنز کا کیٹلاگ دیکھیں',
   'permission.integrations.view.description': 'ہر کنیکٹر اور اس کی حالت دیکھیں، انہیں بدلے بغیر۔',

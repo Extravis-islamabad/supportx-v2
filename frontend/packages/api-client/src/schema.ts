@@ -8197,6 +8197,11 @@ export interface components {
             /** Credential Expires At */
             credential_expires_at: string | null;
             credential_kind: components["schemas"]["CredentialKind"] | null;
+            /**
+             * Degraded Reason
+             * @description Code when it works but needs a look (secret_store_fallback: the secrets store's copy could not be read, so an earlier copy is used); the UI shows its label.
+             */
+            degraded_reason: string | null;
             /** Directory Id */
             directory_id: string | null;
             /** Display Name */

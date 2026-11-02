@@ -9,7 +9,6 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
-from app.modules.identity_access.domain.policy import Grant
 from app.modules.integrations.domain.mailboxes import connector_status
 from app.modules.integrations.service import catalogue
 from app.shared.connectors.ports import (
@@ -42,7 +41,8 @@ def subject(*permissions: str) -> Subject:
         user_id=uuid.uuid4(),
         role_keys=frozenset({"technician"}),
         is_tenant_admin=False,
-        grants=MappingProxyType({p: (Grant("all"),) for p in permissions}),
+        # Route-level checks look at the keys only; scopes do not matter for set-up rights.
+        grants=MappingProxyType(dict.fromkeys(permissions, ())),
     )
 
 

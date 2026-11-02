@@ -1,4 +1,6 @@
-"""Mailboxes and the ledger of fetched mail (WP-024; migrations 0037 and 0042).
+"""Mailboxes, the ledger of fetched mail and the secrets store (WP-024, WP-040).
+
+Migrations 0037 and 0042 (mailboxes), 0045 (connector secrets).
 
 Both tenant-scoped with RLS. A mailbox's password is stored sealed with the installation key ring
 (AES-256-GCM, bound to the tenant and to the purpose "mailbox"), never in clear. The ledger has
@@ -32,6 +34,16 @@ class Mailbox(TenantEntity):
     __tablename__ = "mailboxes"
     __table_args__ = (
         UniqueConstraint("tenant_id", "id", name="uq_mailboxes_tenant_id_id"),
+        ForeignKeyConstraint(
+            ["tenant_id", "secret_ref"],
+            ["connector_secrets.tenant_id", "connector_secrets.id"],
+            name="fk_mailboxes_secret_ref",
+        ),
+        ForeignKeyConstraint(
+            ["tenant_id", "token_ref"],
+            ["connector_secrets.tenant_id", "connector_secrets.id"],
+            name="fk_mailboxes_token_ref",
+        ),
         Index(
             "uq_mailboxes_tenant_address",
             "tenant_id",
@@ -79,6 +91,8 @@ class Mailbox(TenantEntity):
     allow_plain: Mapped[bool] = mapped_column(Boolean, server_default="false")
     username: Mapped[str | None] = mapped_column(String(320))
     # The IMAP password, or the API mailbox's client secret or certificate (with its key).
+    # Kept, and still written, until the contract step after the secrets store (0045) is proven;
+    # `secret_ref` and `token_ref` point at the store's copies.
     secret_key_id: Mapped[str | None] = mapped_column(String(32))
     secret_sealed: Mapped[bytes | None] = mapped_column(LargeBinary)
     # Microsoft 365 and Gmail (session 2): the customer's own OAuth app (D-109 (2)).
@@ -113,6 +127,11 @@ class Mailbox(TenantEntity):
     # the fetch once every such sender is back under the limit.
     flooding: Mapped[bool] = mapped_column(Boolean, server_default="false")
     next_fetch_at: Mapped[datetime | None]
+    secret_ref: Mapped[uuid.UUID | None]  # connector_secrets (WP-040)
+    token_ref: Mapped[uuid.UUID | None]
+    # The store's copy could not be read and the old column was used: shown as degraded until a
+    # read from the store works again (never silent).
+    secret_fallback_at: Mapped[datetime | None]
 
 
 class MailFetched(TenantKeyed, Timestamps, Base):
@@ -154,3 +173,48 @@ class MailFetched(TenantKeyed, Timestamps, Base):
     # cleared). Not kept for mail over the size limit.
     raw: Mapped[bytes | None] = mapped_column(LargeBinary, deferred=True)
     handled_by: Mapped[uuid.UUID | None]  # the admin who released or discarded it
+
+
+class ConnectorSecret(TenantEntity):
+    """One sealed credential of a connector (WP-040, REQ-INT-003; migration 0045).
+
+    Sealed with the installation key ring, bound to the tenant and to `purpose` (the same
+    context the owner used before the store, so moved secrets were copied without being opened).
+    Never returned or logged; the API shows its name, type and age. Rotating replaces the value
+    behind the same row, so what uses it keeps its reference.
+    """
+
+    __tablename__ = "connector_secrets"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "id", name="uq_connector_secrets_tenant_id_id"),
+        Index(
+            "uq_connector_secrets_tenant_owner_role",
+            "tenant_id",
+            "owner_kind",
+            "owner_id",
+            "role",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        Index(
+            "uq_connector_secrets_tenant_name",
+            "tenant_id",
+            "name",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+        CheckConstraint(
+            "secret_type IN ('password', 'client_secret', 'certificate', 'refresh_token')",
+            name="secret_type_code",
+        ),
+    )
+
+    name: Mapped[str] = mapped_column(String(200))  # stable; exports carry {{secret:<name>}}
+    secret_type: Mapped[str] = mapped_column(String(20))
+    owner_kind: Mapped[str] = mapped_column(String(40))  # a connector kind code ("mailbox")
+    owner_id: Mapped[uuid.UUID]
+    role: Mapped[str] = mapped_column(String(20))  # which of the owner's secrets
+    purpose: Mapped[str] = mapped_column(String(40))  # the sealing context
+    key_id: Mapped[str] = mapped_column(String(32))
+    sealed: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    set_at: Mapped[datetime]  # its age (REQ-INT-003 AC3)

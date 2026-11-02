@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.identity_access import Subject
-from app.modules.integrations.domain.mailboxes import connector_status
+from app.modules.integrations.domain.mailboxes import SECRET_FALLBACK, connector_status
 from app.modules.integrations.infra.models import Mailbox
 from app.modules.integrations.service.mailboxes import MANAGE as MAILBOXES_MANAGE
 from app.modules.licensing import has_feature
@@ -86,15 +86,21 @@ class MailboxConnectors:
 
 
 def _mailbox(row: Mailbox) -> ConnectorInstance:
-    status = connector_status(row.state, enabled=row.enabled)
+    fallback = row.secret_fallback_at is not None
+    status = connector_status(row.state, enabled=row.enabled, secret_fallback=fallback)
+    reason = {
+        ConnectorStatus.FAILED: row.state_reason,
+        ConnectorStatus.DEGRADED: SECRET_FALLBACK,
+    }.get(status)
+    working = status in {ConnectorStatus.ACTIVE, ConnectorStatus.DEGRADED}
     return ConnectorInstance(
         id=row.id,
         name=row.address,
         status=status,
-        reason=row.state_reason if status == ConnectorStatus.FAILED else None,
+        reason=reason,
         # The fetch stamps every attempt; only a working mailbox's last fetch was a success.
         # Connector runs (this session's next step) record successes on their own.
-        last_success_at=row.last_fetch_at if status == ConnectorStatus.ACTIVE else None,
+        last_success_at=row.last_fetch_at if working else None,
         next_run_at=row.next_fetch_at if row.enabled else None,
         credential_expires_at=row.credential_expires_at,
     )

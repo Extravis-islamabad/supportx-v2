@@ -35,12 +35,14 @@ from app.modules.integrations.events import (
 )
 from app.modules.integrations.infra.imap import MailboxReader, MailboxUnavailableError
 from app.modules.integrations.infra.models import Mailbox
+from app.modules.integrations.service import secrets
 from app.modules.integrations.service.connections import (
+    Credentials,
     key_ring,
     open_reader,
-    store_refresh_token,
 )
 from app.modules.integrations.service.inbound import flood_over, process
+from app.modules.integrations.service.secrets import SecretRole
 from app.shared.events import record_event
 from app.shared.files.keyring import KeyRing
 
@@ -109,16 +111,26 @@ async def fetch_mailbox(  # noqa: PLR0913 - the mailbox and its collaborators, e
         boxes = list(await session.scalars(select(Mailbox).where(Mailbox.deleted_at.is_(None))))
         ours = own_addresses(settings, boxes)
         after, move_to = AfterFetch(mailbox.after_fetch), mailbox.move_to
+        # Read here so a fallback to the old column is marked (degraded) in this transaction.
+        stored: Credentials | MailboxUnavailableError | None
+        try:
+            stored = await secrets.credentials(session, mailbox, ring) if reader is None else None
+        except MailboxUnavailableError as exc:
+            stored = exc
     handled = 0
     try:
+        if isinstance(stored, MailboxUnavailableError):
+            raise stored
         if reader is None:
-            opened = await open_reader(mailbox, ring, settings)
+            opened = await open_reader(mailbox, ring, settings, stored=stored)
             reader = opened.reader
             if opened.new_refresh_token is not None:
                 async with database.tenant_session(TenantContext(tenant)) as session:
                     live = await session.get(Mailbox, mailbox_id)
                     if live is not None:
-                        store_refresh_token(live, ring, opened.new_refresh_token)
+                        await secrets.put(
+                            session, live, ring, SecretRole.REFRESH_TOKEN, opened.new_refresh_token
+                        )
         try:
             for fetched in await reader.new_messages():
                 async with database.tenant_session(TenantContext(tenant)) as session:

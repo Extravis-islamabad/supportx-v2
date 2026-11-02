@@ -4315,6 +4315,8 @@ export const ar: LabelResource = {
   'event_delivery_state.stalled': 'متوقف',
   'incidents.bulk.select_page': 'تحديد كل الحوادث في هذه الصفحة',
   // WP-040: the connector catalogue.
+  'mailbox_reason.secret_store_fallback':
+    'تعذّرت قراءة مخزن الأسرار، لذا يستخدم صندوق البريد نسخته السابقة من بيانات الاعتماد. احفظ بيانات الاعتماد مرة أخرى لإصلاح ذلك.',
   'permission_module.integrations': 'التكاملات',
   'permission.integrations.view': 'عرض كتالوج التكاملات',
   'permission.integrations.view.description': 'عرض كل الموصلات وحالاتها دون تغييرها.',

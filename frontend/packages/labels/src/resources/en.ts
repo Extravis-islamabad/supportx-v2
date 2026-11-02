@@ -4252,6 +4252,8 @@ export const en = {
   'event_delivery_state.stalled': 'Stalled',
   'incidents.bulk.select_page': 'Select every incident on this page',
   // WP-040: the connector catalogue.
+  'mailbox_reason.secret_store_fallback':
+    'The secrets store could not be read, so the mailbox uses its earlier copy of the credential. Save the credential again to fix it.',
   'permission_module.integrations': 'Integrations',
   'permission.integrations.view': 'See the integrations catalogue',
   'permission.integrations.view.description':

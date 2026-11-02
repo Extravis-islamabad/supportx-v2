@@ -9091,6 +9091,18 @@
               }
             ]
           },
+          "degraded_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code when it works but needs a look (secret_store_fallback: the secrets store's copy could not be read, so an earlier copy is used); the UI shows its label.",
+            "title": "Degraded Reason"
+          },
           "directory_id": {
             "anyOf": [
               {
@@ -9279,6 +9291,7 @@
           "last_fetch_at",
           "held",
           "flooding",
+          "degraded_reason",
           "version"
         ],
         "title": "MailboxOut",

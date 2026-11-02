@@ -104,6 +104,14 @@ def _unseal(ring: KeyRing, tenant_id: uuid.UUID, purpose: str, key_id: str, seal
         raise MailboxUnavailableError(UNREADABLE) from exc
 
 
+@dataclass(frozen=True)
+class Credentials:
+    """A mailbox's secrets as read from the secrets store (`service.secrets.credentials`)."""
+
+    secret: str | None
+    refresh_token: str | None
+
+
 def stored_secret(mailbox: Mailbox, ring: KeyRing) -> str:
     """The IMAP password or the OAuth app's credential (MailboxUnavailableError when none)."""
     if mailbox.secret_key_id is None or mailbox.secret_sealed is None:
@@ -139,10 +147,43 @@ class Opened:
     new_refresh_token: str | None = None
 
 
+def _secret_of(
+    mailbox: Mailbox, ring: KeyRing, secret: str | None, stored: Credentials | None
+) -> str:
+    if secret is not None:
+        return secret
+    if stored is None:  # no store read (unit tests): the mailbox's own column
+        return stored_secret(mailbox, ring)
+    if stored.secret is None:
+        raise MailboxUnavailableError(NOT_SET)
+    return stored.secret
+
+
+def _refresh_of(mailbox: Mailbox, ring: KeyRing, stored: Credentials | None) -> str:
+    if stored is not None:
+        if stored.refresh_token is None:
+            raise MailboxUnavailableError(OAUTH_NOT_CONNECTED)
+        return stored.refresh_token
+    if mailbox.token_key_id is None or mailbox.token_sealed is None:
+        raise MailboxUnavailableError(OAUTH_NOT_CONNECTED)
+    return _unseal(
+        ring, mailbox.tenant_id, TOKEN_PURPOSE, mailbox.token_key_id, mailbox.token_sealed
+    )
+
+
 async def open_reader(
-    mailbox: Mailbox, ring: KeyRing, settings: Settings, *, secret: str | None = None
+    mailbox: Mailbox,
+    ring: KeyRing,
+    settings: Settings,
+    *,
+    secret: str | None = None,
+    stored: Credentials | None = None,
 ) -> Opened:
-    """A reader for the mailbox; `secret` tries a new password or credential before saving it."""
+    """A reader for the mailbox.
+
+    `secret` tries a new password or credential before saving it; `stored` is what the secrets
+    store returned (services always pass it; without it the mailbox's old columns are read).
+    """
     protocol = MailboxProtocol(mailbox.protocol)
     if protocol is MailboxProtocol.IMAP:
         return Opened(
@@ -152,24 +193,20 @@ async def open_reader(
                     port=mailbox.port or 993,
                     security=ConnectionSecurity(mailbox.security),
                     username=mailbox.username or "",
-                    password=secret if secret is not None else stored_secret(mailbox, ring),
+                    password=_secret_of(mailbox, ring, secret, stored),
                     folder=mailbox.folder,
                 )
             )
         )
     oauth = oauth_for(settings)
-    client = client_of(mailbox, ring, secret)
+    client = client_of(mailbox, ring, _secret_of(mailbox, ring, secret, stored))
     auth_model = AuthModel(mailbox.auth_model or AuthModel.DELEGATED)
     scopes = scopes_for(protocol, auth_model)
     rotated: str | None = None
     if auth_model is AuthModel.APP:
         access = (await oauth.app_token(client, scopes)).access_token
     else:
-        if mailbox.token_key_id is None or mailbox.token_sealed is None:
-            raise MailboxUnavailableError(OAUTH_NOT_CONNECTED)
-        refresh = _unseal(
-            ring, mailbox.tenant_id, TOKEN_PURPOSE, mailbox.token_key_id, mailbox.token_sealed
-        )
+        refresh = _refresh_of(mailbox, ring, stored)
         tokens = await oauth.refresh(client, refresh, scopes)
         access = tokens.access_token
         if tokens.refresh_token and tokens.refresh_token != refresh:
@@ -207,8 +244,14 @@ class ConsentRefusedError(Exception):
         self.mailbox_id = mailbox_id
 
 
-def start_consent(
-    mailbox: Mailbox, ring: KeyRing, settings: Settings, *, admin_id: uuid.UUID, origin: str
+def start_consent(  # noqa: PLR0913 - the mailbox, its credential and who asks, explicit
+    mailbox: Mailbox,
+    ring: KeyRing,
+    settings: Settings,
+    *,
+    admin_id: uuid.UUID,
+    origin: str,
+    secret: str | None = None,
 ) -> str:
     """The provider's sign-in address; the mailbox remembers the consent for ten minutes."""
     protocol = MailboxProtocol(mailbox.protocol)
@@ -216,7 +259,7 @@ def start_consent(
     if not needs_sign_in(protocol, auth_model):
         reason = "mailbox_sign_in_not_needed"
         raise ConsentRefusedError(reason, mailbox.id)
-    client = client_of(mailbox, ring)
+    client = client_of(mailbox, ring, secret)
     state = secrets.token_urlsafe(32)
     verifier, challenge = pkce_pair()
     redirect_uri = origin.rstrip("/") + CALLBACK_PATH
@@ -255,8 +298,9 @@ async def finish_consent(  # noqa: PLR0913 - the callback's facts, explicit
     code: str,
     admin_id: uuid.UUID,
     origin: str,
-) -> None:
-    """Exchange the code, check the account, keep the refresh token sealed (the caller commits)."""
+    secret: str | None = None,
+) -> str:
+    """Exchange the code and check the account; the refresh token, for the caller to store."""
     sealed_key, sealed = mailbox.oauth_pending_key_id, mailbox.oauth_pending_sealed
     until = mailbox.oauth_pending_until
     # Used once: cleared whatever happens next.
@@ -274,7 +318,7 @@ async def finish_consent(  # noqa: PLR0913 - the callback's facts, explicit
     oauth = oauth_for(settings)
     try:
         tokens = await oauth.exchange(
-            client_of(mailbox, ring),
+            client_of(mailbox, ring, secret),
             code=code,
             redirect_uri=redirect_uri,
             verifier=str(pending["verifier"]),
@@ -293,8 +337,8 @@ async def finish_consent(  # noqa: PLR0913 - the callback's facts, explicit
         raise ConsentRefusedError(OAUTH_NOT_CONNECTED, mailbox.id)
     if account != mailbox.address.lower():
         raise ConsentRefusedError(OAUTH_WRONG_ACCOUNT, mailbox.id)
-    store_refresh_token(mailbox, ring, tokens.refresh_token)
     mailbox.connected_account = account
     # Read at the next poll; the state shows "not checked yet" until then.
     mailbox.state, mailbox.state_reason = MailboxState.NOT_SET_UP.value, None
     mailbox.next_fetch_at = None
+    return tokens.refresh_token
