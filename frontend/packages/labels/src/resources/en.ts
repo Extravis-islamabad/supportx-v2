@@ -5017,6 +5017,12 @@ export const en = {
     'Escalation: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.sla_escalated.body':
     'Hello {{ recipient.name }},\n\n{{ record.display_id }} "{{ record.title }}" was escalated to you by its {{ sla.target }} SLA.',
+  'work_item_view.about_to_breach': 'About to breach',
+  'work_item_view.breached': 'SLA breached',
+  'report_field.first_response_sla_state': 'Response SLA',
+  'report_field.resolution_sla_state': 'Resolution SLA',
+  'report_field.first_response_breached': 'Response overdue',
+  'report_field.resolution_breached': 'Resolution overdue',
 } as const;
 
 export type LabelKey = keyof typeof en;

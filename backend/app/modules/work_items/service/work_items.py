@@ -577,6 +577,18 @@ def view_predicates(
         if reports
         else WorkItem.id.is_(None),
         "without_sla": and_(_open(), WorkItem.sla_policy_id.is_(None)),
+        # REQ-SLA-019 AC2 and REQ-INC-011 AC3: exactly the records in warning, and the open
+        # records with a breached target, both live (the waker stamps the record).
+        "about_to_breach": and_(
+            _open(),
+            or_(
+                WorkItem.first_response_sla_state == "warning",
+                WorkItem.resolution_sla_state == "warning",
+            ),
+        ),
+        "breached": and_(
+            _open(), or_(WorkItem.first_response_breached, WorkItem.resolution_breached)
+        ),
         "closed": WorkItem.status_category == StatusCategory.CLOSED,
         "canceled": WorkItem.status_category == StatusCategory.CANCELED,
         "all": WorkItem.id.is_not(None),
@@ -655,6 +667,24 @@ async def view_filters(
         "shared_with_me": listed(shared),
         "from_my_reports": both(open_, listed(reports, "requester_id")) if reports else nothing,
         "without_sla": _all(open_, _cond("sla_policy_id", op="is_null")),
+        "about_to_breach": _all(
+            open_,
+            {
+                "or": [
+                    _cond("first_response_sla_state", "eq", "warning"),
+                    _cond("resolution_sla_state", "eq", "warning"),
+                ]
+            },
+        ),
+        "breached": _all(
+            open_,
+            {
+                "or": [
+                    _cond("first_response_breached", "eq", value=True),
+                    _cond("resolution_breached", "eq", value=True),
+                ]
+            },
+        ),
         "closed": _cond("status_category", "eq", StatusCategory.CLOSED.value),
         "canceled": _cond("status_category", "eq", StatusCategory.CANCELED.value),
         "all": None,

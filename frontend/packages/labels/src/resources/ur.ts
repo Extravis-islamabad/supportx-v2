@@ -4621,4 +4621,10 @@ export const ur: LabelResource = {
     'ایسکلیشن: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.sla_escalated.body':
     'السلام علیکم {{ recipient.name }}،\n\n{{ record.display_id }} "{{ record.title }}" اس کے {{ sla.target }} ایس ایل اے کے تحت آپ کو ایسکلیٹ کیا گیا ہے۔',
+  'work_item_view.about_to_breach': 'تاخیر کے قریب',
+  'work_item_view.breached': 'ایس ایل اے سے تجاوز',
+  'report_field.first_response_sla_state': 'جواب کا ایس ایل اے',
+  'report_field.resolution_sla_state': 'حل کا ایس ایل اے',
+  'report_field.first_response_breached': 'جواب میں تاخیر',
+  'report_field.resolution_breached': 'حل میں تاخیر',
 };

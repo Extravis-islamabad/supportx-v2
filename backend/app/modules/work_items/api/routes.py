@@ -262,6 +262,22 @@ class SlaManualOut(BaseModel):
     at: datetime | None
 
 
+SlaLevelAnchor = Literal["due", "warning"]
+SlaRunState = Literal["waiting", "ran", "cancelled"]
+
+
+class SlaLevelRunOut(BaseModel):
+    """One escalation level of a target: when it runs; whether it waits, ran or was cancelled."""
+
+    position: int
+    anchor: SlaLevelAnchor
+    offset_seconds: int = Field(description="Business seconds from the anchor; negative: before.")
+    state: SlaRunState
+    due_at: datetime | None = Field(description="None while waiting: held by a pause.")
+    ran_at: datetime | None
+    failed_actions: int = Field(description="Actions that could not be done (REQ-SLA-024 AC3).")
+
+
 class SlaTargetOut(BaseModel):
     """One target of the record's SLA (the latest round).
 
@@ -285,6 +301,10 @@ class SlaTargetOut(BaseModel):
     calendar_id: uuid.UUID | None
     calendar_name: str | None
     manual: SlaManualOut | None
+    warned_at: datetime | None = Field(
+        default=None, description="When it reached its warning point (REQ-SLA-019)."
+    )
+    levels: list[SlaLevelRunOut] = Field(default_factory=list)
 
 
 class WorkItemSlaOut(BaseModel):
@@ -334,6 +354,19 @@ class WorkItemSlaOut(BaseModel):
                     )
                     if t.manual_due_at is not None
                     else None,
+                    warned_at=t.warned_at,
+                    levels=[
+                        SlaLevelRunOut(
+                            position=lv.position,
+                            anchor=cast("SlaLevelAnchor", lv.anchor),
+                            offset_seconds=lv.offset_seconds,
+                            state=cast("SlaRunState", lv.state),
+                            due_at=lv.due_at,
+                            ran_at=lv.ran_at,
+                            failed_actions=lv.failed_actions,
+                        )
+                        for lv in t.levels
+                    ],
                 )
                 for t in view.targets
             ],

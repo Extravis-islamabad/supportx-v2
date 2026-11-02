@@ -11794,6 +11794,41 @@ export interface components {
             recipients?: components["schemas"]["SlaRecipientIn"][];
         };
         /**
+         * SlaLevelRunOut
+         * @description One escalation level of a target: when it runs; whether it waits, ran or was cancelled.
+         */
+        SlaLevelRunOut: {
+            /**
+             * Anchor
+             * @enum {string}
+             */
+            anchor: "due" | "warning";
+            /**
+             * Due At
+             * @description None while waiting: held by a pause.
+             */
+            due_at: string | null;
+            /**
+             * Failed Actions
+             * @description Actions that could not be done (REQ-SLA-024 AC3).
+             */
+            failed_actions: number;
+            /**
+             * Offset Seconds
+             * @description Business seconds from the anchor; negative: before.
+             */
+            offset_seconds: number;
+            /** Position */
+            position: number;
+            /** Ran At */
+            ran_at: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "waiting" | "ran" | "cancelled";
+        };
+        /**
          * SlaManualOut
          * @description A due date set by hand: who, why and when (REQ-SLA-028 AC3).
          */
@@ -12087,6 +12122,8 @@ export interface components {
              * @enum {string}
              */
             kind: "first_response" | "resolution";
+            /** Levels */
+            levels?: components["schemas"]["SlaLevelRunOut"][];
             manual: components["schemas"]["SlaManualOut"] | null;
             /** Met At */
             met_at: string | null;
@@ -12109,6 +12146,11 @@ export interface components {
             target_seconds: number;
             /** Used Seconds */
             used_seconds: number;
+            /**
+             * Warned At
+             * @description When it reached its warning point (REQ-SLA-019).
+             */
+            warned_at?: string | null;
             /** Warning At */
             warning_at: string | null;
         };

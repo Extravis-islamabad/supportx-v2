@@ -16379,6 +16379,78 @@
         "title": "SlaLevelOut",
         "type": "object"
       },
+      "SlaLevelRunOut": {
+        "description": "One escalation level of a target: when it runs; whether it waits, ran or was cancelled.",
+        "properties": {
+          "anchor": {
+            "enum": [
+              "due",
+              "warning"
+            ],
+            "title": "Anchor",
+            "type": "string"
+          },
+          "due_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "None while waiting: held by a pause.",
+            "title": "Due At"
+          },
+          "failed_actions": {
+            "description": "Actions that could not be done (REQ-SLA-024 AC3).",
+            "title": "Failed Actions",
+            "type": "integer"
+          },
+          "offset_seconds": {
+            "description": "Business seconds from the anchor; negative: before.",
+            "title": "Offset Seconds",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "ran_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ran At"
+          },
+          "state": {
+            "enum": [
+              "waiting",
+              "ran",
+              "cancelled"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "anchor",
+          "offset_seconds",
+          "state",
+          "due_at",
+          "ran_at",
+          "failed_actions"
+        ],
+        "title": "SlaLevelRunOut",
+        "type": "object"
+      },
       "SlaManualOut": {
         "description": "A due date set by hand: who, why and when (REQ-SLA-028 AC3).",
         "properties": {
@@ -17131,6 +17203,13 @@
             "title": "Kind",
             "type": "string"
           },
+          "levels": {
+            "items": {
+              "$ref": "#/components/schemas/SlaLevelRunOut"
+            },
+            "title": "Levels",
+            "type": "array"
+          },
           "manual": {
             "anyOf": [
               {
@@ -17219,6 +17298,19 @@
           "used_seconds": {
             "title": "Used Seconds",
             "type": "integer"
+          },
+          "warned_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When it reached its warning point (REQ-SLA-019).",
+            "title": "Warned At"
           },
           "warning_at": {
             "anyOf": [

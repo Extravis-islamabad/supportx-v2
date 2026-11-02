@@ -5069,4 +5069,10 @@ export const ar: LabelResource = {
     'تصعيد: {{ record.display_id }} {{ record.title }}',
   'notification_template.incident.sla_escalated.body':
     'مرحبًا {{ recipient.name }}،\n\nصُعِّد إليك {{ record.display_id }} "{{ record.title }}" بموجب اتفاقية مستوى الخدمة الخاصة بـ {{ sla.target }}.',
+  'work_item_view.about_to_breach': 'على وشك التأخر',
+  'work_item_view.breached': 'تجاوز اتفاقية مستوى الخدمة',
+  'report_field.first_response_sla_state': 'اتفاقية الاستجابة',
+  'report_field.resolution_sla_state': 'اتفاقية الحل',
+  'report_field.first_response_breached': 'تأخر الاستجابة',
+  'report_field.resolution_breached': 'تأخر الحل',
 };

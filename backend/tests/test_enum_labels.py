@@ -33,6 +33,8 @@ ENUM_PREFIXES: dict[str, str] = {
     # The record's SLA panel (WP-025 s2)
     "SlaTargetOut.kind": "sla_target_kind",
     "SlaTargetOut.state": "sla_target_state",
+    "SlaLevelRunOut.anchor": "sla_level_anchor",
+    "SlaLevelRunOut.state": "sla_run_state",
     "SlaTargetOut.met_how": "sla_met_how",
     "WorkItemSlaOut.reason": "sla_applied_reason",
     "TargetUnit": "sla_target_unit",

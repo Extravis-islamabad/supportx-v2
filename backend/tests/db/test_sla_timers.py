@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
+import httpx
 import pytest
 from sqlalchemy import text
 
@@ -23,7 +24,7 @@ from app.modules.work_items.service.notifications import (
 from app.shared.events import EventEnvelope
 from app.shared.notifications.ports import LabelRef
 from tests.db import test_incidents_api
-from tests.db.test_incidents_api import Org, World
+from tests.db.test_incidents_api import Org, World, ids
 from tests.db.test_sla_clock import POLICIES, _events, _p1, _targets
 
 pytestmark = [pytest.mark.db, pytest.mark.valkey]
@@ -317,3 +318,27 @@ async def test_req_sla_023_an_unset_assignee_falls_back_and_the_level_notifies_t
     assert context.relatives[ESCALATION_RECIPIENTS] == frozenset({a.lead})
     assert context.urgent  # never held for a digest
     assert context.variables["sla.target"] == LabelRef("sla_target_kind.resolution")
+
+
+async def test_req_sla_019_ac2_the_about_to_breach_and_breached_views(world: World) -> None:
+    a = world.a
+    warned = await _p1(world, a)
+    calm = await _p1(world, a)
+    rows = await _targets(world, warned)
+    # Past the response's due moment and the resolution's warning point, before its due.
+    await _fire_all(world, a, warned, rows["resolution:1"]["warning_at"] + timedelta(seconds=1))
+    about = await ids(world, a, a.admin, "?view=about_to_breach")
+    breached = await ids(world, a, a.admin, "?view=breached")
+    assert warned["id"] in about
+    assert calm["id"] not in about
+    assert warned["id"] in breached  # the 15-minute response target passed
+    assert calm["id"] not in breached
+    # The same through the filter DSL (lists, exports): the state and the flag as fields.
+    for dsl in (
+        {"field": "resolution_sla_state", "op": "eq", "value": "warning"},
+        {"field": "first_response_breached", "op": "eq", "value": True},
+    ):
+        query = "?" + str(httpx.QueryParams({"filter": json.dumps(dsl)}))
+        found = await ids(world, a, a.admin, query)
+        assert warned["id"] in found
+        assert calm["id"] not in found

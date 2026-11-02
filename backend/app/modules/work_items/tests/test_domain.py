@@ -286,6 +286,7 @@ def test_every_field_problem_code_is_registered_for_labels() -> None:
         "on_behalf_of_id",
         "technician_id",
         "followers",
+        "group_head",
         "close_requires",
         "worklog_type",
     }
