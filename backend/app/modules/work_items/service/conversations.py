@@ -688,7 +688,7 @@ async def counters(
     Each counter is also a list view of the same code, so the list it opens has exactly the
     counted rows (REQ-INC-128 AC2).
     """
-    predicates = items.view_predicates(subject, zone=zone, now=items.now())
+    predicates = await items.views_for(session, subject, zone=zone)
     base = items.staff_rows(subject, wtype)
     found: list[tuple[str, int, bool]] = []
     for code in items.COUNTERS:

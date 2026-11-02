@@ -57,6 +57,7 @@ from app.modules.identity_access.service.authz_consumer import AUTHZ_INVALIDATIO
 from app.modules.identity_access.service.directory import (
     MailRecipient,
     NotifiablePerson,
+    direct_reports,
     display_names,
     mail_recipients,
     notifiable_people,
@@ -296,6 +297,7 @@ __all__ = [
     "authorize",
     "authorize_stored",
     "create_requester_from_mail",
+    "direct_reports",
     "display_names",
     "get_policy",
     "mail_recipients",

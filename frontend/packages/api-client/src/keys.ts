@@ -92,6 +92,12 @@ export const queryKeys = {
     counters: ['incidents', 'counters'] as const,
     replyTemplates: ['incidents', 'reply-templates'] as const,
     templates: ['incidents', 'templates'] as const,
+    listFields: ['incidents', 'list-fields'] as const,
+    viewFilters: ['incidents', 'views', 'filters'] as const,
+    savedViews: ['incidents', 'saved-views'] as const,
+    listSetting: (viewKey: string) => ['incidents', 'list-settings', viewKey] as const,
+    bulkJobs: ['incidents', 'bulk-jobs'] as const,
+    bulkJob: (id: string) => ['incidents', 'bulk-jobs', id] as const,
   },
   customFields: {
     all: ['custom-fields'] as const,

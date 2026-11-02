@@ -12,6 +12,8 @@ on:
   # Every PR, so its jobs always report (and could become required checks): the first step of
   # each job decides whether this PR touches the deployment; if not, the job finishes at once.
   pull_request:
+  # The merge queue: each queued group is tested on top of main before it merges.
+  merge_group:
   schedule:
     - cron: "17 3 * * *" # nightly 03:17 UTC
   workflow_dispatch:

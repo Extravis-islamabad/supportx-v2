@@ -172,6 +172,46 @@ class WorkItemReplyTemplatesChanged(DomainEvent):
     template_id: uuid.UUID
 
 
+class WorkItemViewChanged(DomainEvent):
+    """A saved view was added, changed or removed (WP-020d; the view menus reload)."""
+
+    event_type: ClassVar[str] = "work_items.view.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_view"
+
+    view_id: uuid.UUID
+    type: str
+    owner_id: uuid.UUID
+    visibility: str
+
+
+class WorkItemListSettingsChanged(DomainEvent):
+    """A user's columns, sort or page size of one view changed (their other windows follow)."""
+
+    event_type: ClassVar[str] = "work_items.list_settings.changed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_list_setting"
+
+    user_id: uuid.UUID
+    type: str
+    view_key: str
+
+
+class WorkItemBulkJobProgressed(DomainEvent):
+    """A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only)."""
+
+    event_type: ClassVar[str] = "work_items.bulk_job.progressed"
+    schema_version: ClassVar[int] = 1
+    aggregate_type: ClassVar[str] = "work_item_bulk_job"
+
+    job_id: uuid.UUID
+    type: str
+    requested_by: uuid.UUID | None
+    status: str
+    processed: int
+    total: int
+
+
 EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemCreated,
     WorkItemUpdated,
@@ -185,4 +225,7 @@ EVENTS: tuple[type[DomainEvent], ...] = (
     WorkItemFollowerAdded,
     WorkItemFollowerRemoved,
     WorkItemReplyTemplatesChanged,
+    WorkItemViewChanged,
+    WorkItemListSettingsChanged,
+    WorkItemBulkJobProgressed,
 )

@@ -9,6 +9,8 @@ on:
   # Every PR: this job is a required check, and a check that never reports blocks the merge.
   # Its first step decides whether the stack is needed (docs-only changes are not).
   pull_request:
+  # The merge queue: each queued group is tested on top of main before it merges.
+  merge_group:
   schedule:
     - cron: "41 2 * * *" # nightly 02:41 UTC: catches upstream image or registry breakage
   workflow_dispatch:

@@ -4,6 +4,8 @@ name: Security
 
 on:
   pull_request:
+  # The merge queue: each queued group is tested on top of main before it merges.
+  merge_group:
   push:
     branches: [main]
   schedule:

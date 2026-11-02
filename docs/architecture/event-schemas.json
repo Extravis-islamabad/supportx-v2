@@ -2311,6 +2311,56 @@
         "type": "object"
       }
     },
+    "work_items.bulk_job.progressed": {
+      "1": {
+        "description": "A bulk job started, finished a batch or ended (REQ-INC-120 AC3; counts only).",
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "processed": {
+            "title": "Processed",
+            "type": "integer"
+          },
+          "requested_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Requested By"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "type",
+          "requested_by",
+          "status",
+          "processed",
+          "total"
+        ],
+        "title": "WorkItemBulkJobProgressed",
+        "type": "object"
+      }
+    },
     "work_items.conversation.added": {
       "1": {
         "description": "A reply or note was saved (WP-020b). Notifications (WP-023) and email (WP-024) start here.\n\n`mentioned_ids` holds only people who may see the record (REQ-INC-063 AC2); `first_response`\nis true when this entry stamped the record's first response (REQ-INC-065).",
@@ -2478,6 +2528,33 @@
         "type": "object"
       }
     },
+    "work_items.list_settings.changed": {
+      "1": {
+        "description": "A user's columns, sort or page size of one view changed (their other windows follow).",
+        "properties": {
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "view_key": {
+            "title": "View Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "type",
+          "view_key"
+        ],
+        "title": "WorkItemListSettingsChanged",
+        "type": "object"
+      }
+    },
     "work_items.reply_templates.changed": {
       "1": {
         "description": "A reply template was added, changed or removed (open composers reload the list).",
@@ -2521,6 +2598,39 @@
           "changed_fields"
         ],
         "title": "WorkItemSettingsChanged",
+        "type": "object"
+      }
+    },
+    "work_items.view.changed": {
+      "1": {
+        "description": "A saved view was added, changed or removed (WP-020d; the view menus reload).",
+        "properties": {
+          "owner_id": {
+            "format": "uuid",
+            "title": "Owner Id",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "view_id": {
+            "format": "uuid",
+            "title": "View Id",
+            "type": "string"
+          },
+          "visibility": {
+            "title": "Visibility",
+            "type": "string"
+          }
+        },
+        "required": [
+          "view_id",
+          "type",
+          "owner_id",
+          "visibility"
+        ],
+        "title": "WorkItemViewChanged",
         "type": "object"
       }
     },

@@ -153,6 +153,18 @@ async def people_matching(session: AsyncSession, text: str, *, limit: int = 200)
     return list(rows)
 
 
+async def direct_reports(session: AsyncSession, manager_id: uuid.UUID) -> list[uuid.UUID]:
+    """IDs of the live people whose manager is `manager_id` (the "from my direct reports" view).
+
+    Like `people_matching`, other modules filter their own records by these IDs and their own
+    scope, so this reveals nothing on its own.
+    """
+    rows = await session.scalars(
+        select(User.id).where(User.deleted_at.is_(None), User.manager_id == manager_id)
+    )
+    return list(rows)
+
+
 async def get_user(session: AsyncSession, subject: Subject, user_id: uuid.UUID) -> User:
     """Yourself always; anyone else with users.view in scope (404 if absent)."""
     user = await UserRepository(session).get(user_id)

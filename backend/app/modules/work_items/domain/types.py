@@ -197,6 +197,8 @@ FIELD_PROBLEMS = frozenset(
         "english_label_required",
         "unknown_language",
         "too_deep",
+        # WP-020d: bulk jobs
+        "too_many_records",
         # WP-020b: conversation, followers, reply templates
         "not_allowed_for_notes",
         "invalid_email",
