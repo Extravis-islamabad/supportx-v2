@@ -1,6 +1,7 @@
 """The upgrade step creating SupportX's identity service account (tooling/keycloak_identity.py)."""
 
 import json
+import secrets
 from typing import Any
 
 import httpx
@@ -276,7 +277,8 @@ async def test_a_second_client_holds_only_manage_realm_for_the_password_policy()
     assert (again.outcome, keycloak.writes) == (Outcome.READY, [])
 
 
-FEDERATION_SECRET = "federation-s3cret-0123456789"
+# Made at run time: a fixed random-looking constant reads as a leaked key to the secret scan.
+FEDERATION_SECRET = secrets.token_urlsafe(24)
 
 
 async def test_the_federation_account_exists_only_where_ldap_is_on() -> None:
