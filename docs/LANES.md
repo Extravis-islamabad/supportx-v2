@@ -35,7 +35,9 @@ stopped unless the lock holder needs it.
 3. Migrations: one Alembic head always. Before opening a PR, merge the latest main and renumber
    your migration after the current head.
 4. Decision numbers: the next free number on the latest main at commit time; on a conflict,
-   renumber yours.
+   renumber yours. Each decision is a new file `docs/decisions/D-NNN.md` and each session-log
+   entry a new file in `docs/progress-log/` (D-123); never add rows to `DECISIONS.md` or entries
+   to `PROGRESS.md`'s session log.
 5. Shared dev stack: one lane at a time runs QA or restarts shared services (the lock above).
    Unit and database tests (Testcontainers) need no lock.
 6. Keep k3d stopped unless you hold the lock and need it; stop it afterwards. No heavy test suites
