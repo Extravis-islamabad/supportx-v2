@@ -5,13 +5,16 @@ import { Link, useParams } from 'react-router';
 
 import {
   portalKeys,
+  queryKeys,
   useAnswerFix,
   usePortalConversation,
   usePortalIncident,
   usePortalReply,
+  useRecordFiles,
 } from '@supportx/api-client';
 import { useRecordEvents } from '@supportx/realtime';
 import {
+  Attachments,
   EmptyText,
   lengthLimit,
   reportError,
@@ -38,6 +41,7 @@ export function RequestPage() {
   const { format, relative } = useDateTime();
   const record = usePortalIncident(id);
   const conversation = usePortalConversation(id);
+  const recordFiles = useRecordFiles('incident', id === '' ? undefined : id);
   const reply = usePortalReply(id);
   const answer = useAnswerFix(id);
   const [draft, setDraft] = useState('');
@@ -50,6 +54,7 @@ export function RequestPage() {
       return;
     }
     void queryClient.invalidateQueries({ queryKey: portalKeys.detail(id) });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.files.record('incident', id) });
   });
 
   if (record.isLoading) return <Skeleton active />;
@@ -65,6 +70,9 @@ export function RequestPage() {
   const item = record.data;
   const own = item.reach === 'own';
   const entries = conversation.data?.items ?? [];
+  const files = (recordFiles.data ?? []).filter((f) => f.owner_type === 'work_item' && !f.inline);
+  // Their own open record only: a manager with wider reach reads; closed records take no files.
+  const canAttach = own && !['closed', 'canceled'].includes(item.portal_status);
 
   return (
     <Flex vertical gap={16}>
@@ -176,6 +184,24 @@ export function RequestPage() {
           )}
         </section>
       )}
+
+      <section aria-labelledby="portal-files">
+        <Typography.Title level={2} id="portal-files">
+          {t('files.title')}
+        </Typography.Title>
+        {files.length === 0 && !canAttach && <EmptyText>{t('files.empty')}</EmptyText>}
+        <Attachments
+          files={files}
+          target={canAttach ? { ownerType: 'work_item', ownerId: item.id } : null}
+          onStored={() => {
+            void queryClient.invalidateQueries({
+              queryKey: queryKeys.files.record('incident', item.id),
+            });
+          }}
+          camera
+          testId="portal-files"
+        />
+      </section>
 
       <section aria-labelledby="portal-conversation">
         <Typography.Title level={2} id="portal-conversation">

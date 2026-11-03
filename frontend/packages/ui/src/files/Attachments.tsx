@@ -1,4 +1,5 @@
 import {
+  CameraOutlined,
   CloseOutlined,
   DeleteOutlined,
   DownloadOutlined,
@@ -56,6 +57,8 @@ export interface AttachmentsProps {
   staffOnly?: boolean;
   /** Smaller drop zone (inside a composer). */
   compact?: boolean;
+  /** Also offer "Take a photo": the phone's camera, straight into the upload (REQ-PRT-022). */
+  camera?: boolean;
   testId?: string;
 }
 
@@ -95,6 +98,7 @@ export function Attachments({
   canRescan = false,
   staffOnly = false,
   compact = false,
+  camera = false,
   testId = 'attachments',
 }: AttachmentsProps) {
   const t = useLabel();
@@ -274,6 +278,26 @@ export function Attachments({
               </p>
             )}
           </Upload.Dragger>
+          {camera && (
+            <Upload
+              accept="image/*"
+              capture="environment"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                uploads.add([file]);
+                return false;
+              }}
+            >
+              <Button
+                icon={<CameraOutlined aria-hidden />}
+                size="large"
+                style={{ marginTop: 8 }}
+                data-testid={`${testId}-camera`}
+              >
+                {t('files.take_photo')}
+              </Button>
+            </Upload>
+          )}
         </div>
       )}
       <FilePreview

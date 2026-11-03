@@ -204,3 +204,34 @@ describe('portal: my requests, long lists', () => {
     });
   });
 });
+
+describe('portal: files on a request', () => {
+  const routes = (over: Partial<PortalIncident>) => ({
+    ...BASE,
+    [`GET /api/v1/portal/incidents/${ID}`]: { body: portalIncident(over) },
+    [`GET /api/v1/portal/incidents/${ID}/conversation`]: { body: { items: [] } },
+    [`GET /api/v1/files/records/incident/${ID}`]: { body: [] },
+  });
+
+  it('their own open request takes files, from the phone camera too', async () => {
+    window.history.pushState({}, '', `/requests/${ID}`);
+    const fake = fakeApi(routes({}));
+    restore = fake.restore;
+    render(<App />);
+    expect(await screen.findByTestId('portal-files-drop')).toBeDefined();
+    const camera = await screen.findByTestId('portal-files-camera');
+    const input = camera.closest('.ant-upload')?.querySelector('input[type=file]');
+    expect(input?.getAttribute('accept')).toBe('image/*');
+    expect(input?.getAttribute('capture')).toBe('environment');
+  });
+
+  it('a manager seeing a report’s request reads it but adds nothing', async () => {
+    window.history.pushState({}, '', `/requests/${ID}`);
+    const fake = fakeApi(routes({ reach: 'reports' }));
+    restore = fake.restore;
+    render(<App />);
+    await screen.findByTestId('portal-request-id');
+    expect(screen.queryByTestId('portal-files-drop')).toBeNull();
+    expect(screen.queryByTestId('portal-reply')).toBeNull();
+  });
+});

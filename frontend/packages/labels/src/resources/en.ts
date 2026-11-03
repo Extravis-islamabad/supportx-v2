@@ -5348,6 +5348,14 @@ export const en = {
   'portal.conversation.reply': 'Write a reply',
   'portal.conversation.send': 'Send reply',
   'portal.requests.more': 'Show more',
+  'files.take_photo': 'Take a photo',
+  'portal.report.files': 'Attachments',
+  'portal.report.add_files': 'Add files',
+  'portal.report.remove_file': 'Remove {{name}}',
+  'portal.report.files_failed_one':
+    'The request was sent, but {{count}} file could not be attached. Add it again on the request.',
+  'portal.report.files_failed_other':
+    'The request was sent, but {{count}} files could not be attached. Add them again on the request.',
 } as const;
 
 export type LabelKey = keyof typeof en;

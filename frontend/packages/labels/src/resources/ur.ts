@@ -4951,4 +4951,12 @@ export const ur: LabelResource = {
   'portal.conversation.reply': 'جواب لکھیں',
   'portal.conversation.send': 'جواب بھیجیں',
   'portal.requests.more': 'مزید دکھائیں',
+  'files.take_photo': 'تصویر لیں',
+  'portal.report.files': 'منسلکات',
+  'portal.report.add_files': 'فائلیں شامل کریں',
+  'portal.report.remove_file': '{{name}} ہٹائیں',
+  'portal.report.files_failed_one':
+    'درخواست بھیج دی گئی، لیکن {{count}} فائل منسلک نہیں ہو سکی۔ اسے درخواست پر دوبارہ شامل کریں۔',
+  'portal.report.files_failed_other':
+    'درخواست بھیج دی گئی، لیکن {{count}} فائلیں منسلک نہیں ہو سکیں۔ انہیں درخواست پر دوبارہ شامل کریں۔',
 };

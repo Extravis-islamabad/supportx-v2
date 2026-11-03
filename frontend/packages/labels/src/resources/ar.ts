@@ -5406,4 +5406,17 @@ export const ar: LabelResource = {
   'portal.conversation.reply': 'اكتب ردًا',
   'portal.conversation.send': 'إرسال الرد',
   'portal.requests.more': 'عرض المزيد',
+  'files.take_photo': 'التقاط صورة',
+  'portal.report.files': 'المرفقات',
+  'portal.report.add_files': 'إضافة ملفات',
+  'portal.report.remove_file': 'إزالة {{name}}',
+  'portal.report.files_failed_zero': 'أُرسل الطلب.',
+  'portal.report.files_failed_one': 'أُرسل الطلب، لكن تعذر إرفاق ملف واحد. أضفه مرة أخرى في الطلب.',
+  'portal.report.files_failed_two': 'أُرسل الطلب، لكن تعذر إرفاق ملفين. أضفهما مرة أخرى في الطلب.',
+  'portal.report.files_failed_few':
+    'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملفات. أضفها مرة أخرى في الطلب.',
+  'portal.report.files_failed_many':
+    'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملفًا. أضفها مرة أخرى في الطلب.',
+  'portal.report.files_failed_other':
+    'أُرسل الطلب، لكن تعذر إرفاق {{count}} ملف. أضفها مرة أخرى في الطلب.',
 };
