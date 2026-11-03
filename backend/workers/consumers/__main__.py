@@ -15,7 +15,7 @@ from app.shared.events.consumers import consumers_from_modules
 from workers import bus, runtime
 from workers.bus import watch_bus
 from workers.consumers.runner import ConsumerRunner, RetryPolicy
-from workers.consumers.schedules import run_schedule, schedules_from_modules
+from workers.consumers.schedules import concurrency, run_schedule, schedules_from_modules
 from workers.heartbeat import Heartbeat
 from workers.metrics import ConsumerMetrics
 from workers.resilience import Connectivity
@@ -93,12 +93,22 @@ async def main(stop: asyncio.Event) -> None:
         if database is not None and settings.worker_schedules_enabled
         else []
     )
-    log.info("schedules_ready", schedules=[spec.name for spec in schedules])
+    # One gate for every schedule of this worker: their runs stay well under the pool.
+    gate = asyncio.Semaphore(concurrency(settings))
+    log.info(
+        "schedules_ready",
+        schedules=[spec.name for spec in schedules],
+        concurrency=concurrency(settings),
+    )
     try:
         await asyncio.gather(
             observe(),
             *(runner.run(stop) for runner in runners),
-            *(run_schedule(spec, database, settings, stop) for spec in schedules if database),
+            *(
+                run_schedule(spec, database, settings, stop, gate=gate)
+                for spec in schedules
+                if database
+            ),
         )
     finally:
         await connected.close()
