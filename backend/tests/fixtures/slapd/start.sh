@@ -1,25 +1,52 @@
 #!/bin/sh
-# Configure slapd for dc=example,dc=org with the admin password the test passes, load the
-# people, then run in the foreground.
+# Build slapd's configuration and data as the openldap user, from the admin password the test
+# passes (stored only as its hash), then run in the foreground on port 1389.
 set -eu
 : "${LDAP_ADMIN_PASSWORD:?the test passes it}"
-debconf-set-selections <<SEL
-slapd slapd/password1 password ${LDAP_ADMIN_PASSWORD}
-slapd slapd/password2 password ${LDAP_ADMIN_PASSWORD}
-slapd slapd/domain string example.org
-slapd shared/organization string Example
-slapd slapd/no_configuration boolean false
-slapd slapd/purge_database boolean true
-slapd slapd/move_old_database boolean true
-SEL
-dpkg-reconfigure -f noninteractive slapd >/dev/null 2>&1
-slapd -h "ldap:///" -u openldap -g openldap
-for _ in $(seq 1 50); do
-  ldapsearch -x -H ldap://localhost -b dc=example,dc=org -s base >/dev/null 2>&1 && break
-  sleep 0.2
-done
-ldapadd -x -H ldap://localhost -D cn=admin,dc=example,dc=org -w "${LDAP_ADMIN_PASSWORD}" \
-  -f /opt/sx/seed.ldif >/dev/null
-kill "$(cat /var/run/slapd/slapd.pid)"
-sleep 1
-exec slapd -d 0 -h "ldap:///" -u openldap -g openldap
+STATE=/opt/sx/state
+mkdir -p "$STATE/slapd.d" "$STATE/data" "$STATE/run"
+hash=$(slappasswd -s "$LDAP_ADMIN_PASSWORD")
+cat > "$STATE/config.ldif" <<LDIF
+dn: cn=config
+objectClass: olcGlobal
+cn: config
+olcPidFile: $STATE/run/slapd.pid
+
+dn: cn=module{0},cn=config
+objectClass: olcModuleList
+cn: module{0}
+olcModulePath: /usr/lib/ldap
+olcModuleLoad: back_mdb
+
+dn: cn=schema,cn=config
+objectClass: olcSchemaConfig
+cn: schema
+
+include: file:///etc/ldap/schema/core.ldif
+include: file:///etc/ldap/schema/cosine.ldif
+include: file:///etc/ldap/schema/nis.ldif
+include: file:///etc/ldap/schema/inetorgperson.ldif
+
+dn: olcDatabase={-1}frontend,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcFrontendConfig
+olcDatabase: {-1}frontend
+
+dn: olcDatabase={0}config,cn=config
+objectClass: olcDatabaseConfig
+olcDatabase: {0}config
+olcAccess: {0}to * by * none
+
+dn: olcDatabase={1}mdb,cn=config
+objectClass: olcDatabaseConfig
+objectClass: olcMdbConfig
+olcDatabase: {1}mdb
+olcDbDirectory: $STATE/data
+olcSuffix: dc=example,dc=org
+olcRootDN: cn=admin,dc=example,dc=org
+olcRootPW: $hash
+olcAccess: {0}to * by self write by anonymous auth by * read
+LDIF
+slapadd -n 0 -F "$STATE/slapd.d" -l "$STATE/config.ldif" >/dev/null
+slapadd -n 1 -F "$STATE/slapd.d" -l /opt/sx/seed.ldif >/dev/null
+exec slapd -d 0 -h "ldap://:1389/" -F "$STATE/slapd.d"

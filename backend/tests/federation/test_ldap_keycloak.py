@@ -141,7 +141,7 @@ def _directory() -> ldap.LdapSettings:
     # The test server has no TLS: plain, by the explicit choice the screen records.
     return ldap.LdapSettings(
         host="slapd",
-        port=389,
+        port=1389,  # the test server runs unprivileged (tests/fixtures/slapd)
         security=ldap.Security.PLAIN,
         allow_plain=True,
         vendor=ldap.Vendor.OTHER,
