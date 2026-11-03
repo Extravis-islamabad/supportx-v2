@@ -203,14 +203,14 @@ IDENTITY_GRANTED = frozenset({"view", "create", "edit", "assign", "close"})
 
 def permissions(wtype: WorkItemType) -> tuple[PermissionSpec, ...]:
     """The permission catalogue entries of one type."""
+    is_sr = wtype.code is WorkItemTypeCode.SERVICE_REQUEST
     return tuple(
         PermissionSpec(
             wtype.permission(action),
             wtype.feature,
-            scopes,
-            defaults=()
-            if wtype.code is WorkItemTypeCode.SERVICE_REQUEST and action in IDENTITY_GRANTED
-            else defaults,
+            # requests.assign keeps the scopes it always had (never "own": lane B, #182)
+            NOT_OWN if is_sr and action == "assign" else scopes,
+            defaults=() if is_sr and action in IDENTITY_GRANTED else defaults,
         )
         for action, scopes, defaults in _ACTIONS
     )
