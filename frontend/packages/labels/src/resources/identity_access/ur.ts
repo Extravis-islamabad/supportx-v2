@@ -582,4 +582,15 @@ export const ur: LabelResource = {
     'کسی واقعے کی جواب یا حل کی مقررہ تاریخ وجہ کے ساتھ ہاتھ سے طے کریں یا ہٹائیں۔ پھر یہ تاریخ ہٹائے جانے تک برقرار رہتی ہے۔',
   'people.managed_by_directory':
     'نام، پتہ، عہدہ، فون، سائٹ، شعبہ اور مینیجر ڈائریکٹری سے آتے ہیں۔ انہیں وہیں تبدیل کریں؛ VIP، زبان اور نوٹس آپ کے رہتے ہیں۔',
+  'roles.copy': 'کاپی کریں',
+  'roles.copy_name': '{{name}} کی کاپی',
+  'roles.editor.copy': '“{{name}}” سے نیا کردار',
+  'roles.compare': 'کرداروں کا موازنہ',
+  'roles.compare_first': 'پہلا کردار',
+  'roles.compare_second': 'دوسرا کردار',
+  'roles.compare_differences': 'صرف فرق',
+  'roles.compare_pick': 'موازنے کے لیے دو کردار چنیں۔',
+  'roles.compare_same': 'یہ کردار ایک جیسی اجازتیں دیتے ہیں۔',
+  'roles.compare_not_granted': 'نہیں دی گئی',
+  'roles.compare_differs': 'مختلف',
 };

@@ -732,4 +732,15 @@ export const en = {
     "Set or clear an incident's response or resolution due date by hand, with a reason. The date then stays until cleared.",
   'people.managed_by_directory':
     'Name, address, job, phone, site, department and manager come from the directory. Change them there; VIP, language and notes stay yours.',
+  'roles.copy': 'Copy',
+  'roles.copy_name': 'Copy of {{name}}',
+  'roles.editor.copy': 'New role from “{{name}}”',
+  'roles.compare': 'Compare roles',
+  'roles.compare_first': 'First role',
+  'roles.compare_second': 'Second role',
+  'roles.compare_differences': 'Differences only',
+  'roles.compare_pick': 'Choose two roles to compare.',
+  'roles.compare_same': 'These roles grant the same permissions.',
+  'roles.compare_not_granted': 'Not granted',
+  'roles.compare_differs': 'Differs',
 } as const;

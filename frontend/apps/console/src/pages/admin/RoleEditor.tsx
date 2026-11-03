@@ -41,7 +41,7 @@ import {
   lengthLimit,
 } from '@supportx/ui';
 
-import { roleName } from './roleName';
+import { groupByModule, roleName } from './roleName';
 
 type Matrix = Record<string, RoleGrant | undefined>;
 const NONE = 'none';
@@ -59,7 +59,11 @@ const roleView = (role: RoleDetail | null | undefined) =>
 export interface RoleEditorProps {
   /** undefined = closed; null = new custom role; otherwise the role to edit or view. */
   role: RoleSummary | null | undefined;
+  /** With `role` null: a new custom role starting from this one's grants (REQ-ADM-017). */
+  copyFrom?: RoleSummary;
   onClose: () => void;
+  /** "Copy" on the open role (built-in ones included). */
+  onCopy?: (role: RoleSummary) => void;
 }
 
 /**
@@ -67,12 +71,15 @@ export interface RoleEditorProps {
  * (rows = permissions, one scope per permission). Permissions outside the plan are locked.
  * System roles open read-only. The server refuses grants beyond the editor's own permissions.
  */
-export function RoleEditor({ role, onClose }: RoleEditorProps) {
+export function RoleEditor({ role, copyFrom, onClose, onCopy }: RoleEditorProps) {
   const t = useLabel();
   const catalogue = usePermissionCatalogue(role !== undefined);
-  const detail = useRole(role?.id);
+  const copying = role === null && copyFrom !== undefined;
+  const detail = useRole(copying ? copyFrom.id : role?.id);
   const initial = role === null ? null : detail.data;
-  const ready = catalogue.data !== undefined && initial !== undefined;
+  const seed = copying ? detail.data : undefined;
+  const ready =
+    catalogue.data !== undefined && initial !== undefined && (!copying || seed !== undefined);
   return (
     <Drawer
       open={role !== undefined}
@@ -80,20 +87,24 @@ export function RoleEditor({ role, onClose }: RoleEditorProps) {
       width={760}
       destroyOnHidden
       title={
-        role === null
-          ? t('roles.editor.new')
-          : role === undefined
-            ? undefined
-            : t('roles.editor.edit', { name: roleName(role, t) })
+        copying
+          ? t('roles.editor.copy', { name: roleName(copyFrom, t) })
+          : role === null
+            ? t('roles.editor.new')
+            : role === undefined
+              ? undefined
+              : t('roles.editor.edit', { name: roleName(role, t) })
       }
     >
       {role !== undefined && ready ? (
         <RoleForm
-          key={role?.id ?? 'new'}
+          key={role?.id ?? `new-${copyFrom?.id ?? ''}`}
           role={role}
           initial={initial}
+          seed={seed}
           catalogue={catalogue.data}
           onClose={onClose}
+          onCopy={onCopy}
         />
       ) : (
         <Spin />
@@ -105,22 +116,31 @@ export function RoleEditor({ role, onClose }: RoleEditorProps) {
 function RoleForm({
   role,
   initial,
+  seed,
   catalogue,
   onClose,
+  onCopy,
 }: {
   role: RoleSummary | null;
   initial: RoleDetail | null;
+  /** A role to start from (a copy): its grants, and its name prefixed "Copy of". */
+  seed?: RoleDetail;
   catalogue: PermissionInfo[];
   onClose: () => void;
+  onCopy?: (role: RoleSummary) => void;
 }) {
   const t = useLabel();
   const { message } = App.useApp();
   const { can } = useAccess();
   const { create, update, remove } = useRoleMutations();
-  const [name, setName] = useState(initial?.name ?? '');
-  const [description, setDescription] = useState(initial?.description ?? '');
+  const [name, setName] = useState(
+    initial?.name ?? (seed === undefined ? '' : t('roles.copy_name', { name: roleName(seed, t) })),
+  );
+  const [description, setDescription] = useState(
+    initial?.description ?? (seed?.is_system === true ? '' : (seed?.description ?? '')),
+  );
   const [matrix, setMatrix] = useState<Matrix>(() =>
-    Object.fromEntries((initial?.permissions ?? []).map((g) => [g.permission, g])),
+    Object.fromEntries(((initial ?? seed)?.permissions ?? []).map((g) => [g.permission, g])),
   );
   const [deleting, setDeleting] = useState(false);
   // A refused save (a rule, a limit) is shown above Save (QA WP-029 BUG-02).
@@ -221,6 +241,18 @@ function RoleForm({
         }))}
       />
       <FormProblem problem={problem} />
+      {role !== null && onCopy !== undefined && can('roles.manage') && (
+        <Flex justify="start">
+          <WriteButton
+            data-testid="copy-role"
+            onClick={() => {
+              onCopy(role);
+            }}
+          >
+            {t('roles.copy')}
+          </WriteButton>
+        </Flex>
+      )}
       {!readOnly && (
         <Flex justify="end" gap={8}>
           {role !== null && (
@@ -288,14 +320,6 @@ function RoleForm({
       )}
     </Space>
   );
-}
-
-function groupByModule(catalogue: PermissionInfo[]): [string, PermissionInfo[]][] {
-  const groups = new Map<string, PermissionInfo[]>();
-  for (const permission of catalogue) {
-    groups.set(permission.module, [...(groups.get(permission.module) ?? []), permission]);
-  }
-  return [...groups.entries()];
 }
 
 function PermissionRows({

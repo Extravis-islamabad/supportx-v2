@@ -146,6 +146,69 @@ describe('Admin › Roles', () => {
     expect(screen.queryByTestId('save-role')).toBeNull();
   });
 
+  it('REQ-ADM-017: a built-in role is copied into a new custom role with the same grants', async () => {
+    const fake = adminRoutes({
+      routes: {
+        'POST /api/v1/roles': {
+          status: 201,
+          body: { ...HR, id: 'r-copy', name: 'Copy of Technician' },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('role-row-technician'));
+    fireEvent.click(await screen.findByTestId('copy-role'));
+    const name = await screen.findByTestId('role-name');
+    expect((name as HTMLInputElement).value).toBe('Copy of Technician');
+    fireEvent.click(screen.getByTestId('save-role'));
+    await waitFor(() => {
+      expect(fake.find('POST', '/api/v1/roles')).toHaveLength(1);
+    });
+    const body = fake.find('POST', '/api/v1/roles')[0]?.body as {
+      name: string;
+      permissions: { permission: string; scope: string }[];
+    };
+    expect(body.name).toBe('Copy of Technician');
+    expect(body.permissions).toEqual([
+      { permission: 'requests.view', scope: 'all', condition: null },
+    ]);
+  });
+
+  it('REQ-ADM-017: two roles compared side by side, by module, the differences marked', async () => {
+    adminRoutes({
+      routes: {
+        'GET /api/v1/roles/r-hr': {
+          body: {
+            ...HR,
+            permissions: [
+              { permission: 'requests.view', scope: 'group', condition: null },
+              { permission: 'users.view', scope: 'all', condition: null },
+            ],
+          },
+        },
+      },
+    });
+    render(<App />);
+    fireEvent.click(await screen.findByTestId('compare-roles'));
+    const drawer = await screen.findByTestId('role-compare');
+    const pick = async (testId: string, label: string) => {
+      fireEvent.mouseDown(within(drawer).getByTestId(testId).querySelector('input') ?? drawer);
+      // The newest list is the last one in the page (the other select's list stays mounted).
+      const found = await screen.findAllByText(label, {
+        selector: '.ant-select-item-option-content',
+      });
+      const last = found.at(-1);
+      if (last !== undefined) fireEvent.click(last);
+    };
+    await pick('role-compare-first', 'Technician');
+    await pick('role-compare-second', 'HR desk');
+    expect(await screen.findByTestId('role-compare-diff-requests.view')).toBeDefined();
+    expect(await screen.findByTestId('role-compare-diff-users.view')).toBeDefined();
+    const table = screen.getByTestId('role-compare-table');
+    expect(table.textContent).toContain('Not granted');
+    expect(table.textContent).not.toMatch(/requests\.view|users\.view/);
+  });
+
   it('explains a refused escalation', async () => {
     adminRoutes({
       routes: { 'POST /api/v1/roles': { status: 403, body: problem(403, 'privilege_escalation') } },

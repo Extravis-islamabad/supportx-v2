@@ -728,4 +728,15 @@ export const ar: LabelResource = {
     'تعيين موعد استحقاق الاستجابة أو الحل لحادثة يدويًا أو مسحه، مع ذكر السبب. يبقى الموعد بعد ذلك حتى يُمسح.',
   'people.managed_by_directory':
     'يأتي الاسم والعنوان والوظيفة والهاتف والموقع والقسم والمدير من الدليل. غيّرها هناك؛ وتبقى أولوية كبار الشخصيات واللغة والملاحظات لك.',
+  'roles.copy': 'نسخ',
+  'roles.copy_name': 'نسخة من {{name}}',
+  'roles.editor.copy': 'دور جديد من «{{name}}»',
+  'roles.compare': 'مقارنة الأدوار',
+  'roles.compare_first': 'الدور الأول',
+  'roles.compare_second': 'الدور الثاني',
+  'roles.compare_differences': 'الاختلافات فقط',
+  'roles.compare_pick': 'اختر دورين للمقارنة.',
+  'roles.compare_same': 'يمنح هذان الدوران الأذونات نفسها.',
+  'roles.compare_not_granted': 'غير ممنوح',
+  'roles.compare_differs': 'مختلف',
 };
