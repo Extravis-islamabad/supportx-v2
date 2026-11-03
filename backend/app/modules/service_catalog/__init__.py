@@ -10,6 +10,7 @@ Public interface for other modules: none yet (work_items will read an item's rul
 """
 
 from app.core.modules import ModuleSpec
+from app.modules.service_catalog.infra import models  # noqa: F401 - registers the tables
 
 FEATURE = "service_request"
 
