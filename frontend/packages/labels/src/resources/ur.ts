@@ -4842,6 +4842,47 @@ export const ur: LabelResource = {
   'ldap_security.plain': 'انکرپٹڈ نہیں',
   'ldap_vendor.ad': 'Active Directory',
   'ldap_vendor.other': 'دیگر LDAP ڈائریکٹری',
+  'ldap_directories.title': 'AD/LDAP',
+  'ldap_directories.intro':
+    'آن پریمسس Active Directory یا LDAP ڈائریکٹری جوڑیں۔ لوگ اپنی ڈائریکٹری کے پاس ورڈ سے سائن ان کرتے ہیں، اور SupportX انہیں ڈائریکٹری کے مطابق رکھتا ہے۔',
+  'ldap_directories.add': 'AD/LDAP جوڑیں',
+  'ldap_directories.edit': 'AD/LDAP ڈائریکٹری تبدیل کریں',
+  'ldap_directories.none': 'کوئی AD/LDAP ڈائریکٹری جڑی نہیں',
+  'ldap_directories.name': 'نام',
+  'ldap_directories.host': 'سرور',
+  'ldap_directories.host_hint': 'ڈومین کنٹرولر یا LDAP سرور کا نام یا IP پتہ۔',
+  'ldap_directories.port': 'پورٹ',
+  'ldap_directories.security': 'تحفظ',
+  'ldap_directories.plain_warning':
+    'پاس ورڈ اور لوگوں کی تفصیلات نیٹ ورک پر بغیر انکرپشن کے جائیں گی۔',
+  'ldap_directories.allow_plain':
+    'میں بغیر انکرپشن کا کنکشن قبول کرتا ہوں (یہ انتخاب ریکارڈ ہوتا ہے)',
+  'ldap_directories.vendor': 'ڈائریکٹری کی قسم',
+  'ldap_directories.bind_dn': 'بائنڈ اکاؤنٹ',
+  'ldap_directories.bind_dn_hint':
+    'صرف پڑھنے والا اکاؤنٹ، جیسے CN=svc-supportx,OU=Service,DC=example,DC=com۔',
+  'ldap_directories.bind_password': 'بائنڈ پاس ورڈ',
+  'ldap_directories.password_kept': 'محفوظ پاس ورڈ رکھنے کے لیے خالی چھوڑیں',
+  'ldap_directories.users_dn': 'لوگ کہاں ہیں',
+  'ldap_directories.users_dn_hint':
+    'وہ فولڈر جہاں لوگ تلاش کیے جاتے ہیں، جیسے OU=People,DC=example,DC=com۔',
+  'ldap_directories.groups_dn': 'گروپ کہاں ہیں (اختیاری)',
+  'ldap_directories.groups_dn_hint': 'کوئی گروپ نہ لانے کے لیے خالی چھوڑیں۔',
+  'ldap_directories.user_filter': 'کون لایا جائے (اختیاری)',
+  'ldap_directories.user_filter_hint':
+    'ایک LDAP فلٹر، جیسے (memberOf=CN=Staff,OU=Groups,DC=example,DC=com)۔',
+  'ldap_directories.department_from': 'شعبے کی خصوصیت',
+  'ldap_directories.site_from': 'سائٹ کی خصوصیت',
+  'ldap_directories.changed_minutes': 'تبدیلیاں ہر (منٹ) میں چیک کریں',
+  'ldap_directories.full_hours': 'سب کو ہر (گھنٹے) میں پڑھیں',
+  'ldap_directories.enabled': 'جڑی ہوئی',
+  'ldap_directories.connection': 'شناختی سروس',
+  'ldap_directories.remove_title': '{{name}} الگ کریں؟',
+  'ldap_directories.remove_body':
+    'لوگ اس ڈائریکٹری کے پاس ورڈ سے سائن ان نہیں کر سکیں گے۔ وہ SupportX میں رہیں گے، اور اب سے SupportX ان کی تفصیلات رکھے گا۔',
+  'federation_state.pending': 'جوڑا جا رہا ہے',
+  'federation_state.applied': 'جڑی ہوئی',
+  'federation_state.failed': 'نہیں جڑی',
   'errors.directory_unavailable':
     'ڈائریکٹری نے جواب نہیں دیا یا سنک ایپ کو مسترد کر دیا۔ تھوڑی دیر بعد دوبارہ کوشش کریں۔',
   'errors.required': 'یہ فیلڈ لازمی ہے۔',

@@ -10,6 +10,7 @@ import type { components } from './schema';
 // the directory in the identity service; its state (pending, applied, failed) arrives live on
 // `integrations.directories_changed`, which refetches every directory query.
 
+const OFF = new Set([403, 409, 503]);
 const ifMatch = (version: number) => ({ 'If-Match': `"${String(version)}"` });
 
 export type LdapDirectory = components['schemas']['LdapDirectoryOut'];
@@ -21,6 +22,10 @@ export function useLdapDirectories(enabled = true) {
     queryKey: queryKeys.directories.ldap,
     queryFn: () => call(api.GET('/api/v1/integrations/ldap-directories')),
     enabled,
+    // Not licensed, a shared realm or AD/LDAP not installed: a fact of this installation, so
+    // asking again changes nothing. The screen says which.
+    retry: (count: number, error: unknown) =>
+      !(error instanceof ApiError && OFF.has(error.status)) && count < 3,
   });
 }
 

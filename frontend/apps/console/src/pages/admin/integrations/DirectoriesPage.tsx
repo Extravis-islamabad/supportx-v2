@@ -41,6 +41,8 @@ import {
   WriteButton,
 } from '@supportx/ui';
 
+import { LdapDirectories } from './LdapDirectories';
+
 type Scope = DirectoryInput['scope'];
 type CredentialKind = DirectoryInput['credential_kind'];
 type EmailFrom = NonNullable<NonNullable<DirectoryInput['mapping']>['email_from']>;
@@ -601,6 +603,7 @@ export function DirectoriesPage() {
           },
         ]}
       />
+      <LdapDirectories />
       {editing !== undefined && (
         <DirectoryEditor
           directory={editing}
