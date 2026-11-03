@@ -216,6 +216,28 @@ class RolePermission(TenantKeyed, Base):
     condition: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
+class GroupRole(TenantKeyed, Base):
+    """A role a support group carries (WP-042, REQ-ADM-015 AC2).
+
+    Its members hold the role while they are members of an active group. The group lives in
+    organization; only its ID is kept here (no cross-module foreign key), checked through
+    organization's public interface on write.
+    """
+
+    __tablename__ = "group_roles"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["tenant_id", "role_id"], ["roles.tenant_id", "roles.id"], name="fk_group_roles_role"
+        ),
+        Index("ix_group_roles_tenant_role", "tenant_id", "role_id"),
+    )
+
+    group_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    role_id: Mapped[uuid.UUID] = mapped_column(primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    created_by: Mapped[uuid.UUID | None]
+
+
 class UserRole(TenantKeyed, Base):
     """A role assigned to a user. Same-tenant foreign keys on both sides."""
 

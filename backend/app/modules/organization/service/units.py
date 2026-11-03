@@ -236,6 +236,22 @@ async def memberships(session: AsyncSession, user_id: uuid.UUID) -> Memberships:
     return Memberships(frozenset(sites.all()), frozenset(groups.all()))
 
 
+async def active_groups(
+    session: AsyncSession, group_ids: frozenset[uuid.UUID]
+) -> frozenset[uuid.UUID]:
+    """Those of `group_ids` that are neither disabled nor deleted (roles through groups, WP-042)."""
+    if not group_ids:
+        return frozenset()
+    found = await session.scalars(
+        select(SupportGroup.id).where(
+            SupportGroup.id.in_(group_ids),
+            SupportGroup.deleted_at.is_(None),
+            SupportGroup.disabled_at.is_(None),
+        )
+    )
+    return frozenset(found.all())
+
+
 def users_in_sites(site_ids: frozenset[uuid.UUID]) -> Select[uuid.UUID]:
     """Subquery of user IDs that belong to any of `site_ids` (for `site`-scoped user lists)."""
     return select(SiteMember.user_id).where(SiteMember.site_id.in_(site_ids))

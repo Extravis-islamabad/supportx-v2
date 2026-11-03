@@ -64,6 +64,7 @@ from app.modules.organization.service.structure import (
 from app.modules.organization.service.tenants import get_current_tenant
 from app.modules.organization.service.units import (
     Memberships,
+    active_groups,
     add_member,
     existing_unit_ids,
     memberships,
@@ -132,6 +133,7 @@ __all__ = [
     "SiteDefaults",
     "TenantStatus",
     "TenantView",
+    "active_groups",
     "active_unit_ids",
     "add_member",
     "calendar_users",

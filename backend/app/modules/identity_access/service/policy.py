@@ -47,8 +47,15 @@ from app.modules.identity_access.domain.policy import (
     compile_subject,
     decide,
 )
-from app.modules.identity_access.infra.models import Role, RolePermission, User, UserRole
+from app.modules.identity_access.infra.models import (
+    GroupRole,
+    Role,
+    RolePermission,
+    User,
+    UserRole,
+)
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
+from app.modules.organization import active_groups
 from app.shared.api.filters import ResourceFields, compile_filter
 from app.shared.search import ENGINE, SearchDocument
 
@@ -395,11 +402,23 @@ class PolicyService:
         ).one_or_none()
         if user is None or user.status != "active":
             return _nobody(tenant_id, user_id)
+        site_ids, group_ids = await self.memberships(session, user_id)
+        # Roles of one's own and those of the active groups one belongs to (WP-042): a disabled
+        # or deleted group grants nothing, at once.
+        carrying = await active_groups(session, group_ids)
         roles = (
             await session.execute(
                 select(Role.id, Role.key, Role.is_system)
-                .join(UserRole, UserRole.role_id == Role.id)
-                .where(UserRole.user_id == user_id, Role.deleted_at.is_(None))
+                .where(
+                    Role.deleted_at.is_(None),
+                    or_(
+                        Role.id.in_(select(UserRole.role_id).where(UserRole.user_id == user_id)),
+                        Role.id.in_(
+                            select(GroupRole.role_id).where(GroupRole.group_id.in_(carrying))
+                        ),
+                    ),
+                )
+                .distinct()
             )
         ).all()
         role_keys = {r.key for r in roles}
@@ -424,7 +443,6 @@ class PolicyService:
                 ).where(RolePermission.role_id.in_(custom))
             )
             grants += [(row.permission, Grant(row.scope, row.condition)) for row in rows]
-        site_ids, group_ids = await self.memberships(session, user_id)
         return compile_subject(
             tenant_id=tenant_id,
             user_id=user_id,
