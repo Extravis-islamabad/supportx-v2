@@ -572,6 +572,20 @@ class AuthService:
             except (SQLAlchemyError, OSError):
                 log.exception("logout_event_not_recorded", subject=session.subject)
 
+    async def end_session(self, session_id: str, session: Session) -> None:
+        """End only this SupportX session, recorded as a logout; Keycloak's own session stays.
+
+        For a console session that may not exist (D-129): the person keeps their portal sign-in.
+        """
+        await self.store.delete_session(session_id)
+        if self.database is not None:
+            try:
+                await record_logout(
+                    self.database, session.tenant_uuid, session.user_uuid, _client_app(session)
+                )
+            except (SQLAlchemyError, OSError):
+                log.exception("logout_event_not_recorded", subject=session.subject)
+
     async def _end_keycloak_session(self, client: ClientCredentials, refresh_token: str) -> None:
         if not await self.oidc.end_session(client, refresh_token):
             log.warning("keycloak_logout_refused")

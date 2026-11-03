@@ -182,6 +182,32 @@ async def test_a_requester_signing_in_on_the_console_lands_on_the_portal(bff: Bf
     assert (await bff.me()).json()["user"]["user_type"] == "requester"
 
 
+async def test_a_portal_session_never_opens_the_console_on_a_shared_host(bff: Bff) -> None:
+    """D-129: one host, one cookie: the console's calls are refused, the portal keeps working."""
+    requester = bff.user("a", email="shared-host@demo.test", roles=("requester",))
+    await bff.login(requester, app="portal")
+    as_console = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
+    assert (as_console.status_code, as_console.json()["code"]) == (401, "console_requester_only")
+    as_portal = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "portal"})
+    assert as_portal.status_code == 200  # the portal session was not ended
+
+
+async def test_sign_in_and_me_apply_one_rule(bff: Bff) -> None:
+    """D-129: who the BFF sends to the portal is exactly who /me refuses the console."""
+    cases = {
+        "only-requester@demo.test": (("requester",), False),
+        "staff@demo.test": (("technician",), True),
+        "both@demo.test": (("requester", "technician"), True),
+    }
+    for email, (roles, console) in cases.items():
+        person = bff.user("a", email=email, roles=roles)
+        landed = await bff.login(person)
+        assert (landed.status_code == 302) is console, email
+        await bff.login(person, app="portal")
+        me = await bff.client.get("/api/v1/auth/me", headers={"X-SupportX-Client": "console"})
+        assert (me.status_code == 200) is console, email
+
+
 async def test_an_agent_signing_in_on_the_console_is_unchanged(bff: Bff) -> None:
     agent = bff.user("a", email="agent@demo.test", roles=("technician",))
     response = await bff.login(agent, return_to="/incidents/42")
@@ -228,8 +254,17 @@ async def test_supportx_roles_decide_the_landing_not_keycloak(bff: Bff) -> None:
     await bff.login(demoted)
     await _revoke(bff, "demoted@demo.test", "technician")
     await _grant(bff, "demoted@demo.test", "requester")
-    # Their console session ends at the next /me (made before the change) ...
+    # Their console session ends at the next /me (made before the change), audited ...
     assert (await bff.me()).status_code == 401
+    conn = await asyncpg.connect(bff.db.admin_url)
+    try:
+        ended = await conn.fetch(
+            "SELECT a.details FROM audit_entries a JOIN users u ON a.object_id = u.id::text"
+            " WHERE u.email = 'demoted@demo.test' AND a.action = 'session.signed_out'"
+        )
+    finally:
+        await conn.close()
+    assert [json.loads(r["details"])["reason"] for r in ended] == ["console_requester_only"]
     # ... and signing in again on the console takes them to the portal.
     sent = await bff.login(demoted, return_to="/incidents")
     assert (sent.status_code, sent.headers["location"]) == (303, f"{PORTAL}/")
