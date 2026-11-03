@@ -11,6 +11,8 @@ import uuid
 
 import asyncpg
 
+from app.core.tenancy import TenantContext
+from app.modules.organization import add_member
 from tests.db.test_access_api import World, problem, world  # noqa: F401 - the fixture, reused
 
 
@@ -114,3 +116,36 @@ async def test_group_roles_are_isolated_by_tenant(world: World) -> None:  # noqa
             assert moved == "DELETE 0"
     finally:
         await conn.close()
+
+
+async def test_pickers_find_people_who_hold_a_permission_through_a_group(world: World) -> None:  # noqa: F811
+    a = world.a
+    group = await _group(world, "Audit pickers")
+    auditor = await world.role_id(a, "auditor")
+    await world.call("PUT", f"/roles/{auditor}/groups/{group}", a, a.admin)
+    await world.call("PUT", f"/organization/groups/{group}/members/{a.tech}", a, a.admin)
+    policy = world.app.state.policy
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant, a.admin)) as session:
+        found = await policy.holders(session, a.tenant, "audit.view")
+    assert a.tech in {user for user, _ in found}
+
+
+async def test_a_sync_made_membership_change_refreshes_access_like_any_other(world: World) -> None:  # noqa: F811
+    """Directory sync adds members through organization's add_member with no person (lane B):
+    the same membership event goes out, so members' access refreshes as for an admin's change."""
+    a = world.a
+    group = await _group(world, "Synced")
+    async with world.app.state.db.tenant_session(TenantContext(a.tenant)) as session:
+        assert await add_member(session, "group", group, a.tech)
+    conn = await asyncpg.connect(world.db.admin_url)
+    try:
+        found = await conn.fetchval(
+            "SELECT count(*) FROM outbox_events WHERE tenant_id = $1"
+            " AND event_type = 'organization.membership.changed'"
+            " AND envelope->'payload'->>'user_id' = $2",
+            a.tenant,
+            str(a.tech),
+        )
+    finally:
+        await conn.close()
+    assert found == 1

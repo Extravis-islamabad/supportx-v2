@@ -55,7 +55,7 @@ from app.modules.identity_access.infra.models import (
     UserRole,
 )
 from app.modules.identity_access.service.access_settings import tenant_technician_scope
-from app.modules.organization import active_groups
+from app.modules.organization import active_groups, users_in_groups
 from app.shared.api.filters import ResourceFields, compile_filter
 from app.shared.search import ENGINE, SearchDocument
 
@@ -498,6 +498,13 @@ class PolicyService:
             .join(Role, Role.id == UserRole.role_id)
             .where(UserRole.user_id == User.id, Role.deleted_at.is_(None))
         )
+        # People holding a granting role through a group (WP-042); each is confirmed below with
+        # their compiled subject, which drops disabled groups.
+        carrying = frozenset(
+            await session.scalars(
+                select(GroupRole.group_id).where(GroupRole.role_id.in_(granting_roles))
+            )
+        )
         unmapped_types = [t for t, key in UNMAPPED_DEFAULT.items() if key in granting_system]
         query = select(User.id, User.display_name).where(
             User.status == "active",
@@ -505,6 +512,7 @@ class PolicyService:
             User.user_type != UserType.SERVICE.value,
             or_(
                 User.id.in_(select(UserRole.user_id).where(UserRole.role_id.in_(granting_roles))),
+                User.id.in_(users_in_groups(carrying)),
                 and_(
                     User.roles_mapped_at.is_(None),
                     User.user_type.in_(unmapped_types),
